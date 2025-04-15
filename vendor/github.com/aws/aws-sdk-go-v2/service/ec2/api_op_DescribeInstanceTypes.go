@@ -50,6 +50,9 @@ type DescribeInstanceTypesInput struct {
 	//   - current-generation - Indicates whether this instance type is the latest
 	//   generation instance type of an instance family ( true | false ).
 	//
+	//   - dedicated-hosts-supported - Indicates whether the instance type supports
+	//   Dedicated Hosts. ( true | false )
+	//
 	//   - ebs-info.ebs-optimized-info.baseline-bandwidth-in-mbps - The baseline
 	//   bandwidth performance for an EBS-optimized instance type, in Mbps.
 	//
@@ -278,6 +281,9 @@ func (c *Client) addOperationDescribeInstanceTypesMiddlewares(stack *middleware.
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceTypes(options.Region), middleware.Before); err != nil {

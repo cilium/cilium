@@ -6,6 +6,7 @@ package option
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -60,13 +61,7 @@ const (
 
 // RequiresOption returns true if the option requires the specified option `name`.
 func (o Option) RequiresOption(name string) bool {
-	for _, o := range o.Requires {
-		if o == name {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(o.Requires, name)
 }
 
 type OptionLibrary map[string]*Option
@@ -141,11 +136,7 @@ func (l OptionLibrary) Validate(name string, value string) error {
 type OptionMap map[string]OptionSetting
 
 func (om OptionMap) DeepCopy() OptionMap {
-	cpy := make(OptionMap, len(om))
-	for k, v := range om {
-		cpy[k] = v
-	}
-	return cpy
+	return maps.Clone(om)
 }
 
 // IntOptions member functions with external access do not require
@@ -370,13 +361,7 @@ func (o *IntOptions) GetFmtList() string {
 	txt := ""
 
 	o.optsMU.RLock()
-	opts := make([]string, 0, len(o.opts))
-	for k := range o.opts {
-		opts = append(opts, k)
-	}
-	slices.Sort(opts)
-
-	for _, k := range opts {
+	for _, k := range slices.Sorted(maps.Keys(o.opts)) {
 		def := o.getFmtOpt(k)
 		if def != "" {
 			txt += def + "\n"
@@ -393,13 +378,7 @@ func (o *IntOptions) Dump() {
 	}
 
 	o.optsMU.RLock()
-	opts := make([]string, 0, len(o.opts))
-	for k := range o.opts {
-		opts = append(opts, k)
-	}
-	slices.Sort(opts)
-
-	for _, k := range opts {
+	for _, k := range slices.Sorted(maps.Keys(o.opts)) {
 		var text string
 		_, option := o.library.Lookup(k)
 		if option == nil || option.Format == nil {
@@ -441,7 +420,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 }
 
 // ChangedFunc is called by `Apply()` for each option changed
-type ChangedFunc func(key string, value OptionSetting, data interface{})
+type ChangedFunc func(key string, value OptionSetting, data any)
 
 // enable enables the option `name` with all its dependencies
 func (o *IntOptions) enable(name string) {
@@ -492,7 +471,7 @@ type changedOptions struct {
 //
 // The caller is expected to have validated the configuration options prior to
 // calling this function.
-func (o *IntOptions) ApplyValidated(n OptionMap, changed ChangedFunc, data interface{}) int {
+func (o *IntOptions) ApplyValidated(n OptionMap, changed ChangedFunc, data any) int {
 	changes := make([]changedOptions, 0, len(n))
 
 	o.optsMU.Lock()

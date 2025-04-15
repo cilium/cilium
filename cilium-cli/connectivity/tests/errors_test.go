@@ -74,7 +74,7 @@ level=error msg="bar"
 			},
 		},
 	} {
-		s := NoErrorsInLogs(tt.version, tt.levels).(*noErrorsInLogs)
+		s := NoErrorsInLogs(tt.version, tt.levels, "one.one.one.one", "k8s.io").(*noErrorsInLogs)
 		fails := s.findUniqueFailures([]byte(errs))
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {

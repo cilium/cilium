@@ -140,7 +140,7 @@ func getXfrmStats(mountPoint string) (int64, map[string]int64, error) {
 	countErrors := int64(0)
 	errorMap := make(map[string]int64)
 	if v.Type().Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			name := v.Type().Field(i).Name
 			value := v.Field(i).Interface().(int)
 			if value != 0 {
@@ -154,8 +154,7 @@ func getXfrmStats(mountPoint string) (int64, map[string]int64, error) {
 
 func extractMaxSequenceNumber(ipOutput string) (int64, error) {
 	maxSeqNum := int64(0)
-	lines := strings.Split(ipOutput, "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(ipOutput, "\n") {
 		matched := regex.FindStringSubmatchIndex(line)
 		if matched != nil {
 			oseq, err := strconv.ParseInt(line[matched[2]:matched[3]], 16, 64)

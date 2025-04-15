@@ -68,7 +68,9 @@ func (cw *configWatcher) setEnabled(feature DynamicFeatureName, enabled bool, tx
 
 	_, _, _ = cw.DynamicFeatureTable.Insert(tx, obj)
 
-	cw.Logger.Info("DynamicFeatureName Enablement", "feature", feature, "enabled", enabled)
+	cw.Logger.Info("DynamicFeatureName Enablement",
+		logfields.Feature, feature,
+		logfields.Enabled, enabled)
 }
 
 func (cw *configWatcher) processDynamicFeatures(dfcJson string) error {

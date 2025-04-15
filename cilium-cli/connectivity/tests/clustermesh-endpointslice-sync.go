@@ -12,10 +12,14 @@ import (
 )
 
 func ClusterMeshEndpointSliceSync() check.Scenario {
-	return &clusterMeshEndpointSliceSync{}
+	return &clusterMeshEndpointSliceSync{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type clusterMeshEndpointSliceSync struct{}
+type clusterMeshEndpointSliceSync struct {
+	check.ScenarioBase
+}
 
 func (s *clusterMeshEndpointSliceSync) Name() string {
 	return "clustermesh-endpointslice-sync"

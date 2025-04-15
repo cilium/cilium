@@ -38,7 +38,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 TESTPKGS ?= ./...
 UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/ipsec/...
 
-GOTEST_BASE := -timeout 600s
+GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
@@ -231,7 +231,7 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	contrib/scripts/k8s-manifests-gen.sh
 
 .PHONY: generate-apis
-generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api
+generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
@@ -302,6 +302,10 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
+
+generate-sdp-api: api/v1/standalone-dns-proxy/standalone-dns-proxy.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
+
 define generate_k8s_protobuf
 	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
 	$(GO) install golang.org/x/tools/cmd/goimports && \
@@ -345,7 +349,7 @@ generate-k8s-api-local:
 
 .PHONY: generate-k8s-api
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
-	RUN_AS_NONROOT=1 contrib/scripts/builder.sh \
+	contrib/scripts/builder.sh \
 		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
@@ -441,6 +445,8 @@ endif
 	$(QUIET) contrib/scripts/check-logrus.sh
 	@$(ECHO_CHECK) contrib/scripts/check-safenetlink.sh
 	$(QUIET) contrib/scripts/check-safenetlink.sh
+	@$(ECHO_CHECK) contrib/scripts/check-datapathconfig.sh
+	$(QUIET) contrib/scripts/check-datapathconfig.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -508,7 +514,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api install licenses-all veryclean run_bpf_tests run-builder
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder
 force :;
 
 BPF_TEST_FILE ?= ""
@@ -516,7 +522,7 @@ BPF_TEST_DUMP_CTX ?= ""
 BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
-	DOCKER_ARGS=--privileged contrib/scripts/builder.sh \
+	DOCKER_ARGS=--privileged RUN_AS_ROOT=1 contrib/scripts/builder.sh \
 		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "run" "BPF_TEST_FILE=$(BPF_TEST_FILE)" "BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" "V=$(BPF_TEST_VERBOSE)"
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.

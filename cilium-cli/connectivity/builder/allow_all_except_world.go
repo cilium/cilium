@@ -29,6 +29,5 @@ func (t allowAllExceptWorld) build(ct *check.ConnectivityTest, _ map[string]stri
 			// tests.PodToRemoteNodePort(),
 			// tests.PodToLocalNodePort(),
 			tests.PodToHost(),
-			tests.PodToExternalWorkload(),
 		)
 }

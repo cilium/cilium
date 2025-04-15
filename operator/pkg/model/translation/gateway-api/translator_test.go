@@ -17,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -32,6 +32,9 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "basic_http_listener"},
+		{name: "basic_http_listener_nodeport"},
+		{name: "basic_http_listener_external_traffic_policy"},
+		{name: "basic_http_listener_load_balancer"},
 		{name: "basic_tls_sni_listener"},
 		{name: "conformance/httproute_simple_same_namespace"},
 		{name: "conformance/httproute_backend_protocol_h_2_c"},
@@ -53,56 +56,29 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/httproute_rewrite_path"},
 		{name: "conformance/httproute_request_mirror"},
 		{name: "conformance/httproute_request_redirect_with_multi_httplisteners"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := translation.Config{}
-			readInput(t, fmt.Sprintf("testdata/%s/config-input.yaml", tt.name), &cfg)
-			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator(cfg),
-			}
-
-			input := &model.Model{}
-			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
-			output := &ciliumv2.CiliumEnvoyConfig{}
-			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), output)
-
-			cec, _, _, err := trans.Translate(input)
-
-			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
-			if len(diffOutput) != 0 {
-				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
-			}
-		})
-	}
-}
-
-func Test_translator_Translate_AppProtocol(t *testing.T) {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
 		{name: "conformance/httproute_backend_protocol_h_2_c_app_protocol"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := translation.Config{}
 			readInput(t, fmt.Sprintf("testdata/%s/config-input.yaml", tt.name), &cfg)
-
 			trans := &gatewayAPITranslator{
 				cecTranslator: translation.NewCECTranslator(cfg),
 			}
 
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
-			output := &ciliumv2.CiliumEnvoyConfig{}
-			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), output)
+			expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), expectedCEC)
+			expectedService := &corev1.Service{}
+			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, _, _, err := trans.Translate(input)
+			cec, svc, _, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
+			require.Equal(t, expectedService, svc, "Service mismatch")
+
+			diffOutput := cmp.Diff(expectedCEC, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
 				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 			}
@@ -143,54 +119,56 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 	}
 	for _, tt := range tests {
 		translatorCases := []struct {
-			name                 string
-			gatewayAPITranslator *gatewayAPITranslator
+			name string
+			cfg  translation.Config
 		}{
 			{
 				name: "without_external_traffic_policy",
-				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator: translation.NewCECTranslator(translation.Config{
-						SecretsNamespace: "cilium-secrets",
-						RouteConfig: translation.RouteConfig{
-							HostNameSuffixMatch: true,
-						},
-						ClusterConfig: translation.ClusterConfig{
-							IdleTimeoutSeconds: 60,
-						},
-						HostNetworkConfig: translation.HostNetworkConfig{
-							Enabled:           true,
-							NodeLabelSelector: tt.nodeLabelSelector,
-						},
-						IPConfig: translation.IPConfig{
-							IPv4Enabled: tt.ipv4Enabled,
-							IPv6Enabled: tt.ipv6Enabled,
-						},
-					}),
-					hostNetworkEnabled: true,
+				cfg: translation.Config{
+					SecretsNamespace: "cilium-secrets",
+					RouteConfig: translation.RouteConfig{
+						HostNameSuffixMatch: true,
+					},
+					ListenerConfig: translation.ListenerConfig{
+						StreamIdleTimeoutSeconds: 300,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+					},
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled:           true,
+						NodeLabelSelector: tt.nodeLabelSelector,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: tt.ipv4Enabled,
+						IPv6Enabled: tt.ipv6Enabled,
+					},
 				},
 			},
 			{
 				name: "with_external_traffic_policy",
-				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator: translation.NewCECTranslator(translation.Config{
-						SecretsNamespace: "cilium-secrets",
-						RouteConfig: translation.RouteConfig{
-							HostNameSuffixMatch: true,
-						},
-						ClusterConfig: translation.ClusterConfig{
-							IdleTimeoutSeconds: 60,
-						},
-						HostNetworkConfig: translation.HostNetworkConfig{
-							Enabled:           true,
-							NodeLabelSelector: tt.nodeLabelSelector,
-						},
-						IPConfig: translation.IPConfig{
-							IPv4Enabled: tt.ipv4Enabled,
-							IPv6Enabled: tt.ipv6Enabled,
-						},
-					}),
-					hostNetworkEnabled:    true,
-					externalTrafficPolicy: "Cluster",
+				cfg: translation.Config{
+					SecretsNamespace: "cilium-secrets",
+					ServiceConfig: translation.ServiceConfig{
+						ExternalTrafficPolicy: "Cluster",
+					},
+					RouteConfig: translation.RouteConfig{
+						HostNameSuffixMatch: true,
+					},
+					ListenerConfig: translation.ListenerConfig{
+						StreamIdleTimeoutSeconds: 300,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+					},
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled:           true,
+						NodeLabelSelector: tt.nodeLabelSelector,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: tt.ipv4Enabled,
+						IPv6Enabled: tt.ipv6Enabled,
+					},
 				},
 			},
 		}
@@ -198,24 +176,25 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, translatorCase := range translatorCases {
 				t.Run(translatorCase.name, func(t *testing.T) {
+					trans := &gatewayAPITranslator{
+						cecTranslator: translation.NewCECTranslator(translatorCase.cfg),
+						cfg:           translatorCase.cfg,
+					}
 					input := &model.Model{}
 					readInput(t, fmt.Sprintf("testdata/%s/%s/input.yaml", tt.name, translatorCase.name), input)
 					output := &ciliumv2.CiliumEnvoyConfig{}
 					readOutput(t, fmt.Sprintf("testdata/%s/%s/cec-output.yaml", tt.name, translatorCase.name), output)
+					expectedService := &corev1.Service{}
+					readOutput(t, fmt.Sprintf("testdata/%s/%s/service-output.yaml", tt.name, translatorCase.name), expectedService)
 
-					cec, svc, ep, err := translatorCase.gatewayAPITranslator.Translate(input)
-
+					cec, svc, ep, err := trans.Translate(input)
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+					require.Equal(t, expectedService, svc, "Service mismatch")
 
 					diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 					if len(diffOutput) != 0 {
 						t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 					}
-
-					require.NotNil(t, svc)
-					assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
-					require.Emptyf(t, svc.Spec.ExternalTrafficPolicy, "ClusterIP Services must not have an ExternalTrafficPolicy")
-
 					require.NotNil(t, ep)
 				})
 			}
@@ -232,30 +211,39 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{
+					Enabled: true,
+				},
+				OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+					XFFNumTrustedHops: 2,
+				},
+				ListenerConfig: translation.ListenerConfig{
+					StreamIdleTimeoutSeconds: 300,
+				},
+				ClusterConfig: translation.ClusterConfig{
+					IdleTimeoutSeconds: 60,
+				},
+				IPConfig: translation.IPConfig{
+					IPv4Enabled: true,
+					IPv6Enabled: true,
+				},
+			}
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator(translation.Config{
-					OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
-						XFFNumTrustedHops: 2,
-					},
-					ClusterConfig: translation.ClusterConfig{
-						IdleTimeoutSeconds: 60,
-					},
-					IPConfig: translation.IPConfig{
-						IPv4Enabled: true,
-						IPv6Enabled: true,
-					},
-				}),
-				hostNetworkEnabled: true,
+				cecTranslator: translation.NewCECTranslator(cfg),
+				cfg:           cfg,
 			}
 
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 			output := &ciliumv2.CiliumEnvoyConfig{}
 			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), output)
+			expectedService := &corev1.Service{}
+			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
 			cec, svc, ep, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-
+			require.Equal(t, expectedService, svc, "Service mismatch")
 			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
 				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
@@ -305,7 +293,7 @@ func Test_getService(t *testing.T) {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							APIVersion: gatewayv1.GroupVersion.String(),
 							Kind:       "Gateway",
 							Name:       "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
 							UID:        types.UID("57889650-380b-4c05-9a2e-3baee7fd5271"),
@@ -349,7 +337,7 @@ func Test_getService(t *testing.T) {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							APIVersion: gatewayv1.GroupVersion.String(),
 							Kind:       "Gateway",
 							Name:       "test-externaltrafficpolicy-local",
 							UID:        types.UID("41b82697-2d8d-4776-81b6-44d0bbac7faa"),
@@ -373,8 +361,13 @@ func Test_getService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations, tt.args.externalTrafficPolicy)
-			assert.Equalf(t, tt.want, got, "getService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			trans := &gatewayAPITranslator{cfg: translation.Config{
+				ServiceConfig: translation.ServiceConfig{
+					ExternalTrafficPolicy: tt.args.externalTrafficPolicy,
+				},
+			}}
+			got := trans.desiredService(nil, tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})
 	}

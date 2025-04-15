@@ -6,6 +6,7 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -40,14 +40,9 @@ world1.cilium.test. IN A %[1]s
 world2.cilium.test. IN A %[2]s
 world3.cilium.test. IN A %[3]s
 
-roundrobin.cilium.test.    1   IN   A %[1]s
-roundrobin.cilium.test.    1   IN   A %[2]s
-roundrobin.cilium.test.    1   IN   A %[3]s
-
 level1CNAME.cilium.test. 1 IN CNAME world1
 level2CNAME.cilium.test. 1 IN CNAME level1CNAME.cilium.test.
 level3CNAME.cilium.test. 1 IN CNAME level2CNAME.cilium.test.
-
 
 world1CNAME.cilium.test. 1 IN CNAME world1
 world2CNAME.cilium.test. 1 IN CNAME world2
@@ -74,26 +69,6 @@ world2.outside.test. IN A %[2]s
 world3.outside.test. IN A %[3]s
 `
 
-var bindDNSSECTestTemplate = `
-$TTL 3
-$ORIGIN dnssec.test.
-
-@       IN      SOA     dnssec.test. admin.dnssec.test. (
-                        200608081       ; serial, todays date + todays serial #
-                        8H              ; refresh, seconds
-                        2H              ; retry, seconds
-                        4W              ; expire, seconds
-                        1D )            ; minimum, seconds
-;
-;
-@               IN NS server
-server.dnssec.test. IN A 127.0.0.1
-
-world1.dnssec.test. IN A %[1]s
-world2.dnssec.test. IN A %[2]s
-world3.dnssec.test. IN A %[3]s
-`
-
 var bind9ZoneConfig = `
 zone "cilium.test" {
 	type master;
@@ -103,14 +78,6 @@ zone "cilium.test" {
 zone "outside.test" {
 	type master;
 	file "/etc/bind/db.outside.test";
-};
-
-zone "dnssec.test" {
-	type master;
-	file "/etc/bind/db.dnssec.test";
-	auto-dnssec maintain;
-	inline-signing yes;
-	key-directory "/etc/bind/keys";
 };
 `
 
@@ -126,17 +93,11 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		bindDBCilium  = "db.cilium.test"
 		bindDBOutside = "db.outside.test"
-		bindDBDNSSSEC = "db.dnssec.test"
 		bindNamedConf = "named.conf.local"
 
 		world1Domain = "world1.cilium.test"
 		world1Target = "http://world1.cilium.test"
 		world2Target = "http://world2.cilium.test"
-
-		DNSSECDomain        = "dnssec.test"
-		DNSSECWorld1Target  = "world1.dnssec.test"
-		DNSSECWorld2Target  = "world2.dnssec.test"
-		DNSSECContainerName = "dnssec"
 	)
 
 	var (
@@ -158,7 +119,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		worldIps       = map[string]string{}
 		outsideIps     = map[string]string{}
-		generatedFiles = []string{bindDBCilium, bindNamedConf, bindDBOutside, bindDBDNSSSEC}
+		generatedFiles = []string{bindDBCilium, bindNamedConf, bindDBOutside}
 		DNSServerIP    = ""
 	)
 
@@ -190,11 +151,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		bindConfig := fmt.Sprintf(bindCiliumTestTemplate, getMapValues(worldIps)...)
 		err = vm.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
-		Expect(err).To(BeNil(), "bind file can't be created")
-
-		// // Installed DNSSEC domain
-		bindConfig = fmt.Sprintf(bindDNSSECTestTemplate, getMapValues(worldIps)...)
-		err = vm.RenderTemplateToFile(bindDBDNSSSEC, bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		for name, image := range ciliumOutsideImages {
@@ -229,7 +185,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 			bindContainerName,
 			constants.BindContainerImage,
 			"bridge",
-			fmt.Sprintf("-p 53:53/udp -p 53:53/tcp -v /data:/data -l id.bind -e DNSSEC_DOMAIN=%s", DNSSECDomain))
+			"-p 53:53/udp -p 53:53/tcp -v /data:/data -l id.bind")
 		res.ExpectSuccess("Cannot start bind container")
 
 		res = vm.ContainerInspect(bindContainerName)
@@ -296,63 +252,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 			&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
 		Expect(err).To(BeNil(), "FQDN policy didn't correctly update the policy selectors")
 	}
-
-	fqdnPolicyImport := func(fqdnPolicy string) {
-		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
-		ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s", err)
-	}
-
-	It("Enforces ToFQDNs policy", func() {
-		By("Importing policy with ToFQDN rules")
-		// notaname.cilium.io never returns IPs, and is there to test that the
-		// other name does get populated.
-		fqdnPolicy := `
-[
-  {
-    "labels": [{
-	  	"key": "toFQDNs-runtime-test-policy"
-	  }],
-    "endpointSelector": {
-      "matchLabels": {
-        "container:id.app1": ""
-      }
-    },
-    "egress": [
-      {
-        "toPorts": [{
-          "ports":[{"port": "53", "protocol": "ANY"}],
-          "rules": {
-            "dns": [{"matchPattern": "world1.cilium.test"}]
-          }
-        }]
-      },
-      {
-        "toFQDNs": [
-          {
-            "matchName": "world1.cilium.test"
-          }
-        ]
-      }
-    ]
-  }
-]`
-		fqdnPolicyImport(fqdnPolicy)
-		expectFQDNSareApplied("cilium.test", 0)
-
-		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
-		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
-		// and so should be blocked.
-		// cilium.io.cilium.io doesn't exist.
-		// 1.1.1.1, amusingly, serves HTTP.
-		for _, blockedTarget := range []string{"world2.cilium.test"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl succeeded against blocked DNS name %s" + blockedTarget)
-		}
-
-		By("Allowing egress to IPs of specified ToFQDN DNS names")
-		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world1Target))
-		res.ExpectSuccess("Cannot access to allowed DNS name %q", world1Target)
-	})
 
 	It("Validate dns-proxy monitor information", func() {
 
@@ -466,66 +365,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://world2.outside.test"))
 		res.ExpectFail("Connectivity to outside domain successfully when it should be block")
 
-	})
-
-	It("Roundrobin DNS", func() {
-		numberOfTries := 5
-		target := "roundrobin.cilium.test"
-		policy := `
-[
-	{
-		"labels": [{
-			"key": "FQDN test - interaction with other toCIDRSet rules"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:app": "test"
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "roundrobin.cilium.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchName": "roundrobin.cilium.test"
-				}]
-			}
-		]
-	}
-]`
-		_, err := vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).To(BeNil(), "Endpoints can't be retrieved")
-
-		for _, container := range []string{helpers.App1, helpers.App2} {
-			Expect(endpoints).To(HaveKey(container),
-				"Container %q is not present in the endpoints list", container)
-			ep := vm.EndpointGet(endpoints[container])
-			Expect(ep).ShouldNot(BeNil(),
-				"Endpoint for container %q cannot be retrieved", container)
-			Expect(ep.Status.Policy.Realized.PolicyEnabled).To(
-				Equal(models.EndpointPolicyEnabledEgress),
-				"Endpoint %q does not have policy applied", container)
-		}
-
-		By("Testing %q and %q containers are allow to work with roundrobin dns", helpers.App1, helpers.App2)
-		for i := 0; i < numberOfTries; i++ {
-			for _, container := range []string{helpers.App1, helpers.App2} {
-				By("Testing connectivity to Cilium.test domain")
-				res := vm.ContainerExec(container, helpers.CurlFail(target))
-				res.ExpectSuccess("Container %q cannot access to %q when should work", container, target)
-			}
-		}
 	})
 
 	It("Can update L7 DNS policy rules", func() {
@@ -702,165 +541,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		target = "http://level3CNAME.cilium.test"
 		res = vm.ContainerExec(helpers.App2, helpers.CurlFail(target))
 		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App2, target)
-	})
-
-	It("Enforces L3 policy even when no IPs are inserted", func() {
-		By("Importing policy with toFQDNs rules")
-		fqdnPolicy := `
-[
-  {
-    "labels": [{
-	  	"key": "toFQDNs-runtime-test-policy"
-	  }],
-    "endpointSelector": {
-      "matchLabels": {
-        "container:id.app1": ""
-      }
-    },
-    "egress": [
-      {
-        "toFQDNs": [
-          {
-            "matchPattern": "notadomain.cilium.io"
-          }
-        ]
-      }
-    ]
-  }
-]`
-		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-		expectFQDNSareApplied("cilium.io", 0)
-
-		By("Denying egress to any IPs or domains")
-		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl to %s succeeded when in deny-all due to toFQDNs" + blockedTarget)
-		}
-	})
-
-	It(`Implements matchPattern: *`, func() {
-		By(`Importing policy with matchPattern: "*" rule`)
-		fqdnPolicy := `
-[
-  {
-    "labels": [{
-	  	"key": "toFQDNs-runtime-test-policy"
-	  }],
-    "endpointSelector": {
-      "matchLabels": {
-        "container:id.app1": ""
-      }
-    },
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "*"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [
-				  {"matchPattern": "world1.cilium.test"},
-				  {"matchPattern": "world*.cilium.test"},
-				  {"matchPattern": "level*CNAME.cilium.test"}
-				]
-			}
-    ]
-  }
-]`
-		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-		expectFQDNSareApplied("cilium.test", 0)
-
-		By("Denying egress to any IPs or domains")
-		for _, allowedTarget := range []string{"world1.cilium.test", "world2.cilium.test", "world3.cilium.test", "level1CNAME.cilium.test", "level2CNAME.cilium.test"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(allowedTarget))
-			res.ExpectSuccess("Curl to %s failed when in deny-all due to toFQDNs", allowedTarget)
-		}
-		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl to %s succeeded when in allow-all DNS but limited toFQDNs", blockedTarget)
-		}
-	})
-
-	Context("With verbose policy logs", func() {
-		BeforeAll(func() {
-			vm.SetUpCiliumWithOptions("--debug-verbose=policy")
-
-			ExpectCiliumReady(vm)
-			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
-		})
-
-		BeforeEach(func() {
-			By("Clearing fqdn cache: %s", vm.Exec("cilium-dbg fqdn cache clean -f").CombineOutput().String())
-		})
-
-		AfterAll(func() {
-			vm.SetUpCilium()
-			_ = vm.WaitEndpointsReady() // Don't assert because don't want to block all AfterAll.
-		})
-
-		It("Validates DNSSEC responses", func() {
-			policy := `
-[
-	{
-		"labels": [{
-			"key": "FQDN test - DNSSEC domain"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:id.dnssec": ""
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "world1.dnssec.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchPattern": "world1.dnssec.test"
-				}]
-			}
-		]
-	}
-]`
-			_, err := vm.PolicyRenderAndImport(policy)
-			Expect(err).To(BeNil(), "Policy cannot be imported")
-
-			// Selector cache is populated when a policy is applied on an endpoint.
-			// DNSSEC container is not running yet, so we can't expect the FQDNs to be applied yet.
-			// expectFQDNSareApplied("dnssec.test", 0)
-
-			By("Validate that allow target is working correctly")
-			res := vm.ContainerRun(
-				DNSSECContainerName,
-				constants.DNSSECContainerImage,
-				helpers.CiliumDockerNetwork,
-				fmt.Sprintf("-l id.%s --dns=%s --rm", DNSSECContainerName, DNSServerIP),
-				DNSSECWorld1Target)
-			res.ExpectSuccess("Cannot connect to %q when it should work", DNSSECContainerName)
-
-			By("Validate that disallow target is working correctly")
-			res = vm.ContainerRun(
-				DNSSECContainerName,
-				constants.DNSSECContainerImage,
-				helpers.CiliumDockerNetwork,
-				fmt.Sprintf("-l id.%s --dns=%s --rm", DNSSECContainerName, DNSServerIP),
-				DNSSECWorld2Target)
-			res.ExpectFail("Can connect to %q when it should not work", DNSSECContainerName)
-		})
 	})
 
 	Context("toFQDNs populates toCIDRSet (data from proxy)", func() {
@@ -1160,15 +840,9 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 // returned array will be sorted by map keys, the reason is that Golang does
 // not support ordered maps and for DNS-config the values need to be always
 // sorted.
-func getMapValues(m map[string]string) []interface{} {
-
-	values := make([]interface{}, len(m))
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	for i, k := range keys {
+func getMapValues(m map[string]string) []any {
+	values := make([]any, len(m))
+	for i, k := range slices.Sorted(maps.Keys(m)) {
 		values[i] = m[k]
 	}
 	return values

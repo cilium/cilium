@@ -1,8 +1,6 @@
 # See https://golangci-lint.run/usage/configuration/ for available options.
 # Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
 # reference.
-run:
-  go: '1.21'
 linters:
   disable-all: true
   enable:
@@ -12,23 +10,23 @@ linters:
     - bodyclose
     - containedctx
     - contextcheck
+    - copyloopvar
     - decorder
     - dogsled
     - dupl
     - dupword
     - durationcheck
+    - err113
     - errcheck
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - forcetypeassert
     - gocheckcompilerdirectives
     - gocognit
     - goconst
     - gocritic
     - godot
-    - goerr113
     - gofmt
     - goheader
     - goimports
@@ -39,6 +37,7 @@ linters:
     - grouper
     - ineffassign
     - interfacebloat
+    - intrange
     - makezero
     - mirror
     - misspell
@@ -97,7 +96,7 @@ issues:
   exclude-rules:
     - linters: [errcheck]
       text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
-    - linters: [goerr113]
+    - linters: [err113]
       text: "do not define dynamic errors, use wrapped static errors instead"
     - linters: [gosec]
       text: "G404" # Use of weak random number generator (math/rand instead of crypto/rand)

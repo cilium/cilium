@@ -13,6 +13,7 @@
 #include "lib/eps.h"
 #include "lib/ipv4.h"
 #include "lib/vxlan.h"
+#include "lib/node.h"
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
@@ -24,7 +25,7 @@ struct {
 	__type(value, struct encrypt_config);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1);
-} ENCRYPT_MAP __section_maps_btf;
+} cilium_encrypt_state __section_maps_btf;
 #endif
 
 static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
@@ -34,7 +35,7 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 	__u32 encrypt_key = 0;
 	struct encrypt_config *cfg;
 
-	cfg = map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
+	cfg = map_lookup_elem(&cilium_encrypt_state, &encrypt_key);
 	/* Having no key info for a context is the same as no encryption */
 	if (cfg)
 		local_key = cfg->encrypt_key;
@@ -67,7 +68,7 @@ lookup_ip4_node_id(__u32 ip4)
 
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = ip4;
-	node_value = map_lookup_elem(&NODE_MAP_V2, &node_ip);
+	node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
 	if (!node_value)
 		return 0;
 	if (!node_value->id)
@@ -85,7 +86,7 @@ lookup_ip6_node_id(const union v6addr *ip6)
 
 	node_ip.family = ENDPOINT_KEY_IPV6;
 	node_ip.ip6 = *ip6;
-	node_value = map_lookup_elem(&NODE_MAP_V2, &node_ip);
+	node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
 	if (!node_value)
 		return 0;
 	if (!node_value->id)
@@ -93,6 +94,20 @@ lookup_ip6_node_id(const union v6addr *ip6)
 	return node_value->id;
 }
 # endif /* ENABLE_IPV6 */
+
+/**
+ * or_encrypt_key - mask and shift key into encryption format
+ */
+static __always_inline __u32 or_encrypt_key(__u8 key)
+{
+	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
+}
+
+static __always_inline __u32
+ipsec_encode_encryption_mark(__u8 key, __u32 node_id)
+{
+	return or_encrypt_key(key) | node_id << 16;
+}
 
 static __always_inline void
 set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
@@ -115,20 +130,23 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 
 	struct node_key node_ip = {};
 	struct node_value *node_value = NULL;
+	__u32 mark;
 
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = tunnel_endpoint;
-	node_value = map_lookup_elem(&NODE_MAP_V2, &node_ip);
+	node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
 	if (!node_value || !node_value->id)
 		return DROP_NO_NODE_ID;
 
 	if (use_spi_from_map)
 		spi = get_min_encrypt_key(node_value->spi);
 
+	mark = ipsec_encode_encryption_mark(spi, node_value->id);
+
 	set_identity_meta(ctx, seclabel);
 	if (use_meta)
-		set_encrypt_key_meta(ctx, spi, node_value->id);
-	set_encrypt_key_mark(ctx, spi, node_value->id);
+		ctx->cb[CB_ENCRYPT_MAGIC] = mark;
+	ctx->mark = mark;
 
 	return CTX_ACT_OK;
 }
@@ -185,7 +203,6 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 
 		if (!node_id)
 			return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_NODE_ID,
-						      CTX_ACT_DROP,
 						      METRIC_INGRESS);
 		set_ipsec_decrypt_mark(ctx, node_id);
 
@@ -201,7 +218,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #ifdef ENABLE_ENDPOINT_ROUTES
 	return CTX_ACT_OK;
 #else
-	return ctx_redirect(ctx, CILIUM_IFINDEX, 0);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, 0);
 #endif /* ENABLE_ENDPOINT_ROUTES */
 }
 

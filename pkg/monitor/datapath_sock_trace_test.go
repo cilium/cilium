@@ -64,9 +64,8 @@ func BenchmarkNewDecodeTraceSockNotify(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		tsn := &TraceSockNotify{}
 		if err := DecodeTraceSockNotify(buf.Bytes(), tsn); err != nil {
 			b.Fatal(err)
@@ -83,9 +82,8 @@ func BenchmarkOldDecodeTraceSockNotify(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		tsn := &TraceSockNotify{}
 		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, tsn); err != nil {
 			b.Fatal(err)

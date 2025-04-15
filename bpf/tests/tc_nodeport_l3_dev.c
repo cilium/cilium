@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+/* We gently borrow these tests to additionally check that, when used
+ * from the Wireguard device, we correctly update bpf metrics.
+ * This is not needed anymore and will be moved in wireguard_metrics.c
+ * once addressed https://github.com/cilium/cilium/issues/33676.
+ */
+#define IS_BPF_WIREGUARD 1
+#define ENABLE_WIREGUARD
+
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
 #include <bpf/helpers_skb.h>
 #include "pktgen.h"
 
-#define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
+#define ETH_HLEN 0
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 #define ENABLE_IPV6
@@ -53,6 +60,10 @@ static volatile const __u8 *ep_mac = mac_one;
 static volatile const __u8 *node_mac = mac_two;
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, interface_ifindex, WG_IFINDEX)
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 
@@ -137,6 +148,9 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 	struct tcphdr *l4;
 	__u8 *payload;
 
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
 	test_init();
 
 	data = (void *)(long)ctx->data;
@@ -197,6 +211,18 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
+
+	/* Check that the packet was recorded in the metrics. */
+	key.reason = REASON_DECRYPTING;
+	key.dir = METRIC_INGRESS;
+
+	entry = map_lookup_elem(&cilium_metrics, &key);
+	if (!entry)
+		test_fatal("metrics entry not found")
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	test_finish();
 }

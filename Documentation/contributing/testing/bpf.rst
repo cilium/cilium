@@ -275,7 +275,7 @@ Mocking is easy with this framework:
 1. Create a function with a unique name and the same signature as the function it is replacing.
 
 2. Create a macro with the exact same name as the function we want to replace and point it to the
-   function created in step 1. For example ``#define original_function our_mocked_function```
+   function created in step 1. For example ``#define original_function our_mocked_function``
 
 3. Include the file which contains the definition we are replacing.
 

@@ -43,7 +43,7 @@ func runGet(cmd *cobra.Command, vp *viper.Viper, key string) error {
 		return fmt.Errorf("key=%s not bound to a flag", key)
 	}
 
-	var val interface{}
+	var val any
 	switch typ := flag.Value.Type(); typ {
 	case "bool":
 		val = vp.GetBool(key)

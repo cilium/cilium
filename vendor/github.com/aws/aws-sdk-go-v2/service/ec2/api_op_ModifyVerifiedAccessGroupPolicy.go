@@ -139,6 +139,9 @@ func (c *Client) addOperationModifyVerifiedAccessGroupPolicyMiddlewares(stack *m
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opModifyVerifiedAccessGroupPolicyMiddleware(stack, options); err != nil {
 		return err
 	}

@@ -139,21 +139,12 @@ func InitMapInfo(v4, v6, nodeport bool) {
 	}
 }
 
-// CtEndpoint represents an endpoint for the functions required to manage
-// conntrack maps for the endpoint.
-type CtEndpoint interface {
-	GetID() uint64
-}
-
 // Map represents an instance of a BPF connection tracking map.
 // It also implements the CtMap interface.
 type Map struct {
 	bpf.Map
 
 	mapType mapType
-	// define maps to the macro used in the datapath portion for the map
-	// name, for example 'CT_MAP4'.
-	define string
 
 	// This field indicates which cluster this ctmap is. Zero for global
 	// maps and non-zero for per-cluster maps.
@@ -161,8 +152,6 @@ type Map struct {
 }
 
 // GCFilter contains the necessary fields to filter the CT maps.
-// Filtering by endpoint requires both EndpointID to be > 0 and
-// EndpointIP to be not nil.
 type GCFilter struct {
 	// RemoveExpired enables removal of all entries that have expired
 	RemoveExpired bool
@@ -322,7 +311,6 @@ func newMap(mapName string, m mapType) *Map {
 			0,
 		).WithPressureMetric(),
 		mapType: m,
-		define:  m.bpfDefine(),
 	}
 	return result
 }
@@ -391,6 +379,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		}
 	}
 	globalDeleteLock[m.mapType].Unlock()
+
 	return stats
 }
 
@@ -473,7 +462,13 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		case deleteEntry:
 			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Key, ctKey.String()).Error("Unable to delete CT entry")
+				log := log.WithField(logfields.Key, ctKey.ToHost().String())
+				if errors.Is(err, ebpf.ErrKeyNotExist) {
+					log.Debug("key is missing, likely due to lru eviction - skipping")
+					stats.skipped++
+				} else {
+					log.WithError(err).Error("Unable to delete CT entry")
+				}
 			} else {
 				stats.deleted++
 			}
@@ -643,8 +638,8 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 // removed from the filesystem. The old map will only be completely cleaned up
 // once all referenced to the map are cleared - that is, all BPF programs which
 // refer to the old map and removed/reloaded.
-func DeleteIfUpgradeNeeded(e CtEndpoint) {
-	for _, newMap := range maps(e, true, true) {
+func DeleteIfUpgradeNeeded() {
+	for _, newMap := range maps(true, true) {
 		path, err := newMap.Path()
 		if err != nil {
 			log.WithError(err).Warning("Failed to get path for CT map")
@@ -667,43 +662,19 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 	}
 }
 
-// maps returns all connecting tracking maps associated with endpoint 'e' (or
-// the global maps if 'e' is nil).
-func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
+// maps returns the global connection tracking maps.
+// protocol will not be returned.
+func maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
-	if e == nil {
-		if ipv4 {
-			result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
-			result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
-		}
-		if ipv6 {
-			result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
-			result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
-		}
-	} else {
-		if ipv4 {
-			result = append(result, newMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
-				mapTypeIPv4TCPLocal))
-			result = append(result, newMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
-				mapTypeIPv4AnyLocal))
-		}
-		if ipv6 {
-			result = append(result, newMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
-				mapTypeIPv6TCPLocal))
-			result = append(result, newMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
-				mapTypeIPv6AnyLocal))
-		}
+	if ipv4 {
+		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
+		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
+	}
+	if ipv6 {
+		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
+		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
 	}
 	return result
-}
-
-// LocalMaps returns a slice of CT maps for the endpoint, which are local to
-// the endpoint and not shared with other endpoints. If ipv4 or ipv6 are false,
-// the maps for that protocol will not be returned.
-//
-// The returned maps are not yet opened.
-func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
-	return maps(e, ipv4, ipv6)
 }
 
 // GlobalMaps returns a slice of CT maps that are used globally by all
@@ -712,26 +683,14 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 //
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(nil, ipv4, ipv6)
+	return maps(ipv4, ipv6)
 }
 
-// NameIsGlobal returns true if the specified filename (basename) denotes a
-// global conntrack map.
-func NameIsGlobal(filename string) bool {
-	switch filename {
-	case MapNameTCP4Global, MapNameAny4Global, MapNameTCP6Global, MapNameAny6Global:
-		return true
-	}
-	return false
-}
-
-// WriteBPFMacros writes the map names for conntrack maps into the specified
-// writer, defining usage of the global map or local maps depending on whether
-// the specified CtEndpoint is nil.
-func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
+// WriteBPFMacros writes the map names for the global conntrack maps into the
+// specified writer.
+func WriteBPFMacros(fw io.Writer) {
 	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range maps(e, true, true) {
-		fmt.Fprintf(fw, "#define %s %s\n", m.define, m.Name())
+	for _, m := range maps(true, true) {
 		if m.mapType.isTCP() {
 			mapEntriesTCP = m.mapType.maxEntries()
 		} else {
@@ -742,12 +701,11 @@ func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
 }
 
-// Exists returns false if the CT maps for the specified endpoint (or global
-// maps if nil) are not pinned to the filesystem, or true if they exist or
-// an internal error occurs.
-func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
+// Exists returns false if the global CT maps are not pinned to the filesystem,
+// or true if they exist or an internal error occurs.
+func Exists(ipv4, ipv6 bool) bool {
 	result := true
-	for _, m := range maps(e, ipv4, ipv6) {
+	for _, m := range maps(ipv4, ipv6) {
 		path, err := m.Path()
 		if err != nil {
 			// Catch this error early
@@ -793,6 +751,8 @@ func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.
 		}).Info("Conntrack garbage collector interval recalculated")
 	}
 
+	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
+
 	return newInterval
 }
 
@@ -809,21 +769,14 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 			maxDeleteRatio = 0.9
 		}
 		// 25%..90% => 1.3x..10x shorter
-		interval = time.Duration(float64(interval) * (1.0 - maxDeleteRatio)).Round(time.Second)
-
-		if interval < defaults.ConntrackGCMinInterval {
-			interval = defaults.ConntrackGCMinInterval
-		}
+		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(time.Second), defaults.ConntrackGCMinInterval)
 
 	case maxDeleteRatio < 0.05:
 		// When less than 5% of entries were deleted, increase the
 		// interval. Use a simple 1.5x multiplier to start growing slowly
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
-		interval = time.Duration(float64(interval) * 1.5).Round(time.Second)
-		if interval > defaults.ConntrackGCMaxLRUInterval {
-			interval = defaults.ConntrackGCMaxLRUInterval
-		}
+		interval = min(time.Duration(float64(interval)*1.5).Round(time.Second), defaults.ConntrackGCMaxLRUInterval)
 	}
 
 	cachedGCInterval = interval

@@ -6,14 +6,14 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -26,13 +26,13 @@ type PodCIDRReconcilerOut struct {
 type PodCIDRReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       *slog.Logger
 	PeerAdvert   *CiliumPeerAdvertisement
 	DaemonConfig *option.DaemonConfig
 }
 
 type PodCIDRReconciler struct {
-	logger     logrus.FieldLogger
+	logger     *slog.Logger
 	peerAdvert *CiliumPeerAdvertisement
 	metadata   map[string]PodCIDRReconcilerMetadata
 }
@@ -51,7 +51,7 @@ func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
 	}
 	return PodCIDRReconcilerOut{
 		Reconciler: &PodCIDRReconciler{
-			logger:     params.Logger.WithField(types.ReconcilerLogField, "PodCIDR"),
+			logger:     params.Logger.With(types.ReconcilerLogField, "PodCIDR"),
 			peerAdvert: params.PeerAdvert,
 			metadata:   make(map[string]PodCIDRReconcilerMetadata),
 		},
@@ -84,12 +84,8 @@ func (r *PodCIDRReconciler) Cleanup(i *instance.BGPInstance) {
 }
 
 func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	if p.DesiredConfig == nil {
-		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumBGPNodeConfig")
-	}
-
-	if p.CiliumNode == nil {
-		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumNode")
+	if err := p.ValidateParams(); err != nil {
+		return err
 	}
 
 	// get pod CIDR prefixes
@@ -103,7 +99,7 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 	}
 
 	// get per peer per family pod cidr advertisements
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2alpha1.BGPPodCIDRAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPPodCIDRAdvert)
 	if err != nil {
 		return err
 	}
@@ -124,7 +120,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 
 	// reconcile family advertisements
 	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
-		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:       r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:          ctx,
 		Router:       p.BGPInstance.Router,
 		DesiredPaths: desiredFamilyAdverts,
@@ -140,14 +136,14 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Reconc
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// get desired policies
-	desiredRoutePolicies, err := r.getDesiredRoutePolicies(p, desiredPeerAdverts, podPrefixes)
+	desiredRoutePolicies, err := r.getDesiredRoutePolicies(desiredPeerAdverts, podPrefixes)
 	if err != nil {
 		return err
 	}
 
 	// reconcile route policies
 	updatedPolicies, err := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
-		Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:          r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredRoutePolicies,
@@ -195,16 +191,16 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 	return desiredFamilyAdverts
 }
 
-func (r *PodCIDRReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (RoutePolicyMap, error) {
+func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (RoutePolicyMap, error) {
 	desiredPolicies := make(RoutePolicyMap)
 
 	for peer, afAdverts := range desiredPeerAdverts {
-		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
-		if err != nil {
-			return nil, err
+		if peer.Address == "" {
+			continue
 		}
-		if !peerAddrExists {
-			return nil, nil
+		peerAddr, err := netip.ParseAddr(peer.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse peer address: %w", err)
 		}
 
 		for family, adverts := range afAdverts {
@@ -225,7 +221,7 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPe
 				}
 
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
-					name := PolicyName(peer, fam.Afi.String(), advert.AdvertisementType, "")
+					name := PolicyName(peer.Name, fam.Afi.String(), advert.AdvertisementType, "")
 					policy, err := CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, advert)
 					if err != nil {
 						return nil, err

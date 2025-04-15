@@ -84,9 +84,9 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_DROP;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -143,7 +143,7 @@ int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
 
-	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
@@ -256,7 +256,7 @@ int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
 	/* Remove the service's last backend, and flip the backend to
 	 * 'terminating' state.
 	 */
-	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 0, revnat_id);
+	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 0, revnat_id);
 	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP,
 			     BE_STATE_TERMINATING, 0);
 

@@ -193,6 +193,13 @@ enum TraceObservationPoint {
     // TO_NETWORK indicates network packets are transmitted towards native
     // devices.
     TO_NETWORK = 11;
+    // FROM_CRYPTO indicates network packets were received from the crypto
+    // process for decryption.
+    FROM_CRYPTO = 12;
+    // TO_CRYPTO indicates network packets are transmitted towards the crypto
+    // process for encryption.
+    TO_CRYPTO = 13;
+    
 }
 
 enum TraceReason {
@@ -449,6 +456,8 @@ enum DropReason {
     // An Egress Gateway node matched a packet against an Egress Gateway policy
     // that didn't select a valid Egress IP.
     DROP_NO_EGRESS_IP = 204;
+    // Punt packet to a user space proxy.
+    DROP_PUNT_PROXY = 205;
 }
 
 enum TrafficDirection {

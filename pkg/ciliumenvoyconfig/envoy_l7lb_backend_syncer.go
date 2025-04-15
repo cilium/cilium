@@ -6,11 +6,11 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -24,7 +24,7 @@ const anyPort = "*"
 
 // envoyServiceBackendSyncer syncs the backends of a Service as Endpoints to the Envoy L7 proxy.
 type envoyServiceBackendSyncer struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	envoyXdsServer envoy.XDSServer
 
@@ -38,7 +38,7 @@ func (*envoyServiceBackendSyncer) ProxyName() string {
 	return "Envoy"
 }
 
-func newEnvoyServiceBackendSyncer(logger logrus.FieldLogger, envoyXdsServer envoy.XDSServer) *envoyServiceBackendSyncer {
+func newEnvoyServiceBackendSyncer(logger *slog.Logger, envoyXdsServer envoy.XDSServer) *envoyServiceBackendSyncer {
 	return &envoyServiceBackendSyncer{
 		logger:         logger,
 		envoyXdsServer: envoyXdsServer,
@@ -60,12 +60,11 @@ func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 	// as Envoy endpoints
 	be := filterServiceBackends(svc, frontendPorts)
 
-	r.logger.
-		WithField("filteredBackends", be).
-		WithField(logfields.L7LBFrontendPorts, frontendPorts).
-		WithField(logfields.ServiceNamespace, svc.Name.Namespace).
-		WithField(logfields.ServiceName, svc.Name.Name).
-		Debug("Upsert envoy endpoints")
+	r.logger.Debug("Upsert envoy endpoints",
+		logfields.L7LBFrontendPorts, frontendPorts,
+		logfields.ServiceNamespace, svc.Name.Namespace,
+		logfields.ServiceName, svc.Name.Name,
+	)
 	if err := r.upsertEnvoyEndpoints(svc.Name, be); err != nil {
 		return fmt.Errorf("failed to update backends in Envoy: %w", err)
 	}

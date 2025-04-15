@@ -139,6 +139,35 @@ func (m *AwsRequestSigning) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsRequestSigningValidationError{
+					field:  "CredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsRequestSigningValidationError{
+					field:  "CredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsRequestSigningValidationError{
+				field:  "CredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return AwsRequestSigningMultiError(errors)
 	}

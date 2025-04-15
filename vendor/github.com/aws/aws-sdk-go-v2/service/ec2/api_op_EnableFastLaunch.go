@@ -176,6 +176,9 @@ func (c *Client) addOperationEnableFastLaunchMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpEnableFastLaunchValidationMiddleware(stack); err != nil {
 		return err
 	}

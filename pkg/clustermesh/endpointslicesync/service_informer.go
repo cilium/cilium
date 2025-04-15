@@ -6,11 +6,11 @@ package endpointslicesync
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"strings"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +45,7 @@ const (
 type meshServiceInformer struct {
 	dummyInformer
 
-	logger             logrus.FieldLogger
+	logger             *slog.Logger
 	globalServiceCache *common.GlobalServiceCache
 	services           resource.Resource[*slim_corev1.Service]
 	serviceStore       resource.Store[*slim_corev1.Service]
@@ -96,7 +96,7 @@ func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) {
 }
 
 func newMeshServiceInformer(
-	logger logrus.FieldLogger,
+	logger *slog.Logger,
 	globalServiceCache *common.GlobalServiceCache,
 	services resource.Resource[*slim_corev1.Service],
 	meshNodeInformer *meshNodeInformer,
@@ -119,9 +119,7 @@ func toKubeServicePort(clusterSvc *store.ClusterService) []v1.ServicePort {
 	// Merge all the port config into one to get all the possible ports
 	globalPortConfig := store.PortConfiguration{}
 	for _, portConfig := range clusterSvc.Backends {
-		for name, l4Addr := range portConfig {
-			globalPortConfig[name] = l4Addr
-		}
+		maps.Copy(globalPortConfig, portConfig)
 	}
 
 	// Get the ServicePort from the PortConfig

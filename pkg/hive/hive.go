@@ -16,11 +16,9 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
-	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -75,8 +73,8 @@ func New(cells ...cell.Cell) *Hive {
 
 	// Scope logging and health by module ID.
 	moduleDecorators := []cell.ModuleDecorator{
-		func(log logrus.FieldLogger, mid cell.ModuleID) logrus.FieldLogger {
-			return log.WithField(logfields.LogSubsys, string(mid))
+		func(mid cell.ModuleID) logrus.FieldLogger {
+			return logging.DefaultLogger.WithField(logfields.LogSubsys, string(mid))
 		},
 		func(hp types.Provider, fmid cell.FullModuleID) cell.Health {
 			return hp.ForModule(fmid)
@@ -104,7 +102,7 @@ func New(cells ...cell.Cell) *Hive {
 
 var decodeHooks = cell.DecodeHooks{
 	// Decode *cidr.CIDR fields
-	func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	func(from reflect.Type, to reflect.Type, data any) (any, error) {
 		if from.Kind() != reflect.String {
 			return data, nil
 		}
@@ -113,20 +111,6 @@ var decodeHooks = cell.DecodeHooks{
 			return data, nil
 		}
 		return cidr.ParseCIDR(s)
-	},
-	// Decode JSON encoded *flowpb.FlowFilter fields
-	func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		if from.Kind() != reflect.Slice {
-			return data, nil
-		}
-		xs, ok := data.([]string)
-		if !ok {
-			return data, nil
-		}
-		if to != reflect.TypeOf(([]*flowpb.FlowFilter)(nil)) {
-			return data, nil
-		}
-		return hubble.ParseFlowFilters(xs...)
 	},
 }
 

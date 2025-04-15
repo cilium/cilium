@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"path"
 
 	"github.com/cilium/hive/cell"
 
@@ -53,11 +52,6 @@ func (p *PreFilter) WriteConfig(fw io.Writer) {
 
 	fmt.Fprintf(fw, "#define CIDR4_HMAP_ELEMS %d\n", maxHKeys)
 	fmt.Fprintf(fw, "#define CIDR4_LMAP_ELEMS %d\n", maxLKeys)
-
-	fmt.Fprintf(fw, "#define CIDR4_HMAP_NAME %s\n", path.Base(p.maps[prefixesV4Fix].String()))
-	fmt.Fprintf(fw, "#define CIDR4_LMAP_NAME %s\n", path.Base(p.maps[prefixesV4Dyn].String()))
-	fmt.Fprintf(fw, "#define CIDR6_HMAP_NAME %s\n", path.Base(p.maps[prefixesV6Fix].String()))
-	fmt.Fprintf(fw, "#define CIDR6_LMAP_NAME %s\n", path.Base(p.maps[prefixesV6Dyn].String()))
 
 	fmt.Fprintf(fw, "#define CIDR4_FILTER\n")
 	fmt.Fprintf(fw, "#define CIDR4_LPM_PREFILTER\n")

@@ -46,8 +46,6 @@ type indexTxn struct {
 	unique bool
 }
 
-var zeroTxn = txn{}
-
 // txn fulfills the ReadTxn/WriteTxn interface.
 func (txn *txn) getTxn() *txn {
 	return txn
@@ -145,20 +143,20 @@ func (txn *txn) mustIndexWriteTxn(meta TableMeta, indexPos int) indexTxn {
 	return indexTxn
 }
 
-func (txn *txn) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, error) {
+func (txn *txn) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, <-chan struct{}, error) {
 	return txn.modify(meta, guardRevision, data, func(_ any) any { return data })
 }
 
-func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, error) {
+func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, <-chan struct{}, error) {
 	if txn.modifiedTables == nil {
-		return object{}, false, ErrTransactionClosed
+		return object{}, false, nil, ErrTransactionClosed
 	}
 
 	// Look up table and allocate a new revision.
 	tableName := meta.Name()
 	table := txn.modifiedTables[meta.tablePos()]
 	if table == nil {
-		return object{}, false, tableError(tableName, ErrTableNotLockedForWriting)
+		return object{}, false, nil, tableError(tableName, ErrTableNotLockedForWriting)
 	}
 	oldRevision := table.revision
 	table.revision++
@@ -169,7 +167,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 	idIndexTxn := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
 
 	var obj object
-	oldObj, oldExists := idIndexTxn.Modify(idKey,
+	oldObj, oldExists, watch := idIndexTxn.ModifyWatch(idKey,
 		func(old object) object {
 			obj = object{
 				revision: revision,
@@ -204,7 +202,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 			// the insert.
 			idIndexTxn.Delete(idKey)
 			table.revision = oldRevision
-			return object{}, false, ErrObjectNotFound
+			return object{}, false, watch, ErrObjectNotFound
 		}
 		if oldObj.revision != guardRevision {
 			// Revert the change. We're assuming here that it's rarer for CompareAndSwap() to
@@ -212,7 +210,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 			// (versus doing a Get() and then Insert()).
 			idIndexTxn.Insert(idKey, oldObj)
 			table.revision = oldRevision
-			return oldObj, true, ErrRevisionNotEqual
+			return oldObj, true, watch, ErrRevisionNotEqual
 		}
 	}
 
@@ -266,7 +264,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 		})
 	}
 
-	return oldObj, oldExists, nil
+	return oldObj, oldExists, watch, nil
 }
 
 func (txn *txn) hasDeleteTrackers(meta TableMeta) bool {
@@ -361,38 +359,57 @@ func (txn *txn) delete(meta TableMeta, guardRevision Revision, data any) (object
 }
 
 const (
-	nonUniqueSeparator   = 0x0
-	nonUniqueSubstitute  = 0xfe
-	nonUniqueSubstitute2 = 0xfd
+	// nonUniqueSeparator is the byte that delimits the secondary and primary keys.
+	// It has to be 0x00 for correct ordering, e.g. if secondary prefix is "ab",
+	// then it must hold that "ab<sep>" < "abc<sep>", which is only possible if sep=0x00.
+	nonUniqueSeparator = 0x00
+
+	// nonUniqueSubstitute is the byte that is used to escape 0x00 and 0x01 in
+	// order to make sure the non-unique key has only a single 0x00 byte that is
+	// the separator.
+	nonUniqueSubstitute = 0x01
 )
 
-// appendEncodePrimary encodes the 'src' (primary key) into 'dst'.
-func appendEncodePrimary(dst, src []byte) []byte {
+// appendEncode encodes the 'src' into 'dst'.
+func appendEncode(dst, src []byte) (int, []byte) {
+	n := 0
 	for _, b := range src {
 		switch b {
 		case nonUniqueSeparator:
-			dst = append(dst, nonUniqueSubstitute)
+			dst = append(dst, nonUniqueSubstitute, 0x01)
+			n += 2
 		case nonUniqueSubstitute:
-			dst = append(dst, nonUniqueSubstitute2, 0x00)
-		case nonUniqueSubstitute2:
-			dst = append(dst, nonUniqueSubstitute2, 0x01)
+			dst = append(dst, nonUniqueSubstitute, 0x02)
+			n += 2
 		default:
 			dst = append(dst, b)
+			n++
 		}
 	}
-	return dst
+	return n, dst
+}
+
+func encodedLength(src []byte) int {
+	n := len(src)
+	for _, b := range src {
+		if b == nonUniqueSeparator || b == nonUniqueSubstitute {
+			n++
+		}
+	}
+	return n
+}
+
+func encodeNonUniqueBytes(src []byte) []byte {
+	n := encodedLength(src)
+	if n == len(src) {
+		// No substitutions needed.
+		return src
+	}
+	_, out := appendEncode(make([]byte, 0, n), src)
+	return out
 }
 
 // encodeNonUniqueKey constructs the internal key to use with non-unique indexes.
-// The key is constructed by concatenating the secondary key with the primary key
-// along with the secondary key length. The secondary and primary key are separated
-// with by a 0x0 to ensure ordering is defined by the secondary key. To make sure the
-// separator does not appear in the primary key it is encoded using this schema:
-//
-//	0x0 => 0xfe, 0xfe => 0xfd00, 0xfd => 0xfd01
-//
-// The schema tries to avoid expansion for encoded small integers, e.g. 0x0000 becomes 0xfefe.
-// The length at the end is encoded as unsigned 16-bit big endian.
 //
 // This schema allows looking up from the non-unique index with the secondary key by
 // doing a prefix search. The length is used to safe-guard against indexers that don't
@@ -400,27 +417,38 @@ func appendEncodePrimary(dst, src []byte) []byte {
 // "foobar" to match).
 func encodeNonUniqueKey(primary, secondary index.Key) []byte {
 	key := make([]byte, 0,
-		len(secondary)+1 /* separator */ +
-			len(primary)+
-			2 /* space for few substitutions */ +
-			2 /* length */)
-	key = append(key, secondary...)
-	key = append(key, nonUniqueSeparator)
-	key = appendEncodePrimary(key, primary)
-	// KeySet limits size of key to 16 bits.
-	return binary.BigEndian.AppendUint16(key, uint16(len(secondary)))
+		encodedLength(secondary)+
+			1 /* delimiter */ +
+			encodedLength(primary)+
+			2 /* primary length */)
+
+	_, key = appendEncode(key, secondary)
+	key = append(key, 0x00)
+	primaryLen, key := appendEncode(key, primary)
+	return binary.BigEndian.AppendUint16(key, uint16(primaryLen))
 }
 
-func decodeNonUniqueKey(key []byte) (secondary []byte, encPrimary []byte) {
-	// Non-unique key is [<secondary...>, '\xfe', <encoded primary...>, <secondary length>]
-	if len(key) < 2 {
-		return nil, nil
+type nonUniqueKey []byte
+
+func (k nonUniqueKey) primaryLen() int {
+	// Non-unique key is [<secondary...>, 0x00, <primary...>, <primary length>]
+	if len(k) <= 3 {
+		return 0
 	}
-	secondaryLength := int(binary.BigEndian.Uint16(key[len(key)-2:]))
-	if len(key) < secondaryLength {
-		return nil, nil
-	}
-	return key[:secondaryLength], key[secondaryLength+1 : len(key)-2]
+	return int(binary.BigEndian.Uint16(k[len(k)-2:]))
+}
+
+func (k nonUniqueKey) secondaryLen() int {
+	return len(k) - k.primaryLen() - 3
+}
+
+func (k nonUniqueKey) encodedPrimary() []byte {
+	primaryLen := k.primaryLen()
+	return k[len(k)-2-primaryLen : len(k)-2]
+}
+
+func (k nonUniqueKey) encodedSecondary() []byte {
+	return k[:k.secondaryLen()]
 }
 
 func (txn *txn) Abort() {
@@ -570,29 +598,48 @@ func (txn *txn) Commit() ReadTxn {
 	return txn
 }
 
-func writeTableAsJSON(buf *bufio.Writer, txn *txn, table *tableEntry) error {
+func marshalJSON(data any) (out []byte) {
+	// Catch panics from JSON marshalling to ensure we have some output for debugging
+	// purposes even if the object has panicing JSON marshalling.
+	defer func() {
+		if r := recover(); r != nil {
+			out = []byte(fmt.Sprintf("\"panic marshalling JSON: %.32s\"", r))
+		}
+	}()
+	bs, err := json.Marshal(data)
+	if err != nil {
+		return []byte("\"marshalling error: " + err.Error() + "\"")
+	}
+	return bs
+}
+
+func writeTableAsJSON(buf *bufio.Writer, txn *txn, table *tableEntry) (err error) {
 	indexTxn := txn.mustIndexReadTxn(table.meta, PrimaryIndexPos)
 	iter := indexTxn.Iterator()
 
-	buf.WriteString("  \"" + table.meta.Name() + "\": [\n")
+	writeString := func(s string) {
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(s)
+	}
+	writeString("  \"" + table.meta.Name() + "\": [\n")
 
 	_, obj, ok := iter.Next()
 	for ok {
-		buf.WriteString("    ")
-		bs, err := json.Marshal(obj.data)
-		if err != nil {
+		writeString("    ")
+		if _, err := buf.Write(marshalJSON(obj.data)); err != nil {
 			return err
 		}
-		buf.Write(bs)
 		_, obj, ok = iter.Next()
 		if ok {
-			buf.WriteString(",\n")
+			writeString(",\n")
 		} else {
-			buf.WriteByte('\n')
+			writeString("\n")
 		}
 	}
-	buf.WriteString("  ]")
-	return nil
+	writeString("  ]")
+	return
 }
 
 // WriteJSON marshals out the database as JSON into the given writer.
@@ -613,8 +660,7 @@ func (txn *txn) WriteJSON(w io.Writer, tables ...string) error {
 			first = false
 		}
 
-		err := writeTableAsJSON(buf, txn, &table)
-		if err != nil {
+		if err := writeTableAsJSON(buf, txn, &table); err != nil {
 			return err
 		}
 	}

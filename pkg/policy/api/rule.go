@@ -140,28 +140,24 @@ type Rule struct {
 // enforce omitempty on the EndpointSelector nested structures.
 func (r *Rule) MarshalJSON() ([]byte, error) {
 	type common struct {
-		Ingress           []IngressRule      `json:"ingress,omitempty"`
-		IngressDeny       []IngressDenyRule  `json:"ingressDeny,omitempty"`
-		Egress            []EgressRule       `json:"egress,omitempty"`
-		EgressDeny        []EgressDenyRule   `json:"egressDeny,omitempty"`
-		Labels            labels.LabelArray  `json:"labels,omitempty"`
-		EnableDefaultDeny *DefaultDenyConfig `json:"enableDefaultDeny,omitempty"`
-		Description       string             `json:"description,omitempty"`
+		Ingress           []IngressRule     `json:"ingress,omitempty"`
+		IngressDeny       []IngressDenyRule `json:"ingressDeny,omitempty"`
+		Egress            []EgressRule      `json:"egress,omitempty"`
+		EgressDeny        []EgressDenyRule  `json:"egressDeny,omitempty"`
+		Labels            labels.LabelArray `json:"labels,omitempty"`
+		EnableDefaultDeny DefaultDenyConfig `json:"enableDefaultDeny,omitzero"`
+		Description       string            `json:"description,omitempty"`
 	}
 
-	var a interface{}
+	var a any
 	ruleCommon := common{
-		Ingress:     r.Ingress,
-		IngressDeny: r.IngressDeny,
-		Egress:      r.Egress,
-		EgressDeny:  r.EgressDeny,
-		Labels:      r.Labels,
-		Description: r.Description,
-	}
-
-	// TODO: convert this to `omitzero` when Go v1.24 is released
-	if r.EnableDefaultDeny.Egress != nil || r.EnableDefaultDeny.Ingress != nil {
-		ruleCommon.EnableDefaultDeny = &r.EnableDefaultDeny
+		Ingress:           r.Ingress,
+		IngressDeny:       r.IngressDeny,
+		Egress:            r.Egress,
+		EgressDeny:        r.EgressDeny,
+		Labels:            r.Labels,
+		EnableDefaultDeny: r.EnableDefaultDeny,
+		Description:       r.Description,
 	}
 
 	// Only one of endpointSelector or nodeSelector is permitted.

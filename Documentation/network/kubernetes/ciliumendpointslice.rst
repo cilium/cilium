@@ -98,31 +98,9 @@ Configuration Options
 Several options are available to adjust the performance and behavior of the CES feature:
 
 * You can configure the way CEPs are batched into CES by changing the maximum number of CEPs in a
-  CES (``--ces-max-cilium-endpoints-per-ces``) or by changing the way CEPs are grouped into CES (``--ces-slice-mode``).
-  Right now two modes are supported: ``identity`` which groups CEPs based on :ref:`security_identities`
-  and ``fcfs`` which groups CEPs on a "First Come, First Served" basis.
+  CES (``--ces-max-cilium-endpoints-per-ces``).
 
 * You can also fine-tune rate-limiting settings for the Operator communications with the API-server. Refer to the ``--ces-*`` flags for the ``cilium-operator`` binary.
 
 * You can annotate priority namespaces by setting annotation ``cilium.io/ces-namespace`` to the value “priority”. When dealing with large clusters, the propagation of changes during Network Policy updates can be significantly delayed.
   When namespace's annotation ``cilium.io/ces-namespace`` is set to "priority", the updates from this namespace will be processed before non-priority updates. This allows to quicker enforce updated network policy in critical namespaces.
-
-Known Issues and Workarounds
-============================
-
-Potential Race Condition when Identity of an Existing Endpoint Changes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-When there's an identity change for any existing resource without the pods being re-created
-(this can happen when the namespace labels change), in a very unlikely situation, the endpoints that
-undergo this change might experience connection disruption.
-
-Root cause for this potential disruption is that when identity of CEPs
-change, the operator will try to re-group/re-batch them into a different
-set of CESs. This breaks the atomic operation of an UPGRADE into that of
-an DELETE and an ADD. If the agent gets the DELETE (from old CES) first,
-it will remove the corresponding CEP's information from the ipcache,
-resulting in traffic to/from said CEP with an UNKNOWN identity.
-
-In current implementation, Cilium adds a delay (default: 1s) before sending
-out the DELETE event. This should greatly reduce the probability of
-connection disruption in most cases.

@@ -6,6 +6,7 @@ package gateway_api
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -134,13 +135,7 @@ func (r *gammaHttpRouteReconciler) hasGammaParent() func(object client.Object) b
 			return false
 		}
 
-		for _, parent := range hr.Spec.ParentRefs {
-			if helpers.IsGammaService(parent) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(hr.Spec.ParentRefs, helpers.IsGammaService)
 	}
 }
 
@@ -162,7 +157,10 @@ func (r *gammaHttpRouteReconciler) enqueueRequestForGammaService() handler.Event
 
 func (r *gammaHttpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, gammaHTTPRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, gammaHTTPRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
@@ -189,7 +187,10 @@ func (r *gammaHttpRouteReconciler) enqueueFromIndex(index string) handler.MapFun
 
 func (r *gammaHttpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, gammaHTTPRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, gammaHTTPRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 
 		hrList := &gatewayv1.HTTPRouteList{}
 

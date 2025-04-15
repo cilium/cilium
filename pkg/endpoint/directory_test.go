@@ -39,7 +39,7 @@ func TestMoveNewFilesTo(t *testing.T) {
 		for _, file := range files {
 			filesNames = append(filesNames, file.Name())
 		}
-		require.EqualValues(t, wantedFiles, filesNames)
+		require.Equal(t, wantedFiles, filesNames)
 	}
 
 	type args struct {
@@ -85,7 +85,7 @@ func benchmarkMoveNewFilesTo(b *testing.B, numFiles int) {
 	newDir := b.TempDir()
 	numDuplicates := int(math.Round(float64(numFiles) * 0.25))
 
-	for n := 0; n < numFiles; n++ {
+	for n := range numFiles {
 		name := fmt.Sprintf("file%d", n)
 		if err := os.WriteFile(filepath.Join(oldDir, name), []byte{}, os.FileMode(0644)); err != nil {
 			b.Fatal(err)
@@ -98,8 +98,7 @@ func benchmarkMoveNewFilesTo(b *testing.B, numFiles int) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := copyExistingState(oldDir, newDir); err != nil {
 			b.Fatal(err)
 		}

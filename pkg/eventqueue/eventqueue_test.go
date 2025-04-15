@@ -18,7 +18,7 @@ func TestNewEventQueue(t *testing.T) {
 	require.NotNil(t, q.close)
 	require.NotNil(t, q.events)
 	require.NotNil(t, q.drain)
-	require.Equal(t, "", q.name)
+	require.Empty(t, q.name)
 	require.Equal(t, 1, cap(q.events))
 }
 
@@ -80,7 +80,7 @@ func TestNewEvent(t *testing.T) {
 
 type DummyEvent struct{}
 
-func (d *DummyEvent) Handle(ifc chan interface{}) {
+func (d *DummyEvent) Handle(ifc chan any) {
 	ifc <- struct{}{}
 }
 
@@ -106,7 +106,7 @@ type NewHangEvent struct {
 	processed bool
 }
 
-func (n *NewHangEvent) Handle(ifc chan interface{}) {
+func (n *NewHangEvent) Handle(ifc chan any) {
 	<-n.Channel
 	n.processed = true
 	ifc <- struct{}{}
@@ -137,7 +137,7 @@ func TestDrain(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		rcvChan <-chan interface{}
+		rcvChan <-chan any
 		err2    error
 	)
 

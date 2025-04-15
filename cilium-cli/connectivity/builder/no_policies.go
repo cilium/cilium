@@ -20,7 +20,6 @@ func (t noPolicies) build(ct *check.ConnectivityTest, _ map[string]string) {
 			tests.PodToWorld(tests.WithRetryAll()),
 			tests.PodToHost(),
 			tests.HostToPod(),
-			tests.PodToExternalWorkload(),
 			tests.PodToCIDR(tests.WithRetryAll()),
 		)
 }

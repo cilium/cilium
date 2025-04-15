@@ -19,7 +19,6 @@ cilium-operator-generic hive dot-graph [flags]
 ```
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
-      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
       --cluster-id uint32                                    Unique identifier of the cluster
       --cluster-name string                                  Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
@@ -46,8 +45,7 @@ cilium-operator-generic hive dot-graph [flags]
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-node-ipam                                     Enable Node IPAM
-      --enable-node-port                                     Enable NodePort type services by Cilium
-      --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)
+      --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
@@ -59,6 +57,7 @@ cilium-operator-generic hive dot-graph [flags]
       --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --identity-management-mode string                      Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
       --ingress-default-request-timeout duration             Default request timeout for Ingress.
       --ingress-default-secret-name string                   Default secret name for Ingress.
@@ -70,13 +69,12 @@ cilium-operator-generic hive dot-graph [flags]
       --ingress-lb-annotation-prefixes strings               Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
       --ingress-secrets-namespace string                     Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
-      --k8s-api-server string                                Kubernetes API server URL
+      --k8s-api-server-urls strings                          Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                        Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --loadbalancer-l7 string                               Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy
       --loadbalancer-l7-algorithm string                     Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                        List of service ports that will be automatically redirected to backend.

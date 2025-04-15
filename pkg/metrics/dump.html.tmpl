@@ -43,8 +43,9 @@ const samples = [
 const timespanMinutes = {{.IntervalSeconds}} / 60;
 let timeline = [];
 for (let i = 0; i < {{.NumSamples}}; i++) {
+    let minutes = Math.round(100.0*({{.NumSamples}}-i)*timespanMinutes)/100.0;
     timeline.push(
-        "-" + ({{.NumSamples}}-i)*timespanMinutes + "min",
+        "-" + minutes + "min",
     ); 
 }
 

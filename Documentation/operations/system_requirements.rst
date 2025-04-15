@@ -25,7 +25,7 @@ system must meet these requirements:
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
-- `clang+LLVM`_ >= 10.0
+- `clang+LLVM`_ >= 18.1
 
 .. _`clang+LLVM`: https://llvm.org
 
@@ -39,7 +39,7 @@ Requirement              Minimum Version                In cilium container
 ======================== ============================== ===================
 `Linux kernel`_          >= 5.4 or >= 4.18 on RHEL 8.6  no
 Key-Value store (etcd)   >= 3.1.0                       no
-clang+LLVM               >= 10.0                        yes
+clang+LLVM               >= 18.1                        yes
 ======================== ============================== ===================
 
 Architecture Support
@@ -179,6 +179,20 @@ default value), then you will need the following kernel configuration options.
         CONFIG_NETFILTER_XT_SET=m
         CONFIG_IP_SET=m
         CONFIG_IP_SET_HASH_IP=m
+        CONFIG_NETFILTER_XT_MATCH_COMMENT=m
+
+Requirements for Tunneling and Routing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cilium uses tunneling protocols like VXLAN by default for pod-to-pod communication
+across nodes, as well as policy routing for various traffic management functionality. 
+The following kernel configuration options are required for proper operation:
+
+::
+
+        CONFIG_VXLAN=y
+        CONFIG_GENEVE=y
+        CONFIG_FIB_RULES=y
 
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -318,7 +332,7 @@ clang+LLVM
 
 LLVM is the compiler suite that Cilium uses to generate eBPF bytecode programs
 to be loaded into the Linux kernel. The minimum supported version of LLVM
-available to ``cilium-agent`` should be >=5.0. The version of clang installed
+available to ``cilium-agent`` should be >=18.1. The version of clang installed
 must be compiled with the eBPF backend enabled.
 
 See https://releases.llvm.org/ for information on how to download and install

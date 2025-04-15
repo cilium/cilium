@@ -53,76 +53,37 @@ func Test_rotateIPsecKey(t *testing.T) {
 		{
 			haveAlgo: "",
 			haveKey: ipsecKey{
-				spi:       3,
-				spiSuffix: false,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
+				spi:  3,
+				algo: "rfc4106(gcm(aes))",
+				key:  "41049390e1e2b5d6543901daab6435f4042155fe",
+				size: 128,
 			},
 			expected: ipsecKey{
-				spi:       4,
-				spiSuffix: false,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
+				spi:  4,
+				algo: "rfc4106(gcm(aes))",
+				key:  "41049390e1e2b5d6543901daab6435f4042155fe",
+				size: 128,
 			},
 		},
 		{
 			haveAlgo: "",
 			haveKey: ipsecKey{
-				spi:       16,
-				spiSuffix: false,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
+				spi:  16,
+				algo: "rfc4106(gcm(aes))",
+				key:  "41049390e1e2b5d6543901daab6435f4042155fe",
+				size: 128,
 			},
 			expected: ipsecKey{
-				spi:       1,
-				spiSuffix: false,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
-			},
-		},
-		{
-			haveAlgo: "",
-			haveKey: ipsecKey{
-				spi:       3,
-				spiSuffix: true,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
-			},
-			expected: ipsecKey{
-				spi:       4,
-				spiSuffix: true,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
-			},
-		},
-		{
-			haveAlgo: "",
-			haveKey: ipsecKey{
-				spi:       16,
-				spiSuffix: true,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
-			},
-			expected: ipsecKey{
-				spi:       1,
-				spiSuffix: true,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
+				spi:  1,
+				algo: "rfc4106(gcm(aes))",
+				key:  "41049390e1e2b5d6543901daab6435f4042155fe",
+				size: 128,
 			},
 		},
 		{
 			haveAlgo: "",
 			haveKey: ipsecKey{
 				spi:        3,
-				spiSuffix:  false,
 				algo:       "hmac(sha256)",
 				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
 				cipherMode: "cbc(aes)",
@@ -130,7 +91,6 @@ func Test_rotateIPsecKey(t *testing.T) {
 			},
 			expected: ipsecKey{
 				spi:        4,
-				spiSuffix:  false,
 				algo:       "hmac(sha256)",
 				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
 				cipherMode: "cbc(aes)",
@@ -141,7 +101,6 @@ func Test_rotateIPsecKey(t *testing.T) {
 			haveAlgo: "",
 			haveKey: ipsecKey{
 				spi:        16,
-				spiSuffix:  false,
 				algo:       "hmac(sha256)",
 				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
 				cipherMode: "cbc(aes)",
@@ -149,45 +108,6 @@ func Test_rotateIPsecKey(t *testing.T) {
 			},
 			expected: ipsecKey{
 				spi:        1,
-				spiSuffix:  false,
-				algo:       "hmac(sha256)",
-				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
-				cipherMode: "cbc(aes)",
-				cipherKey:  "0f12337d9ee75095ff21402dc98476f5f9107261073b70bb37747237d2691d3e",
-			},
-		},
-		{
-			haveAlgo: "",
-			haveKey: ipsecKey{
-				spi:        3,
-				spiSuffix:  true,
-				algo:       "hmac(sha256)",
-				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
-				cipherMode: "cbc(aes)",
-				cipherKey:  "0f12337d9ee75095ff21402dc98476f5f9107261073b70bb37747237d2691d3e",
-			},
-			expected: ipsecKey{
-				spi:        4,
-				spiSuffix:  true,
-				algo:       "hmac(sha256)",
-				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
-				cipherMode: "cbc(aes)",
-				cipherKey:  "0f12337d9ee75095ff21402dc98476f5f9107261073b70bb37747237d2691d3e",
-			},
-		},
-		{
-			haveAlgo: "",
-			haveKey: ipsecKey{
-				spi:        16,
-				spiSuffix:  true,
-				algo:       "hmac(sha256)",
-				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
-				cipherMode: "cbc(aes)",
-				cipherKey:  "0f12337d9ee75095ff21402dc98476f5f9107261073b70bb37747237d2691d3e",
-			},
-			expected: ipsecKey{
-				spi:        1,
-				spiSuffix:  true,
 				algo:       "hmac(sha256)",
 				key:        "e6b4bab427cd37bb64b39cd66a8476a62963174b78bc544fb525f4c2f548342b",
 				cipherMode: "cbc(aes)",
@@ -197,26 +117,22 @@ func Test_rotateIPsecKey(t *testing.T) {
 		{
 			haveAlgo: "gcm-aes",
 			haveKey: ipsecKey{
-				spi:       16,
-				spiSuffix: true,
+				spi: 16,
 			},
 			expected: ipsecKey{
-				spi:       1,
-				spiSuffix: true,
-				algo:      "rfc4106(gcm(aes))",
-				key:       "41049390e1e2b5d6543901daab6435f4042155fe",
-				size:      128,
+				spi:  1,
+				algo: "rfc4106(gcm(aes))",
+				key:  "41049390e1e2b5d6543901daab6435f4042155fe",
+				size: 128,
 			},
 		},
 		{
 			haveAlgo: "hmac-sha256",
 			haveKey: ipsecKey{
-				spi:       3,
-				spiSuffix: true,
+				spi: 3,
 			},
 			expected: ipsecKey{
 				spi:        4,
-				spiSuffix:  true,
 				algo:       "hmac(sha256)",
 				key:        "a9d204b6c2df6f0b707bbfdb71b4bd44",
 				cipherMode: "cbc(aes)",
@@ -226,12 +142,10 @@ func Test_rotateIPsecKey(t *testing.T) {
 		{
 			haveAlgo: "hmac-sha512",
 			haveKey: ipsecKey{
-				spi:       4,
-				spiSuffix: true,
+				spi: 4,
 			},
 			expected: ipsecKey{
 				spi:        5,
-				spiSuffix:  true,
 				algo:       "hmac(sha512)",
 				key:        "8b4d92bf9396e7febb4d51e87394bb158ebcc0d9d57e4da8e938b0e931223ec7",
 				cipherMode: "cbc(aes)",
@@ -246,10 +160,9 @@ func Test_rotateIPsecKey(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, tt.expected.spi, actual.spi)
-		require.Equal(t, tt.expected.spiSuffix, actual.spiSuffix)
 		require.Equal(t, tt.expected.algo, actual.algo)
-		require.Equal(t, len(tt.expected.key), len(actual.key))
-		require.Equal(t, len(tt.expected.cipherKey), len(actual.cipherKey))
+		require.Len(t, actual.key, len(tt.expected.key))
+		require.Len(t, actual.cipherKey, len(tt.expected.cipherKey))
 		require.Equal(t, tt.expected.size, actual.size)
 		require.Equal(t, tt.expected.cipherMode, actual.cipherMode)
 		if tt.expected.cipherMode == "" {

@@ -6,12 +6,12 @@ package mcsapi
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -42,14 +42,14 @@ const (
 // since we have all the info here to do so.
 type mcsAPIServiceImportReconciler struct {
 	client.Client
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	cluster                    string
 	globalServiceExports       *operator.GlobalServiceExportCache
 	remoteClusterServiceSource *remoteClusterServiceExportSource
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
@@ -234,9 +234,7 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort
 
 func getServiceImportStatus(svcExportByCluster operator.ServiceExportsByCluster) mcsapiv1alpha1.ServiceImportStatus {
 	clusters := []mcsapiv1alpha1.ClusterStatus{}
-	clusterNames := slices.Collect(maps.Keys(svcExportByCluster))
-	slices.Sort(clusterNames)
-	for _, cluster := range clusterNames {
+	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
 		clusters = append(clusters, mcsapiv1alpha1.ClusterStatus{
 			Cluster: cluster,
 		})
@@ -321,8 +319,10 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 			}
 
 			conflictCount := 1
-			if i+1 < len(orderedSvcExports) {
-				for _, otherSvcExport := range orderedSvcExports[i+1:] {
+			// The iterator "i" ranges from the second element in the array which means
+			// we have to look for i+2 to process the next element
+			if i+2 < len(orderedSvcExports) {
+				for _, otherSvcExport := range orderedSvcExports[i+2:] {
 					if !fieldStruct.equalFunc(orderedSvcExports[0], otherSvcExport) {
 						conflictCount += 1
 					}
@@ -534,7 +534,7 @@ func (r *mcsAPIServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error
 // needed by a regular controller-runtime controller. This prevents us from
 // implementing a more complicated/hands-on pattern of controller.
 type remoteClusterServiceExportSource struct {
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	ctx   context.Context
 	queue workqueue.TypedRateLimitingInterface[ctrl.Request]
@@ -549,9 +549,11 @@ func (s *remoteClusterServiceExportSource) onClusterServiceExportEvent(svcExport
 	}
 
 	s.Logger.
-		WithField(logfields.K8sNamespace, svcExport.Namespace).
-		WithField("ServiceExport", svcExport.Name).
-		Debug("Queueing update from remote cluster")
+		Debug(
+			"Queueing update from remote cluster",
+			logfields.K8sNamespace, svcExport.Namespace,
+			logfields.K8sExportName, svcExport.Name,
+		)
 	s.queue.Add(ctrl.Request{NamespacedName: types.NamespacedName{
 		Name:      svcExport.Name,
 		Namespace: svcExport.Namespace,

@@ -6,11 +6,13 @@ package utime
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -59,12 +61,13 @@ func (t UTime) String() string {
 }
 
 type utimeController struct {
+	logger    *slog.Logger
 	configMap configmap.Map
 	offset    UTime
 }
 
 func (u *utimeController) sync() error {
-	offset := getCurrentUTimeOffset()
+	offset := getCurrentUTimeOffset(u.logger)
 	if offset != u.offset {
 		if err := u.configMap.Update(configmap.UTimeOffset, uint64(offset)); err != nil {
 			return fmt.Errorf("failed to update utime offset: %w", err)
@@ -75,11 +78,14 @@ func (u *utimeController) sync() error {
 }
 
 // getCurrentUTimeOffset returns the current time offset to be configured for the datapath
-func getCurrentUTimeOffset() UTime {
+func getCurrentUTimeOffset(logger *slog.Logger) UTime {
 	// boottime is in seconds since Unix epoch, delta is clock drift in nanoseconds
 	boottime, err := getBoottime()
 	if err != nil {
-		log.WithError(err).Errorf("Error getting boot time from %s", btimeInfoFilepath)
+		logger.Error("Error getting boot time from file",
+			logfields.File, btimeInfoFilepath,
+			logfields.Error, err,
+		)
 	}
 	return TimeToUTime(boottime)
 }
@@ -114,7 +120,7 @@ func getBoottime() (t time.Time, err error) {
 	defer runtime.UnlockOSThread()
 	// Keep the minimum difference out of 10 samples to estimate the drift between boottime and
 	// monotonic clocks at the time this call.
-	for i := 0; i < nClockSamples; i++ {
+	for range nClockSamples {
 		var monotonicTimespec unix.Timespec
 		err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &monotonicTimespec)
 		if err != nil {

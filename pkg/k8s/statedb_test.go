@@ -261,7 +261,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 						Name:           "test",
 						Table:          tbl,
 						BufferSize:     10,
-						BufferWaitTime: time.Millisecond,
+						BufferWaitTime: 10 * time.Millisecond,
 						ListerWatcher:  lw,
 						Transform:      transformFunc,
 						TransformMany:  transformManyFunc,
@@ -353,6 +353,30 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	require.Equal(t, obj1Name, objs[0].Name)
 	require.Equal(t, obj2Name, objs[1].Name)
 
+	// Update the nodes back to back. The ordering must be retained even when
+	// the changes land in the same buffer.
+	for i := range 10 {
+		fst := i%2 == 0
+		if fst {
+			lw.Upsert(obj.DeepCopy())
+			lw.Upsert(node2.DeepCopy())
+		} else {
+			lw.Upsert(node2.DeepCopy())
+			lw.Upsert(obj.DeepCopy())
+		}
+		<-watch
+		iter, watch = table.LowerBoundWatch(db.ReadTxn(), statedb.ByRevision[*testObject](0))
+		objs = statedb.Collect(iter)
+		require.Len(t, objs, 2)
+		if fst {
+			require.Equal(t, obj1Name, objs[0].Name)
+			require.Equal(t, obj2Name, objs[1].Name)
+		} else {
+			require.Equal(t, obj2Name, objs[0].Name)
+			require.Equal(t, obj1Name, objs[1].Name)
+		}
+	}
+
 	// Finally delete the nodes
 	lw.Delete(obj)
 
@@ -360,7 +384,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	iter, watch = table.AllWatch(db.ReadTxn())
 	objs = statedb.Collect(iter)
 	require.Len(t, objs, 1)
-	require.EqualValues(t, obj2Name, objs[0].Name)
+	require.Equal(t, obj2Name, objs[0].Name)
 
 	lw.Delete(node2)
 
@@ -555,10 +579,8 @@ func BenchmarkStateDBReflector(b *testing.B) {
 		objs[i] = obj
 	}
 
-	b.ResetTimer()
-
 	// Do n rounds of upserting and deleting [numObjects] to benchmark the throughput
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		for _, obj := range objs {
 			lw.Upsert(obj.DeepCopy())
 		}

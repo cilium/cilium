@@ -6,7 +6,7 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table 
@@ -15,34 +15,26 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
 # Cleanup
-k8s delete service.yaml endpointslice.yaml 
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+k8s/delete service.yaml endpointslice.yaml
+
+# Maps and tables should be empty
+* db/empty services frontends backends
+* lb/maps-empty
 
 #####
 
 -- services.table --
-Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster                              0                     false              10.0.0.0/8
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster         SourceRanges=10.0.0.0/8
 
 -- frontends.table --
-Address               Type          ServiceName   PortName   Backends                     Status
-10.0.0.1:80/TCP       ClusterIP     test/echo     http       10.244.1.1:80/TCP (active)   Done
-10.0.0.2:80/TCP       LoadBalancer  test/echo     http       10.244.1.1:80/TCP (active)   Done
+Address               Type          ServiceName   PortName   Backends            Status
+10.0.0.1:80/TCP       ClusterIP     test/echo     http       10.244.1.1:80/TCP   Done
+10.0.0.2:80/TCP       LoadBalancer  test/echo     http       10.244.1.1:80/TCP   Done
 
 -- backends.table --
-Address             State    Instances          NodeName          ZoneID
-10.244.1.1:80/TCP   active   test/echo (http)   nodeport-worker   0
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address             State    Instances            NodeName           ZoneID
+Address             Instances          NodeName
+10.244.1.1:80/TCP   test/echo (http)   nodeport-worker
 
 -- service.yaml --
 apiVersion: v1
@@ -117,7 +109,7 @@ REV: ID=1 ADDR=10.0.0.1:80
 REV: ID=2 ADDR=10.0.0.2:80
 SRCRANGE: ID=1 CIDR=10.0.0.0/8
 SRCRANGE: ID=2 CIDR=10.0.0.0/8
-SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
 SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
-SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+check source-range
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+check source-range
 SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+check source-range

@@ -6,11 +6,10 @@ package nodediscovery
 import (
 	"context"
 	"errors"
-	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +24,6 @@ import (
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -92,60 +90,6 @@ func NewNodeDiscovery(
 		ctrlmgr:               controller.NewManager(),
 		k8sGetters:            k8sNodeWatcher,
 	}
-}
-
-// JoinCluster passes the node name to the kvstore and updates the local configuration on response.
-// This allows cluster configuration to override local configuration.
-// Must be called on agent startup after IPAM is configured, but before the configuration is used.
-// nodeName is the name to be used in the local agent.
-func (n *NodeDiscovery) JoinCluster(nodeName string) error {
-	var resp *nodeTypes.Node
-	maxRetryCount := 50
-	retryCount := 0
-	for retryCount < maxRetryCount {
-		log.WithFields(
-			logrus.Fields{
-				logfields.Node: nodeName,
-			}).Info("Joining local node to cluster")
-
-		var err error
-		if resp, err = n.Registrar.JoinCluster(nodeName); err != nil || resp == nil {
-			if retryCount >= maxRetryCount {
-				log.Fatalf("Unable to join cluster")
-			}
-			retryCount++
-			log.WithError(err).Error("Unable to initialize local node. Retrying...")
-			time.Sleep(time.Second)
-		} else {
-			break
-		}
-	}
-
-	if option.Config.ClusterID != resp.ClusterID {
-		return fmt.Errorf("remote ClusterID (%d) does not match the locally configured one (%d)", resp.ClusterID, option.Config.ClusterID)
-	}
-
-	if option.Config.ClusterName != resp.Cluster {
-		return fmt.Errorf("remote ClusterName (%s) does not match the locally configured one (%s)", resp.Cluster, option.Config.ClusterName)
-	}
-
-	n.localNodeStore.Update(func(ln *node.LocalNode) {
-		ln.Labels = maps.Clone(ln.Labels)
-		maps.Copy(ln.Labels, resp.Labels)
-
-		if resp.IPv4AllocCIDR != nil {
-			ln.IPv4AllocCIDR = resp.IPv4AllocCIDR
-		}
-		if resp.IPv6AllocCIDR != nil {
-			ln.IPv6AllocCIDR = resp.IPv6AllocCIDR
-		}
-
-		ln.NodeIdentity = resp.NodeIdentity
-	})
-
-	identity.SetLocalNodeID(resp.NodeIdentity)
-
-	return nil
 }
 
 // start configures the local node and starts node discovery. This is called on
@@ -222,7 +166,7 @@ func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
 }
 
 func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
-	if option.Config.KVStore != "" && !option.Config.JoinCluster {
+	if option.Config.KVStore != "" {
 		n.ctrlmgr.UpdateController(
 			"propagating local node change to kv-store",
 			controller.ControllerParams{
@@ -276,7 +220,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 
 	performGet := true
 	var nodeResource *ciliumv2.CiliumNode
-	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+	for retryCount := range maxRetryCount {
 		performUpdate := true
 		if performGet {
 			var err error
@@ -441,9 +385,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		// are not conflicting with each other, we must have similar logic to
 		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = vpcID
-		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
-		nodeResource.Spec.ENI.UsePrimaryAddress = getBool(defaults.UseENIPrimaryAddress)
-		nodeResource.Spec.ENI.DisablePrefixDelegation = getBool(defaults.ENIDisableNodeLevelPD)
+		nodeResource.Spec.ENI.FirstInterfaceIndex = aws.Int(defaults.ENIFirstInterfaceIndex)
+		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(defaults.UseENIPrimaryAddress)
+		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(defaults.ENIDisableNodeLevelPD)
 
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -600,12 +544,4 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 	}
 
 	return nil
-}
-
-func getInt(i int) *int {
-	return &i
-}
-
-func getBool(b bool) *bool {
-	return &b
 }

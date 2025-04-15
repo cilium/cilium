@@ -204,7 +204,6 @@ run_tests() {
             -cilium.hubble-relay-image=quay.io/${quay_org}/hubble-relay-ci \
             -cilium.hubble-relay-tag=${commit_sha} \
             -cilium.kubeconfig=/root/.kube/config \
-            -cilium.provision-k8s=false \
             -cilium.operator-suffix=-ci \
             -cilium.holdEnvironment=true"
 }

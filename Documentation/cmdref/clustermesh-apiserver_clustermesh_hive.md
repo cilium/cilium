@@ -19,7 +19,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                    Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                        Enable debugging mode
-      --enable-external-workloads                    Enable support for external workloads (default true)
+      --enable-cilium-endpoint-slice                 Enables the CiliumEndpointSlice feature
       --enable-gops                                  Enable gops server (default true)
       --enable-k8s                                   Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                     Enable discovery of Kubernetes API groups and resources with the discovery API
@@ -27,7 +27,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --gops-port uint16                             Port for gops server to listen on (default 9892)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
   -h, --help                                         help for hive
-      --k8s-api-server string                        Kubernetes API server URL
+      --k8s-api-server-urls strings                  Kubernetes API server URLs
       --k8s-client-burst int                         Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration    Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration       Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

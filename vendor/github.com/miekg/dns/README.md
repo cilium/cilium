@@ -85,7 +85,8 @@ A not-so-up-to-date-list-that-may-be-actually-current:
 * https://github.com/wintbiit/NineDNS
 * https://linuxcontainers.org/incus/
 * https://ifconfig.es
-
+* https://github.com/zmap/zdns
+* https://framagit.org/bortzmeyer/check-soa
 
 Send pull request if you want to be listed here.
 
@@ -192,6 +193,9 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 * 9460 - Service Binding and Parameter Specification via the DNS
 * 9461 - Service Binding Mapping for DNS Servers
 * 9462 - Discovery of Designated Resolvers
+* 9460 - SVCB and HTTPS Records
+* 9606 - DNS Resolver Information
+* Draft - Compact Denial of Existence in DNSSEC
 
 ## Loosely Based Upon
 

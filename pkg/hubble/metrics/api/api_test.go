@@ -6,6 +6,7 @@ package api
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 
@@ -18,7 +19,7 @@ func TestDefaultRegistry(t *testing.T) {
 
 	assert.NotNil(t, registry)
 
-	registry.ConfigureHandlers(prometheusRegistry, &Config{
+	registry.ConfigureHandlers(hivetest.Logger(t), prometheusRegistry, &Config{
 		[]*MetricConfig{
 			{
 				Name:           "drop",
@@ -31,7 +32,7 @@ func TestDefaultRegistry(t *testing.T) {
 }
 
 func TestParseMetricOptions(t *testing.T) {
-	assert.EqualValues(t, &Config{
+	assert.Equal(t, &Config{
 		[]*MetricConfig{
 			{
 				Name:                 "a",
@@ -48,7 +49,7 @@ func TestParseMetricOptions(t *testing.T) {
 		},
 	}, ParseStaticMetricsConfig([]string{"a", "b"}),
 	)
-	assert.EqualValues(t, &Config{
+	assert.Equal(t, &Config{
 		[]*MetricConfig{
 			{
 				Name:           "a",
@@ -74,7 +75,7 @@ func TestParseMetricOptions(t *testing.T) {
 		},
 	}, ParseStaticMetricsConfig([]string{"a:1;2", "b"}),
 	)
-	assert.EqualValues(t, &Config{
+	assert.Equal(t, &Config{
 		[]*MetricConfig{
 			{
 				Name: "a",
@@ -109,7 +110,7 @@ func TestParseMetricOptions(t *testing.T) {
 		},
 	}, ParseStaticMetricsConfig([]string{"a:1;2", "b:3;4"}),
 	)
-	assert.EqualValues(t, &Config{
+	assert.Equal(t, &Config{
 		[]*MetricConfig{
 			{
 				Name: "http",

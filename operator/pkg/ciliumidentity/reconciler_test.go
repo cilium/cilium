@@ -6,6 +6,7 @@ package ciliumidentity
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"testing"
 	"time"
@@ -45,13 +46,13 @@ func (t testQueueOps) enqueueReconciliation(item QueuedItem, delay time.Duration
 	t.fakeWorkQueue[item.Key().String()] = true
 }
 
-func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reconciler, *testQueueOps, k8sClient.FakeClientset, func()) {
+func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reconciler, *testQueueOps, *k8sClient.FakeClientset, func()) {
 	var namespace resource.Resource[*slim_corev1.Namespace]
 	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumIdentity resource.Resource[*capi_v2.CiliumIdentity]
 	var ciliumEndpoint resource.Resource[*capi_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*capi_v2a1.CiliumEndpointSlice]
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 
 	h := hive.New(
 		k8sClient.FakeClientCell,
@@ -64,7 +65,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 			cepResource resource.Resource[*capi_v2.CiliumEndpoint],
 			cesResource resource.Resource[*capi_v2a1.CiliumEndpointSlice],
 		) error {
-			fakeClient = *c
+			fakeClient = c
 			namespace = nsResource
 			pod = podResource
 			ciliumIdentity = cidResource
@@ -97,9 +98,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 
 func testCreateCIDObj(id string, lbs map[string]string) *capi_v2.CiliumIdentity {
 	secLbs := make(map[string]string)
-	for k, v := range lbs {
-		secLbs[k] = v
-	}
+	maps.Copy(secLbs, lbs)
 
 	k := key.GetCIDKeyFromLabels(secLbs, labels.LabelSourceK8s)
 	secLbs = k.GetAsMap()

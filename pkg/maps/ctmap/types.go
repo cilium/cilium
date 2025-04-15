@@ -156,21 +156,6 @@ func (m mapType) maxEntries() int {
 	}
 }
 
-func (m mapType) bpfDefine() string {
-	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
-		return "CT_MAP_TCP4"
-	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
-		return "CT_MAP_TCP6"
-	case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
-		return "CT_MAP_ANY4"
-	case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
-		return "CT_MAP_ANY6"
-	default:
-		panic("Unexpected map type " + m.String())
-	}
-}
-
 type CTMapIPVersion int
 
 const (

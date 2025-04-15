@@ -16,10 +16,40 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/model"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+var defaultSamplerConfig = samplerConfig{
+	MetricsSamplingInterval: defaultSamplingInterval,
+}
+
+type samplerConfig struct {
+	MetricsSamplingInterval time.Duration
+}
+
+func (cfg samplerConfig) timeSpan() time.Duration {
+	return cfg.MetricsSamplingInterval * numSamples
+}
+
+func (cfg samplerConfig) Flags(flags *pflag.FlagSet) {
+	flags.Duration("metrics-sampling-interval", defaultSamplingInterval, "Set the internal metrics sampling interval")
+}
+
+// samplingExcludedPrefixes are the prefixes of metrics that we don't care about sampling as they're
+// either uninteresting or static over the runtime.
+var samplingExcludedPrefixes = []string{
+	"cilium_event_ts",
+	"cilium_feature_",
+}
+
+func excludedFromSampling(metricName string) bool {
+	return slices.ContainsFunc(samplingExcludedPrefixes, func(prefix string) bool {
+		return strings.HasPrefix(metricName, prefix)
+	})
+}
 
 // sampler periodically samples all metrics (enabled or not).
 // The sampled metrics can be inspected with the 'metrics' command.
@@ -29,33 +59,37 @@ import (
 type sampler struct {
 	reg              *Registry
 	log              *slog.Logger
+	cfg              samplerConfig
 	mu               lock.Mutex
 	metrics          map[metricKey]debugSamples
 	maxWarningLogged bool
 }
 
-func newSampler(log *slog.Logger, reg *Registry, jg job.Group) *sampler {
+func newSampler(log *slog.Logger, reg *Registry, jg job.Group, cfg samplerConfig) *sampler {
 	sampler := &sampler{
 		log:     log,
+		cfg:     cfg,
 		reg:     reg,
 		metrics: make(map[metricKey]debugSamples),
 	}
 	jg.Add(
 		job.OneShot("collect", sampler.collectLoop),
-		job.Timer("cleanup", sampler.cleanup, metricDeadDuration/2),
+		job.Timer("cleanup", sampler.cleanup, cfg.timeSpan()/2),
 	)
 	return sampler
 }
 
 const (
-	// Sample every 5 minutes and keep 2 hours of samples.
-	samplingInterval = 5 * time.Minute
-	// if you change this, fix m*Index below.
-	samplingTimeSpan = 2 * time.Hour
-	numSamples       = int(samplingTimeSpan / samplingInterval) // 24 samples
-	m30Index         = numSamples/4 - 1
-	m60Index         = numSamples/2 - 1
-	m120Index        = numSamples - 1
+	// Number of samples per metric we want to keep.
+	numSamples = 24
+
+	// The interval at which we collect samples.
+	// 24 * 5min = 2 hours.
+	defaultSamplingInterval = 5 * time.Minute
+
+	quarterIndex = numSamples/4 - 1
+	halfIndex    = numSamples/2 - 1
+	lastIndex    = numSamples - 1
 
 	// Cap the number of metrics we keep around to put an upper limit on memory usage.
 	// As there's way fewer histograms than gauges or counters, we can roughly estimate
@@ -70,10 +104,6 @@ const (
 	// sizeof(gaugeOrCounterSamples): sizeof(baseSamples) + sizeof(sampleRing) + 8 = 164
 	// See also TestSamplerMaxMemoryUsage.
 	maxSampledMetrics = 2000
-
-	// The amount of time that has to pass before a sampled metric is considered
-	// dead/unregistered. Once passed the sampled data is dropped.
-	metricDeadDuration = samplingInterval * time.Duration(numSamples)
 )
 
 // metricKey identifies a single metric. We are relying on the fact that
@@ -191,12 +221,12 @@ func (g *gaugeOrCounterSamples) getJSON() JSONSamples {
 	}
 }
 
-func (g *gaugeOrCounterSamples) get() (m1, m30, m60, m120 string) {
+func (g *gaugeOrCounterSamples) get() (zero, quarter, half, last string) {
 	samples := g.samples.grab()
 	return prettyValue(float64(samples[0])),
-		prettyValue(float64(samples[m30Index])),
-		prettyValue(float64(samples[m60Index])),
-		prettyValue(float64(samples[m120Index]))
+		prettyValue(float64(samples[quarterIndex])),
+		prettyValue(float64(samples[halfIndex])),
+		prettyValue(float64(samples[lastIndex]))
 }
 
 type histogramSamples struct {
@@ -207,7 +237,7 @@ type histogramSamples struct {
 	isSeconds     bool
 }
 
-func (h *histogramSamples) get() (m5, m30, m60, m120 string) {
+func (h *histogramSamples) get() (zero, quarter, half, last string) {
 	suffix := ""
 	if h.isSeconds {
 		suffix = "s"
@@ -220,10 +250,10 @@ func (h *histogramSamples) get() (m5, m30, m60, m120 string) {
 	}
 	p50, p90, p99 := h.p50.grab(), h.p90.grab(), h.p99.grab()
 
-	m5 = pretty(p50[0], p90[0], p99[0])
-	m30 = pretty(p50[m30Index], p90[m30Index], p99[m30Index])
-	m60 = pretty(p50[m60Index], p90[m60Index], p99[m60Index])
-	m120 = pretty(p50[m120Index], p90[m120Index], p99[m120Index])
+	zero = pretty(p50[0], p90[0], p99[0])
+	quarter = pretty(p50[quarterIndex], p90[quarterIndex], p99[quarterIndex])
+	half = pretty(p50[halfIndex], p90[halfIndex], p99[halfIndex])
+	last = pretty(p50[lastIndex], p90[lastIndex], p99[lastIndex])
 	return
 }
 
@@ -258,7 +288,7 @@ func (dc *sampler) cleanup(ctx context.Context) error {
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
 	for k, s := range dc.metrics {
-		if time.Since(s.getUpdatedAt()) > metricDeadDuration {
+		if time.Since(s.getUpdatedAt()) > dc.cfg.MetricsSamplingInterval {
 			delete(dc.metrics, k)
 		}
 	}
@@ -266,7 +296,7 @@ func (dc *sampler) cleanup(ctx context.Context) error {
 }
 
 func (dc *sampler) collectLoop(ctx context.Context, health cell.Health) error {
-	ticker := time.NewTicker(samplingInterval)
+	ticker := time.NewTicker(dc.cfg.MetricsSamplingInterval)
 	defer ticker.Stop()
 
 	for {
@@ -312,18 +342,33 @@ func (dc *sampler) collect(health cell.Health) {
 
 	numSampled := 0
 
+	// The *Desc's we're sampling. Used to quickly decide whether or not
+	// to sample a metric without calling 'Write'.
+	shouldSampleDesc := map[*prometheus.Desc]bool{}
+
 	for metric := range metricChan {
-		var msg dto.Metric
 		desc := metric.Desc()
+		included, known := shouldSampleDesc[desc]
+		if known && !included {
+			continue
+		}
+		var msg dto.Metric
 		if err := metric.Write(&msg); err != nil {
 			continue
 		}
 		key := newMetricKey(desc, msg.Label)
+		name := key.fqName()
+		if !known {
+			included = !excludedFromSampling(name)
+			shouldSampleDesc[desc] = included
+			if !included {
+				continue
+			}
+		}
 
 		if msg.Histogram != nil {
 			var histogram *histogramSamples
 			if samples, ok := dc.metrics[key]; !ok {
-				name := key.fqName()
 				histogram = &histogramSamples{
 					baseSamples: baseSamples{name: name, labels: concatLabels(msg.Label)},
 					isSeconds:   strings.Contains(name, "seconds"),
@@ -389,7 +434,7 @@ func (dc *sampler) collect(health cell.Health) {
 		numSampled++
 	}
 
-	health.OK(fmt.Sprintf("Sampled %d metrics in %s, next collection at %s", numSamples, time.Since(t0), t0.Add(samplingInterval)))
+	health.OK(fmt.Sprintf("Sampled %d metrics in %s, next collection at %s", numSamples, time.Since(t0), t0.Add(dc.cfg.MetricsSamplingInterval)))
 }
 
 var sep = []byte{model.SeparatorByte}

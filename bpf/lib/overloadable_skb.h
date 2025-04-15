@@ -70,9 +70,9 @@ get_identity(const struct __sk_buff *ctx)
 }
 
 /**
- * get_epid - returns source endpoint identity from the mark field
+ * get_epid - returns endpoint identifier from the mark field
  */
-static __always_inline __maybe_unused __u32
+static __always_inline __maybe_unused __u16
 get_epid(const struct __sk_buff *ctx)
 {
 	return ctx->mark >> 16;
@@ -111,21 +111,6 @@ static __always_inline __maybe_unused void
 set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
-}
-
-/**
- * set_encrypt_key - pushes 8 bit key, 16 bit node ID, and encryption marker into ctx mark value.
- */
-static __always_inline __maybe_unused void
-set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key, __u32 node_id)
-{
-	ctx->mark = or_encrypt_key(key) | node_id << 16;
-}
-
-static __always_inline __maybe_unused void
-set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key, __u32 node_id)
-{
-	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key) | node_id << 16;
 }
 
 /**
@@ -271,12 +256,6 @@ static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
-static __always_inline void ctx_egw_done_set(struct __sk_buff *ctx)
-{
-	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
-	ctx->mark |= MARK_MAGIC_EGW_DONE;
-}
-
 static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_EGW_DONE;

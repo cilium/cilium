@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -22,10 +23,15 @@ import (
 func TestWriteInformationalComments(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
+	model := newTestEndpointModel(100, StateWaitingForIdentity)
+	e, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	e.Start(uint16(model.ID))
+	t.Cleanup(e.Stop)
 
 	var f bytes.Buffer
-	err := e.writeInformationalComments(&f)
+	err = e.writeInformationalComments(&f)
 	require.NoError(t, err)
 }
 
@@ -36,7 +42,13 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 
 	s := setupEndpointSuite(b)
 
-	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
+	model := newTestEndpointModel(100, StateWaitingForIdentity)
+	e, err := NewEndpointFromChangeModel(b.Context(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(b, err)
+
+	e.Start(uint16(model.ID))
+	b.Cleanup(e.Stop)
+
 	configWriter := &config.HeaderfileWriter{}
 	cfg := datapath.LocalNodeConfiguration{}
 
@@ -67,7 +79,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				if err := bm.write(bm.output); err != nil {
 					b.Fatal(err)
 				}

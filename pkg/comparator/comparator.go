@@ -3,6 +3,8 @@
 
 package comparator
 
+import "slices"
+
 // MapStringEqualsIgnoreKeys returns true if both maps have the same values for
 // the keys that are not present in the 'ignoreKeys'.
 func MapStringEqualsIgnoreKeys(m1, m2 map[string]string, ignoreKeys []string) bool {
@@ -16,11 +18,8 @@ func MapStringEqualsIgnoreKeys(m1, m2 map[string]string, ignoreKeys []string) bo
 	ignoredM1 := 0
 	for k1, v1 := range m1 {
 		var ignore bool
-		for _, ig := range ignoreKeys {
-			if k1 == ig {
-				ignore = true
-				break
-			}
+		if slices.Contains(ignoreKeys, k1) {
+			ignore = true
 		}
 		if ignore {
 			ignoredM1++

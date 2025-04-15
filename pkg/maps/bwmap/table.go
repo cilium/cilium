@@ -6,6 +6,7 @@ package bwmap
 import (
 	"encoding"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -23,8 +24,7 @@ const EdtTableName = "bandwidth-edts"
 //
 // Edt is stored by value as it's relatively tiny.
 type Edt struct {
-	// EndpointID is the identity of the endpoint being throttled.
-	EndpointID uint16
+	EdtIDKey
 
 	// BytesPerSecond is the bandwidth limit for the endpoint.
 	BytesPerSecond uint64
@@ -39,19 +39,44 @@ type Edt struct {
 	Status reconciler.Status
 }
 
-var EdtIDIndex = statedb.Index[Edt, uint16]{
-	Name: "endpoint-id",
-	FromObject: func(t Edt) index.KeySet {
-		return index.NewKeySet(index.Uint16(t.EndpointID))
-	},
-	FromKey:    index.Uint16,
-	FromString: index.Uint16String,
-	Unique:     true,
+type EdtIDKey struct {
+	EndpointID uint16
+	Direction  uint8
 }
 
-func NewEdt(endpointID uint16, bytesPerSecond uint64, prio uint32) Edt {
+func (k EdtIDKey) Key() index.Key {
+	key := append(index.Uint16(k.EndpointID), '+')
+	key = append(key, index.Uint16(uint16(k.Direction))...)
+	return key
+}
+
+var EdtIDIndex = statedb.Index[Edt, EdtIDKey]{
+	Name: "endpoint-id",
+	FromObject: func(t Edt) index.KeySet {
+		return index.NewKeySet(t.Key())
+	},
+	FromKey: EdtIDKey.Key,
+	FromString: func(key string) (index.Key, error) {
+		epS, directionS, _ := strings.Cut(key, "+")
+		ep, err := strconv.ParseUint(epS, 10, 16)
+		if err != nil {
+			return index.Key{}, err
+		}
+		direction, err := strconv.ParseUint(directionS, 10, 16)
+		if err != nil {
+			return index.Key{}, err
+		}
+		return EdtIDKey{EndpointID: uint16(ep), Direction: uint8(direction)}.Key(), nil
+	},
+	Unique: true,
+}
+
+func NewEdt(endpointID uint16, direction uint8, bytesPerSecond uint64, prio uint32) Edt {
 	return Edt{
-		EndpointID:      endpointID,
+		EdtIDKey: EdtIDKey{
+			EndpointID: endpointID,
+			Direction:  direction,
+		},
 		BytesPerSecond:  bytesPerSecond,
 		Prio:            prio,
 		TimeHorizonDrop: uint64(DefaultDropHorizon),
@@ -67,26 +92,39 @@ func NewEdtTable() (statedb.RWTable[Edt], error) {
 }
 
 func (e Edt) BinaryKey() encoding.BinaryMarshaler {
-	k := EdtId{uint64(e.EndpointID)}
+	k := EdtId{Id: uint32(e.EndpointID), Direction: e.Direction}
 	return bpf.StructBinaryMarshaler{Target: &k}
 }
 
 func (e Edt) BinaryValue() encoding.BinaryMarshaler {
 	v := EdtInfo{
-		Bps:             e.BytesPerSecond,
-		TimeLast:        0, // Used on the BPF-side
-		TimeHorizonDrop: e.TimeHorizonDrop,
-		Prio:            e.Prio,
+		Bps:      e.BytesPerSecond,
+		TimeLast: 0, // Used on the BPF-side
 	}
+	if e.Direction == 0 {
+		// egress
+		v.TimeHorizonDropOrTokens = e.TimeHorizonDrop
+		v.Prio = e.Prio
+	} else {
+		v.TimeHorizonDropOrTokens = 0
+	}
+
 	return bpf.StructBinaryMarshaler{Target: &v}
 }
 
 func (e Edt) TableHeader() []string {
+	if e.Direction == 0 {
+		return []string{
+			"EndpointID",
+			"BitsPerSecond",
+			"Prio",
+			"TimeHorizonDrop",
+			"Status",
+		}
+	}
 	return []string{
 		"EndpointID",
 		"BitsPerSecond",
-		"Prio",
-		"TimeHorizonDrop",
 		"Status",
 	}
 }
@@ -95,11 +133,19 @@ func (e Edt) TableRow() []string {
 	// Show the limit as bits per second as that's how it is configured via
 	// the annotation.
 	quantity := resource.NewQuantity(int64(e.BytesPerSecond*8), resource.DecimalSI)
+
+	if e.Direction == 0 {
+		return []string{
+			strconv.FormatUint(uint64(e.EndpointID), 10),
+			quantity.String(),
+			strconv.FormatUint(uint64(e.Prio), 10),
+			strconv.FormatUint(e.TimeHorizonDrop, 10),
+			e.Status.String(),
+		}
+	}
 	return []string{
 		strconv.FormatUint(uint64(e.EndpointID), 10),
 		quantity.String(),
-		strconv.FormatUint(uint64(e.Prio), 10),
-		strconv.FormatUint(e.TimeHorizonDrop, 10),
 		e.Status.String(),
 	}
 }

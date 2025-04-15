@@ -28,6 +28,7 @@ func ScriptCommands(db *DB) hive.ScriptCmdsOut {
 		"db":             DBCmd(db),
 		"db/show":        ShowCmd(db),
 		"db/cmp":         CompareCmd(db),
+		"db/empty":       EmptyCmd(db),
 		"db/insert":      InsertCmd(db),
 		"db/delete":      DeleteCmd(db),
 		"db/get":         GetCmd(db),
@@ -168,8 +169,6 @@ func ShowCmd(db *DB) script.Cmd {
 				fs.StringP("format", "f", "table", "Format to write in (table, yaml or json)")
 			},
 			Detail: []string{
-				"Show the contents of a table.",
-				"",
 				"The contents are written to stdout, but can be written to",
 				"a file instead with the -o flag.",
 				"",
@@ -351,6 +350,28 @@ func CompareCmd(db *DB) script.Cmd {
 				case <-watch:
 				}
 			}
+		})
+}
+
+func EmptyCmd(db *DB) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Assert that given table(s) are empty",
+			Args:    "table",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			txn := db.ReadTxn()
+			for _, tableName := range args {
+				meta := db.GetTable(txn, tableName)
+				if meta == nil {
+					return nil, fmt.Errorf("table %q not found", tableName)
+				}
+				tbl := AnyTable{Meta: meta}
+				if n := tbl.NumObjects(txn); n != 0 {
+					return nil, fmt.Errorf("table %q not empty, found %d obects", tableName, n)
+				}
+			}
+			return nil, nil
 		})
 }
 

@@ -7,51 +7,38 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/script"
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/job"
 	apiext_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiext_fake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	versionapi "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
-	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
-	k8sTesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
-	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
 	slim_apiext_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-clientset"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
-	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
-	"github.com/cilium/cilium/pkg/k8s/testutils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/version"
 )
 
 // client.Cell provides Clientset, a composition of clientsets to Kubernetes resources
@@ -77,7 +64,11 @@ var ClientBuilderCell = cell.Module(
 	cell.Provide(NewClientBuilder),
 )
 
-var k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
+var (
+	k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
+	connTimeout                 = time.Minute
+	connRetryInterval           = 5 * time.Second
+)
 
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
 type (
@@ -127,52 +118,39 @@ type compositeClientset struct {
 	*CiliumClientset
 	clientsetGetters
 
-	controller    *controller.Manager
-	slim          *SlimClientset
-	config        Config
-	log           logrus.FieldLogger
-	closeAllConns func()
-	restConfig    *rest.Config
+	controller        *controller.Manager
+	slim              *SlimClientset
+	config            Config
+	logger            *slog.Logger
+	closeAllConns     func()
+	restConfigManager restConfig
 }
 
-func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
-	return newClientsetForUserAgent(lc, log, cfg, "")
+func newClientset(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) (Clientset, error) {
+	return newClientsetForUserAgent(lc, logger, cfg, "", jobs)
 }
 
-func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, name string) (Clientset, error) {
+func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config, name string, jobs job.Group) (Clientset, error) {
 	if !cfg.isEnabled() {
 		return &compositeClientset{disabled: true}, nil
 	}
 
-	if cfg.K8sAPIServer != "" &&
-		!strings.HasPrefix(cfg.K8sAPIServer, "http") {
-		cfg.K8sAPIServer = "http://" + cfg.K8sAPIServer // default to HTTP
-	}
-
 	client := compositeClientset{
-		log:        log,
+		logger:     logger,
 		controller: controller.NewManager(),
 		config:     cfg,
 	}
 
-	cmdName := "cilium"
-	if len(os.Args[0]) != 0 {
-		cmdName = filepath.Base(os.Args[0])
-	}
-	userAgent := fmt.Sprintf("%s/%s", cmdName, version.Version)
-
-	if name != "" {
-		userAgent = fmt.Sprintf("%s %s", userAgent, name)
-	}
-
-	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst, userAgent)
+	var err error
+	client.restConfigManager, err = restConfigManagerInit(cfg, name, logger, jobs)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
-	client.restConfig = restConfig
-	defaultCloseAllConns := setDialer(cfg, restConfig)
+	rc := client.restConfigManager.getConfig()
 
-	httpClient, err := rest.HTTPClientFor(restConfig)
+	defaultCloseAllConns := setDialer(cfg, rc)
+
+	httpClient, err := rest.HTTPClientFor(rc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
 	}
@@ -183,29 +161,29 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 		client.closeAllConns = defaultCloseAllConns
 	} else {
 		client.closeAllConns = func() {
-			utilnet.CloseIdleConnectionsFor(restConfig.Transport)
+			utilnet.CloseIdleConnectionsFor(rc.Transport)
 		}
 	}
 
 	// Slim and K8s clients use protobuf marshalling.
-	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+	rc.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
-	client.slim, err = slim_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.slim, err = slim_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create slim k8s client: %w", err)
 	}
 
-	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
 	}
 
-	client.MCSAPIClientset, err = mcsapi_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.MCSAPIClientset, err = mcsapi_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create mcsapi k8s client: %w", err)
 	}
 
-	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(restConfig, httpClient)
+	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
@@ -213,8 +191,8 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 	client.clientsetGetters = clientsetGetters{&client}
 
 	// The cilium client uses JSON marshalling.
-	restConfig.ContentConfig.ContentType = `application/json`
-	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
+	rc.ContentConfig.ContentType = `application/json`
+	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
@@ -251,7 +229,7 @@ func (c *compositeClientset) Config() Config {
 }
 
 func (c *compositeClientset) RestConfig() *rest.Config {
-	return rest.CopyConfig(c.restConfig)
+	return c.restConfigManager.getConfig()
 }
 
 func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
@@ -265,7 +243,7 @@ func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
 	c.startHeartbeat()
 
 	// Update the global K8s clients, K8s version and the capabilities.
-	if err := k8sversion.Update(c, c.config.EnableK8sAPIDiscovery); err != nil {
+	if err := k8sversion.Update(c.logger, c, c.config.EnableK8sAPIDiscovery); err != nil {
 		return err
 	}
 
@@ -306,15 +284,22 @@ func (c *compositeClientset) startHeartbeat() {
 		return res.Error()
 	}
 
+	rotateAPIServer := func() {
+		if c.restConfigManager.canRotateAPIServerURL() {
+			c.restConfigManager.rotateAPIServerURL()
+		}
+	}
+
 	c.controller.UpdateController("k8s-heartbeat",
 		controller.ControllerParams{
 			Group: k8sHeartbeatControllerGroup,
 			DoFunc: func(context.Context) error {
 				runHeartbeat(
-					c.log,
+					c.logger,
 					heartBeat,
 					timeout,
 					c.closeAllConns,
+					rotateAPIServer,
 				)
 				return nil
 			},
@@ -322,62 +307,16 @@ func (c *compositeClientset) startHeartbeat() {
 		})
 }
 
-// createConfig creates a rest.Config for connecting to k8s api-server.
-//
-// The precedence of the configuration selection is the following:
-// 1. kubeCfgPath
-// 2. apiServerURL (https if specified)
-// 3. rest.InClusterConfig().
-func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int, userAgent string) (*rest.Config, error) {
-	var (
-		config *rest.Config
-		err    error
-	)
-
-	switch {
-	// If the apiServerURL and the kubeCfgPath are empty then we can try getting
-	// the rest.Config from the InClusterConfig
-	case apiServerURL == "" && kubeCfgPath == "":
-		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
-		}
-	case kubeCfgPath != "":
-		if config, err = clientcmd.BuildConfigFromFlags("", kubeCfgPath); err != nil {
-			return nil, err
-		}
-	case strings.HasPrefix(apiServerURL, "https://"):
-		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
-		}
-		config.Host = apiServerURL
-	default:
-		//exhaustruct:ignore
-		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
-	}
-
-	setConfig(config, userAgent, qps, burst)
-	return config, nil
-}
-
-func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
-	if userAgent != "" {
-		config.UserAgent = userAgent
-	}
-	if qps != 0.0 {
-		config.QPS = qps
-	}
-	if burst != 0 {
-		config.Burst = burst
-	}
-}
-
 func (c *compositeClientset) waitForConn(ctx context.Context) error {
 	stop := make(chan struct{})
-	timeout := time.NewTimer(time.Minute)
+	timeout := time.NewTimer(connTimeout)
 	defer timeout.Stop()
 	var err error
 	wait.Until(func() {
-		c.log.WithField("host", c.restConfig.Host).Info("Establishing connection to apiserver")
+	retry:
+		c.logger.Info("Establishing connection to apiserver",
+			logfields.IPAddr, c.restConfigManager.getConfig().Host,
+		)
 		err = isConnReady(c)
 		if err == nil {
 			close(stop)
@@ -388,14 +327,21 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 		case <-ctx.Done():
 		case <-timeout.C:
 		default:
+			if c.restConfigManager.canRotateAPIServerURL() {
+				c.restConfigManager.rotateAPIServerURL()
+				goto retry
+			}
 			return
 		}
 
-		c.log.WithError(err).WithField(logfields.IPAddr, c.restConfig.Host).Error("Unable to contact k8s api-server")
+		c.logger.Error("Unable to contact k8s api-server",
+			logfields.IPAddr, c.restConfigManager.getConfig().Host,
+			logfields.Error, err,
+		)
 		close(stop)
-	}, 5*time.Second, stop)
+	}, connRetryInterval, stop)
 	if err == nil {
-		c.log.Info("Connected to apiserver")
+		c.logger.Info("Connected to apiserver")
 	}
 	return err
 }
@@ -413,7 +359,7 @@ func setDialer(cfg Config, restConfig *rest.Config) func() {
 	return dialer.CloseAll
 }
 
-func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error, timeout time.Duration, closeAllConns ...func()) {
+func runHeartbeat(logger *slog.Logger, heartBeat func(context.Context) error, timeout time.Duration, onFailure ...func()) {
 	expireDate := time.Now().Add(-timeout)
 	// Don't even perform a health check if we have received a successful
 	// k8s event in the last 'timeout' duration
@@ -444,14 +390,14 @@ func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error,
 	select {
 	case err := <-done:
 		if err != nil {
-			log.WithError(err).Warn("Network status error received, restarting client connections")
-			for _, fn := range closeAllConns {
+			logger.Warn("Network status error received, restarting client connections", logfields.Error, err)
+			for _, fn := range onFailure {
 				fn()
 			}
 		}
 	case <-ctx.Done():
-		log.Warn("Heartbeat timed out, restarting client connections")
-		for _, fn := range closeAllConns {
+		logger.Warn("Heartbeat timed out, restarting client connections")
+		for _, fn := range onFailure {
 			fn()
 		}
 	}
@@ -461,111 +407,6 @@ func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error,
 func isConnReady(c kubernetes.Interface) error {
 	_, err := c.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
 	return err
-}
-
-var FakeClientCell = cell.Module(
-	"k8s-fake-client",
-	"Fake Kubernetes client",
-
-	cell.Provide(
-		NewFakeClientset,
-		func(fc *FakeClientset) hive.ScriptCmdOut {
-			return hive.NewScriptCmd("k8s", FakeClientCommand(fc))
-		},
-	),
-)
-
-type (
-	MCSAPIFakeClientset     = mcsapi_fake.Clientset
-	KubernetesFakeClientset = fake.Clientset
-	SlimFakeClientset       = slim_fake.Clientset
-	CiliumFakeClientset     = cilium_fake.Clientset
-	APIExtFakeClientset     = apiext_fake.Clientset
-)
-
-type FakeClientset struct {
-	disabled bool
-
-	*MCSAPIFakeClientset
-	*KubernetesFakeClientset
-	*CiliumFakeClientset
-	*APIExtFakeClientset
-	clientsetGetters
-
-	SlimFakeClientset *SlimFakeClientset
-
-	trackers map[string]k8sTesting.ObjectTracker
-
-	enabled bool
-}
-
-var _ Clientset = &FakeClientset{}
-
-func (c *FakeClientset) Slim() slim_clientset.Interface {
-	return c.SlimFakeClientset
-}
-
-func (c *FakeClientset) Discovery() discovery.DiscoveryInterface {
-	return c.KubernetesFakeClientset.Discovery()
-}
-
-func (c *FakeClientset) IsEnabled() bool {
-	return !c.disabled
-}
-
-func (c *FakeClientset) Disable() {
-	c.disabled = true
-}
-
-func (c *FakeClientset) Config() Config {
-	//exhaustruct:ignore
-	return Config{}
-}
-
-func (c *FakeClientset) RestConfig() *rest.Config {
-	//exhaustruct:ignore
-	return &rest.Config{}
-}
-
-func NewFakeClientset() (*FakeClientset, Clientset) {
-	version := testutils.DefaultVersion
-	return NewFakeClientsetWithVersion(version)
-}
-
-func NewFakeClientsetWithVersion(version string) (*FakeClientset, Clientset) {
-	if version == "" {
-		version = testutils.DefaultVersion
-	}
-	resources, found := testutils.APIResources[version]
-	if !found {
-		panic("version " + version + " not found from testutils.APIResources")
-	}
-
-	client := FakeClientset{
-		SlimFakeClientset:       slim_fake.NewSimpleClientset(),
-		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
-		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
-		MCSAPIFakeClientset:     mcsapi_fake.NewSimpleClientset(),
-		KubernetesFakeClientset: fake.NewSimpleClientset(),
-		enabled:                 true,
-	}
-	client.KubernetesFakeClientset.Resources = resources
-	client.SlimFakeClientset.Resources = resources
-	client.CiliumFakeClientset.Resources = resources
-	client.APIExtFakeClientset.Resources = resources
-	client.trackers = map[string]k8sTesting.ObjectTracker{
-		"slim":       client.SlimFakeClientset.Tracker(),
-		"cilium":     client.CiliumFakeClientset.Tracker(),
-		"mcs":        client.MCSAPIFakeClientset.Tracker(),
-		"kubernetes": client.KubernetesFakeClientset.Tracker(),
-		"apiexit":    client.APIExtFakeClientset.Tracker(),
-	}
-
-	fd := client.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
-	fd.FakedServerVersion = toVersionInfo(version)
-
-	client.clientsetGetters = clientsetGetters{&client}
-	return &client, &client
 }
 
 func toVersionInfo(rawVersion string) *versionapi.Info {
@@ -578,96 +419,14 @@ type ClientBuilderFunc func(name string) (Clientset, error)
 // NewClientBuilder returns a function that creates a new Clientset with the given
 // name appended to the user agent, or returns an error if the Clientset cannot be
 // created.
-func NewClientBuilder(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) ClientBuilderFunc {
+func NewClientBuilder(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) ClientBuilderFunc {
 	return func(name string) (Clientset, error) {
-		c, err := newClientsetForUserAgent(lc, log, cfg, name)
+		c, err := newClientsetForUserAgent(lc, logger, cfg, name, jobs)
 		if err != nil {
 			return nil, err
 		}
 		return c, nil
 	}
-}
-
-var FakeClientBuilderCell = cell.Provide(FakeClientBuilder)
-
-func FakeClientBuilder() ClientBuilderFunc {
-	fc, _ := NewFakeClientset()
-	return func(_ string) (Clientset, error) {
-		return fc, nil
-	}
-}
-
-func FakeClientCommand(fc *FakeClientset) script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "interact with fake k8s client",
-			Args:    "<command> args...",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 1 {
-				return nil, fmt.Errorf("usage: k8s <command> files...\n<command> is one of add, update or delete.")
-			}
-
-			action := args[0]
-			if len(args) < 2 {
-				return nil, fmt.Errorf("usage: k8s %s files...", action)
-			}
-
-			for _, file := range args[1:] {
-				b, err := os.ReadFile(s.Path(file))
-				if err != nil {
-					// Try relative to current directory, e.g. to allow reading "testdata/foo.yaml"
-					b, err = os.ReadFile(file)
-				}
-				if err != nil {
-					return nil, fmt.Errorf("failed to read %s: %w", file, err)
-				}
-				obj, gvk, err := testutils.DecodeObjectGVK(b)
-				if err != nil {
-					return nil, fmt.Errorf("decode: %w", err)
-				}
-				gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
-				objMeta, err := meta.Accessor(obj)
-				if err != nil {
-					return nil, fmt.Errorf("accessor: %w", err)
-				}
-				name := objMeta.GetName()
-				ns := objMeta.GetNamespace()
-
-				// Try to add the object to all the trackers. If one of them
-				// accepts we're good. We'll add to all since multiple trackers
-				// may accept (e.g. slim and kubernetes).
-
-				// err will get set to nil if any of the tracker methods succeed.
-				// start with a non-nil default error.
-				err = fmt.Errorf("none of the trackers of FakeClientset accepted %T", obj)
-				for trackerName, tracker := range fc.trackers {
-					var trackerErr error
-					switch action {
-					case "add":
-						trackerErr = tracker.Add(obj)
-					case "update":
-						trackerErr = tracker.Update(gvr, obj, ns)
-					case "delete":
-						trackerErr = tracker.Delete(gvr, ns, name)
-					default:
-						return nil, fmt.Errorf("unknown k8s action %q, expected 'add', 'update' or 'delete'", action)
-					}
-					if err != nil {
-						if trackerErr == nil {
-							// One of the trackers accepted the object, it's a success!
-							err = nil
-						} else {
-							err = errors.Join(err, fmt.Errorf("%s: %w", trackerName, trackerErr))
-						}
-					}
-				}
-				if err != nil {
-					return nil, err
-				}
-			}
-			return nil, nil
-		})
 }
 
 func init() {

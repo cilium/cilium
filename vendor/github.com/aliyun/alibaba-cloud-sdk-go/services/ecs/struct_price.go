@@ -31,6 +31,7 @@ type Price struct {
 	ReservedInstanceHourDiscountPrice float64                                        `json:"ReservedInstanceHourDiscountPrice" xml:"ReservedInstanceHourDiscountPrice"`
 	RuleIdSet                         RuleIdSetInDescribeInstanceModificationPrice   `json:"RuleIdSet" xml:"RuleIdSet"`
 	DepreciateInfo                    DepreciateInfo                                 `json:"DepreciateInfo" xml:"DepreciateInfo"`
+	SubPrices                         SubPrices                                      `json:"SubPrices" xml:"SubPrices"`
 	Coupons                           CouponsInDescribeInstanceModificationPrice     `json:"Coupons" xml:"Coupons"`
 	Promotions                        PromotionsInDescribeInstanceModificationPrice  `json:"Promotions" xml:"Promotions"`
 	DetailInfos                       DetailInfosInDescribeInstanceModificationPrice `json:"DetailInfos" xml:"DetailInfos"`

@@ -11,6 +11,8 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 )
 
 func TestNewConnectivityTests(t *testing.T) {
@@ -75,8 +77,13 @@ func TestNewConnectivityTests(t *testing.T) {
 		},
 	}
 	for _, tt := range testCases {
+		owners, err := codeowners.Load([]string{})
+		if err != nil {
+			t.Fatalf("🐛 Failed to parse CODEOWNERS. Developer BUG? %s", err)
+		}
+
 		// function to test
-		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}, 1))
+		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}), owners)
 
 		require.NoError(t, err)
 		require.Len(t, actual, tt.expectedCount)
@@ -103,4 +110,46 @@ func TestConnectivityTestFlags(t *testing.T) {
 	require.Equal(t, map[string]string{"a": "b"}, params.NodeSelector)
 	require.NoError(t, ct.Flags().Set("node-selector", "c=d"))
 	require.Equal(t, map[string]string{"a": "b", "c": "d"}, params.NodeSelector)
+}
+
+func TestPrintImageArtifacts(t *testing.T) {
+	ct := newCmdConnectivityTest(&api.NopHooks{})
+	var buf bytes.Buffer
+
+	params.Writer = &buf
+
+	// Test print-image-artifacts flag for connectivity test subcommand
+	buf.Reset()
+	require.NoError(t, ct.Flags().Set("print-image-artifacts", "true"))
+	require.NoError(t, ct.Execute())
+	for _, img := range defaults.ConnectivityCheckImagesTest {
+		require.Contains(t, buf.String(), img)
+	}
+
+	// Test print-image-artifacts flag for connectivity test subcommand with overridden image
+	buf.Reset()
+	var alpineImage = "alpine/curl:latest"
+	require.NoError(t, ct.Flags().Set("print-image-artifacts", "true"))
+	require.NoError(t, ct.Flags().Set("curl-image", alpineImage))
+	require.NoError(t, ct.Execute())
+	require.Contains(t, buf.String(), alpineImage)
+	require.NotContains(t, buf.String(), defaults.ConnectivityCheckImagesTest["ConnectivityCheckAlpineCurlImage"])
+
+	// Test print-image-artifacts flag for connectivity perf subcommand
+	cp := newCmdConnectivityPerf(&api.NopHooks{})
+	buf.Reset()
+	require.NoError(t, cp.Flags().Set("print-image-artifacts", "true"))
+	require.NoError(t, cp.Execute())
+	for _, img := range defaults.ConnectivityCheckImagesPerf {
+		require.Contains(t, buf.String(), img)
+	}
+
+	// Test print-image-artifacts flag for connectivity perf subcommand with overridden image
+	buf.Reset()
+	var perfImage = "alpine:latest"
+	require.NoError(t, cp.Flags().Set("print-image-artifacts", "true"))
+	require.NoError(t, cp.Flags().Set("performance-image", perfImage))
+	require.NoError(t, cp.Execute())
+	require.Contains(t, buf.String(), perfImage)
+	require.NotContains(t, buf.String(), defaults.ConnectivityCheckImagesPerf["ConnectivityPerformanceImage"])
 }

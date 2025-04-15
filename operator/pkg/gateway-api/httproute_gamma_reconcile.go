@@ -13,11 +13,13 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
@@ -78,6 +80,14 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// gateway validators
 	for _, parent := range hr.Spec.ParentRefs {
 
+		if !helpers.IsGammaService(parent) {
+			scopedLog.Debug("Non GAMMA parentRef in GAMMA HTTPRoute reconciliation",
+				logfields.Controller, "gammaHttpRoute",
+				logfields.Resource, client.ObjectKeyFromObject(hr),
+			)
+			continue
+		}
+
 		// set acceptance to okay, this wil be overwritten in checks if needed
 		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
@@ -87,40 +97,41 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		})
 
 		// set status to okay, this wil be overwritten in checks if needed
-		i.SetAllParentCondition(metav1.Condition{
+		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,
 			Reason:  string(gatewayv1.RouteReasonResolvedRefs),
 			Message: "Service reference is valid",
 		})
 
-		for _, fn := range []routechecks.CheckParentFunc{
+		for _, fn := range []routechecks.CheckWithParentFunc{
 			routechecks.CheckGammaServiceAllowedForNamespace,
 		} {
 			continueCheck, err := fn(i, parent)
 			if err != nil {
-				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Gateway check: %w", err), original, hr)
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply parentRef check: %w", err), original, hr)
 			}
 
 			if !continueCheck {
 				break
 			}
 		}
-	}
 
-	for _, fn := range []routechecks.CheckRuleFunc{
-		routechecks.CheckAgainstCrossNamespaceBackendReferences,
-		routechecks.CheckBackend,
-		routechecks.CheckBackendIsExistingService,
-	} {
-		continueCheck, err := fn(i)
-		if err != nil {
-			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, hr)
+		for _, fn := range []routechecks.CheckWithParentFunc{
+			routechecks.CheckAgainstCrossNamespaceBackendReferences,
+			routechecks.CheckBackend,
+			routechecks.CheckBackendIsExistingService,
+		} {
+			continueCheck, err := fn(i, parent)
+			if err != nil {
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route rule check: %w", err), original, hr)
+			}
+
+			if !continueCheck {
+				break
+			}
 		}
 
-		if !continueCheck {
-			break
-		}
 	}
 
 	if err := r.updateStatus(ctx, original, hr); err != nil {
@@ -140,8 +151,8 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	scopedLog.DebugContext(ctx, "GAMMA translation result",
-		"service", fmt.Sprintf("%#v", svc),
-		logfields.Endpoint, fmt.Sprintf("%#v", cep))
+		logfields.Service, svc,
+		logfields.Endpoint, cep)
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)

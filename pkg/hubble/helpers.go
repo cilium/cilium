@@ -5,19 +5,26 @@ package hubble
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 )
 
-func ParseFlowFilters(args ...string) ([]*flowpb.FlowFilter, error) {
-	filters := make([]*flowpb.FlowFilter, 0, len(args))
-	for _, enc := range args {
-		dec := json.NewDecoder(strings.NewReader(enc))
+// ParseFlowFilters parses a whitespace-delimited list of JSON-encoded flow filters.
+func ParseFlowFilters(arg string) ([]*flowpb.FlowFilter, error) {
+	var filters []*flowpb.FlowFilter
+	dec := json.NewDecoder(strings.NewReader(arg))
+	for {
 		var filter flowpb.FlowFilter
-		if err := dec.Decode(&filter); err != nil {
-			return nil, fmt.Errorf("failed to decode flow filter '%v': %w", enc, err)
+		err := dec.Decode(&filter)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode flow filters %q: %w", arg, err)
 		}
 		filters = append(filters, &filter)
 	}

@@ -565,7 +565,7 @@ complete solutions exist out there.
 
 ## Versioning
 
-Expect for parts explicitely marked otherwise, go-toml follows [Semantic
+Expect for parts explicitly marked otherwise, go-toml follows [Semantic
 Versioning](https://semver.org). The supported version of
 [TOML](https://github.com/toml-lang/toml) is indicated at the beginning of this
 document. The last two major versions of Go are supported (see [Go Release

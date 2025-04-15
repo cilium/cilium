@@ -36,20 +36,16 @@ has an exit code 1 is returned.`,
 	hive := hive.New(
 		k8sClient.Cell,
 
-		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+		cell.Invoke(func(logger *slog.Logger, lc cell.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 			lc.Append(cell.Hook{
-				OnStart: func(cell.HookContext) error { return validateCNPs(clientset, shutdowner) },
+				OnStart: func(cell.HookContext) error { return validateCNPs(logger, clientset, shutdowner) },
 			})
 		}),
 	)
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		// The internal packages log things. Make sure they follow the setup of of
-		// the CLI tool.
-		logging.DefaultLogger.SetFormatter(log.Formatter)
-
-		if err := hive.Run(slog.Default()); err != nil {
+		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -61,7 +57,7 @@ const (
 	ciliumGroup                = "cilium.io"
 )
 
-func validateCNPs(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+func validateCNPs(logger *slog.Logger, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown()
 
 	if !clientset.IsEnabled() {
@@ -69,7 +65,7 @@ func validateCNPs(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) err
 			option.K8sAPIServer, option.K8sKubeConfigPath)
 	}
 
-	npValidator, err := v2_validation.NewNPValidator()
+	npValidator, err := v2_validation.NewNPValidator(logger)
 	if err != nil {
 		return err
 	}

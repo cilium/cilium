@@ -113,7 +113,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// Avoid querying BPF multiple times concurrently, if it happens, additional callers will wait for the
 	// first one to finish and reuse its resulting values.
-	results, err, _ := s.sfg.Do("collect", func() (interface{}, error) {
+	results, err, _ := s.sfg.Do("collect", func() (any, error) {
 		var (
 			results = bpfUsageResults{}
 			err     error
@@ -128,7 +128,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 
 		if results.programs, err = getBPFUsage("prog", func(entry memoryEntry) bool {
 			// Filter on programs related to cilium maps
-			for i := 0; i < len(entry.MapIDs); i++ {
+			for i := range entry.MapIDs {
 				if slices.Contains(results.maps.ids, entry.MapIDs[i]) {
 					return true
 				}

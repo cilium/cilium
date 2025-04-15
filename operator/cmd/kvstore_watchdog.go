@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -63,7 +64,7 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 	log.WithField(logfields.Interval, defaults.LockLeaseTTL).Infof("Starting kvstore watchdog")
 
-	backend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{
+	backend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
 		Backend:  kvstore.Client(),
 	})
@@ -73,7 +74,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
-	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
+	a := allocator.NewAllocatorForGC(logging.DefaultSlogLogger, backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	keysToDelete := map[string]kvstore.Value{}
 	go func() {

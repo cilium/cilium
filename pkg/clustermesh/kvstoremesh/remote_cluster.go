@@ -6,12 +6,12 @@ package kvstoremesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
 
@@ -62,7 +62,7 @@ type remoteCluster struct {
 	// cluster disconnection.
 	disableDrainOnDisconnection bool
 
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	clock  clock.Clock
 }
 
@@ -97,7 +97,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if srccfg.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
-		mgr = store.NewWatchStoreManagerImmediate(rc.name)
+		mgr = store.NewWatchStoreManagerImmediate(rc.logger, rc.name)
 	}
 
 	adapter := func(prefix string) string { return prefix }
@@ -158,7 +158,7 @@ func (rc *remoteCluster) Stop() {
 
 func (rc *remoteCluster) Remove(ctx context.Context) {
 	if rc.disableDrainOnDisconnection {
-		rc.logger.Warning("Remote cluster disconnected, but cached data removal is disabled. " +
+		rc.logger.Warn("Remote cluster disconnected, but cached data removal is disabled. " +
 			"Reconnecting to the same cluster without first restarting KVStoreMesh may lead to inconsistencies")
 		return
 	}
@@ -179,13 +179,15 @@ func (rc *remoteCluster) Remove(ctx context.Context) {
 		case ctx.Err() != nil:
 			return
 		case retry == retries:
-			rc.logger.WithError(err).Error(
-				"Failed to remove cached data from kvstore, despite retries. Reconnecting to the " +
-					"same cluster without first restarting KVStoreMesh may lead to inconsistencies")
+			rc.logger.Error(
+				"Failed to remove cached data from kvstore, despite retries. Reconnecting to the "+
+					"same cluster without first restarting KVStoreMesh may lead to inconsistencies",
+				logfields.Error, err,
+			)
 			return
 		}
 
-		rc.logger.WithError(err).Warning("Failed to remove cached data from kvstore, retrying")
+		rc.logger.Warn("Failed to remove cached data from kvstore, retrying", logfields.Error, err)
 		select {
 		case <-rc.clock.After(backoff):
 			retry++
@@ -227,8 +229,10 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		// well). The cluster configuration is deleted before waiting to prevent
 		// new agents from connecting in this time window.
 		const drainGracePeriod = 3 * time.Minute
-		rc.logger.WithField(logfields.Duration, drainGracePeriod).
-			Info("Waiting before removing cached data from kvstore, to allow Cilium agents to disconnect")
+		rc.logger.Info(
+			"Waiting before removing cached data from kvstore, to allow Cilium agents to disconnect",
+			logfields.Duration, drainGracePeriod,
+		)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -318,15 +322,12 @@ func newReflector(local kvstore.BackendOperations, cluster, prefix, suffix strin
 	syncStorePrefix := path.Join(prefix, cluster, suffix)
 
 	syncer := syncer{
-		SyncStore: factory.NewSyncStore(cluster, local, syncStorePrefix,
-			store.WSSWithSyncedKeyOverride(prefix)),
+		SyncStore:  factory.NewSyncStore(cluster, local, syncStorePrefix, store.WSSWithSyncedKeyOverride(prefix)),
 		syncedDone: synced.Add(),
 		isSynced:   &atomic.Bool{},
 	}
 
-	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
-		store.RWSWithOnSyncCallback(syncer.OnSync),
-	)
+	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer, store.RWSWithOnSyncCallback(syncer.OnSync))
 
 	return reflector{
 		syncer:  syncer,

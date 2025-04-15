@@ -1,0 +1,1 @@
+debug-info-directories: ["/usr/lib/debug/.build-id","/usr/lib/debug"]

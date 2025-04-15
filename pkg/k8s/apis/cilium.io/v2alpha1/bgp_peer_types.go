@@ -29,7 +29,7 @@ type CiliumBGPPeerConfigList struct {
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgppeerconfig",path="ciliumbgppeerconfigs",scope="Cluster",shortName={cbgppeer}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 type CiliumBGPPeerConfig struct {
 	// +deepequal-gen=false
@@ -185,6 +185,9 @@ func (t *CiliumBGPTransport) SetDefaults() {
 	}
 }
 
+// CiliumBGPTimers defines timers configuration for a BGP peer.
+//
+// +kubebuilder:validation:XValidation:rule="self.keepAliveTimeSeconds <= self.holdTimeSeconds", message="keepAliveTimeSeconds can not be larger than holdTimeSeconds"
 type CiliumBGPTimers struct {
 	// ConnectRetryTimeSeconds defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
 	//

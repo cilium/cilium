@@ -47,10 +47,8 @@ func (f filterTracker) String() string {
 }
 
 func (f *filterTracker) add(name string) bool {
-	for _, exists := range f.changed {
-		if name == exists {
-			return false
-		}
+	if slices.Contains(f.changed, name) {
+		return false
 	}
 
 	// wipe the existing values if this is the first time usage of this
@@ -275,8 +273,7 @@ func (t *filterTracker) checkNamespaceConflicts(ff *flowpb.FlowFilter) error {
 
 func parseTCPFlags(val string) (*flowpb.TCPFlags, error) {
 	flags := &flowpb.TCPFlags{}
-	s := strings.Split(val, ",")
-	for _, f := range s {
+	for f := range strings.SplitSeq(val, ",") {
 		switch strings.ToUpper(f) {
 		case "SYN":
 			flags.SYN = true

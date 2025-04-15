@@ -5,20 +5,21 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
+#include "pktgen.h"
 
 #define ENABLE_SCTP
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#include <node_config.h>
+#include <bpf/config/node.h>
 
-#undef EVENTS_MAP
-#define EVENTS_MAP test_events_map
 #define DEBUG
 
 #include <lib/dbg.h>
 #include <lib/eps.h>
 #include <lib/nat.h>
 #include <lib/time.h>
+
+#include "bpf_nat_tuples.h"
 
 #define IP_ENDPOINT 1
 #define IP_HOST     2
@@ -60,7 +61,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 		.code           = ICMP_FRAG_NEEDED,
 		.un = {
 			.frag = {
-				.mtu = bpf_htons(THIS_MTU),
+				.mtu = bpf_htons(MTU),
 			},
 		},
 	};
@@ -604,8 +605,8 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
-			  &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -723,8 +724,8 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
-			  &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -841,8 +842,8 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
-			  &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -948,8 +949,8 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
-			  &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -995,6 +996,309 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 		test_fatal("can't load embedded l4 headers");
 	assert(in_l4hdr.sport == bpf_htons(79));
 	assert(in_l4hdr.dport == bpf_htons(32767));
+
+	test_finish();
+}
+
+__u32 daddrs[] = {
+	0x01010101, 0x02020202, 0x03030303, 0x04040404,
+	0x05050505, 0x06060606, 0x07070707, 0x08080808,
+};
+
+/* 16 sets of port samples. */
+#define SNAT_TEST_CLIENTS 16
+#define SNAT_TEST_ITERATIONS \
+	SIMPLE_MIN(ARRAY_SIZE(tcp_ports0) * SNAT_TEST_CLIENTS, \
+		   ARRAY_SIZE(daddrs) * (NODEPORT_PORT_MAX_NAT - NODEPORT_PORT_MIN_NAT + 1))
+
+static __u32 retries_before[SNAT_COLLISION_RETRIES + 1];
+static __u32 retries_10percent[SNAT_COLLISION_RETRIES + 1];
+static __u32 retries_50percent[SNAT_COLLISION_RETRIES + 1];
+static __u32 retries_75percent[SNAT_COLLISION_RETRIES + 1];
+static __u32 retries_100percent[SNAT_COLLISION_RETRIES + 1];
+
+static __always_inline bool store_retries(__u32 *buf, bool dump)
+{
+	for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES; i++) {
+		__u32 *v = map_lookup_elem(&cilium_snat_v4_alloc_retries, &(__u32){i});
+
+		if (!v)
+			return false;
+		buf[i] = *v - retries_before[i];
+	}
+
+	if (dump)
+		for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES; i++)
+			printk("retries[%u] = %u\n", i, buf[i]);
+
+	return true;
+}
+
+struct snat_callback_ctx {
+	struct __ctx_buff *ctx;
+	int err;
+	__u32 fails;
+	__u32 fail_thres;
+};
+
+static long snat_callback_tcp(__u32 i, struct snat_callback_ctx *ctx)
+{
+	struct ipv4_ct_tuple otuple = {
+		.saddr = bpf_htonl(0x0A000101),
+		.dport = bpf_htons(80),
+		.nexthdr = IPPROTO_TCP,
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv4_nat_entry ostate;
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.needs_ct = true,
+		.egress_gateway = true,
+		.addr = bpf_htonl(0x0AA40001),
+	};
+	__s8 ext_err = 0;
+	void *map;
+	__u16 *ports;
+
+	/* Keep in sync with SNAT_TEST_CLIENTS. */
+	__u32 client = i & 15;
+	__u32 port_idx = i >> 4;
+
+	otuple.saddr += 0x100 * client;
+	otuple.daddr = bpf_htonl(daddrs[get_prandom_u32() % ARRAY_SIZE(daddrs)]);
+
+	if (port_idx >= ARRAY_SIZE(tcp_ports0))
+		return 1;
+
+	/* Keep in sync with SNAT_TEST_CLIENTS. */
+	switch (client) {
+	case 0: ports = tcp_ports0; break;
+	case 1: ports = tcp_ports1; break;
+	case 2: ports = tcp_ports2; break;
+	case 3: ports = tcp_ports3; break;
+	case 4: ports = tcp_ports4; break;
+	case 5: ports = tcp_ports5; break;
+	case 6: ports = tcp_ports6; break;
+	case 7: ports = tcp_ports7; break;
+	case 8: ports = tcp_ports8; break;
+	case 9: ports = tcp_ports9; break;
+	case 10: ports = tcp_ports10; break;
+	case 11: ports = tcp_ports11; break;
+	case 12: ports = tcp_ports12; break;
+	case 13: ports = tcp_ports13; break;
+	case 14: ports = tcp_ports14; break;
+	case 15: ports = tcp_ports15; break;
+	}
+	otuple.sport = bpf_htons(ports[port_idx]);
+	map = get_cluster_snat_map_v4(0);
+	ctx->err = snat_v4_new_mapping(ctx->ctx, map, &otuple, &ostate, &target, true, &ext_err);
+
+	if (ctx->err == DROP_NAT_NO_MAPPING && !ext_err) {
+		ctx->err = 0;
+		++ctx->fails;
+		/* Store the number of iterations when we start having 5% of failures. */
+		if (!ctx->fail_thres && ctx->fails >= (i + 1) / 20)
+			ctx->fail_thres = i;
+	}
+
+	if (ctx->err)
+		printk("error %d at iteration %u\n", ctx->err, i);
+
+	switch (i) {
+	case SNAT_TEST_ITERATIONS / 10:
+		printk("TCP port allocation retries at 10%% of test:\n");
+		if (!store_retries(retries_10percent, true))
+			ctx->err = -ENOMEM;
+		break;
+	case SNAT_TEST_ITERATIONS / 2:
+		printk("TCP port allocation retries at 50%% of test:\n");
+		if (!store_retries(retries_50percent, true))
+			ctx->err = -ENOMEM;
+		break;
+	case SNAT_TEST_ITERATIONS * 3 / 4:
+		printk("TCP port allocation retries at 75%% of test:\n");
+		if (!store_retries(retries_75percent, true))
+			ctx->err = -ENOMEM;
+		break;
+	}
+
+	return ctx->err != 0;
+}
+
+CHECK("tc", "nat4_port_allocation")
+int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
+{
+	struct snat_callback_ctx cb_ctx = {
+		.ctx = ctx,
+	};
+	__u32 iters;
+
+	test_init();
+	/* This test checks the effectiveness of port allocation algorithm in SNAT.
+	 */
+
+	assert(store_retries(retries_before, false));
+	iters = loop(SNAT_TEST_ITERATIONS, snat_callback_tcp, &cb_ctx, 0);
+	assert(iters == SNAT_TEST_ITERATIONS);
+	assert(cb_ctx.err == 0);
+	printk("TCP port allocation retries at 100%% of test:\n");
+	assert(store_retries(retries_100percent, true));
+
+	printk("5%% failures happened at iteration %u\n", cb_ctx.fail_thres);
+
+	/* Non-negligible amount of failures happens after 70% of the test. */
+	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 0.7);
+
+	/* Only occasional failures at 50% of the test. */
+	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 15);
+
+	/* Less than 7% of failures at 75% of the test. */
+	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.75 * 0.07);
+
+	/* Less than 16% of failures at 100% of the test. */
+	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.16);
+
+	/* Negligible amount of ports allocated after 10+ retries. */
+	for (__u32 i = 10; i < SNAT_COLLISION_RETRIES; i++)
+		assert(retries_100percent[i] < 100);
+
+	/* More ports could be allocated after fewer retries. */
+	for (__u32 i = 1; i <= 5; i++)
+		assert(retries_100percent[i] <= retries_100percent[i - 1]);
+	for (__u32 i = 6; i < SNAT_COLLISION_RETRIES; i++)
+		assert(retries_100percent[i] <= retries_100percent[5]);
+
+	test_finish();
+}
+
+static long snat_callback_udp(__u32 i, struct snat_callback_ctx *ctx)
+{
+	struct ipv4_ct_tuple otuple = {
+		.saddr = bpf_htonl(0x0A000101),
+		.dport = bpf_htons(80),
+		.nexthdr = IPPROTO_UDP,
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv4_nat_entry ostate;
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.needs_ct = true,
+		.egress_gateway = true,
+		.addr = bpf_htonl(0x0AA40001),
+	};
+	__s8 ext_err = 0;
+	void *map;
+	__u16 *ports;
+
+	/* Keep in sync with SNAT_TEST_CLIENTS. */
+	__u32 client = i & 15;
+	__u32 port_idx = i >> 4;
+
+	otuple.saddr += 0x100 * client;
+	otuple.daddr = bpf_htonl(daddrs[get_prandom_u32() % ARRAY_SIZE(daddrs)]);
+
+	if (port_idx >= ARRAY_SIZE(udp_ports0))
+		return 1;
+
+	/* Keep in sync with SNAT_TEST_CLIENTS. */
+	switch (client) {
+	case 0: ports = udp_ports0; break;
+	case 1: ports = udp_ports1; break;
+	case 2: ports = udp_ports2; break;
+	case 3: ports = udp_ports3; break;
+	case 4: ports = udp_ports4; break;
+	case 5: ports = udp_ports5; break;
+	case 6: ports = udp_ports6; break;
+	case 7: ports = udp_ports7; break;
+	case 8: ports = udp_ports8; break;
+	case 9: ports = udp_ports9; break;
+	case 10: ports = udp_ports10; break;
+	case 11: ports = udp_ports11; break;
+	case 12: ports = udp_ports12; break;
+	case 13: ports = udp_ports13; break;
+	case 14: ports = udp_ports14; break;
+	case 15: ports = udp_ports15; break;
+	}
+	otuple.sport = bpf_htons(ports[port_idx]);
+	map = get_cluster_snat_map_v4(0);
+	ctx->err = snat_v4_new_mapping(ctx->ctx, map, &otuple, &ostate, &target, true, &ext_err);
+
+	if (ctx->err == DROP_NAT_NO_MAPPING && !ext_err) {
+		ctx->err = 0;
+		++ctx->fails;
+		/* Store the number of iterations when we start having 5% of failures. */
+		if (!ctx->fail_thres && ctx->fails >= (i + 1) / 20)
+			ctx->fail_thres = i;
+	}
+
+	if (ctx->err)
+		printk("error %d at iteration %u\n", ctx->err, i);
+
+	switch (i) {
+	case SNAT_TEST_ITERATIONS / 10:
+		printk("UDP port allocation retries at 10%% of test:\n");
+		if (!store_retries(retries_10percent, true))
+			ctx->err = -ENOMEM;
+		break;
+	case SNAT_TEST_ITERATIONS / 2:
+		printk("UDP port allocation retries at 50%% of test:\n");
+		if (!store_retries(retries_50percent, true))
+			ctx->err = -ENOMEM;
+		break;
+	case SNAT_TEST_ITERATIONS * 3 / 4:
+		printk("UDP port allocation retries at 75%% of test:\n");
+		if (!store_retries(retries_75percent, true))
+			ctx->err = -ENOMEM;
+		break;
+	}
+
+	return ctx->err != 0;
+}
+
+CHECK("tc", "nat4_port_allocation")
+int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
+{
+	struct snat_callback_ctx cb_ctx = {
+		.ctx = ctx,
+	};
+	__u32 iters;
+
+	test_init();
+	/* This test checks the effectiveness of port allocation algorithm in SNAT.
+	 */
+
+	assert(store_retries(retries_before, false));
+	iters = loop(SNAT_TEST_ITERATIONS, snat_callback_udp, &cb_ctx, 0);
+	assert(iters == SNAT_TEST_ITERATIONS);
+	assert(cb_ctx.err == 0);
+	printk("UDP port allocation retries at 100%% of test:\n");
+	assert(store_retries(retries_100percent, true));
+
+	printk("5%% failures happened at iteration %u\n", cb_ctx.fail_thres);
+
+	/* Non-negligible amount of failures happens after 70% of the test. */
+	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 0.7);
+
+	/* Only occasional failures at 50% of the test. */
+	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 15);
+
+	/* Less than 7% of failures at 75% of the test. */
+	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.75 * 0.07);
+
+	/* Less than 16% of failures at 100% of the test. */
+	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.16);
+
+	/* Negligible amount of ports allocated after 11+ retries. */
+	for (__u32 i = 11; i < SNAT_COLLISION_RETRIES; i++)
+		assert(retries_100percent[i] < 100);
+
+	/* More ports could be allocated after fewer retries. */
+	for (__u32 i = 1; i <= 5; i++)
+		assert(retries_100percent[i] <= retries_100percent[i - 1]);
+	for (__u32 i = 6; i < SNAT_COLLISION_RETRIES; i++)
+		assert(retries_100percent[i] <= retries_100percent[5]);
 
 	test_finish();
 }

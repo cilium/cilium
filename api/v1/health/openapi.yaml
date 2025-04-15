@@ -106,6 +106,9 @@ definitions:
     properties:
       timestamp:
         type: string
+      probeInterval:
+        description: Interval in seconds between probes
+        type: string
       local:
         description: Description of the local node
         "$ref": "#/definitions/SelfStatus"
@@ -185,3 +188,6 @@ definitions:
       status:
         type: string
         description: Human readable status/error/warning message
+      lastProbed:
+        description: Timestamp of last probe completion
+        type: string

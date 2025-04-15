@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	logfilter "github.com/cilium/cilium/cilium-cli/utils/log"
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -60,6 +61,10 @@ type K8sStatusParameters struct {
 	// Interactive specifies whether the summary output refreshes after each
 	// retry when --wait flag is specified.
 	Interactive bool
+
+	// Verbose increases the verbosity of certain output, such as Cilium
+	// error logs on failure.
+	Verbose bool
 }
 
 type K8sStatusCollector struct {
@@ -76,7 +81,7 @@ type k8sImplementation interface {
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error)
+	ContainerLogs(ctx context.Context, namespace, pod, container string, since time.Time, previous bool) (string, error)
 }
 
 func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
@@ -397,7 +402,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 }
 
 func cursorUp(lines int) {
-	for i := 0; i < lines; i++ {
+	for range lines {
 		fmt.Print("\033[A\033[2K")
 	}
 }
@@ -408,7 +413,7 @@ func countWrappedLines(text string) int {
 		width = 80 // default width if we can't get the terminal size
 	}
 	lines := 1
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		lines += (utf8.RuneCountInString(line) + width - 1) / width
 	}
 	return lines
@@ -417,6 +422,53 @@ func countWrappedLines(text string) int {
 type statusTask struct {
 	name string
 	task func(_ context.Context) error
+}
+
+// logComponentTask returns a task to gather logs from a Cilium component
+// other than the cilium-agent (which needs special care as it's a DaemonSet).
+func (k *K8sStatusCollector) logComponentTask(status *Status, namespace, deployment, podName, containerName string, containerStatus *corev1.ContainerStatus) statusTask {
+	return statusTask{
+		name: podName,
+		task: func(ctx context.Context) error {
+			var err error
+
+			if containerStatus == nil || containerStatus.State.Running == nil {
+				desc := "is not running"
+
+				// determine CrashLoopBackOff status and get last log line, if available.
+				if containerStatus != nil {
+					if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+						desc = "is in CrashLoopBackOff"
+					}
+					if containerStatus.LastTerminationState.Terminated != nil {
+						terminated := containerStatus.LastTerminationState.Terminated
+						desc = fmt.Sprintf("%s, pulling previous Pod logs for further investigation", desc)
+
+						getPrevious := false
+						if containerStatus.RestartCount > 0 {
+							getPrevious = true
+						}
+						logs, errLogCollection := k.client.ContainerLogs(ctx, namespace, podName, containerName, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
+						if errLogCollection != nil {
+							status.CollectionError(fmt.Errorf("failed to gather logs from %s:%s:%s: %w", namespace, podName, containerName, err))
+						} else if logs != "" {
+							lastLog := logfilter.Reduce(logs, k.params.Verbose)
+							err = fmt.Errorf("container %s %s:\n%s", containerName, desc, lastLog)
+						}
+					}
+				}
+			}
+
+			status.mutex.Lock()
+			defer status.mutex.Unlock()
+
+			if err != nil {
+				status.AddAggregatedError(deployment, podName, err)
+			}
+
+			return nil
+		},
+	}
 }
 
 func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFunc) *Status {
@@ -655,31 +707,9 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 								terminated := containerStatus.LastTerminationState.Terminated
 								desc = fmt.Sprintf("%s, exited with code %d", desc, terminated.ExitCode)
 
-								// capture final log line, maybe it's useful
-								// either from container message or a separate logs request
-								dyingGasp := ""
+								// capture final log line from container termination message, maybe it's useful
 								if terminated.Message != "" {
 									lastLog = strings.TrimSpace(terminated.Message)
-								} else {
-									agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
-										var getPrevious bool
-										if containerStatus.RestartCount > 0 {
-											getPrevious = true
-										}
-										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
-										if err == nil && logs != "" {
-											dyingGasp = strings.TrimSpace(logs)
-										}
-									})
-								}
-
-								// output the last few log lines if available
-								if dyingGasp != "" {
-									lines := strings.Split(dyingGasp, "\n")
-									lastLog = ""
-									for i := 0; i < min(len(lines), 50); i++ {
-										lastLog += fmt.Sprintf("\n%s", lines[i])
-									}
 								}
 							}
 						}
@@ -702,6 +732,60 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 					return nil
 				},
 			})
+			agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
+				tasks = append(tasks, k.logComponentTask(status, pod.Namespace, defaults.AgentDaemonSetName, pod.Name, defaults.AgentContainerName, containerStatus))
+			})
+		}
+	})
+	if err != nil {
+		status.CollectionError(err)
+	}
+
+	err = k.podStatus(ctx, status, defaults.OperatorDeploymentName, defaults.OperatorPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
+		if pod.Status.Phase == corev1.PodRunning {
+			// extract container status
+			var containerStatus *corev1.ContainerStatus
+			for i, cStatus := range pod.Status.ContainerStatuses {
+				if cStatus.Name == defaults.OperatorContainerName {
+					containerStatus = &pod.Status.ContainerStatuses[i]
+					break
+				}
+			}
+			tasks = append(tasks, k.logComponentTask(status, pod.Namespace, defaults.OperatorDeploymentName, pod.Name, defaults.OperatorContainerName, containerStatus))
+		}
+	})
+	if err != nil {
+		status.CollectionError(err)
+	}
+
+	err = k.podStatus(ctx, status, defaults.RelayDeploymentName, defaults.RelayPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
+		if pod.Status.Phase == corev1.PodRunning {
+			// extract container status
+			var containerStatus *corev1.ContainerStatus
+			for i, cStatus := range pod.Status.ContainerStatuses {
+				if cStatus.Name == defaults.RelayContainerName {
+					containerStatus = &pod.Status.ContainerStatuses[i]
+					break
+				}
+			}
+			tasks = append(tasks, k.logComponentTask(status, pod.Namespace, defaults.RelayDeploymentName, pod.Name, defaults.RelayContainerName, containerStatus))
+		}
+	})
+	if err != nil {
+		status.CollectionError(err)
+	}
+
+	err = k.podStatus(ctx, status, defaults.ClusterMeshDeploymentName, defaults.ClusterMeshPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
+		if pod.Status.Phase == corev1.PodRunning {
+			// extract container status
+			var containerStatus *corev1.ContainerStatus
+			for i, cStatus := range pod.Status.ContainerStatuses {
+				if cStatus.Name == defaults.ClusterMeshContainerName {
+					containerStatus = &pod.Status.ContainerStatuses[i]
+					break
+				}
+			}
+			tasks = append(tasks, k.logComponentTask(status, pod.Namespace, defaults.ClusterMeshDeploymentName, pod.Name, defaults.ClusterMeshContainerName, containerStatus))
 		}
 	})
 	if err != nil {

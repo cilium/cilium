@@ -18,7 +18,7 @@ func TestWrap(t *testing.T) {
 		templateBuffer bytes.Buffer
 	)
 
-	realEP := testutils.NewTestEndpoint()
+	realEP := testutils.NewTestEndpoint(t)
 	template := wrap(&realEP)
 	cfg := configWriterForTest(t)
 
@@ -28,17 +28,4 @@ func TestWrap(t *testing.T) {
 	err = cfg.WriteTemplateConfig(&templateBuffer, &localNodeConfig, template)
 	require.NoError(t, err)
 	require.Equal(t, realEPBuffer.String(), templateBuffer.String())
-
-	// Write with the static data, and verify that the buffers differ.
-	// Note this isn't an overly strong test because it only takes one
-	// character to change for this test to pass, but we would ideally
-	// define every bit of static data differently in the templates.
-	realEPBuffer.Reset()
-	templateBuffer.Reset()
-	err = cfg.WriteEndpointConfig(&realEPBuffer, &localNodeConfig, &realEP)
-	require.NoError(t, err)
-	err = cfg.WriteEndpointConfig(&templateBuffer, &localNodeConfig, template)
-	require.NoError(t, err)
-
-	require.NotEqual(t, realEPBuffer.String(), templateBuffer.String())
 }

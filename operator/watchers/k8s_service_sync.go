@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -18,41 +16,35 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(nil, nil, k8s.NewSVCMetricsNoop())
+	K8sSvcCache = k8s.NewServiceCache(logging.DefaultSlogLogger, nil, nil, k8s.NewSVCMetricsNoop())
 
 	kvs store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool, logger *slog.Logger) {
+func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWGDone()
 
-		var svc serviceStore.ClusterService
-		if event.Action == k8s.UpdateService {
-			svc = k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-		} else if event.Action == k8s.DeleteService {
-			svc = k8s.NewClusterService(event.ID, event.OldService, event.OldEndpoints)
-		}
+		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
 		logger.Debug("Kubernetes service definition changed",
 			logfields.K8sSvcName, event.ID.Name,
 			logfields.K8sNamespace, event.ID.Namespace,
-			"action", event.Action,
-			"service", event.Service,
-			"endpoints", event.Endpoints,
-			"old-service", event.OldService,
-			"old-endpoints", event.OldEndpoints,
-			"shared", svc.Shared,
+			logfields.Action, event.Action,
+			logfields.Service, event.Service,
+			logfields.Endpoints, event.Endpoints,
+			logfields.Shared, event.Service.Shared,
 		)
 
-		if shared && !svc.Shared {
+		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteKey(ctx, &svc)
 			return
@@ -76,7 +68,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 	}
 	for {
 		select {
-		case event, ok := <-K8sSvcCache.Events:
+		case event, ok := <-K8sSvcCache.Events():
 			if !ok {
 				return
 			}
@@ -95,7 +87,6 @@ type ServiceSyncParameters struct {
 	Services     resource.Resource[*slim_corev1.Service]
 	Endpoints    resource.Resource[*k8s.Endpoints]
 	Backend      store.SyncStoreBackend
-	SharedOnly   bool
 	StoreFactory store.Factory
 	SyncCallback func(context.Context)
 }
@@ -131,8 +122,8 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		// Wait for kvstore
 		<-kvstoreReady
 
-		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly, logger)
+		logger.Info("Starting to synchronize Kubernetes services to kvstore")
+		k8sServiceHandler(ctx, cfg.ClusterInfo, logger)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints
@@ -153,7 +144,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			swg.Stop()
 			swg.Wait()
 
-			log.Info("Initial list of services successfully received from Kubernetes")
+			logger.Info("Initial list of services successfully received from Kubernetes")
 			kvs.Synced(ctx, cfg.SyncCallback)
 		}
 

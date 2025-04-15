@@ -13,7 +13,7 @@ import (
 func Test_getFields(t *testing.T) {
 	tests := []struct {
 		name      string
-		structure map[string]interface{}
+		structure map[string]any
 		expected  []string
 		err       error
 	}{
@@ -25,7 +25,7 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: "empty structure",
-			structure: map[string]interface{}{
+			structure: map[string]any{
 				"": "",
 			},
 			expected: []string{""},
@@ -33,7 +33,7 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: "simple structure",
-			structure: map[string]interface{}{
+			structure: map[string]any{
 				"spec": "",
 			},
 			expected: []string{"spec"},
@@ -41,11 +41,11 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: "nested structure",
-			structure: map[string]interface{}{
-				"spec": map[string]interface{}{
+			structure: map[string]any{
+				"spec": map[string]any{
 					"more":   "",
 					"fields": "",
-					"another": map[string]interface{}{
+					"another": map[string]any{
 						"field": "",
 					},
 				},
@@ -55,10 +55,10 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: `contains "matchLabels"`,
-			structure: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"endpointSelector": map[string]interface{}{
-						"matchLabels": map[string]interface{}{
+			structure: map[string]any{
+				"spec": map[string]any{
+					"endpointSelector": map[string]any{
+						"matchLabels": map[string]any{
 							"app": "",
 						},
 					},
@@ -69,10 +69,10 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: `contains multiple labels inside multiple "matchLabels"`,
-			structure: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"endpointSelector": map[string]interface{}{
-						"matchLabels": map[string]interface{}{
+			structure: map[string]any{
+				"spec": map[string]any{
+					"endpointSelector": map[string]any{
+						"matchLabels": map[string]any{
 							"app":      "",
 							"key":      "",
 							"operator": "",
@@ -85,21 +85,21 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: `contains multiple labels inside "matchLabels" based on real policy`,
-			structure: map[string]interface{}{
-				"specs": []interface{}{
-					map[string]interface{}{
+			structure: map[string]any{
+				"specs": []any{
+					map[string]any{
 						"description": "Policy to test multiple rules in a single file",
-						"endpointSelector": map[string]interface{}{
-							"matchLabels": map[string]interface{}{
+						"endpointSelector": map[string]any{
+							"matchLabels": map[string]any{
 								"app":     "",
 								"version": "",
 							},
 						},
-						"ingress": []interface{}{
-							map[string]interface{}{
-								"fromEndpoints": []interface{}{
-									map[string]interface{}{
-										"matchLabels": map[string]interface{}{
+						"ingress": []any{
+							map[string]any{
+								"fromEndpoints": []any{
+									map[string]any{
+										"matchLabels": map[string]any{
 											"app":     "",
 											"track":   "",
 											"version": "",
@@ -109,19 +109,19 @@ func Test_getFields(t *testing.T) {
 							},
 						},
 					},
-					map[string]interface{}{
-						"endpointSelector": map[string]interface{}{
-							"matchLabels": map[string]interface{}{
+					map[string]any{
+						"endpointSelector": map[string]any{
+							"matchLabels": map[string]any{
 								"app":     "details",
 								"track":   "stable",
 								"version": "v1",
 							},
 						},
-						"ingress": []interface{}{
-							map[string]interface{}{
-								"fromEndpoints": []interface{}{
-									map[string]interface{}{
-										"matchLabels": map[string]interface{}{
+						"ingress": []any{
+							map[string]any{
+								"fromEndpoints": []any{
+									map[string]any{
+										"matchLabels": map[string]any{
 											"app":     "productpage",
 											"track":   "stable",
 											"version": "v1",
@@ -142,20 +142,20 @@ func Test_getFields(t *testing.T) {
 		},
 		{
 			name: `contains "matchLabels" and "matchExpressions" based on real policy`,
-			structure: map[string]interface{}{
-				"spec": map[string]interface{}{
+			structure: map[string]any{
+				"spec": map[string]any{
 					"description": "Policy to test matchExpressions key",
-					"endpointSelector": map[string]interface{}{
-						"matchLabels": map[string]interface{}{
+					"endpointSelector": map[string]any{
+						"matchLabels": map[string]any{
 							"id": "app1",
 						},
 					},
-					"ingress": []interface{}{
-						map[string]interface{}{
-							"fromEndpoints": []interface{}{
-								map[string]interface{}{
-									"matchExpressions": []interface{}{
-										map[string]interface{}{
+					"ingress": []any{
+						map[string]any{
+							"fromEndpoints": []any{
+								map[string]any{
+									"matchExpressions": []any{
+										map[string]any{
 											"key":      "",
 											"operator": "Exists",
 										},
@@ -175,10 +175,10 @@ func Test_getFields(t *testing.T) {
 		t.Log(tt.name)
 
 		got, err := getFields(tt.structure)
-		require.EqualValues(t, err, tt.err)
+		require.Equal(t, err, tt.err)
 
 		slices.Sort(tt.expected) // Must sort to check slice equality
 		slices.Sort(got)
-		require.EqualValues(t, tt.expected, got)
+		require.Equal(t, tt.expected, got)
 	}
 }

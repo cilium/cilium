@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -22,10 +23,6 @@ type testEPManager struct {
 func (tm *testEPManager) EndpointExists(id uint16) bool {
 	_, exists := tm.endpoints[id]
 	return exists
-}
-
-func (tm *testEPManager) HasGlobalCT() bool {
-	return false
 }
 
 func (tm *testEPManager) RemoveDatapathMapping(id uint16) error {
@@ -184,7 +181,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager()
 			bwManager := newTestBWManager()
-			sweeper := NewMapSweeper(testEPManager, bwManager)
+			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager)
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -197,7 +194,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			slices.Sort(testEPManager.removedPaths)
 			slices.Sort(tt.removedMappings)
 			slices.Sort(testEPManager.removedMappings)
-			require.EqualValues(t, tt.removedPaths, testEPManager.removedPaths)
+			require.Equal(t, tt.removedPaths, testEPManager.removedPaths)
 		})
 	}
 }

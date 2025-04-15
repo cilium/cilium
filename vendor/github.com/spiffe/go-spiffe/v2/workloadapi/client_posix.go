@@ -24,6 +24,6 @@ func (c *Client) setAddress() error {
 	}
 
 	var err error
-	c.config.address, err = parseTargetFromStringAddr(c.config.address)
+	c.config.address, err = TargetFromAddress(c.config.address)
 	return err
 }

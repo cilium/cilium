@@ -5,9 +5,9 @@ package policy
 
 import (
 	"iter"
+	"log/slog"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -29,12 +29,9 @@ import (
 type Key = types.Key
 type Keys = types.Keys
 type MapStateEntry = types.MapStateEntry
+type MapStateMap = types.MapStateMap
 
 const NoAuthRequirement = types.NoAuthRequirement
-
-// Map type for external use. Internally we have more detail in private 'mapStateEntry' type,
-// as well as more extensive indexing via tries.
-type MapStateMap map[Key]MapStateEntry
 
 type mapStateMap map[Key]mapStateEntry
 
@@ -94,6 +91,7 @@ var (
 // greatly enhances the usefuleness of the Trie and improves lookup,
 // deletion, and insertion times.
 type mapState struct {
+	logger *slog.Logger
 	// entries is the map containing the MapStateEntries
 	entries mapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
@@ -168,10 +166,11 @@ func (ms *mapState) forKey(k Key, f func(Key, mapStateEntry) bool) bool {
 	if ok {
 		return f(k, e)
 	}
-	log.WithFields(logrus.Fields{
-		logfields.Stacktrace: hclog.Stacktrace(),
-		logfields.PolicyKey:  k,
-	}).Errorf("Missing MapStateEntry")
+	ms.logger.Error(
+		"Missing MapStateEntry",
+		logfields.Stacktrace, hclog.Stacktrace(),
+		logfields.PolicyKey, k,
+	)
 	return true
 }
 
@@ -242,7 +241,7 @@ func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	}
 }
 
-// CoveringKeysWithSameID iterates over broader port/proto entries in the trie in LPM order,
+// CoveringKeysWithSameID iterates over broader or equal port/proto entries in the trie in LPM order,
 // with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
@@ -250,8 +249,8 @@ func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// Visit key with the same identity, if port/proto is different.
-			if !k.PortProtoIsEqual(key) && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			// Visit key with the same identity
+			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 		}
@@ -266,8 +265,8 @@ func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] 
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// Visit key with the same identity, if port/proto is different.
-			if !k.PortProtoIsEqual(key) && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			// Visit key with the same identity
+			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 		}
@@ -401,7 +400,7 @@ type mapStateEntry struct {
 }
 
 // newMapStateEntry creates a map state entry.
-func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
+func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority ListenerPriority, deny bool, authReq AuthRequirement) mapStateEntry {
 	return mapStateEntry{
 		MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, priority, authReq),
 		derivedFromRules: derivedFrom,
@@ -421,12 +420,13 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	}
 }
 
-func emptyMapState() mapState {
-	return newMapState(0)
+func emptyMapState(logger *slog.Logger) mapState {
+	return newMapState(logger, 0)
 }
 
-func newMapState(size int) mapState {
+func newMapState(logger *slog.Logger, size int) mapState {
 	return mapState{
+		logger:  logger,
 		entries: make(mapStateMap, size),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
@@ -444,10 +444,11 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 // Get the mapStateEntry that matches the Key.
 func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: hclog.Stacktrace(),
-			logfields.PolicyKey:  k,
-		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
+		ms.logger.Error(
+			"mapState.Get: invalid port prefix length for wildcard port",
+			logfields.Stacktrace, hclog.Stacktrace(),
+			logfields.PolicyKey, k,
+		)
 	}
 
 	v, ok := ms.entries[k]
@@ -457,10 +458,11 @@ func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 // insert the Key and MapStateEntry into the MapState
 func (ms *mapState) insert(k Key, v mapStateEntry) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: hclog.Stacktrace(),
-			logfields.PolicyKey:  k,
-		}).Errorf("mapState.insert: invalid port prefix length for wildcard port")
+		ms.logger.Error(
+			"mapState.insert: invalid port prefix length for wildcard port",
+			logfields.Stacktrace, hclog.Stacktrace(),
+			logfields.PolicyKey, k,
+		)
 	}
 	ms.upsert(k, v)
 }
@@ -494,29 +496,6 @@ func (msA *mapState) Equal(msB *mapState) bool {
 		vB, ok := msB.get(kA)
 		return ok && (&vB).Equal(&vA)
 	})
-}
-
-// Diff returns the string of differences between 'obtained' and 'expected' prefixed with
-// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
-// For use in debugging from other packages.
-func (obtained MapStateMap) Diff(expected MapStateMap) (res string) {
-	res += "Missing (-), Unexpected (+):\n"
-	for kE, vE := range expected {
-		if vO, ok := obtained[kE]; ok {
-			if vO != vE {
-				res += "- " + kE.String() + ": " + vE.String() + "\n"
-				res += "+ " + kE.String() + ": " + vO.String() + "\n"
-			}
-		} else {
-			res += "- " + kE.String() + ": " + vE.String() + "\n"
-		}
-	}
-	for kO, vO := range obtained {
-		if _, ok := expected[kO]; !ok {
-			res += "+ " + kO.String() + ": " + vO.String() + "\n"
-		}
-	}
-	return res
 }
 
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
@@ -646,15 +625,13 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 // deleteKeyWithChanges deletes a 'key' from 'ms' keeping track of incremental changes in 'changes'
 func (ms *mapState) deleteKeyWithChanges(key Key, changes ChangeState) {
 	if entry, exists := ms.get(key); exists {
-		// Save old value before any changes, if desired
-		changes.insertOldIfNotExists(key, entry)
-
-		if changes.Deletes != nil {
+		// Only record as a delete if the entry was not added on the same round of changes
+		if changes.insertOldIfNotExists(key, entry) && changes.Deletes != nil {
 			changes.Deletes[key] = struct{}{}
-			// Remove a potential previously added key
-			if changes.Adds != nil {
-				delete(changes.Adds, key)
-			}
+		}
+		// Remove a potential previously added key
+		if changes.Adds != nil {
+			delete(changes.Adds, key)
 		}
 
 		ms.delete(key)
@@ -725,6 +702,12 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 			}
 		}
 	} else {
+		// authPreferredInsert takes care for precedence and auth
+		if features.contains(authRules) {
+			ms.authPreferredInsert(newKey, newEntry, features, changes)
+			return
+		}
+
 		// Bail if covered by a deny key or a key with a higher proxy port priority.
 		//
 		// This can be skipped if no rules have denies or proxy redirects
@@ -738,23 +721,34 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 
 		// Delete covered allow entries with lower proxy port priority.
 		//
-		// This can be skipped if no rules have proxy redirects
-		if features.contains(redirectRules) {
+		// This is only needed if the newEntry has a proxy port priority greater than zero.
+		if newEntry.ProxyPortPriority > 0 {
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if !v.IsDeny() && v.ProxyPortPriority < newEntry.ProxyPortPriority {
 					ms.deleteKeyWithChanges(k, changes)
 				}
 			}
 		}
-
-		// Checking for auth feature here is faster than calling 'authPreferredInsert' and
-		// checking for it there.
-		if features.contains(authRules) {
-			ms.authPreferredInsert(newKey, newEntry, changes)
-			return
-		}
 	}
 	ms.addKeyWithChanges(newKey, newEntry, changes)
+}
+
+// overrideProxyPortForAuth sets the proxy port and priority of 'v' to that of 'newKey', saving the
+// old entry in 'changes'.
+// Returns 'true' if changes were made.
+func (ms *mapState) overrideProxyPortForAuth(newEntry mapStateEntry, k Key, v mapStateEntry, changes ChangeState) bool {
+	if v.AuthRequirement.IsExplicit() {
+		// Save the old value first
+		changes.insertOldIfNotExists(k, v)
+
+		// Proxy port can be changed in-place, trie is not affected
+		v.ProxyPort = newEntry.ProxyPort
+		v.ProxyPortPriority = newEntry.ProxyPortPriority
+
+		ms.entries[k] = v
+		return true
+	}
+	return false
 }
 
 // overrideAuthRequirement sets the AuthRequirement of 'v' to that of 'newKey', saving the old entry
@@ -777,30 +771,66 @@ func (ms *mapState) overrideAuthRequirement(newEntry mapStateEntry, k Key, v map
 // This function is expected to be called for a map insertion after deny
 // entry evaluation. If there is a covering map key for 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
-func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, changes ChangeState) {
-	if !newEntry.AuthRequirement.IsExplicit() {
-		// New entry has a default auth type.
+func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
+	// Bail if covered by a deny key or a key with a higher proxy port priority and current
+	// entry has no explicit auth.
+	var derived bool
+	newEntryHasExplicitAuth := newEntry.AuthRequirement.IsExplicit()
+	for k, v := range ms.CoveringKeysWithSameID(newKey) {
+		if v.IsDeny() {
+			return // bail if covered by deny
+		}
+		if v.ProxyPortPriority > newEntry.ProxyPortPriority {
+			if !newEntryHasExplicitAuth {
+				// Covering entry has higher proxy port priority and newEntry has a
+				// default auth type => can bail out
+				return
+			}
 
+			// newEnry has a different explicit auth requirement, must propagate
+			// proxy port and priority and keep it
+			newEntry.ProxyPort = v.ProxyPort
+			newEntry.ProxyPortPriority = v.ProxyPortPriority
+
+			// Can break out:
+			// - if there were covering denies the allow 'v' would
+			//   not have existed, and
+			// - since the new entry has explicit auth it does not need to be
+			//   derived.
+			break
+		}
 		// Fill in the AuthType from the most specific covering key with the same ID and an
 		// explicit auth type
-		for _, v := range ms.CoveringKeysWithSameID(newKey) {
-			if v.AuthRequirement.IsExplicit() {
-				// AuthType from the most specific covering key is applied
-				// to 'newEntry'
-				newEntry.AuthRequirement = v.AuthRequirement.AsDerived()
-				break
+		if !derived && !newEntryHasExplicitAuth && !k.PortProtoIsEqual(newKey) && v.AuthRequirement.IsExplicit() {
+			// AuthType from the most specific covering key is applied to 'newEntry' as
+			// derived auth type.
+			newEntry.AuthRequirement = v.AuthRequirement.AsDerived()
+			derived = true
+		}
+	}
+
+	// Delete covered allow entries with lower proxy port priority, but keep
+	// entries with different "auth" and propagate proxy port and priority to them.
+	//
+	// Check if the new key is the most specific covering key of any other key
+	// with the same ID and default auth type, and propagate the auth type from the new
+	// entry to such entries.
+	var propagated bool
+	for k, v := range ms.SubsetKeysWithSameID(newKey) {
+		if !v.IsDeny() && v.ProxyPortPriority < newEntry.ProxyPortPriority {
+			if !ms.overrideProxyPortForAuth(newEntry, k, v, changes) {
+				ms.deleteKeyWithChanges(k, changes)
+				continue
 			}
 		}
-	} else { // New entry has an explicit auth type
-		// Check if the new key is the most specific covering key of any other key
-		// with the same ID and default auth type, and propagate the auth type from the new
-		// entry to such entries.
-		for k, v := range ms.SubsetKeysWithSameID(newKey) {
+		if !propagated && newEntryHasExplicitAuth && !k.PortProtoIsEqual(newKey) {
+			// New entry has an explicit auth type
 			if v.IsDeny() || v.AuthRequirement.IsExplicit() {
-				// Stop if a subset entry is deny or has an explicit auth type, as
+				// Stop if a subset entry is deny or also has an explicit auth type, as
 				// that is the more specific covering key for all remaining subset
 				// keys
-				break
+				propagated = true
+				continue
 			}
 			ms.overrideAuthRequirement(newEntry, k, v, changes)
 		}
@@ -857,6 +887,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 // granularity of individual mapstate key-value pairs for both adds
 // and deletes. 'mutex' must be held for any access.
 type MapChanges struct {
+	logger       *slog.Logger
 	firstVersion versioned.KeepVersion
 	mutex        lock.Mutex
 	changes      []mapChange
@@ -916,14 +947,16 @@ func (mc *MapChanges) SyncMapChanges(txn *versioned.Tx) {
 			mc.synced = append(mc.synced, mc.changes...)
 			mc.version.Close()
 			mc.version = txn.GetVersionHandle()
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: mc.version,
-			}).Debug("SyncMapChanges: Got handle on the new version")
+			mc.logger.Debug(
+				"SyncMapChanges: Got handle on the new version",
+				logfields.NewVersion, mc.version,
+			)
 		} else {
-			log.WithFields(logrus.Fields{
-				logfields.Version:    mc.firstVersion,
-				logfields.OldVersion: txn,
-			}).Debug("SyncMapChanges: Discarding already applied changes")
+			mc.logger.Debug(
+				"SyncMapChanges: Discarding already applied changes",
+				logfields.Version, mc.firstVersion,
+				logfields.OldVersion, txn,
+			)
 		}
 	}
 	mc.changes = nil

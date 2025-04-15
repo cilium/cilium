@@ -21,7 +21,7 @@ cilium-dbg preflight validate-cnp [flags]
       --enable-k8s                                  Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                    Enable discovery of Kubernetes API groups and resources with the discovery API
   -h, --help                                        help for validate-cnp
-      --k8s-api-server string                       Kubernetes API server URL
+      --k8s-api-server-urls strings                 Kubernetes API server URLs
       --k8s-client-burst int                        Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration   Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration      Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
@@ -33,9 +33,11 @@ cilium-dbg preflight validate-cnp [flags]
 ### Options inherited from parent commands
 
 ```
-      --config string   Config file (default is $HOME/.cilium.yaml)
-  -D, --debug           Enable debug messages
-  -H, --host string     URI to server-side API
+      --config string        Config file (default is $HOME/.cilium.yaml)
+  -D, --debug                Enable debug messages
+  -H, --host string          URI to server-side API
+      --log-driver strings   Logging endpoints to use (example: syslog)
+      --log-opt map          Log driver options (example: format=json)
 ```
 
 ### SEE ALSO

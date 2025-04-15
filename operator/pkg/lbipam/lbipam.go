@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math/big"
 	"net/netip"
 	"slices"
@@ -59,7 +60,7 @@ var (
 	eventsOpts = resource.WithRateLimiter(
 		// This rate limiter will retry in the following pattern
 		// 250ms, 500ms, 1s, 2s, 4s, 8s, 16s, 32s, .... max 5m
-		workqueue.NewItemExponentialFailureRateLimiter(250*time.Millisecond, 5*time.Minute),
+		workqueue.NewTypedItemExponentialFailureRateLimiter[resource.WorkItem](250*time.Millisecond, 5*time.Minute),
 	)
 )
 
@@ -134,6 +135,11 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.Health) {
 
 	ipam.logger.Info("LB-IPAM initializing")
 	svcChan := ipam.initialize(ctx, poolChan)
+
+	// Initialization was cancelled by a shutdown
+	if svcChan == nil {
+		return
+	}
 	ipam.logger.Info("LB-IPAM done initializing")
 
 	for {
@@ -174,7 +180,13 @@ func (ipam *LBIPAM) initialize(
 	// before we start processing the services, which will save us from
 	// unnecessary work when LB-IPAM is not used.
 	poolsSynced := false
-	for event := range poolChan {
+	for {
+
+		event, ok := <-poolChan
+		// channel has been closed, we're shutting down. Don't try to update services
+		if !ok {
+			return nil
+		}
 		if event.Kind == resource.Sync {
 			err := ipam.settleConflicts(ctx)
 			if err != nil {
@@ -447,9 +459,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 	copy(sv.Ports, svc.Spec.Ports)
 	sv.Namespace = svc.Namespace
 	sv.Selector = make(map[string]string)
-	for k, v := range svc.Spec.Selector {
-		sv.Selector[k] = v
-	}
+	maps.Copy(sv.Selector, svc.Spec.Selector)
 	sv.Status = svc.Status.DeepCopy()
 
 	return sv
@@ -675,7 +685,7 @@ func getSVCRequestedIPs(log *slog.Logger, svc *slim_core_v1.Service) []netip.Add
 	}
 
 	if value, _ := annotation.Get(svc, annotation.LBIPAMIPsKey, annotation.LBIPAMIPKeyAlias); value != "" {
-		for _, ipStr := range strings.Split(value, ",") {
+		for ipStr := range strings.SplitSeq(value, ",") {
 			ip, err := netip.ParseAddr(strings.TrimSpace(ipStr))
 			if err == nil {
 				ips = append(ips, ip)
@@ -1178,7 +1188,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		pool, found := ipam.pools[lbRange.originPool]
 		if !found {
 			ipam.logger.Warn(fmt.Sprintf("Bad state detected, store contains lbRange for pool '%s' but missing the pool", lbRange.originPool),
-				"pool-name", lbRange.originPool)
+				logfields.PoolName, lbRange.originPool)
 			continue
 		}
 
@@ -1281,7 +1291,7 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 	// Sanity check that we do not yet know about this pool.
 	if _, found := ipam.pools[pool.GetName()]; found {
 		ipam.logger.Warn(fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName()),
-			"pool-name", pool.GetName())
+			logfields.PoolName, pool.GetName())
 		return nil
 	}
 
@@ -1812,10 +1822,10 @@ func (ipam *LBIPAM) markPoolConflicting(
 			ipNetStr(targetRange),
 			ipNetStr(collisionRange),
 			collisionPool.Name),
-		"pool1-name", targetPool.Name,
-		"pool1-range", ipNetStr(targetRange),
-		"pool2-name", ipNetStr(collisionRange),
-		"pool2-range", collisionPool.Name,
+		logfields.PoolName1, targetPool.Name,
+		logfields.PoolRange1, ipNetStr(targetRange),
+		logfields.PoolName2, ipNetStr(collisionRange),
+		logfields.PoolRange2, collisionPool.Name,
 	)
 
 	conflictMessage := fmt.Sprintf(

@@ -183,7 +183,7 @@ func detachCgroup(name, cgroupRoot, pinPath string) error {
 func detachAll(attach ebpf.AttachType, cgroupRoot string) error {
 	cg, err := os.Open(cgroupRoot)
 	if err != nil {
-		return fmt.Errorf("open cgroup %s: %w", cg.Name(), err)
+		return fmt.Errorf("open cgroup %s: %w", cgroupRoot, err)
 	}
 	defer cg.Close()
 

@@ -36,7 +36,6 @@ var (
 type Config struct {
 	Debug         bool
 	CiliumURI     string
-	ProbeInterval time.Duration
 	ICMPReqsCount int
 	ProbeDeadline time.Duration
 	HTTPPathPort  int
@@ -70,6 +69,8 @@ type Server struct {
 	lock.RWMutex
 	connectivity *healthReport
 	localStatus  *healthModels.SelfStatus
+
+	nodesSeen map[string]struct{}
 }
 
 // DumpUptime returns the time that this server has been running.
@@ -148,19 +149,25 @@ func nodeElementSliceToNodeMap(nodeElements []*models.NodeElement) nodeMap {
 // updateCluster makes the specified health report visible to the API.
 //
 // It only updates the server's API-visible health report if the provided
-// report started after the current report.
+// report started at the same time as or after the current report.
 func (s *Server) updateCluster(report *healthReport) {
 	s.Lock()
 	defer s.Unlock()
 
-	if s.connectivity.startTime.Before(report.startTime) {
+	if s.connectivity.startTime.Compare(report.startTime) <= 0 {
+		if s.connectivity.startTime.Compare(report.startTime) < 0 {
+			// New probe, clear nodesSeen
+			s.nodesSeen = make(map[string]struct{})
+		}
+		s.collectNodeConnectivityMetrics(report)
 		s.connectivity = report
-		s.collectNodeConnectivityMetrics()
 	}
 }
 
-func (s *Server) collectNodeConnectivityMetrics() {
-	if s.localStatus == nil || s.connectivity == nil {
+// collectNodeConnectivityMetrics updates the metrics based on the provided
+// health report.
+func (s *Server) collectNodeConnectivityMetrics(report *healthReport) {
+	if s.localStatus == nil || report == nil {
 		return
 	}
 	localClusterName, localNodeName := getClusterNodeName(s.localStatus.Name)
@@ -168,7 +175,7 @@ func (s *Server) collectNodeConnectivityMetrics() {
 	endpointStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
 	nodeStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
 
-	for _, n := range s.connectivity.nodes {
+	for _, n := range report.nodes {
 		if n == nil || n.Host == nil || n.Host.PrimaryAddress == nil || n.HealthEndpoint == nil || n.HealthEndpoint.PrimaryAddress == nil {
 			continue
 		}
@@ -192,6 +199,7 @@ func (s *Server) collectNodeConnectivityMetrics() {
 			location = metrics.LabelLocationRemoteIntraCluster
 		}
 
+		// Update idempotent metrics here (to prevent overwriting with nil values).
 		// Aggregated status for endpoint connectivity
 		metrics.NodeConnectivityStatus.WithLabelValues(
 			localClusterName, localNodeName, targetClusterName, targetNodeName, location, metrics.LabelPeerEndpoint).
@@ -209,6 +217,21 @@ func (s *Server) collectNodeConnectivityMetrics() {
 		for connectivityStatusType, value := range isHealthNodeReachable {
 			nodeStatuses[connectivityStatusType] += value
 		}
+
+		// In order to avoid updating non-idempotent metrics, considers the possible cases.
+		// Case 1: If the report is newer than the current one, update the connectivity status report and all metrics.
+		// Case 2: If the report is from the same interval as the current one, update the report and only the new metrics.
+		if s.connectivity != nil && s.connectivity.startTime.Compare(report.startTime) == 0 {
+			if s.nodesSeen == nil {
+				continue
+			}
+			if _, ok := s.nodesSeen[n.Name]; ok {
+				// Skip updating non-idempotent latency metrics for nodes already seen.
+				continue
+			}
+		}
+
+		s.nodesSeen[n.Name] = struct{}{}
 
 		// HTTP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
@@ -339,8 +362,9 @@ func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 		Local: &healthModels.SelfStatus{
 			Name: name,
 		},
-		Nodes:     s.connectivity.nodes,
-		Timestamp: s.connectivity.startTime.Format(time.RFC3339),
+		Nodes:         s.connectivity.nodes,
+		Timestamp:     s.connectivity.startTime.Format(time.RFC3339),
+		ProbeInterval: s.connectivity.probeInterval.String(),
 	}
 }
 
@@ -363,6 +387,35 @@ func (s *Server) runActiveServices() error {
 	prober := newProber(s, nodesAdded)
 	prober.RunLoop()
 	defer prober.Stop()
+
+	// Periodically update the cluster status, without waiting for the
+	// probing interval to pass.
+	go func() {
+		tick := time.NewTicker(60 * time.Second)
+	loop:
+		for {
+			select {
+			case <-prober.stop:
+				break loop
+			case <-tick.C:
+				// We don't want to report stale nodes in metrics.
+				// We don't update added nodes in the middle of a probing interval.
+				if nodesAdded, nodesRemoved, err := prober.server.getNodes(); err != nil {
+					// reset the cache by setting clientID to 0 and removing all current nodes
+					prober.server.clientID = 0
+					prober.setNodes(nil, prober.nodes)
+					log.WithError(err).Error("unable to get cluster nodes")
+				} else {
+					// (1) setNodes implementation doesn't override results for existing nodes.
+					// (2) Remove stale nodes so we don't report them in metrics before updating results
+					prober.setNodes(nodesAdded, nodesRemoved)
+					// (2) Update results without stale nodes
+					prober.server.updateCluster(prober.getResults())
+				}
+			}
+		}
+		tick.Stop()
+	}()
 
 	return s.Server.Serve()
 }
@@ -407,7 +460,7 @@ func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
 	restAPI.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
 	restAPI.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
 
-	api.DisableAPIs(spec.DeniedAPIs, restAPI.AddMiddlewareFor)
+	api.DisableAPIs(logging.DefaultSlogLogger, spec.DeniedAPIs, restAPI.AddMiddlewareFor)
 	srv := healthApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"unix"}
 	srv.SocketPath = defaults.SockPath
@@ -423,6 +476,7 @@ func NewServer(config Config) (*Server, error) {
 		startTime:    time.Now(),
 		Config:       config,
 		connectivity: &healthReport{},
+		nodesSeen:    make(map[string]struct{}),
 	}
 
 	cl, err := ciliumPkg.NewClient(config.CiliumURI)
@@ -442,11 +496,6 @@ func NewServer(config Config) (*Server, error) {
 // If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
 func getAddresses() []string {
 	addresses := make([]string, 0, 2)
-
-	// listen on all interfaces and all families in case of external-workloads
-	if option.Config.JoinCluster {
-		return []string{""}
-	}
 
 	if option.Config.EnableIPv4 {
 		if ipv4 := node.GetInternalIPv4(); ipv4 != nil {

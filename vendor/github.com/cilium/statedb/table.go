@@ -321,8 +321,7 @@ func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision u
 		}
 
 		// Check that we have a full match on the key
-		secondary, _ := decodeNonUniqueKey(key)
-		if len(secondary) == len(q.key) {
+		if nonUniqueKey(key).secondaryLen() == len(q.key) {
 			break
 		}
 	}
@@ -404,8 +403,13 @@ func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Rev
 }
 
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
+	oldObj, hadOld, _, err = t.InsertWatch(txn, obj)
+	return
+}
+
+func (t *genTable[Obj]) InsertWatch(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, watch <-chan struct{}, err error) {
 	var old object
-	old, hadOld, err = txn.getTxn().insert(t, Revision(0), obj)
+	old, hadOld, watch, err = txn.getTxn().insert(t, Revision(0), obj)
 	if hadOld {
 		oldObj = old.data.(Obj)
 	}
@@ -414,7 +418,7 @@ func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, 
 
 func (t *genTable[Obj]) Modify(txn WriteTxn, obj Obj, merge func(old, new Obj) Obj) (oldObj Obj, hadOld bool, err error) {
 	var old object
-	old, hadOld, err = txn.getTxn().modify(t, Revision(0), obj,
+	old, hadOld, _, err = txn.getTxn().modify(t, Revision(0), obj,
 		func(old any) any {
 			return merge(old.(Obj), obj)
 		})
@@ -426,7 +430,7 @@ func (t *genTable[Obj]) Modify(txn WriteTxn, obj Obj, merge func(old, new Obj) O
 
 func (t *genTable[Obj]) CompareAndSwap(txn WriteTxn, rev Revision, obj Obj) (oldObj Obj, hadOld bool, err error) {
 	var old object
-	old, hadOld, err = txn.getTxn().insert(t, rev, obj)
+	old, hadOld, _, err = txn.getTxn().insert(t, rev, obj)
 	if hadOld {
 		oldObj = old.data.(Obj)
 	}

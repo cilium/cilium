@@ -8,19 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 )
 
-func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) *ops {
+func newOps(logger *slog.Logger, ipset *ipset, cfg config) *ops {
 	return &ops{
 		enabled: cfg.NodeIPSetNeeded,
 		ipset:   ipset,
@@ -75,11 +74,21 @@ var _ reconciler.Operations[*tables.IPSetEntry] = &ops{}
 var _ reconciler.BatchOperations[*tables.IPSetEntry] = &ops{}
 
 func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	panic("Unexpectedly Update() called for reconciliation")
+	if !ops.enabled {
+		return nil
+	}
+
+	addrsByName := map[string][]netip.Addr{entry.Name: {entry.Addr}}
+	return ops.ipset.addBatch(ctx, addrsByName)
 }
 
 func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	panic("Unexpectedly Delete() called for reconciliation")
+	if !ops.enabled {
+		return nil
+	}
+
+	addrsByName := map[string][]netip.Addr{entry.Name: {entry.Addr}}
+	return ops.ipset.delBatch(ctx, addrsByName)
 }
 
 func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, objs iter.Seq2[*tables.IPSetEntry, statedb.Revision]) error {

@@ -124,7 +124,7 @@ func TestReadDirConfig(t *testing.T) {
 		dirName string
 	}
 	type want struct {
-		allSettings map[string]interface{}
+		allSettings map[string]any
 		err         error
 	}
 	tests := []struct {
@@ -149,7 +149,7 @@ func TestReadDirConfig(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					allSettings: map[string]interface{}{},
+					allSettings: map[string]any{},
 					err:         nil,
 				}
 			},
@@ -180,7 +180,7 @@ func TestReadDirConfig(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					allSettings: map[string]interface{}{"test": `"1"`},
+					allSettings: map[string]any{"test": `"1"`},
 					err:         nil,
 				}
 			},
@@ -264,7 +264,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		CTMapEntriesGlobalTCP int
 		CTMapEntriesGlobalAny int
 		NATMapEntriesGlobal   int
-		PolicyMapEntries      int
 		LBMapEntries          int
 		FragmentsMapEntries   int
 		NeighMapEntriesGlobal int
@@ -283,7 +282,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
-				PolicyMapEntries:      16384,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 				NeighMapEntriesGlobal: NATMapEntriesGlobalDefault,
@@ -294,7 +292,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
-				PolicyMapEntries:      16384,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 				NeighMapEntriesGlobal: NATMapEntriesGlobalDefault,
@@ -309,7 +306,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalTCP: 20000,
 				CTMapEntriesGlobalAny: 18000,
 				NATMapEntriesGlobal:   2048,
-				PolicyMapEntries:      512,
 				LBMapEntries:          1 << 14,
 				SockRevNatEntries:     18000,
 				FragmentsMapEntries:   2 << 14,
@@ -319,7 +315,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalTCP: 20000,
 				CTMapEntriesGlobalAny: 18000,
 				NATMapEntriesGlobal:   2048,
-				PolicyMapEntries:      512,
 				LBMapEntries:          1 << 14,
 				SockRevNatEntries:     18000,
 				FragmentsMapEntries:   2 << 14,
@@ -414,7 +409,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: 4096,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
 				SockRevNatEntries:     4096,
-				PolicyMapEntries:      16384,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 			},
@@ -424,7 +418,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: 4096,
 				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
 				SockRevNatEntries:     4096,
-				PolicyMapEntries:      16384,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 				WantErr:               false,
@@ -442,26 +435,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: 4096,
 				NATMapEntriesGlobal:   8192,
 				WantErr:               true,
-			},
-		},
-		{
-			name: "Policy map size below range",
-			d: &DaemonConfig{
-				PolicyMapEntries: PolicyMapMin - 1,
-			},
-			want: sizes{
-				PolicyMapEntries: PolicyMapMin - 1,
-				WantErr:          true,
-			},
-		},
-		{
-			name: "Policy map size above range",
-			d: &DaemonConfig{
-				PolicyMapEntries: PolicyMapMax + 1,
-			},
-			want: sizes{
-				PolicyMapEntries: PolicyMapMax + 1,
-				WantErr:          true,
 			},
 		},
 		{
@@ -494,7 +467,6 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalTCP: tt.d.CTMapEntriesGlobalTCP,
 				CTMapEntriesGlobalAny: tt.d.CTMapEntriesGlobalAny,
 				NATMapEntriesGlobal:   tt.d.NATMapEntriesGlobal,
-				PolicyMapEntries:      tt.d.PolicyMapEntries,
 				LBMapEntries:          tt.d.LBMapEntries,
 				FragmentsMapEntries:   tt.d.FragmentsMapEntries,
 				NeighMapEntriesGlobal: tt.d.NeighMapEntriesGlobal,

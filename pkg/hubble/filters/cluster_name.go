@@ -6,6 +6,7 @@ package filters
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -20,21 +21,13 @@ func destinationClusterName(ev *v1.Event) string {
 }
 
 func filterByClusterName(names []string, getClusterName func(*v1.Event) string) (FilterFunc, error) {
-	for _, name := range names {
-		if name == "" {
-			return nil, fmt.Errorf("invalid filter, name must not be empty")
-		}
+	if slices.Contains(names, "") {
+		return nil, fmt.Errorf("invalid filter, name must not be empty")
 	}
 
 	return func(ev *v1.Event) bool {
 		target := getClusterName(ev)
-		for _, n := range names {
-			if n == target {
-				return true
-			}
-		}
-
-		return false
+		return slices.Contains(names, target)
 	}, nil
 }
 

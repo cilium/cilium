@@ -130,7 +130,7 @@ metadata:
   {{- with .Values.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
-  {{- end }}  
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 rules:

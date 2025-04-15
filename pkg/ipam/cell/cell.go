@@ -4,12 +4,13 @@
 package ipamcell
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -38,6 +39,8 @@ var Cell = cell.Module(
 type ipamParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	AgentConfig *option.DaemonConfig
 
 	NodeAddressing      datapathTypes.NodeAddressing
@@ -49,10 +52,15 @@ type ipamParams struct {
 	IPAMMetadataManager ipamMetadata.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Sysctl              sysctl.Sysctl
+	EndpointManager     endpointmanager.EndpointManager
 }
 
 func newIPAddressManager(params ipamParams) *ipam.IPAM {
-	return ipam.NewIPAM(params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
+	ipam := ipam.NewIPAM(params.Logger, params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
+
+	params.EndpointManager.Subscribe(ipam)
+
+	return ipam
 }
 
 type ipamAPIHandlerParams struct {
@@ -71,10 +79,6 @@ type ipamAPIHandlerOut struct {
 }
 
 func newIPAMAPIHandler(params ipamAPIHandlerParams) ipamAPIHandlerOut {
-	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
-		return ipamAPIHandlerOut{}
-	}
-
 	return ipamAPIHandlerOut{
 		IpamDeleteIpamIPHandler: &ipamapi.IpamDeleteIpamIPHandler{
 			IPAM:            params.IPAM,

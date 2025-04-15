@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -43,10 +45,12 @@ var k8sObjDecodeErrRe = regexp.MustCompile("invalid character.*looking for begin
 // K8sErrorHandler handles the error messages in a non verbose way by omitting
 // repeated instances of the same error message for a timeout defined with
 // k8sErrLogTimeout.
-func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
+func K8sErrorHandler(_ context.Context, e error, _ string, _ ...any) {
 	if e == nil {
 		return
 	}
+
+	logger := logging.DefaultSlogLogger
 
 	// We rate-limit certain categories of error message. These are matched
 	// below, with a default behaviour to print everything else without
@@ -59,7 +63,7 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 	// trying to connect.
 	case strings.Contains(errstr, "connection refused"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("k8sError")
+			logger.Error("k8sError", logfields.Error, e)
 		}
 
 	// k8s does not allow us to watch both ThirdPartyResource and
@@ -68,7 +72,7 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 	// that used ThirdPartyResource to define CiliumNetworkPolicy.
 	case strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: the server could not find the requested resource"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("No Cilium Network Policy CRD defined in the cluster, please set `--skip-crd-creation=false` to avoid seeing this error.")
+			logger.Error("No Cilium Network Policy CRD defined in the cluster, please set `--skip-crd-creation=false` to avoid seeing this error.", logfields.Error, e)
 		}
 
 	// fromCIDR and toCIDR used to expect an "ip" subfield (so, they were a YAML
@@ -81,14 +85,16 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 		strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct"),
 		strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: v2.CiliumNetworkPolicyList:"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("Unable to decode k8s watch event")
+			logger.Error("Unable to decode k8s watch event", logfields.Error, e)
 		}
 
 	case k8sObjDecodeErrRe.MatchString(errstr):
-		log.WithError(e).Error("K8s client-go error indicates failure to decode k8s objs from apiserver." +
-			" This likely indicate issues with k8s apiserver sending malformed data or errors." +
-			" Such issues may be related to corrupted k8s etcd state.")
+		logger.Error("K8s client-go error indicates failure to decode k8s objs from apiserver."+
+			" This likely indicate issues with k8s apiserver sending malformed data or errors."+
+			" Such issues may be related to corrupted k8s etcd state.",
+			logfields.Error, e,
+		)
 	default:
-		log.WithError(e).Error("k8sError")
+		logger.Error("k8sError", logfields.Error, e)
 	}
 }

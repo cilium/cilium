@@ -31,11 +31,11 @@ runs:
           TEST_ARG="${{ inputs.tests }}"
         else
           TEST_ARG="no-interrupted-connections"
-          EXTRA_ARG="--include-conn-disrupt-test"
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
         fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
-          EXTRA_ARG="--include-conn-disrupt-test"
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
         fi
         ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -46,6 +46,8 @@ runs:
           --junit-file "cilium-junits/conn-disrupt-test-${{ inputs.job-name }}.xml" \
           ${{ inputs.extra-connectivity-test-flags }} \
           --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
+          --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+          --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
           --test "$TEST_ARG" \
           --expected-xfrm-errors "+inbound_no_state" \
           ${EXTRA_ARG}

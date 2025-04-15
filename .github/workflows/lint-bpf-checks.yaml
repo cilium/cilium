@@ -43,6 +43,9 @@ jobs:
             bpf-tree:
               - 'bpf/**'
               - 'images/**'
+              - 'Makefile*'
+              - 'contrib/scripts/builder.sh'
+
             coccinelle:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:

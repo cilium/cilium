@@ -4,11 +4,14 @@
 package eni
 
 import (
-	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/aws/ec2/mock"
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -16,9 +19,10 @@ import (
 )
 
 func TestENIIPAMCapacityAccounting(t *testing.T) {
+	mockEC2API := mock.NewAPI(nil, nil, nil, nil)
 	assert := assert.New(t)
 	instanceID := "i-000"
-	cn := newCiliumNode("node1", withInstanceType("m5a.large"),
+	cn := newCiliumNode("node1", withInstanceType("m5.large"),
 		func(cn *v2.CiliumNode) {
 			cn.Spec.InstanceID = instanceID
 		},
@@ -31,11 +35,16 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	ipamNode := &mockIPAMNode{
 		instanceID: "i-000",
 	}
+	limitsGetter, err := limits.NewLimitsGetter(hivetest.Logger(t), mockEC2API, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
+	require.NoError(t, err)
+
 	n := &Node{
 		node:   ipamNode,
 		k8sObj: cn,
 		manager: &InstancesManager{
-			instances: im,
+			instances:    im,
+			api:          mockEC2API,
+			limitsGetter: limitsGetter,
 		},
 		enis: map[string]eniTypes.ENI{"eni-a": {}},
 	}
@@ -44,15 +53,15 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	ipamNode.SetPoolMaintainer(&mockMaintainer{})
 	n.node = ipamNode
 
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
-	// m5a.large = 10 IPs per ENI, 3 ENIs.
+	// m5.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
 	assert.Equal(27, stats.NodeCapacity)
 
 	cn.Spec.ENI.UsePrimaryAddress = new(bool)
 	*cn.Spec.ENI.UsePrimaryAddress = true
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
 	// In this case, we disable using allocated primary IP,
 	// so we should be able to allocate 10*3=30 IPs.
@@ -60,9 +69,9 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	ipamNode.prefixDelegation = true
 	// Note: m5a.large is a nitro instance, so it supports prefix delegation.
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
-	// m5a.large = 10 IPs per ENI, 3 ENIs.
+	// m5.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
 	//
 	// In this case, we have prefix delegation enabled.
@@ -71,7 +80,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	// Lets turn off UsePrimaryAddress.
 	*cn.Spec.ENI.UsePrimaryAddress = false
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
 	// In this case, we have prefix delegation enabled.
 	// Thus we have 16 addr * 9 addr * 3 ENIs = 432 IPs.
@@ -93,7 +102,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	// Finally, we have the case where an eni has a leftover prefix available.
 	// Thus, we add an additional 16 IPs to the capacity.
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
 	assert.Equal(27+16-1, stats.NodeCapacity)
 }

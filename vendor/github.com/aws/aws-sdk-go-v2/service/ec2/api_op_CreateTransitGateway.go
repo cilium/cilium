@@ -140,6 +140,9 @@ func (c *Client) addOperationCreateTransitGatewayMiddlewares(stack *middleware.S
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateTransitGateway(options.Region), middleware.Before); err != nil {
 		return err
 	}

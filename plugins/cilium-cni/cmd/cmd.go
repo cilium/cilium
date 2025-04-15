@@ -94,9 +94,10 @@ func NewCmd(opts ...Option) *Cmd {
 // CNIFuncs returns the CNI functions supported by Cilium that can be passed to skel.PluginMainFuncs
 func (cmd *Cmd) CNIFuncs() skel.CNIFuncs {
 	return skel.CNIFuncs{
-		Add:   cmd.Add,
-		Del:   cmd.Del,
-		Check: cmd.Check,
+		Add:    cmd.Add,
+		Del:    cmd.Del,
+		Check:  cmd.Check,
+		Status: cmd.Status,
 	}
 }
 
@@ -215,36 +216,49 @@ func allocateIPsWithDelegatedPlugin(
 	// https://github.com/containernetworking/cni/pull/1137
 	masterMac := ""
 	for _, iface := range ipamResult.Interfaces {
-		if iface.Sandbox == "" && iface.Name != "" {
+		if iface.Sandbox != "" {
+			continue
+		}
+
+		if iface.Mac != "" {
+			if ifMac, err := net.ParseMAC(iface.Mac); err != nil {
+				return nil, releaseFunc, fmt.Errorf("failed to parse interface MAC %q: %w", iface.Mac, err)
+			} else {
+				masterMac = ifMac.String()
+			}
+		} else if iface.Name != "" {
 			if uplink, err := safenetlink.LinkByName(iface.Name); err != nil {
 				return nil, releaseFunc, fmt.Errorf("failed to get uplink %q: %w", iface.Name, err)
 			} else {
 				masterMac = uplink.Attrs().HardwareAddr.String()
 			}
-			break
 		}
+		break
 	}
 	// Interface number could not be determined from IPAM result for now.
 	// Set a static value zero before we have a proper solution.
 	// option.Config.EgressMultiHomeIPRuleCompat also needs to be set to true.
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
-		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
-			ipam.Address.IPV4 = ipNet.String()
-			ipam.IPV4 = &models.IPAMAddressResponse{
-				IP:              ipv4.String(),
-				Gateway:         ipConfig.Gateway.String(),
-				MasterMac:       masterMac,
-				InterfaceNumber: "0",
+		if ipNet.IP.To4() != nil {
+			if conf.Addressing.IPV4 != nil {
+				ipam.Address.IPV4 = ipNet.String()
+				ipam.IPV4 = &models.IPAMAddressResponse{
+					IP:              ipNet.IP.String(),
+					Gateway:         ipConfig.Gateway.String(),
+					MasterMac:       masterMac,
+					InterfaceNumber: "0",
+				}
 			}
-		} else if conf.Addressing.IPV6 != nil {
-			// assign ipam ipv6 address only if agent ipv6 config is enabled
-			ipam.Address.IPV6 = ipNet.String()
-			ipam.IPV6 = &models.IPAMAddressResponse{
-				IP:              ipNet.IP.String(),
-				Gateway:         ipConfig.Gateway.String(),
-				MasterMac:       masterMac,
-				InterfaceNumber: "0",
+		} else {
+			if conf.Addressing.IPV6 != nil {
+				ipam.Address.IPV6 = ipNet.String()
+				ipam.IPV6 = &models.IPAMAddressResponse{
+					IP:              ipNet.IP.String(),
+					Gateway:         ipConfig.Gateway.String(),
+					MasterMac:       masterMac,
+					InterfaceNumber: "0",
+				}
 			}
 		}
 	}
@@ -417,6 +431,7 @@ func setupLogging(n *types.NetConf) error {
 	}
 	logOptions := logging.LogOptions{
 		logging.FormatOpt: f,
+		logging.WriterOpt: logging.StdErrOpt,
 	}
 	err := logging.SetupLogging([]string{}, logOptions, "cilium-cni", n.EnableDebug)
 	if err != nil {
@@ -590,7 +605,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		switch conf.DatapathMode {
 		case datapathOption.DatapathModeVeth:
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
+			veth, peer, tmpIfName, err := connector.SetupVeth(logging.DefaultSlogLogger, cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
 				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
 			if err != nil {
@@ -620,7 +635,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			netkit, peer, tmpIfName, err := connector.SetupNetkit(cniID, int(conf.DeviceMTU),
+			netkit, peer, tmpIfName, err := connector.SetupNetkit(logging.DefaultSlogLogger, cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
 				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
 			if err != nil {
@@ -653,21 +668,22 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		var (
-			ipConfig *cniTypesV1.IPConfig
-			routes   []*cniTypes.Route
+			ipConfig   *cniTypesV1.IPConfig
+			ipv6Config *cniTypesV1.IPConfig
+			routes     []*cniTypes.Route
 		)
 		if ipv6IsEnabled(ipam) && conf.Addressing.IPV6 != nil {
 			ep.Addressing.IPV6 = ipam.Address.IPV6
 			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
+			ipv6Config, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
 			if err != nil {
 				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
 			}
 			// set the addresses interface index to that of the container-side interface
-			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
-			res.IPs = append(res.IPs, ipConfig)
+			ipv6Config.Interface = cniTypesV1.Int(len(res.Interfaces))
+			res.IPs = append(res.IPs, ipv6Config)
 			res.Routes = append(res.Routes, routes...)
 		}
 
@@ -687,9 +703,18 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		if needsEndpointRoutingOnHost(conf) {
-			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
-			if err != nil {
-				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			if ipam.IPV4 != nil && ipConfig != nil {
+				err = interfaceAdd(ipConfig, ipam.IPV4, conf)
+				if err != nil {
+					return fmt.Errorf("unable to setup interface datapath: %w", err)
+				}
+			}
+
+			if ipam.IPV6 != nil && ipv6Config != nil {
+				err = interfaceAdd(ipv6Config, ipam.IPV6, conf)
+				if err != nil {
+					return fmt.Errorf("unable to setup interface datapath: %w", err)
+				}
 			}
 		}
 
@@ -947,6 +972,91 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 	// we can get the IP from the CNI previous result.
 	if err := verifyInterface(args.Netns, args.IfName, prevResult); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Status implements the cni STATUS verb.
+// Currently, it
+//   - checks cilium-cni connectivity with cilium-agent using healthz endpoint
+//   - If cilium-cni depends on delegated plugins (host-local, azure etc) for IPAM,
+//     cilium-cni invokes the STATUS API of the delegated plugins and passes the result back.
+func (cmd *Cmd) Status(args *skel.CmdArgs) error {
+	n, err := types.LoadNetConf(args.StdinData)
+	if err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",
+			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
+	}
+
+	if err := setupLogging(n); err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidLoggingConfig",
+			fmt.Sprintf("unable to setup logging: %s", err))
+	}
+
+	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
+
+	if n.EnableDebug {
+		if err := gops.Listen(gops.Options{}); err != nil {
+			log.WithError(err).Warn("Unable to start gops")
+		} else {
+			defer gops.Close()
+		}
+	}
+	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI STATUS request")
+
+	if n.PrevResult != nil {
+		logger.WithField("previousResult", logfields.Repr(n.PrevResult)).Debugf("CNI Previous result")
+	}
+
+	cniArgs := &types.ArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
+			fmt.Sprintf("unable to extract CNI arguments: %s", err))
+	}
+	logger = loggerWithCNIArgs(logger, cniArgs)
+
+	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
+	if err != nil {
+		// use ErrTryAgainLater to tell the runtime that this is not a check failure
+		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonDown",
+			fmt.Sprintf("unable to connect to Cilium agent: %s", client.Hint(err)))
+	}
+
+	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
+	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+		var (
+			ctx = chainingapi.PluginContext{
+				Logger:  logger,
+				Args:    args,
+				CniArgs: cniArgs,
+				NetConf: n,
+			}
+		)
+
+		// err is nil on success
+		err := chainAction.Status(context.TODO(), ctx, c)
+		logger.WithError(err).Debugf("Chained STATUS %s returned", n.Name)
+
+		return err
+	} else if err != nil {
+		logger.WithError(err).Error("Invalid chaining mode")
+		return err
+	}
+
+	if _, err := c.Daemon.GetHealthz(nil); err != nil {
+		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonHealthzFailed",
+			fmt.Sprintf("Cilium agent healthz check failed: %s", client.Hint(err)))
+	}
+	logger.Debugf("Cilium agent is healthy")
+
+	if n.IPAM.Type != "" {
+		// If using a delegated plugin for IPAM, invoke the STATUS API of the delegated
+		// plugins and pass the result back.
+		err = cniInvoke.DelegateStatus(context.TODO(), n.IPAM.Type, args.StdinData, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -1,0 +1,157 @@
+#! --enable-statedb-neighbor-sync
+
+# Tests interactions with all statedb tables managed by the device controller.
+# NOTES:
+# - We can not rely on presence of particular interfaces upon ns creation (e.g. sit0 interface may or may not
+#   be present based on whether or not the sit kernel module is loaded). Therefore we always filter devices by name.
+# - Because of the above, we can not rely on assignment of particular interface indexes to the newly created interfaces.
+#   Therefore we always omit the Index / DeviceIndex columns in all tables.
+
+# Start the hive and wait for tables to be synchronized.
+hive start
+db/initialized
+
+# Start with clean state.
+db/cmp devices --grep dummy devices_empty.table
+db/cmp routes routes_empty.table
+db/cmp neighbors neighbors_empty.table
+
+# Add dummy0 interface (keep it down).
+exec ip link add dummy0 type dummy
+exec ip addr add 192.168.0.1/24 dev dummy0
+
+# Verify lo + dummy0 interface.
+db/cmp devices --grep dummy devices_dummy0.table
+db/cmp routes routes_dummy0.table
+db/cmp neighbors neighbors_empty.table
+
+# Add dummy1 interface with multiple addresses, routes and neighbor entries.
+exec ip link add dummy1 type dummy
+exec ip link set dummy1 addrgenmode none
+exec ip link set dummy1 up
+exec ip addr add 192.168.1.1/24 dev dummy1
+exec ip addr add 192.168.1.2/24 dev dummy1
+exec ip route add 192.168.1.253/32 dev dummy1
+exec ip route add 192.168.1.254/32 dev dummy1
+exec ip route add default via 192.168.1.254 dev dummy1
+exec ip neighbor add 192.168.1.253 lladdr 00:00:5e:00:53:01 nud permanent extern_learn dev dummy1
+exec ip neighbor add 192.168.1.254 lladdr 00:00:5e:00:53:02 nud permanent extern_learn dev dummy1
+exec ip neighbor add ::ffff:192.168.1.254 lladdr 00:00:5e:00:53:02 nud permanent extern_learn dev dummy1
+
+# Verify dummy0 + dummy1 interfaces routes and neighbors.
+db/cmp devices --grep dummy devices_dummy01.table
+db/cmp routes routes_dummy01.table
+db/cmp neighbors neighbors_dummy1.table
+
+# Exercise device table "selected" index.
+db/prefix --index=selected --columns=Name,Selected,Type,Addresses -o devices.actual devices true
+* cmp devices_dummy1.table devices.actual
+
+# Exercise device table "name" index.
+db/prefix --index=name --columns=Name,Selected,Type,Addresses -o devices.actual devices dummy
+* cmp devices_dummy01.table devices.actual
+
+# Exercise neighbor table "IPAddr" index.
+db/prefix --index=IPAddr --columns=IPAddr,HardwareAddr,Type,State,Flags,FlagsExt -o neighbors.actual neighbors 192.168.1.253
+* cmp neighbors_dummy1_253.table neighbors.actual
+
+# Delete dummy1
+exec ip link del dummy1
+
+# Verify only dummy0 interface and their routes left
+db/cmp devices --grep dummy devices_dummy0.table
+db/cmp routes routes_dummy0.table
+db/cmp neighbors neighbors_empty.table
+
+# Delete dummy0
+exec ip link del dummy0
+
+# Verify clean state.
+db/cmp devices --grep dummy devices_empty.table
+db/cmp routes routes_empty.table
+db/cmp neighbors neighbors_empty.table
+
+# ---------------------------------------------
+
+-- devices_empty.table --
+Name   Selected   Type     Addresses
+
+-- devices_dummy0.table --
+Name     Selected   Type     Addresses
+dummy0   false      dummy    192.168.0.1
+
+-- devices_dummy01.table --
+Name     Selected   Type     Addresses
+dummy0   false      dummy    192.168.0.1
+dummy1   true       dummy    192.168.1.1, 192.168.1.2
+
+-- devices_dummy01.table --
+Name     Selected   Type    Addresses
+dummy0   false      dummy   192.168.0.1
+dummy1   true       dummy   192.168.1.1, 192.168.1.2
+-- devices_dummy1.table --
+Name     Selected   Type    Addresses
+dummy1   true       dummy   192.168.1.1, 192.168.1.2
+-- devices_placeholder --
+
+
+-- routes_empty.table --
+Destination   Source   Gateway   LinkIndex   Table   Scope
+
+-- routes_dummy0.table --
+Destination      Source        Gateway   Table   Scope
+192.168.0.1/32   192.168.0.1             255     254
+
+-- routes_dummy01.table --
+Destination        Source        Gateway         Table   Scope
+0.0.0.0/0                        192.168.1.254   254     0
+192.168.1.0/24     192.168.1.1                   254     253
+192.168.1.253/32                                 254     253
+192.168.1.254/32                                 254     253
+192.168.0.1/32     192.168.0.1                   255     254
+192.168.1.1/32     192.168.1.1                   255     254
+192.168.1.2/32     192.168.1.1                   255     254
+192.168.1.255/32   192.168.1.1                   255     253
+ff00::/8                                         255     0
+
+-- routes_table254_link3_254.table --
+Destination        Source   Gateway   Table   Scope
+192.168.1.254/32                      254     253
+-- routes_table254_link3_all.table --
+Destination        Source        Gateway         Table   Scope
+0.0.0.0/0                        192.168.1.254   254     0
+192.168.1.0/24     192.168.1.1                   254     253
+192.168.1.253/32                                 254     253
+192.168.1.254/32                                 254     253
+-- routes_link3.table --
+Destination        Source        Gateway         Table   Scope
+192.168.1.254/32                                 254     253
+192.168.1.253/32                                 254     253
+192.168.1.0/24     192.168.1.1                   254     253
+0.0.0.0/0                        192.168.1.254   254     0
+192.168.1.1/32     192.168.1.1                   255     254
+192.168.1.2/32     192.168.1.1                   255     254
+192.168.1.255/32   192.168.1.1                   255     253
+ff00::/8                                         255     0
+-- routes_placeholder --
+
+
+-- neighbors_empty.table --
+IPAddr   HardwareAddr   Type   State   Flags   FlagsExt
+
+-- neighbors_dummy1.table --
+IPAddr                 HardwareAddr        Type   State   Flags   FlagsExt
+192.168.1.253          00:00:5e:00:53:01   1      0x80    0x10    0x0
+192.168.1.254          00:00:5e:00:53:02   1      0x80    0x10    0x0
+::ffff:192.168.1.254   00:00:5e:00:53:02   1      0x80    0x10    0x0
+-- neighbors_dummy1_link.table --
+IPAddr                 HardwareAddr        Type   State   Flags   FlagsExt
+192.168.1.254          00:00:5e:00:53:02   1      0x80    0x10    0x0
+::ffff:192.168.1.254   00:00:5e:00:53:02   1      0x80    0x10    0x0
+192.168.1.253          00:00:5e:00:53:01   1      0x80    0x10    0x0
+-- neighbors_dummy1_254.table --
+IPAddr          HardwareAddr        Type   State   Flags   FlagsExt
+192.168.1.254   00:00:5e:00:53:02   1      0x80    0x10    0x0
+-- neighbors_dummy1_253.table --
+IPAddr          HardwareAddr        Type   State   Flags   FlagsExt
+192.168.1.253   00:00:5e:00:53:01   1      0x80    0x10    0x0

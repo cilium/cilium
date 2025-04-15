@@ -27,8 +27,6 @@
 
 #define BACKEND_EP_ID		127
 
-#define SECCTX_FROM_IPCACHE 1
-
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
@@ -58,6 +56,8 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -114,7 +114,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 

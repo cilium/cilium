@@ -25,9 +25,66 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build_commits:
-    name: Check if build works for every commit
+  compute-vars:
+    name: Compute variables
     runs-on: ubuntu-22.04
+    outputs:
+      commits: ${{ steps.commits.outputs.commits }}
+      head-commit: ${{ steps.commits.outputs.head-commit }}
+      build-bpf: ${{ steps.bpf-changes.outputs.src }}
+      build-test: ${{ steps.test-changes.outputs.src }}
+    timeout-minutes: 180
+    steps:
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Compute commit list
+        id: commits
+        run: |
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            commits=${{ github.sha }}
+            head_commit=${{ github.sha }}
+          else
+            commits=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | tr '\n' ' ')
+            head_commit=${{ github.event.pull_request.head.sha }}
+          fi
+          echo "commits=$commits" >> $GITHUB_OUTPUT
+          echo "head-commit=$head_commit" >> $GITHUB_OUTPUT
+
+      - name: Check bpf code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: bpf-changes
+        with:
+          # If these filters are modified, also modify the step:
+          # build-commits-bpf: Check if datapath build works for every commit
+          filters: |
+            src:
+              - 'bpf/**'
+
+      - name: Check test code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: test-changes
+        with:
+          # If these filters are modified, also modify the step:
+          # build-commits-test: Check if ginkgo test suite build works for every commit
+          filters: |
+            src:
+              - 'pkg/**'
+              - 'test/**'
+
+  build-commits-cilium:
+    name: Check if cilium builds for every commit
+    runs-on: ubuntu-22.04
+    needs: [compute-vars]
     timeout-minutes: 180
     steps:
       - name: Collect Workflow Telemetry
@@ -51,15 +108,14 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
 
-      # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -68,9 +124,8 @@ jobs:
             ${{ runner.os }}-go-all-cache-
             ${{ runner.os }}-go-
 
-      # Load CCache build from GitHub
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -95,29 +150,178 @@ jobs:
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
-            COMMITS=${{ github.sha }}
-          else
-            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
-          fi
-          for commit in $COMMITS ; do
+          commits="${{ needs.compute-vars.outputs.commits }}"
+          for commit in $commits; do
             git checkout $commit || exit 1
             contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
           done
 
-      - name: Check bpf code changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: bpf-tree
-        with:
-          # If these filters are modified, also modify the step below where we
-          # do a git diff
-          filters: |
-            src:
-              - 'bpf/**'
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          sudo du -sh /tmp/.cache/
+          sudo chown $USER:$USER -R /tmp/.cache
 
-      # Runs only if code under bpf/ is changed.
+      - name: Failed commit during the build
+        if: ${{ failure() }}
+        run: git --no-pager log --format=%B -n 1
+
+  build-commits-hubble-cli:
+    name: Check if hubble-cli builds for every commit
+    runs-on: ubuntu-22.04
+    needs: [compute-vars]
+    timeout-minutes: 180
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Install Go
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.24.2
+
+      - name: Load hubble-cli Golang cache build from GitHub
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: hubble-cache
+        with:
+          path: /tmp/.cache/hubble-cli
+          key: ${{ runner.os }}-go-hubble-cli-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-hubble-cli-cache-
+            ${{ runner.os }}-go-
+
+      - name: Load ccache cache build from GitHub
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: ccache-cache
+        with:
+          path: /tmp/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('bpf/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' || steps.hubble-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/ccache/.ccache
+          mkdir -p /tmp/.cache/hubble-cli/.cache/go-build
+          mkdir -p /tmp/.cache/hubble-cli/pkg
+
+      - name: Check if hubble CLI builds for every commit
+        if: ${{ github.event_name != 'push' || ( github.event_name == 'push' && steps.hubble-cache.outputs.cache-hit != 'true' ) }}
+        env:
+          CLANG: "ccache clang"
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/hubble-cli/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/hubble-cli/pkg"
+        run: |
+          set -eu -o pipefail
+          commits="${{ needs.compute-vars.outputs.commits }}"
+          head_commit="${{ needs.compute-vars.outputs.head-commit }}"
+          for commit in $commits; do
+            git checkout $commit || exit 1
+            echo "Only run full build (with `local-release`) for head commit (i.e. last commit in sequence)"
+            target=hubble
+            if [[ "$commit" == "$head_commit" ]]; then
+              target=local-release
+            fi
+            echo "Running build: $target (commit: $commit)"
+            contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble $target -j $(nproc) || exit 1
+          done
+
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          sudo du -sh /tmp/.cache/
+          sudo chown $USER:$USER -R /tmp/.cache
+
+      - name: Failed commit during the build
+        if: ${{ failure() }}
+        run: git --no-pager log --format=%B -n 1
+
+  build-commits-bpf:
+    name: Check if bpf builds for every commit
+    runs-on: ubuntu-22.04
+    needs: [compute-vars]
+    # Runs only if code under bpf/ is changed.
+    if: needs.compute-vars.outputs.build-bpf == 'true'
+    timeout-minutes: 180
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Install Go
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.24.2
+
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-all-cache-
+            ${{ runner.os }}-go-
+
+      - name: Load ccache cache build from GitHub
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: ccache-cache
+        with:
+          path: /tmp/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('bpf/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
+          mkdir -p /tmp/.cache/ccache/.ccache
+
       - name: Check if datapath build works for every commit
-        if: steps.bpf-tree.outputs.src == 'true'
         env:
           CLANG: "ccache clang"
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
@@ -125,17 +329,13 @@ jobs:
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
-            COMMITS=${{ github.sha }}
-          else
-            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
-          fi
-          for commit in $COMMITS ; do
+          commits="${{ needs.compute-vars.outputs.commits }}"
+          for commit in $commits; do
             git checkout $commit || exit 1
             # Do not run make if there aren't any files modified in these
             # directories from the previous commit to the current commit.
-            # If these filters are modified, also modify the step above where we
-            # run dorny/paths-filter.
+            # If these filters are modified, also modify the step:
+            # compute-vars: Check bpf code changes
             if ! git diff --quiet HEAD^ bpf/ ; then
               contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
             fi
@@ -148,56 +348,74 @@ jobs:
           sudo du -sh /tmp/.cache/
           sudo chown $USER:$USER -R /tmp/.cache
 
-      - name: Check test code changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: test-tree
+      - name: Failed commit during the build
+        if: ${{ failure() }}
+        run: git --no-pager log --format=%B -n 1
+
+  build-commits-test:
+    name: Check if test builds for every commit
+    runs-on: ubuntu-22.04
+    needs: [compute-vars]
+    # Runs only if code under test/ is changed.
+    if: needs.compute-vars.outputs.build-test == 'true'
+    timeout-minutes: 180
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
-          # If these filters are modified, also modify the step below where we
-          # do a git diff
-          filters: |
-            src:
-              - 'pkg/**'
-              - 'test/**'
+          comment_on_pr: false
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Install Go
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.24.2
 
       - name: Set clang directory
-        if: steps.test-tree.outputs.src == 'true'
         id: set_clang_dir
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang prerequisites
-        if: steps.test-tree.outputs.src == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
-        if: steps.test-tree.outputs.src == 'true'
-        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
+        uses: KyleMayes/install-llvm-action@6ba6e2cd3813def9879be378609d87cb3ef3bac3 # v2.0.6
         with:
           version: "18.1.8"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
       - name: Install ginkgo
-        if: steps.test-tree.outputs.src == 'true'
         run: |
           go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
-      # Runs only if code under test/ is changed.
       - name: Check if ginkgo test suite build works for every commit
-        if: steps.test-tree.outputs.src == 'true'
         run: |
           set -eu -o pipefail
-          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
-            COMMITS=${{ github.sha }}
-          else
-            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
-          fi
-          for commit in $COMMITS ; do
+          commits="${{ needs.compute-vars.outputs.commits }}"
+          for commit in $commits; do
             git checkout $commit || exit 1
             # Do not run make if there aren't any files modified in these
             # directories from the previous commit to the current commit.
-            # If these filters are modified, also modify the step above where we
-            # run dorny/paths-filter.
+            # If these filters are modified, also modify the step:
+            # compute-vars: Check test code changes
             if ! git diff --quiet HEAD^ pkg/ test/ ; then
               (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
             fi

@@ -29,9 +29,6 @@
 /* Set dummy ifindex for tunnel device */
 #define ENCAP_IFINDEX 1
 
-/* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 CLIENT_IP
-
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4
 
@@ -47,7 +44,7 @@
 /* Import some default values */
 
 /* Import map definitions and some default values */
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /* Overwrite (local) CLUSTER_ID defined in node_config.h */
 #undef CLUSTER_ID
@@ -60,6 +57,9 @@
 
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
+
+/* Set the LXC source address to be the address of pod one */
+ASSIGN_CONFIG(__u32, endpoint_ipv4, CLIENT_IP)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -151,7 +151,7 @@ SETUP("tc", "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 1,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP,
 			  BACKEND_CLUSTER_ID);
@@ -234,7 +234,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags = TUPLE_F_SERVICE;
 
-	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
+	entry = map_lookup_elem(&cilium_ct4_global, &tuple);
 	if (!entry)
 		test_fatal("couldn't find service conntrack entry");
 
@@ -263,11 +263,7 @@ SETUP("tc", "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	ctx_store_meta(ctx, CB_SRC_LABEL, BACKEND_IDENTITY);
-	ctx_store_meta(ctx, CB_DELIVERY_REDIRECT, 1);
-	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 2);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
+	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, true, 2);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);

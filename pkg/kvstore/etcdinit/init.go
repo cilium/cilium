@@ -6,16 +6,16 @@ package init
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/authpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // ClusterMeshEtcdInit initializes etcd for use by Cilium Clustermesh via the provided client. It creates a number of
@@ -33,7 +33,7 @@ import (
 //
 // Note that this function is **not idempotent**. It expects a completely blank etcd server with no non-default users,
 // roles, permissions, or keys.
-func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv3.Client, ciliumClusterName string) error {
+func ClusterMeshEtcdInit(ctx context.Context, log *slog.Logger, client *clientv3.Client, ciliumClusterName string) error {
 	ic := initClient{
 		log:    log,
 		client: client,
@@ -45,8 +45,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Root user
 	rootUsername := username("root")
-	log.WithField("etcdUsername", rootUsername).
-		Info("Configuring root user")
+	log.Info(
+		"Configuring root user",
+		logfields.EtcdUsername, rootUsername,
+	)
 	err := ic.addNoPasswordUser(ctx, rootUsername)
 	if err != nil {
 		return err
@@ -58,8 +60,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Admin user
 	adminUsername := usernameForClusterName("admin", ciliumClusterName)
-	log.WithField("etcdUsername", adminUsername).
-		Info("Configuring admin user")
+	log.Info(
+		"Configuring admin user",
+		logfields.EtcdUsername, adminUsername,
+	)
 	err = ic.addNoPasswordUser(ctx, adminUsername)
 	if err != nil {
 		return err
@@ -69,40 +73,12 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 		return err
 	}
 
-	// External workload user
-	externalWorkloadUsername := username("externalworkload")
-	log.WithField("etcdUsername", externalWorkloadUsername).
-		Info("Configuring external workload user")
-	err = ic.addNoPasswordUser(ctx, externalWorkloadUsername)
-	if err != nil {
-		return err
-	}
-	externalWorkloadRolename := rolename("externalworkload")
-	err = ic.addRole(ctx, externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-	err = ic.grantRoleToUser(ctx, externalWorkloadRolename, externalWorkloadUsername)
-	if err != nil {
-		return err
-	}
-	err = ic.grantPermissionToRole(ctx, readOnly, allKeysRange, externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-	err = ic.grantPermissionToRole(ctx, readWrite, rangeForPrefix(store.NodeRegisterStorePrefix), externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-	err = ic.grantPermissionToRole(ctx, readWrite, rangeForPrefix(kvstore.InitLockPath), externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-
 	// Local user (i.e., local agents accessing information cached by KVStoreMesh)
 	localUsername := usernameForClusterName("local", ciliumClusterName)
-	log.WithField("etcdUsername", localUsername).
-		Info("Configuring local user")
+	log.Info(
+		"Configuring local user",
+		logfields.EtcdUsername, localUsername,
+	)
 	localRolename := rolename("local")
 	err = ic.addNoPasswordUser(ctx, localUsername)
 	if err != nil {
@@ -125,8 +101,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Remote user (i.e., remote clusters accessing state information)
 	remoteUsername := username("remote")
-	log.WithField("etcdUsername", remoteUsername).
-		Info("Configuring remote user")
+	log.Info(
+		"Configuring remote user",
+		logfields.EtcdUsername, remoteUsername,
+	)
 	remoteRolename := rolename("remote")
 	err = ic.addNoPasswordUser(ctx, remoteUsername)
 	if err != nil {
@@ -171,7 +149,7 @@ func usernameForClusterName(base, clusterName string) username {
 // package. It's entirely an internal implementation detail.
 type initClient struct {
 	client *clientv3.Client
-	log    *logrus.Entry
+	log    *slog.Logger
 }
 
 // The username and rolename types exist to make it harder to mix up usernames and rolenames, which are both strings
@@ -186,8 +164,10 @@ const rootRolename = rolename("root")
 // addNoPasswordUser adds a new user to etcd with no password. This is expected as later on we'll enable auth which will
 // require other forms of authentication. This is a wrapper around the client's UserAddWithOptions method.
 func (ic initClient) addNoPasswordUser(ctx context.Context, username username) error {
-	ic.log.WithField("etcdUsername", username).
-		Debug("Adding etcd user")
+	ic.log.Debug(
+		"Adding etcd user",
+		logfields.EtcdUsername, username,
+	)
 	_, err := ic.client.UserAddWithOptions(ctx, string(username), "", &clientv3.UserAddOptions{NoPassword: true})
 	if err != nil {
 		return fmt.Errorf("adding user '%s': %w", username, err)
@@ -197,8 +177,10 @@ func (ic initClient) addNoPasswordUser(ctx context.Context, username username) e
 
 // addRole adds a new role to etcd. This is a wrapper around the client's RoleAdd method.
 func (ic initClient) addRole(ctx context.Context, rolename rolename) error {
-	ic.log.WithField("etcdRolename", rolename).
-		Debug("Adding etcd role")
+	ic.log.Debug(
+		"Adding etcd role",
+		logfields.EtcdRoleName, rolename,
+	)
 	_, err := ic.client.RoleAdd(ctx, string(rolename))
 	if err != nil {
 		return fmt.Errorf("adding role '%s': %w", rolename, err)
@@ -209,9 +191,11 @@ func (ic initClient) addRole(ctx context.Context, rolename rolename) error {
 // grantRoleToUser grants a role to a user, enabling that user access to the permissions of that role. This is a wrapper
 // around the client's UserGrantRole method.
 func (ic initClient) grantRoleToUser(ctx context.Context, rolename rolename, username username) error {
-	ic.log.WithField("etcdUsername", username).
-		WithField("etcdRolename", rolename).
-		Debug("Granting role to etcd user")
+	ic.log.Debug(
+		"Granting role to etcd user",
+		logfields.EtcdUsername, username,
+		logfields.EtcdRoleName, rolename,
+	)
 	_, err := ic.client.UserGrantRole(ctx, string(username), string(rolename))
 	if err != nil {
 		return fmt.Errorf("granting role '%s' to user '%s': %w", rolename, username, err)
@@ -250,15 +234,10 @@ func rangeForPrefix(prefix string, opts ...krOpt) keyRange {
 	return keyRange{prefix, clientv3.GetPrefixRangeEnd(prefix)}
 }
 
-// allKeysRange is the range over all keys in etcd. Granting permissions on this range is the same as granting global
-// permissions in etcd.
-var allKeysRange = keyRange{"\x00", "\x00"}
-
 // permission is a thin, internal wrapper around etcd's permission types
 type permission clientv3.PermissionType
 
 var readOnly = permission(clientv3.PermRead)
-var readWrite = permission(clientv3.PermReadWrite)
 
 func (p permission) string() string {
 	return authpb.Permission_Type(p).String()
@@ -267,13 +246,13 @@ func (p permission) string() string {
 // grantPermissionToRole grants permissions on a range of keys to a role. This is a wrapper around the client's
 // RoleGrantPermission method.
 func (ic initClient) grantPermissionToRole(ctx context.Context, permission permission, keyRange keyRange, rolename rolename) error {
-	ic.log.WithFields(logrus.Fields{
-		"etcdRolename":   rolename,
-		"etcdPermission": permission.string(),
-		"etcdRangeStart": keyRange.start,
-		"etcdRangeEnd":   keyRange.end,
-	}).
-		Debug("Granting permission on a range of keys to an etcd role")
+	ic.log.Debug(
+		"Granting permission on a range of keys to an etcd role",
+		logfields.EtcdRoleName, rolename,
+		logfields.EtcdPermission, permission,
+		logfields.EtcdRangeStart, keyRange.start,
+		logfields.EtcdRangeEnd, keyRange.end,
+	)
 	_, err := ic.client.RoleGrantPermission(ctx, string(rolename), keyRange.start, keyRange.end, clientv3.PermissionType(permission))
 	if err != nil {
 		return fmt.Errorf("granting role '%s' permission '%s' on range '%s' to '%s': %w", rolename, permission.string(), keyRange.start, keyRange.end, err)

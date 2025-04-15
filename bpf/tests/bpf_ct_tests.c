@@ -8,10 +8,8 @@
 
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#include <node_config.h>
+#include <bpf/config/node.h>
 
-#undef EVENTS_MAP
-#define EVENTS_MAP test_events_map
 #define DEBUG
 
 #include <lib/dbg.h>
@@ -132,7 +130,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		case CT_NEW:
 			ct_state_new.node_port = ct_state.node_port;
 			ct_state_new.ifindex = ct_state.ifindex;
-			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
+			ret = ct_create4(get_ct_map4(&tuple), &cilium_ct_any4_global, &tuple, ctx,
 					 CT_EGRESS, &ct_state_new, NULL);
 			break;
 

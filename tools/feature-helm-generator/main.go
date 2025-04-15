@@ -279,8 +279,7 @@ func parseMetricsFromProm(promFile io.Reader) []Metric {
 // Parse label string into a map
 func parseLabels(labelsPart string) map[string]map[string]struct{} {
 	labels := make(map[string]map[string]struct{})
-	labelPairs := strings.Split(labelsPart, ",")
-	for _, pair := range labelPairs {
+	for pair := range strings.SplitSeq(labelsPart, ",") {
 		parts := strings.Split(pair, "=")
 		if len(parts) == 2 {
 			if labels[parts[0]] == nil {

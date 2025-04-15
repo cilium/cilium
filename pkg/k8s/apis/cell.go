@@ -5,9 +5,9 @@ package apis
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
@@ -45,12 +45,12 @@ func (c RegisterCRDsConfig) Flags(flags *pflag.FlagSet) {
 }
 
 // RegisterCRDsFunc is a function that register all the CRDs for a k8s group
-type RegisterCRDsFunc func(k8sClient.Clientset) error
+type RegisterCRDsFunc func(*slog.Logger, k8sClient.Clientset) error
 
 type params struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
 	Clientset k8sClient.Clientset
@@ -70,7 +70,7 @@ func createCRDs(p params) {
 			}
 
 			for _, f := range p.RegisterCRDsFuncs {
-				if err := f(p.Clientset); err != nil {
+				if err := f(p.Logger, p.Clientset); err != nil {
 					return fmt.Errorf("unable to create CRDs: %w", err)
 				}
 			}

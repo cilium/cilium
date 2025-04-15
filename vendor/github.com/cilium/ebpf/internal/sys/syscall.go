@@ -2,7 +2,6 @@ package sys
 
 import (
 	"runtime"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/ebpf/internal/unix"
@@ -11,37 +10,7 @@ import (
 // ENOTSUPP is a Linux internal error code that has leaked into UAPI.
 //
 // It is not the same as ENOTSUP or EOPNOTSUPP.
-const ENOTSUPP = syscall.Errno(524)
-
-// BPF wraps SYS_BPF.
-//
-// Any pointers contained in attr must use the Pointer type from this package.
-func BPF(cmd Cmd, attr unsafe.Pointer, size uintptr) (uintptr, error) {
-	// Prevent the Go profiler from repeatedly interrupting the verifier,
-	// which could otherwise lead to a livelock due to receiving EAGAIN.
-	if cmd == BPF_PROG_LOAD || cmd == BPF_PROG_RUN {
-		maskProfilerSignal()
-		defer unmaskProfilerSignal()
-	}
-
-	for {
-		r1, _, errNo := unix.Syscall(unix.SYS_BPF, uintptr(cmd), uintptr(attr), size)
-		runtime.KeepAlive(attr)
-
-		// As of ~4.20 the verifier can be interrupted by a signal,
-		// and returns EAGAIN in that case.
-		if errNo == unix.EAGAIN && cmd == BPF_PROG_LOAD {
-			continue
-		}
-
-		var err error
-		if errNo != 0 {
-			err = wrappedErrno{errNo}
-		}
-
-		return r1, err
-	}
-}
+const ENOTSUPP = unix.Errno(524)
 
 // Info is implemented by all structs that can be passed to the ObjInfo syscall.
 //
@@ -125,7 +94,7 @@ func ObjInfo(fd *FD, info Info) error {
 	err := ObjGetInfoByFd(&ObjGetInfoByFdAttr{
 		BpfFd:   fd.Uint(),
 		InfoLen: len,
-		Info:    NewPointer(ptr),
+		Info:    UnsafePointer(ptr),
 	})
 	runtime.KeepAlive(fd)
 	return err
@@ -150,6 +119,12 @@ const (
 	BPF_LOG_LEVEL2
 	BPF_LOG_STATS
 )
+
+// MapID uniquely identifies a bpf_map.
+type MapID uint32
+
+// ProgramID uniquely identifies a bpf_map.
+type ProgramID uint32
 
 // LinkID uniquely identifies a bpf_link.
 type LinkID uint32
@@ -179,12 +154,12 @@ const (
 const BPF_TAG_SIZE = 8
 const BPF_OBJ_NAME_LEN = 16
 
-// wrappedErrno wraps syscall.Errno to prevent direct comparisons with
+// wrappedErrno wraps [unix.Errno] to prevent direct comparisons with
 // syscall.E* or unix.E* constants.
 //
 // You should never export an error of this type.
 type wrappedErrno struct {
-	syscall.Errno
+	unix.Errno
 }
 
 func (we wrappedErrno) Unwrap() error {
@@ -200,10 +175,10 @@ func (we wrappedErrno) Error() string {
 
 type syscallError struct {
 	error
-	errno syscall.Errno
+	errno unix.Errno
 }
 
-func Error(err error, errno syscall.Errno) error {
+func Error(err error, errno unix.Errno) error {
 	return &syscallError{err, errno}
 }
 

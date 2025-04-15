@@ -101,6 +101,7 @@ type PerfTests struct {
 	Sample   int
 	MsgSize  int
 	Duration time.Duration
+	Streams  uint
 	NetQos   bool
 }
 
@@ -196,7 +197,7 @@ func exportSummary(content perfData, reportDir string) error {
 	return nil
 }
 
-func prettyPrintJSON(data interface{}) (string, error) {
+func prettyPrintJSON(data any) (string, error) {
 	output := &bytes.Buffer{}
 	if err := json.NewEncoder(output).Encode(data); err != nil {
 		return "", fmt.Errorf("building encoder error: %w", err)

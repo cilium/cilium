@@ -16,11 +16,15 @@ import (
 // PodToHost sends an ICMP ping from all client Pods to all nodes
 // in the test context.
 func PodToHost() check.Scenario {
-	return &podToHost{}
+	return &podToHost{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToHost implements a Scenario.
-type podToHost struct{}
+type podToHost struct {
+	check.ScenarioBase
+}
 
 func (s *podToHost) Name() string {
 	return "pod-to-host"
@@ -70,11 +74,15 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 // PodToControlPlaneHost sends an ICMP ping from the controlPlaneclient Pod to all nodes
 // in the test context.
 func PodToControlPlaneHost() check.Scenario {
-	return &podToControlPlaneHost{}
+	return &podToControlPlaneHost{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToHost implements a Scenario.
-type podToControlPlaneHost struct{}
+type podToControlPlaneHost struct {
+	check.ScenarioBase
+}
 
 func (s *podToControlPlaneHost) Name() string {
 	return "pod-to-controlplane-host"
@@ -110,11 +118,15 @@ func (s *podToControlPlaneHost) Run(ctx context.Context, t *check.Test) {
 // PodToHostPort sends an HTTP request from all client Pods
 // to all echo Services' HostPorts.
 func PodToHostPort() check.Scenario {
-	return &podToHostPort{}
+	return &podToHostPort{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToHostPort implements a ConditionalScenario.
-type podToHostPort struct{}
+type podToHostPort struct {
+	check.ScenarioBase
+}
 
 func (s *podToHostPort) Name() string {
 	return "pod-to-hostport"
@@ -135,7 +147,7 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, ct.Params().EchoServerHostPort, echo.Path())
 			ep := check.HTTPEndpoint(echo.Name(), baseURL)
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, features.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny))
+				a.ExecInPod(ctx, a.CurlCommand(ep))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 					// Because the HostPort request is NATed, we might only
@@ -154,10 +166,14 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 // HostToPod generates one HTTP request from each node inside the cluster to
 // each echo (server) pod in the test context.
 func HostToPod() check.Scenario {
-	return &hostToPod{}
+	return &hostToPod{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type hostToPod struct{}
+type hostToPod struct {
+	check.ScenarioBase
+}
 
 func (s *hostToPod) Name() string {
 	return "host-to-pod"
@@ -175,7 +191,7 @@ func (s *hostToPod) Run(ctx context.Context, t *check.Test) {
 		for _, dst := range ct.EchoPods() {
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &src, dst, ipFam).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(dst, ipFam))
+					a.ExecInPod(ctx, a.CurlCommand(dst))
 				})
 			})
 

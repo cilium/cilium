@@ -4,12 +4,12 @@
 package monitor
 
 import (
-	"io"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -20,14 +20,14 @@ import (
 
 type fakeObserver struct {
 	events chan *observerTypes.MonitorEvent
-	logger *logrus.Entry
+	logger *slog.Logger
 }
 
 func (f fakeObserver) GetEventsChannel() chan *observerTypes.MonitorEvent {
 	return f.events
 }
 
-func (f fakeObserver) GetLogger() logrus.FieldLogger {
+func (f fakeObserver) GetLogger() *slog.Logger {
 	return f.logger
 }
 
@@ -35,7 +35,7 @@ func TestHubbleConsumer(t *testing.T) {
 	observer := fakeObserver{
 		// For testing, we an events queue with a buffer size of 1
 		events: make(chan *observerTypes.MonitorEvent, 1),
-		logger: logrus.NewEntry(logrus.New()),
+		logger: hivetest.Logger(t),
 	}
 	consumer := NewConsumer(observer)
 	data := []byte{0, 1, 2, 3, 4}
@@ -118,7 +118,7 @@ func TestHubbleConsumer(t *testing.T) {
 	// Verify that the events channel is empty now.
 	select {
 	case ev := <-observer.GetEventsChannel():
-		assert.Fail(t, "Unexpected event", ev)
+		assert.Fail(t, "Unexpected event", "event %v", ev)
 	default:
 	}
 }
@@ -134,10 +134,8 @@ func BenchmarkHubbleConsumerSendEvent(b *testing.B) {
 	body := func(b *testing.B, bt benchType) {
 		observer := fakeObserver{
 			events: make(chan *observerTypes.MonitorEvent, 1),
-			logger: func() *logrus.Entry {
-				log := logrus.New()
-				log.SetOutput(io.Discard)
-				return logrus.NewEntry(log)
+			logger: func() *slog.Logger {
+				return hivetest.Logger(b)
 			}(),
 		}
 

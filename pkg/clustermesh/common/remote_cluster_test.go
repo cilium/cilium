@@ -7,10 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -30,12 +32,12 @@ func (fb *fakeBackend) StatusCheckErrors() <-chan error {
 
 func TestRemoteClusterWatchdog(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	const name = "remote"
 	path := filepath.Join(t.TempDir(), name)
 	writeFile(t, path, fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
-	require.NoError(t, utils.SetClusterConfig(context.Background(), name, types.CiliumClusterConfig{ID: 2}, kvstore.Client()))
+	require.NoError(t, utils.SetClusterConfig(context.Background(), name, types.CiliumClusterConfig{ID: 2}, client))
 
 	wait := func(t *testing.T, ch <-chan struct{}, msg string) {
 		t.Helper()
@@ -49,6 +51,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	var statusfn StatusFunc
 	ready := make(chan struct{}, 1)
 	cm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			statusfn = sf
@@ -62,9 +65,9 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
 
 	statusErrors := make(chan error, 1)
-	rc.backendFactory = func(ctx context.Context, backendName string, opts map[string]string,
+	rc.backendFactory = func(ctx context.Context, logger *slog.Logger, backendName string, opts map[string]string,
 		options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-		backend, errch := kvstore.NewClient(ctx, backendName, opts, options)
+		backend, errch := kvstore.NewClient(ctx, logger, backendName, opts, options)
 		return &fakeBackend{backend, statusErrors}, errch
 	}
 

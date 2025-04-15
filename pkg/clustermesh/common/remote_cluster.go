@@ -7,12 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -42,7 +42,8 @@ type RemoteCluster interface {
 }
 
 // backendFactoryFn is the type of the function to create the etcd client.
-type backendFactoryFn func(ctx context.Context, backend string, opts map[string]string,
+type backendFactoryFn func(ctx context.Context, logger *slog.Logger,
+	backend string, opts map[string]string,
 	options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error)
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -98,7 +99,7 @@ type remoteCluster struct {
 	// lastFailure is the timestamp of the last failure
 	lastFailure time.Time
 
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	// backendFactory allows to override the function to create the etcd client
 	// for testing purposes.
@@ -141,12 +142,12 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				clusterLock := rc.clusterLockFactory()
 				extraOpts := rc.makeExtraOpts(clusterLock)
-				backend, errChan := rc.backendFactory(ctx, kvstore.EtcdBackendName, rc.makeEtcdOpts(), &extraOpts)
+				backend, errChan := rc.backendFactory(ctx, rc.logger, kvstore.EtcdBackendName, rc.makeEtcdOpts(), &extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
 				// connection
-				rc.logger.Debugf("Waiting for connection to be established")
+				rc.logger.Debug("Waiting for connection to be established")
 
 				var err error
 				select {
@@ -162,7 +163,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					select {
 					case <-ctx.Done():
 					default:
-						rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
+						rc.logger.Warn("Unable to establish etcd connection to remote cluster", logfields.Error, err)
 					}
 					return err
 				}
@@ -182,7 +183,10 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					rc.wg.Done()
 				}()
 
-				rc.logger.WithField(logfields.EtcdClusterID, etcdClusterID).Info("Connection to remote cluster established")
+				rc.logger.Info(
+					"Connection to remote cluster established",
+					logfields.EtcdClusterID, etcdClusterID,
+				)
 
 				config, err := rc.getClusterConfig(ctx, backend)
 				if err != nil {
@@ -196,14 +200,18 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					default:
 					}
 
-					lgr := rc.logger
 					if errors.Is(err, cmutils.ErrClusterConfigNotFound) {
-						lgr = lgr.WithField(logfields.Hint,
-							"If KVStoreMesh is enabled, check whether it is connected to the target cluster."+
-								" Additionally, ensure that the cluster name is correct.")
+						rc.logger.Warn("Unable to get remote cluster configuration",
+							logfields.Error, err,
+							logfields.Hint, "If KVStoreMesh is enabled, check whether it is connected to the target cluster."+
+								" Additionally, ensure that the cluster name is correct.",
+						)
+					} else {
+						rc.logger.Warn("Unable to get remote cluster configuration",
+							logfields.Error, err,
+						)
 					}
 
-					lgr.WithError(err).Warning("Unable to get remote cluster configuration")
 					cancel()
 					return err
 				}
@@ -227,7 +235,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					case <-ctx.Done():
 						return ctx.Err()
 					default:
-						rc.logger.WithError(err).Warning("Connection to remote cluster failed")
+						rc.logger.Warn("Connection to remote cluster failed", logfields.Error, err)
 					}
 
 					return err
@@ -248,7 +256,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOperations, clusterLock *clusterLock) {
 	handleErr := func(err error) {
-		rc.logger.WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
+		rc.logger.Warn("Error observed on etcd connection, reconnecting etcd", logfields.Error, err)
 		rc.mutex.Lock()
 		rc.failures++
 		rc.lastFailure = time.Now()

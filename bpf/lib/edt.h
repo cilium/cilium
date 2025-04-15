@@ -19,7 +19,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, THROTTLE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} THROTTLE_MAP __section_maps_btf;
+} cilium_throttle __section_maps_btf;
 
 static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
@@ -44,7 +44,7 @@ static __always_inline int
 edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 {
 	__u64 delay, now, t, t_next;
-	struct edt_id aggregate;
+	struct edt_id aggregate = {};
 	struct edt_info *info;
 
 	if (!eth_is_supported_ethertype(proto))
@@ -57,7 +57,9 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	if (!aggregate.id)
 		return CTX_ACT_OK;
 
-	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
+	aggregate.direction = DIRECTION_EGRESS;
+
+	info = map_lookup_elem(&cilium_throttle, &aggregate);
 	if (!info)
 		return CTX_ACT_OK;
 	if (!info->bps)
@@ -79,7 +81,7 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	 * potentially allow for per aggregate control.
 	 */
 	if (t_next - now >= info->t_horizon_drop)
-		return CTX_ACT_DROP;
+		return DROP_EDT_HORIZON;
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
 out:

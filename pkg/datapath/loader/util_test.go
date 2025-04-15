@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -40,27 +40,23 @@ func setupCompilationDirectories(tb testing.TB) {
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	}
 
-	oldElfMapPrefixes := elfMapPrefixes
-	elfMapPrefixes = []string{
-		fmt.Sprintf("test_%s", callsmap.MapName),
-	}
-
 	tb.Cleanup(func() {
 		option.Config.DryMode = false
 		option.Config.BpfDir = ""
 		option.Config.StateDir = ""
 		testIncludes = nil
-		elfMapPrefixes = oldElfMapPrefixes
 	})
 }
 
 func newTestLoader(tb testing.TB) *loader {
 	setupCompilationDirectories(tb)
+	logger := hivetest.Logger(tb)
 
 	l := newLoader(Params{
+		Logger: logger,
 		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	cw := configWriterForTest(tb)
-	l.templateCache = newObjectCache(cw, tb.TempDir())
+	l.templateCache = newObjectCache(logger, cw, tb.TempDir())
 	return l
 }

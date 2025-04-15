@@ -11,8 +11,7 @@ struct {
 	__uint(key_size, sizeof(__u32));
 	__uint(value_size, sizeof(__u32));
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, __NR_CPUS__);
-} SIGNAL_MAP __section_maps_btf;
+} cilium_signals __section_maps_btf;
 
 enum {
 	SIGNAL_NAT_FILL_UP = 0,
@@ -46,7 +45,7 @@ struct signal_msg {
 		.signal_nr	= (SIGNAL),				\
 		.MEMBER		= (VALUE),				\
 	};								\
-	ctx_event_output((CTX), &SIGNAL_MAP, BPF_F_CURRENT_CPU, &msg,	\
+	ctx_event_output((CTX), &cilium_signals, BPF_F_CURRENT_CPU, &msg,	\
 			 sizeof(msg.signal_nr) + sizeof(msg.MEMBER));	\
   }
 

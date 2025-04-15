@@ -88,11 +88,11 @@ steps:
         enableViolations: true
         queries:
         - name: Perc99
-          query: quantile(0.99, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+          query: quantile(0.99, cilium_agent_bootstrap_seconds{scope="overall"})
         - name: Perc90
-          query: quantile(0.90, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+          query: quantile(0.90, cilium_agent_bootstrap_seconds{scope="overall"})
         - name: Perc50
-          query: quantile(0.5, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+          query: quantile(0.5, cilium_agent_bootstrap_seconds{scope="overall"})
           threshold: {{$MEDIAN_BOOTSTRAP_THRESHOLD}}
 
     - Identifier: WatchRequestThresholds

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
@@ -52,13 +53,13 @@ func NewFakeBackend(t *testing.T, expectLease bool) *fakeBackend {
 
 func GetFactory(t *testing.T) (Factory, *Metrics) {
 	metrics := MetricsProvider()
-	return NewFactory(metrics), metrics
+	return NewFactory(hivetest.Logger(t), metrics), metrics
 }
 
 func (fb *fakeBackend) Update(ctx context.Context, key string, value []byte, lease bool) error {
 	if lease != fb.expectLease {
 		key = "error"
-		value = []byte(fmt.Sprintf("incorrect lease setting, expected(%v) - found(%v)", fb.expectLease, lease))
+		value = fmt.Appendf(nil, "incorrect lease setting, expected(%v) - found(%v)", fb.expectLease, lease)
 	}
 
 	select {
@@ -100,14 +101,14 @@ func NewFakeRateLimiter() *fakeRateLimiter {
 	return &fakeRateLimiter{whenCalled: make(chan *KVPair), forgetCalled: make(chan *KVPair)}
 }
 
-func (frl *fakeRateLimiter) When(item interface{}) time.Duration {
-	frl.whenCalled <- NewKVPair(item.(string), "")
+func (frl *fakeRateLimiter) When(item workqueueKey) time.Duration {
+	frl.whenCalled <- NewKVPair(item.value, "")
 	return time.Duration(0)
 }
-func (frl *fakeRateLimiter) Forget(item interface{}) {
-	frl.forgetCalled <- NewKVPair(item.(string), "")
+func (frl *fakeRateLimiter) Forget(item workqueueKey) {
+	frl.forgetCalled <- NewKVPair(item.value, "")
 }
-func (frl *fakeRateLimiter) NumRequeues(item interface{}) int { return 0 }
+func (frl *fakeRateLimiter) NumRequeues(item workqueueKey) int { return 0 }
 
 func eventually(in <-chan *KVPair) *KVPair {
 	select {

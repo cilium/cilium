@@ -222,27 +222,20 @@ simultaneously and aggregate the results. See :ref:`hubble_setup` to enable
 Hubble Relay if it is not yet enabled and install the Hubble CLI on your local
 machine.
 
-You may access the Hubble Relay service by port-forwarding it locally:
-
-.. code-block:: shell-session
-
-   kubectl -n kube-system port-forward service/hubble-relay --address 0.0.0.0 --address :: 4245:80
-
-This will forward the Hubble Relay service port (``80``) to your local machine
-on port ``4245`` on all of it's IP addresses.
+.. include:: /observability/hubble/port-forward.rst
 
 You can verify that Hubble Relay can be reached by using the Hubble CLI and
 running the following command from your local machine:
 
 .. code-block:: shell-session
 
-   hubble status
+   hubble status -P
 
 This command should return an output similar to the following:
 
 ::
 
-   Healthcheck (via localhost:4245): Ok
+   Healthcheck (via 127.0.0.1:4245): Ok
    Current/Max Flows: 16380/16380 (100.00%)
    Flows/s: 46.19
    Connected Nodes: 4/4
@@ -252,7 +245,10 @@ the following command:
 
 .. code-block:: shell-session
 
-   hubble list nodes
+   $ hubble list nodes -P
+   NAME              STATUS      AGE     FLOWS/S   CURRENT/MAX-FLOWS
+   cluster/node-cp   Connected   2m30s   13.94     2227/4095 ( 54.38%)
+   cluster/node-w1   Connected   2m31s   51.37     5108/9840 ( 51.91%)
 
 As Hubble Relay shares the same API as individual Hubble instances, you may
 follow the `Observing flows with Hubble`_ section keeping in mind that
@@ -342,7 +338,7 @@ queried for the connectivity status of the last probe.
 
 .. code-block:: shell-session
 
-   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-health status
+   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-health status --verbose
    Probe time:   2018-06-16T09:51:58Z
    Nodes:
      ip-172-0-52-116.us-west-2.compute.internal (localhost):
@@ -778,9 +774,9 @@ fails between endpoints across multiple nodes.
 Troubleshooting steps:
 ~~~~~~~~~~~~~~~~~~~~~~
 
-#. Run ``cilium-health status`` on the node of the source and destination
-   endpoint. It should describe the connectivity from that node to other
-   nodes in the cluster, and to a simulated endpoint on each other node.
+#. Run ``cilium-health status --verbose`` on the node of the source and
+   destination endpoint. It should describe the connectivity from that node to
+   other nodes in the cluster, and to a simulated endpoint on each other node.
    Identify points in the cluster that cannot talk to each other. If the
    command does not describe the status of the other node, there may be an
    issue with the KV-Store.

@@ -49,7 +49,7 @@ func (inv *invoker) invoke(log *slog.Logger, cont container, logThreshold time.D
 		defer inv.funcs[i].infoMu.Unlock()
 
 		if err := cont.Invoke(nf.fn, opts...); err != nil {
-			log.Error("Invoke failed", "error", err, "function", nf.name)
+			log.Error("Invoke failed", "error", dig.RootCause(err), "function", nf.name)
 			return err
 		}
 		d := time.Since(t0)

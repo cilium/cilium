@@ -4,16 +4,16 @@
 package common
 
 import (
+	"log/slog"
 	"net"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func FilterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
+func FilterCIDRLabels(log *slog.Logger, labels []string) []string {
 	// Cilium might return a bunch of cidr labels with different prefix length. Filter out all
 	// but the longest prefix cidr label, which can be useful for troubleshooting. This also
 	// relies on the fact that when a Cilium security identity has multiple CIDR labels, longer
@@ -34,7 +34,10 @@ func FilterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 		currLabel = strings.Replace(currLabel, "-", ":", -1)
 		_, curr, err := net.ParseCIDR(currLabel)
 		if err != nil {
-			log.WithField("label", label).Warn("got an invalid cidr label")
+			log.Warn(
+				"got an invalid cidr label",
+				logfields.Label, label,
+			)
 			continue
 		}
 		if currMask, _ := curr.Mask.Size(); currMask > maxSize {
@@ -47,7 +50,7 @@ func FilterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 	return filteredLabels
 }
 
-func SortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdentity identity.NumericIdentity) []string {
+func SortAndFilterLabels(log *slog.Logger, labels []string, securityIdentity identity.NumericIdentity) []string {
 	if securityIdentity.HasLocalScope() {
 		labels = FilterCIDRLabels(log, labels)
 	}

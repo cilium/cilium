@@ -5,17 +5,17 @@
 //
 // You can create a new bundle for a specific trust domain:
 //
-//	td := spiffeid.RequireTrustDomain("example.org")
+//	td := spiffeid.RequireTrustDomainFromString("example.org")
 //	bundle := jwtbundle.New(td)
 //
 // Or you can load it from disk:
 //
-//	td := spiffeid.RequireTrustDomain("example.org")
+//	td := spiffeid.RequireTrustDomainFromString("example.org")
 //	bundle := jwtbundle.Load(td, "bundle.jwks")
 //
 // The bundle can be initialized with JWT authorities:
 //
-//	td := spiffeid.RequireTrustDomain("example.org")
+//	td := spiffeid.RequireTrustDomainFromString("example.org")
 //	var jwtAuthorities map[string]crypto.PublicKey = ...
 //	bundle := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
 //

@@ -9,12 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -23,7 +25,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -46,14 +47,15 @@ var (
 		NodeAddresses:      []tables.NodeAddress{},
 		HostEndpointID:     1,
 	}
-	dummyDevCfg   = testutils.NewTestEndpoint()
-	dummyEPCfg    = testutils.NewTestEndpoint()
+	dummyDevCfg   testutils.TestEndpoint
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
 	ipv6DummyAddr = netip.MustParseAddr("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
 )
 
 func setupConfigSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
+
+	dummyDevCfg = testutils.NewTestEndpoint(tb)
 
 	tb.Helper()
 
@@ -120,129 +122,10 @@ func TestWriteNodeConfig(t *testing.T) {
 }
 
 func TestWriteNetdevConfig(t *testing.T) {
+	setupConfigSuite(t)
 	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
 	})
-}
-
-func TestWriteEndpointConfig(t *testing.T) {
-	writeConfig(t, "endpoint", func(w io.Writer, dp datapath.ConfigWriter) error {
-		return dp.WriteEndpointConfig(w, &dummyNodeCfg, &dummyEPCfg)
-	})
-
-	// Create copy of config option so that it can be restored at the end of
-	// this test. In the future, we'd like to parallelize running unit tests.
-	// As it stands, this test would not be ready to parallelize until we
-	// remove our dependency on globals (e.g. option.Config).
-	oldEnableIPv6 := option.Config.EnableIPv6
-	defer func() {
-		option.Config.EnableIPv6 = oldEnableIPv6
-	}()
-
-	testRun := func(te *testutils.TestEndpoint) ([]byte, map[string]uint64) {
-		cfg := &HeaderfileWriter{}
-		varSub := loader.ELFVariableSubstitutions(te)
-
-		var buf bytes.Buffer
-		cfg.writeStaticData(nil, &buf, te)
-
-		return buf.Bytes(), varSub
-	}
-
-	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2"}
-
-	tests := []struct {
-		description string
-		template    testutils.TestEndpoint // Represents template bpf prog
-		endpoint    testutils.TestEndpoint // Represents normal endpoint bpf prog
-		preTestRun  func(t *testutils.TestEndpoint, e *testutils.TestEndpoint)
-		templateExp bool
-		endpointExp bool
-	}{
-		{
-			description: "IPv6 is disabled, endpoint does not have an IPv6 addr",
-			template:    testutils.NewTestEndpoint(),
-			endpoint:    testutils.NewTestEndpoint(),
-			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
-				option.Config.EnableIPv6 = false
-				t.IPv6 = ipv6DummyAddr // Template bpf prog always has dummy IPv6
-				e.IPv6 = netip.Addr{}  // This endpoint does not have an IPv6 addr
-			},
-			templateExp: true,
-			endpointExp: false,
-		},
-		{
-			description: "IPv6 is disabled, endpoint does have an IPv6 addr",
-			template:    testutils.NewTestEndpoint(),
-			endpoint:    testutils.NewTestEndpoint(),
-			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
-				option.Config.EnableIPv6 = false
-				t.IPv6 = ipv6DummyAddr // Template bpf prog always has dummy IPv6
-				e.IPv6 = ipv6DummyAddr // This endpoint does have an IPv6 addr
-			},
-			templateExp: true,
-			endpointExp: true,
-		},
-		{
-			description: "IPv6 is enabled",
-			template:    testutils.NewTestEndpoint(),
-			endpoint:    testutils.NewTestEndpoint(),
-			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
-				option.Config.EnableIPv6 = true
-				t.IPv6 = ipv6DummyAddr
-				e.IPv6 = ipv6DummyAddr
-			},
-			templateExp: true,
-			endpointExp: true,
-		},
-		{
-			description: "IPv6 is enabled, endpoint does not have IPv6 address",
-			template:    testutils.NewTestEndpoint(),
-			endpoint:    testutils.NewTestEndpoint(),
-			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
-				option.Config.EnableIPv6 = true
-				t.IPv6 = ipv6DummyAddr
-				e.IPv6 = netip.Addr{}
-			},
-			templateExp: true,
-			endpointExp: false,
-		},
-	}
-	for _, test := range tests {
-		t.Logf("Testing %s", test.description)
-		test.preTestRun(&test.template, &test.endpoint)
-
-		b, vsub := testRun(&test.template)
-		require.Equal(t, test.templateExp, bytes.Contains(b, []byte("DEFINE_IPV6")))
-		assertKeysInsideMap(t, vsub, lxcIPs, test.templateExp)
-
-		b, vsub = testRun(&test.endpoint)
-		require.Equal(t, test.endpointExp, bytes.Contains(b, []byte("DEFINE_IPV6")))
-		assertKeysInsideMap(t, vsub, lxcIPs, test.endpointExp)
-	}
-}
-
-func TestWriteStaticData(t *testing.T) {
-	cfg := &HeaderfileWriter{}
-	ep := &dummyEPCfg
-
-	mapSub := loader.ELFMapSubstitutions(ep)
-
-	var buf bytes.Buffer
-	cfg.writeStaticData(nil, &buf, ep)
-	b := buf.Bytes()
-
-	for _, v := range mapSub {
-		t.Logf("Ensuring config has %s", v)
-		require.True(t, bytes.Contains(b, []byte(v)))
-	}
-}
-
-func assertKeysInsideMap(t *testing.T, m map[string]uint64, keys []string, want bool) {
-	for _, v := range keys {
-		_, ok := m[v]
-		require.Equal(t, want, ok)
-	}
 }
 
 func createMainLink(name string, t *testing.T) *netlink.Dummy {
@@ -429,6 +312,77 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	buffer.Reset()
 	require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+}
+
+func TestPreferredIPv6Address(t *testing.T) {
+	testCases := []struct {
+		name    string
+		devices []tables.DeviceAddress
+		want    net.IP
+	}{
+		{
+			name: "link_local_only",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+				},
+			},
+			want: net.ParseIP("fe80::4001:aff:fe35:a805"),
+		},
+		{
+			name: "global_only",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+			},
+			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "local_first",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+				},
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+			},
+			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "global_first",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+				{
+					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+				},
+			},
+			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "select_first_global",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:3::"),
+				},
+			},
+			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := preferredIPv6Address(tc.devices)
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("preferredIPv6Address() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }
 
 func TestNewHeaderfileWriter(t *testing.T) {

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef SKIP_POLICY_MAP
 static __always_inline void
 policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport, bool deny)
 {
@@ -15,7 +14,7 @@ policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport, bool 
 		.deny = deny,
 	};
 
-	map_update_elem(&POLICY_MAP, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_policy_v2, &key, &value, BPF_ANY);
 }
 
 static __always_inline void
@@ -46,6 +45,5 @@ static __always_inline void policy_delete_egress_entry(void)
 		.egress = 1,
 	};
 
-	map_delete_elem(&POLICY_MAP, &key);
+	map_delete_elem(&cilium_policy_v2, &key);
 }
-#endif

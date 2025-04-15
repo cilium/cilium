@@ -19,6 +19,8 @@ configured using the following options:
 - ``--bpf-fragments-map-max``: Control the maximum number of active concurrent
   connections using IP fragmentation. For the defaults, see `bpf_map_limitations`.
 
+To check whether fragmentation occurred, check the value of ``cilium_bpf_map_pressure{map_name="cilium_ipv4_frag_datagrams"}`` metric. If it's non-zero, it means that fragmentation occurred.
+
 .. note::
 
     When running Cilium with kube-proxy, fragmented NodePort traffic may break due

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -92,7 +93,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 	const src = source.Source("foo")
 
 	var synced bool
-	st := storepkg.NewFactory(storepkg.MetricsProvider())
+	st := storepkg.NewFactory(hivetest.Logger(t), storepkg.MetricsProvider())
 	runnable := func(body func(t *testing.T, ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
 		return func(t *testing.T) {
 			synced = false

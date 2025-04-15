@@ -33,6 +33,14 @@ const (
 	MinPortSnatDefault = 1024
 	// MaxPortSnatDefault represents default max port from range.
 	MaxPortSnatDefault = 65535
+
+	// MapNameSnat4AllocRetries represents the histogram of IPv4 NAT port allocation retries.
+	MapNameSnat4AllocRetries = "cilium_snat_v4_alloc_retries"
+	// MapNameSnat6AllocRetries represents the histogram of IPv6 NAT port allocation retries.
+	MapNameSnat6AllocRetries = "cilium_snat_v6_alloc_retries"
+
+	// SnatCollisionRetries represents the maximum number of port allocation retries.
+	SnatCollisionRetries = 32
 )
 
 // Map represents a NAT map.
@@ -61,14 +69,24 @@ type NatMapRecord struct {
 	Value NatEntry
 }
 
-// NatMap interface represents a NAT map, and can be reused to implement mock
-// maps for unit tests.
-type NatMap interface {
+type commonMap interface {
 	Open() error
 	Close() error
 	Path() (string, error)
+}
+
+// NatMap interface represents a NAT map, and can be reused to implement mock
+// maps for unit tests.
+type NatMap interface {
+	commonMap
 	DumpEntries() (string, error)
 	DumpWithCallback(bpf.DumpCallback) error
+}
+
+type RetriesMap interface {
+	commonMap
+	DumpPerCPUWithCallback(bpf.DumpPerCPUCallback) error
+	ClearAll() error
 }
 
 // NewMap instantiates a Map.
@@ -97,6 +115,39 @@ func NewMap(name string, family IPFamily, entries int) *Map {
 			WithPressureMetric(),
 		family: family,
 	}
+}
+
+type RetriesKey struct {
+	Key uint32
+}
+
+func (k *RetriesKey) String() string  { return fmt.Sprintf("%d", k.Key) }
+func (k *RetriesKey) New() bpf.MapKey { return &RetriesKey{} }
+
+type RetriesValue struct {
+	Value uint32
+}
+
+type RetriesValues []RetriesValue
+
+func (k *RetriesValue) String() string    { return fmt.Sprintf("%d", k.Value) }
+func (k *RetriesValue) New() bpf.MapValue { return &RetriesValue{} }
+func (k *RetriesValue) NewSlice() any     { return &RetriesValues{} }
+
+type RetriesMapRecord struct {
+	Key   *RetriesKey
+	Value *RetriesValue
+}
+
+func NewRetriesMap(name string) *bpf.Map {
+	return bpf.NewMap(
+		name,
+		ebpf.PerCPUArray,
+		&RetriesKey{},
+		&RetriesValue{},
+		SnatCollisionRetries+1,
+		0,
+	)
 }
 
 // DumpBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
@@ -370,4 +421,34 @@ func maxEntries() int {
 		return option.Config.NATMapEntriesGlobal
 	}
 	return option.LimitTableMax
+}
+
+// RetriesMaps returns the maps that contain the histograms of the number of retries.
+func RetriesMaps(ipv4, ipv6, nodeport bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
+	if !nodeport {
+		return
+	}
+	if ipv4 {
+		ipv4RetriesMap = NewRetriesMap(MapNameSnat4AllocRetries)
+	}
+	if ipv6 {
+		ipv6RetriesMap = NewRetriesMap(MapNameSnat6AllocRetries)
+	}
+	return
+}
+
+func CreateRetriesMaps(ipv4, ipv6 bool) error {
+	if ipv4 {
+		ipv4Map := NewRetriesMap(MapNameSnat4AllocRetries)
+		if err := ipv4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+	if ipv6 {
+		ipv6Map := NewRetriesMap(MapNameSnat6AllocRetries)
+		if err := ipv6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

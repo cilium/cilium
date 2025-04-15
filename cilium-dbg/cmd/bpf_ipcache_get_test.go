@@ -70,7 +70,7 @@ func TestGetLPMValue(t *testing.T) {
 
 		if exists {
 			identity := v.([]string)
-			require.EqualValues(t, identity, tt.identity, "Wrong number of identities was retrieved for ip %s", tt.ip)
+			require.Equal(t, identity, tt.identity, "Wrong number of identities was retrieved for ip %s", tt.ip)
 		}
 	}
 }
@@ -93,7 +93,7 @@ func toBits(bytes []byte) []byte {
 	var bits []byte
 
 	for _, b := range bytes {
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			mask := uint8(128) >> uint8(j)
 
 			if mask&b == 0 {

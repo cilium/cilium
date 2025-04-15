@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"reflect"
@@ -14,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	apiTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	dockerCliAPI "github.com/docker/docker/client"
 	"github.com/docker/libnetwork/drivers/remote/api"
@@ -101,7 +101,7 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 
 	d := &driver{client: c, dockerClient: dockerCli}
 
-	for tries := 0; tries < 24; tries++ {
+	for tries := range 24 {
 		if res, err := c.ConfigGet(); err != nil {
 			if tries == 23 {
 				scopedLog.WithError(err).Fatal("Unable to connect to cilium daemon")
@@ -128,13 +128,13 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	log.Info("Starting docker events watcher")
 
 	go func() {
-		eventsCh, errCh := dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
+		eventsCh, errCh := dockerCli.Events(context.Background(), events.ListOptions{})
 		for {
 			select {
 			case err := <-errCh:
 				log.WithError(err).Error("Unable to connect to docker events channel, reconnecting...")
 				time.Sleep(5 * time.Second)
-				eventsCh, errCh = dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
+				eventsCh, errCh = dockerCli.Events(context.Background(), events.ListOptions{})
 			case event := <-eventsCh:
 				if event.Type != events.ContainerEventType || event.Action != "start" {
 					break
@@ -182,9 +182,7 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 	if img.Config != nil && img.Config.Labels != nil {
 		lbls = img.Config.Labels
 		// container labels overwrite image labels
-		for k, v := range cont.Config.Labels {
-			lbls[k] = v
-		}
+		maps.Copy(lbls, cont.Config.Labels)
 	}
 	addLbls := labels.Map2Labels(lbls, labels.LabelSourceContainer).GetModel()
 	ecr := &models.EndpointChangeRequest{
@@ -287,7 +285,7 @@ func sendError(w http.ResponseWriter, msg string, code int) {
 	http.Error(w, msg, code)
 }
 
-func objectResponse(w http.ResponseWriter, obj interface{}) {
+func objectResponse(w http.ResponseWriter, obj any) {
 	if err := json.NewEncoder(w).Encode(obj); err != nil {
 		sendError(w, "Could not JSON encode response", http.StatusInternalServerError)
 		return
@@ -399,7 +397,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 		var veth *netlink.Veth
-		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU),
+		veth, _, _, err = connector.SetupVeth(logging.DefaultSlogLogger, create.EndpointID, int(driver.conf.DeviceMTU),
 			int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize),
 			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
 		defer removeLinkOnErr(veth)
@@ -462,7 +460,7 @@ func (driver *driver) infoEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.WithField(logfields.Request, logfields.Repr(&info)).Debug("Endpoint info request")
-	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]interface{}{}})
+	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]any{}})
 	log.WithField(logfields.Response, info.EndpointID).Debug("Endpoint info")
 }
 
@@ -497,7 +495,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		StaticRoutes:          driver.routes,
 		DisableGatewayService: true,
 		GatewayIPv6:           driver.gatewayIPv6,
-		//GatewayIPv4:           driver.gatewayIPv4,
+		// GatewayIPv4:           driver.gatewayIPv4,
 	}
 
 	// FIXME? Having the following code results on a runtime error: docker: Error

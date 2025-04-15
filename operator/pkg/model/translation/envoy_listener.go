@@ -19,6 +19,7 @@ import (
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -117,18 +118,42 @@ func withXffNumTrustedHops(xff uint32) ListenerMutator {
 	}
 }
 
-func withHostNetworkPort(m *model.Model, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
-	ports := []uint32{}
-	for _, hl := range m.HTTP {
-		ports = append(ports, hl.GetPort())
-	}
-	for _, hl := range m.TLSPassthrough {
-		ports = append(ports, hl.GetPort())
-	}
-
+func WithStreamIdleTimeout(streamIdleTimeoutSeconds int) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
-		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.SortedUnique(ports), ipv4Enabled, ipv6Enabled)
+		if streamIdleTimeoutSeconds == 0 {
+			return listener
+		}
+		for _, filterChain := range listener.FilterChains {
+			for _, filter := range filterChain.Filters {
+				if filter.Name == httpConnectionManagerType {
+					tc := filter.GetTypedConfig()
+					switch tc.GetTypeUrl() {
+					case envoy.HttpConnectionManagerTypeURL:
+						hcm, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						hcmConfig, ok := hcm.(*httpConnectionManagerv3.HttpConnectionManager)
+						if !ok {
+							continue
+						}
+						hcmConfig.StreamIdleTimeout = &durationpb.Duration{
+							Seconds: int64(streamIdleTimeoutSeconds),
+						}
+						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(hcmConfig),
+						}
+					}
+				}
+			}
+		}
+		return listener
+	}
+}
 
+func withHostNetworkPort(m *model.Model, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(m.AllPorts(), ipv4Enabled, ipv6Enabled)
 		return listener
 	}
 }
@@ -178,14 +203,19 @@ func withSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // desiredEnvoyListener returns the desired Envoy listener for the given model.
-func (i *cecTranslator) desiredEnvoyListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 {
-		return nil
+func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSResource, error) {
+	if m.IsEmpty() {
+		return nil, nil
+	}
+
+	filterChains, err := i.filterChains(listenerName, m)
+	if err != nil {
+		return nil, err
 	}
 
 	listener := &envoy_config_listener.Listener{
 		Name:         listenerName,
-		FilterChains: i.filterChains(listenerName, m),
+		FilterChains: filterChains,
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
 			{
 				Name: tlsInspectorType,
@@ -200,30 +230,38 @@ func (i *cecTranslator) desiredEnvoyListener(m *model.Model) []ciliumv2.XDSResou
 		listener = fn(listener)
 	}
 
-	res, _ := toXdsResource(listener, envoy.ListenerTypeURL)
-	return []ciliumv2.XDSResource{res}
+	res, err := toXdsResource(listener, envoy.ListenerTypeURL)
+	if err != nil {
+		return nil, err
+	}
+	return []ciliumv2.XDSResource{res}, nil
 }
 
-func (i *cecTranslator) filterChains(name string, m *model.Model) []*envoy_config_listener.FilterChain {
+func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
-	if len(m.HTTP) > 0 {
-		httpFilterChain, err := i.httpFilterChain(name, i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled)
+	if m.IsHTTPListenerConfigured() {
+		httpFilterChain, err := i.httpFilterChain(name)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		filterChains = append(filterChains, httpFilterChain)
 	}
 
-	httpsFilterChains, err := i.httpsFilterChains(name, i.Config.SecretsNamespace, tlsSecretsToHostnames(m), i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled)
-	if err != nil {
-		return nil
+	if m.IsHTTPSListenerConfigured() {
+		httpsFilterChains, err := i.httpsFilterChains(name, m)
+		if err != nil {
+			return nil, err
+		}
+		filterChains = append(filterChains, httpsFilterChains...)
 	}
-	filterChains = append(filterChains, httpsFilterChains...)
 
-	filterChains = append(filterChains, tlsPassthroughFilterChains(tlsPassthroughBackendsToHostnames(m))...)
+	if m.IsTLSPassthroughListenerConfigured() {
+		tlsPTFilterChains := tlsPassthroughFilterChains(m)
+		filterChains = append(filterChains, tlsPTFilterChains...)
+	}
 
-	return filterChains
+	return filterChains, nil
 }
 
 // listenerMutators returns a list of listener mutators to apply to the listener.
@@ -247,13 +285,17 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 		res = append(res, withHostNetworkPort(m, i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled))
 	}
 
+	if i.Config.ListenerConfig.StreamIdleTimeoutSeconds > 0 {
+		res = append(res, WithStreamIdleTimeout(i.Config.ListenerConfig.StreamIdleTimeoutSeconds))
+	}
+
 	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {
 		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops))
 	}
 	return res
 }
 
-func (i *cecTranslator) httpFilterChain(name string, enableIpv4 bool, enableIpv6 bool) (*envoy_config_listener.FilterChain, error) {
+func (i *cecTranslator) httpFilterChain(name string) (*envoy_config_listener.FilterChain, error) {
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := i.desiredHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
@@ -276,32 +318,26 @@ func (i *cecTranslator) httpFilterChain(name string, enableIpv4 bool, enableIpv6
 	}, nil
 }
 
-func (i *cecTranslator) httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHostnames map[model.TLSSecret][]string,
-	enableIpv4 bool, enableIpv6 bool) ([]*envoy_config_listener.FilterChain, error) {
-	if len(tlsSecretsToHostnames) == 0 {
+func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
+	tlsToHostnames := m.TLSSecretsToHostnames()
+	if len(tlsToHostnames) == 0 {
 		return nil, nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsSecretsToHostnames), func(a, b model.TLSSecret) int {
+	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsToHostnames), func(a, b model.TLSSecret) int {
 		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
 	})
 
 	for _, secret := range orderedSecrets {
-		hostNames := tlsSecretsToHostnames[secret]
+		hostNames := tlsToHostnames[secret]
 
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
 		if err != nil {
 			return nil, err
 		}
-
-		transportSocket, err := newTransportSocket(ciliumSecretNamespace, []model.TLSSecret{secret})
-		if err != nil {
-			return nil, err
-		}
-
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
@@ -312,24 +348,11 @@ func (i *cecTranslator) httpsFilterChains(name string, ciliumSecretNamespace str
 					},
 				},
 			},
-			TransportSocket: transportSocket,
+			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{secret}),
 		})
 	}
 
 	return filterChains, nil
-}
-
-func tlsPassthroughBackendsToHostnames(m *model.Model) map[string][]string {
-	res := make(map[string][]string)
-	for _, h := range m.TLSPassthrough {
-		for _, route := range h.Routes {
-			for _, backend := range route.Backends {
-				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				res[key] = append(res[key], route.Hostnames...)
-			}
-		}
-	}
-	return res
 }
 
 func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bool) (*envoy_config_core_v3.Address, []*envoy_config_listener.AdditionalAddress) {
@@ -376,18 +399,8 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 	}, additionalAddress
 }
 
-func tlsSecretsToHostnames(m *model.Model) map[model.TLSSecret][]string {
-	res := make(map[model.TLSSecret][]string)
-	for _, h := range m.HTTP {
-		for _, s := range h.TLS {
-			res[s] = append(res[s], h.Hostname)
-		}
-	}
-
-	return res
-}
-
-func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) []*envoy_config_listener.FilterChain {
+func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
+	ptBackendsToHostnames := m.TLSBackendsToHostnames()
 	if len(ptBackendsToHostnames) == 0 {
 		return nil
 	}
@@ -419,7 +432,7 @@ func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) []*en
 	return filterChains
 }
 
-func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*envoy_config_core_v3.TransportSocket, error) {
+func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *envoy_config_core_v3.TransportSocket {
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
@@ -437,11 +450,7 @@ func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*e
 			TlsCertificateSdsSecretConfigs: tlsSdsConfig,
 		},
 	}
-
-	downstreamBytes, err := proto.Marshal(&downStreamContext)
-	if err != nil {
-		return nil, err
-	}
+	downstreamBytes, _ := proto.Marshal(&downStreamContext)
 
 	return &envoy_config_core_v3.TransportSocket{
 		Name: tlsTransportSocketType,
@@ -451,7 +460,7 @@ func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*e
 				Value:   downstreamBytes,
 			},
 		},
-	}, nil
+	}
 }
 
 func toFilterChainMatch(hostNames []string) *envoy_config_listener.FilterChainMatch {

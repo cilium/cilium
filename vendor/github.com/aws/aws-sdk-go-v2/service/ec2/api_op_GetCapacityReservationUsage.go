@@ -95,22 +95,28 @@ type GetCapacityReservationUsageOutput struct {
 	//   to request parameters that are not valid, capacity constraints, or instance
 	//   limit constraints. You can view a failed request for 60 minutes.
 	//
-	//   - scheduled - (Future-dated Capacity Reservations only) The future-dated
-	//   Capacity Reservation request was approved and the Capacity Reservation is
-	//   scheduled for delivery on the requested start date.
+	//   - scheduled - (Future-dated Capacity Reservations) The future-dated Capacity
+	//   Reservation request was approved and the Capacity Reservation is scheduled for
+	//   delivery on the requested start date.
 	//
-	//   - assessing - (Future-dated Capacity Reservations only) Amazon EC2 is
-	//   assessing your request for a future-dated Capacity Reservation.
+	//   - payment-pending - (Capacity Blocks) The upfront payment has not been
+	//   processed yet.
 	//
-	//   - delayed - (Future-dated Capacity Reservations only) Amazon EC2 encountered a
+	//   - payment-failed - (Capacity Blocks) The upfront payment was not processed in
+	//   the 12-hour time frame. Your Capacity Block was released.
+	//
+	//   - assessing - (Future-dated Capacity Reservations) Amazon EC2 is assessing
+	//   your request for a future-dated Capacity Reservation.
+	//
+	//   - delayed - (Future-dated Capacity Reservations) Amazon EC2 encountered a
 	//   delay in provisioning the requested future-dated Capacity Reservation. Amazon
 	//   EC2 is unable to deliver the requested capacity by the requested start date and
 	//   time.
 	//
-	//   - unsupported - (Future-dated Capacity Reservations only) Amazon EC2 can't
-	//   support the future-dated Capacity Reservation request due to capacity
-	//   constraints. You can view unsupported requests for 30 days. The Capacity
-	//   Reservation will not be delivered.
+	//   - unsupported - (Future-dated Capacity Reservations) Amazon EC2 can't support
+	//   the future-dated Capacity Reservation request due to capacity constraints. You
+	//   can view unsupported requests for 30 days. The Capacity Reservation will not be
+	//   delivered.
 	State types.CapacityReservationState
 
 	// The number of instances for which the Capacity Reservation reserves capacity.
@@ -184,6 +190,9 @@ func (c *Client) addOperationGetCapacityReservationUsageMiddlewares(stack *middl
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpGetCapacityReservationUsageValidationMiddleware(stack); err != nil {

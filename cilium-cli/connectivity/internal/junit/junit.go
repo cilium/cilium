@@ -79,6 +79,8 @@ type TestCase struct {
 	Status    string  `xml:"status,attr,omitempty"`
 	Time      float64 `xml:"time,attr"`
 
+	Properties *Properties `xml:"properties,omitempty"`
+
 	Skipped *Skipped `xml:"skipped,omitempty"`
 	Error   *Error   `xml:"error,omitempty"`
 	Failure *Failure `xml:"failure,omitempty"`

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -64,7 +64,7 @@ func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcach
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -129,9 +129,10 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 	}
 
-	store := store.NewFactory(store.MetricsProvider())
+	store := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -144,12 +145,12 @@ func TestRemoteClusterRun(t *testing.T) {
 				wg.Wait()
 
 				allocator.Close()
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
+				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
-				require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 
 			var ipc fakeIPCache
@@ -163,16 +164,16 @@ func TestRemoteClusterRun(t *testing.T) {
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 					FeatureMetrics:        NewClusterMeshMetricsNoop(),
-					Logger:                logrus.New(),
+					Logger:                logger,
 				},
-				globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
+				globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
-				BackendOperations: kvstore.Client(),
+				BackendOperations: client,
 				name:              "foo",
 			}
 
@@ -203,7 +204,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				rc.mutex.RLock()
 				defer rc.mutex.RUnlock()
-				assert.EqualValues(c, 1, rc.remoteIdentityCache.NumEntries())
+				assert.Equal(c, 1, rc.remoteIdentityCache.NumEntries())
 			}, timeout, tick, "Identities are not watched correctly")
 
 			// Assert that synced canaries have been watched if expected
@@ -247,7 +248,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	const cid1, cid2, cid3 = 10, 20, 30
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -270,7 +271,8 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		}
 	}
 
-	store := store.NewFactory(store.MetricsProvider())
+	logger := hivetest.Logger(t)
+	store := store.NewFactory(logger, store.MetricsProvider())
 	var wg sync.WaitGroup
 	ctx := context.Background()
 
@@ -278,10 +280,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-allocator.InitIdentityAllocator(nil)
 
-	t.Cleanup(func() {
-		allocator.Close()
-		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
-	})
+	t.Cleanup(allocator.Close)
 
 	var obs fakeObserver
 	cm := ClusterMesh{
@@ -295,10 +294,10 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			StoreFactory:          store,
 			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 			FeatureMetrics:        NewClusterMeshMetricsNoop(),
-			Logger:                logrus.New(),
+			Logger:                logger,
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
-		globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
+		globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 
@@ -314,7 +313,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			cfg := types.CiliumClusterConfig{ID: id, Capabilities: types.CiliumClusterConfigCapabilities{Cached: true}}
-			rc.Run(ctx, kvstore.Client(), cfg, ready)
+			rc.Run(ctx, client, cfg, ready)
 			wg.Done()
 		}()
 
@@ -326,7 +325,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 		// Populate the kvstore with the appropriate KV pairs
 		for key, value := range kvs(cid1) {
-			require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -351,7 +350,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		// Update the kvstore pairs with the new ClusterID
 		obs.reset()
 		for key, value := range kvs(cid2) {
-			require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -396,7 +395,7 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 		{
 			name: "with extra opts",
 			extra: func(config *types.CiliumClusterConfig) []ipcache.IWOpt {
-				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithSelfDeletionProtection()}
+				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithIdentityValidator(25)}
 			},
 			expected: 2,
 		},

@@ -23,12 +23,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -43,11 +43,13 @@ var (
 	initialGlobalIdentitiesControllerGroup = controller.NewGroup("initial-global-identities")
 )
 
+type EndpointParser interface {
+	ParseEndpoint(epJSON []byte) (*Endpoint, error)
+}
+
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter,
-	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
-
+func ReadEPsFromDirNames(ctx context.Context, parser EndpointParser, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
@@ -78,7 +80,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			continue
 		}
 
-		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, state)
+		ep, err := parser.ParseEndpoint(state)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
@@ -192,6 +194,10 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 // Returns an error if any operation fails while trying to perform the above
 // operations.
 func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm dptypes.BandwidthManager, resolveMetadata MetadataResolverCB) error {
+	if err := e.restoreHostIfindex(); err != nil {
+		return err
+	}
+
 	if err := e.restoreIdentity(regenerator); err != nil {
 		return err
 	}
@@ -215,6 +221,26 @@ func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm dptypes.
 	return nil
 }
 
+// restoreHostIfindex looks up the host interface's ifindex using netlink and
+// populates the value in the Endpoint. This used to be left at zero for
+// whatever reason, so the zero ifindex got persisted to disk.
+//
+// Try to populate the ifindex field using netlink so we can rely on it to
+// generate the host's endpoint configuration.
+func (e *Endpoint) restoreHostIfindex() error {
+	if !e.isHost || e.ifIndex != 0 {
+		return nil
+	}
+
+	l, err := safenetlink.LinkByName(e.ifName)
+	if err != nil {
+		return fmt.Errorf("get host interface: %w", err)
+	}
+	e.ifIndex = l.Attrs().Index
+
+	return nil
+}
+
 func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	if err := e.rlockAlive(); err != nil {
 		e.logDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
@@ -222,7 +248,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labelsfilter.Filter(e.OpLabels.AllLabels())
+	l, _ := labelsfilter.Filter(e.labels.AllLabels())
 	e.runlock()
 
 	// Getting the ep's identity while we are restoring should block the
@@ -267,7 +293,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		// If the endpoint is removed, this controller will cancel the allocator
 		// WaitForInitialGlobalIdentities function.
 		controllerName := fmt.Sprintf("waiting-initial-global-identities-ep (%v)", e.ID)
-		var gotInitialGlobalIdentities = make(chan struct{})
+		gotInitialGlobalIdentities := make(chan struct{})
 		e.UpdateController(controllerName,
 			controller.ControllerParams{
 				Group: initialGlobalIdentitiesControllerGroup,
@@ -297,14 +323,10 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// Wait for ipcache sync before regeneration for endpoints including
 	// the ones with fixed identity (e.g. host endpoint), this ensures that
 	// the regenerated datapath always lookups from a ready ipcache map.
+	// Additionally wait for node synchronization, as nodes also contribute
+	// entries to the ipcache map, most notably about the remote node IPs.
 	if option.Config.KVStore != "" {
-		if err := ipcache.WaitForKVStoreSync(e.aliveCtx); err != nil {
-			return ErrNotAlive
-		}
-
-		// Additionally wait for node synchronization, as nodes also contribute
-		// entries to the ipcache map, most notably about the remote node IPs.
-		if err := regenerator.WaitForKVStoreNodesSync(e.aliveCtx); err != nil {
+		if err := regenerator.WaitForKVStoreSync(e.aliveCtx); err != nil {
 			return ErrNotAlive
 		}
 	}
@@ -382,7 +404,6 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 // serializableEndpoint, which contains all of the fields that are needed upon
 // restoring an Endpoint after cilium-agent restarts.
 func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
-
 	return &serializableEndpoint{
 		ID:                       e.ID,
 		ContainerName:            e.GetContainerName(),
@@ -393,7 +414,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		IfIndex:                  e.ifIndex,
 		ContainerIfName:          e.containerIfName,
 		DisableLegacyIdentifiers: e.disableLegacyIdentifiers,
-		OpLabels:                 e.OpLabels,
+		Labels:                   e.labels,
 		LXCMAC:                   e.mac,
 		IPv6:                     e.IPv6,
 		IPv6IPAMPool:             e.IPv6IPAMPool,
@@ -458,10 +479,8 @@ type serializableEndpoint struct {
 	// (container name, container id, pod name) for this endpoint.
 	DisableLegacyIdentifiers bool
 
-	// OpLabels is the endpoint's label configuration
-	//
-	// FIXME: Rename this field to Labels
-	OpLabels labels.OpLabels
+	// Labels is the endpoint's label configuration
+	Labels labels.OpLabels `json:"OpLabels"`
 
 	// mac is the MAC address of the endpoint
 	//
@@ -527,7 +546,7 @@ type serializableEndpoint struct {
 	CiliumEndpointUID types.UID
 
 	// Properties are used to store some internal property about this Endpoint.
-	Properties map[string]interface{}
+	Properties map[string]any
 
 	// NetnsCookie is the network namespace cookie of the Endpoint.
 	NetnsCookie uint64
@@ -539,7 +558,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 	// We may have to populate structures in the Endpoint manually to do the
 	// translation from serializableEndpoint --> Endpoint.
 	restoredEp := &serializableEndpoint{
-		OpLabels:   labels.NewOpLabels(),
+		Labels:     labels.NewOpLabels(),
 		Options:    option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
@@ -569,7 +588,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ifIndex = r.IfIndex
 	ep.containerIfName = r.ContainerIfName
 	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
-	ep.OpLabels = r.OpLabels
+	ep.labels = r.Labels
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
 	ep.IPv6IPAMPool = r.IPv6IPAMPool
@@ -590,7 +609,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	if r.Properties != nil {
 		ep.properties = r.Properties
 	} else {
-		ep.properties = map[string]interface{}{}
+		ep.properties = map[string]any{}
 	}
 	ep.NetNsCookie = r.NetnsCookie
 }

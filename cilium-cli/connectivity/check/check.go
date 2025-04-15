@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"strings"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
@@ -19,19 +22,38 @@ import (
 )
 
 type PerfParameters struct {
-	ReportDir   string
-	Duration    time.Duration
-	HostNet     bool
-	PodNet      bool
-	Samples     int
-	MessageSize int
-	Mixed       bool
-	Throughput  bool
-	CRR         bool
-	RR          bool
-	UDP         bool
-	Image       string
-	NetQos      bool
+	ReportDir       string
+	Duration        time.Duration
+	SetupDelay      time.Duration
+	HostNet         bool
+	PodNet          bool
+	PodToHost       bool
+	HostToPod       bool
+	SameNode        bool
+	OtherNode       bool
+	Samples         int
+	MessageSize     int
+	Streams         uint
+	Throughput      bool
+	ThroughputMulti bool
+	CRR             bool
+	RR              bool
+	UDP             bool
+	Image           string
+	NetQos          bool
+	KernelProfiles  bool
+
+	NodeSelectorServer map[string]string
+	NodeSelectorClient map[string]string
+	Tolerations        []string
+}
+
+func (p *PerfParameters) GetTolerations() []corev1.Toleration {
+	tolerations := make([]corev1.Toleration, 0, len(p.Tolerations))
+	for _, t := range p.Tolerations {
+		tolerations = append(tolerations, corev1.Toleration{Key: t, Operator: corev1.TolerationOpExists})
+	}
+	return tolerations
 }
 
 type Parameters struct {
@@ -67,12 +89,14 @@ type Parameters struct {
 	SocatImage             string
 	AgentDaemonSetName     string
 	DNSTestServerImage     string
+	PrintImageArtifacts    bool
 	IncludeUnsafeTests     bool
 	AgentPodSelector       string
 	CiliumPodSelector      string
 	NodeSelector           map[string]string
 	DeploymentAnnotations  annotationsMap
-	NamespaceAnnotations   annotations
+	NamespaceLabels        map[string]string
+	NamespaceAnnotations   map[string]string
 	ExternalTarget         string
 	ExternalOtherTarget    string
 	ExternalCIDR           string
@@ -92,16 +116,21 @@ type Parameters struct {
 	ImpersonateGroups      []string
 	IPFamilies             []string
 
-	IncludeConnDisruptTest        bool
-	ConnDisruptTestSetup          bool
-	ConnDisruptTestRestartsPath   string
-	ConnDisruptTestXfrmErrorsPath string
-	ConnDisruptDispatchInterval   time.Duration
+	IncludeConnDisruptTest              bool
+	IncludeConnDisruptTestNSTraffic     bool
+	IncludeConnDisruptTestEgressGateway bool
+	ConnDisruptTestSetup                bool
+	ConnDisruptTestRestartsPath         string
+	ConnDisruptTestXfrmErrorsPath       string
+	ConnDisruptDispatchInterval         time.Duration
 
 	ExpectedDropReasons []string
 	ExpectedXFRMErrors  []string
 
-	LogCheckLevels []string
+	CodeOwners        []string
+	LogCodeOwners     bool
+	ExcludeCodeOwners []string
+	LogCheckLevels    []string
 
 	FlushCT               bool
 	SecondaryNetworkIface string
@@ -286,9 +315,7 @@ func (r *FlowRequirementResults) Merge(from *FlowRequirementResults) {
 	if r.Matched == nil {
 		r.Matched = from.Matched
 	} else {
-		for k, v := range from.Matched {
-			r.Matched[k] = v
-		}
+		maps.Copy(r.Matched, from.Matched)
 	}
 	r.Failures += from.Failures
 	r.NeedMoreFlows = r.NeedMoreFlows || from.NeedMoreFlows

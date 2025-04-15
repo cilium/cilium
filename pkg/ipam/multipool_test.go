@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -43,7 +44,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			events <- "upsert"
 		},
 	}
-	c := newMultiPoolManager(fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
+	c := newMultiPoolManager(hivetest.Logger(t), fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
 	// set custom preAllocMap to not rely on option.Config in unit tests
 	c.preallocatedIPsPerPool = preAllocatePerPool{
 		"default": 16,
@@ -135,17 +136,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	juptierIPv6CIDR := cidr.MustParseCIDR("fc00:33::/96")
 
 	faultyAllocation, err = c.allocateIP(net.ParseIP("192.168.1.1"), "jupiter-pod-0", "jupiter", IPv4, false)
-	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
-	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 	// Try again. This should still fail, but not request an additional third IP
 	// (since the owner has already attempted to allocate). This however sets
 	// upstreamSync to 'true', which should populate .Spec.IPAM.Pools.Requested
 	// with pending requests for the "jupiter" pool
 	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, true)
-	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 
 	assert.Equal(t, "upsert", <-events)
@@ -214,8 +215,8 @@ func Test_MultiPoolManager(t *testing.T) {
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
 	assert.Equal(t, "upsert", <-events)
 
-	c.waitForPool(context.TODO(), IPv4, "jupiter")
-	c.waitForPool(context.TODO(), IPv6, "jupiter")
+	c.waitForPool(t.Context(), IPv4, "jupiter")
+	c.waitForPool(t.Context(), IPv6, "jupiter")
 
 	// Allocations should now succeed
 	jupiterIP0 := net.ParseIP("192.168.1.1")
@@ -274,7 +275,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	// exhaust mars ipv4 pool (/27 contains 30 IPs)
 	allocatedMarsIPs := []net.IP{}
 	numMarsIPs := 30
-	for i := 0; i < numMarsIPs; i++ {
+	for i := range numMarsIPs {
 		// set upstreamSync to true for last allocation, to ensure we only get one upsert event
 		ar, err := c.allocateNext(fmt.Sprintf("mars-pod-%d", i), "mars", IPv4, i == numMarsIPs-1)
 		assert.NoError(t, err)
@@ -423,7 +424,8 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	}
 
 	pending := pendingAllocationsPerPool{
-		pools: map[Pool]pendingAllocationsPerOwner{},
+		logger: hivetest.Logger(t),
+		pools:  map[Pool]pendingAllocationsPerOwner{},
 		clock: func() time.Time {
 			return now
 		},

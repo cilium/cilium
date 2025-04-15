@@ -22,25 +22,25 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
                 ciliumendpoints \
                 ciliumidentities \
                 ciliumnodes \
-                ciliumexternalworkloads \
                 ciliumlocalredirectpolicies \
                 ciliumegressgatewaypolicies \
                 ciliumenvoyconfigs \
                 ciliumclusterwideenvoyconfigs \
-                ciliumnodeconfigs"
+                ciliumnodeconfigs \
+                ciliumbgpclusterconfigs \
+                ciliumbgppeerconfigs \
+                ciliumbgpadvertisements \
+                ciliumbgpnodeconfigs \
+                ciliumbgpnodeconfigoverrides"
 
 # Set CRDS_CILIUM_V2ALPHA1 with the list of CRDs for v2alpha1
 CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
                       ciliumbgppeeringpolicies \
-                      ciliumbgpclusterconfigs \
-                      ciliumbgppeerconfigs \
-                      ciliumbgpadvertisements \
-                      ciliumbgpnodeconfigs \
-                      ciliumbgpnodeconfigoverrides \
                       ciliumloadbalancerippools \
                       ciliumcidrgroups \
                       ciliuml2announcementpolicies \
-                      ciliumpodippools"
+                      ciliumpodippools \
+                      ciliumgatewayclassconfigs"
 
 TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)
 go run sigs.k8s.io/controller-tools/cmd/controller-gen ${CRD_OPTIONS} paths="${CRD_PATHS}" output:crd:artifacts:config="${TMPDIR}"

@@ -1,4 +1,4 @@
-{{- if (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) }}
+{{- if .Values.clustermesh.useAPIServer }}
 {{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
 {{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
 {{- end -}}
@@ -23,9 +23,16 @@ spec:
   selector:
     matchLabels:
       k8s-app: clustermesh-apiserver
-  {{- with .Values.clustermesh.apiserver.updateStrategy }}
+  {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external" }}
+  {{/* without proper locking in kvstoremesh we can't run multiple pods at once */}}
   strategy:
+      type: Recreate
+  {{- else }}
+    {{- with .Values.clustermesh.apiserver.updateStrategy }}
+  strategy:
+    # -- The priority class to use for clustermesh-apiserver
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
   template:
     metadata:
@@ -33,6 +40,7 @@ spec:
         {{- with .Values.clustermesh.apiserver.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        kubectl.kubernetes.io/default-container: apiserver
       labels:
         app.kubernetes.io/part-of: cilium
         app.kubernetes.io/name: clustermesh-apiserver
@@ -52,6 +60,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
       initContainers:
       - name: etcd-init
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -104,7 +113,9 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
       containers:
+      {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
       - name: etcd
         # The clustermesh-apiserver container image includes an etcd binary.
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -193,13 +204,15 @@ spec:
         - --cluster-users-enabled
         - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
         {{- end }}
-        - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
         {{- if .Values.clustermesh.apiserver.metrics.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
         - --controller-group-metrics=all
         {{- end }}
         {{- if .Values.clustermesh.enableMCSAPISupport }}
         - --clustermesh-enable-mcs-api
+        {{- end }}
+        {{- if .Values.ciliumEndpointSlice.enabled }}
+        - --enable-cilium-endpoint-slice
         {{- end }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
@@ -266,6 +279,7 @@ spec:
         lifecycle:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -281,7 +295,9 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
         - --kvstore-opt=etcd.qps=100
+        {{- if ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external" }}
         - --kvstore-opt=etcd.bootstrapQps=10000
+        {{- end }}
         - --kvstore-opt=etcd.maxInflight=10
         - --clustermesh-config=/var/lib/cilium/clustermesh
         {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
@@ -330,12 +346,19 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        {{- end }}
         - name: kvstoremesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
+        {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
+        - name: etcd-config
+          mountPath: /var/lib/cilium
+          readOnly: true
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -350,6 +373,7 @@ spec:
         {{- end }}
       {{- end }}
       volumes:
+      {{- if (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
       - name: etcd-server-secrets
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
@@ -404,6 +428,7 @@ spec:
       - name: etcd-data-dir
         emptyDir:
           medium: {{ ternary "Memory" "" (eq .Values.clustermesh.apiserver.etcd.storageMedium "Memory") | quote }}
+      {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh-secrets
         projected:
@@ -427,6 +452,15 @@ spec:
                 path: common-etcd-client.crt
               - key: ca.crt
                 path: common-etcd-client-ca.crt
+      {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
+      - configMap:
+          defaultMode: 0400
+          items:
+          - key: etcd-config
+            path: etcd-config.yaml
+          name: cilium-config
+        name: etcd-config
+      {{- end }}
       {{- end }}
       {{- with .Values.clustermesh.apiserver.extraVolumes }}
       {{- toYaml . | nindent 6 }}

@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var shellCell = cell.Module(
@@ -115,14 +116,17 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 			// more commands after this.
 			stack := make([]byte, 1024)
 			stack = stack[:runtime.Stack(stack, false)]
-			sh.log.Error("Panic in the shell handler", "error", err, "stack", stack)
+			sh.log.Error("Panic in the shell handler",
+				logfields.Error, err,
+				logfields.Stacktrace, stack,
+			)
 			fmt.Fprintf(conn, "PANIC: %s\n%s\n%s\n", err, stack, endMarker)
 		}
 	}()
 
 	s, err := script.NewState(ctx, "/tmp", nil)
 	if err != nil {
-		sh.log.Error("NewState", "error", err)
+		sh.log.Error("NewState", logfields.Error, err)
 		return
 	}
 

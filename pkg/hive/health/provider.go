@@ -91,9 +91,10 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 					lastLevel = string(old.Level)
 				}
 				p.logger.Debug("upserting health status",
-					slog.String("lastLevel", lastLevel),
-					slog.String("reporter-id", s.ID.String()),
-					slog.String("status", s.String()))
+					logfields.LastLevel, lastLevel,
+					logfields.ReporterID, s.ID.String(),
+					logfields.Status, s.String(),
+				)
 			}
 
 			tx.Commit()
@@ -118,8 +119,9 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			}
 
 			p.logger.Debug("delete health sub-tree",
-				slog.String("prefix", i.String()),
-				slog.Int("deleted", deleted))
+				logfields.Prefix, i,
+				logfields.Deleted, deleted,
+			)
 			tx.Commit()
 			return nil
 		},
@@ -137,12 +139,15 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			if !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", i)
 			}
+			old.Level = types.LevelStopped
 			old.Stopped = time.Now()
 			if _, _, err := p.statusTable.Insert(tx, old); err != nil {
 				return fmt.Errorf("stopping reporter - upsert status %s: %w", old, err)
 			}
 			tx.Commit()
-			p.logger.Debug("stopping health reporter", slog.String("reporter-id", i.String()))
+			p.logger.Debug("stopping health reporter",
+				logfields.ReporterID, i,
+			)
 			return nil
 		},
 		providerStopped: p.stopped.Load,
@@ -185,7 +190,7 @@ func (r *moduleReporter) NewScopeWithContext(ctx context.Context, name string) c
 
 func (r *moduleReporter) OK(msg string) {
 	if r.stopped.Load() {
-		r.logger.Warn("report on stopped reporter", slog.String("id", r.id.String()))
+		r.logger.Warn("report on stopped reporter", logfields.ReporterID, r.id)
 	}
 	ts := time.Now()
 	if err := r.upsert(types.Status{
@@ -195,13 +200,13 @@ func (r *moduleReporter) OK(msg string) {
 		LastOK:  ts,
 		Updated: ts,
 	}); err != nil {
-		r.logger.Error("failed to upsert ok health status", slog.String(logfields.Error, err.Error()))
+		r.logger.Error("failed to upsert ok health status", logfields.Error, err)
 	}
 }
 
 func (r *moduleReporter) Degraded(msg string, err error) {
 	if r.stopped.Load() {
-		r.logger.Warn("report on stopped reporter", slog.String("id", r.id.String()))
+		r.logger.Warn("report on stopped reporter", logfields.ReporterID, r.id)
 	}
 	if err := r.upsert(types.Status{
 		ID:      r.id,
@@ -210,7 +215,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 		Error:   err.Error(),
 		Updated: time.Now(),
 	}); err != nil {
-		r.logger.Error("failed to upsert degraded health status", slog.String(logfields.Error, err.Error()))
+		r.logger.Error("failed to upsert degraded health status", logfields.Error, err)
 	}
 }
 
@@ -219,7 +224,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 func (r *moduleReporter) Stopped(msg string) {
 	r.stopped.Store(true)
 	if err := r.stop(r.id); err != nil {
-		r.logger.Error("failed to delete reporter status tree", slog.String(logfields.Error, err.Error()))
+		r.logger.Error("failed to delete reporter status tree", logfields.Error, err)
 	}
 }
 
@@ -227,6 +232,6 @@ func (r *moduleReporter) Stopped(msg string) {
 // this reporter scope.
 func (r *moduleReporter) Close() {
 	if err := r.deletePrefix(r.id); err != nil {
-		r.logger.Error("failed to delete reporter status tree", slog.String(logfields.Error, err.Error()))
+		r.logger.Error("failed to delete reporter status tree", logfields.Error, err)
 	}
 }

@@ -226,6 +226,9 @@ func (c *Client) addOperationCreateIpamPoolMiddlewares(stack *middleware.Stack, 
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opCreateIpamPoolMiddleware(stack, options); err != nil {
 		return err
 	}

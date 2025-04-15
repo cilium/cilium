@@ -75,16 +75,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				_, found := object.GetLabels()[owningGatewayLabel]
 				return found
 			}))).
-		// Watch HTTP Route status changes, there is one assumption that any change in spec will
-		// always update status always at least for observedGeneration value.
-		Watches(&gatewayv1.HTTPRoute{},
-			r.enqueueRequestForOwningHTTPRoute(r.logger),
-			builder.WithPredicates(onlyStatusChanged())).
-		// Watch GRPCRoute status changes, there is one assumption that any change in spec will
-		// always update status always at least for observedGeneration value.
-		Watches(&gatewayv1.GRPCRoute{},
-			r.enqueueRequestForOwningGRPCRoute(),
-			builder.WithPredicates(onlyStatusChanged())).
+		// Watch HTTPRoute linked to Gateway
+		Watches(&gatewayv1.HTTPRoute{}, r.enqueueRequestForOwningHTTPRoute(r.logger)).
+		// Watch GRPCRoute linked to Gateway
+		Watches(&gatewayv1.GRPCRoute{}, r.enqueueRequestForOwningGRPCRoute()).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
 			r.enqueueRequestForTLSSecret(),
@@ -102,11 +96,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for _, gvk := range r.installedCRDs {
 		switch gvk.Kind {
 		case helpers.TLSRouteKind:
-			// Watch TLS Route status changes, there is one assumption that any change in spec will
-			// always update status always at least for observedGeneration value.
-			gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{},
-				r.enqueueRequestForOwningTLSRoute(r.logger),
-				builder.WithPredicates(onlyStatusChanged()))
+			// Watch TLSRoute linked to Gateway
+			gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{}, r.enqueueRequestForOwningTLSRoute(r.logger))
 		}
 	}
 	return gatewayBuilder.Complete(r)
@@ -116,7 +107,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // belonging to the given GatewayClass.
 func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, gateway, logfields.Resource, a.GetName())
+		scopedLog := r.logger.With(
+			logfields.Controller, gateway,
+			logfields.Resource, a.GetName(),
+		)
 		var reqs []reconcile.Request
 		gwList := &gatewayv1.GatewayList{}
 		if err := r.Client.List(ctx, gwList); err != nil {
@@ -135,7 +129,10 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 				},
 			}
 			reqs = append(reqs, req)
-			scopedLog.Info("Queueing gateway", logfields.K8sNamespace, gw.GetNamespace(), logfields.Resource, gw.GetName())
+			scopedLog.Info("Queueing gateway",
+				logfields.K8sNamespace, gw.GetNamespace(),
+				logfields.Resource, gw.GetName(),
+			)
 		}
 		return reqs
 	})
@@ -145,7 +142,10 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 // owningGatewayLabel
 func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, "gateway", logfields.Resource, a.GetName())
+		scopedLog := r.logger.With(
+			logfields.Controller, "gateway",
+			logfields.Resource, a.GetName(),
+		)
 
 		key, found := a.GetLabels()[owningGatewayLabel]
 		if !found {
@@ -155,7 +155,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandl
 		scopedLog.Info("Enqueued gateway for owning service",
 			logfields.K8sNamespace, a.GetNamespace(),
 			logfields.Resource, a.GetName(),
-			"gateway", key,
+			logfields.Gateway, key,
 		)
 
 		return []reconcile.Request{
@@ -300,7 +300,10 @@ func (r *gatewayReconciler) enqueueRequestForReferenceGrant() handler.EventHandl
 
 func (r *gatewayReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, gateway, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, gateway,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		list := &gatewayv1.GatewayList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {

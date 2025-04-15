@@ -6,7 +6,8 @@
 package parser
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -42,7 +43,7 @@ type Parser struct {
 
 // New creates a new parser
 func New(
-	log logrus.FieldLogger,
+	log *slog.Logger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,
@@ -54,7 +55,7 @@ func New(
 	opts ...options.Option,
 ) (*Parser, error) {
 
-	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, linkGetter)
+	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, linkGetter, opts...)
 	if err != nil {
 		return nil, err
 	}

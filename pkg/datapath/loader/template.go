@@ -6,18 +6,11 @@ package loader
 import (
 	"fmt"
 	"math"
-	"net"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -33,18 +26,6 @@ var (
 	templateIPv6 = [16]byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 
 	templateMAC = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
-
-	elfMapPrefixes = []string{
-		policymap.MapName,
-		callsmap.MapName,
-		callsmap.CustomCallsMapName,
-	}
-	elfCtMapPrefixes = []string{
-		ctmap.MapNameTCP4,
-		ctmap.MapNameAny4,
-		ctmap.MapNameTCP6,
-		ctmap.MapNameAny6,
-	}
 )
 
 // templateCfg wraps a real configuration from an endpoint to pass through its
@@ -92,13 +73,6 @@ func (t *templateCfg) GetIdentity() identity.NumericIdentity {
 	return templateSecurityID
 }
 
-// GetIdentityLocked is identical to GetIdentity(). This is a temporary
-// function until WriteEndpointConfig() no longer assumes that the endpoint is
-// locked.
-func (t *templateCfg) GetIdentityLocked() identity.NumericIdentity {
-	return templateSecurityID
-}
-
 // GetEndpointNetNsCookie returns a invalid (zero) network namespace cookie.
 func (t *templateCfg) GetEndpointNetNsCookie() uint64 {
 	return templateEndpointNetNsCookie
@@ -143,132 +117,4 @@ func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
 	return &templateCfg{
 		CompileTimeConfiguration: cfg,
 	}
-}
-
-// ELFMapSubstitutions returns the set of map substitutions that must occur in
-// an ELF template object file to update map references for the specified
-// endpoint.
-func ELFMapSubstitutions(ep datapath.Endpoint) map[string]string {
-	result := make(map[string]string)
-	epID := uint16(ep.GetID())
-
-	for _, name := range elfMapPrefixes {
-		if ep.IsHost() && name == callsmap.MapName {
-			name = callsmap.HostMapName
-		}
-		// Custom calls for hosts are not supported yet.
-		if name == callsmap.CustomCallsMapName &&
-			(!option.Config.EnableCustomCalls || ep.IsHost()) {
-			continue
-		}
-		templateStr := bpf.LocalMapName(name, templateLxcID)
-		desiredStr := bpf.LocalMapName(name, epID)
-		result[templateStr] = desiredStr
-	}
-	if ep.ConntrackLocalLocked() {
-		for _, name := range elfCtMapPrefixes {
-			templateStr := bpf.LocalMapName(name, templateLxcID)
-			desiredStr := bpf.LocalMapName(name, epID)
-			result[templateStr] = desiredStr
-		}
-	}
-
-	return result
-}
-
-// sliceToU16 converts the input slice of two bytes to a uint16.
-func sliceToU16(input []byte) uint16 {
-	result := uint16(input[0]) << 8
-	result |= uint16(input[1])
-	return result
-}
-
-// sliceToBe16 converts the input slice of two bytes to a big-endian uint16.
-func sliceToBe16(input []byte) uint16 {
-	return byteorder.HostToNetwork16(sliceToU16(input))
-}
-
-// sliceToU32 converts the input slice of four bytes to a uint32.
-func sliceToU32(input []byte) uint32 {
-	result := uint32(input[0]) << 24
-	result |= uint32(input[1]) << 16
-	result |= uint32(input[2]) << 8
-	result |= uint32(input[3])
-	return result
-}
-
-// sliceToBe32 converts the input slice of four bytes to a big-endian uint32.
-func sliceToBe32(input []byte) uint32 {
-	return byteorder.HostToNetwork32(sliceToU32(input))
-}
-
-// sliceToU64 converts the input slice of eight bytes to a uint64.
-func sliceToU64(input []byte) uint64 {
-	result := uint64(input[0]) << 56
-	result |= uint64(input[1]) << 48
-	result |= uint64(input[2]) << 40
-	result |= uint64(input[3]) << 32
-	result |= uint64(input[4]) << 24
-	result |= uint64(input[5]) << 16
-	result |= uint64(input[6]) << 8
-	result |= uint64(input[7])
-	return result
-}
-
-// sliceToBe64 converts the input slice of eight bytes to a big-endian uint64.
-func sliceToBe64(input []byte) uint64 {
-	return byteorder.HostToNetwork64(sliceToU64(input))
-}
-
-// ELFVariableSubstitutions returns the set of data substitutions that must
-// occur in an ELF template object file to update static data for the specified
-// endpoint.
-func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
-	result := make(map[string]uint64)
-
-	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
-		// Corresponds to DEFINE_IPV6() in bpf/lib/utils.h
-		result["LXC_IP_1"] = sliceToBe64(ipv6[0:8])
-		result["LXC_IP_2"] = sliceToBe64(ipv6[8:16])
-	}
-	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
-		result["LXC_IPV4"] = uint64(byteorder.NetIPv4ToHost32(net.IP(ipv4)))
-	}
-
-	mac := ep.GetNodeMAC()
-	// For L3/NOARP devices node mac is not populated.
-	if len(mac) != 0 {
-		result["THIS_INTERFACE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
-		result["THIS_INTERFACE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
-	}
-
-	if ep.IsHost() {
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			if option.Config.EnableIPv4 {
-				result["IPV4_MASQUERADE"] = 0
-			}
-		}
-		result["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
-	} else {
-		result["LXC_ID"] = uint64(ep.GetID())
-	}
-
-	result["interface_ifindex"] = uint64(ep.GetIfIndex())
-
-	// Contrary to IPV4_MASQUERADE, we cannot use a simple #define and
-	// avoid introducing a symbol in stubs.h for IPV6_MASQUERADE. So the
-	// symbol is present in the template object as long as IPv6 BPF
-	// masquerade is enabled, even though it is not used for host
-	// endpoints.
-	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
-		result["IPV6_MASQUERADE_1"] = 0
-		result["IPV6_MASQUERADE_2"] = 0
-	}
-
-	result["ENDPOINT_NETNS_COOKIE"] = ep.GetEndpointNetNsCookie()
-
-	identity := ep.GetIdentity().Uint32()
-	result["SECLABEL"] = uint64(identity)
-	result["POLICY_VERDICT_LOG_FILTER"] = uint64(ep.GetPolicyVerdictLogFilter())
-	return result
 }

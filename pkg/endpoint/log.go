@@ -4,6 +4,7 @@
 package endpoint
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -60,6 +61,20 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 	return e.getLogger().WithField(logfields.LogSubsys, subsystem)
 }
 
+// SLogger returns a slog object with EndpointID, containerID and the Endpoint
+// revision fields. The caller must specify their subsystem.
+func (e *Endpoint) SLogger(subsystem string) *slog.Logger {
+	if e == nil {
+		return logging.DefaultSlogLogger.With(logfields.LogSubsys, subsystem)
+	}
+	logger := e.getLogger().WithField(logfields.LogSubsys, subsystem)
+	var logAttrs []any
+	for k, v := range logger.Data {
+		logAttrs = append(logAttrs, k, v)
+	}
+	return logging.DefaultSlogLogger.With(logAttrs...)
+}
+
 // UpdateLogger creates a logger instance specific to this endpoint. It will
 // create a custom Debug logger for this endpoint when the option on it is set.
 // If fields is not nil only the those specific fields will be updated in the
@@ -68,7 +83,7 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 // Note: You must hold Endpoint.mutex.Lock() to synchronize logger pointer
 // updates if the endpoint is already exposed. Callers that create new
 // endpoints do not need locks to call this.
-func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
+func (e *Endpoint) UpdateLogger(fields map[string]any) {
 	e.updatePolicyLogger(fields)
 	epLogger := e.logger.Load()
 	if fields != nil && epLogger != nil {
@@ -125,7 +140,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 }
 
 // Only to be called from UpdateLogger() above
-func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
+func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 	policyLogger := e.policyLogger.Load()
 	// e.Options check needed for unit testing.
 	if policyLogger == nil && e.Options != nil && e.Options.IsEnabled(option.DebugPolicy) {

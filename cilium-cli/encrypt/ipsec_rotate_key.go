@@ -19,7 +19,6 @@ import (
 
 type ipsecKey struct {
 	spi        int
-	spiSuffix  bool
 	algo       string // Purposefully ambiguous here because of modes like GCM
 	key        string
 	size       int
@@ -51,10 +50,6 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 		return fmt.Errorf("failed to rotate IPsec key: %w", err)
 	}
 
-	if s.params.IPsecKeyPerNode != "" {
-		newKey.spiSuffix = mustParseBool(s.params.IPsecKeyPerNode)
-	}
-
 	patch := []byte(`{"stringData":{"keys":"` + newKey.String() + `"}}`)
 	_, err = s.client.PatchSecret(ctx, s.params.CiliumNamespace, defaults.EncryptionSecretName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
@@ -66,10 +61,7 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 }
 
 func (k ipsecKey) String() string {
-	spiSuffix := ""
-	if k.spiSuffix {
-		spiSuffix = "+"
-	}
+	spiSuffix := "+"
 	if k.cipherMode == "" {
 		return fmt.Sprintf("%d%s %s %s %d", k.spi, spiSuffix, k.algo, k.key, k.size)
 	}
@@ -98,11 +90,7 @@ func keyFromSlice(parts []string) (ipsecKey, error) {
 	if len(parts) != 5 {
 		return ipsecKey{}, fmt.Errorf("IPsec key invalid [expected parts: 5, actual parts: %d]", len(parts))
 	}
-	spiSuffix := false
-	if strings.HasSuffix(parts[1], "+") {
-		spiSuffix = true
-		parts[1] = strings.TrimSuffix(parts[1], "+")
-	}
+	parts[1] = strings.TrimSuffix(parts[1], "+")
 	spi, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return ipsecKey{}, fmt.Errorf("invalid IPsec key SPI: %s", parts[1])
@@ -112,11 +100,10 @@ func keyFromSlice(parts []string) (ipsecKey, error) {
 		return ipsecKey{}, fmt.Errorf("invalid IPsec key size: %s", parts[4])
 	}
 	key := ipsecKey{
-		spi:       spi,
-		spiSuffix: spiSuffix,
-		algo:      parts[2],
-		key:       parts[3],
-		size:      size,
+		spi:  spi,
+		algo: parts[2],
+		key:  parts[3],
+		size: size,
 	}
 	return key, nil
 }
@@ -125,18 +112,13 @@ func cipherKeyFromSlice(parts []string) (ipsecKey, error) {
 	if len(parts) != 6 {
 		return ipsecKey{}, fmt.Errorf("IPsec key invalid [expected parts: 6, actual parts: %d]", len(parts))
 	}
-	spiSuffix := false
-	if strings.HasSuffix(parts[1], "+") {
-		spiSuffix = true
-		parts[1] = strings.TrimSuffix(parts[1], "+")
-	}
+	parts[1] = strings.TrimSuffix(parts[1], "+")
 	spi, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return ipsecKey{}, fmt.Errorf("invalid cipher IPsec key SPI: %s", parts[1])
 	}
 	key := ipsecKey{
 		spi:        spi,
-		spiSuffix:  spiSuffix,
 		algo:       parts[2],
 		key:        parts[3],
 		cipherMode: parts[4],
@@ -163,7 +145,6 @@ func (k ipsecKey) rotate() (ipsecKey, error) {
 
 	newKey := ipsecKey{
 		spi:        k.nextSPI(),
-		spiSuffix:  k.spiSuffix,
 		algo:       k.algo,
 		key:        key,
 		size:       k.size,
@@ -192,12 +173,4 @@ func generateRandomHex(size int) (string, error) {
 		random.WriteString(fmt.Sprintf("%02x", c))
 	}
 	return random.String(), nil
-}
-
-func mustParseBool(v string) bool {
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		panic(fmt.Errorf("failed to parse string [%s] to bool: %w", v, err))
-	}
-	return b
 }

@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
-	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
+	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
@@ -88,18 +88,10 @@ var (
 		"Operator Infrastructure",
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
-		pprof.Cell,
 		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
-			return pprof.Config{
-				Pprof:        cfg.OperatorPprof,
-				PprofAddress: cfg.OperatorPprofAddress,
-				PprofPort:    cfg.OperatorPprofPort,
-			}
+			return cfg.Config()
 		}),
-		cell.Config(operatorPprofConfig{
-			OperatorPprofAddress: operatorOption.PprofAddressOperator,
-			OperatorPprofPort:    operatorOption.PprofPortOperator,
-		}),
+		pprof.Cell(defaultOperatorPprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.EnableGops, defaults.GopsPortOperator),
@@ -324,7 +316,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		cmdref.NewCmd(cmd),
 		MetricsCmd,
 		StatusCmd,
-		ciliumdbg.TroubleshootCmd,
+		troubleshoot.Cmd,
 		h.Command(),
 	)
 
@@ -588,7 +580,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(legacy.ctx); err != nil {
+		if err := alloc.Init(legacy.ctx, logging.DefaultSlogLogger); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
@@ -624,13 +616,13 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				Clientset:    legacy.clientset,
 				Services:     legacy.resources.Services,
 				Endpoints:    legacy.resources.Endpoints,
-				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
 			}, legacy.logger)
 			legacy.wg.Add(1)
 			go func() {
 				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
+					Logger:                  legacy.logger,
 					ClusterName:             clusterInfo.Name,
 					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					Clientset:               legacy.clientset,
@@ -647,7 +639,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			log := log.WithField(logfields.LogSubsys, "etcd")
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
 			goopts = &kvstore.ExtraOptions{
 				DialOption: []grpc.DialOption{
 					grpc.WithContextDialer(dial.NewContextDialer(log, legacy.svcResolver)),
@@ -656,7 +648,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 
 		scopedLog.Info("Connecting to kvstore")
-		if err := kvstore.Setup(legacy.ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		if err := kvstore.Setup(legacy.ctx, legacy.logger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 

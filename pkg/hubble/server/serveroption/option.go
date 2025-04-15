@@ -9,11 +9,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"os"
-	"strings"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -21,7 +18,6 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
@@ -57,31 +53,6 @@ func WithTCPListener(address string) Option {
 		if o.Listener != nil {
 			socket.Close()
 			return fmt.Errorf("listener already configured: %s", address)
-		}
-		o.Listener = socket
-		return nil
-	}
-}
-
-// WithUnixSocketListener configures a unix domain socket listener with the
-// given file path. When the process runs in privileged mode, the file group
-// owner is set to socketGroup.
-func WithUnixSocketListener(path string) Option {
-	return func(o *Options) error {
-		if o.Listener != nil {
-			return fmt.Errorf("listener already configured")
-		}
-		socketPath := strings.TrimPrefix(path, "unix://")
-		unix.Unlink(socketPath)
-		socket, err := net.Listen("unix", socketPath)
-		if err != nil {
-			return err
-		}
-		if os.Getuid() == 0 {
-			if err := api.SetDefaultPermissions(socketPath); err != nil {
-				socket.Close()
-				return err
-			}
 		}
 		o.Listener = socket
 		return nil

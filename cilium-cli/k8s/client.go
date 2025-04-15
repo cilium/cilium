@@ -43,6 +43,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..）
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -126,7 +127,7 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver, logger); err != nil {
 		return nil, err
 	}
@@ -239,6 +240,10 @@ func (c *Client) GetDeployment(ctx context.Context, namespace, name string, opts
 	return c.Clientset.AppsV1().Deployments(namespace).Get(ctx, name, opts)
 }
 
+func (c *Client) ListDeployment(ctx context.Context, namespace string, options metav1.ListOptions) (*appsv1.DeploymentList, error) {
+	return c.Clientset.AppsV1().Deployments(namespace).List(ctx, options)
+}
+
 func (c *Client) DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.AppsV1().Deployments(namespace).Delete(ctx, name, opts)
 }
@@ -323,9 +328,9 @@ func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *re
 	return c.Clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
 }
 
-func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error) {
+func (c *Client) ContainerLogs(ctx context.Context, namespace, pod, containerName string, since time.Time, previous bool) (string, error) {
 	opts := &corev1.PodLogOptions{
-		Container:  defaults.AgentContainerName,
+		Container:  containerName,
 		Timestamps: true,
 		SinceTime:  &metav1.Time{Time: since},
 		Previous:   previous,
@@ -681,22 +686,6 @@ func (c *Client) PatchNode(ctx context.Context, nodeName string, pt types.PatchT
 	return c.Clientset.CoreV1().Nodes().Patch(ctx, nodeName, pt, data, metav1.PatchOptions{})
 }
 
-func (c *Client) ListCiliumExternalWorkloads(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error) {
-	return c.CiliumClientset.CiliumV2().CiliumExternalWorkloads().List(ctx, opts)
-}
-
-func (c *Client) GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error) {
-	return c.CiliumClientset.CiliumV2().CiliumExternalWorkloads().Get(ctx, name, opts)
-}
-
-func (c *Client) CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error) {
-	return c.CiliumClientset.CiliumV2().CiliumExternalWorkloads().Create(ctx, cew, opts)
-}
-
-func (c *Client) DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.CiliumClientset.CiliumV2().CiliumExternalWorkloads().Delete(ctx, name, opts)
-}
-
 func (c *Client) ListCiliumNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumNetworkPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).List(ctx, opts)
 }
@@ -824,6 +813,39 @@ func (c *Client) ProxyGet(ctx context.Context, namespace, name, url string) (str
 	return string(rawbody), nil
 }
 
+func (c *Client) createDialer(url *url.URL) (httpstream.Dialer, error) {
+	var errWebsocket, errSPDY error
+
+	// We cannot control if errors from these constructors are due to lack of server support.
+	// In the case of such errors, ignore them and later chose which dialer to return.
+	dialerWebsocket, errWebsocket := portforward.NewSPDYOverWebsocketDialer(url, c.Config)
+
+	transport, upgrader, errSPDY := spdy.RoundTripperFor(c.Config)
+	dialerSPDY := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, url)
+
+	// NewFallBackDialer returns a httpstream.Dialer which attempts a
+	// connection with a primry dialer and a secondary dialer. However, it
+	// does this by calling a method on both the primary and secondary
+	// dialers. This means that both of them must not be nil if we want to
+	// avoid a crash. Therefore, if either primary or secondary encountered
+	// an error, return the other one.
+	if errSPDY != nil && errWebsocket == nil {
+		return dialerWebsocket, nil
+	}
+	if errWebsocket != nil && errSPDY == nil {
+		return dialerSPDY, nil
+	}
+
+	if errSPDY != nil && errWebsocket != nil {
+		return nil, fmt.Errorf("Error while creating k8s dialer: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
+	}
+
+	dialerFallback := portforward.NewFallbackDialer(dialerWebsocket, dialerSPDY, func(err error) bool {
+		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
+	})
+	return dialerFallback, nil
+}
+
 func (c *Client) ProxyTCP(ctx context.Context, namespace, name string, port uint16, handler func(io.ReadWriteCloser) error) error {
 	request := c.Clientset.CoreV1().RESTClient().Post().
 		Resource(corev1.ResourcePods.String()).
@@ -831,12 +853,10 @@ func (c *Client) ProxyTCP(ctx context.Context, namespace, name string, port uint
 		Name(name).
 		SubResource("portforward")
 
-	transport, upgrader, err := spdy.RoundTripperFor(c.Config)
+	dialer, err := c.createDialer(request.URL())
 	if err != nil {
-		return fmt.Errorf("creating round tripper: %w", err)
+		return err
 	}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, request.URL())
 
 	const portForwardProtocolV1Name = "portforward.k8s.io"
 	conn, proto, err := dialer.Dial(portForwardProtocolV1Name)
@@ -1057,7 +1077,7 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
 		return "", err
 	}
@@ -1081,7 +1101,7 @@ func (c *Client) GetHelmMetadata(_ context.Context, releaseName string, namespac
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
 		return "", err
 	}

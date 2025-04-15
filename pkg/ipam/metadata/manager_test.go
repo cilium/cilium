@@ -7,9 +7,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -48,17 +51,6 @@ func (m mockStore[T]) CacheStore() cache.Store {
 	panic("not implemented")
 }
 
-func (m mockStore[T]) Release() {
-	panic("not implemented")
-}
-
-func podKey(ns, name string) resource.Key {
-	return resource.Key{
-		Namespace: ns,
-		Name:      name,
-	}
-}
-
 func namespaceKey(name string) resource.Key {
 	return resource.Key{
 		Name: name,
@@ -66,7 +58,12 @@ func namespaceKey(name string) resource.Key {
 }
 
 func TestManager_GetIPPoolForPod(t *testing.T) {
+	db := statedb.New()
+	pods, err := k8s.NewPodTable(db)
+	require.NoError(t, err, "NewPodTable")
 	m := &manager{
+		logger: hivetest.Logger(t),
+		db:     db,
 		namespaceStore: mockStore[*slim_core_v1.Namespace]{
 			namespaceKey("default"): &slim_core_v1.Namespace{},
 			namespaceKey("special"): &slim_core_v1.Namespace{
@@ -77,60 +74,52 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 				},
 			},
 		},
-		podStore: mockStore[*slim_core_v1.Pod]{
-			podKey("default", "client"): &slim_core_v1.Pod{},
-			podKey("default", "custom-workload"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMPoolKey: "custom-pool",
-					},
-				},
-			},
-			podKey("default", "custom-workload2"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMIPv4PoolKey: "ipv4-pool",
-					},
-				},
-			},
-			podKey("default", "custom-workload3"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMIPv4PoolKey: "ipv4-pool",
-						annotation.IPAMPoolKey:     "custom-pool",
-					},
-				},
-			},
-			podKey("default", "custom-workload4"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMIPv4PoolKey: "ipv4-pool",
-						annotation.IPAMIPv6PoolKey: "ipv6-pool",
-					},
-				},
-			},
-			podKey("default", "custom-workload5"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMIPv4PoolKey: "ipv4-pool",
-						annotation.IPAMIPv6PoolKey: "ipv6-pool",
-						annotation.IPAMPoolKey:     "custom-pool",
-					},
-				},
-			},
-
-			podKey("special", "server"): &slim_core_v1.Pod{},
-			podKey("special", "server2"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMPoolKey: "pod-pool",
-					},
-				},
-			},
-
-			podKey("missing-ns", "pod"): &slim_core_v1.Pod{},
-		},
+		pods: pods,
 	}
+
+	txn := db.WriteTxn(pods)
+	newPod := func(namespace, name string, annotations map[string]string) k8s.LocalPod {
+		return k8s.LocalPod{Pod: &slim_core_v1.Pod{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Namespace:   namespace,
+				Name:        name,
+				Annotations: annotations,
+			},
+		}}
+	}
+	pods.Insert(txn, newPod("default", "client", nil))
+	pods.Insert(txn, newPod("default", "custom-workload",
+		map[string]string{
+			annotation.IPAMPoolKey: "custom-pool",
+		}))
+	pods.Insert(txn, newPod("default", "custom-workload2",
+		map[string]string{
+			annotation.IPAMIPv4PoolKey: "ipv4-pool",
+		}))
+	pods.Insert(txn, newPod("default", "custom-workload3",
+		map[string]string{
+			annotation.IPAMIPv4PoolKey: "ipv4-pool",
+			annotation.IPAMPoolKey:     "custom-pool",
+		}))
+	pods.Insert(txn, newPod("default", "custom-workload4",
+		map[string]string{
+			annotation.IPAMIPv4PoolKey: "ipv4-pool",
+			annotation.IPAMIPv6PoolKey: "ipv6-pool",
+		}))
+	pods.Insert(txn, newPod("default", "custom-workload5",
+		map[string]string{
+			annotation.IPAMIPv4PoolKey: "ipv4-pool",
+			annotation.IPAMIPv6PoolKey: "ipv6-pool",
+			annotation.IPAMPoolKey:     "custom-pool",
+		}))
+
+	pods.Insert(txn, newPod("special", "server", nil))
+	pods.Insert(txn, newPod("special", "server2",
+		map[string]string{
+			annotation.IPAMPoolKey: "pod-pool",
+		}))
+	pods.Insert(txn, newPod("missing-ns", "pod", nil))
+	txn.Commit()
 
 	tests := []struct {
 		name     string

@@ -13,7 +13,7 @@ import (
 // be fast than linked-list implementations, and also allows for efficient
 // indexing of ordered data.
 type RingBuffer struct {
-	buffer  []interface{}
+	buffer  []any
 	next    int // index of ring buffer head.
 	maxSize int
 }
@@ -21,7 +21,7 @@ type RingBuffer struct {
 // NewRingBuffer constructs a new ring buffer for a given buffer size.
 func NewRingBuffer(bufferSize int) *RingBuffer {
 	return &RingBuffer{
-		buffer:  make([]interface{}, 0, bufferSize),
+		buffer:  make([]any, 0, bufferSize),
 		maxSize: bufferSize,
 	}
 }
@@ -35,7 +35,7 @@ func (eb *RingBuffer) incr() {
 }
 
 // Add adds an element to the buffer.
-func (eb *RingBuffer) Add(e interface{}) {
+func (eb *RingBuffer) Add(e any) {
 	if eb.maxSize == 0 {
 		return
 	}
@@ -48,20 +48,20 @@ func (eb *RingBuffer) Add(e interface{}) {
 	eb.buffer = append(eb.buffer, e)
 }
 
-func (eb *RingBuffer) dumpWithCallback(callback func(v interface{})) {
-	for i := 0; i < len(eb.buffer); i++ {
+func (eb *RingBuffer) dumpWithCallback(callback func(v any)) {
+	for i := range eb.buffer {
 		callback(eb.at(i))
 	}
 }
 
-func (eb *RingBuffer) at(i int) interface{} {
+func (eb *RingBuffer) at(i int) any {
 	return eb.buffer[eb.mapIndex(i)]
 }
 
 // firstValidIndex returns the first **absolute** index in the buffer that satisfies
 // isValid.
 // note: this value needs to be mapped before indexing the buffer.
-func (eb *RingBuffer) firstValidIndex(isValid func(interface{}) bool) int {
+func (eb *RingBuffer) firstValidIndex(isValid func(any) bool) int {
 	return sort.Search(len(eb.buffer), func(i int) bool {
 		return isValid(eb.at(i))
 	})
@@ -69,10 +69,10 @@ func (eb *RingBuffer) firstValidIndex(isValid func(interface{}) bool) int {
 
 // IterateValid calls the callback on each element of the buffer, starting with
 // the first element in the buffer that satisfies "isValid".
-func (eb *RingBuffer) IterateValid(isValid func(interface{}) bool, callback func(interface{})) {
+func (eb *RingBuffer) IterateValid(isValid func(any) bool, callback func(any)) {
 	startIndex := eb.firstValidIndex(isValid)
 	l := len(eb.buffer) - startIndex
-	for i := 0; i < l; i++ {
+	for i := range l {
 		index := eb.mapIndex(startIndex + i)
 		callback(eb.buffer[index])
 	}
@@ -87,14 +87,14 @@ func (eb *RingBuffer) mapIndex(indexOffset int) int {
 // Compact clears out invalidated elements in the buffer.
 // This may require copying the entire buffer.
 // It is assumed that if buffer[i] is invalid then every entry [0...i-1] is also not valid.
-func (eb *RingBuffer) Compact(isValid func(interface{}) bool) {
+func (eb *RingBuffer) Compact(isValid func(any) bool) {
 	if len(eb.buffer) == 0 {
 		return
 	}
 	startIndex := eb.firstValidIndex(isValid)
 	// In this case, we compact the entire buffer.
 	if startIndex >= len(eb.buffer) {
-		eb.buffer = []interface{}{}
+		eb.buffer = []any{}
 		eb.next = 0
 		return
 	}
@@ -116,7 +116,7 @@ func (eb *RingBuffer) Compact(isValid func(interface{}) bool) {
 		// by the length and mapping it.
 		// [... startIndex+newBufferLen ... startIndex ...]
 		end := eb.mapIndex(startIndex + newBufferLength)
-		tmp := make([]interface{}, len(eb.buffer[:end]))
+		tmp := make([]any, len(eb.buffer[:end]))
 		copy(tmp, eb.buffer[:end])
 
 		eb.buffer = eb.buffer[mappedStart:]
@@ -142,8 +142,8 @@ func (eb *RingBuffer) Compact(isValid func(interface{}) bool) {
 
 // Iterate is a convenience function over IterateValid that iterates
 // all elements in the buffer.
-func (eb *RingBuffer) Iterate(callback func(interface{})) {
-	eb.IterateValid(func(e interface{}) bool { return true }, callback)
+func (eb *RingBuffer) Iterate(callback func(any)) {
+	eb.IterateValid(func(e any) bool { return true }, callback)
 }
 
 // Size returns the size of the buffer.

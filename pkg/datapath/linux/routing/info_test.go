@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -104,8 +105,8 @@ func TestParse(t *testing.T) {
 			macAddr:  "11:22:33:44:55:66",
 			ifaceNum: "1",
 			wantRInfo: &RoutingInfo{
-				IPv4Gateway:     net.ParseIP("192.168.1.1"),
-				IPv4CIDRs:       validCIDRs,
+				Gateway:         net.ParseIP("192.168.1.1"),
+				CIDRs:           validCIDRs,
 				MasterIfMAC:     fakeMAC,
 				InterfaceNumber: 1,
 				IpamMode:        ipamOption.IPAMENI,
@@ -120,8 +121,8 @@ func TestParse(t *testing.T) {
 			masq:     false,
 			ifaceNum: "0",
 			wantRInfo: &RoutingInfo{
-				IPv4Gateway: net.ParseIP("192.168.1.1"),
-				IPv4CIDRs:   []net.IPNet{},
+				Gateway:     net.ParseIP("192.168.1.1"),
+				CIDRs:       []net.IPNet{},
 				MasterIfMAC: fakeMAC,
 				IpamMode:    ipamOption.IPAMENI,
 			},
@@ -139,8 +140,13 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
-			require.EqualValues(t, tt.wantRInfo, rInfo)
+			logger := hivetest.Logger(t)
+			rInfo, err := NewRoutingInfo(logger, tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
+			if err == nil {
+				// Do not compare loggers
+				rInfo.logger = nil
+			}
+			require.Equal(t, tt.wantRInfo, rInfo)
 			require.Equal(t, tt.wantErr, err != nil)
 		})
 	}

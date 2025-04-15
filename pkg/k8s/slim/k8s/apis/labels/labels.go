@@ -7,6 +7,7 @@ package labels
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -105,14 +106,8 @@ func Conflicts(labels1, labels2 Set) bool {
 // Merge combines given maps, and does not check for any conflicts
 // between the maps. In case of conflicts, second map (labels2) wins
 func Merge(labels1, labels2 Set) Set {
-	mergedMap := Set{}
-
-	for k, v := range labels1 {
-		mergedMap[k] = v
-	}
-	for k, v := range labels2 {
-		mergedMap[k] = v
-	}
+	mergedMap := maps.Clone(labels1)
+	maps.Copy(mergedMap, labels2)
 	return mergedMap
 }
 
@@ -143,8 +138,7 @@ func ConvertSelectorToLabelsMap(selector string, opts ...field.PathOption) (Set,
 		return labelsMap, nil
 	}
 
-	labels := strings.Split(selector, ",")
-	for _, label := range labels {
+	for label := range strings.SplitSeq(selector, ",") {
 		l := strings.Split(label, "=")
 		if len(l) != 2 {
 			return labelsMap, fmt.Errorf("invalid selector: %s", l)

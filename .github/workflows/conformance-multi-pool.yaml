@@ -80,7 +80,33 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+
   multi-pool-ipam-conformance-test:
+    needs: [wait-for-images]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 'Direct Routing'
+            tunnel: 'disabled'
+          - name: 'Tunnel Mode'
+            tunnel: 'vxlan'
+
     name: Install and Connectivity Test
     env:
       job_name: "Install and Connectivity Test"
@@ -125,20 +151,15 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
           # Notes:
-          #  - Multi-pool IPAM only supports direct routing, thus we disable
-          #    tunnel mode and enable auto-direct-routes.
-          #  - Multi-pool IPAM only supports endpoint routes, thus we disable
-          #    the local-node-route.
-          #  - helm/kind-action does not support BPF host routing, so we fall
-          #    back on legacy host routing
-          #    (https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247)
+          #  - Multi-pool IPAM only supports endpoint routes
           #  - iptables-based masquerading does not support multiple non-masquerade
           #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
           #    non-masquerade CIDRs.
+          #  - helm/kind-action does not support BPF host routing, so we fall
+          #    back on legacy host routing
+          #    (https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247)
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set=autoDirectNodeRoutes=true \
-            --helm-set=routingMode=native \
             --helm-set=endpointRoutes.enabled=true \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
@@ -155,16 +176,26 @@ jobs:
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
 
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
+            --helm-set=autoDirectNodeRoutes=true"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
+            --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
-            --namespace-annotations='{\"ipam.cilium.io/ip-pool\":\"cilium-test-pool\"}' \
+            --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
             --deployment-pod-annotations='{ \
                 \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
                 \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
             }'"
 
-          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -188,19 +219,13 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Cilium
         id: install-cilium
@@ -209,7 +234,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl -n kube-system get pods
 
       - name: Make JUnit report directory
@@ -218,14 +243,13 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --junit-file "cilium-junits/${{ env.job_name }} - 1.xml" --junit-property github_job_step="Run connectivity test"
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Features tested
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} - 1"
+          json-filename: "${{ env.job_name }} ${{ matrix.name }}"
 
       - name: Collect Pod and Pool IPs
         id: ips
@@ -265,25 +289,24 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cilium-sysdump-out.zip
+          name: "cilium-sysdumps-${{ matrix.name }}"
           path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cilium-junits
+          name: "cilium-junits-${{ matrix.name }}"
           path: cilium-junits/*.xml
-          retention-days: 5
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: features-tested
+          name: "features-tested-${{ matrix.name }}"
           path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary

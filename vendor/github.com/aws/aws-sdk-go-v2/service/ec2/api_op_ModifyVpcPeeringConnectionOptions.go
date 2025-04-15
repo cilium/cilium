@@ -140,6 +140,9 @@ func (c *Client) addOperationModifyVpcPeeringConnectionOptionsMiddlewares(stack 
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyVpcPeeringConnectionOptionsValidationMiddleware(stack); err != nil {
 		return err
 	}

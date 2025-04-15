@@ -410,7 +410,7 @@ func Test_isValidKeyValuePair(t *testing.T) {
 }
 
 func assertErrorString(errString string) assert.ErrorAssertionFunc {
-	return func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
-		return assert.EqualError(t, err, errString, msgAndArgs)
+	return func(t assert.TestingT, err error, msgAndArgs ...any) bool {
+		return assert.EqualError(t, err, errString, msgAndArgs...)
 	}
 }

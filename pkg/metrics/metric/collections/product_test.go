@@ -57,7 +57,7 @@ func TestIteratorProductEmpty(t *testing.T) {
 	assert.Empty(p)
 
 	assert.Empty(CartesianProduct([]string{}, []string{}, []string{}))
-	assert.Empty(0, CartesianProduct[int]())
+	assert.Empty(CartesianProduct[int]())
 	assert.Len(CartesianProduct([]string{""}, []string{""}, []string{""}), 1)
-	CartesianProduct[interface{}](nil, nil) // Test some weird cases.
+	CartesianProduct[any](nil, nil) // Test some weird cases.
 }

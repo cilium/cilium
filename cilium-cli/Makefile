@@ -1,28 +1,28 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-GO := go
-GO_BUILD = CGO_ENABLED=0 $(GO) build
-GO_TAGS ?=
+include ../Makefile.defs
+
 TARGET=cilium
-INSTALL = $(QUIET)install
-BINDIR ?= /usr/local/bin
+
+all: $(TARGET)
+
+.PHONY: all $(TARGET) local-release install clean test bench clean-tags tags
+
+
+BINDIR = /usr/local/bin
 CLI_VERSION=$(shell git describe --tags --always)
-THIS_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CLI_MAIN_DIR?=./cmd/cilium
-STRIP_DEBUG=-w -s
-ifdef DEBUG
-	STRIP_DEBUG=
-endif
-GO_BUILD_LDFLAGS ?= $(STRIP_DEBUG) \
-	-X 'github.com/cilium/cilium/cilium-cli/defaults.CLIVersion=$(CLI_VERSION)'
+GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/cilium-cli/defaults.CLIVersion=$(CLI_VERSION)"
+
+# Kept for bakwards compatibility with previous usage of GO_TAGS
+GO_TAGS_FLAGS += $(GO_TAGS)
 
 TEST_TIMEOUT ?= 5s
 
 $(TARGET):
-	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
-		-ldflags "$(GO_BUILD_LDFLAGS)" \
-		-o $(TARGET) \
+	$(GO_BUILD) \
+		-o $(@) \
 		$(CLI_MAIN_DIR)
 
 local-release: clean
@@ -45,8 +45,7 @@ local-release: clean
 		for ARCH in $$ARCHS; do \
 			echo Building release binary for $$OS/$$ARCH...; \
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
-			env GOOS=$$OS GOARCH=$$ARCH $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
-				-ldflags "$(GO_BUILD_LDFLAGS)" \
+			env GOOS=$$OS GOARCH=$$ARCH $(GO_BUILD) \
 				-o release/$$OS/$$ARCH/$(TARGET)$$EXT $(CLI_MAIN_DIR); \
 			if [ $$OS = "windows" ]; \
 			then \
@@ -69,10 +68,10 @@ clean:
 	rm -rf ./release
 
 test:
-	$(GO) test -timeout=$(TEST_TIMEOUT) -race -cover $$($(GO) list ./...)
+	$(GO_TEST) -timeout=$(TEST_TIMEOUT) -race -cover $$($(GO) list ./...)
 
 bench:
-	$(GO) test -timeout=30s -bench=. $$($(GO) list ./...)
+	$(GO_TEST) -timeout=30s -bench=. $$($(GO) list ./...)
 
 clean-tags:
 	@-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
@@ -81,6 +80,5 @@ tags: $$($(GO) list ./...)
 	@ctags $<
 	cscope -R -b -q
 
-.PHONY: $(TARGET) local-release install clean test bench check clean-tags tags
 
 -include Makefile.override

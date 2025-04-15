@@ -62,7 +62,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 506.0.0
+  gcloud_version: 517.0.0
 
 jobs:
   echo-inputs:
@@ -130,7 +130,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
+        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}
@@ -138,7 +138,7 @@ jobs:
           export_environment_variables: true
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a # v2.1.2
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
@@ -175,9 +175,26 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
           echo "empty=$(jq '(.k8s | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci
+
   installation-and-connectivity:
     name: Installation and Connectivity Test
-    needs: generate-matrix
+    needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 75
@@ -224,10 +241,11 @@ jobs:
             --helm-set=hubble.relay.enabled=true \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set loadBalancer.l7.backend=envoy \
-            --helm-set tls.secretsBackend=k8s \
             --wait=false"
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --external-target google.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
@@ -237,7 +255,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
+        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}
@@ -245,7 +263,7 @@ jobs:
           export_environment_variables: true
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a # v2.1.2
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
@@ -259,6 +277,7 @@ jobs:
           gcloud info
 
       - name: Create GKE cluster
+        id: create-cluster
         run: |
           gcloud container clusters create ${{ env.clusterName }}-${{ matrix.config.index }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
@@ -273,18 +292,31 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 20GB \
-            --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute
+            --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute \
+            --no-enable-insecure-kubelet-readonly-port
+
+          native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --format 'value(clusterIpv4Cidr)')"
+          echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
 
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
 
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -297,14 +329,6 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
-
       - name: Create custom IPsec secret
         if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
         run: |
@@ -313,7 +337,8 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }} \
+          --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
 
       - name: Wait for Cilium to be ready
         run: |
@@ -355,21 +380,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.config.index }}-${{ matrix.k8s.vmIndex }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.config.index }}-${{ matrix.k8s.vmIndex }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.config.index }}-${{ matrix.k8s.vmIndex }}
           path: ${{ env.job_name }}*.json

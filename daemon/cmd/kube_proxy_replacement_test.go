@@ -39,7 +39,7 @@ type kprConfig struct {
 	expectedErrorRegex string
 
 	routingMode    string
-	tunnelProtocol tunnel.Protocol
+	tunnelProtocol tunnel.EncapProtocol
 	nodePortMode   string
 	dispatchMode   string
 }

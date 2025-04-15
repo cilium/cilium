@@ -373,7 +373,7 @@ func (abl *availableBlockList) put(ip netip.Addr) error {
 
 	curr := (*abl)[0]
 	var prev *linkedBlock
-	for i := 0; i < maxIter; i++ {
+	for i := range maxIter {
 		if ip.Compare(curr.from) < 0 {
 			// Is `ip` on the left current block
 
@@ -469,12 +469,12 @@ func (abl availableBlockList) Less(i, j int) bool {
 }
 
 // Push implements heap.Interface
-func (abl *availableBlockList) Push(x interface{}) {
+func (abl *availableBlockList) Push(x any) {
 	*abl = append(*abl, x.(*linkedBlock))
 }
 
 // Pop implements heap.Interface
-func (abl *availableBlockList) Pop() interface{} {
+func (abl *availableBlockList) Pop() any {
 	n := len(*abl) - 1
 	elem := (*abl)[n]
 	*abl = slices.Delete(*abl, n, n+1)

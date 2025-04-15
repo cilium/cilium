@@ -38,7 +38,7 @@ func GetStringMapStringE(vp *viper.Viper, key string) (map[string]string, error)
 // ToStringMapStringE casts an interface to a map[string]string type. The underlying
 // interface type might be a map or string. In the latter case, it is attempted to be
 // json decoded, falling back to the k1=v2,k2=v2 format in case it doesn't look like json.
-func ToStringMapStringE(data interface{}) (map[string]string, error) {
+func ToStringMapStringE(data any) (map[string]string, error) {
 	if data == nil {
 		return map[string]string{}, nil
 	}
@@ -100,7 +100,7 @@ func isValidKeyValuePair(str string) bool {
 func splitKeyValue(str string, sep rune, keyValueSep rune) []string {
 	var sepIndexes, kvValueSepIndexes []int
 	// find all indexes of separator character
-	for i := 0; i < len(str); i++ {
+	for i := range len(str) {
 		switch int32(str[i]) {
 		case sep:
 			sepIndexes = append(sepIndexes, i)
@@ -122,7 +122,7 @@ func splitKeyValue(str string, sep rune, keyValueSep rune) []string {
 
 	var res []string
 	var start = 0
-	for i := 0; i < len(sepIndexes); i++ {
+	for i := range sepIndexes {
 		last := len(str)
 		if i < len(sepIndexes)-1 {
 			last = sepIndexes[i+1]

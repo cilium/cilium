@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -43,21 +44,14 @@ func newGRPCRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *grpcRouteRec
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
-		backendServiceIndex, r.getBackendServiceForGRPCRoute,
-	); err != nil {
-		return err
-	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
-		backendServiceImportIndex, r.getBackendServiceImportForGRPCRoute,
-	); err != nil {
-		return err
-	}
-
-	// Create field indexer for Gateway parents, this allows a faster lookup for event queueing
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
-		gatewayIndex, getParentGatewayForGRPCRoute); err != nil {
-		return err
+	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		backendServiceIndex:       r.referencedBackendService,
+		backendServiceImportIndex: r.referencedBackendServiceImport,
+		gatewayIndex:              r.referencedGateway,
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexName, indexerFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
@@ -80,7 +74,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return builder.Complete(r)
 }
 
-func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
+func (r *grpcRouteReconciler) referencedGateway(rawObj client.Object) []string {
 	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
@@ -100,7 +94,7 @@ func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
 	return gateways
 }
 
-func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object) []string {
+func (r *grpcRouteReconciler) referencedBackendService(rawObj client.Object) []string {
 	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
@@ -129,7 +123,7 @@ func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object
 	return backendServices
 }
 
-func (r *grpcRouteReconciler) getBackendServiceImportForGRPCRoute(rawObj client.Object) []string {
+func (r *grpcRouteReconciler) referencedBackendServiceImport(rawObj client.Object) []string {
 	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
@@ -175,7 +169,10 @@ func (r *grpcRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, grpcRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{
@@ -202,7 +199,10 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, grpcRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {

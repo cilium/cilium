@@ -120,7 +120,7 @@ jobs:
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA }}
+          SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
@@ -198,24 +198,6 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
-      - name: Check we effectively removed Git credentials
-        shell: bash
-        run: |
-          # For private repositories requiring authentication, check that we
-          # can no longer fetch from the repository.
-          if ! curl -L \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ github.repository }}" | \
-            tee /dev/stderr | \
-            jq --exit-status '.private == false'; then
-            echo 'Checking whether "git fetch" succeeds'
-            if git fetch origin HEAD; then
-              echo "::error::Git credentials not removed, aborting now."
-              false
-            fi
-          fi
-
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -280,6 +262,18 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Setup bootid file
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        with:
+          provision: 'false'
+          cmd: |
+            set -ex
+            for container in \$(docker ps -q); do
+              docker exec \$container mkdir -p /var/run/cilium/
+              docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
+            done
+
       - name: Start Cilium KVStore
         id: kvstore
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.kvstore == 'true' }}
@@ -295,11 +289,13 @@ jobs:
 
       - name: Install Cilium CLI
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -335,7 +331,8 @@ jobs:
 
           cilium install \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -355,8 +352,8 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Setup conn-disrupt-test before upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -369,7 +366,8 @@ jobs:
           cilium upgrade --reset-values=true \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -404,8 +402,8 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -425,7 +423,8 @@ jobs:
           cilium upgrade --reset-values=true \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -480,21 +479,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.name }}-${{ matrix.mode }}
           path: ${{ env.job_name }}*.json

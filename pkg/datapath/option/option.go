@@ -18,7 +18,4 @@ const (
 	// are attached to a network via netkit pairs). netkit is created in
 	// L2 mode.
 	DatapathModeNetkitL2 = "netkit-l2"
-
-	// DatapathModeLBOnly specifies lb-only datapath mode.
-	DatapathModeLBOnly = "lb-only"
 )

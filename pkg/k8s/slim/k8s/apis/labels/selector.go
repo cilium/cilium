@@ -7,6 +7,7 @@ package labels
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -191,12 +192,7 @@ func NewRequirement(key string, op selection.Operator, vals []string, opts ...fi
 }
 
 func (r *Requirement) hasValue(value string) bool {
-	for i := range r.strValues {
-		if r.strValues[i] == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.strValues, value)
 }
 
 // Matches returns true if the Requirement matches the input Labels.
@@ -977,14 +973,9 @@ func (s ValidatedSetSelector) Empty() bool {
 }
 
 func (s ValidatedSetSelector) String() string {
-	keys := make([]string, 0, len(s))
-	for k := range s {
-		keys = append(keys, k)
-	}
-	// Ensure deterministic output
-	slices.Sort(keys)
 	b := strings.Builder{}
-	for i, key := range keys {
+	// Ensure deterministic output by sorting
+	for i, key := range slices.Sorted(maps.Keys(s)) {
 		v := s[key]
 		b.Grow(len(key) + 2 + len(v))
 		if i != 0 {
@@ -1006,11 +997,7 @@ func (s ValidatedSetSelector) Requirements() (requirements Requirements, selecta
 }
 
 func (s ValidatedSetSelector) DeepCopySelector() Selector {
-	res := make(ValidatedSetSelector, len(s))
-	for k, v := range s {
-		res[k] = v
-	}
-	return res
+	return maps.Clone(s)
 }
 
 func (s ValidatedSetSelector) RequiresExactMatch(label string) (value string, found bool) {

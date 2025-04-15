@@ -25,11 +25,13 @@ cilium kvstore get --recursive foo
 ### Options inherited from parent commands
 
 ```
-      --config string     Config file (default is $HOME/.cilium.yaml)
-  -D, --debug             Enable debug messages
-  -H, --host string       URI to server-side API
-      --kvstore string    Key-Value Store type
-      --kvstore-opt map   Key-Value Store options
+      --config string        Config file (default is $HOME/.cilium.yaml)
+  -D, --debug                Enable debug messages
+  -H, --host string          URI to server-side API
+      --kvstore string       Key-Value Store type
+      --kvstore-opt map      Key-Value Store options
+      --log-driver strings   Logging endpoints to use (example: syslog)
+      --log-opt map          Log driver options (example: format=json)
 ```
 
 ### SEE ALSO

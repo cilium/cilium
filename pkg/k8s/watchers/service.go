@@ -7,12 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -20,13 +20,13 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -40,13 +40,15 @@ import (
 type k8sServiceWatcherParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	K8sEventReporter *K8sEventReporter
 
 	Resources         agentK8s.Resources
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	ServiceCache   *k8s.ServiceCache
+	ServiceCache   k8s.ServiceCache
 	ServiceManager service.ServiceManager
 	LRPManager     *redirectpolicy.Manager
 	LocalNodeStore *node.LocalNodeStore
@@ -54,6 +56,7 @@ type k8sServiceWatcherParams struct {
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 	return &K8sServiceWatcher{
+		logger:                params.Logger,
 		k8sEventReporter:      params.K8sEventReporter,
 		k8sResourceSynced:     params.K8sResourceSynced,
 		k8sAPIGroups:          params.K8sAPIGroups,
@@ -67,6 +70,7 @@ func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 }
 
 type K8sServiceWatcher struct {
+	logger           *slog.Logger
 	k8sEventReporter *K8sEventReporter
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -77,7 +81,7 @@ type K8sServiceWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 	resources    agentK8s.Resources
 
-	k8sSvcCache           *k8s.ServiceCache
+	k8sSvcCache           k8s.ServiceCache
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	localNodeStore        *node.LocalNodeStore
@@ -157,90 +161,43 @@ func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lo
 }
 
 func (k *K8sServiceWatcher) k8sServiceHandler() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	eventHandler := func(event k8s.ServiceEvent) {
+		defer func(startTime time.Time) {
+			event.SWGDone()
+			k.k8sServiceEventProcessed(event.Action.String(), startTime)
+		}(time.Now())
 
-	type event struct {
-		k8s.ServiceEvent
-		doneFuncs []func()
-	}
+		svc := event.Service
 
-	bufferEvent := func(buf map[k8s.ServiceID]event, ev k8s.ServiceEvent) map[k8s.ServiceID]event {
-		if buf == nil {
-			buf = map[k8s.ServiceID]event{}
+		if k.logger.Enabled(context.Background(), slog.LevelDebug) {
+			k.logger.Debug(
+				"Kubernetes service definition changed",
+				logfields.Action, event.Action,
+				logfields.Service, event.Service,
+				logfields.OldService, event.OldService,
+				logfields.Endpoints, event.Endpoints,
+				logfields.OldEndpoints, event.OldEndpoints,
+				logfields.K8sSvcName, event.ID.Name,
+				logfields.K8sNamespace, event.ID.Namespace,
+			)
 		}
 
-		event := event{ServiceEvent: ev, doneFuncs: []func(){ev.SWGDone}}
-		old, ok := buf[ev.ID]
-		if ok {
-			// Older event existed, reuse the "old" structures so that the event describes
-			// the full delta.
-			event.OldEndpoints = old.OldEndpoints
-			event.OldService = old.OldService
-			event.doneFuncs = append(old.doneFuncs, event.doneFuncs...)
+		switch event.Action {
+		case k8s.UpdateService:
+			k.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints)
+		case k8s.DeleteService:
+			k.delK8sSVCs(event.ID, event.Service)
 		}
-		buf[ev.ID] = event
-		return buf
 	}
-
-	// Collect events into a buffer to debounce repeated events for the same service.
-	// This has a big impact when there are many EndpointSlices for a single service as
-	// we'll collapse those into a single event and avoid the repeated service upserts.
-	events :=
-		stream.ToChannel(ctx,
-			stream.Buffer(
-				stream.FromChannel(k.k8sSvcCache.Events),
-				option.Config.K8sServiceDebounceBufferSize,
-				option.Config.K8sServiceDebounceWaitTime,
-				bufferEvent,
-			),
-		)
 	for {
 		select {
 		case <-k.stop:
-			cancel()
-		case buf, ok := <-events:
+			return
+		case event, ok := <-k.k8sSvcCache.Events():
 			if !ok {
 				return
 			}
-			for _, ev := range buf {
-				k.processServiceEvent(ev.ServiceEvent)
-				for _, done := range ev.doneFuncs {
-					done()
-				}
-			}
-		}
-	}
-}
-
-func (k *K8sServiceWatcher) processServiceEvent(event k8s.ServiceEvent) {
-	defer func(startTime time.Time) {
-		k.k8sServiceEventProcessed(event.Action.String(), startTime)
-	}(time.Now())
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   event.ID.Name,
-		logfields.K8sNamespace: event.ID.Namespace,
-	})
-
-	if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
-		scopedLog.WithFields(logrus.Fields{
-			"action":        event.Action.String(),
-			"service":       event.Service.String(),
-			"old-service":   event.OldService.String(),
-			"endpoints":     event.Endpoints.String(),
-			"old-endpoints": event.OldEndpoints.String(),
-		}).Debug("Kubernetes service definition changed")
-	}
-
-	switch event.Action {
-	case k8s.UpdateService:
-		k.addK8sSVCs(event.ID, event.OldService, event.Service, event.Endpoints)
-	case k8s.DeleteService:
-		// If [event.OldService] is nil then no upsert event was ever processed
-		// and we have nothing to delete.
-		if event.OldService != nil {
-			k.delK8sSVCs(event.ID, event.OldService)
+			eventHandler(event)
 		}
 	}
 }
@@ -255,10 +212,10 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 	if svcInfo.IsHeadless && len(svcInfo.FrontendIPs) == 0 {
 		return
 	}
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svc.Name,
-		logfields.K8sNamespace: svc.Namespace,
-	})
+	scopedLog := k.logger.With(
+		logfields.K8sSvcName, svc.Name,
+		logfields.K8sNamespace, svc.Namespace,
+	)
 
 	for _, checkProtocol := range []bool{true, false} {
 		if !checkProtocol {
@@ -304,12 +261,22 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 
 		for _, fe := range frontends {
 			if found, err := k.svcManager.DeleteService(*fe); err != nil {
-				scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
-					Warn("Error deleting service by frontend")
+				scopedLog.Warn(
+					"Error deleting service by frontend",
+					logfields.Error, err,
+					logfields.Object, fe,
+				)
 			} else if !found {
-				scopedLog.WithField(logfields.Object, logfields.Repr(fe)).Warn("service not found")
+				scopedLog.Warn(
+					"service not found",
+					logfields.Object, fe,
+				)
 			} else {
-				scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port)
+				if option.Config.Debug {
+					scopedLog.Debug(
+						fmt.Sprintf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port),
+					)
+				}
 			}
 		}
 	}
@@ -478,6 +445,7 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
 		svcs[i].Annotations = svc.Annotations
 		svcs[i].SourceRangesPolicy = svc.SourceRangesPolicy
+		svcs[i].ProxyDelegation = svc.ProxyDelegation
 		if configureWithSourceRanges(svcs[i].Type) {
 			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
 		}
@@ -489,6 +457,25 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 // checkServiceNodeExposure returns true if the service should be installed onto the
 // local node, and false if the node should ignore and not install the service.
 func (k *K8sServiceWatcher) checkServiceNodeExposure(svc *k8s.Service) (bool, error) {
+	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
+		ln, err := k.localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		selector, err := labels.Parse(serviceAnnotationValue)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
+		}
+
+		if selector.Matches(labels.Set(ln.Labels)) {
+			return true, nil
+		}
+
+		// prioritize any existing node-selector annotation - and return in any case
+		return false, nil
+	}
+
 	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
 		ln, err := k.localNodeStore.Get(context.Background())
 		if err != nil {
@@ -553,10 +540,10 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		return
 	}
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svcID.Name,
-		logfields.K8sNamespace: svcID.Namespace,
-	})
+	scopedLog := k.logger.With(
+		logfields.K8sSvcName, svcID.Name,
+		logfields.K8sNamespace, svcID.Namespace,
+	)
 
 	if !option.Config.LoadBalancerProtocolDifferentiation {
 		oldSvc = stripServiceProtocol(oldSvc)
@@ -566,7 +553,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 
 	svcs, err := k.datapathSVCs(svc, endpoints)
 	if err != nil {
-		scopedLog.WithError(err).Error("Error while evaluating datapath services")
+		scopedLog.Error("Error while evaluating datapath services", logfields.Error, err)
 		return
 	}
 	svcMap := hashSVCMap(svcs)
@@ -576,7 +563,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		// are no longer in the updated service and delete them in the datapath.
 		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints)
 		if err != nil {
-			scopedLog.WithError(err).Error("Error while evaluating datapath services for old service")
+			scopedLog.Error("Error while evaluating datapath services for old service", logfields.Error, err)
 			return
 		}
 		oldSVCMap := hashSVCMap(oldSVCs)
@@ -584,12 +571,20 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		for svcHash, oldSvc := range oldSVCMap {
 			if _, ok := svcMap[svcHash]; !ok {
 				if found, err := k.svcManager.DeleteService(oldSvc); err != nil {
-					scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(oldSvc)).
-						Warn("Error deleting service by frontend")
+					scopedLog.Warn(
+						"Error deleting service by frontend",
+						logfields.Error, err,
+						logfields.Object, oldSvc,
+					)
 				} else if !found {
-					scopedLog.WithField(logfields.Object, logfields.Repr(oldSvc)).Warn("service not found")
+					scopedLog.Warn(
+						"service not found",
+						logfields.Object, oldSvc,
+					)
 				} else {
-					scopedLog.Debugf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port)
+					if option.Config.Debug {
+						scopedLog.Debug(fmt.Sprintf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port))
+					}
 				}
 			}
 		}
@@ -608,6 +603,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
 			Annotations:               dpSvc.Annotations,
 			SourceRangesPolicy:        dpSvc.SourceRangesPolicy,
+			ProxyDelegation:           dpSvc.ProxyDelegation,
 			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
 			LoadBalancerAlgorithm:     dpSvc.LoadBalancerAlgorithm,
 			Name: loadbalancer.ServiceName{
@@ -618,16 +614,36 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		}
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
-				scopedLog.WithError(err).Debug("Error while inserting service in LB map")
+				scopedLog.Debug("Error while inserting service in LB map", logfields.Error, err)
 			} else {
-				scopedLog.WithError(err).Error("Error while inserting service in LB map")
+				scopedLog.Error("Error while inserting service in LB map", logfields.Error, err)
 			}
 		}
+		k.updateK8sAPIServiceMappings(p)
 	}
+}
+
+// updateK8sAPIServiceMappings updates service to endpoints mapping.
+// This is currently used for supporting high availability for kubeapi-server.
+func (k *K8sServiceWatcher) updateK8sAPIServiceMappings(svc *loadbalancer.SVC) {
+	if svc.Name.Name != "kubernetes" || svc.Name.Namespace != "default" {
+		return
+	}
+
+	var mapping client.K8sServiceEndpointMapping
+	mapping.Endpoints = make([]string, len(svc.Backends))
+	mapping.Service = svc.Frontend.L3n4Addr.AddrString()
+	for i := range mapping.Endpoints {
+		mapping.Endpoints[i] = svc.Backends[i].AddrString()
+	}
+	k.logger.Info("writing kubernetes service mapping",
+		logfields.Entry, mapping,
+	)
+	client.UpdateK8sAPIServerEntry(k.logger, mapping)
 }
 
 // k8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
 func (k *K8sServiceWatcher) k8sServiceEventProcessed(action string, startTime time.Time) {
-	duration, _ := safetime.TimeSinceSafe(startTime, log)
+	duration, _ := safetime.TimeSinceSafe(startTime, k.logger)
 	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
 }

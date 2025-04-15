@@ -76,9 +76,9 @@ in order to effectively contribute to Cilium:
 +===================================================================+==============================+=================================================================+
 |  git                                                              | latest                       | N/A (OS-specific)                                               |
 +-------------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
-|  clang                                                            | >= 17.0 (latest recommended) | N/A (OS-specific)                                               |
+|  clang                                                            | >= 18.1 (latest recommended) | N/A (OS-specific)                                               |
 +-------------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
-|  llvm                                                             | >= 17.0 (latest recommended) | N/A (OS-specific)                                               |
+|  llvm                                                             | >= 18.1 (latest recommended) | N/A (OS-specific)                                               |
 +-------------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 | `go <https://golang.org/dl/>`_                                    | |GO_RELEASE|                 | N/A (OS-specific)                                               |
 +-------------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
@@ -456,6 +456,10 @@ Minor version
    ``.github/actions/ginkgo/main-k8s-versions.yaml``.
 
 #. Run ``./contrib/scripts/check-k8s-code-gen.sh``
+
+#. Check ``controller-runtime`` compatibility with the new Kubernetes version. If
+   there are any changes required, update the controller-runtime version in
+   ``go.mod``. See https://github.com/kubernetes-sigs/controller-runtime?tab=readme-ov-file#compatibility.
 
 #. Run ``go mod vendor && go mod tidy``
 

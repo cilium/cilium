@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -92,6 +94,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
 type Manager struct {
+	logger *slog.Logger
+
 	lock.Mutex
 
 	// allCachesSynced is true when all k8s objects we depend on have had
@@ -115,10 +119,6 @@ type Manager struct {
 
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
-
-	// policyConfigsBySourceIP stores slices of policy configs indexed by
-	// the policies' source/endpoint IPs
-	policyConfigsBySourceIP map[string][]*PolicyConfig
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
@@ -152,6 +152,8 @@ type Manager struct {
 
 type Params struct {
 	cell.In
+
+	Logger *slog.Logger
 
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
@@ -206,8 +208,8 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
+		logger:                        p.Logger,
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
-		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
@@ -319,7 +321,10 @@ func (manager *Manager) processEvents(ctx context.Context) {
 	// the identity allocator, where the minimum retry timeout is set to 20
 	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
 	// ~20 minutes)
-	endpointsRateLimit := workqueue.NewItemExponentialFailureRateLimiter(time.Millisecond*20, time.Minute*20)
+	endpointsRateLimit := workqueue.NewTypedItemExponentialFailureRateLimiter[resource.WorkItem](
+		time.Millisecond*20,
+		time.Minute*20,
+	)
 
 	policyEvents := manager.policies.Events(ctx)
 	nodeEvents := manager.ciliumNodes.Events(ctx)
@@ -544,64 +549,6 @@ func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	}
 }
 
-func (manager *Manager) updatePoliciesBySourceIP() {
-	manager.policyConfigsBySourceIP = make(map[string][]*PolicyConfig)
-
-	for _, policy := range manager.policyConfigs {
-		for _, ep := range policy.matchedEndpoints {
-			for _, epIP := range ep.ips {
-				ip := epIP.String()
-				manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
-			}
-		}
-	}
-}
-
-// policyMatches returns true if there exists at least one policy matching the
-// given parameters.
-//
-// This method takes:
-//   - a source IP: this is an optimization that allows to iterate only through
-//     policies that reference an endpoint with the given source IP
-//   - a callback function f: this function is invoked for each policy and for
-//     each combination of the policy's endpoints and destination/excludedCIDRs.
-//
-// The callback f takes as arguments:
-// - the given endpoint
-// - the destination CIDR
-// - a boolean value indicating if the CIDR belongs to the excluded ones
-// - the gatewayConfig of the  policy
-//
-// This method returns true whenever the f callback matches one of the endpoint
-// and CIDR tuples (i.e. whenever one callback invocation returns true)
-func (manager *Manager) policyMatches(sourceIP netip.Addr, f func(netip.Addr, netip.Prefix, bool, *gatewayConfig) bool) bool {
-	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
-		for _, ep := range policy.matchedEndpoints {
-			for _, endpointIP := range ep.ips {
-				if endpointIP != sourceIP {
-					continue
-				}
-
-				isExcludedCIDR := false
-				for _, dstCIDR := range policy.dstCIDRs {
-					if f(endpointIP, dstCIDR, isExcludedCIDR, &policy.gatewayConfig) {
-						return true
-					}
-				}
-
-				isExcludedCIDR = true
-				for _, excludedCIDR := range policy.excludedCIDRs {
-					if f(endpointIP, excludedCIDR, isExcludedCIDR, &policy.gatewayConfig) {
-						return true
-					}
-				}
-			}
-		}
-	}
-
-	return false
-}
-
 func (manager *Manager) regenerateGatewayConfigs() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.regenerateGatewayConfig(manager)
@@ -635,15 +582,25 @@ func (manager *Manager) relaxRPFilter() error {
 	return manager.sysctl.ApplySettings(sysSettings)
 }
 
-func (manager *Manager) addMissingEgressRules() {
+func (manager *Manager) updateEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	manager.policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 			egressPolicies[*key] = *val
 		})
 
+	// Start with the assumption that all the entries currently present in the
+	// BPF map are stale. Then as we walk the entries below and discover which
+	// entries are actually still needed, shrink this set down.
+	stale := sets.KeySet(egressPolicies)
+
 	addEgressRule := func(endpointIP netip.Addr, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) {
 		policyKey := egressmap.NewEgressPolicyKey4(endpointIP, dstCIDR)
+
+		// This key needs to be present in the BPF map, hence remove it from
+		// the list of stale ones.
+		stale.Delete(policyKey)
+
 		policyVal, policyPresent := egressPolicies[policyKey]
 
 		gatewayIP := gwc.gatewayIP
@@ -672,36 +629,12 @@ func (manager *Manager) addMissingEgressRules() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.forEachEndpointAndCIDR(addEgressRule)
 	}
-}
 
-// removeUnusedEgressRules is responsible for removing any entry in the egress policy BPF map which
-// is not baked by an actual k8s CiliumEgressGatewayPolicy.
-func (manager *Manager) removeUnusedEgressRules() {
-	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
-	manager.policyMap.IterateWithCallback(
-		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
-			egressPolicies[*key] = *val
-		})
-
-	for policyKey, policyVal := range egressPolicies {
-		matchPolicy := func(endpointIP netip.Addr, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) bool {
-			gatewayIP := gwc.gatewayIP
-			if excludedCIDR {
-				gatewayIP = ExcludedCIDRIPv4
-			}
-
-			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP, gatewayIP)
-		}
-
-		if manager.policyMatches(policyKey.GetSourceIP(), matchPolicy) {
-			continue
-		}
-
+	// Remove all the entries marked as stale.
+	for policyKey := range stale {
 		logger := log.WithFields(logrus.Fields{
 			logfields.SourceIP:        policyKey.GetSourceIP(),
 			logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-			logfields.EgressIP:        policyVal.GetEgressAddr(),
-			logfields.GatewayIP:       policyVal.GetGatewayAddr(),
 		})
 
 		if err := manager.policyMap.Delete(policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
@@ -728,9 +661,6 @@ func (manager *Manager) reconcileLocked() {
 	// initial k8s sync
 	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventUpdateNode, eventDeleteNode, eventK8sSyncDone):
 		manager.updatePoliciesMatchedEndpointIDs()
-		fallthrough
-	case manager.eventBitmapIsSet(eventAddPolicy, eventDeletePolicy):
-		manager.updatePoliciesBySourceIP()
 	}
 
 	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode) {
@@ -751,10 +681,8 @@ func (manager *Manager) reconcileLocked() {
 		}
 	}
 
-	// The order of the next 2 function calls matters, as by first adding missing policies and
-	// only then removing obsolete ones we make sure there will be no connectivity disruption
-	manager.addMissingEgressRules()
-	manager.removeUnusedEgressRules()
+	// Update the content of the BPF map.
+	manager.updateEgressRules()
 
 	// clear the events bitmap
 	manager.eventsBitmap = 0

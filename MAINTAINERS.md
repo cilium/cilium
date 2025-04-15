@@ -37,6 +37,7 @@ to learn how to level up through the project.
  * [Lorenz Bauer] (Isovalent)
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
+ * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
  * [Michal Rostecki] (Deepfence)
  * [Michi Mutsuzaki] (Isovalent)
@@ -104,6 +105,7 @@ project.
 [Lorenz Bauer]: https://github.com/lmb
 [Louis DeLosSantos]: https://github.com/ldelossa
 [Maciej Kwiek]: https://github.com/nebril
+[Marco Iorio]: https://github.com/giorio94
 [Martynas Pumputis]: https://github.com/brb
 [Michal Rostecki]: https://github.com/vadorovsky
 [Michi Mutsuzaki]: https://github.com/michi-covalent

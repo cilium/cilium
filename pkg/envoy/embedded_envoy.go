@@ -37,8 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
-
 const (
 	envoyLogLevelOff      = "off"
 	envoyLogLevelCritical = "critical"
@@ -117,12 +115,12 @@ type embeddedEnvoyConfig struct {
 	maxConcurrentRetries     uint32
 }
 
-// startEmbeddedEnvoy starts an Envoy proxy instance.
-func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
+// startEmbeddedEnvoyInternal starts an Envoy proxy instance.
+func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 	envoy := &EmbeddedEnvoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
-		admin:  NewEnvoyAdminClientForSocket(GetSocketDir(config.runDir), config.defaultLogLevel),
+		admin:  NewEnvoyAdminClientForSocket(o.logger, GetSocketDir(config.runDir), config.defaultLogLevel),
 	}
 
 	bootstrapDir := filepath.Join(config.runDir, "envoy")
@@ -135,7 +133,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 
 	bootstrapFilePath := filepath.Join(bootstrapDir, "bootstrap.pb")
 
-	writeBootstrapConfigFile(bootstrapConfig{
+	o.writeBootstrapConfigFile(bootstrapConfig{
 		filePath:                 bootstrapFilePath,
 		nodeId:                   "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
 		cluster:                  ingressClusterName,
@@ -150,7 +148,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 		maxConcurrentRetries:     config.maxConcurrentRetries,
 	})
 
-	log.Debugf("Envoy: Starting: %v", *envoy)
+	o.logger.Debug("Envoy: Starting embedded Envoy")
 
 	// make it a buffered channel, so we can not only
 	// read the written value but also skip it in
@@ -179,7 +177,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 
 			// Create a piper that parses and writes into logrus the log
 			// messages from Envoy.
-			logWriter = newEnvoyLogPiper()
+			logWriter = o.newEnvoyLogPiper()
 		}
 		defer logWriter.Close()
 
@@ -196,7 +194,9 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 			cmd.Stdout = logWriter
 
 			if err := cmd.Start(); err != nil {
-				log.WithError(err).Warn("Envoy: Failed to start proxy")
+				o.logger.Warn("Envoy: Failed to start proxy",
+					logfields.Error, err,
+				)
 				select {
 				case started <- false:
 				default:
@@ -204,7 +204,9 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 				return
 			}
 
-			log.WithField(logfields.PID, cmd.Process.Pid).Info("Envoy: Proxy started")
+			o.logger.Info("Envoy: Proxy started",
+				logfields.PID, cmd.Process.Pid,
+			)
 			metrics.SubprocessStart.WithLabelValues(ciliumEnvoyStarter).Inc()
 			select {
 			case started <- true:
@@ -221,11 +223,16 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 			crashCh := make(chan struct{})
 			go func() {
 				if err := cmd.Wait(); err != nil {
-					log.WithError(err).WithField(logfields.PID, cmd.Process.Pid).Warn("Envoy: Proxy crashed")
+					o.logger.Warn("Envoy: Proxy crashed",
+						logfields.PID, cmd.Process.Pid,
+						logfields.Error, err,
+					)
 					// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
 					time.Sleep(100 * time.Millisecond)
 				} else {
-					log.WithField(logfields.PID, cmd.Process.Pid).Info("Envoy: Proxy terminated")
+					o.logger.Info("Envoy: Proxy terminated",
+						logfields.PID, cmd.Process.Pid,
+					)
 				}
 				close(crashCh)
 			}()
@@ -235,12 +242,18 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 				// Start Envoy again
 				continue
 			case <-envoy.stopCh:
-				log.WithField(logfields.PID, cmd.Process.Pid).Infof("Envoy: Stopping proxy")
+				o.logger.Info("Envoy: Stopping embedded Envoy proxy",
+					logfields.PID, cmd.Process.Pid,
+				)
 				if err := envoy.admin.quit(); err != nil {
-					log.WithError(err).WithField(logfields.PID, cmd.Process.Pid).Fatal("Envoy: Envoy admin quit failed, killing process")
-
+					o.logger.Error("Envoy: Envoy admin quit failed, killing process",
+						logfields.PID, cmd.Process.Pid,
+						logfields.Error, err,
+					)
 					if err := cmd.Process.Kill(); err != nil {
-						log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
+						o.logger.Error("Envoy: Stopping Envoy failed",
+							logfields.Error, err,
+						)
 						envoy.errCh <- err
 					}
 				}
@@ -258,67 +271,67 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 }
 
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
-func newEnvoyLogPiper() io.WriteCloser {
+func (o *onDemandXdsStarter) newEnvoyLogPiper() io.WriteCloser {
 	reader, writer := io.Pipe()
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(nil, 1024*1024)
 	go func() {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.LogSubsys: "unknown",
-			logfields.ThreadID:  "unknown",
-		})
-		level := "debug"
-
 		for scanner.Scan() {
 			line := scanner.Text()
-			var msg string
+
+			logThreadID := "unknown"
+			logLevel := "debug"
+			logSubsys := "unknown"
+			logMsg := ""
 
 			parts := strings.SplitN(line, "|", 4)
 			// Parse the line as a log message written by Envoy, assuming it
 			// uses the configured format: "%t|%l|%n|%v".
 			if len(parts) == 4 {
-				threadID := parts[0]
-				level = parts[1]
-				loggerName := parts[2]
+				logThreadID = parts[0]
+				logLevel = parts[1]
+				logSubsys = fmt.Sprintf("envoy-%s", parts[2])
 				// TODO: Parse msg to extract the source filename, line number, etc.
-				msg = fmt.Sprintf("[%s", parts[3])
-
-				scopedLog = log.WithFields(logrus.Fields{
-					logfields.LogSubsys: fmt.Sprintf("envoy-%s", loggerName),
-					logfields.ThreadID:  threadID,
-				})
+				logMsg = fmt.Sprintf("[%s", parts[3])
 			} else {
 				// If this line can't be parsed, it continues a multi-line log
 				// message. In this case, log it at the same level and with the
 				// same fields as the previous line.
-				msg = line
+				logMsg = line
 			}
 
-			if len(msg) == 0 {
+			scopedLog := o.logger.With(
+				logfields.LogSubsys, logSubsys,
+				logfields.ThreadID, logThreadID,
+			)
+
+			if len(logMsg) == 0 {
 				continue
 			}
 
 			// Map the Envoy log level to a logrus level.
-			switch level {
+			switch logLevel {
 			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
-				scopedLog.Error(msg)
+				scopedLog.Error(logMsg)
 			case envoyLogLevelWarning:
 				// Demote expected warnings to info level
-				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
-					scopedLog.Info(msg)
+				if strings.Contains(logMsg, "gRPC config: initial fetch timed out for") {
+					scopedLog.Info(logMsg)
 					continue
 				}
-				scopedLog.Warn(msg)
+				scopedLog.Warn(logMsg)
 			case envoyLogLevelInfo:
-				scopedLog.Info(msg)
+				scopedLog.Info(logMsg)
 			case envoyLogLevelDebug, envoyLogLevelTrace:
-				scopedLog.Debug(msg)
+				scopedLog.Debug(logMsg)
 			default:
-				scopedLog.Debug(msg)
+				scopedLog.Debug(logMsg)
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			log.WithError(err).Error("Error while parsing Envoy logs")
+			o.logger.Error("Error while parsing Envoy logs",
+				logfields.Error, err,
+			)
 		}
 		reader.Close()
 	}()
@@ -355,7 +368,7 @@ type bootstrapConfig struct {
 	maxConcurrentRetries     uint32
 }
 
-func writeBootstrapConfigFile(config bootstrapConfig) {
+func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 	useDownstreamProtocol := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
@@ -528,14 +541,20 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 		},
 	}
 
-	log.Debugf("Envoy: Bootstrap: %s", bs)
+	o.logger.Debug("Envoy: Writing Bootstrap config",
+		logfields.Resource, bs,
+	)
 	data, err := proto.Marshal(bs)
 	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error marshaling Envoy bootstrap")
+		o.logger.Error("Envoy: Error marshaling Envoy bootstrap",
+			logfields.Error, err,
+		)
+		return
 	}
-	err = os.WriteFile(config.filePath, data, 0644)
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
+	if err := os.WriteFile(config.filePath, data, 0644); err != nil {
+		o.logger.Error("Envoy: Error writing Envoy bootstrap file",
+			logfields.Error, err,
+		)
 	}
 }
 

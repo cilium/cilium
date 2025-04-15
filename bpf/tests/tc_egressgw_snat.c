@@ -8,13 +8,13 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
+#define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY
 #define ENABLE_MASQUERADE_IPV4
+#define ENABLE_MASQUERADE_IPV6
 #define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
-
-#define SECCTX_FROM_IPCACHE 1
 
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
@@ -27,6 +27,8 @@ mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_
 		int plen __maybe_unused, __u32 flags __maybe_unused);
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
@@ -47,8 +49,15 @@ static __always_inline __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused)
 {
-	if (params && params->ipv4_src == EGRESS_IP2)
-		params->ifindex = SECONDARY_IFACE_IFINDEX;
+	union v6addr egress_ip = EGRESS_IP2_V6;
+
+	if (params) {
+		if (params->ipv4_src == EGRESS_IP2)
+			params->ifindex = SECONDARY_IFACE_IFINDEX;
+
+		if (memcmp(&params->ipv6_src, &egress_ip, sizeof(union v6addr)) == 0)
+			params->ifindex = SECONDARY_IFACE_IFINDEX;
+	}
 
 	return 0;
 }
@@ -86,7 +95,7 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -149,7 +158,7 @@ SETUP("tc", "tc_egressgw_snat2")
 int egressgw_snat2_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -188,7 +197,7 @@ int egressgw_tuple_collision1_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -223,7 +232,7 @@ int egressgw_tuple_collision2_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP3);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -300,7 +309,7 @@ int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -380,7 +389,7 @@ int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP2);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -401,3 +410,371 @@ int egressgw_fib_redirect_check(const struct __ctx_buff *ctx __maybe_unused)
 	return ret;
 }
 
+/* Test that a packet matching an egress gateway policy on the to-netdev program
+ * gets correctly SNATed with the egress IP of the policy (IPv6).
+ */
+PKTGEN("tc", "tc_v6_egressgw_snat1")
+int egressgw_snat1_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_snat1")
+int egressgw_snat1_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip);
+
+	/* Jump into the entrypoint */
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_snat1")
+int egressgw_snat1_check_v6(const struct __ctx_buff *ctx)
+{
+	return egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+			.packets = 1,
+			.status_code = CTX_ACT_OK
+		});
+}
+
+/* Test that a packet matching an egress gateway policy on the from-netdev program
+ * gets correctly revSNATed and connection tracked (IPv6).
+ */
+PKTGEN("tc", "tc_v6_egressgw_snat1_2_reply")
+int egressgw_snat1_2_reply_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+			.dir = CT_INGRESS,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_snat1_2_reply")
+int egressgw_snat1_2_reply_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	/* install ipcache entry for the CLIENT_IP: */
+	ipcache_v6_add_entry(&client_ip, 0, 0, CLIENT_NODE_IP, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_snat1_2_reply")
+int egressgw_snat1_2_reply_check_v6(const struct __ctx_buff *ctx)
+{
+	return egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+			.dir = CT_INGRESS,
+			.packets = 2,
+			.status_code = CTX_ACT_REDIRECT,
+		});
+}
+
+PKTGEN("tc", "tc_v6_egressgw_snat2")
+int egressgw_snat2_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT2,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_snat2")
+int egressgw_snat2_setup_v6(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_snat2")
+int egressgw_snat2_check_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	int ret = egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT2,
+			.packets = 1,
+			.status_code = CTX_ACT_OK
+		});
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
+
+	return ret;
+}
+
+/* Test that a packet matching an egress gateway policy on the to-netdev program
+ * gets correctly SNATed with the desired egress IP of the policy, even if the
+ * packet hits a stale NAT entry (IPv6).
+ */
+PKTGEN("tc", "tc_v6_egressgw_tuple_collision1")
+int egressgw_tuple_collision1_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_TUPLE_COLLISION,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_tuple_collision1")
+int egressgw_tuple_collision1_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip);
+
+	/* Jump into the entrypoint */
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_tuple_collision1")
+int egressgw_tuple_collision1_check_v6(const struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	int ret = egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_TUPLE_COLLISION,
+			.packets = 1,
+			.status_code = CTX_ACT_OK
+		});
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
+
+	return ret;
+}
+
+PKTGEN("tc", "tc_v6_egressgw_tuple_collision2")
+int egressgw_tuple_collision2_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_TUPLE_COLLISION,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_tuple_collision2")
+int egressgw_tuple_collision2_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP3_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip);
+
+	/* Jump into the entrypoint */
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_tuple_collision2")
+int egressgw_tuple_collision2_check_v6(const struct __ctx_buff *ctx)
+{
+	return egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_TUPLE_COLLISION,
+			.tuple_collision = true,
+			.packets = 2,
+			.status_code = CTX_ACT_OK
+		});
+}
+
+/* Test that a packet matching an egress gateway policy on the from-netdev program
+ * gets correctly revSNATed and connection tracked, even if the packet hits a
+ * stale NAT entry (IPv6).
+ */
+PKTGEN("tc", "tc_v6_egressgw_tuple_collision2_reply")
+int egressgw_tuple_collision2_reply_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_TUPLE_COLLISION,
+			.tuple_collision = true,
+			.dir = CT_INGRESS,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_tuple_collision2_reply")
+int egressgw_tuple_collision2_reply_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	/* install ipcache entry for the CLIENT_IP: */
+	ipcache_v6_add_entry(&client_ip, 0, 0, CLIENT_NODE_IP, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_tuple_collision2_reply")
+int egressgw_tuple_collision2_reply_check_v6(const struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	int ret = egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_TUPLE_COLLISION,
+			.dir = CT_INGRESS,
+			.packets = 3,
+			.status_code = CTX_ACT_REDIRECT,
+		});
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
+
+	return ret;
+}
+
+/* Test that a packet matching an excluded CIDR egress gateway policy on the
+ * to-netdev program does not get SNATed with the egress IP of the policy (IPv6).
+ */
+PKTGEN("tc", "tc_v6_egressgw_skip_excluded_cidr_snat")
+int egressgw_skip_excluded_cidr_snat_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_EXCL_CIDR,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_skip_excluded_cidr_snat")
+int egressgw_skip_excluded_cidr_snat_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_EXCLUDED_CIDR,
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
+
+	/* Jump into the entrypoint */
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_skip_excluded_cidr_snat")
+int egressgw_skip_excluded_cidr_snat_check_v6(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	test_init();
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct ipv6hdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the client MAC");
+
+	if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the external svc MAC");
+
+	if (memcmp(&l3->saddr, &client_ip, sizeof(union v6addr)) != 0)
+		test_fatal("src IP has changed");
+
+	if (memcmp(&l3->daddr, &ext_svc_ip, sizeof(union v6addr)) != 0)
+		test_fatal("dst IP has changed");
+
+	if (l4->source != client_port(TEST_SNAT_EXCL_CIDR))
+		test_fatal("src TCP port has changed");
+
+	if (l4->dest != EXTERNAL_SVC_PORT)
+		test_fatal("dst port has changed");
+
+	test_finish();
+}
+
+/* Test FIB lookup based redirect functionality (IPv6) */
+PKTGEN("tc", "tc_v6_egressgw_fib_redirect")
+int egressgw_fib_redirect_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_FIB,
+			.redirect = true,
+		});
+}
+
+SETUP("tc", "tc_v6_egressgw_fib_redirect")
+int egressgw_fib_redirect_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP2_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip);
+
+	/* Jump into the entrypoint */
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_v6_egressgw_fib_redirect")
+int egressgw_fib_redirect_check_v6(const struct __ctx_buff *ctx __maybe_unused)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	int ret = egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_FIB,
+			.redirect = true,
+			.packets = 1,
+			.status_code = CTX_ACT_REDIRECT,
+		});
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
+
+	return ret;
+}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
@@ -65,7 +66,7 @@ spec:
 	err = json.Unmarshal(jsnByte, &us)
 	require.NoError(t, err)
 
-	validator, err := NewNPValidator()
+	validator, err := NewNPValidator(hivetest.Logger(t))
 	require.NoError(t, err)
 	err = validator.ValidateCNP(&us)
 	// Err can't be nil since validation should detect the policy is not correct.
@@ -99,7 +100,7 @@ spec:
 	err = json.Unmarshal(jsnByte, &us)
 	require.NoError(t, err)
 
-	validator, err := NewNPValidator()
+	validator, err := NewNPValidator(hivetest.Logger(t))
 	require.NoError(t, err)
 	err = validator.ValidateCNP(&us)
 	// Err can't be nil since validation should detect the policy is not correct.
@@ -130,7 +131,7 @@ spec:
 	err = json.Unmarshal(jsnByte, &us)
 	require.NoError(t, err)
 
-	validator, err := NewNPValidator()
+	validator, err := NewNPValidator(hivetest.Logger(t))
 	require.NoError(t, err)
 	err = validator.ValidateCNP(&us)
 	require.NoError(t, err)
@@ -159,7 +160,7 @@ spec:
 	err = json.Unmarshal(jsnByte, &us)
 	require.NoError(t, err)
 
-	validator, err := NewNPValidator()
+	validator, err := NewNPValidator(hivetest.Logger(t))
 	require.NoError(t, err)
 	err = validator.ValidateCCNP(&us)
 	require.NoError(t, err)
@@ -193,7 +194,7 @@ spec:
 	err = json.Unmarshal(jsnByte, &us)
 	require.NoError(t, err)
 
-	validator, err := NewNPValidator()
+	validator, err := NewNPValidator(hivetest.Logger(t))
 	require.NoError(t, err)
 	err = validator.ValidateCCNP(&us)
 	// Err can't be nil since validation should detect the policy is not correct.
@@ -459,13 +460,13 @@ specs:
 		err = json.Unmarshal(jsnByte, &us)
 		require.NoError(t, err)
 
-		validator, err := NewNPValidator()
+		validator, err := NewNPValidator(hivetest.Logger(t))
 		require.NoError(t, err)
 
 		if tt.clusterwide {
-			require.EqualValues(t, tt.err, validator.ValidateCCNP(&us))
+			require.Equal(t, tt.err, validator.ValidateCCNP(&us))
 		} else {
-			require.EqualValues(t, tt.err, validator.ValidateCNP(&us))
+			require.Equal(t, tt.err, validator.ValidateCNP(&us))
 		}
 	}
 }
@@ -492,7 +493,7 @@ spec:
 	err = json.Unmarshal(jsnByte, &us)
 	require.NoError(t, err)
 
-	validator, err := NewNPValidator()
+	validator, err := NewNPValidator(hivetest.Logger(t))
 	require.NoError(t, err)
 	err = validator.ValidateCNP(&us)
 	// Err can't be nil since validation should detect the policy is not correct.

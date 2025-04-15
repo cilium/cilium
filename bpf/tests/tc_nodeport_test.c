@@ -3,9 +3,6 @@
 
 #include "common.h"
 
-/* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 (__be32)v4_pod_one
-
 /* Enable CT debug output */
 #undef QUIET_CT
 
@@ -27,6 +24,9 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 }
 
 #include <bpf_lxc.c>
+
+/* Set the LXC source address to be the address of pod one */
+ASSIGN_CONFIG(__u32, endpoint_ipv4, v4_pod_one)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -97,7 +97,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
 
-	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
+	lb_v4_add_service(v4_svc_one, tcp_svc_one, IPPROTO_TCP, 1, revnat_id);
 	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
 			  v4_pod_one, tcp_dst_one, IPPROTO_TCP, 0);
 
@@ -506,7 +506,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 	if (ret)
 		return ret;
 
-	lb_v4_add_service(v4_svc_one, tcp_svc_one, 0, 1);
+	lb_v4_add_service(v4_svc_one, tcp_svc_one, IPPROTO_TCP, 0, 1);
 
 	/* avoid policy drop */
 	policy_add_egress_allow_all_entry();

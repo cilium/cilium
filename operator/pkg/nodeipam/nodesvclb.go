@@ -63,14 +63,17 @@ func (r *nodeSvcLBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&discoveryv1.EndpointSlice{}, r.enqueueRequestForEndpointSlice()).
 		// Watch for changes to Nodes
 		Watches(&corev1.Node{}, r.enqueueRequestForNode()).
+		Named("service-nodeipam").
 		Complete(r)
 }
 
 // enqueueRequestForEndpointSlice enqueue the service if a corresponding Enndpoint Slice is updated
 func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.Logger.With(logfields.Controller, "node-service-lb").
-			With(logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.Logger.With(
+			logfields.Controller, "node-service-lb",
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		epSlice, ok := o.(*discoveryv1.EndpointSlice)
 		if !ok {
 			return []ctrl.Request{}
@@ -83,7 +86,7 @@ func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHand
 			Namespace: epSlice.GetNamespace(),
 			Name:      svcName,
 		}
-		scopedLog.Info("Enqueued Service", "service", svc)
+		scopedLog.Info("Enqueued Service", logfields.Service, svc)
 		return []ctrl.Request{{NamespacedName: svc}}
 	})
 }
@@ -92,8 +95,10 @@ func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHand
 // by nodeipam (see shouldIncludeNode)
 func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.Logger.With(logfields.Controller, "node-service-lb",
-			logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.Logger.With(
+			logfields.Controller, "node-service-lb",
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		node, ok := o.(*corev1.Node)
 		if !ok {
 			return []ctrl.Request{}
@@ -117,14 +122,17 @@ func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 				Name:      item.GetName(),
 			}
 			requests = append(requests, reconcile.Request{NamespacedName: svc})
-			scopedLog.Info("Enqueued Service", "service", svc)
+			scopedLog.Info("Enqueued Service", logfields.Service, svc)
 		}
 		return requests
 	})
 }
 
 func (r *nodeSvcLBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.Logger.With(logfields.Controller, "node-service-lb", logfields.Resource, req.NamespacedName)
+	scopedLog := r.Logger.With(
+		logfields.Controller, "node-service-lb",
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Info("Reconciling Service")
 
 	svc := corev1.Service{}
@@ -197,9 +205,10 @@ func (r *nodeSvcLBReconciler) getEndpointSliceNodeNames(ctx context.Context, svc
 	return selectedNodes, nil
 }
 
-// getRelevantNodes gets all the nodes candidates for seletion by nodeipam
+// getRelevantNodes gets all the nodes candidates for selection by nodeipam
 func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
-	scopedLog := r.Logger.With(logfields.Controller, "node-service-lb",
+	scopedLog := r.Logger.With(
+		logfields.Controller, "node-service-lb",
 		logfields.Resource, client.ObjectKeyFromObject(svc))
 
 	endpointSliceNames, err := r.getEndpointSliceNodeNames(ctx, svc)

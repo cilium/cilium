@@ -16,21 +16,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-func (s *EndpointSuite) createEndpoints() ([]*Endpoint, map[uint16]*Endpoint) {
+func (s *EndpointSuite) createEndpoints(t testing.TB) ([]*Endpoint, map[uint16]*Endpoint) {
 	epsWanted := []*Endpoint{
-		s.endpointCreator(256, identity.NumericIdentity(1256)),
-		s.endpointCreator(257, identity.NumericIdentity(1257)),
-		s.endpointCreator(258, identity.NumericIdentity(1258)),
-		s.endpointCreator(259, identity.NumericIdentity(1259)),
+		s.endpointCreator(t, 256, identity.NumericIdentity(1256)),
+		s.endpointCreator(t, 257, identity.NumericIdentity(1257)),
+		s.endpointCreator(t, 258, identity.NumericIdentity(1258)),
+		s.endpointCreator(t, 259, identity.NumericIdentity(1259)),
 	}
 	epsMap := map[uint16]*Endpoint{
 		epsWanted[0].ID: epsWanted[0],
@@ -45,7 +48,7 @@ func getStrID(id uint16) string {
 	return fmt.Sprintf("%05d", id)
 }
 
-func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentity) *Endpoint {
+func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.NumericIdentity) *Endpoint {
 	strID := getStrID(id)
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, id)
@@ -58,7 +61,13 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	}
 	identity.Sanitize()
 
-	ep := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), id, StateReady)
+	model := newTestEndpointModel(int(id), StateReady)
+	ep, err := NewEndpointFromChangeModel(context.TODO(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep.Start(uint16(model.ID))
+	t.Cleanup(ep.Stop)
+
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -69,14 +78,14 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	ep.ifIndex = 1
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.SecurityIdentity = identity
-	ep.OpLabels = labels.NewOpLabels()
+	ep.labels = labels.NewOpLabels()
 	ep.NetNsCookie = 1234
 	return ep
 }
 
 func TestReadEPsFromDirNames(t *testing.T) {
 	s := setupEndpointSuite(t)
-	epsWanted, _ := s.createEndpoints()
+	epsWanted, _ := s.createEndpoints(t)
 	tmpDir := t.TempDir()
 
 	const unsupportedTestOption = "unsupported-test-only-option-xyz"
@@ -124,8 +133,8 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epsNames)
-	require.Equal(t, len(epsWanted), len(eps))
+	eps := ReadEPsFromDirNames(context.TODO(), &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
 	restoredEPs := make([]*Endpoint, 0, len(eps))
@@ -134,7 +143,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	}
 	sort.Slice(restoredEPs, func(i, j int) bool { return restoredEPs[i].ID < restoredEPs[j].ID })
 
-	require.Equal(t, len(epsWanted), len(restoredEPs))
+	require.Len(t, restoredEPs, len(epsWanted))
 	for i, restoredEP := range restoredEPs {
 		// We probably shouldn't modify these, but the status will
 		// naturally differ between the wanted endpoint and the version
@@ -143,14 +152,14 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		restoredEP.status = nil
 		wanted := epsWanted[i]
 		wanted.status = nil
-		require.EqualValues(t, wanted.String(), restoredEP.String())
+		require.Equal(t, wanted.String(), restoredEP.String())
 	}
 }
 
 func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	eps, _ := s.createEndpoints()
+	eps, _ := s.createEndpoints(t)
 	ep := eps[0]
 	require.NotNil(t, ep)
 	tmpDir := t.TempDir()
@@ -186,11 +195,11 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
-	require.EqualValues(t, ep.String(), restoredEP.String())
+	require.Equal(t, ep.String(), restoredEP.String())
 
 	// Check that the directory for failed restore was removed.
 	fileExists := func(fileName string) bool {
@@ -210,12 +219,10 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	s := setupEndpointSuite(b)
 
-	b.StopTimer()
-
 	// For this benchmark, the real linux datapath is necessary to properly
 	// serialize config files to disk and benchmark the restore.
 
-	epsWanted, _ := s.createEndpoints()
+	epsWanted, _ := s.createEndpoints(b)
 	tmpDir := b.TempDir()
 
 	cwd, err := os.Getwd()
@@ -238,11 +245,10 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 
 		epsNames = append(epsNames, ep.DirectoryPath())
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epsNames)
-		require.Equal(b, len(epsWanted), len(eps))
+	for b.Loop() {
+		eps := ReadEPsFromDirNames(context.TODO(), &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+		require.Len(b, eps, len(epsWanted))
 	}
 }
 
@@ -265,6 +271,17 @@ func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {
 	slices.Sort(completeWanted)
 	slices.Sort(incomplete)
 	slices.Sort(incompleteWanted)
-	require.EqualValues(t, completeWanted, complete)
-	require.EqualValues(t, incompleteWanted, incomplete)
+	require.Equal(t, completeWanted, complete)
+	require.Equal(t, incompleteWanted, incomplete)
 }
+
+type fakeParser struct {
+	orchestrator datapath.Orchestrator
+	policyRepo   policy.PolicyRepository
+}
+
+func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
+	return ParseEndpoint(nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, epJSON)
+}
+
+var _ EndpointParser = &fakeParser{}

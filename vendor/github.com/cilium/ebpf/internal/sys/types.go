@@ -3,6 +3,7 @@
 package sys
 
 import (
+	"structs"
 	"unsafe"
 )
 
@@ -26,6 +27,7 @@ const (
 	BPF_FIB_LKUP_RET_UNREACHABLE               = 2
 	BPF_FIB_LKUP_RET_UNSUPP_LWT                = 6
 	BPF_FIB_LOOKUP_DIRECT                      = 1
+	BPF_FIB_LOOKUP_MARK                        = 32
 	BPF_FIB_LOOKUP_OUTPUT                      = 2
 	BPF_FIB_LOOKUP_SKIP_NEIGH                  = 4
 	BPF_FIB_LOOKUP_SRC                         = 16
@@ -68,6 +70,7 @@ const (
 	BPF_F_NO_COMMON_LRU                        = 2
 	BPF_F_NO_PREALLOC                          = 1
 	BPF_F_NO_TUNNEL_KEY                        = 16
+	BPF_F_NO_USER_CONV                         = 262144
 	BPF_F_NUMA_NODE                            = 4
 	BPF_F_PATH_FD                              = 16384
 	BPF_F_PEER                                 = 4
@@ -77,17 +80,20 @@ const (
 	BPF_F_RDONLY_PROG                          = 128
 	BPF_F_RECOMPUTE_CSUM                       = 1
 	BPF_F_REUSE_STACKID                        = 1024
+	BPF_F_SEGV_ON_FAULT                        = 131072
 	BPF_F_SEQ_NUMBER                           = 8
 	BPF_F_SKIP_FIELD_MASK                      = 255
 	BPF_F_STACK_BUILD_ID                       = 32
 	BPF_F_SYSCTL_BASE_NAME                     = 1
 	BPF_F_TIMER_ABS                            = 1
 	BPF_F_TIMER_CPU_PIN                        = 2
+	BPF_F_TOKEN_FD                             = 65536
 	BPF_F_TUNINFO_FLAGS                        = 16
 	BPF_F_TUNINFO_IPV6                         = 1
 	BPF_F_UPROBE_MULTI_RETURN                  = 1
 	BPF_F_USER_BUILD_ID                        = 2048
 	BPF_F_USER_STACK                           = 256
+	BPF_F_VTYPE_BTF_OBJ_FD                     = 32768
 	BPF_F_WRONLY                               = 16
 	BPF_F_WRONLY_PROG                          = 256
 	BPF_F_ZERO_CSUM_TX                         = 2
@@ -117,6 +123,9 @@ const (
 	BPF_RINGBUF_BUSY_BIT                       = 2147483648
 	BPF_RINGBUF_DISCARD_BIT                    = 1073741824
 	BPF_RINGBUF_HDR_SZ                         = 8
+	BPF_SKB_CLOCK_MONOTONIC                    = 1
+	BPF_SKB_CLOCK_REALTIME                     = 0
+	BPF_SKB_CLOCK_TAI                          = 2
 	BPF_SKB_TSTAMP_DELIVERY_MONO               = 1
 	BPF_SKB_TSTAMP_UNSPEC                      = 0
 	BPF_SK_LOOKUP_F_NO_REUSEPORT               = 2
@@ -146,8 +155,6 @@ const (
 	BPF_SOCK_OPS_VOID                          = 0
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB              = 15
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64
-	BPF_STRUCT_OPS_TYPE_bpf_dummy_ops          = 0
-	BPF_STRUCT_OPS_TYPE_tcp_congestion_ops     = 1
 	BPF_TASK_ITER_ALL_PROCS                    = 0
 	BPF_TASK_ITER_ALL_THREADS                  = 1
 	BPF_TASK_ITER_PROC_THREADS                 = 2
@@ -236,7 +243,8 @@ const (
 	BPF_CGROUP_UNIX_GETSOCKNAME        AttachType = 53
 	BPF_NETKIT_PRIMARY                 AttachType = 54
 	BPF_NETKIT_PEER                    AttachType = 55
-	__MAX_BPF_ATTACH_TYPE              AttachType = 56
+	BPF_TRACE_KPROBE_SESSION           AttachType = 56
+	__MAX_BPF_ATTACH_TYPE              AttachType = 57
 )
 
 type Cmd uint32
@@ -279,6 +287,8 @@ const (
 	BPF_ITER_CREATE                 Cmd = 33
 	BPF_LINK_DETACH                 Cmd = 34
 	BPF_PROG_BIND_MAP               Cmd = 35
+	BPF_TOKEN_CREATE                Cmd = 36
+	__MAX_BPF_CMD                   Cmd = 37
 )
 
 type FunctionId uint32
@@ -523,7 +533,8 @@ const (
 	BPF_LINK_TYPE_TCX            LinkType = 11
 	BPF_LINK_TYPE_UPROBE_MULTI   LinkType = 12
 	BPF_LINK_TYPE_NETKIT         LinkType = 13
-	__MAX_BPF_LINK_TYPE          LinkType = 14
+	BPF_LINK_TYPE_SOCKMAP        LinkType = 14
+	__MAX_BPF_LINK_TYPE          LinkType = 15
 )
 
 type MapType uint32
@@ -564,6 +575,8 @@ const (
 	BPF_MAP_TYPE_BLOOM_FILTER                     MapType = 30
 	BPF_MAP_TYPE_USER_RINGBUF                     MapType = 31
 	BPF_MAP_TYPE_CGRP_STORAGE                     MapType = 32
+	BPF_MAP_TYPE_ARENA                            MapType = 33
+	__MAX_BPF_MAP_TYPE                            MapType = 34
 )
 
 type ObjType uint32
@@ -623,6 +636,7 @@ const (
 	BPF_PROG_TYPE_SK_LOOKUP               ProgType = 30
 	BPF_PROG_TYPE_SYSCALL                 ProgType = 31
 	BPF_PROG_TYPE_NETFILTER               ProgType = 32
+	__MAX_BPF_PROG_TYPE                   ProgType = 33
 )
 
 type RetCode uint32
@@ -676,20 +690,23 @@ const (
 )
 
 type BtfInfo struct {
-	Btf       Pointer
+	structs.HostLayout
+	Btf       TypedPointer[uint8]
 	BtfSize   uint32
 	Id        BTFID
-	Name      Pointer
+	Name      TypedPointer[uint8]
 	NameLen   uint32
 	KernelBtf uint32
 }
 
 type FuncInfo struct {
+	structs.HostLayout
 	InsnOff uint32
 	TypeId  uint32
 }
 
 type LineInfo struct {
+	structs.HostLayout
 	InsnOff     uint32
 	FileNameOff uint32
 	LineOff     uint32
@@ -697,6 +714,7 @@ type LineInfo struct {
 }
 
 type LinkInfo struct {
+	structs.HostLayout
 	Type   LinkType
 	Id     LinkID
 	ProgId uint32
@@ -705,8 +723,9 @@ type LinkInfo struct {
 }
 
 type MapInfo struct {
+	structs.HostLayout
 	Type                  uint32
-	Id                    uint32
+	Id                    MapID
 	KeySize               uint32
 	ValueSize             uint32
 	MaxEntries            uint32
@@ -719,22 +738,23 @@ type MapInfo struct {
 	BtfId                 uint32
 	BtfKeyTypeId          TypeID
 	BtfValueTypeId        TypeID
-	_                     [4]byte
+	BtfVmlinuxId          uint32
 	MapExtra              uint64
 }
 
 type ProgInfo struct {
+	structs.HostLayout
 	Type                 uint32
 	Id                   uint32
 	Tag                  [8]uint8
 	JitedProgLen         uint32
 	XlatedProgLen        uint32
-	JitedProgInsns       Pointer
-	XlatedProgInsns      Pointer
+	JitedProgInsns       TypedPointer[uint8]
+	XlatedProgInsns      TypedPointer[uint8]
 	LoadTime             uint64
 	CreatedByUid         uint32
 	NrMapIds             uint32
-	MapIds               Pointer
+	MapIds               TypedPointer[MapID]
 	Name                 ObjName
 	Ifindex              uint32
 	_                    [4]byte /* unsupported bitfield */
@@ -742,15 +762,15 @@ type ProgInfo struct {
 	NetnsIno             uint64
 	NrJitedKsyms         uint32
 	NrJitedFuncLens      uint32
-	JitedKsyms           Pointer
-	JitedFuncLens        Pointer
+	JitedKsyms           TypedPointer[uint64]
+	JitedFuncLens        TypedPointer[uint32]
 	BtfId                BTFID
 	FuncInfoRecSize      uint32
-	FuncInfo             Pointer
+	FuncInfo             TypedPointer[uint8]
 	NrFuncInfo           uint32
 	NrLineInfo           uint32
-	LineInfo             Pointer
-	JitedLineInfo        Pointer
+	LineInfo             TypedPointer[uint8]
+	JitedLineInfo        TypedPointer[uint64]
 	NrJitedLineInfo      uint32
 	LineInfoRecSize      uint32
 	JitedLineInfoRecSize uint32
@@ -766,6 +786,7 @@ type ProgInfo struct {
 }
 
 type SkLookup struct {
+	structs.HostLayout
 	Cookie         uint64
 	Family         uint32
 	Protocol       uint32
@@ -781,6 +802,7 @@ type SkLookup struct {
 }
 
 type XdpMd struct {
+	structs.HostLayout
 	Data           uint32
 	DataEnd        uint32
 	DataMeta       uint32
@@ -789,7 +811,10 @@ type XdpMd struct {
 	EgressIfindex  uint32
 }
 
-type BtfGetFdByIdAttr struct{ Id uint32 }
+type BtfGetFdByIdAttr struct {
+	structs.HostLayout
+	Id uint32
+}
 
 func BtfGetFdById(attr *BtfGetFdByIdAttr) (*FD, error) {
 	fd, err := BPF(BPF_BTF_GET_FD_BY_ID, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
@@ -800,6 +825,7 @@ func BtfGetFdById(attr *BtfGetFdByIdAttr) (*FD, error) {
 }
 
 type BtfGetNextIdAttr struct {
+	structs.HostLayout
 	Id     BTFID
 	NextId BTFID
 }
@@ -810,12 +836,15 @@ func BtfGetNextId(attr *BtfGetNextIdAttr) error {
 }
 
 type BtfLoadAttr struct {
-	Btf            Pointer
-	BtfLogBuf      Pointer
+	structs.HostLayout
+	Btf            TypedPointer[uint8]
+	BtfLogBuf      TypedPointer[uint8]
 	BtfSize        uint32
 	BtfLogSize     uint32
 	BtfLogLevel    uint32
 	BtfLogTrueSize uint32
+	BtfFlags       uint32
+	BtfTokenFd     int32
 }
 
 func BtfLoad(attr *BtfLoadAttr) (*FD, error) {
@@ -826,7 +855,10 @@ func BtfLoad(attr *BtfLoadAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
-type EnableStatsAttr struct{ Type uint32 }
+type EnableStatsAttr struct {
+	structs.HostLayout
+	Type uint32
+}
 
 func EnableStats(attr *EnableStatsAttr) (*FD, error) {
 	fd, err := BPF(BPF_ENABLE_STATS, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
@@ -837,6 +869,7 @@ func EnableStats(attr *EnableStatsAttr) (*FD, error) {
 }
 
 type IterCreateAttr struct {
+	structs.HostLayout
 	LinkFd uint32
 	Flags  uint32
 }
@@ -850,6 +883,7 @@ func IterCreate(attr *IterCreateAttr) (*FD, error) {
 }
 
 type LinkCreateAttr struct {
+	structs.HostLayout
 	ProgFd      uint32
 	TargetFd    uint32
 	AttachType  AttachType
@@ -867,6 +901,7 @@ func LinkCreate(attr *LinkCreateAttr) (*FD, error) {
 }
 
 type LinkCreateIterAttr struct {
+	structs.HostLayout
 	ProgFd      uint32
 	TargetFd    uint32
 	AttachType  AttachType
@@ -885,15 +920,16 @@ func LinkCreateIter(attr *LinkCreateIterAttr) (*FD, error) {
 }
 
 type LinkCreateKprobeMultiAttr struct {
+	structs.HostLayout
 	ProgFd           uint32
 	TargetFd         uint32
 	AttachType       AttachType
 	Flags            uint32
 	KprobeMultiFlags uint32
 	Count            uint32
-	Syms             Pointer
-	Addrs            Pointer
-	Cookies          Pointer
+	Syms             StringSlicePointer
+	Addrs            TypedPointer[uintptr]
+	Cookies          TypedPointer[uint64]
 	_                [16]byte
 }
 
@@ -906,6 +942,7 @@ func LinkCreateKprobeMulti(attr *LinkCreateKprobeMultiAttr) (*FD, error) {
 }
 
 type LinkCreateNetfilterAttr struct {
+	structs.HostLayout
 	ProgFd         uint32
 	TargetFd       uint32
 	AttachType     AttachType
@@ -926,6 +963,7 @@ func LinkCreateNetfilter(attr *LinkCreateNetfilterAttr) (*FD, error) {
 }
 
 type LinkCreateNetkitAttr struct {
+	structs.HostLayout
 	ProgFd           uint32
 	TargetIfindex    uint32
 	AttachType       AttachType
@@ -945,6 +983,7 @@ func LinkCreateNetkit(attr *LinkCreateNetkitAttr) (*FD, error) {
 }
 
 type LinkCreatePerfEventAttr struct {
+	structs.HostLayout
 	ProgFd     uint32
 	TargetFd   uint32
 	AttachType AttachType
@@ -962,6 +1001,7 @@ func LinkCreatePerfEvent(attr *LinkCreatePerfEventAttr) (*FD, error) {
 }
 
 type LinkCreateTcxAttr struct {
+	structs.HostLayout
 	ProgFd           uint32
 	TargetIfindex    uint32
 	AttachType       AttachType
@@ -981,6 +1021,7 @@ func LinkCreateTcx(attr *LinkCreateTcxAttr) (*FD, error) {
 }
 
 type LinkCreateTracingAttr struct {
+	structs.HostLayout
 	ProgFd      uint32
 	TargetFd    uint32
 	AttachType  AttachType
@@ -1000,14 +1041,15 @@ func LinkCreateTracing(attr *LinkCreateTracingAttr) (*FD, error) {
 }
 
 type LinkCreateUprobeMultiAttr struct {
+	structs.HostLayout
 	ProgFd           uint32
 	TargetFd         uint32
 	AttachType       AttachType
 	Flags            uint32
-	Path             Pointer
-	Offsets          Pointer
-	RefCtrOffsets    Pointer
-	Cookies          Pointer
+	Path             StringPointer
+	Offsets          TypedPointer[uint64]
+	RefCtrOffsets    TypedPointer[uint64]
+	Cookies          TypedPointer[uint64]
 	Count            uint32
 	UprobeMultiFlags uint32
 	Pid              uint32
@@ -1022,7 +1064,10 @@ func LinkCreateUprobeMulti(attr *LinkCreateUprobeMultiAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
-type LinkGetFdByIdAttr struct{ Id LinkID }
+type LinkGetFdByIdAttr struct {
+	structs.HostLayout
+	Id LinkID
+}
 
 func LinkGetFdById(attr *LinkGetFdByIdAttr) (*FD, error) {
 	fd, err := BPF(BPF_LINK_GET_FD_BY_ID, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
@@ -1033,6 +1078,7 @@ func LinkGetFdById(attr *LinkGetFdByIdAttr) (*FD, error) {
 }
 
 type LinkGetNextIdAttr struct {
+	structs.HostLayout
 	Id     LinkID
 	NextId LinkID
 }
@@ -1043,6 +1089,7 @@ func LinkGetNextId(attr *LinkGetNextIdAttr) error {
 }
 
 type LinkUpdateAttr struct {
+	structs.HostLayout
 	LinkFd    uint32
 	NewProgFd uint32
 	Flags     uint32
@@ -1055,6 +1102,7 @@ func LinkUpdate(attr *LinkUpdateAttr) error {
 }
 
 type MapCreateAttr struct {
+	structs.HostLayout
 	MapType               MapType
 	KeySize               uint32
 	ValueSize             uint32
@@ -1069,6 +1117,8 @@ type MapCreateAttr struct {
 	BtfValueTypeId        TypeID
 	BtfVmlinuxValueTypeId TypeID
 	MapExtra              uint64
+	ValueTypeBtfObjFd     int32
+	MapTokenFd            int32
 }
 
 func MapCreate(attr *MapCreateAttr) (*FD, error) {
@@ -1080,6 +1130,7 @@ func MapCreate(attr *MapCreateAttr) (*FD, error) {
 }
 
 type MapDeleteBatchAttr struct {
+	structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1096,6 +1147,7 @@ func MapDeleteBatch(attr *MapDeleteBatchAttr) error {
 }
 
 type MapDeleteElemAttr struct {
+	structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1108,14 +1160,20 @@ func MapDeleteElem(attr *MapDeleteElemAttr) error {
 	return err
 }
 
-type MapFreezeAttr struct{ MapFd uint32 }
+type MapFreezeAttr struct {
+	structs.HostLayout
+	MapFd uint32
+}
 
 func MapFreeze(attr *MapFreezeAttr) error {
 	_, err := BPF(BPF_MAP_FREEZE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
 	return err
 }
 
-type MapGetFdByIdAttr struct{ Id uint32 }
+type MapGetFdByIdAttr struct {
+	structs.HostLayout
+	Id uint32
+}
 
 func MapGetFdById(attr *MapGetFdByIdAttr) (*FD, error) {
 	fd, err := BPF(BPF_MAP_GET_FD_BY_ID, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
@@ -1126,6 +1184,7 @@ func MapGetFdById(attr *MapGetFdByIdAttr) (*FD, error) {
 }
 
 type MapGetNextIdAttr struct {
+	structs.HostLayout
 	Id     uint32
 	NextId uint32
 }
@@ -1136,6 +1195,7 @@ func MapGetNextId(attr *MapGetNextIdAttr) error {
 }
 
 type MapGetNextKeyAttr struct {
+	structs.HostLayout
 	MapFd   uint32
 	_       [4]byte
 	Key     Pointer
@@ -1148,6 +1208,7 @@ func MapGetNextKey(attr *MapGetNextKeyAttr) error {
 }
 
 type MapLookupAndDeleteBatchAttr struct {
+	structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1164,6 +1225,7 @@ func MapLookupAndDeleteBatch(attr *MapLookupAndDeleteBatchAttr) error {
 }
 
 type MapLookupAndDeleteElemAttr struct {
+	structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1177,6 +1239,7 @@ func MapLookupAndDeleteElem(attr *MapLookupAndDeleteElemAttr) error {
 }
 
 type MapLookupBatchAttr struct {
+	structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1193,6 +1256,7 @@ func MapLookupBatch(attr *MapLookupBatchAttr) error {
 }
 
 type MapLookupElemAttr struct {
+	structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1206,6 +1270,7 @@ func MapLookupElem(attr *MapLookupElemAttr) error {
 }
 
 type MapUpdateBatchAttr struct {
+	structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1222,6 +1287,7 @@ func MapUpdateBatch(attr *MapUpdateBatchAttr) error {
 }
 
 type MapUpdateElemAttr struct {
+	structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1235,7 +1301,8 @@ func MapUpdateElem(attr *MapUpdateElemAttr) error {
 }
 
 type ObjGetAttr struct {
-	Pathname  Pointer
+	structs.HostLayout
+	Pathname  StringPointer
 	BpfFd     uint32
 	FileFlags uint32
 	PathFd    int32
@@ -1251,6 +1318,7 @@ func ObjGet(attr *ObjGetAttr) (*FD, error) {
 }
 
 type ObjGetInfoByFdAttr struct {
+	structs.HostLayout
 	BpfFd   uint32
 	InfoLen uint32
 	Info    Pointer
@@ -1262,7 +1330,8 @@ func ObjGetInfoByFd(attr *ObjGetInfoByFdAttr) error {
 }
 
 type ObjPinAttr struct {
-	Pathname  Pointer
+	structs.HostLayout
+	Pathname  StringPointer
 	BpfFd     uint32
 	FileFlags uint32
 	PathFd    int32
@@ -1275,6 +1344,7 @@ func ObjPin(attr *ObjPinAttr) error {
 }
 
 type ProgAttachAttr struct {
+	structs.HostLayout
 	TargetFdOrIfindex uint32
 	AttachBpfFd       uint32
 	AttachType        uint32
@@ -1290,6 +1360,7 @@ func ProgAttach(attr *ProgAttachAttr) error {
 }
 
 type ProgBindMapAttr struct {
+	structs.HostLayout
 	ProgFd uint32
 	MapFd  uint32
 	Flags  uint32
@@ -1301,6 +1372,7 @@ func ProgBindMap(attr *ProgBindMapAttr) error {
 }
 
 type ProgDetachAttr struct {
+	structs.HostLayout
 	TargetFdOrIfindex uint32
 	AttachBpfFd       uint32
 	AttachType        uint32
@@ -1315,7 +1387,10 @@ func ProgDetach(attr *ProgDetachAttr) error {
 	return err
 }
 
-type ProgGetFdByIdAttr struct{ Id uint32 }
+type ProgGetFdByIdAttr struct {
+	structs.HostLayout
+	Id uint32
+}
 
 func ProgGetFdById(attr *ProgGetFdByIdAttr) (*FD, error) {
 	fd, err := BPF(BPF_PROG_GET_FD_BY_ID, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
@@ -1326,6 +1401,7 @@ func ProgGetFdById(attr *ProgGetFdByIdAttr) (*FD, error) {
 }
 
 type ProgGetNextIdAttr struct {
+	structs.HostLayout
 	Id     uint32
 	NextId uint32
 }
@@ -1336,13 +1412,14 @@ func ProgGetNextId(attr *ProgGetNextIdAttr) error {
 }
 
 type ProgLoadAttr struct {
+	structs.HostLayout
 	ProgType           ProgType
 	InsnCnt            uint32
-	Insns              Pointer
-	License            Pointer
+	Insns              TypedPointer[uint8]
+	License            StringPointer
 	LogLevel           LogLevel
 	LogSize            uint32
-	LogBuf             Pointer
+	LogBuf             TypedPointer[uint8]
 	KernVersion        uint32
 	ProgFlags          uint32
 	ProgName           ObjName
@@ -1350,18 +1427,20 @@ type ProgLoadAttr struct {
 	ExpectedAttachType AttachType
 	ProgBtfFd          uint32
 	FuncInfoRecSize    uint32
-	FuncInfo           Pointer
+	FuncInfo           TypedPointer[uint8]
 	FuncInfoCnt        uint32
 	LineInfoRecSize    uint32
-	LineInfo           Pointer
+	LineInfo           TypedPointer[uint8]
 	LineInfoCnt        uint32
 	AttachBtfId        TypeID
 	AttachBtfObjFd     uint32
 	CoreReloCnt        uint32
-	FdArray            Pointer
-	CoreRelos          Pointer
+	FdArray            TypedPointer[int32]
+	CoreRelos          TypedPointer[uint8]
 	CoreReloRecSize    uint32
 	LogTrueSize        uint32
+	ProgTokenFd        int32
+	_                  [4]byte
 }
 
 func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
@@ -1373,16 +1452,17 @@ func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
 }
 
 type ProgQueryAttr struct {
+	structs.HostLayout
 	TargetFdOrIfindex uint32
 	AttachType        AttachType
 	QueryFlags        uint32
 	AttachFlags       uint32
-	ProgIds           Pointer
+	ProgIds           TypedPointer[ProgramID]
 	Count             uint32
 	_                 [4]byte
-	ProgAttachFlags   Pointer
-	LinkIds           Pointer
-	LinkAttachFlags   Pointer
+	ProgAttachFlags   TypedPointer[ProgramID]
+	LinkIds           TypedPointer[LinkID]
+	LinkAttachFlags   TypedPointer[LinkID]
 	Revision          uint64
 }
 
@@ -1392,18 +1472,19 @@ func ProgQuery(attr *ProgQueryAttr) error {
 }
 
 type ProgRunAttr struct {
+	structs.HostLayout
 	ProgFd      uint32
 	Retval      uint32
 	DataSizeIn  uint32
 	DataSizeOut uint32
-	DataIn      Pointer
-	DataOut     Pointer
+	DataIn      TypedPointer[uint8]
+	DataOut     TypedPointer[uint8]
 	Repeat      uint32
 	Duration    uint32
 	CtxSizeIn   uint32
 	CtxSizeOut  uint32
-	CtxIn       Pointer
-	CtxOut      Pointer
+	CtxIn       TypedPointer[uint8]
+	CtxOut      TypedPointer[uint8]
 	Flags       uint32
 	Cpu         uint32
 	BatchSize   uint32
@@ -1416,9 +1497,11 @@ func ProgRun(attr *ProgRunAttr) error {
 }
 
 type RawTracepointOpenAttr struct {
-	Name   Pointer
+	structs.HostLayout
+	Name   StringPointer
 	ProgFd uint32
 	_      [4]byte
+	Cookie uint64
 }
 
 func RawTracepointOpen(attr *RawTracepointOpenAttr) (*FD, error) {
@@ -1430,6 +1513,7 @@ func RawTracepointOpen(attr *RawTracepointOpenAttr) (*FD, error) {
 }
 
 type CgroupLinkInfo struct {
+	structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1440,42 +1524,47 @@ type CgroupLinkInfo struct {
 }
 
 type IterLinkInfo struct {
+	structs.HostLayout
 	Type          LinkType
 	Id            LinkID
 	ProgId        uint32
 	_             [4]byte
-	TargetName    Pointer
+	TargetName    TypedPointer[uint8]
 	TargetNameLen uint32
 }
 
 type KprobeLinkInfo struct {
+	structs.HostLayout
 	Type          LinkType
 	Id            LinkID
 	ProgId        uint32
 	_             [4]byte
 	PerfEventType PerfEventType
 	_             [4]byte
-	FuncName      Pointer
+	FuncName      TypedPointer[uint8]
 	NameLen       uint32
 	Offset        uint32
 	Addr          uint64
 	Missed        uint64
-	_             [8]byte
+	Cookie        uint64
 }
 
 type KprobeMultiLinkInfo struct {
-	Type   LinkType
-	Id     LinkID
-	ProgId uint32
-	_      [4]byte
-	Addrs  Pointer
-	Count  uint32
-	Flags  uint32
-	Missed uint64
-	_      [24]byte
+	structs.HostLayout
+	Type    LinkType
+	Id      LinkID
+	ProgId  uint32
+	_       [4]byte
+	Addrs   TypedPointer[uint64]
+	Count   uint32
+	Flags   uint32
+	Missed  uint64
+	Cookies TypedPointer[uint64]
+	_       [16]byte
 }
 
 type NetNsLinkInfo struct {
+	structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1486,6 +1575,7 @@ type NetNsLinkInfo struct {
 }
 
 type NetfilterLinkInfo struct {
+	structs.HostLayout
 	Type     LinkType
 	Id       LinkID
 	ProgId   uint32
@@ -1498,6 +1588,7 @@ type NetfilterLinkInfo struct {
 }
 
 type NetkitLinkInfo struct {
+	structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1508,6 +1599,7 @@ type NetkitLinkInfo struct {
 }
 
 type PerfEventLinkInfo struct {
+	structs.HostLayout
 	Type          LinkType
 	Id            LinkID
 	ProgId        uint32
@@ -1516,16 +1608,18 @@ type PerfEventLinkInfo struct {
 }
 
 type RawTracepointLinkInfo struct {
+	structs.HostLayout
 	Type      LinkType
 	Id        LinkID
 	ProgId    uint32
 	_         [4]byte
-	TpName    Pointer
+	TpName    TypedPointer[uint8]
 	TpNameLen uint32
 	_         [36]byte
 }
 
 type TcxLinkInfo struct {
+	structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1536,6 +1630,7 @@ type TcxLinkInfo struct {
 }
 
 type TracingLinkInfo struct {
+	structs.HostLayout
 	Type        LinkType
 	Id          LinkID
 	ProgId      uint32
@@ -1547,6 +1642,7 @@ type TracingLinkInfo struct {
 }
 
 type XDPLinkInfo struct {
+	structs.HostLayout
 	Type    LinkType
 	Id      LinkID
 	ProgId  uint32

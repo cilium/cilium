@@ -7,18 +7,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
@@ -48,13 +49,14 @@ type params struct {
 	cell.In
 
 	Lifecycle           cell.Lifecycle
-	Logger              logrus.FieldLogger
+	Logger              *slog.Logger
 	L2AnnouncementTable statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
 	JobGroup            job.Group
 	Health              cell.Health
+	GARPSender          garp.Sender
 }
 
 type linkByNamer interface {
@@ -98,7 +100,7 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) err
 	// At startup, do an initial full reconciliation
 	err = p.fullReconciliation(p.params.StateDB.ReadTxn())
 	if err != nil {
-		log.WithError(err).Error("Error(s) while reconciling l2 responder map")
+		log.Error("Error(s) while reconciling l2 responder map", logfields.Error, err)
 	}
 
 	for ctx.Err() == nil {
@@ -138,7 +140,7 @@ func (p *l2ResponderReconciler) cycle(
 			return nil
 		}
 
-		err = garpOnNewEntry(arMap, e.IP, idx)
+		err = garpOnNewEntry(arMap, p.params.GARPSender, e.IP, idx)
 		if err != nil {
 			return err
 		}
@@ -157,7 +159,7 @@ func (p *l2ResponderReconciler) cycle(
 	for change := range changes {
 		err := process(change.Object, change.Deleted)
 		if err != nil {
-			log.WithError(err).Error("error during partial reconciliation")
+			log.Error("error during partial reconciliation", logfields.Error, err)
 			break
 		}
 	}
@@ -177,7 +179,7 @@ func (p *l2ResponderReconciler) cycle(
 		// entries in the table for full reconciliation.
 		err := p.fullReconciliation(txn)
 		if err != nil {
-			log.WithError(err).Error("Error(s) while full reconciling l2 responder map")
+			log.Error("Error(s) while full reconciling l2 responder map", logfields.Error, err)
 		}
 	}
 }
@@ -243,7 +245,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			continue
 		}
 
-		err = garpOnNewEntry(arMap, netip.AddrFrom4(key.IP), int(key.IfIndex))
+		err = garpOnNewEntry(arMap, p.params.GARPSender, netip.AddrFrom4(key.IP), int(key.IfIndex))
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -259,13 +261,18 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 // If the given IP and network interface index does not yet exist in the l2 responder map,
 // a failover might have taken place. Therefor we should send out a gARP reply to let
 // the local network know the IP has moved to minimize downtime due to ARP caching.
-func garpOnNewEntry(arMap l2respondermap.Map, ip netip.Addr, ifIndex int) error {
+func garpOnNewEntry(arMap l2respondermap.Map, sender garp.Sender, ip netip.Addr, ifIndex int) error {
 	_, err := arMap.Lookup(ip, uint32(ifIndex))
 	if !errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 
-	err = garp.SendOnInterfaceIdx(ifIndex, ip)
+	iface, err := sender.InterfaceByIndex(ifIndex)
+	if err != nil {
+		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
+	}
+
+	err = sender.Send(iface, ip)
 	if err != nil {
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}

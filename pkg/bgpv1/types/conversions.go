@@ -5,7 +5,9 @@ package types
 
 import (
 	"fmt"
+	"net/netip"
 
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -259,9 +261,210 @@ func ParseSafi(s string) Safi {
 	return ret
 }
 
-func ToAgentFamily(fam v2alpha1.CiliumBGPFamily) Family {
+func ToAgentFamily(fam v2.CiliumBGPFamily) Family {
 	return Family{
 		Afi:  ParseAfi(fam.Afi),
 		Safi: ParseSafi(fam.Safi),
 	}
+}
+
+// ToNeighborV1 converts a CiliumBGPNeighbor to Neighbor which can be used
+// with Router API. The caller must ensure that the an is not nil.
+func ToNeighborV1(an *v2alpha1.CiliumBGPNeighbor, password string) *Neighbor {
+	n := &Neighbor{}
+
+	n.Address = toPeerAddressV1(an.PeerAddress)
+	n.ASN = uint32(an.PeerASN)
+	n.AuthPassword = password
+	n.EbgpMultihop = toEbgpMultihopV1(an.EBGPMultihopTTL)
+	n.Timers = toNeighborTimersV1(
+		an.ConnectRetryTimeSeconds,
+		an.HoldTimeSeconds,
+		an.KeepAliveTimeSeconds,
+	)
+	n.Transport = toNeighborTransportV1(an.PeerPort)
+	n.GracefulRestart = toNeighborGracefulRestartV1(an.GracefulRestart)
+	n.AfiSafis = toNeighborAfiSafisV1(an.Families)
+
+	return n
+}
+
+func toPeerAddressV1(apiPeerAddress string) netip.Addr {
+	// API uses CIDR notation, but gobgp uses IP address notation.
+	prefix, err := netip.ParsePrefix(apiPeerAddress)
+	if err != nil {
+		return netip.Addr{}
+	}
+	return prefix.Addr()
+}
+
+func toEbgpMultihopV1(apiTTL *int32) *NeighborEbgpMultihop {
+	if apiTTL == nil {
+		return nil
+	}
+	return &NeighborEbgpMultihop{
+		TTL: uint32(*apiTTL),
+	}
+}
+
+func toNeighborTimersV1(connectRetry, holdTime, keepaliveInterval *int32) *NeighborTimers {
+	if connectRetry == nil && holdTime == nil && keepaliveInterval == nil {
+		return nil
+	}
+
+	timers := &NeighborTimers{}
+
+	if connectRetry != nil {
+		timers.ConnectRetry = uint64(*connectRetry)
+	}
+
+	if holdTime != nil {
+		timers.HoldTime = uint64(*holdTime)
+	}
+
+	if keepaliveInterval != nil {
+		timers.KeepaliveInterval = uint64(*keepaliveInterval)
+	}
+
+	return timers
+}
+
+func toNeighborTransportV1(apiPeerPort *int32) *NeighborTransport {
+	if apiPeerPort == nil {
+		return nil
+	}
+	return &NeighborTransport{
+		RemotePort: uint32(*apiPeerPort),
+	}
+}
+
+func toNeighborGracefulRestartV1(apiGracefulRestart *v2alpha1.CiliumBGPNeighborGracefulRestart) *NeighborGracefulRestart {
+	if apiGracefulRestart == nil || apiGracefulRestart.RestartTimeSeconds == nil {
+		return nil
+	}
+	return &NeighborGracefulRestart{
+		Enabled:     apiGracefulRestart.Enabled,
+		RestartTime: uint32(*apiGracefulRestart.RestartTimeSeconds),
+	}
+}
+
+func toNeighborAfiSafisV1(apiFamilies []v2alpha1.CiliumBGPFamily) []*Family {
+	if len(apiFamilies) == 0 {
+		return nil
+	}
+
+	afisafis := make([]*Family, 0, len(apiFamilies))
+
+	for _, apiFamily := range apiFamilies {
+		afisafis = append(afisafis, &Family{
+			Afi:  ParseAfi(apiFamily.Afi),
+			Safi: ParseSafi(apiFamily.Safi),
+		})
+	}
+
+	return afisafis
+}
+
+// ToNeighborV2 converts a CiliumBGPNodePeer to Neighbor which can be used
+// with Router API. The caller must ensure that the np, np.PeerAddress,
+// np.PeerASN and pc are not nil.
+func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string) *Neighbor {
+	neighbor := &Neighbor{}
+
+	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
+	neighbor.ASN = uint32(*np.PeerASN)
+	neighbor.AuthPassword = password
+	neighbor.EbgpMultihop = toNeighborEbgpMultihopV2(pc.EBGPMultihop)
+	neighbor.Timers = toNeighborTimersV2(pc.Timers)
+	neighbor.Transport = toNeighborTransportV2(np.LocalAddress, pc.Transport)
+	neighbor.GracefulRestart = toNeighborGracefulRestartV2(pc.GracefulRestart)
+	neighbor.AfiSafis = toNeighborAfiSafisV2(pc.Families)
+
+	return neighbor
+}
+
+func toPeerAddressV2(peerAddress string) netip.Addr {
+	addr, err := netip.ParseAddr(peerAddress)
+	if err != nil {
+		return netip.Addr{}
+	}
+	return addr
+}
+
+func toNeighborEbgpMultihopV2(ebgpMultihop *int32) *NeighborEbgpMultihop {
+	if ebgpMultihop == nil || *ebgpMultihop <= 1 {
+		return nil
+	}
+	return &NeighborEbgpMultihop{
+		TTL: uint32(*ebgpMultihop),
+	}
+}
+
+func toNeighborTimersV2(apiTimers *v2.CiliumBGPTimers) *NeighborTimers {
+	if apiTimers == nil {
+		return nil
+	}
+
+	timers := &NeighborTimers{}
+
+	if apiTimers.ConnectRetryTimeSeconds != nil {
+		timers.ConnectRetry = uint64(*apiTimers.ConnectRetryTimeSeconds)
+	}
+
+	if apiTimers.HoldTimeSeconds != nil {
+		timers.HoldTime = uint64(*apiTimers.HoldTimeSeconds)
+	}
+
+	if apiTimers.KeepAliveTimeSeconds != nil {
+		timers.KeepaliveInterval = uint64(*apiTimers.KeepAliveTimeSeconds)
+	}
+
+	return timers
+}
+
+func toNeighborTransportV2(apiLocalAddress *string, apiTransport *v2.CiliumBGPTransport) *NeighborTransport {
+	if apiLocalAddress == nil && apiTransport == nil {
+		return nil
+	}
+
+	transport := &NeighborTransport{}
+
+	if apiLocalAddress != nil {
+		transport.LocalAddress = *apiLocalAddress
+	}
+
+	if apiTransport != nil {
+		if apiTransport.PeerPort != nil {
+			transport.RemotePort = uint32(*apiTransport.PeerPort)
+		}
+	}
+
+	return transport
+}
+
+func toNeighborGracefulRestartV2(apiGR *v2.CiliumBGPNeighborGracefulRestart) *NeighborGracefulRestart {
+	if apiGR == nil || apiGR.RestartTimeSeconds == nil {
+		return nil
+	}
+	return &NeighborGracefulRestart{
+		Enabled:     apiGR.Enabled,
+		RestartTime: uint32(*apiGR.RestartTimeSeconds),
+	}
+}
+
+func toNeighborAfiSafisV2(families []v2.CiliumBGPFamilyWithAdverts) []*Family {
+	if len(families) == 0 {
+		return nil
+	}
+
+	afiSafis := []*Family{}
+
+	for _, family := range families {
+		afiSafis = append(afiSafis, &Family{
+			Afi:  ParseAfi(family.Afi),
+			Safi: ParseSafi(family.Safi),
+		})
+	}
+
+	return afiSafis
 }

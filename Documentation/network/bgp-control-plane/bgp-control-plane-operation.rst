@@ -155,13 +155,13 @@ In the following example, you can see BGP instance state from node ``bgpv2-cplan
     Namespace:
     Labels:       <none>
     Annotations:  <none>
-    API Version:  cilium.io/v2alpha1
+    API Version:  cilium.io/v2
     Kind:         CiliumBGPNodeConfig
     Metadata:
       Creation Timestamp:  2024-10-17T13:59:44Z
       Generation:          1
       Owner References:
-        API Version:     cilium.io/v2alpha1
+        API Version:     cilium.io/v2
         Kind:            CiliumBGPClusterConfig
         Name:            cilium-bgp
         UID:             f0c23da8-e5ca-40d7-8c94-91699cf1e03a
@@ -380,7 +380,7 @@ Service's ``externalTrafficPolicy`` is set to ``Local``, it is inevitable that
 all ongoing connections with the endpoints on the failed node, and connections
 forwarded to a different node than before, will be reset.
 
-.. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/switches-interface-resilient-hashing.html
+.. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/resillient-hashing-lag-ecmp.html
 
 Node Down
 ~~~~~~~~~

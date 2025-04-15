@@ -51,7 +51,7 @@ func getErrorWarningMsgs(logs string, n int) []string {
 
 	errors := map[string]int{}
 	warnings := map[string]int{}
-	for _, line := range strings.Split(logs, "\n") {
+	for line := range strings.SplitSeq(logs, "\n") {
 		if strings.Contains(line, ErrorLogs) {
 			msg := getMsg(line)
 			errors[msg]++
@@ -78,7 +78,7 @@ func getErrorWarningMsgs(logs string, n int) []string {
 	}
 
 	result := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		result[i] = errs[i].msg
 	}
 	return result

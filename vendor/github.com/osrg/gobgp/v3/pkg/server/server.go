@@ -44,6 +44,25 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/zebra"
 )
 
+type FSMOperation uint
+
+const (
+	FSMMgmtOp FSMOperation = iota
+	FSMAccept
+	FSMROAEvent
+	FSMMessage
+
+	FSMOperationTypeCount
+)
+
+type FSMTimingHook interface {
+	Observe(op FSMOperation, tOp, tWait time.Duration)
+}
+
+type nopTimingHook struct{}
+
+func (n nopTimingHook) Observe(op FSMOperation, tOp, tWait time.Duration) {}
+
 type tcpListener struct {
 	l      *net.TCPListener
 	ch     chan struct{}
@@ -141,6 +160,7 @@ type options struct {
 	grpcAddress string
 	grpcOption  []grpc.ServerOption
 	logger      log.Logger
+	timingHook  FSMTimingHook
 }
 
 type ServerOption func(*options)
@@ -160,6 +180,12 @@ func GrpcOption(opt []grpc.ServerOption) ServerOption {
 func LoggerOption(logger log.Logger) ServerOption {
 	return func(o *options) {
 		o.logger = logger
+	}
+}
+
+func TimingHookOption(hook FSMTimingHook) ServerOption {
+	return func(o *options) {
+		o.timingHook = hook
 	}
 }
 
@@ -184,10 +210,13 @@ type BgpServer struct {
 	roaTable     *table.ROATable
 	uuidMap      map[string]uuid.UUID
 	logger       log.Logger
+	timingHook   FSMTimingHook
 }
 
 func NewBgpServer(opt ...ServerOption) *BgpServer {
-	opts := options{}
+	opts := options{
+		timingHook: nopTimingHook{},
+	}
 	for _, o := range opt {
 		o(&opts)
 	}
@@ -207,6 +236,7 @@ func NewBgpServer(opt ...ServerOption) *BgpServer {
 		roaManager:   newROAManager(roaTable, logger),
 		roaTable:     roaTable,
 		logger:       logger,
+		timingHook:   opts.timingHook,
 	}
 	s.bmpManager = newBmpClientManager(s)
 	s.mrtManager = newMrtManager(s)
@@ -269,6 +299,7 @@ type mgmtOp struct {
 	f           func() error
 	errCh       chan error
 	checkActive bool // check BGP global setting is configured before calling f()
+	timestamp   time.Time
 }
 
 func (s *BgpServer) handleMGMTOp(op *mgmtOp) {
@@ -288,6 +319,7 @@ func (s *BgpServer) mgmtOperation(f func() error, checkActive bool) (err error) 
 		f:           f,
 		errCh:       ch,
 		checkActive: checkActive,
+		timestamp:   time.Now(),
 	}
 	return
 }
@@ -485,22 +517,33 @@ func (s *BgpServer) Serve() {
 		}
 
 		chosen, value, ok := reflect.Select(cases)
+		tStart := time.Now()
 		switch chosen {
 		case 0:
 			op := value.Interface().(*mgmtOp)
+			tWait := tStart.Sub(op.timestamp)
 			s.handleMGMTOp(op)
+			s.timingHook.Observe(FSMMgmtOp, time.Since(tStart), tWait)
 		case 1:
+			// NOTE: it would be useful to use kernel metrics such as SO_TIMESTAMPING to record time we got
+			// first SYN packet in TCP connection. For now we skip tWait for accept events, message/mgmt op
+			// delays should be enough to analyze FSM loop.
 			conn := value.Interface().(*net.TCPConn)
 			s.passConnToPeer(conn)
+			s.timingHook.Observe(FSMAccept, time.Since(tStart), 0)
 		case 2:
 			ev := value.Interface().(*roaEvent)
+			tWait := tStart.Sub(ev.timestamp)
 			s.roaManager.HandleROAEvent(ev)
+			s.timingHook.Observe(FSMROAEvent, time.Since(tStart), tWait)
 		default:
 			// in the case of dynamic peer, handleFSMMessage closed incoming channel so
 			// nil fsmMsg can happen here.
 			if ok {
 				e := value.Interface().(*fsmMsg)
+				tWait := tStart.Sub(e.timestamp)
 				handlefsmMsg(e)
+				s.timingHook.Observe(FSMMessage, time.Since(tStart), tWait)
 			}
 		}
 	}
@@ -648,8 +691,15 @@ func filterpath(peer *peer, path, old *table.Path) *table.Path {
 		return nil
 	}
 
-	if !peer.isRouteServerClient() && isASLoop(peer, path) && !path.IsLocal() {
-		return nil
+	if !peer.isRouteServerClient() && isASLoop(peer, path) {
+		// Do not filter local (static) routes with as-path loop
+		// if configured to bypass these checks in the peer
+		// as-path options config.
+		if path.IsLocal() && !peer.allowAsPathLoopLocal() {
+			return nil
+		} else if !path.IsLocal() {
+			return nil
+		}
 	}
 	return path
 }
@@ -731,8 +781,17 @@ func (s *BgpServer) prePolicyFilterpath(peer *peer, path, old *table.Path) (*tab
 
 	peer.fsm.lock.RLock()
 	options := &table.PolicyOptions{
-		Info:       peer.fsm.peerInfo,
-		OldNextHop: path.GetNexthop(),
+		Info: peer.fsm.peerInfo,
+	}
+	if path.IsLocal() && path.GetNexthop().IsUnspecified() {
+		// We need a special treatment for the locally-originated path
+		// with unspecified nexthop (0.0.0.0 or ::). In this case, the
+		// OldNextHop option should be set to the local address.
+		// Otherwise, we advertise the unspecified nexthop as is when
+		// nexthop-unchanged is configured.
+		options.OldNextHop = peer.fsm.peerInfo.LocalAddress
+	} else {
+		options.OldNextHop = path.GetNexthop()
 	}
 	path = table.UpdatePathAttrs(peer.fsm.logger, peer.fsm.gConf, peer.fsm.pConf, peer.fsm.peerInfo, path)
 	peer.fsm.lock.RUnlock()
@@ -1263,8 +1322,15 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 					// Ignore duplicate Membership announcements
 					membershipsForSource := s.globalRib.GetPathListWithSource(table.GLOBAL_RIB_NAME, []bgp.RouteFamily{bgp.RF_RTC_UC}, path.GetSource())
 					found := false
+					equalRT := func(a, b bgp.ExtendedCommunityInterface) bool {
+						if a == nil && b == nil {
+							return true
+						}
+						return a != nil && b != nil && a.String() == b.String()
+					}
 					for _, membership := range membershipsForSource {
-						if membership.GetNlri().(*bgp.RouteTargetMembershipNLRI).RouteTarget.String() == rt.String() {
+						mrt := membership.GetNlri().(*bgp.RouteTargetMembershipNLRI).RouteTarget
+						if equalRT(mrt, rt) {
 							found = true
 							break
 						}

@@ -14,11 +14,15 @@ import (
 // ClientToClient sends an ICMP packet from each client Pod
 // to each client Pod in the test context.
 func ClientToClient() check.Scenario {
-	return &clientToClient{}
+	return &clientToClient{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // clientToClient implements a Scenario.
-type clientToClient struct{}
+type clientToClient struct {
+	check.ScenarioBase
+}
 
 func (s *clientToClient) Name() string {
 	return "client-to-client"

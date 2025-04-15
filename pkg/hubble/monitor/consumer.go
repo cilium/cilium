@@ -4,10 +4,10 @@
 package monitor
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/bufuuid"
@@ -15,6 +15,7 @@ import (
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorConsumer "github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -23,7 +24,7 @@ import (
 // Observer is the receiver of MonitorEvents
 type Observer interface {
 	GetEventsChannel() chan *observerTypes.MonitorEvent
-	GetLogger() logrus.FieldLogger
+	GetLogger() *slog.Logger
 }
 
 // consumer implements monitorConsumer.MonitorConsumer
@@ -70,7 +71,7 @@ func (c *consumer) sendNumLostEvents() bool {
 	}
 
 	if c.cachedLostNotification == nil {
-		c.cachedLostNotification = c.newEvent(func() interface{} {
+		c.cachedLostNotification = c.newEvent(func() any {
 			return &observerTypes.LostEvent{
 				Source:        observerTypes.LostEventSourceEventsQueue,
 				NumLostEvents: c.numEventsLost,
@@ -102,7 +103,7 @@ func (c *consumer) sendNumLostEvents() bool {
 // sendEvent enqueues an event in the observer. If this is not possible, it
 // keeps a counter of lost events, which it will regularly try to send to the
 // observer as well
-func (c *consumer) sendEvent(payloader func() interface{}) {
+func (c *consumer) sendEvent(payloader func() any) {
 	if c.numEventsLost > 0 {
 		if !c.sendNumLostEvents() {
 			// We just failed sending the lost notification, hence it doesn't
@@ -120,7 +121,7 @@ func (c *consumer) sendEvent(payloader func() interface{}) {
 	}
 }
 
-func (c *consumer) newEvent(payloader func() interface{}) *observerTypes.MonitorEvent {
+func (c *consumer) newEvent(payloader func() any) *observerTypes.MonitorEvent {
 	ev := &observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
 		NodeName:  nodeTypes.GetAbsoluteNodeName(),
@@ -137,16 +138,19 @@ func (c *consumer) countDroppedEvent() {
 	c.lostLock.Lock()
 	defer c.lostLock.Unlock()
 	if c.numEventsLost == 0 && c.logLimiter.Allow() {
-		c.observer.GetLogger().WithField("related-metric", "hubble_lost_events_total").
-			Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
+		c.observer.GetLogger().
+			Warn(
+				"hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU",
+				logfields.RelatedMetric, "hubble_lost_events_total",
+			)
 	}
 	c.numEventsLost++
 	c.metricLostObserverEvents.Inc()
 }
 
 // NotifyAgentEvent implements monitorConsumer.MonitorConsumer
-func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
-	c.sendEvent(func() interface{} {
+func (c *consumer) NotifyAgentEvent(typ int, message any) {
+	c.sendEvent(func() any {
 		return &observerTypes.AgentEvent{
 			Type:    typ,
 			Message: message,
@@ -156,7 +160,7 @@ func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
 
 // NotifyPerfEvent implements monitorConsumer.MonitorConsumer
 func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
-	c.sendEvent(func() interface{} {
+	c.sendEvent(func() any {
 		return &observerTypes.PerfEvent{
 			Data: data,
 			CPU:  cpu,
@@ -166,7 +170,7 @@ func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
 
 // NotifyPerfEventLost implements monitorConsumer.MonitorConsumer
 func (c *consumer) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
-	c.sendEvent(func() interface{} {
+	c.sendEvent(func() any {
 		return &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourcePerfRingBuffer,
 			NumLostEvents: numLostEvents,

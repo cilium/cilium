@@ -6,7 +6,10 @@ package api
 // ServiceSelector is a label selector for k8s services
 type ServiceSelector EndpointSelector
 
-// Service wraps around selectors for services
+// Service selects policy targets that are bundled as part of a
+// logical load-balanced service.
+//
+// Currently only Kubernetes-based Services are supported.
 type Service struct {
 	// K8sServiceSelector selects services by k8s labels and namespace
 	K8sServiceSelector *K8sServiceSelectorNamespace `json:"k8sServiceSelector,omitempty"`
@@ -14,13 +17,13 @@ type Service struct {
 	K8sService *K8sServiceNamespace `json:"k8sService,omitempty"`
 }
 
-// K8sServiceNamespace is an abstraction for the k8s service + namespace types.
+// K8sServiceNamespace selects services by name and, optionally, namespace.
 type K8sServiceNamespace struct {
 	ServiceName string `json:"serviceName,omitempty"`
 	Namespace   string `json:"namespace,omitempty"`
 }
 
-// K8sServiceSelectorNamespace wraps service selector with namespace
+// K8sServiceSelectorNamespace selects services by labels.
 type K8sServiceSelectorNamespace struct {
 	// +kubebuilder:validation:Required
 	Selector  ServiceSelector `json:"selector"`

@@ -39,16 +39,18 @@ runs:
         kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
         # We have two keys per node, per direction, per IP family. So a two-nodes IPv4-only cluster
-        # will have four keys. If tunnel mode is enabled, we have 4 more IPv4 keys for the
-        # overlay. During the key rotation, the number of keys doubles.
+        # will have four keys.
         exp_nb_keys=${{ inputs.nb-nodes }}
         ((exp_nb_keys*=2))
         if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
           ((exp_nb_keys*=2))
         fi
+        # If running in tunneling mode, then we have twice the amount of states
+        # and keys to handle encrypted overlay traffic.
         if [[ "${{ inputs.tunnel }}" != "disabled" ]]; then
-          ((exp_nb_keys+=4))
+          ((exp_nb_keys*=2))
         fi
+        # During the key rotation, the number of keys doubles.
         ((exp_nb_keys*=2))
 
         # Wait until key rotation starts

@@ -114,11 +114,7 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 }
 
 func mergeConfig(source ConfigSource, lower, upper map[string]string) map[string]string {
-	out := make(map[string]string, len(lower))
-
-	for k, v := range lower {
-		out[k] = v
-	}
+	out := maps.Clone(lower)
 
 	for k, v := range upper {
 		if _, set := out[k]; set {
@@ -357,7 +353,7 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 		}
 	}
 
-	// Within overrides, lexicograpical ordering determines priority.
+	// Within overrides, lexicographical ordering determines priority.
 	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
@@ -452,7 +448,7 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 		}
 	}
 
-	// Within overrides, lexicograpical ordering determines priority.
+	// Within overrides, lexicographical ordering determines priority.
 	slices.Sort(matchingNames)
 
 	out := make(map[string]string)

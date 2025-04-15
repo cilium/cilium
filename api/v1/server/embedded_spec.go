@@ -2169,6 +2169,19 @@ func init() {
         }
       }
     },
+    "BgpRoutePolicyNexthopAction": {
+      "description": "BGP nexthop action",
+      "properties": {
+        "self": {
+          "description": "Set nexthop to the IP address of itself",
+          "type": "boolean"
+        },
+        "unchanged": {
+          "description": "Don't change nexthop",
+          "type": "boolean"
+        }
+      }
+    },
     "BgpRoutePolicyPrefixMatch": {
       "description": "Matches a CIDR prefix in a BGP route policy",
       "properties": {
@@ -2223,6 +2236,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
           }
+        },
+        "nexthop": {
+          "description": "BGP nexthop action",
+          "$ref": "#/definitions/BgpRoutePolicyNexthopAction"
         },
         "route-action": {
           "description": "RIB processing action taken on the matched route",
@@ -3742,6 +3759,7 @@ func init() {
               }
             },
             "gracefulTermination": {
+              "description": "Deprecated",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -7868,6 +7886,19 @@ func init() {
         }
       }
     },
+    "BgpRoutePolicyNexthopAction": {
+      "description": "BGP nexthop action",
+      "properties": {
+        "self": {
+          "description": "Set nexthop to the IP address of itself",
+          "type": "boolean"
+        },
+        "unchanged": {
+          "description": "Don't change nexthop",
+          "type": "boolean"
+        }
+      }
+    },
     "BgpRoutePolicyPrefixMatch": {
       "description": "Matches a CIDR prefix in a BGP route policy",
       "properties": {
@@ -7922,6 +7953,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
           }
+        },
+        "nexthop": {
+          "description": "BGP nexthop action",
+          "$ref": "#/definitions/BgpRoutePolicyNexthopAction"
         },
         "route-action": {
           "description": "RIB processing action taken on the matched route",
@@ -9542,6 +9577,7 @@ func init() {
               }
             },
             "gracefulTermination": {
+              "description": "Deprecated",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9727,6 +9763,7 @@ func init() {
           }
         },
         "gracefulTermination": {
+          "description": "Deprecated",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9873,6 +9910,7 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesGracefulTermination": {
+      "description": "Deprecated",
       "type": "object",
       "properties": {
         "enabled": {

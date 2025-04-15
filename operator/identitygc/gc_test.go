@@ -87,8 +87,7 @@ func TestIdentitiesGC(t *testing.T) {
 		cell.Invoke(registerGC),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	tlog := hivetest.Logger(t)
 	if err := hive.Start(tlog, ctx); err != nil {
@@ -99,7 +98,7 @@ func TestIdentitiesGC(t *testing.T) {
 		identities *v2.CiliumIdentityList
 		err        error
 	)
-	for retry := 0; retry < 10; retry++ {
+	for range 10 {
 		identities, err = clientset.CiliumV2().CiliumIdentities().List(
 			ctx,
 			metav1.ListOptions{

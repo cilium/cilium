@@ -4,16 +4,14 @@
 hive start
 db/initialized
 
-# Start with clean state.
-db/cmp services services_empty.table
-db/cmp ciliumenvoyconfigs cec_empty.table
-
 # Set up the services and endpoints
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml
 db/cmp services services.table
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
 
 # Add the CiliumEnvoyConfig and wait for it to be ingested.
-k8s add cec.yaml
+k8s/add cec.yaml
 db/cmp ciliumenvoyconfigs cec.table
 
 # Check that both services are now redirected to proxy.
@@ -29,18 +27,20 @@ envoy envoy.out
 
 # Test the processing other way around, e.g. CEC exists before
 # the service. Start by dropping the backends.
-k8s delete endpointslice.yaml
+k8s/delete endpointslice.yaml
 
 # Backends towards Envoy should be dropped.
 envoy envoy.out
 * cmp envoy.out envoy2.expected
 
 # Drop the service
-k8s delete service.yaml
-db/cmp services services_empty.table
+k8s/delete service.yaml
+
+# Services should be empty
+* db/empty services
 
 # Add back the service and endpoints
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services_redirected.table
 
 # Check again that updates happened.
@@ -48,9 +48,11 @@ envoy envoy.out
 * cmp envoy.out envoy3.expected
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
-k8s delete cec.yaml
+k8s/delete cec.yaml
+
+# Tables should be empty
+* db/empty ciliumenvoyconfigs envoy-resources
 db/cmp services services.table
-db/cmp ciliumenvoyconfigs cec_empty.table
 
 # The listener should now be deleted.
 envoy envoy.out
@@ -58,19 +60,18 @@ envoy envoy.out
 
 # ---------------------------------------------
 
--- services_empty.table --
-Name        ProxyRedirect
-
 -- services.table --
-Name        ProxyRedirect
+Name        Flags
 test/echo   
 
 -- services_redirected.table --
-Name        ProxyRedirect
-test/echo   1000
+Name        Flags
+test/echo   ProxyRedirect=1000
 
--- cec_empty.table --
-Name    Services
+-- backends.table --
+Address
+10.244.1.1:25/TCP
+10.244.1.1:8080/TCP
 
 -- cec.table --
 Name                    Services
@@ -146,27 +147,33 @@ ports:
   protocol: TCP
 
 -- lbmaps.expected --
-BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
-BE: ID=2 ADDR=10.244.1.1:25/TCP STATE=active
-REV: ID=1 ADDR=10.96.50.104:80
-REV: ID=2 ADDR=10.96.50.104:25
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 BEID=59395 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
-SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=0 BEID=59395 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
-SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+BE: ID=1 ADDR=10.244.1.1:25/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30725
+REV: ID=2 ADDR=0.0.0.0:30781
+REV: ID=3 ADDR=10.96.50.104:25
+REV: ID=4 ADDR=10.96.50.104:80
+SVC: ID=1 ADDR=0.0.0.0:30725/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=1 ADDR=0.0.0.0:30725/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=3 ADDR=10.96.50.104:25/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=3 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=4 ADDR=10.96.50.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=4 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+delete: listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=,test/echo=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+delete: listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+delete: listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+delete: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080

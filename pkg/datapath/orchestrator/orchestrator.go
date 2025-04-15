@@ -208,7 +208,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		prevConfig := o.latestLocalNodeConfig.Load()
 		if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
 			if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
-				o.params.Log.Warn("Failed to initialize datapath, retrying later", logfields.Error, err, "retry-delay", reinitRetryDuration)
+				o.params.Log.Warn("Failed to initialize datapath, retrying later",
+					logfields.Error, err,
+					logfields.RetryDelay, reinitRetryDuration,
+				)
 				health.Degraded("Failed to reinitialize datapath", err)
 				retryChan = time.After(reinitRetryDuration)
 			} else {
@@ -239,6 +242,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			return err
 		}
 	}
+}
+
+func (o *orchestrator) DatapathInitialized() <-chan struct{} {
+	return o.dpInitialized
 }
 
 func (o *orchestrator) Reinitialize(ctx context.Context) error {

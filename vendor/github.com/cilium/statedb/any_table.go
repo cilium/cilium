@@ -15,6 +15,11 @@ type AnyTable struct {
 	Meta TableMeta
 }
 
+func (t AnyTable) NumObjects(txn ReadTxn) int {
+	indexTxn := txn.getTxn().mustIndexReadTxn(t.Meta, PrimaryIndexPos)
+	return indexTxn.Len()
+}
+
 func (t AnyTable) All(txn ReadTxn) iter.Seq2[any, Revision] {
 	all, _ := t.AllWatch(txn)
 	return all
@@ -31,7 +36,7 @@ func (t AnyTable) UnmarshalYAML(data []byte) (any, error) {
 
 func (t AnyTable) Insert(txn WriteTxn, obj any) (old any, hadOld bool, err error) {
 	var iobj object
-	iobj, hadOld, err = txn.getTxn().insert(t.Meta, Revision(0), obj)
+	iobj, hadOld, _, err = txn.getTxn().insert(t.Meta, Revision(0), obj)
 	if hadOld {
 		old = iobj.data
 	}
@@ -64,8 +69,7 @@ func (t AnyTable) Get(txn ReadTxn, index string, key string) (any, Revision, boo
 		if !ok {
 			break
 		}
-		secondary, _ := decodeNonUniqueKey(k)
-		if len(secondary) == len(rawKey) {
+		if nonUniqueKey(k).secondaryLen() == len(rawKey) {
 			return obj.data, obj.revision, true, nil
 		}
 	}

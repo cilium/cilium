@@ -18,20 +18,10 @@ import (
 // logrErrorKey is the key used by the logr library for the error parameter.
 const logrErrorKey = "err"
 
-// SlogNopHandler discards all logs.
-var SlogNopHandler slog.Handler = nopHandler{}
-
-type nopHandler struct{}
-
-func (nopHandler) Enabled(context.Context, slog.Level) bool  { return false }
-func (nopHandler) Handle(context.Context, slog.Record) error { return nil }
-func (n nopHandler) WithAttrs([]slog.Attr) slog.Handler      { return n }
-func (n nopHandler) WithGroup(string) slog.Handler           { return n }
-
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
 	Level:       slog.LevelInfo,
-	ReplaceAttr: replaceAttrFnWithoutTimestamp,
+	ReplaceAttr: ReplaceAttrFnWithoutTimestamp,
 }
 
 // Default slog logger. Will be overwritten once initializeSlog is called.
@@ -57,21 +47,25 @@ func slogLevel(l logrus.Level) slog.Level {
 
 // Approximates the logrus output via slog for job groups during the transition
 // phase.
-func initializeSlog(logOpts LogOptions, useStdout bool) {
+func initializeSlog(logOpts LogOptions, loggers []string) {
 	opts := *slogHandlerOpts
 	opts.Level = slogLevel(logOpts.GetLogLevel())
 
 	logFormat := logOpts.GetLogFormat()
 	switch logFormat {
 	case LogFormatJSON, LogFormatText:
-		opts.ReplaceAttr = replaceAttrFnWithoutTimestamp
+		opts.ReplaceAttr = ReplaceAttrFnWithoutTimestamp
 	case LogFormatJSONTimestamp, LogFormatTextTimestamp:
 		opts.ReplaceAttr = replaceAttrFn
 	}
 
 	writer := os.Stderr
-	if useStdout {
-		writer = os.Stdout
+	switch logOpts[WriterOpt] {
+	case StdErrOpt:
+	default:
+		if len(loggers) == 0 {
+			writer = os.Stdout
+		}
 	}
 
 	switch logFormat {
@@ -110,7 +104,7 @@ func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-func replaceAttrFnWithoutTimestamp(groups []string, a slog.Attr) slog.Attr {
+func ReplaceAttrFnWithoutTimestamp(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
 	case slog.TimeKey:
 		// Drop timestamps
@@ -118,4 +112,31 @@ func replaceAttrFnWithoutTimestamp(groups []string, a slog.Attr) slog.Attr {
 	default:
 		return replaceAttrFn(groups, a)
 	}
+}
+
+type FieldLogger interface {
+	Handler() slog.Handler
+	With(args ...any) *slog.Logger
+	WithGroup(name string) *slog.Logger
+	Enabled(ctx context.Context, level slog.Level) bool
+	Log(ctx context.Context, level slog.Level, msg string, args ...any)
+	LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr)
+	Debug(msg string, args ...any)
+	DebugContext(ctx context.Context, msg string, args ...any)
+	Info(msg string, args ...any)
+	InfoContext(ctx context.Context, msg string, args ...any)
+	Warn(msg string, args ...any)
+	WarnContext(ctx context.Context, msg string, args ...any)
+	Error(msg string, args ...any)
+	ErrorContext(ctx context.Context, msg string, args ...any)
+}
+
+func Fatal(logger FieldLogger, msg string, args ...any) {
+	logger.Error(msg, args...)
+	os.Exit(-1)
+}
+
+func Panic(logger FieldLogger, msg string, args ...any) {
+	logger.Error(msg, args...)
+	panic(msg)
 }

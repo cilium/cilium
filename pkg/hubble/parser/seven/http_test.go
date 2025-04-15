@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -103,7 +104,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, dnsGetter, IPGetter, serviceGetter, endpointGetter)
+	parser, err := New(hivetest.Logger(t), dnsGetter, IPGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -114,10 +115,10 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	assert.Equal(t, uint32(56789), f.GetL4().GetTCP().GetSourcePort())
 	assert.Equal(t, []string{"endpoint-4321"}, f.GetSourceNames())
 	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
-	assert.Equal(t, "", f.GetSource().GetNamespace())
-	assert.Equal(t, "", f.GetSource().GetPodName())
-	assert.Equal(t, "", f.GetSourceService().GetNamespace())
-	assert.Equal(t, "", f.GetSourceService().GetName())
+	assert.Empty(t, f.GetSource().GetNamespace())
+	assert.Empty(t, f.GetSource().GetPodName())
+	assert.Empty(t, f.GetSourceService().GetNamespace())
+	assert.Empty(t, f.GetSourceService().GetName())
 
 	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.GetIP().GetDestination())
 	assert.Equal(t, uint32(80), f.GetL4().GetTCP().GetDestinationPort())
@@ -218,7 +219,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, dnsGetter, IPGetter, serviceGetter, endpointGetter)
+	parser, err := New(hivetest.Logger(t), dnsGetter, IPGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -229,10 +230,10 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	assert.Equal(t, uint32(56789), f.GetL4().GetTCP().GetDestinationPort())
 	assert.Equal(t, []string{"endpoint-4321"}, f.GetDestinationNames())
 	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
-	assert.Equal(t, "", f.GetDestination().GetNamespace())
-	assert.Equal(t, "", f.GetDestination().GetPodName())
-	assert.Equal(t, "", f.GetDestinationService().GetNamespace())
-	assert.Equal(t, "", f.GetDestinationService().GetName())
+	assert.Empty(t, f.GetDestination().GetNamespace())
+	assert.Empty(t, f.GetDestination().GetPodName())
+	assert.Empty(t, f.GetDestinationService().GetNamespace())
+	assert.Empty(t, f.GetDestinationService().GetName())
 
 	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.GetIP().GetSource())
 	assert.Equal(t, uint32(80), f.GetL4().GetTCP().GetSourcePort())
@@ -271,7 +272,7 @@ func TestDecodeL7HTTPResponseTime(t *testing.T) {
 	requestTimestamp := time.Unix(0, 0).Format(time.RFC3339Nano)
 	responseTimestamp := time.Unix(1, 0).Format(time.RFC3339Nano)
 
-	parser, err := New(log, nil, nil, nil, nil)
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	request := &accesslog.LogRecord{
@@ -340,7 +341,7 @@ func TestGetL7HTTPResponseTraceID(t *testing.T) {
 	requestTimestamp := time.Unix(0, 0).Format(time.RFC3339Nano)
 	responseTimestamp := time.Unix(1, 0).Format(time.RFC3339Nano)
 
-	parser, err := New(log, nil, nil, nil, nil)
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	request := &accesslog.LogRecord{
@@ -413,7 +414,7 @@ func TestDecodeL7HTTPWithInvalidURL(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, nil, nil, nil, nil)
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -458,7 +459,7 @@ func TestDecodeL7HTTPWithNilURL(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, nil, nil, nil, nil)
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -507,8 +508,8 @@ func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, true, true, false, []string{}, []string{"authorization"})}
-	parser, err := New(log, nil, nil, nil, nil, opts...)
+	opts := []options.Option{options.WithRedact(nil, true, true, false, []string{}, []string{"authorization"})}
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -555,8 +556,8 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, true, true, false, []string{"host"}, []string{})}
-	parser, err := New(log, nil, nil, nil, nil, opts...)
+	opts := []options.Option{options.WithRedact(nil, true, true, false, []string{"host"}, []string{})}
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -573,8 +574,8 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 		},
 	}, f.GetL7().GetHttp())
 
-	opts = []options.Option{options.Redact(nil, true, true, false, []string{}, []string{"host"})}
-	parser, err = New(log, nil, nil, nil, nil, opts...)
+	opts = []options.Option{options.WithRedact(nil, true, true, false, []string{}, []string{"host"})}
+	parser, err = New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
 	f = &flowpb.Flow{}
@@ -693,8 +694,8 @@ func TestDecodeL7HTTPRequestPasswordRedact(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, true, true, false, []string{}, []string{})}
-	parser, err := New(log, nil, nil, nil, nil, opts...)
+	opts := []options.Option{options.WithRedact(nil, true, true, false, []string{}, []string{})}
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}

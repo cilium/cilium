@@ -18,18 +18,18 @@ import (
 )
 
 // Helper function to compare two slices of maps ignoring the order
-func equalClusterSlices(a, b []map[string]interface{}) bool {
+func equalClusterSlices(a, b []map[string]any) bool {
 	if len(a) != len(b) {
 		return false
 	}
 
-	bCopy := make([]map[string]interface{}, len(b))
+	bCopy := make([]map[string]any, len(b))
 	copy(bCopy, b)
 
-	return slices.EqualFunc(a, bCopy, func(m1, m2 map[string]interface{}) bool {
+	return slices.EqualFunc(a, bCopy, func(m1, m2 map[string]any) bool {
 		for i, bm := range bCopy {
 			if reflect.DeepEqual(m1, bm) {
-				bCopy = append(bCopy[:i], bCopy[i+1:]...)
+				bCopy = slices.Delete(bCopy, i, i+1)
 				return true
 			}
 		}
@@ -39,26 +39,26 @@ func equalClusterSlices(a, b []map[string]interface{}) bool {
 
 func TestMergeClusters(t *testing.T) {
 	uu := map[string]struct {
-		oc            []map[string]interface{}
-		nc            []map[string]interface{}
+		oc            []map[string]any
+		nc            []map[string]any
 		exceptCluster string
 		err           error
-		e             map[string]interface{}
+		e             map[string]any
 	}{
 		"nil-new-one": {
-			oc: []map[string]interface{}{},
-			nc: []map[string]interface{}{
+			oc: []map[string]any{},
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
 					"port": "32379",
 				},
 			},
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -70,8 +70,8 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"nil-new-some": {
-			oc: []map[string]interface{}{},
-			nc: []map[string]interface{}{
+			oc: []map[string]any{},
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -88,11 +88,11 @@ func TestMergeClusters(t *testing.T) {
 					"port": "32379",
 				},
 			},
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -114,7 +114,7 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"oc-new-some": {
-			oc: []map[string]interface{}{
+			oc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.5"},
 					"name": "c2",
@@ -124,7 +124,7 @@ func TestMergeClusters(t *testing.T) {
 					"name": "c1",
 					"port": "32379"},
 			},
-			nc: []map[string]interface{}{
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -136,11 +136,11 @@ func TestMergeClusters(t *testing.T) {
 					"port": "32379",
 				},
 			},
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.5"},
 								"name": "c2",
@@ -165,7 +165,7 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"already-there": {
-			oc: []map[string]interface{}{
+			oc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -180,18 +180,18 @@ func TestMergeClusters(t *testing.T) {
 					"name": "c1",
 					"port": "32379"},
 			},
-			nc: []map[string]interface{}{
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
 					"port": "32379",
 				},
 			},
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -211,7 +211,7 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"already-there-partially": {
-			oc: []map[string]interface{}{
+			oc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -226,7 +226,7 @@ func TestMergeClusters(t *testing.T) {
 					"name": "c1",
 					"port": "32379"},
 			},
-			nc: []map[string]interface{}{
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -238,11 +238,11 @@ func TestMergeClusters(t *testing.T) {
 					"port": "32379",
 				},
 			},
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -266,7 +266,7 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"except-nc-changed": {
-			oc: []map[string]interface{}{
+			oc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -281,7 +281,7 @@ func TestMergeClusters(t *testing.T) {
 					"name": "c1",
 					"port": "32379"},
 			},
-			nc: []map[string]interface{}{
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.8"},
 					"name": "c5",
@@ -294,11 +294,11 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			exceptCluster: "c4",
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -322,7 +322,7 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"except-nc-same": {
-			oc: []map[string]interface{}{
+			oc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -337,7 +337,7 @@ func TestMergeClusters(t *testing.T) {
 					"name": "c1",
 					"port": "32379"},
 			},
-			nc: []map[string]interface{}{
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -350,11 +350,11 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			exceptCluster: "c4",
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -374,7 +374,7 @@ func TestMergeClusters(t *testing.T) {
 			},
 		},
 		"except-oc": {
-			oc: []map[string]interface{}{
+			oc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -389,7 +389,7 @@ func TestMergeClusters(t *testing.T) {
 					"name": "c1",
 					"port": "32379"},
 			},
-			nc: []map[string]interface{}{
+			nc: []map[string]any{
 				{
 					"ips":  []string{"172.19.0.6"},
 					"name": "c3",
@@ -402,11 +402,11 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			exceptCluster: "c2",
-			e: map[string]interface{}{
-				"clustermesh": map[string]interface{}{
-					"config": map[string]interface{}{
+			e: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
 						"enabled": true,
-						"clusters": []map[string]interface{}{
+						"clusters": []map[string]any{
 							{
 								"ips":  []string{"172.19.0.6"},
 								"name": "c3",
@@ -441,8 +441,8 @@ func TestMergeClusters(t *testing.T) {
 			}
 
 			// Compare the clusters ignoring the order
-			expectedClusters := u.e["clustermesh"].(map[string]interface{})["config"].(map[string]interface{})["clusters"].([]map[string]interface{})
-			actualClusters := ee["clustermesh"].(map[string]interface{})["config"].(map[string]interface{})["clusters"].([]map[string]interface{})
+			expectedClusters := u.e["clustermesh"].(map[string]any)["config"].(map[string]any)["clusters"].([]map[string]any)
+			actualClusters := ee["clustermesh"].(map[string]any)["config"].(map[string]any)["clusters"].([]map[string]any)
 
 			assert.True(t, equalClusterSlices(expectedClusters, actualClusters))
 		})

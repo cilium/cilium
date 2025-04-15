@@ -6,6 +6,7 @@ package mock
 import (
 	"context"
 
+	"github.com/cilium/hive/cell"
 	v1 "k8s.io/api/core/v1"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	v1listers "k8s.io/client-go/listers/core/v1"
@@ -37,18 +38,18 @@ var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 
 type MockBGPRouterManager struct {
 	ConfigurePeers_     func(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error
-	ReconcileInstances_ func(ctx context.Context, bgpnc *v2alpha1.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
+	ReconcileInstances_ func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
 	GetPeers_           func(ctx context.Context) ([]*models.BgpPeer, error)
 	GetRoutes_          func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
-	Stop_               func()
+	Stop_               func(cell.HookContext) error
 }
 
 func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error {
 	return m.ConfigurePeers_(ctx, policy, ciliumNode)
 }
 
-func (m *MockBGPRouterManager) ReconcileInstances(ctx context.Context, bgpnc *v2alpha1.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error {
+func (m *MockBGPRouterManager) ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error {
 	return m.ReconcileInstances_(ctx, bgpnc, ciliumNode)
 }
 
@@ -64,6 +65,6 @@ func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params rest
 	return m.GetRoutePolicies_(ctx, params)
 }
 
-func (m *MockBGPRouterManager) Stop() {
-	m.Stop_()
+func (m *MockBGPRouterManager) Stop(ctx cell.HookContext) error {
+	return m.Stop_(ctx)
 }

@@ -6,6 +6,7 @@ package loader
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 )
@@ -29,6 +30,23 @@ func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.Lo
 	if err := c.WriteEndpointConfig(h, nodeCfg, epCfg); err != nil {
 		return "", err
 	}
+
+	// Include endpoint configuration in the hash, otherwise different runtime
+	// configurations will hash to the same value and the update will be skipped.
+	if epCfg.IsHost() {
+		cfg, _ := ciliumHostRewrites(epCfg, nodeCfg)
+		_, err := fmt.Fprintf(h, "%+v", cfg)
+		if err != nil {
+			return "", fmt.Errorf("hashing host rewrites: %w", err)
+		}
+	} else {
+		cfg, _ := endpointRewrites(epCfg, nodeCfg)
+		_, err := fmt.Fprintf(h, "%+v", cfg)
+		if err != nil {
+			return "", fmt.Errorf("hashing endpoint rewrites: %w", err)
+		}
+	}
+
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 

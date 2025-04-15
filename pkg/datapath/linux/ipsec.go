@@ -25,11 +25,12 @@ import (
 )
 
 var (
-	exactMatchMask = net.IPv4Mask(255, 255, 255, 255)
-	wildcardIP     = net.ParseIP(wildcardIPv4)
-	wildcardCIDR   = &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
-	wildcardIP6    = net.ParseIP(wildcardIPv6)
-	wildcardCIDR6  = &net.IPNet{IP: wildcardIP6, Mask: net.CIDRMask(0, 128)}
+	exactMatchMaskIPv4 = net.IPv4Mask(255, 255, 255, 255)
+	exactMatchMaskIPv6 = net.CIDRMask(0, 128)
+	wildcardIP         = net.ParseIP(wildcardIPv4)
+	wildcardCIDR       = &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
+	wildcardIP6        = net.ParseIP(wildcardIPv6)
+	wildcardCIDR6      = &net.IPNet{IP: wildcardIP6, Mask: net.CIDRMask(0, 128)}
 )
 
 // getDefaultEncryptionInterface() is needed to find the interface used when
@@ -336,8 +337,8 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 		return false, errs
 	}
 
-	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMask}
-	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMask}
+	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv4}
+	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv4}
 
 	params = ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirOut
@@ -556,6 +557,48 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 		statesUpdated = false
 	}
 
+	if !n.nodeConfig.EnableEncapsulation {
+		return statesUpdated, errs
+	}
+
+	localUnderlayIP := n.nodeConfig.NodeIPv6
+	if localUnderlayIP == nil {
+		n.log.Warn("unable to enable encrypted overlay IPsec, nil local internal IP")
+		return false, errs
+	}
+	remoteUnderlayIP := newNode.GetNodeIP(true)
+	if remoteUnderlayIP == nil {
+		n.log.Warn("unable to enable encrypted overlay IPsec, nil remote internal IP for node", logfields.Node, newNode.Name)
+		return false, errs
+	}
+
+	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv6}
+	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv6}
+
+	params = ipsec.NewIPSecParamaters(template)
+	params.Dir = ipsec.IPSecDirOut
+	params.SourceSubnet = localOverlayIPExactMatch
+	params.DestSubnet = remoteOverlayIPExactMatch
+	params.SourceTunnelIP = &localUnderlayIP
+	params.DestTunnelIP = &remoteUnderlayIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
+
+	params = ipsec.NewIPSecParamaters(template)
+	params.Dir = ipsec.IPSecDirIn
+	params.SourceSubnet = wildcardCIDR
+	params.DestSubnet = wildcardCIDR
+	params.SourceTunnelIP = &remoteUnderlayIP
+	params.DestTunnelIP = &localUnderlayIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
+
 	return statesUpdated, errs
 }
 
@@ -686,7 +729,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Upsert(n.createNodeIPSecOutRoute(ip)); err != nil {
+	if err := route.Upsert(n.log, n.createNodeIPSecOutRoute(ip)); err != nil {
 		n.log.Error("Unable to replace the IPSec route OUT the host routing table",
 			logfields.Error, err,
 			logfields.CIDR, ip,
@@ -720,7 +763,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Upsert(n.createNodeIPSecInRoute(ip)); err != nil {
+	if err := route.Upsert(n.log, n.createNodeIPSecInRoute(ip)); err != nil {
 		n.log.Error("Unable to replace the IPSec route IN the host routing table",
 			logfields.Error, err,
 			logfields.CIDR, ip,

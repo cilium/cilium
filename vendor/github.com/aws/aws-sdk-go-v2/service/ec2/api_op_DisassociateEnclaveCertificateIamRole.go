@@ -127,6 +127,9 @@ func (c *Client) addOperationDisassociateEnclaveCertificateIamRoleMiddlewares(st
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDisassociateEnclaveCertificateIamRoleValidationMiddleware(stack); err != nil {
 		return err
 	}

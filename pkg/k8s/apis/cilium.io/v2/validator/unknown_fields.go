@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 
 	"github.com/google/go-cmp/cmp"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -39,17 +41,15 @@ import (
 //   - ErrUnknownFields
 //   - ErrUnknownKind
 //   - Other marshalling / unmarshalling errors
-func detectUnknownFields(policy *unstructured.Unstructured) error {
+func detectUnknownFields(logger *slog.Logger, policy *unstructured.Unstructured) error {
 	kind := policy.GetKind()
 
-	scopedLog := log
+	var scopedLog *slog.Logger
 	switch kind {
 	case cilium_v2.CNPKindDefinition:
-		scopedLog = scopedLog.WithField(logfields.CiliumNetworkPolicyName,
-			policy.GetName())
+		scopedLog = logger.With(logfields.CiliumNetworkPolicyName, policy.GetName())
 	case cilium_v2.CCNPKindDefinition:
-		scopedLog = scopedLog.WithField(logfields.CiliumClusterwideNetworkPolicyName,
-			policy.GetName())
+		scopedLog = logger.With(logfields.CiliumClusterwideNetworkPolicyName, policy.GetName())
 	default:
 		return ErrUnknownKind{
 			kind: kind,
@@ -66,7 +66,7 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 		return err
 	}
 
-	var filtered map[string]interface{}
+	var filtered map[string]any
 	switch kind {
 	case cilium_v2.CNPKindDefinition:
 		cnp := new(cilium_v2.CiliumNetworkPolicy)
@@ -83,7 +83,9 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 	default:
 		// We've already validated above that there can only be two kinds: CNP
 		// & CCNP. This is likely to be a developer error if hit, so fatal.
-		scopedLog.WithField("kind", kind).Fatal("Unexpected kind found when processing policy")
+		logging.Fatal(scopedLog, "Unexpected kind found when processing policy",
+			logfields.Kind, kind,
+		)
 	}
 	if err != nil {
 		return err
@@ -156,7 +158,7 @@ func (e ErrUnknownKind) Error() string {
 	return fmt.Sprintf("unknown kind %q", e.kind)
 }
 
-func getFields(u map[string]interface{}) ([]string, error) {
+func getFields(u map[string]any) ([]string, error) {
 	flat, err := flattenObject(u)
 	if err != nil {
 		return nil, err
@@ -216,7 +218,7 @@ func getFields(u map[string]interface{}) ([]string, error) {
 //   - specs.0.ingress.0.fromEndpoints.0.matchExpressions.*
 var arbitraryLabelRegex = regexp.MustCompile(`^(.+\.(matchLabels|matchExpressions))\..+$`)
 
-func flattenObject(obj map[string]interface{}) (map[string]interface{}, error) {
+func flattenObject(obj map[string]any) (map[string]any, error) {
 	return flatten.Flatten(obj, "", flatten.DotStyle)
 }
 

@@ -8,14 +8,13 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
-	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 var Cell = cell.Module(
-	"loadbalancer-experimental",
+	"loadbalancer",
 	"Experimental load-balancing control-plane",
 
 	cell.Config(DefaultConfig),
@@ -36,25 +35,34 @@ var Cell = cell.Module(
 	ReconcilerCell,
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
-	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
+	cell.ProvidePrivate(newLBMaps),
 
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
-	//
 	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
 
+	// Register a background job to re-reconcile NodePort and HostPort frontends when
+	// the node addresses change.
 	cell.Invoke(registerNodePortAddressReconciler),
+
+	// Register a background job to watch for node zone label changes.
+	cell.Invoke(registerNodeZoneWatcher),
+
+	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
+	// implementation is enabled.
+	cell.Provide(newAdapters),
+	cell.DecorateAll(decorateAdapters),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
 // Table[*Service], Table[*Frontend] and Table[*Backend] for read-only access
 // to load-balancing state.
 var TablesCell = cell.Module(
-	"tables",
-	"Experimental load-balancing control-plane",
+	"loadbalancer-tables",
+	"Tables for load-balancing",
 
 	// Provide the RWTable[Service] and RWTable[Backend] privately to this
 	// module so that the tables are only modified via the Services API.
@@ -86,14 +94,12 @@ type resourceIn struct {
 	cell.In
 	ServicesResource  resource.Resource[*slim_corev1.Service]
 	EndpointsResource resource.Resource[*k8s.Endpoints]
-	PodsResource      daemonK8s.LocalPodResource
 }
 
 type StreamsOut struct {
 	cell.Out
 	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
 	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
-	PodsStream      stream.Observable[resource.Event[*slim_corev1.Pod]]
 }
 
 // resourcesToStreams extracts the stream.Observable from resource.Resource.
@@ -102,6 +108,5 @@ func resourcesToStreams(in resourceIn) StreamsOut {
 	return StreamsOut{
 		ServicesStream:  in.ServicesResource,
 		EndpointsStream: in.EndpointsResource,
-		PodsStream:      in.PodsResource,
 	}
 }

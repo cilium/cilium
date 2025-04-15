@@ -55,7 +55,7 @@ type CreateCapacityReservationInput struct {
 	// The number of instances for which to reserve capacity.
 	//
 	// You can request future-dated Capacity Reservations for an instance count with a
-	// minimum of 100 VPUs. For example, if you request a future-dated Capacity
+	// minimum of 100 vCPUs. For example, if you request a future-dated Capacity
 	// Reservation for m5.xlarge instances, you must request at least 25 instances (25
 	// * m5.xlarge = 100 vCPUs).
 	//
@@ -296,6 +296,9 @@ func (c *Client) addOperationCreateCapacityReservationMiddlewares(stack *middlew
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateCapacityReservationValidationMiddleware(stack); err != nil {

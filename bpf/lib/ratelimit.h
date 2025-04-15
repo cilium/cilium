@@ -29,7 +29,7 @@ struct {
 	__type(value, struct ratelimit_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1024);
-} RATELIMIT_MAP __section_maps_btf;
+} cilium_ratelimit __section_maps_btf;
 
 struct ratelimit_metrics_key {
 	__u32 usage;
@@ -46,7 +46,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 64);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} RATELIMIT_METRICS_MAP __section_maps_btf;
+} cilium_ratelimit_metrics __section_maps_btf;
 
 struct ratelimit_settings {
 	/* A bucket will never have more than X amount of tokens, limits burst size */
@@ -57,8 +57,8 @@ struct ratelimit_settings {
 	__u64 topup_interval_ns;
 };
 
-static inline bool ratelimit_check_and_take(struct ratelimit_key *key,
-					    const struct ratelimit_settings *settings)
+static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
+						     const struct ratelimit_settings *settings)
 {
 	struct ratelimit_value *value;
 	struct ratelimit_value new_value;
@@ -76,22 +76,23 @@ static inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 	if (!key)
 		return false;
 	metrics_key.usage = key->usage;
-	metrics_value = map_lookup_elem(&RATELIMIT_METRICS_MAP, &metrics_key);
+	metrics_value = map_lookup_elem(&cilium_ratelimit_metrics, &metrics_key);
 	if (!metrics_value) {
 		new_metrics_value.dropped = 0;
 		metrics_value = &new_metrics_value;
-		ret = map_update_elem(&RATELIMIT_METRICS_MAP, &metrics_key, metrics_value, BPF_ANY);
+		ret = map_update_elem(&cilium_ratelimit_metrics, &metrics_key,
+				      metrics_value, BPF_ANY);
 		/* Check metrics_value to keep verifier happy */
 		if (unlikely(ret < 0 || !metrics_value))
 			return false;
 	}
 
 	/* Create a new bucket if we do not yet have one for the key */
-	value = map_lookup_elem(&RATELIMIT_MAP, key);
+	value = map_lookup_elem(&cilium_ratelimit, key);
 	if (!value) {
 		new_value.last_topup = now;
 		new_value.tokens = settings->tokens_per_topup - 1;
-		ret = map_update_elem(&RATELIMIT_MAP, key, &new_value, BPF_ANY);
+		ret = map_update_elem(&cilium_ratelimit, key, &new_value, BPF_ANY);
 		if (unlikely(ret < 0)) {
 			/* This bucket update is racy and might cause a bit of
 			 * inaccuracy. We allow that since keeping atomicity

@@ -6,9 +6,9 @@ package cmd
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"path"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -25,7 +25,6 @@ import (
 	ciliumClient "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
-	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -64,11 +63,7 @@ func migrateIdentityCmd() *cobra.Command {
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		// The internal packages log things. Make sure they follow the setup of
-		// the CLI tool.
-		logging.DefaultLogger.SetFormatter(log.Formatter)
-
-		if err := hive.Run(slog.Default()); err != nil {
+		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -208,13 +203,14 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	log.Info("Setting up kubernetes client")
 
 	// Update CRDs to ensure ciliumIdentity is present
-	ciliumClient.RegisterCRDs(clientset)
+	ciliumClient.RegisterCRDs(logging.DefaultSlogLogger, clientset)
 
 	// Create a CRD Backend
-	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-		Store:   nil,
-		Client:  clientset,
-		KeyFunc: (&cacheKey.GlobalIdentity{}).PutKeyFromMap,
+	crdBackend, err := identitybackend.NewCRDBackend(logging.DefaultSlogLogger, identitybackend.CRDBackendConfiguration{
+		Store:    nil,
+		StoreSet: &atomic.Bool{},
+		Client:   clientset,
+		KeyFunc:  (&cacheKey.GlobalIdentity{}).PutKeyFromMap,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create CRD identity backend")
@@ -227,8 +223,7 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	//    allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
-	crdAllocator, err = allocator.NewAllocator(&cacheKey.GlobalIdentity{}, crdBackend,
-		allocator.WithMax(maxID), allocator.WithMin(minID))
+	crdAllocator, err = allocator.NewAllocator(logging.DefaultSlogLogger, &cacheKey.GlobalIdentity{}, crdBackend, allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
 	}
@@ -245,14 +240,14 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 // find identities at the default cilium paths.
 func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
-	setupKvstore(ctx)
+	client := setupKvstore(ctx, logging.DefaultSlogLogger)
 
-	if err := <-kvstore.Client().Connected(wctx); err != nil {
+	if err := <-client.Connected(wctx); err != nil {
 		log.WithError(err).Fatal("Cannot connect to the kvstore")
 	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
-	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: kvstore.Client()})
+	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: client})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create kvstore identity backend")
 	}

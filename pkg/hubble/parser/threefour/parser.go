@@ -5,12 +5,12 @@ package threefour
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -27,7 +28,7 @@ import (
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
-	log            logrus.FieldLogger
+	log            *slog.Logger
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	dnsGetter      getters.DNSGetter
@@ -35,7 +36,8 @@ type Parser struct {
 	serviceGetter  getters.ServiceGetter
 	linkGetter     getters.LinkGetter
 
-	epResolver *common.EndpointResolver
+	epResolver          *common.EndpointResolver
+	correlateL3L4Policy bool
 
 	// TODO: consider using a pool of these
 	packet *packet
@@ -44,8 +46,14 @@ type Parser struct {
 // re-usable packet to avoid reallocating gopacket datastructures
 type packet struct {
 	lock.Mutex
-	decLayer *gopacket.DecodingLayerParser
-	Layers   []gopacket.LayerType
+
+	decLayerL2Dev *gopacket.DecodingLayerParser
+	decLayerL3Dev struct {
+		IPv4 *gopacket.DecodingLayerParser
+		IPv6 *gopacket.DecodingLayerParser
+	}
+
+	Layers []gopacket.LayerType
 	layers.Ethernet
 	layers.IPv4
 	layers.IPv6
@@ -58,35 +66,51 @@ type packet struct {
 
 // New returns a new L3/L4 parser
 func New(
-	log logrus.FieldLogger,
+	log *slog.Logger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
+	opts ...options.Option,
 ) (*Parser, error) {
 	packet := &packet{}
-	packet.decLayer = gopacket.NewDecodingLayerParser(
-		layers.LayerTypeEthernet, &packet.Ethernet,
+	decoders := []gopacket.DecodingLayer{
+		&packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
-		&packet.TCP, &packet.UDP, &packet.SCTP)
+		&packet.TCP, &packet.UDP, &packet.SCTP,
+	}
+	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
+	packet.decLayerL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
+	packet.decLayerL3Dev.IPv6 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv6, decoders...)
 	// Let packet.decLayer.DecodeLayers return a nil error when it
 	// encounters a layer it doesn't have a parser for, instead of returning
 	// an UnsupportedLayerType error.
-	packet.decLayer.IgnoreUnsupported = true
+	packet.decLayerL2Dev.IgnoreUnsupported = true
+	packet.decLayerL3Dev.IPv4.IgnoreUnsupported = true
+	packet.decLayerL3Dev.IPv6.IgnoreUnsupported = true
+
+	args := &options.Options{
+		EnableNetworkPolicyCorrelation: true,
+	}
+
+	for _, opt := range opts {
+		opt(args)
+	}
 
 	return &Parser{
-		log:            log,
-		dnsGetter:      dnsGetter,
-		endpointGetter: endpointGetter,
-		identityGetter: identityGetter,
-		ipGetter:       ipGetter,
-		serviceGetter:  serviceGetter,
-		linkGetter:     linkGetter,
-		epResolver:     common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		packet:         packet,
+		log:                 log,
+		dnsGetter:           dnsGetter,
+		endpointGetter:      endpointGetter,
+		identityGetter:      identityGetter,
+		ipGetter:            ipGetter,
+		serviceGetter:       serviceGetter,
+		linkGetter:          linkGetter,
+		epResolver:          common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		packet:              packet,
+		correlateL3L4Policy: args.EnableNetworkPolicyCorrelation,
 	}, nil
 }
 
@@ -160,7 +184,24 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	// https://github.com/google/gopacket/issues/846
 	// TODO: reconsider this check if the issue is fixed upstream
 	if len(data[packetOffset:]) > 0 {
-		err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		var isL3Device, isIPv6 bool
+		if (tn != nil && tn.IsL3Device()) || (dn != nil && dn.IsL3Device()) {
+			isL3Device = true
+		}
+		if tn != nil && tn.IsIPv6() || (dn != nil && dn.IsIPv6()) {
+			isIPv6 = true
+		}
+
+		var err error
+		switch {
+		case !isL3Device:
+			err = p.packet.decLayerL2Dev.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		case isIPv6:
+			err = p.packet.decLayerL3Dev.IPv6.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		default:
+			err = p.packet.decLayerL3Dev.IPv4.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -231,8 +272,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 	decoded.Summary = summary
 
-	if p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.endpointGetter, decoded)
+	if p.correlateL3L4Policy && p.endpointGetter != nil {
+		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
 	}
 
 	return nil

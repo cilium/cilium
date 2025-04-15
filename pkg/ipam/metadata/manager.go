@@ -5,9 +5,11 @@ package metadata
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/daemon/k8s"
@@ -15,11 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-metadata-manager")
 
 type ManagerStoppedError struct{}
 
@@ -57,10 +56,11 @@ type Manager interface {
 }
 
 type manager struct {
+	logger            *slog.Logger
+	db                *statedb.DB
 	namespaceResource resource.Resource[*slim_core_v1.Namespace]
 	namespaceStore    resource.Store[*slim_core_v1.Namespace]
-	podResource       k8s.LocalPodResource
-	podStore          resource.Store[*slim_core_v1.Pod]
+	pods              statedb.Table[k8s.LocalPod]
 }
 
 func (m *manager) Start(ctx cell.HookContext) (err error) {
@@ -69,17 +69,11 @@ func (m *manager) Start(ctx cell.HookContext) (err error) {
 		return fmt.Errorf("failed to obtain namespace store: %w", err)
 	}
 
-	m.podStore, err = m.podResource.Store(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to obtain pod store: %w", err)
-	}
-
 	return nil
 }
 
 func (m *manager) Stop(ctx cell.HookContext) error {
 	m.namespaceStore = nil
-	m.podStore = nil
 	return nil
 }
 
@@ -117,7 +111,7 @@ func determinePoolByAnnotations(annotations map[string]string, family ipam.Famil
 }
 
 func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
-	if m.namespaceStore == nil || m.podStore == nil {
+	if m.namespaceStore == nil || m.pods == nil {
 		return "", &ManagerStoppedError{}
 	}
 
@@ -127,19 +121,16 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 
 	namespace, name, ok := splitK8sPodName(owner)
 	if !ok {
-		log.WithField("owner", owner).
-			Debug("IPAM metadata request for invalid pod name, falling back to default pool")
+		m.logger.Debug(
+			"IPAM metadata request for invalid pod name, falling back to default pool",
+			logfields.Owner, owner,
+		)
 		return ipam.PoolDefault().String(), nil
 	}
 
 	// Check annotation on pod
-	pod, ok, err := m.podStore.GetByKey(resource.Key{
-		Name:      name,
-		Namespace: namespace,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to lookup pod %q: %w", namespace+"/"+name, err)
-	} else if !ok {
+	pod, _, found := m.pods.Get(m.db.ReadTxn(), k8s.PodByName(namespace, name))
+	if !found {
 		return "", &ResourceNotFound{Resource: "Pod", Namespace: namespace, Name: name}
 	} else if ippool, ok := determinePoolByAnnotations(pod.Annotations, family); ok {
 		return ippool, nil

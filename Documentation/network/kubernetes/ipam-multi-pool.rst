@@ -60,7 +60,7 @@ Validate installation
        [...]
 
 #. Validate that the ``CiliumPodIPPool`` resource for the ``default`` pool was created with the
-   CIDRs specified in the ``ipam.operator.multiPoolMap.default.*`` Helm values:
+   CIDRs specified in the ``ipam.operator.autoCreateCiliumPodIPPools.default.*`` Helm values:
 
    .. code-block:: shell-session
 

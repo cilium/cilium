@@ -12,7 +12,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -101,7 +100,10 @@ func (c *Configuration) GetGSOIPv4MaxSize() int {
 func setGROGSOIPv6MaxSize(log *slog.Logger, userConfig types.BigTCPUserConfig, device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := safenetlink.LinkByName(device)
 	if err != nil {
-		log.Warn("Link does not exist", logfields.Device, device, logfields.Error, err)
+		log.Warn("Link does not exist",
+			logfields.Device, device,
+			logfields.Error, err,
+		)
 		return nil
 	}
 
@@ -129,7 +131,10 @@ func setGROGSOIPv6MaxSize(log *slog.Logger, userConfig types.BigTCPUserConfig, d
 func setGROGSOIPv4MaxSize(log *slog.Logger, userConfig types.BigTCPUserConfig, device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := safenetlink.LinkByName(device)
 	if err != nil {
-		log.Warn("Link does not exist", logfields.Device, device, logfields.Error, err)
+		log.Warn("Link does not exist",
+			logfields.Device, device,
+			logfields.Error, err,
+		)
 		return nil
 	}
 
@@ -182,7 +187,11 @@ func probeTSOMaxSize(log *slog.Logger, devices []string) int {
 			tso := link.Attrs().TSOMaxSize
 			tsoMax := int(tso)
 			if tsoMax > defaultGSOMaxSize && tsoMax < maxSize {
-				log.Info("Lowering GRO/GSO max size", "from", maxSize, "to", tsoMax, logfields.Device, device)
+				log.Info("Lowering GRO/GSO max size",
+					logfields.From, maxSize,
+					logfields.To, tsoMax,
+					logfields.Device, device,
+				)
 				maxSize = tsoMax
 			}
 		}
@@ -202,9 +211,6 @@ type params struct {
 
 func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
-		if daemonCfg.DatapathMode == datapathOption.DatapathModeLBOnly {
-			return errors.New("BIG TCP is supported only in veth & netkit datapath mode")
-		}
 		if daemonCfg.TunnelingEnabled() {
 			return errors.New("BIG TCP is not supported in tunneling mode")
 		}
@@ -306,23 +312,37 @@ func startBIGTCP(p params, cfg *Configuration) error {
 			err = setGROGSOIPv6MaxSize(p.Log, p.UserConfig, device,
 				cfg.groIPv6MaxSize, cfg.gsoIPv6MaxSize)
 			if err != nil {
-				p.Log.Warn("Could not modify IPv6 gro_max_size and gso_max_size"+disableMsg, logfields.Device, device, logfields.Error, err)
+				p.Log.Warn("Could not modify IPv6 gro_max_size and gso_max_size"+disableMsg,
+					logfields.Device, device,
+					logfields.Error, err)
 				p.UserConfig.EnableIPv4BIGTCP = false
 				p.UserConfig.EnableIPv6BIGTCP = false
 				break
 			}
-			p.Log.Info("Setting IPv6", logfields.Device, device, "gso_max_size", cfg.gsoIPv6MaxSize, "gro_max_size", cfg.groIPv6MaxSize)
+			p.Log.Info("Setting IPv6",
+				logfields.Device, device,
+				logfields.GsoMaxSize, cfg.gsoIPv6MaxSize,
+				logfields.GroMaxSize, cfg.groIPv6MaxSize,
+			)
 		}
 		if haveIPv4 {
 			err = setGROGSOIPv4MaxSize(p.Log, p.UserConfig, device,
 				cfg.groIPv4MaxSize, cfg.gsoIPv4MaxSize)
 			if err != nil {
-				p.Log.Warn("Could not modify IPv4 gro_max_size and gso_max_size"+disableMsg, logfields.Device, device, logfields.Error, err)
+				msg := "Could not modify IPv4 gro_max_size and gso_max_size" + disableMsg
+				p.Log.Warn(msg,
+					logfields.Device, device,
+					logfields.Error, err,
+				)
 				p.UserConfig.EnableIPv4BIGTCP = false
 				p.UserConfig.EnableIPv6BIGTCP = false
 				break
 			}
-			p.Log.Info("Setting IPv4", logfields.Device, device, "gso_max_size", cfg.gsoIPv4MaxSize, "gro_max_size", cfg.groIPv4MaxSize)
+			p.Log.Info("Setting IPv4",
+				logfields.Device, device,
+				logfields.GsoMaxSize, cfg.gsoIPv4MaxSize,
+				logfields.GroMaxSize, cfg.groIPv4MaxSize,
+			)
 		}
 	}
 
@@ -340,7 +360,10 @@ func startBIGTCP(p params, cfg *Configuration) error {
 				err = setGROGSOIPv4MaxSize(p.Log, p.UserConfig, device,
 					defaultGROMaxSize, defaultGSOMaxSize)
 				if err != nil {
-					p.Log.Warn("Could not reset IPv4 gro_max_size and gso_max_size", logfields.Device, device, logfields.Error, err)
+					p.Log.Warn("Could not reset IPv4 gro_max_size and gso_max_size",
+						logfields.Device, device,
+						logfields.Error, err,
+					)
 					continue
 				}
 				p.Log.Info("Resetting IPv4 gso_max_size and gro_max_size", logfields.Device, device)
@@ -349,7 +372,10 @@ func startBIGTCP(p params, cfg *Configuration) error {
 				err = setGROGSOIPv6MaxSize(p.Log, p.UserConfig, device,
 					defaultGROMaxSize, defaultGSOMaxSize)
 				if err != nil {
-					p.Log.Warn("Could not reset IPv6 gro_max_size and gso_max_size", logfields.Device, device, logfields.Error, err)
+					p.Log.Warn("Could not reset IPv6 gro_max_size and gso_max_size",
+						logfields.Device, device,
+						logfields.Error, err,
+					)
 					continue
 				}
 				p.Log.Info("Resetting IPv6 gso_max_size and gro_max_size", logfields.Device, device)

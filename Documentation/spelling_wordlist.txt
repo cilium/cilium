@@ -118,6 +118,7 @@ Starovoitov
 Stormtroopers
 Suchakra
 Suricata
+Synchronizer
 Talos
 Telco
 Terraform
@@ -322,6 +323,7 @@ endpointSelector
 endpointmanager
 enet
 enetc
+enqueuing
 etcd
 etcdinit
 eth
@@ -390,6 +392,7 @@ hostns
 hostonlyifs
 hostscope
 hq
+html
 http
 httpbin
 httpd
@@ -467,6 +470,7 @@ kops
 kprobe
 kprobes
 kretprobes
+ktime
 kube
 kubeadm
 kubeconfig
@@ -663,6 +667,7 @@ ratelimiter
 rc
 reStructuredText
 reachability
+readSecretsOnlyFromSecretsNamespace
 rebase
 rebased
 rebasing
@@ -671,6 +676,7 @@ reconcilation
 reconciler
 reconcilers
 reconfigurations
+reconnection
 reconnections
 recv
 regenerations
@@ -697,7 +703,9 @@ routingMode
 runnable
 runtimes
 sandboxing
+scaffoldings
 scalable
+scripttest
 sctl
 seccomp
 secretName
@@ -708,6 +716,7 @@ selftests
 serverinfo
 serviceAccount
 serviceMonitor
+serviceaccount
 setrlimit
 sfc
 sg
@@ -716,6 +725,7 @@ sid
 sig
 skb
 snat
+spinlock
 srv
 ssl
 stacktrace
@@ -764,6 +774,7 @@ templating
 terminatingTLS
 terminationGracePeriodSeconds
 testability
+testdata
 testsuite
 testutils
 tetragon
@@ -785,8 +796,10 @@ tracepoints
 tracestate
 transpiling
 tsne
+tunables
 tunings
 tunnelProtocol
+txtar
 ubuntu
 udp
 ui
@@ -794,6 +807,7 @@ uid
 uint
 unaudited
 uncommented
+uncordon
 unencrypted
 unexported
 unicast
@@ -820,6 +834,7 @@ userInfo
 userspace
 uuid
 vCPU
+vSphere
 validator
 vendored
 verifier

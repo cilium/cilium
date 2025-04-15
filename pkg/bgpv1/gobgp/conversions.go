@@ -268,6 +268,14 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 			Value: uint32(*apiStatement.Actions.SetLocalPreference),
 		}
 	}
+
+	if apiStatement.Actions.NextHop != nil {
+		s.Actions.Nexthop = &gobgp.NexthopAction{
+			Self:      apiStatement.Actions.NextHop.Self,
+			Unchanged: apiStatement.Actions.NextHop.Unchanged,
+		}
+	}
+
 	return s, definedSets
 }
 
@@ -305,6 +313,12 @@ func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.De
 		if s.Actions.LocalPref != nil {
 			localPref := int64(s.Actions.LocalPref.Value)
 			stmt.Actions.SetLocalPreference = &localPref
+		}
+		if s.Actions.Nexthop != nil {
+			stmt.Actions.NextHop = &types.RoutePolicyActionNextHop{
+				Self:      s.Actions.Nexthop.Self,
+				Unchanged: s.Actions.Nexthop.Unchanged,
+			}
 		}
 	}
 	return stmt
@@ -468,4 +482,149 @@ func toGoBGPTableType(t types.TableType) (gobgp.TableType, error) {
 	default:
 		return gobgp.TableType_LOCAL, fmt.Errorf("unknown table type %d", t)
 	}
+}
+
+func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
+	newPeer := &gobgp.Peer{}
+
+	newPeer.Conf = toGoBGPPeerConf(n, oldPeer)
+	newPeer.EbgpMultihop = toGoBGPEbgpMultihop(n.EbgpMultihop)
+	newPeer.RouteReflector = toGoBGPRouteReflector(n.RouteReflector)
+	newPeer.Timers = toGoBGPTimers(n.Timers)
+	newPeer.Transport = toGoBGPTransport(n.Transport, oldPeer, v4)
+	newPeer.GracefulRestart = toGoBGPGracefulRestart(n.GracefulRestart)
+	newPeer.AfiSafis = toGoBGPAfiSafi(n.AfiSafis, newPeer.GracefulRestart)
+
+	return newPeer
+}
+
+func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
+	conf := &gobgp.PeerConf{}
+
+	// Inherit the default values from existing peer configuration
+	if oldPeer != nil && oldPeer.Conf != nil {
+		conf = oldPeer.Conf
+	}
+
+	if n.Address.IsValid() {
+		conf.NeighborAddress = n.Address.String()
+	} else {
+		// GoBGP cannot handle non-empty, but invalid address (it
+		// panics). Set empty address in that case.
+		conf.NeighborAddress = ""
+	}
+
+	conf.AuthPassword = n.AuthPassword
+	conf.PeerAsn = n.ASN
+
+	return conf
+}
+
+func toGoBGPEbgpMultihop(n *types.NeighborEbgpMultihop) *gobgp.EbgpMultihop {
+	if n == nil {
+		return nil
+	}
+	return &gobgp.EbgpMultihop{
+		Enabled:     true,
+		MultihopTtl: n.TTL,
+	}
+}
+
+func toGoBGPRouteReflector(n *types.NeighborRouteReflector) *gobgp.RouteReflector {
+	if n == nil {
+		return nil
+	}
+	return &gobgp.RouteReflector{
+		RouteReflectorClient:    n.Client,
+		RouteReflectorClusterId: n.ClusterID,
+	}
+}
+
+func toGoBGPTimers(n *types.NeighborTimers) *gobgp.Timers {
+	if n == nil {
+		return nil
+	}
+	return &gobgp.Timers{
+		Config: &gobgp.TimersConfig{
+			ConnectRetry:           n.ConnectRetry,
+			HoldTime:               n.HoldTime,
+			KeepaliveInterval:      n.KeepaliveInterval,
+			IdleHoldTimeAfterReset: idleHoldTimeAfterResetSeconds,
+		},
+	}
+}
+
+func toGoBGPTransport(n *types.NeighborTransport, oldPeer *gobgp.Peer, v4 bool) *gobgp.Transport {
+	if n == nil {
+		return nil
+	}
+
+	transport := &gobgp.Transport{}
+
+	// Inherit the default values from existing peer configuration
+	if oldPeer != nil && oldPeer.Transport != nil {
+		transport = oldPeer.Transport
+	}
+
+	if n.LocalPort > 0 {
+		transport.LocalPort = n.LocalPort
+	}
+
+	if n.RemotePort > 0 {
+		transport.RemotePort = n.RemotePort
+	}
+
+	if n.LocalAddress == "" {
+		// If local address is not set, set it to wildcard
+		if v4 {
+			transport.LocalAddress = wildcardIPv4Addr
+		} else {
+			transport.LocalAddress = wildcardIPv6Addr
+		}
+	} else {
+		transport.LocalAddress = n.LocalAddress
+	}
+
+	return transport
+}
+
+func toGoBGPGracefulRestart(n *types.NeighborGracefulRestart) *gobgp.GracefulRestart {
+	if n == nil {
+		return nil
+	}
+	if !n.Enabled {
+		return &gobgp.GracefulRestart{}
+	}
+	return &gobgp.GracefulRestart{
+		Enabled:             true,
+		RestartTime:         n.RestartTime,
+		NotificationEnabled: true,
+		LocalRestarting:     true,
+	}
+}
+
+func toGoBGPAfiSafi(fams []*types.Family, gr *gobgp.GracefulRestart) []*gobgp.AfiSafi {
+	if len(fams) == 0 {
+		return defaultSafiAfi
+	}
+	afisafis := make([]*gobgp.AfiSafi, 0, len(fams))
+	for _, fam := range fams {
+		afisafi := &gobgp.AfiSafi{
+			Config: &gobgp.AfiSafiConfig{
+				Family: &gobgp.Family{
+					Afi:  gobgp.Family_Afi(fam.Afi),
+					Safi: gobgp.Family_Safi(fam.Safi),
+				},
+			},
+		}
+		if gr != nil {
+			afisafi.MpGracefulRestart = &gobgp.MpGracefulRestart{
+				Config: &gobgp.MpGracefulRestartConfig{
+					Enabled: gr.Enabled,
+				},
+			}
+		}
+		afisafis = append(afisafis, afisafi)
+	}
+	return afisafis
 }

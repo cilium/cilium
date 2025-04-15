@@ -18,11 +18,12 @@
   "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
     ".github/actions/bpftrace/**",
+    ".github/actions/e2e/**",
     ".github/actions/kvstore/**",
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
-    ".github/actions/ipsec/configs.yml",
+    ".github/actions/ipsec/configs.yaml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "cilium-cli/**",
@@ -72,7 +73,6 @@
     "v1.17",
     "v1.16",
     "v1.15",
-    "v1.14",
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -88,7 +88,7 @@
     "^make -C Documentation update-helm-values$",
     "^make generate-k8s-api$",
     "^make manifests$",
-    "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis$"
+    "^make GO='contrib/scripts/builder.sh go' generate-apis$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -178,6 +178,16 @@
       ]
     },
     {
+      // Disabling updating quay.io/lvh-images/kind until issue https://github.com/cilium/cilium/issues/38058 is fixed.
+      "matchDepNames": [
+        "quay.io/lvh-images/kind",
+      ],
+      "paths": [
+        ".github/workflows/conformance-runtime.yaml",
+      ],
+      "enabled": false
+    },
+    {
       // Avoid updating patch releases of golang in go.mod
       "enabled": "false",
       "matchFiles": [
@@ -197,7 +207,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -213,7 +222,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -275,17 +283,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
-      ]
-    },
-    {
-      // Do not upgrade etcd as they have removed bash starting from v3.5.5
-      "matchDepNames": [
-        "quay.io/coreos/etcd"
-      ],
-      "allowedVersions": "<3.5.5",
-      "matchBaseBranches": [
-        "v1.14",
       ]
     },
     {
@@ -315,19 +312,6 @@
       "allowedVersions": "<1.10",
     },
     {
-      "matchFiles": [
-        "install/kubernetes/Makefile.values"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/spiffe/spire-agent",
-        "ghcr.io/spiffe/spire-server"
-      ],
-      "matchBaseBranches": [
-        "v1.14"
-      ],
-      "allowedVersions": "<1.7",
-    },
-    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
@@ -345,7 +329,6 @@
       "matchBaseBranches": [
         "v1.16",
         "v1.15",
-        "v1.14",
       ],
     },
     {
@@ -358,7 +341,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14"
       ]
     },
     {
@@ -374,15 +356,6 @@
     },
     {
       "matchPackageNames": [
-        "docker.io/library/alpine"
-      ],
-      "allowedVersions": "<3.19",
-      "matchBaseBranches": [
-        "v1.14"
-      ]
-    },
-    {
-      "matchPackageNames": [
         "quay.io/cilium/certgen",
       ],
       "allowedVersions": "<0.2.0",
@@ -390,7 +363,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -431,7 +403,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14"
       ]
     },
     {
@@ -467,7 +438,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -490,7 +460,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ],
     },
     {
@@ -588,7 +557,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
+          "make GO='contrib/scripts/builder.sh go' generate-apis"
         ],
         "executionMode": "update"
       }
@@ -601,7 +570,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
+          "make GO='contrib/scripts/builder.sh go' generate-apis"
         ],
         "executionMode": "update"
       }
@@ -611,12 +580,11 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
-      "allowedVersions": "/^v1\\.31\\.([0-9]+)-([0-9]+)-.*$/",
+      "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
-        "v1.15",
-        "v1.14"
+        "v1.15"
       ]
     },
     {
@@ -624,7 +592,7 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
-      "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
+      "allowedVersions": "/^v1\\.33\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
       ]
@@ -751,6 +719,7 @@
     {
       "fileMatch": [
         "^\\.github/workflows/[^/]+\\.ya?ml$",
+        "^\\.github/actions/e2e/[^/]+\\.ya?ml$",
         "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$",
         "^\\.github/actions/ipsec/[^/]+\\.ya?ml$"
       ],
@@ -761,8 +730,8 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)"',
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)"',
         '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)'
       ]

@@ -21,9 +21,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
@@ -122,11 +122,14 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			option.Config.LoadBalancerRSSv6 = *cidr
 		}
 
-		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
-			(option.Config.NodePortMode != option.NodePortModeDSR ||
-				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
-			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
-				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
+		dsrIPIP := option.Config.LoadBalancerUsesDSR() && option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
+			return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+		}
+
+		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") && !dsrIPIP {
+			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under %s dispatch for DSR",
+				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, option.DSRDispatchIPIP)
 		}
 
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
@@ -147,7 +150,11 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
-		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&
+		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
+			return fmt.Errorf("BPF NodePort cannot be used over an IPv6 underlay")
+		}
+
+		if option.Config.TunnelingEnabled() && tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
 			option.Config.LoadBalancerUsesDSR() {
 			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
 		}
@@ -160,26 +167,18 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 
 		if option.Config.LoadBalancerUsesDSR() &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
-			tunnelConfig.Protocol() != tunnel.Geneve {
+			tunnelConfig.EncapProtocol() != tunnel.Geneve {
 			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunnel protocol.",
 				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, tunnel.Geneve)
 		}
 
-		if option.Config.NodePortMode == option.NodePortModeDSR &&
-			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
-			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				return fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+		if option.Config.LoadBalancerIPIPSockMark {
+			if !dsrIPIP {
+				return fmt.Errorf("Node Port %q mode with IPIP socket mark logic requires %s dispatch.",
+					option.Config.NodePortMode, option.DSRDispatchIPIP)
 			}
-			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-				return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
-			}
+			option.Config.EnableHealthDatapath = true
 		}
-
-		option.Config.EnableHealthDatapath =
-			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
-				(option.Config.NodePortMode == option.NodePortModeDSR ||
-					option.Config.LoadBalancerModeAnnotation) &&
-				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
@@ -216,7 +215,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 // the running kernel.
 func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 	if option.Config.EnableNodePort {
-		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
+		if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
 
@@ -225,13 +224,13 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 
 		if option.Config.EnableRecorder {
-			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
 				return fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
 			}
 		}
 
 		if option.Config.EnableHealthDatapath {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
 				option.Config.EnableHealthDatapath = false
 				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
 			}
@@ -248,8 +247,8 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		probes.HaveIPv6Support()
 
 		if option.Config.EnableMKE {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
-				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
+				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 			}
 		}
@@ -280,15 +279,15 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 
 		if option.Config.EnableSocketLBTracing {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
 				option.Config.EnableSocketLBTracing = false
 				log.Info("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 			}
 		}
 
 		if option.Config.EnableSessionAffinity {
-			if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
-				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
 					"to work properly when accessed from inside cluster: the same service endpoint " +
 					"will be selected from all network namespaces on the host.")
@@ -296,7 +295,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 
 		if option.Config.BPFSocketLBHostnsOnly {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				option.Config.BPFSocketLBHostnsOnly = false
 				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
 					"cannot distinguish root and non-root namespace, skipping socket-level " +
@@ -353,8 +352,8 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
 			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		default:
-			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
-				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
+				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
 				msg = "BPF host routing requires kernel 5.10 or newer."
 			}
 		}
@@ -364,9 +363,9 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		}
 	}
 
-	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
-		option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
-		option.Config.NodePortMode == option.NodePortModeSNAT
+	if option.Config.NodePortNat46X64 && option.Config.NodePortMode != option.NodePortModeSNAT {
+		return fmt.Errorf("NAT46/NAT64 requires SNAT mode for services")
+	}
 
 	// In the case where the fib lookup does not return the outgoing ifindex
 	// the datapath needs to store it in our CT map, and the map's field is
@@ -524,7 +523,7 @@ func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
 	if err != nil {
 		return fmt.Errorf("Unable to read net.ipv4.ip_local_reserved_ports: %w", err)
 	}
-	for _, portRange := range strings.Split(reservedPortsStr, ",") {
+	for portRange := range strings.SplitSeq(reservedPortsStr, ",") {
 		if portRange == "" {
 			break
 		}

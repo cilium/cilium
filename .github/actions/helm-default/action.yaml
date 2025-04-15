@@ -27,7 +27,7 @@ runs:
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --helm-set=debug.enabled=true \
           --helm-set=debug.verbose=envoy \
-          --helm-set=bpf.monitorAggregation=none \
+          --helm-set=debug.metricsSamplingInterval=30s \
           --helm-set=hubble.relay.retryTimeout=5s \
           --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \

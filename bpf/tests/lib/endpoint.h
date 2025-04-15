@@ -22,7 +22,7 @@ endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags, __u
 	if (node_mac_addr)
 		memcpy(&value.node_mac, node_mac_addr, ETH_ALEN);
 
-	map_update_elem(&ENDPOINTS_MAP, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_lxc, &key, &value, BPF_ANY);
 }
 
 static __always_inline void
@@ -33,7 +33,7 @@ endpoint_v4_del_entry(__be32 addr)
 		.family = ENDPOINT_KEY_IPV4,
 	};
 
-	map_delete_elem(&ENDPOINTS_MAP, &key);
+	map_delete_elem(&cilium_lxc, &key);
 }
 
 static __always_inline void
@@ -59,5 +59,5 @@ endpoint_v6_add_entry(const union v6addr *addr, __u32 ifindex, __u16 lxc_id,
 	if (node_mac_addr)
 		memcpy(&value.node_mac, node_mac_addr, ETH_ALEN);
 
-	map_update_elem(&ENDPOINTS_MAP, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_lxc, &key, &value, BPF_ANY);
 }

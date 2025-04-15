@@ -6,6 +6,7 @@ package kvstore
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -13,20 +14,23 @@ import (
 
 // setOpts validates the specified options against the selected backend and
 // then modifies the configuration
-func setOpts(opts map[string]string, supportedOpts backendOptions) error {
+func setOpts(logger *slog.Logger, opts map[string]string, supportedOpts backendOptions) error {
 	errors := 0
 
 	for key, val := range opts {
 		opt, ok := supportedOpts[key]
 		if !ok {
 			errors++
-			log.WithField(logfields.Key, key).Error("unknown kvstore configuration key")
+			logger.Error("unknown kvstore configuration key", logfields.Key, key)
 			continue
 		}
 
 		if opt.validate != nil {
 			if err := opt.validate(val); err != nil {
-				log.WithError(err).Errorf("invalid value for key %s", key)
+				logger.Error("invalid value for key",
+					logfields.Error, err,
+					logfields.Key, key,
+				)
 				errors++
 			}
 		}
@@ -36,9 +40,9 @@ func setOpts(opts map[string]string, supportedOpts backendOptions) error {
 	// if errors have occurred, print the supported configuration keys to
 	// the log
 	if errors > 0 {
-		log.Error("Supported configuration keys:")
+		logger.Error("Supported configuration keys:")
 		for key, val := range supportedOpts {
-			log.Errorf("  %-12s %s", key, val.description)
+			logger.Error(fmt.Sprintf("  %-12s %s", key, val.description))
 		}
 
 		return fmt.Errorf("invalid kvstore configuration, see log for details")
@@ -66,13 +70,13 @@ var (
 	setupOnce sync.Once
 )
 
-func setup(ctx context.Context, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+func setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
 	module := getBackend(selectedBackend)
 	if module == nil {
 		return fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
 	}
 
-	if err := module.setConfig(opts); err != nil {
+	if err := module.setConfig(logger, opts); err != nil {
 		return err
 	}
 
@@ -80,16 +84,16 @@ func setup(ctx context.Context, selectedBackend string, opts map[string]string, 
 		return err
 	}
 
-	return initClient(ctx, module, goOpts)
+	return initClient(ctx, logger, module, goOpts)
 }
 
 // Setup sets up the key-value store specified in kvStore and configures it
 // with the options provided in opts
-func Setup(ctx context.Context, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+func Setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
 	var err error
 
 	setupOnce.Do(func() {
-		err = setup(ctx, selectedBackend, opts, goOpts)
+		err = setup(ctx, logger, selectedBackend, opts, goOpts)
 	})
 
 	return err

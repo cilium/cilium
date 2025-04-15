@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -156,7 +157,7 @@ func dumpNodes(w io.Writer, level, maxLevel int, levelsEnded []int, nodes []*nod
 }
 
 func dumpVals(w io.Writer, level, maxLevel int, levelsEnded []int, edge decoration, node *node) {
-	for i := 0; i < level; i++ {
+	for i := range level {
 		if isEnded(levelsEnded, i) {
 			fmt.Fprint(w, strings.Repeat(" ", indentSize+1))
 			continue
@@ -166,10 +167,7 @@ func dumpVals(w io.Writer, level, maxLevel int, levelsEnded []int, edge decorati
 
 	val := dumpVal(level, node)
 	if node.meta != "" {
-		c := maxLevel - level
-		if c < 0 {
-			c = 0
-		}
+		c := max(maxLevel-level, 0)
 		fmt.Fprintf(w, "%s %-"+strconv.Itoa(leafMaxWidth+c*2)+"s%s%s\n", edge, val, strings.Repeat("  ", c), node.meta)
 		return
 	}
@@ -177,13 +175,7 @@ func dumpVals(w io.Writer, level, maxLevel int, levelsEnded []int, edge decorati
 }
 
 func isEnded(levelsEnded []int, level int) bool {
-	for _, l := range levelsEnded {
-		if l == level {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(levelsEnded, level)
 }
 
 func dumpVal(level int, node *node) string {

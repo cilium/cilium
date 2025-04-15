@@ -11,6 +11,7 @@ cilium-operator troubleshoot clustermesh [clusters...] [flags]
 ### Options
 
 ```
+      --H string                     URI to server-side API
       --clustermesh-config string    Path to the ClusterMesh configuration directory (default "/var/lib/cilium/clustermesh/")
   -h, --help                         help for clustermesh
       --timeout duration             Timeout when checking connectivity to a given cluster (default 5s)

@@ -56,7 +56,10 @@ func (o *ops) Update(ctx context.Context, txn statedb.ReadTxn, tl *DynamicFeatur
 	tl.StartDuration = o.clock.Since(tl.StartedAt)
 
 	if err != nil {
-		o.log.Error("Failed to start all hooks, stopping started hooks", "feature", tl.Name, logfields.Error, err)
+		o.log.Error("Failed to start all hooks, stopping started hooks",
+			logfields.Feature, tl.Name,
+			logfields.Error, err,
+		)
 		errStop := lf.Stop(o.log, ctx)
 		tl.IsRunning = false
 		return errors.Join(err, errStop)

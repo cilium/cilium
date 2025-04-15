@@ -83,11 +83,12 @@ const (
 )
 
 type ipSecKey struct {
-	Spi   uint8
-	ReqID int
-	Auth  *netlink.XfrmStateAlgo
-	Crypt *netlink.XfrmStateAlgo
-	Aead  *netlink.XfrmStateAlgo
+	Spi    uint8
+	KeyLen int
+	ReqID  int
+	Auth   *netlink.XfrmStateAlgo
+	Crypt  *netlink.XfrmStateAlgo
+	Aead   *netlink.XfrmStateAlgo
 }
 
 type oldXfrmStateKey struct {
@@ -435,7 +436,9 @@ func xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink.XfrmState,
 	return nil, func() {
 		if err := xfrmStateCache.XfrmStateAdd(&state); err != nil {
 			scopedLog.Error("Failed to re-add old XFRM state",
-				"directory", dir, logfields.Error, err)
+				logfields.Directory, dir,
+				logfields.Error, err,
+			)
 		}
 		elapsed := time.Since(start)
 
@@ -451,7 +454,10 @@ func xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink.XfrmState,
 			}
 		}
 		scopedLog.Info("Temporarily removed old XFRM state",
-			"directory", dir, "packetsDropped", errorCnt, logfields.Duration, elapsed)
+			logfields.Directory, dir,
+			logfields.PacketsDropped, errorCnt,
+			logfields.Duration, elapsed,
+		)
 	}
 }
 
@@ -1092,10 +1098,14 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		}
 
 		ipSecKey.Spi = spi
+		ipSecKey.KeyLen = keyLen
 
 		if oldKey, ok := ipSecKeysGlobal[""]; ok {
 			if oldKey.Spi == spi {
 				return 0, 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
+			}
+			if oldKey.KeyLen != keyLen {
+				return 0, 0, fmt.Errorf("invalid key rotation: key length must not change")
 			}
 			ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
 		}
@@ -1148,7 +1158,10 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 
 		for _, rt := range routes {
 			if err := netlink.RouteDel(&rt); err != nil {
-				log.Warn("Unable to delete ipsec encrypt route", "route", rt.String(), logfields.Error, err)
+				log.Warn("Unable to delete ipsec encrypt route",
+					logfields.Route, rt.String(),
+					logfields.Error, err,
+				)
 			}
 		}
 	}

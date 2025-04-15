@@ -7,8 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"maps"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -16,14 +20,13 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
-	"github.com/cilium/cilium/pkg/aws/endpoints"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -49,19 +52,22 @@ const (
 	DescribeSecurityGroups          = "DescribeSecurityGroups"
 	DescribeSubnets                 = "DescribeSubnets"
 	DescribeVpcs                    = "DescribeVpcs"
+	DescribeRouteTables             = "DescribeRouteTables"
 	ModifyNetworkInterface          = "ModifyNetworkInterface"
 	ModifyNetworkInterfaceAttribute = "ModifyNetworkInterfaceAttribute"
 	UnassignPrivateIpAddresses      = "UnassignPrivateIpAddresses"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ec2")
+var syslogAttr = []any{logfields.LogSubsys, "ec2"}
 
 // Client represents an EC2 API client
 type Client struct {
+	logger              *slog.Logger
 	ec2Client           *ec2.Client
 	limiter             *helpers.APILimiter
 	metricsAPI          MetricsAPI
 	subnetsFilters      []ec2_types.Filter
+	routeTableFilters   []ec2_types.Filter
 	instancesFilters    []ec2_types.Filter
 	eniTagSpecification ec2_types.TagSpecification
 	usePrimary          bool
@@ -74,13 +80,14 @@ type MetricsAPI interface {
 }
 
 // NewClient returns a new EC2 client
-func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool) *Client {
+func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool) *Client {
 	eniTagSpecification := ec2_types.TagSpecification{
 		ResourceType: ec2_types.ResourceTypeNetworkInterface,
 		Tags:         createAWSTagSlice(eniTags),
 	}
 
 	return &Client{
+		logger:              logger.With(syslogAttr...),
 		ec2Client:           ec2Client,
 		metricsAPI:          metrics,
 		limiter:             helpers.NewAPILimiter(metrics, rateLimit, burst),
@@ -91,7 +98,7 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 	}
 }
 
-// NewConfig returns a new aws.Config configured with the correct region + endpoint resolver
+// NewConfig returns a new aws.Config configured with the correct region
 func NewConfig(ctx context.Context) (aws.Config, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -105,7 +112,12 @@ func NewConfig(ctx context.Context) (aws.Config, error) {
 	}
 
 	cfg.Region = instance.Region
-	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
+	cfg.Retryer = func() aws.Retryer {
+		return retry.NewStandard(func(o *retry.StandardOptions) {
+			// We only want to rely on internal Cilium rate-limiting
+			o.RateLimiter = ratelimit.None
+		})
+	}
 
 	return cfg, nil
 }
@@ -152,9 +164,7 @@ func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
 func MergeTags(tagMaps ...map[string]string) map[string]string {
 	merged := make(map[string]string)
 	for _, tagMap := range tagMaps {
-		for k, v := range tagMap {
-			merged[k] = v
-		}
+		maps.Copy(merged, tagMap)
 	}
 	return merged
 }
@@ -242,6 +252,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 				Values: []string{"*"},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
@@ -278,6 +289,7 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 				Values: []string{instanceID},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
@@ -336,6 +348,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 				Values: []string{"*"},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(enisListFromInstances) > 0 {
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
@@ -617,6 +630,55 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	return subnets, nil
 }
 
+// describeRouteTables lists all route tables
+func (c *Client) describeRouteTables(ctx context.Context) ([]ec2_types.RouteTable, error) {
+	var result []ec2_types.RouteTable
+	input := &ec2.DescribeRouteTablesInput{}
+	if len(c.routeTableFilters) > 0 {
+		input.Filters = c.routeTableFilters
+	}
+	paginator := ec2.NewDescribeRouteTablesPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, DescribeRouteTables)
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall(DescribeRouteTables, deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.RouteTables...)
+	}
+	return result, nil
+}
+
+// GetRouteTables returns all EC2 route tables as a RouteTableMap
+func (c *Client) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+	routeTables := ipamTypes.RouteTableMap{}
+
+	routeTableList, err := c.describeRouteTables(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rt := range routeTableList {
+		routeTable := &ipamTypes.RouteTable{
+			ID:               aws.ToString(rt.RouteTableId),
+			VirtualNetworkID: aws.ToString(rt.VpcId),
+			Subnets:          map[string]struct{}{},
+		}
+
+		for _, association := range rt.Associations {
+			if association.SubnetId != nil && association.AssociationState.State == ec2_types.RouteTableAssociationStateCodeAssociated {
+				routeTable.Subnets[aws.ToString(association.SubnetId)] = struct{}{}
+			}
+		}
+
+		routeTables[routeTable.ID] = routeTable
+	}
+
+	return routeTables, nil
+}
+
 // CreateNetworkInterface creates an ENI with the given parameters
 func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
 
@@ -626,8 +688,11 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		Groups:      groups,
 	}
 	if allocatePrefixes {
-		input.Ipv4PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)))
-		log.Debugf("Creating interface with %v prefixes", input.Ipv4PrefixCount)
+		prefixCount := ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)
+		input.Ipv4PrefixCount = aws.Int32(int32(prefixCount))
+		c.logger.Debug("Creating interface with prefixes",
+			logfields.PrefixCount, prefixCount,
+		)
 	} else {
 		input.SecondaryPrivateIpAddressCount = aws.Int32(toAllocate)
 	}
@@ -712,7 +777,7 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 
 // AssignPrivateIpAddresses assigns the specified number of secondary IP
 // addresses
-func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
+func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error) {
 	input := &ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId:             aws.String(eniID),
 		SecondaryPrivateIpAddressCount: aws.Int32(addresses),
@@ -720,9 +785,16 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 
 	c.limiter.Limit(ctx, AssignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
-	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
+	output, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall(AssignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
-	return err
+	if err != nil {
+		return nil, err
+	}
+	assignedIPs := make([]string, addresses)
+	for i, ip := range output.AssignedPrivateIpAddresses {
+		assignedIPs[i] = aws.ToString(ip.PrivateIpAddress)
+	}
+	return assignedIPs, nil
 }
 
 // UnassignPrivateIpAddresses unassigns specified IP addresses from ENI
@@ -789,7 +861,11 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Found %d EIPs corresponding to tags %v", len(addresses.Addresses), eipTags)
+	c.logger.Info(
+		"Found EIPs corresponding to tags",
+		logfields.LenEIPS, len(addresses.Addresses),
+		logfields.Tags, eipTags,
+	)
 
 	for _, address := range addresses.Addresses {
 		// Only pick unassociated EIPs
@@ -806,7 +882,12 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 			if err != nil {
 				return "", err
 			}
-			log.Infof("Associated EIP %s with instance %s (association ID: %s)", *address.PublicIp, instanceID, *association.AssociationId)
+			c.logger.Info(
+				"Associated EIP successfully",
+				logfields.EIP, *address.PublicIp,
+				logfields.InstanceID, instanceID,
+				logfields.AssociationID, *association.AssociationId,
+			)
 			return *address.PublicIp, nil
 		}
 	}

@@ -16,13 +16,6 @@
 #define ENABLE_NODEPORT 1
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include "node_config.h"
-
-/*
  * Simulate sending traffic from pod_one on node_one to pod_two
  * on node_two, through a nodeport on node_three, as well as sending
  * reply from pod_two to pod_one through node_three.
@@ -153,9 +146,9 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 * Otherwise, leftover state from previous tests will have an impact,
 	 * as the tests and checks assume we have a fresh state every time.
 	 */
-	clear_map(&METRICS_MAP);
-	clear_map(&CT_MAP_TCP4);
-	clear_map(&CT_MAP_TCP6);
+	clear_map(&cilium_metrics);
+	clear_map(&cilium_ct4_global);
+	clear_map(&cilium_ct6_global);
 	clear_map(get_cluster_snat_map_v4(0));
 	clear_map(get_cluster_snat_map_v6(0));
 
@@ -173,13 +166,13 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 */
 
 	if (v4) {
-		lb_v4_add_service(NODEPORT_IPV4, NODEPORT_PORT, 1, 1);
+		lb_v4_add_service(NODEPORT_IPV4, NODEPORT_PORT, IPPROTO_TCP, 1, 1);
 		lb_v4_add_backend(NODEPORT_IPV4, NODEPORT_PORT, 1, 124,
 				  DST_IPV4, DST_PORT, IPPROTO_TCP, 0);
 		ipcache_v4_add_entry_with_flags(DST_IPV4,
 						0, 1230, DST_TUNNEL_IP, 0, flag_skip_tunnel);
 	} else {
-		lb_v6_add_service((union v6addr *)NODEPORT_IPV6, NODEPORT_PORT, 1, 1);
+		lb_v6_add_service((union v6addr *)NODEPORT_IPV6, NODEPORT_PORT, IPPROTO_TCP, 1, 1);
 		lb_v6_add_backend((union v6addr *)NODEPORT_IPV6, NODEPORT_PORT, 1, 123,
 				  (union v6addr *)DST_IPV6, DST_PORT, IPPROTO_TCP, 0);
 		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
@@ -233,7 +226,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		key.reason = REASON_FORWARDED;
 		key.dir = METRIC_EGRESS;
 
-		entry = map_lookup_elem(&METRICS_MAP, &key);
+		entry = map_lookup_elem(&cilium_metrics, &key);
 		if (!entry)
 			test_fatal("metrics entry not found")
 
@@ -295,9 +288,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 			test_fatal("l3 out of bounds");
 
 		if (expected_result == CTX_ACT_REDIRECT) {
-			union v6addr router_ip;
-
-			BPF_V6(router_ip, ROUTER_IP);
+			union v6addr router_ip = CONFIG(router_ipv6);
 
 			if (memcmp((__u8 *)&l3->saddr, &router_ip, 16) != 0)
 				test_fatal("src IP was not changed to IPV6_GATEWAY");

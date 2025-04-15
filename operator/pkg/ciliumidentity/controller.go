@@ -24,6 +24,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -78,7 +79,7 @@ type Controller struct {
 	// requests going to api-server. Ensures a single resource key will not be
 	// processed multiple times concurrently, and if a resource key is added
 	// multiple times before it can be processed, this will only be processed once.
-	resourceQueue workqueue.RateLimitingInterface
+	resourceQueue workqueue.TypedRateLimitingInterface[QueuedItem]
 
 	cesEnabled bool
 
@@ -90,9 +91,14 @@ type Controller struct {
 }
 
 func registerController(p params) {
+	isOperatorManageCIDsEnabled := cmp.Or(
+		p.Config.IdentityManagementMode == option.IdentityManagementModeOperator,
+		p.Config.IdentityManagementMode == option.IdentityManagementModeBoth,
+	)
+
 	if cmp.Or(
 		!p.Clientset.IsEnabled(),
-		!p.Config.EnableOperatorManageCIDs,
+		!isOperatorManageCIDsEnabled,
 		p.SharedCfg.DisableNetworkPolicy,
 	) {
 		return
@@ -160,9 +166,9 @@ func (c *Controller) initializeQueues() {
 		logfields.WorkQueueSyncBackOff, defaultSyncBackOff,
 		logfields.WorkQueueMaxSyncBackOff, maxSyncBackOff)
 
-	c.resourceQueue = workqueue.NewRateLimitingQueueWithConfig(
-		workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff),
-		workqueue.RateLimitingQueueConfig{Name: "ciliumidentity_resource"})
+	c.resourceQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.NewTypedItemExponentialFailureRateLimiter[QueuedItem](defaultSyncBackOff, maxSyncBackOff),
+		workqueue.TypedRateLimitingQueueConfig[QueuedItem]{Name: "ciliumidentity_resource"})
 }
 
 // startEventProcessing starts the event processing loop for the Controller.
@@ -237,32 +243,40 @@ func (c *Controller) processNextItem() bool {
 	if quit {
 		return false
 	}
-	qItem := item.(QueuedItem)
 	defer c.resourceQueue.Done(item)
 	processingStartTime := time.Now()
-	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(qItem.Key().String())
+	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(item.Key().String())
 
-	err := qItem.Reconcile(c.reconciler)
+	err := item.Reconcile(c.reconciler)
 	if err != nil {
 		retries := c.resourceQueue.NumRequeues(item)
-		c.logger.Warn("Failed to process resource item", logfields.Key, qItem.Key().String(), "retries", retries, "maxRetries", maxProcessRetries, logfields.Error, err)
+		c.logger.Warn("Failed to process resource item",
+			logfields.Key, item.Key(),
+			logfields.Retries, retries,
+			logfields.MaxRetries, maxProcessRetries,
+			logfields.Error, err,
+		)
 
 		if retries < maxProcessRetries {
-			c.enqueueTimeTracker.Track(qItem.Key().String())
+			c.enqueueTimeTracker.Track(item.Key().String())
 			c.resourceQueue.AddRateLimited(item)
 			return true
 		}
 
 		// Drop the pod from queue, exceeded max retries
-		c.logger.Error("Dropping item from resource queue, exceeded maxRetries", logfields.Key, qItem.Key().String(), "maxRetries", maxProcessRetries, logfields.Error, err)
+		c.logger.Error("Dropping item from resource queue, exceeded maxRetries",
+			logfields.Key, item.Key(),
+			logfields.MaxRetries, maxProcessRetries,
+			logfields.Error, err,
+		)
 	}
 
 	if exists {
 		enqueuedLatency := processingStartTime.Sub(enqueueTime).Seconds()
 		processingLatency := time.Since(processingStartTime).Seconds()
-		qItem.Meter(enqueuedLatency, processingLatency, err != nil, c.metrics)
+		item.Meter(enqueuedLatency, processingLatency, err != nil, c.metrics)
 	} else {
-		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, qItem.Key().String())
+		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, item.Key().String())
 	}
 
 	c.resourceQueue.Forget(item)

@@ -25,6 +25,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
@@ -62,8 +63,8 @@ func metricsCommand(r *Registry, dc *sampler) script.Cmd {
 			},
 			Detail: []string{
 				"To write the metrics to a file: 'metrics --out=/path/to/file'",
-				"To show metrics matching a regex: 'metrics foo.*'",
-				"To show samples from last 60 minutes: 'metrics --sampled'",
+				"To show enabled metrics matching a regex: 'metrics foo.*'",
+				"To show sampled metrics (enabled and disabled): 'metrics --sampled'",
 				"",
 				"The metric samples can be plotted with 'metrics/plot' command.",
 				"",
@@ -163,8 +164,6 @@ func plotCommand(dc *sampler) script.Cmd {
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			s.Logf("args: %v\n", args)
-
 			file, err := s.Flags.GetString("out")
 			if err != nil {
 				return nil, err
@@ -223,15 +222,17 @@ func plotCommand(dc *sampler) script.Cmd {
 				return nil, nil
 			}
 
+			samplingTimeSpan := dc.cfg.timeSpan()
+			samplingInterval := dc.cfg.MetricsSamplingInterval
 			switch ds := ds.(type) {
 			case *gaugeOrCounterSamples:
-				PlotSamples(w, rate, ds.getName(), ds.getLabels(), samplingTimeSpan, ds.samples.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName(), ds.getLabels(), samplingTimeSpan, samplingInterval, ds.samples.grab(), ds.bits)
 			case *histogramSamples:
-				PlotSamples(w, rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, ds.p50.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, samplingInterval, ds.p50.grab(), ds.bits)
 				fmt.Fprintln(w)
-				PlotSamples(w, rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, ds.p90.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, samplingInterval, ds.p90.grab(), ds.bits)
 				fmt.Fprintln(w)
-				PlotSamples(w, rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, ds.p99.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, samplingInterval, ds.p99.grab(), ds.bits)
 			}
 
 			return nil, nil
@@ -274,7 +275,7 @@ func htmlCommand(dc *sampler) script.Cmd {
 
 			dump := JSONSampleDump{
 				NumSamples:      numSamples,
-				IntervalSeconds: int(samplingInterval.Seconds()),
+				IntervalSeconds: int(dc.cfg.MetricsSamplingInterval.Seconds()),
 			}
 			for _, ds := range dc.metrics {
 				dump.Samples = append(dump.Samples, ds.getJSON())
@@ -299,6 +300,7 @@ func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, d
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
 
+	samplingInterval := dc.cfg.MetricsSamplingInterval
 	sampledMetrics := slices.Collect(maps.Values(dc.metrics))
 	slices.SortFunc(sampledMetrics, func(a, b debugSamples) int {
 		return cmp.Or(
@@ -311,7 +313,7 @@ func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, d
 	case "json", "yaml":
 		dump := JSONSampleDump{
 			NumSamples:      numSamples,
-			IntervalSeconds: int(samplingInterval.Seconds()),
+			IntervalSeconds: int(dc.cfg.MetricsSamplingInterval.Seconds()),
 		}
 		for _, ds := range sampledMetrics {
 			if re != nil && !re.MatchString(ds.getName()+ds.getLabels()) {
@@ -330,7 +332,12 @@ func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, d
 	case "table":
 		w := tabwriter.NewWriter(outw, 5, 0, 3, ' ', 0)
 		defer w.Flush()
-		_, err := fmt.Fprintln(w, "Metric\tLabels\t5min\t30min\t60min\t120min")
+		_, err := fmt.Fprintf(w, "Metric\tLabels\t%s\t%s\t%s\t%s\n",
+			duration.HumanDuration(samplingInterval),
+			duration.HumanDuration((1+quarterIndex)*samplingInterval),
+			duration.HumanDuration((1+halfIndex)*samplingInterval),
+			duration.HumanDuration((1+lastIndex)*samplingInterval),
+		)
 		if err != nil {
 			return err
 		}
@@ -338,8 +345,8 @@ func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, d
 			if re != nil && !re.MatchString(ds.getName()+ds.getLabels()) {
 				continue
 			}
-			m5, m30, m60, m120 := ds.get()
-			_, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", ds.getName(), ds.getLabels(), m5, m30, m60, m120)
+			sZero, sQuarter, sHalf, sLast := ds.get()
+			_, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", ds.getName(), ds.getLabels(), sZero, sQuarter, sHalf, sLast)
 			if err != nil {
 				return err
 			}

@@ -23,6 +23,7 @@ spec:
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+        kubectl.kubernetes.io/default-container: cilium-pre-flight-check
       labels:
         app.kubernetes.io/part-of: cilium
         k8s-app: cilium-pre-flight-check
@@ -137,6 +138,15 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           env:
+          {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.k8sServiceHostRef.name }}
+                key: {{ .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ include "k8sServicePort" . }}
+          {{- end }}
           {{- if .Values.k8sServiceHost }}
           - name: KUBERNETES_SERVICE_HOST
             value: {{ include "k8sServiceHost" . }}

@@ -156,15 +156,11 @@ type RunInstancesInput struct {
 	// [Stop protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html#Using_StopProtection
 	DisableApiStop *bool
 
-	// If you set this parameter to true , you can't terminate the instance using the
-	// Amazon EC2 console, CLI, or API; otherwise, you can. To change this attribute
-	// after launch, use [ModifyInstanceAttribute]. Alternatively, if you set InstanceInitiatedShutdownBehavior
-	// to terminate , you can terminate the instance by running the shutdown command
-	// from the instance.
-	//
-	// Default: false
-	//
-	// [ModifyInstanceAttribute]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceAttribute.html
+	// Indicates whether termination protection is enabled for the instance. The
+	// default is false , which means that you can terminate the instance using the
+	// Amazon EC2 console, command line tools, or API. You can enable termination
+	// protection when you launch an instance, while the instance is running, or while
+	// the instance is stopped.
 	DisableApiTermination *bool
 
 	// Checks whether you have the required permissions for the operation, without
@@ -484,6 +480,9 @@ func (c *Client) addOperationRunInstancesMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opRunInstancesMiddleware(stack, options); err != nil {

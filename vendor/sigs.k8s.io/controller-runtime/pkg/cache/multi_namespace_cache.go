@@ -262,6 +262,9 @@ func (c *multiNamespaceCache) List(ctx context.Context, list client.ObjectList, 
 	if listOpts.Namespace != corev1.NamespaceAll {
 		cache, ok := c.namespaceToCache[listOpts.Namespace]
 		if !ok {
+			if global, hasGlobal := c.namespaceToCache[AllNamespaces]; hasGlobal {
+				return global.List(ctx, list, opts...)
+			}
 			return fmt.Errorf("unable to list: %v because of unknown namespace for the cache", listOpts.Namespace)
 		}
 		return cache.List(ctx, list, opts...)

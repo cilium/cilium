@@ -77,21 +77,28 @@ type Engine struct {
 	// section when starting a new section.
 	Quiet bool
 
-	// RetryInterval for retrying commands marked with '*'. If zero, then
-	// the default retry interval is used.
+	// RetryInterval is the minimal interval for retrying commands marked with '*'.
+	// If zero, then the default retry interval is used.
 	RetryInterval time.Duration
+
+	// MaxRetryInterval is the maximum time to wait before retrying.
+	MaxRetryInterval time.Duration
 }
 
 // NewEngine returns an Engine configured with a basic set of commands and conditions.
 func NewEngine() *Engine {
 	return &Engine{
-		Cmds:          DefaultCmds(),
-		Conds:         DefaultConds(),
-		RetryInterval: defaultRetryInterval,
+		Cmds:             DefaultCmds(),
+		Conds:            DefaultConds(),
+		RetryInterval:    defaultRetryInterval,
+		MaxRetryInterval: defaultMaxRetryInterval,
 	}
 }
 
-const defaultRetryInterval = 100 * time.Millisecond
+const (
+	defaultRetryInterval    = 100 * time.Millisecond
+	defaultMaxRetryInterval = 500 * time.Millisecond
+)
 
 // A Cmd is a command that is available to a script.
 type Cmd interface {
@@ -168,6 +175,8 @@ type CondUsage struct {
 	Prefix bool
 }
 
+var ParseError = errors.New("parse error")
+
 // Execute reads and executes script, writing the output to log.
 //
 // Execute stops and returns an error at the first command that does not succeed.
@@ -188,6 +197,10 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 	retryInterval := e.RetryInterval
 	if retryInterval == 0 {
 		retryInterval = defaultRetryInterval
+	}
+	maxRetryInterval := e.MaxRetryInterval
+	if maxRetryInterval == 0 {
+		maxRetryInterval = defaultMaxRetryInterval
 	}
 
 	var (
@@ -288,7 +301,7 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 
 		s.Logf("> %s\n", line)
 		if err != nil {
-			return lineErr(err)
+			return lineErr(fmt.Errorf("%w: %w", ParseError, err))
 		}
 
 		// Evaluate condition guards.
@@ -322,30 +335,43 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 		}
 		cmd.origArgs = expandArgs(s, cmd.rawArgs, regexpArgs)
 		cmd.args = cmd.origArgs
+		s.RetryCount = 0
 
 		// Run the command.
 		err = e.runCommand(s, cmd, impl)
 		if err != nil {
 			if cmd.want == successRetryOnFailure || cmd.want == failureRetryOnSuccess {
+				retryStart := sectionStart
+
+				// Clear the section start to avoid the deferred endSection() printing a timestamp.
+				sectionStart = time.Time{}
+
+				// Append the new line that section start omitted and flush the log.
+				io.WriteString(log, "\n")
+				s.FlushLog()
+
 				// Command wants retries. Retry the whole section
-				numRetries := 0
+				backoff := exponentialBackoff{max: maxRetryInterval, interval: retryInterval}
 				for err != nil {
-					s.FlushLog()
+					retryDuration := backoff.get()
+					fmt.Fprintf(log, "(command %q failed, retrying in %s...)\n", line, retryDuration)
 					select {
 					case <-s.Context().Done():
+						s.RetryCount = 0
 						return lineErr(s.Context().Err())
-					case <-time.After(retryInterval):
+					case <-time.After(retryDuration):
 					}
-					s.Logf("(command %q failed, retrying...)\n", line)
-					numRetries++
+					s.RetryCount++
 					for _, cmd := range sectionCmds {
 						impl := e.Cmds[cmd.name]
 						if err = e.runCommand(s, cmd, impl); err != nil {
 							break
 						}
 					}
+					s.FlushLog()
 				}
-				s.Logf("(command %q succeeded after %d retries)\n", line, numRetries)
+				fmt.Fprintf(log, "(command %q succeeded after %d retries in %.3fs)\n", line, s.RetryCount, time.Since(retryStart).Seconds())
+				s.RetryCount = 0
 			} else {
 				if stop := (stopError{}); errors.As(err, &stop) {
 					// Since the 'stop' command halts execution of the entire script,
@@ -994,4 +1020,15 @@ func (e *Engine) ListConds(w io.Writer, s *State, tags ...string) error {
 	}
 
 	return nil
+}
+
+type exponentialBackoff struct {
+	max      time.Duration
+	interval time.Duration
+}
+
+func (eb *exponentialBackoff) get() time.Duration {
+	d := eb.interval
+	eb.interval = min(eb.interval*2, eb.max)
+	return d
 }

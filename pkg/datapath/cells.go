@@ -5,7 +5,6 @@ package datapath
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"path/filepath"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -43,7 +43,6 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -81,11 +80,9 @@ var Cell = cell.Module(
 
 	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev) types.LBMap {
 		if expConfig.EnableExperimentalLB {
-			// The experimental control-plane is enabled. Use a fake LBMap
-			// to effectively disable the other code paths writing to LBMaps.
-			return mockmaps.NewLBMockMap()
+			// The experimental control-plane comes with its own LBMap implementation.
+			return nil
 		}
-
 		return lbmap.New(maglev)
 	}),
 
@@ -154,12 +151,12 @@ var Cell = cell.Module(
 	act.Cell,
 )
 
-func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
+func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
-			log.Fatalf("WireGuard (--%s) cannot be used with IPsec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
+			logging.Fatal(rootLogger, fmt.Sprintf("WireGuard (--%s) cannot be used with IPsec (--%s)",
+				option.EnableWireguard, option.EnableIPSecName))
 		}
 
 		jobGroup := registry.NewGroup(health)
@@ -167,9 +164,9 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Heal
 
 		var err error
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(privateKeyPath, sysctl, jobGroup, db, mtuTable)
+		wgAgent, err = wg.NewAgent(rootLogger, privateKeyPath, sysctl, jobGroup, db, mtuTable)
 		if err != nil {
-			log.Fatalf("failed to initialize WireGuard: %s", err)
+			logging.Fatal(rootLogger, fmt.Sprintf("failed to initialize WireGuard: %s", err))
 		}
 
 		lc.Append(wgAgent)
@@ -180,10 +177,10 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Heal
 	return wgAgent
 }
 
-func initDatapath(logger *slog.Logger, lifecycle cell.Lifecycle) {
+func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {
 	lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			if err := linuxdatapath.CheckRequirements(logger); err != nil {
+			if err := linuxdatapath.CheckRequirements(rootLogger); err != nil {
 				return fmt.Errorf("requirements failed: %w", err)
 			}
 

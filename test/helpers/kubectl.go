@@ -11,11 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -131,6 +133,8 @@ var (
 		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
 
 		"extraConfig.max-internal-timer-delay": "5s",
+
+		"connectivityProbeFrequencyRatio": "0",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
@@ -263,10 +267,6 @@ func Init() {
 
 	if config.CiliumTestConfig.HubbleRelayTag != "" {
 		os.Setenv("HUBBLE_RELAY_TAG", config.CiliumTestConfig.HubbleRelayTag)
-	}
-
-	if !config.CiliumTestConfig.ProvisionK8s {
-		os.Setenv("SKIP_K8S_PROVISION", "true")
 	}
 
 	// Copy over envronment variables that are passed in.
@@ -793,37 +793,6 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 		return 0
 	}
 	return len(strings.Split(res.SingleOut(), " ")) - len(GetNodesWithoutCilium())
-}
-
-// CountMissedTailCalls returns the number of the sum of all drops due to
-// missed tail calls that happened on all Cilium-managed nodes.
-func (kub *Kubectl) CountMissedTailCalls() (int, error) {
-	ciliumPods, err := kub.GetCiliumPods()
-	if err != nil {
-		return -1, err
-	}
-
-	totalMissedTailCalls := 0
-	for _, ciliumPod := range ciliumPods {
-		cmd := "cilium-dbg metrics list -o json | jq '.[] | select( .name == \"cilium_drop_count_total\" and .labels.reason == \"Missed tail call\" ).value'"
-		res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
-		if !res.WasSuccessful() {
-			return -1, fmt.Errorf("Failed to run %s in pod %s: %s", cmd, ciliumPod, res.CombineOutput())
-		}
-		if res.Stdout() == "" {
-			continue
-		}
-
-		for _, cnt := range res.ByLines() {
-			nbMissedTailCalls, err := strconv.Atoi(cnt)
-			if err != nil {
-				return -1, err
-			}
-			totalMissedTailCalls += nbMissedTailCalls
-		}
-	}
-
-	return totalMissedTailCalls, nil
 }
 
 // CreateSecret is a wrapper around `kubernetes create secret
@@ -2274,12 +2243,6 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary(force bool) {
 	}
 }
 
-// WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
-// default timeout it returns an error.
-func (kub *Kubectl) WaitKubeDNS() error {
-	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
-}
-
 // WaitForKubeDNSEntry waits until the given DNS entry exists in the kube-dns
 // service. If the container is not ready after timeout it returns an error. The
 // name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
@@ -2633,9 +2596,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options["ipv6.enabled"] = "false"
 	}
 
-	for k, v := range cliOverrideOptions {
-		options[k] = v
-	}
+	maps.Copy(options, cliOverrideOptions)
 
 	return nil
 }
@@ -2854,7 +2815,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 			}
 			total := 0
 			invalid := 0
-			for _, line := range strings.Split(status.String(), "\n") {
+			for line := range strings.SplitSeq(status.String(), "\n") {
 				if line == "" {
 					continue
 				}
@@ -2983,7 +2944,7 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	// 'limitTimes' retries has been exhausted.
 	// https://github.com/cilium/cilium/issues/22476
 	// [1]: https://github.com/golang/go/blob/go1.20rc1/src/os/exec_posix.go#L128-L130
-	for i := 0; i < limitTimes; i++ {
+	for i := range limitTimes {
 		res = execute()
 		switch res.GetExitCode() {
 		case 0:
@@ -3004,7 +2965,7 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 
 // CiliumExecMustSucceed runs cmd in the specified Cilium pod.
 // it causes a test failure if the command was not successful.
-func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, optionalDescription ...interface{}) *CmdRes {
+func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, optionalDescription ...any) *CmdRes {
 	res := kub.CiliumExecContext(ctx, pod, cmd)
 	if !res.WasSuccessful() {
 		res.SendToLog(false)
@@ -3016,7 +2977,7 @@ func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, 
 
 // CiliumExecMustSucceedOnAll does the same as CiliumExecMustSucceed, just that
 // it execs cmd on all cilium-agent pods.
-func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, optionalDescription ...interface{}) {
+func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, optionalDescription ...any) {
 	pods, err := kub.GetCiliumPods()
 	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
 
@@ -3061,36 +3022,6 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		body,
 		fmt.Sprintf("%s is not in the output after timeout", substr),
 		&TimeoutConfig{Timeout: HelperTimeout})
-}
-
-// WaitForCiliumInitContainerToFinish waits for all Cilium init containers to
-// finish
-func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
-	body := func() bool {
-		podList := &v1.PodList{}
-		err := kub.GetPods(CiliumNamespace, "-l k8s-app=cilium").Unmarshal(podList)
-		if err != nil {
-			kub.Logger().Infof("Error while getting PodList: %s", err)
-			return false
-		}
-		if len(podList.Items) == 0 {
-			return false
-		}
-		for _, pod := range podList.Items {
-			for _, v := range pod.Status.InitContainerStatuses {
-				if v.State.Terminated != nil && (v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0) {
-					kub.Logger().WithFields(logrus.Fields{
-						"podName":      pod.Name,
-						"currentState": v.State.String(),
-					}).Infof("Cilium Init container not completed")
-					return false
-				}
-			}
-		}
-		return true
-	}
-
-	return WithTimeout(body, "Cilium Init Container was not able to initialize or had a successful run", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
@@ -4111,25 +4042,6 @@ func parseLBList(res *CmdRes) (map[string][]string, error) {
 	return lbMap, nil
 }
 
-// KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.
-func (kub *Kubectl) KubeDNSPreFlightCheck() error {
-	var dnsErr error
-	body := func() bool {
-		dnsErr = kub.fillServiceCache()
-		if dnsErr != nil {
-			return false
-		}
-		dnsErr = kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
-		return dnsErr == nil
-	}
-
-	err := WithTimeout(body, "DNS not ready within timeout", &TimeoutConfig{Timeout: HelperTimeout})
-	if err != nil {
-		return fmt.Errorf("kube-dns service not ready: %w", dnsErr)
-	}
-	return nil
-}
-
 // servicePreFlightCheck makes sure that k8s service with given name and
 // namespace is properly plumbed in Cilium
 func (kub *Kubectl) servicePreFlightCheck(serviceName, serviceNamespace string) error {
@@ -4266,9 +4178,6 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 			if err != nil {
 				return fmt.Errorf("Error validating Cilium service on pod %v: %s", pod, err.Error())
 			}
-		}
-		if len(pod.services) != len(pod.loadBalancers) {
-			return fmt.Errorf("Length of Cilium services doesn't match length of bpf LB map on pod %v", pod)
 		}
 	}
 	return nil
@@ -4487,11 +4396,8 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 			k8sService = &k8sSvc
 			break
 		}
-		for _, clusterIP := range k8sSvc.Spec.ClusterIPs {
-			if clusterIP == cSvc.Status.Realized.FrontendAddress.IP {
-				k8sService = &k8sSvc
-				break
-			}
+		if slices.Contains(k8sSvc.Spec.ClusterIPs, cSvc.Status.Realized.FrontendAddress.IP) {
+			k8sService = &k8sSvc
 		}
 		if k8sService != nil {
 			break

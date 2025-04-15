@@ -325,17 +325,35 @@ func (s *Service4Value) GetFlags() uint16 {
 	return (uint16(s.Flags2) << 8) | uint16(s.Flags)
 }
 
-func (s *Service4Value) SetSessionAffinityTimeoutSec(t uint32) {
+const (
+	sessionAffinityMask uint32 = 0x00ff_ffff
+	lbAlgMask           uint32 = 0xff00_0000
+)
+
+func (s *Service4Value) SetSessionAffinityTimeoutSec(t uint32) error {
 	// Go doesn't support union types, so we use BackendID to access the
 	// lb4_service.affinity_timeout field. Also, for the master entry the
-	// LB algorithm was set beforehand, so we need to binary OR here.
-	s.BackendID |= t
+	// LB algorithm can be set independently, so we need to preseve the
+	// first 8 bits and only assign to the latter 24 bits.
+	if t > sessionAffinityMask {
+		return fmt.Errorf("session affinity timeout %d does not fit into 24 bits (is larger than 16777215)", t)
+	}
+	s.BackendID = (s.BackendID & lbAlgMask) + (t & sessionAffinityMask)
+	return nil
+}
+
+func (s *Service4Value) GetSessionAffinityTimeoutSec() uint32 {
+	return s.BackendID & sessionAffinityMask
 }
 
 func (s *Service4Value) SetL7LBProxyPort(port uint16) {
 	// Go doesn't support union types, so we use BackendID to access the
 	// lb4_service.l7_lb_proxy_port field
 	s.BackendID = uint32(byteorder.HostToNetwork16(port))
+}
+
+func (s *Service4Value) GetL7LBProxyPort() uint16 {
+	return byteorder.HostToNetwork16(uint16(s.BackendID))
 }
 
 func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
@@ -345,12 +363,14 @@ func (s *Service4Value) GetBackendID() loadbalancer.BackendID {
 	return loadbalancer.BackendID(s.BackendID)
 }
 
-func (s *Service4Value) GetLbAlg() uint8 {
-	return uint8(uint32(s.BackendID) >> 24)
+func (s *Service4Value) GetLbAlg() loadbalancer.SVCLoadBalancingAlgorithm {
+	return loadbalancer.SVCLoadBalancingAlgorithm(uint8(uint32(s.BackendID) >> 24))
 }
 
-func (s *Service4Value) SetLbAlg(lb uint8) {
-	s.BackendID = uint32(lb) << 24
+func (s *Service4Value) SetLbAlg(lb loadbalancer.SVCLoadBalancingAlgorithm) {
+	// SessionAffinityTimeoutSec can be set independently on the latter 24 bits,
+	// so we only modify the first 8 bits.
+	s.BackendID = uint32(lb)<<24 + (s.BackendID & sessionAffinityMask)
 }
 
 func (s *Service4Value) ToNetwork() ServiceValue {

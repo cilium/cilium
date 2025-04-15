@@ -10,6 +10,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,7 +25,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestRegisterController(t *testing.T) {
@@ -42,7 +43,7 @@ func TestRegisterController(t *testing.T) {
 		}),
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
-			prepareCiliumEndpoints(*c)
+			prepareCiliumEndpoints(c)
 			ciliumEndpoint = cep
 		}),
 		cell.Invoke(func(p params) error {
@@ -58,7 +59,7 @@ func TestRegisterController(t *testing.T) {
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 	// wait for all CEPs to be deleted except for those with running pods or
 	// cilium node owner reference
-	waitForCEPs(t, cepStore, 3)
+	waitForCEPs(t, cepStore, 2)
 	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -81,7 +82,7 @@ func TestRegisterControllerOnce(t *testing.T) {
 		metrics.Metric(NewMetrics),
 		cell.Invoke(prepareCiliumEndpointCRD),
 		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
-			prepareCiliumEndpoints(*c)
+			prepareCiliumEndpoints(c)
 			ciliumEndpoint = cep
 		}),
 		cell.Invoke(func(p params) error {
@@ -118,7 +119,7 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 			}
 		}),
 		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
-			prepareCiliumEndpoints(*c)
+			prepareCiliumEndpoints(c)
 			ciliumEndpoint = cep
 		}),
 		cell.Invoke(func(p params) error {
@@ -134,7 +135,7 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 	// wait for potential GC
 	time.Sleep(500 * time.Millisecond)
 	// gc is disabled so no CEPs should be deleted
-	waitForCEPs(t, cepStore, 8)
+	waitForCEPs(t, cepStore, 6)
 	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -147,7 +148,7 @@ func prepareCiliumEndpointCRD(c *k8sClient.FakeClientset) error {
 	return nil
 }
 
-func prepareCiliumEndpoints(fakeClient k8sClient.FakeClientset) {
+func prepareCiliumEndpoints(fakeClient *k8sClient.FakeClientset) {
 	// Create set of Cilium Endpoints:
 	// - CEP with no owner reference and no pods
 	cep := createCiliumEndpoint("cep1", "ns")
@@ -166,18 +167,10 @@ func prepareCiliumEndpoints(fakeClient k8sClient.FakeClientset) {
 	// - CEP with no owner reference but with pod that is not running
 	cepWithLegacyNotRunningPod := createCiliumEndpoint("cep5", "ns")
 	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cepWithLegacyNotRunningPod, meta_v1.CreateOptions{})
-	// - CEP with owner reference Cilium Node
-	cepWithOwnerCiliumNode := createCiliumEndpoint("cep6", "ns")
-	cepWithOwnerCiliumNode.OwnerReferences = []meta_v1.OwnerReference{createOwnerReference("CiliumNode", "node6")}
-	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cepWithOwnerCiliumNode, meta_v1.CreateOptions{})
 	// - CEP with owner reference pod that doesn't exist
-	cepWithOwnerPodDoesntExist := createCiliumEndpoint("cep7", "ns")
-	cepWithOwnerPodDoesntExist.OwnerReferences = []meta_v1.OwnerReference{createOwnerReference("Pod", "pod7")}
+	cepWithOwnerPodDoesntExist := createCiliumEndpoint("cep6", "ns")
+	cepWithOwnerPodDoesntExist.OwnerReferences = []meta_v1.OwnerReference{createOwnerReference("Pod", "pod6")}
 	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cepWithOwnerPodDoesntExist, meta_v1.CreateOptions{})
-	// - CEP with owner reference cilium node that doesn't exist
-	cepWithOwnerCiliumNodeDoesntExist := createCiliumEndpoint("cep8", "ns")
-	cepWithOwnerCiliumNodeDoesntExist.OwnerReferences = []meta_v1.OwnerReference{createOwnerReference("CiliumNode", "node8")}
-	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cepWithOwnerCiliumNodeDoesntExist, meta_v1.CreateOptions{})
 
 	// Create Pods
 	// - pod that is running for cep2
@@ -188,18 +181,12 @@ func prepareCiliumEndpoints(fakeClient k8sClient.FakeClientset) {
 	fakeClient.Slim().CoreV1().Pods("ns").Create(context.Background(), createPod("cep4", "ns", true), meta_v1.CreateOptions{})
 	// - pod that is not running for cep5
 	fakeClient.Slim().CoreV1().Pods("ns").Create(context.Background(), createPod("cep5", "ns", false), meta_v1.CreateOptions{})
-
-	// Create CiliumNodes
-	// - cilium node for cep6
-	fakeClient.CiliumV2().CiliumNodes().Create(context.Background(), createCiliumNode("node6"), meta_v1.CreateOptions{})
 }
 
 func waitForCEPs(t *testing.T, cepStore resource.Store[*cilium_v2.CiliumEndpoint], number int) {
-	if err := testutils.WaitUntil(func() bool {
-		return len(cepStore.List()) == number
-	}, 10*time.Second); err != nil {
-		t.Fatalf("failed to reach expected number (%d) of CEPs: %s", number, err)
-	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Len(c, cepStore.List(), number)
+	}, 2*time.Second, 10*time.Millisecond, "failed to reach expected number (%d) of CEPs", number)
 }
 
 func createCiliumEndpoint(name, namespace string) *cilium_v2.CiliumEndpoint {
@@ -232,14 +219,6 @@ func createPod(name, namespace string, isRunning bool) *slim_corev1.Pod {
 		},
 		Status: slim_corev1.PodStatus{
 			Phase: phase,
-		},
-	}
-}
-
-func createCiliumNode(name string) *cilium_v2.CiliumNode {
-	return &cilium_v2.CiliumNode{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: name,
 		},
 	}
 }

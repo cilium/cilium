@@ -136,6 +136,19 @@ type CopyImageInput struct {
 	// Amazon EBS does not support asymmetric KMS keys.
 	KmsKeyId *string
 
+	// Specify a completion duration, in 15 minute increments, to initiate a
+	// time-based AMI copy. The specified completion duration applies to each of the
+	// snapshots associated with the AMI. Each snapshot associated with the AMI will be
+	// completed within the specified completion duration, regardless of their size.
+	//
+	// If you do not specify a value, the AMI copy operation is completed on a
+	// best-effort basis.
+	//
+	// For more information, see [Time-based copies].
+	//
+	// [Time-based copies]: https://docs.aws.amazon.com/ebs/latest/userguide/time-based-copies.html
+	SnapshotCopyCompletionDurationMinutes *int64
+
 	// The tags to apply to the new AMI and new snapshots. You can tag the AMI, the
 	// snapshots, or both.
 	//
@@ -230,6 +243,12 @@ func (c *Client) addOperationCopyImageMiddlewares(stack *middleware.Stack, optio
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
+	if err = addIdempotencyToken_opCopyImageMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCopyImageValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -264,6 +283,39 @@ func (c *Client) addOperationCopyImageMiddlewares(stack *middleware.Stack, optio
 		return err
 	}
 	return nil
+}
+
+type idempotencyToken_initializeOpCopyImage struct {
+	tokenProvider IdempotencyTokenProvider
+}
+
+func (*idempotencyToken_initializeOpCopyImage) ID() string {
+	return "OperationIdempotencyTokenAutoFill"
+}
+
+func (m *idempotencyToken_initializeOpCopyImage) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	if m.tokenProvider == nil {
+		return next.HandleInitialize(ctx, in)
+	}
+
+	input, ok := in.Parameters.(*CopyImageInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CopyImageInput ")
+	}
+
+	if input.ClientToken == nil {
+		t, err := m.tokenProvider.GetIdempotencyToken()
+		if err != nil {
+			return out, metadata, err
+		}
+		input.ClientToken = &t
+	}
+	return next.HandleInitialize(ctx, in)
+}
+func addIdempotencyToken_opCopyImageMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCopyImage{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
 func newServiceMetadataMiddleware_opCopyImage(region string) *awsmiddleware.RegisterServiceMetadata {

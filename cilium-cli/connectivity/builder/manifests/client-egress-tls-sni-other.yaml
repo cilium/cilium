@@ -1,0 +1,17 @@
+# Same as client-egress-tls-sni.yaml but with external other target server name
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "client-egress-tls-sni-other"
+specs:
+- description: "TLS SNI policy with ExternalOtherTarget"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "{{trimSuffix .ExternalOtherTarget "."}}"

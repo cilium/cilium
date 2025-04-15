@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -104,11 +105,9 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 }
 
 func ignoredFile(name string) bool {
-	for _, n := range ignoredFileNames {
-		if name == n {
-			logrus.WithField(logfields.Path, name).Debug("Ignoring file")
-			return true
-		}
+	if slices.Contains(ignoredFileNames, name) {
+		logrus.WithField(logfields.Path, name).Debug("Ignoring file")
+		return true
 	}
 
 	return false

@@ -112,55 +112,6 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 	return nil
 }
 
-// GetEndpointMutableConfigurationOption returns the value of the mutable
-// configuration option optionName for the endpoint with ID endpointID, or an
-// error if optionName's corresponding value cannot be retrieved for the
-// endpoint.
-func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName string) (string, error) {
-	cmd := fmt.Sprintf("endpoint config %s -o json | jq -r '.realized.options.%s'", endpointID, optionName)
-	res := s.ExecCilium(cmd)
-	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Unable to execute %q: %s", cmd, res.CombineOutput())
-	}
-
-	return res.SingleOut(), nil
-}
-
-// SetAndWaitForEndpointConfiguration waits for the endpoint configuration to become a certain value
-func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, expectedValue string) error {
-	logger := s.logger.WithFields(logrus.Fields{
-		logfields.EndpointID: endpointID,
-		"option":             optionName,
-		"value":              expectedValue})
-	body := func() bool {
-		logger.Infof("Setting endpoint configuration")
-		status := s.EndpointSetConfig(endpointID, optionName, expectedValue)
-		if !status {
-			logger.Error("Cannot set endpoint configuration")
-			return status
-		}
-
-		value, err := s.GetEndpointMutableConfigurationOption(endpointID, optionName)
-		if err != nil {
-			log.WithError(err).Error("cannot get endpoint configuration")
-			return false
-		}
-
-		if value == expectedValue {
-			return true
-		}
-		logger.Debugf("Expected configuration option to have value %s, but got %s",
-			expectedValue, value)
-		return false
-	}
-
-	err := WithTimeout(
-		body,
-		fmt.Sprintf("cannot set endpoint config for endpoint %q", endpointID),
-		&TimeoutConfig{Timeout: HelperTimeout})
-	return err
-}
-
 // WaitEndpointsDeleted waits up until timeout reached for all endpoints to be
 // deleted. Returns true if all endpoints have been deleted before HelperTimeout
 // is exceeded, false otherwise.
@@ -276,34 +227,6 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 		s.Exec("cilium-dbg endpoint list") // This function is only for debugging into log.
 		return false
 	}
-	return true
-}
-
-// EndpointSetConfig sets the provided configuration option to the provided
-// value for the endpoint with the endpoint ID id. It returns true if the
-// configuration update command returned successfully.
-func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
-	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
-	res := s.ExecCilium(fmt.Sprintf(
-		"endpoint config %s -o json | jq -r '.realized.options.%s'", id, option))
-
-	if res.SingleOut() == value {
-		logger.Debugf("no need to update %s=%s; value already set", option, value)
-		return res.WasSuccessful()
-	}
-
-	before := s.EndpointGet(id)
-	if before == nil {
-		return false
-	}
-
-	configCmd := fmt.Sprintf("endpoint config %s %s=%s", id, option, value)
-	data := s.ExecCilium(configCmd)
-	if !data.WasSuccessful() {
-		logger.Errorf("cannot set endpoint configuration %s=%s", option, value)
-		return false
-	}
-
 	return true
 }
 
@@ -475,12 +398,6 @@ func (s *SSHMeta) PolicyDel(id string) *CmdRes {
 // the aforementioned command.
 func (s *SSHMeta) PolicyGet(id string) *CmdRes {
 	return s.ExecCilium(fmt.Sprintf("policy get %s", id))
-}
-
-// PolicyGetAll gets all policies that are imported in the Cilium agent.
-func (s *SSHMeta) PolicyGetAll() *CmdRes {
-	return s.ExecCilium("policy get")
-
 }
 
 // PolicyGetRevision retrieves the current policy revision number in the Cilium

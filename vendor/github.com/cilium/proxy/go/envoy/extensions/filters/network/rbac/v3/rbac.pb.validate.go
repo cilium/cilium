@@ -187,6 +187,35 @@ func (m *RBAC) validate(all bool) error {
 
 	// no validation rules for EnforcementType
 
+	if all {
+		switch v := interface{}(m.GetDelayDeny()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RBACValidationError{
+					field:  "DelayDeny",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RBACValidationError{
+					field:  "DelayDeny",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDelayDeny()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RBACValidationError{
+				field:  "DelayDeny",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return RBACMultiError(errors)
 	}

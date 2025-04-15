@@ -11,6 +11,8 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
 )
 
+const MetadataDelimiter = ";metadata;"
+
 // NewJUnitCollector factory function that returns JUnitCollector.
 func NewJUnitCollector(junitProperties map[string]string, junitFile string) *JUnitCollector {
 	properties := []junit.Property{
@@ -56,6 +58,19 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 		}
 		j.testSuite.Tests++
 		j.testSuite.Time += test.Time
+
+		if ct.params.LogCodeOwners {
+			scenarios := t.Scenarios()
+			properties := make([]junit.Property, 0, len(scenarios)*2)
+			for _, s := range scenarios {
+				owners := ct.GetOwners(s)
+				properties = append(properties, junit.Property{
+					Name:  "owner",
+					Value: strings.Join(owners, ", "),
+				})
+			}
+			test.Properties = &junit.Properties{Properties: properties}
+		}
 
 		if t.skipped {
 			test.Status = "skipped"

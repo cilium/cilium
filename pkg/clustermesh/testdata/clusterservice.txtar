@@ -1,0 +1,133 @@
+#! --cluster-id=1 --cluster-name=cluster1
+
+hive/start
+db/initialized
+
+# Create a service to which to add the external backends.
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends.table
+
+# Add the cluster service from "cluster2" and "cluster3"
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+kvstore/update cilium/state/services/v1/cluster3/test/echo clusterservice3.json
+
+# The backends from other clusters should be included
+db/cmp backends backends-2+3.table
+db/cmp frontends frontends-with-clusterservice-2+3.table
+
+# Removing the cluster service removes one of the backends
+kvstore/delete cilium/state/services/v1/cluster2/test/echo
+db/cmp backends backends-3.table
+db/cmp frontends frontends-with-clusterservice-3.table
+
+# Removing the last cluster service gets us back to starting point
+kvstore/delete cilium/state/services/v1/cluster3/test/echo
+db/cmp frontends frontends.table
+
+###
+
+-- backends-2+3.table --
+Address              Instances         NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
+20.0.0.2:9090/TCP    test/echo (tcp)
+30.0.0.3:9090/TCP    test/echo (tcp)
+
+-- backends-3.table --
+Address              Instances         NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
+30.0.0.3:9090/TCP    test/echo (tcp)
+
+-- frontends.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP
+
+-- frontends-with-clusterservice-3.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 30.0.0.3:9090/TCP
+
+-- frontends-with-clusterservice-2+3.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 20.0.0.2:9090/TCP, 30.0.0.3:9090/TCP
+
+
+
+-- clusterservice2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "shared": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "backends": {
+    "20.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+-- clusterservice3.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "shared": true,
+  "cluster": "cluster3",
+  "clusterID": 3,
+  "backends": {
+    "30.0.0.3": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP
+

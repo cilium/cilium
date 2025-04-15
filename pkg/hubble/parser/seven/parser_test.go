@@ -4,12 +4,11 @@
 package seven
 
 import (
-	"io"
 	"net/http"
 	"net/url"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,8 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-var log *logrus.Logger
 
 var (
 	fakeTimestamp = "2006-01-02T15:04:05.999999999Z"
@@ -44,11 +41,6 @@ var (
 		Labels:   labels.ParseLabelArray("k3=v3", "k4=v4"),
 	}
 )
-
-func init() {
-	log = logrus.New()
-	log.SetOutput(io.Discard)
-}
 
 func BenchmarkL7Decode(b *testing.B) {
 	requestPath, err := url.Parse("http://myhost/some/path")
@@ -84,13 +76,13 @@ func BenchmarkL7Decode(b *testing.B) {
 	serviceGetter := &testutils.NoopServiceGetter
 	endpointGetter := &testutils.NoopEndpointGetter
 
-	parser, err := New(log, dnsGetter, ipGetter, serviceGetter, endpointGetter)
+	parser, err := New(hivetest.Logger(b), dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(b, err)
 
 	f := &flowpb.Flow{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = parser.Decode(lr, f)
 	}
 }

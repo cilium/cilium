@@ -171,7 +171,7 @@ func (wp *WorkerPool) Close() error {
 // only be called once during the lifetime of a WorkerPool.
 func (wp *WorkerPool) run(ctx context.Context) {
 	for t := range wp.tasks {
-		t := t
+
 		result := taskResult{id: t.id}
 		wp.results = append(wp.results, &result)
 		wp.workers <- struct{}{}

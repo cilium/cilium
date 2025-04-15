@@ -7,12 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
 
@@ -21,6 +21,7 @@ import (
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
@@ -30,7 +31,7 @@ import (
 )
 
 type policyWatcher struct {
-	log            logrus.FieldLogger
+	log            *slog.Logger
 	config         Config
 	policyImporter policycell.PolicyImporter
 	synced         sync.WaitGroup
@@ -95,7 +96,7 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 	)
 
 	// convert to rules
-	rules, err := cnp.Parse()
+	rules, err := cnp.Parse(p.log)
 	if err != nil {
 		return err
 	}
@@ -149,10 +150,11 @@ func (p *policyWatcher) isValidCNPFileName(filePath string) bool {
 		return false
 	}
 	if reasons := validation.IsDNS1123Subdomain(filepath.Base(filePath)); len(reasons) > 0 {
-		p.log.WithFields(logrus.Fields{
-			"name":    filepath.Base(filePath),
-			"reasons": reasons,
-		}).Error("CNP name parse validation failed")
+		p.log.Error(
+			"CNP name parse validation failed",
+			logfields.Name, filepath.Base(filePath),
+			logfields.Reasons, reasons,
+		)
 		return false
 	}
 	return true
@@ -167,7 +169,7 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 		p.log.Info("Directory policy watcher started")
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
-			p.log.WithError(err).Fatal("Initializing NewWatcher failed")
+			logging.Fatal(p.log, "Initializing NewWatcher failed", logfields.Error, err)
 			return
 		}
 		defer watcher.Close()
@@ -175,13 +177,19 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 		dir := p.config.StaticCNPPath
 		err = watcher.Add(dir)
 		if err != nil {
-			p.log.WithError(err).WithField(logfields.Path, dir).Fatal("Failed to watch policy directory. Policies will not be loaded from disk")
+			logging.Fatal(p.log, "Failed to watch policy directory. Policies will not be loaded from disk",
+				logfields.Error, err,
+				logfields.Path, dir,
+			)
 			return
 		}
 
 		files, err := os.ReadDir(dir)
 		if err != nil {
-			p.log.WithError(err).WithField(logfields.Path, dir).Fatal("Failed to read policy directory")
+			logging.Fatal(p.log, "Failed to read policy directory",
+				logfields.Error, err,
+				logfields.Path, dir,
+			)
 			return
 		}
 
@@ -194,12 +202,18 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 			// read from file and convert to cnp object
 			cnp, err := p.readAndTranslateToCNPObject(absPath)
 			if err != nil {
-				p.log.WithError(err).WithField(logfields.Path, absPath).Fatal("Failed to translate policy yaml file to cnp object")
+				logging.Fatal(p.log, "Failed to translate policy yaml file to cnp object",
+					logfields.Error, err,
+					logfields.Path, absPath,
+				)
 			} else {
 
 				err = p.addToPolicyEngine(cnp, absPath)
 				if err != nil {
-					p.log.WithError(err).WithField(logfields.Path, absPath).Fatal("Failed to add network policy to policy engine")
+					logging.Fatal(p.log, "Failed to add network policy to policy engine",
+						logfields.Error, err,
+						logfields.Path, absPath,
+					)
 				}
 			}
 			reportCNPChangeMetrics(err)
@@ -215,27 +229,36 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 					continue
 				}
 				if event.Op.Has(fsnotify.Create) || event.Op.Has(fsnotify.Write) {
-					p.log.WithField(logfields.Path, event.Name).Debug("CNP file added/updated in directory..")
+					p.log.Debug("CNP file added/updated in directory..", logfields.Path, event.Name)
 					cnp, err := p.readAndTranslateToCNPObject(event.Name)
 					if err != nil {
-						p.log.WithError(err).WithField(logfields.Path, event.Name).Fatal("Failed to translate policy yaml file to cnp object")
+						logging.Fatal(p.log, "Failed to translate policy yaml file to cnp object",
+							logfields.Error, err,
+							logfields.Path, event.Name,
+						)
 					} else {
 						err = p.addToPolicyEngine(cnp, event.Name)
 						if err != nil {
-							p.log.WithError(err).WithField(logfields.Path, event.Name).Error("Failed to add network policy to policy engine")
+							p.log.Error("Failed to add network policy to policy engine",
+								logfields.Error, err,
+								logfields.Path, event.Name,
+							)
 						}
 					}
 				}
 				if event.Op.Has(fsnotify.Remove) || event.Op.Has(fsnotify.Rename) {
-					p.log.WithField(logfields.Path, event.Name).Debug("CNP file removed from directory..")
+					p.log.Debug("CNP file removed from directory..", logfields.Path, event.Name)
 					err := p.deleteFromPolicyEngine(event.Name)
 					if err != nil {
-						p.log.WithError(err).WithField(logfields.Path, event.Name).Error("Failed to remove network policy from policy engine")
+						p.log.Error("Failed to remove network policy from policy engine",
+							logfields.Error, err,
+							logfields.Path, event.Name,
+						)
 					}
 				}
 				reportCNPChangeMetrics(err)
 			case err := <-watcher.Errors:
-				p.log.WithError(err).Error("Unexpected error thrown by fsnotify watcher when watching policy directory")
+				p.log.Error("Unexpected error thrown by fsnotify watcher when watching policy directory", logfields.Error, err)
 			}
 		}
 	}()

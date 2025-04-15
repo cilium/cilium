@@ -7,9 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -20,7 +20,6 @@ import (
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
@@ -284,10 +283,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfig(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -301,7 +298,7 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.Equal(t, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret", cec.Spec.Resources[1].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
@@ -390,10 +387,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigValidation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -406,7 +401,7 @@ func TestCiliumEnvoyConfigValidation(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, false)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
@@ -439,7 +434,7 @@ func TestCiliumEnvoyConfigValidation(t *testing.T) {
 	//
 	// Same with validation fails
 	//
-	resources, err = parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err = parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	assert.Error(t, err)
 }
 
@@ -476,10 +471,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigNoAddress(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -492,7 +485,7 @@ func TestCiliumEnvoyConfigNoAddress(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
@@ -601,10 +594,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigMulti(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:                      logger,
+		logger:                      hivetest.Logger(t),
 		portAllocator:               NewMockPortAllocator(),
 		defaultMaxConcurrentRetries: 128,
 	}
@@ -617,7 +608,7 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 5)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, "namespace/name/multi-resource-listener", resources.Listeners[0].Name)
@@ -795,10 +786,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -811,7 +800,7 @@ func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[0].TypeUrl)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[1].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 
 	//
@@ -852,10 +841,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -867,15 +854,13 @@ func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[0].TypeUrl)
 
-	_, err = parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	_, err = parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	assert.ErrorContains(t, err, "missing internal listener: internal-listener")
 }
 
 func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -889,7 +874,7 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 2)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, true, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.NotNil(t, resources.Listeners[0].Address)
@@ -910,6 +895,9 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	assert.True(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
 	assert.False(t, lf.IsL7Lb)
+
+	// TCP listener has no SO_LINGER config
+	assert.Nil(t, lf.OriginalSourceSoLingerTime)
 
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -1014,10 +1002,9 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -1031,7 +1018,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 2)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, true, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.NotNil(t, resources.Listeners[0].Address)
@@ -1052,6 +1039,10 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.False(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
 	assert.True(t, lf.IsL7Lb)
+
+	// HTTP listener has zero SO_LINGER config
+	assert.NotNil(t, lf.OriginalSourceSoLingerTime)
+	assert.Zero(t, *lf.OriginalSourceSoLingerTime)
 
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -1150,10 +1141,8 @@ spec:
               passThroughMode: false`
 
 func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -1163,7 +1152,7 @@ func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
 	err = json.Unmarshal(jsonBytes, cec)
 	require.NoError(t, err)
 
-	resources, err := parser.parseResources(cec.Namespace, cec.Name, cec.Spec.Resources, false, false, false)
+	resources, err := parser.parseResources(cec.Namespace, cec.Name, cec.Spec.Resources, false, false, false, false)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -1280,10 +1269,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -1295,7 +1282,7 @@ func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
@@ -1368,10 +1355,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -1383,7 +1368,7 @@ func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
@@ -1418,4 +1403,69 @@ func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
 	assert.True(t, ok)
 	assert.NotNil(t, hcm)
+}
+
+var ciliumEnvoyConfigInjectCiliumFilters = `apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: without-cilium-filters
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: without-cilium-filters
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 10000
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          rds:
+            route_config_name: local_route
+          http_filters:
+          - name: envoy.filters.http.router
+`
+
+func TestCiliumEnvoyConfigInjectCiliumFilters(t *testing.T) {
+	parser := cecResourceParser{
+		logger:        hivetest.Logger(t),
+		portAllocator: NewMockPortAllocator(),
+	}
+
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInjectCiliumFilters))
+	require.NoError(t, err)
+	cec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	require.NoError(t, err)
+	assert.Len(t, cec.Spec.Resources, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
+
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
+	require.NoError(t, err)
+
+	require.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/without-cilium-filters", resources.Listeners[0].Name)
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
+	chain := resources.Listeners[0].FilterChains[0]
+
+	//
+	// Check that missing Cilium Envoy filters are not automatically filled in
+	//
+
+	// No Cilium network filter injected
+	require.Len(t, chain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
+	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
+	require.NoError(t, err)
+	assert.NotNil(t, message)
+	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
+
+	// No Cilium L7 filter injected
+	require.Len(t, hcm.HttpFilters, 1)
+	assert.Equal(t, "envoy.filters.http.router", hcm.HttpFilters[0].Name)
 }

@@ -38,9 +38,9 @@ func pascalize(in string) string {
 func pathToFlagSuffix(path string) string {
 	result := ""
 	path = strings.TrimPrefix(path, "/")
-	for _, hunk := range strings.Split(path, "/") {
+	for hunk := range strings.SplitSeq(path, "/") {
 		// TODO: Maybe we can just rename the /cgroup-dump-metadata API to /cgroups to avoid this loop?
-		for _, word := range strings.Split(hunk, "-") {
+		for word := range strings.SplitSeq(hunk, "-") {
 			trimmed := strings.Trim(word, "{}")
 			result = result + pascalize(trimmed)
 		}

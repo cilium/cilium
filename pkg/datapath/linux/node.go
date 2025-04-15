@@ -188,13 +188,13 @@ func updateTunnelMapping(log *slog.Logger, oldCIDR, newCIDR cmtypes.PrefixCluste
 	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP, oldEncryptKey, newEncryptKey) {
 		log.Debug("Updating tunnel map entry",
 			logfields.IPAddr, newIP,
-			"allocCIDR", newCIDR,
+			logfields.AllocCIDR, newCIDR,
 		)
 
 		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.AddrCluster(), newIP); err != nil {
 			log.Error("bpf: Unable to update in tunnel endpoint map",
 				logfields.Error, err,
-				"allocCIDR", newCIDR,
+				logfields.AllocCIDR, newCIDR,
 			)
 			errs = errors.Join(errs,
 				fmt.Errorf("failed to update tunnel endpoint map (prefix: %s, nodeIP: %s): %w", newCIDR.AddrCluster(), newIP, err))
@@ -250,8 +250,8 @@ func deleteTunnelMapping(log *slog.Logger, oldCIDR cmtypes.PrefixCluster, quietM
 	}
 
 	log.Debug("Deleting tunnel map entry",
-		"allocPrefixCluster", oldCIDR.String(),
-		"quietMode", quietMode,
+		logfields.CIDR, oldCIDR,
+		logfields.QuietMode, quietMode,
 	)
 
 	addrCluster := oldCIDR.AddrCluster()
@@ -260,7 +260,7 @@ func deleteTunnelMapping(log *slog.Logger, oldCIDR cmtypes.PrefixCluster, quietM
 		if err := tunnel.TunnelMap().DeleteTunnelEndpoint(addrCluster); err != nil {
 			log.Error("Unable to delete in tunnel endpoint map",
 				logfields.Error, err,
-				"allocPrefixCluster", oldCIDR.String(),
+				logfields.CIDR, oldCIDR,
 			)
 			return fmt.Errorf("failed to delete tunnel endpoint map: %w", err)
 		}
@@ -294,8 +294,8 @@ func createDirectRouteSpec(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP, ski
 	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() && !routes[0].Gw.Equal(nodeIP) {
 		if skipUnreachable {
 			log.Warn("route to destination contains gateway, skipping route as not directly reachable",
-				"nodeIP", nodeIP,
-				"gateway", routes[0].Gw.String())
+				logfields.NodeIP, nodeIP,
+				logfields.GatewayIP, routes[0].Gw)
 			addRoute = false
 		} else {
 			err = fmt.Errorf("route to destination %s contains gateway %s, must be directly reachable. Add `direct-routing-skip-unreachable` to skip unreachable routes",
@@ -374,15 +374,18 @@ func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, o
 	}
 
 	n.log.Debug("Updating direct route",
-		"newIP", newIP,
-		"oldIP", oldIP,
-		"addedCIDRs", addedCIDRs,
-		"removedCIDRs", removedCIDRs,
+		logfields.NewIP, newIP,
+		logfields.OldIP, oldIP,
+		logfields.AddedCIDRs, addedCIDRs,
+		logfields.RemovedCIDRs, removedCIDRs,
 	)
 
 	for _, cidr := range addedCIDRs {
 		if routeSpec, err := installDirectRoute(n.log, cidr, newIP, directRouteSkipUnreachable); err != nil {
-			n.log.Warn("Unable to install direct node route", "route", routeSpec.String(), logfields.Error, err)
+			n.log.Warn("Unable to install direct node route",
+				logfields.Route, routeSpec,
+				logfields.Error, err,
+			)
 			// In the current implementation, this often fails because updates are tried for both ip families
 			// regardless if the Node has either ip types.
 			// At the time of this change we are only interested in bubbling up errors without affecting execution flow.
@@ -439,7 +442,10 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) err
 	var errs error
 	for _, rt := range routes {
 		if err := netlink.RouteDel(&rt); err != nil {
-			n.log.Warn("Unable to delete direct node route", "cidr", rt.String(), logfields.Error, err)
+			n.log.Warn("Unable to delete direct node route",
+				logfields.CIDR, rt,
+				logfields.Error, err,
+			)
 			errs = errors.Join(errs, fmt.Errorf("failed to delete direct route %q: %w", rt.String(), err))
 		}
 	}
@@ -520,7 +526,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	if err != nil {
 		return err
 	}
-	if err := route.Upsert(nodeRoute); err != nil {
+	if err := route.Upsert(n.log, nodeRoute); err != nil {
 		n.log.Warn("Unable to update route",
 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
 		return err
@@ -601,7 +607,7 @@ var errNodeIPNotRoutable = errors.New("remote node IP is non-routable")
 
 func getNextHopIP(nodeIP net.IP, link netlink.Link) (nextHopIP net.IP, err error) {
 	// Figure out whether nodeIP is directly reachable (i.e. in the same L2)
-	routes, err := netlink.RouteGetWithOptions(nodeIP, &netlink.RouteGetOptions{Oif: link.Attrs().Name, FIBMatch: true})
+	routes, err := netlink.RouteGetWithOptions(nodeIP, &netlink.RouteGetOptions{OifIndex: link.Attrs().Index, FIBMatch: true})
 	if err != nil && !errors.Is(err, unix.EHOSTUNREACH) && !errors.Is(err, unix.ENETUNREACH) {
 		return nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
@@ -1138,31 +1144,50 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	oldIP4 := oldNode.GetNodeIP(false)
 	oldIP6 := oldNode.GetNodeIP(true)
 
+	oldAllIP4AllocCidrs := oldNode.GetIPv4AllocCIDRs()
+	oldAllIP6AllocCidrs := oldNode.GetIPv6AllocCIDRs()
+
 	var errs error
 	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
-		if err := n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+		if n.nodeConfig.EnableIPv4 {
+			for _, cidr := range oldAllIP4AllocCidrs {
+				if err := n.deleteDirectRoute(cidr, oldIP4); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+				}
+			}
 		}
-		if err := n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+		if n.nodeConfig.EnableIPv6 {
+			for _, cidr := range oldAllIP6AllocCidrs {
+				if err := n.deleteDirectRoute(cidr, oldIP6); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+				}
+			}
 		}
 	}
 
 	if n.enableEncapsulation(oldNode) {
-		oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
-		oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
-		if err := deleteTunnelMapping(n.log, oldPrefix4, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv4: %w", err))
-		}
-		if err := deleteTunnelMapping(n.log, oldPrefix6, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv6: %w", err))
+		if n.nodeConfig.EnableIPv4 {
+			oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
+			if err := deleteTunnelMapping(n.log, oldPrefix4, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv4: %w", err))
+			}
+			for _, cidr := range oldAllIP4AllocCidrs {
+				if err := n.deleteNodeRoute(cidr, false); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
+				}
+			}
 		}
 
-		if err := n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
-		}
-		if err := n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+		if n.nodeConfig.EnableIPv6 {
+			oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
+			if err := deleteTunnelMapping(n.log, oldPrefix6, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv6: %w", err))
+			}
+			for _, cidr := range oldAllIP6AllocCidrs {
+				if err := n.deleteNodeRoute(cidr, false); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+				}
+			}
 		}
 	}
 
@@ -1300,10 +1325,12 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
 			len(option.Config.IPv4PodSubnets) == 0 {
 			if info := node.GetRouterInfo(); info != nil {
-				ipv4CIDRs := info.GetIPv4CIDRs()
-				ipv4PodSubnets := make([]*cidr.CIDR, 0, len(ipv4CIDRs))
-				for _, c := range ipv4CIDRs {
-					ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(&c))
+				cidrs := info.GetCIDRs()
+				var ipv4PodSubnets []*cidr.CIDR
+				for _, c := range cidrs {
+					if c.IP.To4() != nil {
+						ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(&c))
+					}
 				}
 				n.nodeConfig.IPv4PodSubnets = ipv4PodSubnets
 			}
@@ -1470,7 +1497,7 @@ func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bo
 						logfields.Error, err,
 						logfields.Device, l.Attrs().Name,
 						logfields.LinkIndex, l.Attrs().Index,
-						"neighbor", fmt.Sprintf("%+v", neigh),
+						logfields.Neighbor, neigh,
 					)
 					neighErrored++
 					successClean = false
@@ -1497,7 +1524,7 @@ func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bo
 				logfields.Error, err,
 				logfields.Device, l.Attrs().Name,
 				logfields.LinkIndex, l.Attrs().Index,
-				"neighbor", fmt.Sprintf("%+v", neigh),
+				logfields.Neighbor, neigh,
 			)
 
 			neighErrored++
@@ -1627,8 +1654,8 @@ func loadNeighLink(dir string) ([]string, error) {
 
 // NodeDeviceNameWithDefaultRoute returns the node's device name which
 // handles the default route in the current namespace
-func NodeDeviceNameWithDefaultRoute() (string, error) {
-	link, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
+func NodeDeviceNameWithDefaultRoute(logger *slog.Logger) (string, error) {
+	link, err := route.NodeDeviceWithDefaultRoute(logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	if err != nil {
 		return "", err
 	}

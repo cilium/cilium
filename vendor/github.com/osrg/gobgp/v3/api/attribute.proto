@@ -353,11 +353,22 @@ message LsPrefixV6NLRI {
   LsPrefixDescriptor prefix_descriptor = 2;
 }
 
+// TODO: LsSrPolicyiCandidatePathNLRI
+
+message LsSrv6SIDNLRI {
+    LsNodeDescriptor local_node = 1;
+    LsSrv6SIDInformation srv6_sid_information = 2;
+    LsMultiTopologyIdentifier multi_topo_id = 3;
+}
+
 // Based om RFC 7752, Table 1.
 enum LsNLRIType {
-  LS_NLRI_UNKNOWN = 0; LS_NLRI_NODE = 1; LS_NLRI_LINK = 2;
+  LS_NLRI_UNKNOWN = 0;
+  LS_NLRI_NODE = 1;
+  LS_NLRI_LINK = 2;
   LS_NLRI_PREFIX_V4 = 3;
   LS_NLRI_PREFIX_V6 = 4;
+  LS_NLRI_SRV6_SID = 6;
 }
 
 enum LsProtocolID {
@@ -377,6 +388,7 @@ message LsAddrPrefix {
   // - LsLinkNLRI
   // - LsPrefixV4NLRI
   // - LsPrefixV6NLRI
+  // - LsSrv6SIDNLRI
   google.protobuf.Any nlri = 2;
   uint32 length = 3;
   LsProtocolID protocol_id = 4;
@@ -934,4 +946,13 @@ message PrefixSID {
   // - SRv6L3ServiceTLV Type 5
   // - SRv6L2ServiceTLV Type 6
   repeated google.protobuf.Any tlvs = 1;
+}
+
+// https://tools.ietf.org/html/rfc9552
+message LsSrv6SIDInformation {
+  repeated string sids = 1;
+}
+
+message LsMultiTopologyIdentifier {
+  repeated uint32 multi_topo_ids = 1;
 }

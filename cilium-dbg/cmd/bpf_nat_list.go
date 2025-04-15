@@ -26,10 +26,11 @@ var bpfNatListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf nat list")
 		if len(args) == 0 {
-			ipv4, ipv6 := nat.GlobalMaps(true, getIpv6EnableStatus(), true)
+			ipv4, ipv6 := getIpEnableStatuses()
+			ipv4Map, ipv6Map := nat.GlobalMaps(ipv4, ipv6, true)
 			globalMaps := make([]nat.NatMap, 2)
-			globalMaps[0] = ipv4
-			globalMaps[1] = ipv6
+			globalMaps[0] = ipv4Map
+			globalMaps[1] = ipv6Map
 			dumpNat(globalMaps)
 		} else if len(args) == 2 && args[0] == "cluster" {
 			clusterID, err := strconv.ParseUint(args[1], 10, 32)
@@ -37,14 +38,15 @@ var bpfNatListCmd = &cobra.Command{
 				cmd.PrintErrf("Invalid ClusterID: %s", err.Error())
 				return
 			}
-			ipv4, ipv6, err := nat.ClusterMaps(uint32(clusterID), true, getIpv6EnableStatus())
+			ipv4, ipv6 := getIpEnableStatuses()
+			ipv4Map, ipv6Map, err := nat.ClusterMaps(uint32(clusterID), ipv4, ipv6)
 			if err != nil {
 				cmd.PrintErrf("Failed to retrieve cluster maps: %s", err.Error())
 				return
 			}
 			clusterMaps := make([]nat.NatMap, 2)
-			clusterMaps[0] = ipv4
-			clusterMaps[1] = ipv6
+			clusterMaps[0] = ipv4Map
+			clusterMaps[1] = ipv6Map
 			dumpNat(clusterMaps)
 		} else {
 			cmd.PrintErr("Invalid argument")
@@ -58,7 +60,7 @@ func init() {
 	command.AddOutputOption(bpfNatListCmd)
 }
 
-func dumpNat(maps []nat.NatMap, args ...interface{}) {
+func dumpNat(maps []nat.NatMap, args ...any) {
 	entries := make([]nat.NatMapRecord, 0)
 
 	for _, m := range maps {

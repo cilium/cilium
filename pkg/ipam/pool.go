@@ -6,10 +6,10 @@ package ipam
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -34,6 +34,7 @@ import (
 // pod CIDR. By keeping removed CIDRs in the CiliumNode CRD status, we indicate
 // to the operator that we would like to re-gain ownership over that pod CIDR.
 type podCIDRPool struct {
+	logger       *slog.Logger
 	mutex        lock.Mutex
 	ipAllocators []*ipallocator.Range
 	released     map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
@@ -41,8 +42,9 @@ type podCIDRPool struct {
 }
 
 // newPodCIDRPool creates a new pod CIDR pool.
-func newPodCIDRPool() *podCIDRPool {
+func newPodCIDRPool(logger *slog.Logger) *podCIDRPool {
 	return &podCIDRPool{
+		logger:   logger,
 		released: map[string]struct{}{},
 		removed:  map[string]struct{}{},
 	}
@@ -201,7 +203,7 @@ func (p *podCIDRPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 		if ipAllocator.Used() == 0 && totalFree-free >= neededIPs {
 			p.released[cidrStr] = struct{}{}
 			totalFree -= free
-			log.WithField(logfields.CIDR, cidrStr).Debug("releasing pod CIDR")
+			p.logger.Debug("releasing pod CIDR", logfields.CIDR, cidrStr)
 		} else {
 			retainedAllocators = append(retainedAllocators, ipAllocator)
 		}
@@ -215,10 +217,11 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	defer p.mutex.Unlock()
 
 	if option.Config.Debug {
-		log.WithFields(logrus.Fields{
-			logfields.NewCIDR: podCIDRs,
-			logfields.OldCIDR: p.inUsePodCIDRsLocked(),
-		}).Debug("Updating IPAM pool")
+		p.logger.Debug(
+			"Updating IPAM pool",
+			logfields.NewCIDR, podCIDRs,
+			logfields.OldCIDR, p.inUsePodCIDRsLocked(),
+		)
 	}
 
 	// Parse the pod CIDRs, ignoring invalid CIDRs, and de-duplicating them.
@@ -227,11 +230,18 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	for _, podCIDR := range podCIDRs {
 		_, cidr, err := net.ParseCIDR(podCIDR)
 		if err != nil {
-			log.WithError(err).WithField(logfields.CIDR, podCIDR).Error("ignoring invalid pod CIDR")
+			p.logger.Error(
+				"ignoring invalid pod CIDR",
+				logfields.Error, err,
+				logfields.CIDR, podCIDRs,
+			)
 			continue
 		}
 		if _, ok := cidrStrSet[cidr.String()]; ok {
-			log.WithField(logfields.CIDR, podCIDR).Error("ignoring duplicate pod CIDR")
+			p.logger.Error(
+				"ignoring duplicate pod CIDR",
+				logfields.CIDR, podCIDRs,
+			)
 			continue
 		}
 		cidrNets = append(cidrNets, cidr)
@@ -241,16 +251,20 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	// Forget any released pod CIDRs no longer present in the CRD.
 	for cidrStr := range p.released {
 		if _, ok := cidrStrSet[cidrStr]; !ok {
-			log.WithField(logfields.CIDR, cidrStr).Debug("removing released pod CIDR")
+			p.logger.Debug(
+				"removing released pod CIDR",
+				logfields.CIDR, cidrStr,
+			)
 			delete(p.released, cidrStr)
 		}
 
 		if option.Config.EnableUnreachableRoutes {
 			if err := cleanupUnreachableRoutes(cidrStr); err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.CIDR:  cidrStr,
-					logrus.ErrorKey: err,
-				}).Warning("failed to remove unreachable routes for pod cidr")
+				p.logger.Warn(
+					"failed to remove unreachable routes for pod cidr",
+					logfields.Error, err,
+					logfields.CIDR, cidrStr,
+				)
 			}
 		}
 	}
@@ -269,7 +283,10 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 			if ipAllocator.Used() == 0 {
 				continue
 			}
-			log.WithField(logfields.CIDR, cidrStr).Error("in-use pod CIDR was removed from spec")
+			p.logger.Error(
+				"in-use pod CIDR was removed from spec",
+				logfields.CIDR, cidrStr,
+			)
 			p.removed[cidrStr] = struct{}{}
 		}
 		newIPAllocators = append(newIPAllocators, ipAllocator)
@@ -284,17 +301,23 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 		}
 		ipAllocator := ipallocator.NewCIDRRange(cidrNet)
 		if ipAllocator.Free() == 0 {
-			log.WithField(logfields.CIDR, cidrNet.String()).Error("skipping too-small pod CIDR")
+			p.logger.Error(
+				"skipping too-small pod CIDR",
+				logfields.CIDR, cidrNet,
+			)
 			p.released[cidrNet.String()] = struct{}{}
 			continue
 		}
-		log.WithField(logfields.CIDR, cidrStr).Debug("created new pod CIDR allocator")
+		p.logger.Debug(
+			"created new pod CIDR allocator",
+			logfields.CIDR, cidrStr,
+		)
 		newIPAllocators = append(newIPAllocators, ipAllocator)
 		existingAllocators[cidrStr] = struct{}{} // Protect against duplicate CIDRs.
 	}
 
 	if len(p.ipAllocators) > 0 && len(newIPAllocators) == 0 {
-		log.Warning("Removed last pod CIDR allocator")
+		p.logger.Warn("Removed last pod CIDR allocator")
 	}
 
 	p.ipAllocators = newIPAllocators

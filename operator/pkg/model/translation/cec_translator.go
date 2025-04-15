@@ -29,6 +29,10 @@ const (
 
 var _ CECTranslator = (*cecTranslator)(nil)
 
+type ServiceConfig struct {
+	ExternalTrafficPolicy string `json:"external_traffic_policy,omitempty"`
+}
+
 type HostNetworkConfig struct {
 	Enabled           bool                       `json:"enabled,omitempty"`
 	NodeLabelSelector *slim_metav1.LabelSelector `json:"node_label_selector,omitempty"`
@@ -40,8 +44,9 @@ type IPConfig struct {
 }
 
 type ListenerConfig struct {
-	UseAlpn          bool `json:"use_alpn,omitempty"`
-	UseProxyProtocol bool `json:"use_proxy_protocol,omitempty"`
+	UseAlpn                  bool `json:"use_alpn,omitempty"`
+	UseProxyProtocol         bool `json:"use_proxy_protocol,omitempty"`
+	StreamIdleTimeoutSeconds int  `json:"stream_idle_timeout_seconds,omitempty"`
 }
 
 type ClusterConfig struct {
@@ -65,6 +70,7 @@ type OriginalIPDetectionConfig struct {
 type Config struct {
 	SecretsNamespace string `json:"secrets_namespace,omitempty"`
 
+	ServiceConfig             ServiceConfig             `json:"service_config"`
 	HostNetworkConfig         HostNetworkConfig         `json:"host_network_config"`
 	IPConfig                  IPConfig                  `json:"ip_config"`
 	ListenerConfig            ListenerConfig            `json:"listener_config"`
@@ -91,6 +97,22 @@ func NewCECTranslator(config Config) CECTranslator {
 }
 
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
+
+	backendServices, err := i.desiredBackendServices(model)
+	if err != nil {
+		return nil, err
+	}
+
+	services, err := i.desiredServicesWithPorts(namespace, name, model)
+	if err != nil {
+		return nil, err
+	}
+
+	resources, err := i.desiredResources(model)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -100,15 +122,15 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
-			BackendServices: i.desiredBackendServices(model),
-			Services:        i.desiredServicesWithPorts(namespace, name, model),
-			Resources:       i.desiredResources(model),
+			BackendServices: backendServices,
+			Services:        services,
+			Resources:       resources,
 			NodeSelector:    i.desiredNodeSelector(),
 		},
 	}, nil
 }
 
-func (i *cecTranslator) desiredBackendServices(m *model.Model) []*ciliumv2.Service {
+func (i *cecTranslator) desiredBackendServices(m *model.Model) ([]*ciliumv2.Service, error) {
 	var res []*ciliumv2.Service
 
 	for ns, v := range getNamespaceNamePortsMap(m) {
@@ -132,10 +154,10 @@ func (i *cecTranslator) desiredBackendServices(m *model.Model) []*ciliumv2.Servi
 		}
 		return res[i].Ports[0] < res[j].Ports[0]
 	})
-	return res
+	return res, nil
 }
 
-func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, m *model.Model) []*ciliumv2.ServiceListener {
+func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
 	// Find all the ports used in the model and build a set of them
 	allPorts := make(map[uint16]struct{})
 
@@ -159,17 +181,31 @@ func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, 
 			Name:      shortener.ShortenK8sResourceName(name),
 			Ports:     ports,
 		},
-	}
+	}, nil
 }
 
-func (i *cecTranslator) desiredResources(m *model.Model) []ciliumv2.XDSResource {
+func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 
-	res = append(res, i.desiredEnvoyListener(m)...)
-	res = append(res, i.desiredEnvoyHTTPRouteConfiguration(m)...)
-	res = append(res, i.desiredEnvoyCluster(m)...)
+	listener, err := i.desiredEnvoyListener(m)
+	if err != nil {
+		return nil, err
+	}
 
-	return res
+	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m)
+	if err != nil {
+		return nil, err
+	}
+
+	clusters, err := i.desiredEnvoyCluster(m)
+	if err != nil {
+		return nil, err
+	}
+	res = append(res, listener...)
+	res = append(res, httpRoutes...)
+	res = append(res, clusters...)
+
+	return res, nil
 }
 
 func (i *cecTranslator) desiredNodeSelector() *slim_metav1.LabelSelector {

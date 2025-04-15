@@ -77,7 +77,7 @@ func (ipc *ipCacheDumpListener) getIdentity(securityIdentity uint32) (*identity.
 // OnIPIdentityCacheChange is called by DumpToListenerLocked
 func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
-	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
 	cidr := cidrCluster.AsIPNet()
 
 	// only capture entries which are a subnet of cidrFilter
@@ -186,7 +186,11 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 		v := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
 
-		if nid.Scope() == identity.IdentityScopeLocal || (nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero()) {
+		if !v.TunnelEndpoint.IsZero() || k.ClusterID != 0 {
+			return
+		}
+
+		if nid.Scope() == identity.IdentityScopeLocal || nid == identity.ReservedIdentityIngress {
 			localPrefixes[k.Prefix()] = nid
 		}
 	})
@@ -247,7 +251,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 		// Restore Ingress IPs as necessary
 		if nid == identity.ReservedIdentityIngress {
 			metaUpdates = append(metaUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 				Source:   source.Restored,
 				Resource: ingressResource,
 				Metadata: []ipcache.IPMetadata{labels.LabelIngress},
@@ -283,7 +287,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 
 			// Commit to ipcache.
 			metaUpdates = append(metaUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 				Source:   source.Restored,
 				Resource: restoredCIDRResource,
 				Metadata: metadata,
@@ -301,7 +305,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 			// be present in the new IPCache during endpoint regeneration to
 			// avoid drops.
 			metaUpdates = append(metaUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 				Source:   source.Restored,
 				Resource: restoredCIDRResource,
 				Metadata: []ipcache.IPMetadata{id.Labels},
@@ -360,7 +364,7 @@ func (d *Daemon) releaseRestoredIdentities() {
 	for prefix, nid := range d.restoredCIDRs {
 		nids = append(nids, nid)
 		updates = append(updates, ipcache.MU{
-			Prefix:   prefix,
+			Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 			Resource: restoredCIDRResource,
 			Metadata: []ipcache.IPMetadata{
 				ipcachetypes.RequestedIdentity(0), // remove requsted ID, if present

@@ -59,22 +59,20 @@ type cleanup struct {
 	restorerPromise            promise.Promise[endpointstate.Restorer]
 	endpointsCache             localEndpointCache
 	ciliumEndpointSliceEnabled bool
-	storeReleaseFn             func()
 }
 
 func registerCleanup(p params) {
 	if !p.Clientset.IsEnabled() || !p.Cfg.EnableStaleCiliumEndpointCleanup || p.DaemonCfg.DisableCiliumEndpointCRD ||
-		// When Cilium is configured in KVstore mode, and support for running the kvstore
-		// in pod network is disabled, we don't start the CiliumEndpoints informer at all.
-		// Hence, let's disable this GC logic as well, given that it would otherwise need
-		// to start it to populate the store content. Indeed, no one is expected to be
+		// When Cilium is configured in KVstore mode, we don't start the CiliumEndpoints informer
+		// at all. Hence, let's disable this GC logic as well, given that it would otherwise
+		// need to start it to populate the store content. Indeed, no one is expected to be
 		// watching them, and we can accept the possibility that we leak a few objects in
 		// very specific and rare circumstances [1], until the corresponding pod gets deleted.
 		// The respective kvstore entries, which are not taken into account here, will be
 		// instead eventually deleted when the corresponding lease expires.
 		//
 		// [1]: cilium/cilium#20350
-		p.DaemonCfg.KVstoreEnabledWithoutPodNetworkSupport() {
+		p.DaemonCfg.KVstoreEnabled() {
 		p.Logger.Info("Init procedure to clean up stale CiliumEndpoint disabled")
 		return
 	}
@@ -97,12 +95,6 @@ func registerCleanup(p params) {
 }
 
 func (c *cleanup) run(ctx context.Context) error {
-	defer func() {
-		if c.storeReleaseFn != nil {
-			c.storeReleaseFn()
-		}
-	}()
-
 	// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 	// This will clear out any CiliumEndpoints that may be stale.
 	// Likely causes for this are Pods having their init container restarted or the node being restarted.
@@ -153,7 +145,6 @@ func (c *cleanup) cleanStaleCEPs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CiliumEndpoint store: %w", err)
 	}
-	c.storeReleaseFn = store.Release
 	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
@@ -174,7 +165,6 @@ func (c *cleanup) cleanStaleCESs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CiliumEndpointSlice store: %w", err)
 	}
-	c.storeReleaseFn = store.Release
 	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)

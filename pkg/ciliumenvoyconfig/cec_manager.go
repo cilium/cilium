@@ -6,19 +6,21 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
@@ -33,7 +35,7 @@ type ciliumEnvoyConfigManager interface {
 }
 
 type cecManager struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	policyUpdater  *policy.Updater
 	serviceManager service.ServiceManager
@@ -51,7 +53,7 @@ type cecManager struct {
 	metricsManager CECMetrics
 }
 
-func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
+func newCiliumEnvoyConfigManager(logger *slog.Logger,
 	policyUpdater *policy.Updater,
 	serviceManager service.ServiceManager,
 	xdsServer envoy.XDSServer,
@@ -88,6 +90,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
+		len(cecSpec.Services) > 0,
 		len(cecSpec.Services) > 0,
 		useOriginalSourceAddress(&cecObjectMeta),
 		true,
@@ -142,7 +145,9 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			// This is the case for the shared CEC in the Cilium namespace, if there is no shared Ingress
 			// present in the cluster.
 			if svc.Listener == "" {
-				r.logger.Infof("Skipping L7LB k8s service redirect for service %s/%s. No Listener found in CEC resources", svc.Namespace, svc.Name)
+				r.logger.Info("Skipping L7LB k8s service redirect for service. No Listener found in CEC resources",
+					logfields.K8sNamespace, svc.Namespace,
+					logfields.ServiceName, svc.Name)
 				continue
 			}
 
@@ -180,7 +185,6 @@ func (r *cecManager) syncAllHeadlessService(name string, namespace string, spec 
 		}
 	}
 	return nil
-
 }
 
 func (r *cecManager) syncHeadlessService(name string, namespace string, serviceName loadbalancer.ServiceName, servicePorts []string) error {
@@ -272,7 +276,7 @@ func (r *cecManager) getEndpoint(serviceName string, serviceNamespace string) (*
 	iter := store.IterKeys()
 	for iter.Next() {
 		e, _, _ := store.GetByKey(iter.Key())
-		if e.EndpointSliceID.ServiceID.Name == serviceName &&
+		if e != nil && e.EndpointSliceID.ServiceID.Name == serviceName &&
 			e.EndpointSliceID.ServiceID.Namespace == serviceNamespace {
 			if res == nil {
 				res = e.DeepCopy()
@@ -352,6 +356,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		oldCECObjectMeta.GetName(),
 		oldCECSpec.Resources,
 		len(oldCECSpec.Services) > 0,
+		injectCiliumEnvoyFilters(&oldCECObjectMeta, oldCECSpec),
 		useOriginalSourceAddress(&oldCECObjectMeta),
 		false,
 	)
@@ -363,6 +368,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		newCECObjectMeta.GetName(),
 		newCECSpec.Resources,
 		len(newCECSpec.Services) > 0,
+		injectCiliumEnvoyFilters(&newCECObjectMeta, newCECSpec),
 		useOriginalSourceAddress(&newCECObjectMeta),
 		true,
 	)
@@ -466,6 +472,7 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
+		injectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
 		useOriginalSourceAddress(&cecObjectMeta),
 		false,
 	)
@@ -590,4 +597,19 @@ func useOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
 	}
 
 	return true
+}
+
+// injectCiliumEnvoyFilters returns true if the given object indicates that Cilium Envoy Network- and L7 filters
+// should be added to all non-internal Listeners.
+// This can be an explicit annotation or the implicit presence of a L7LB service via the Services property.
+func injectCiliumEnvoyFilters(meta *metav1.ObjectMeta, spec *ciliumv2.CiliumEnvoyConfigSpec) bool {
+	if meta.GetAnnotations() != nil {
+		if v, ok := meta.GetAnnotations()[annotation.CECInjectCiliumFilters]; ok {
+			if boolValue, err := strconv.ParseBool(v); err == nil {
+				return boolValue
+			}
+		}
+	}
+
+	return len(spec.Services) > 0
 }

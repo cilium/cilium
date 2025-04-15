@@ -87,7 +87,7 @@ jobs:
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA }}
+          SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci
 
   setup-and-test:
@@ -143,11 +143,13 @@ jobs:
           misc: 'bpfClockProbe=false,cni.uninstall=false'
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Cilium
         id: install-cilium
@@ -156,7 +158,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl get pods --all-namespaces -o wide
           mkdir -p cilium-junits
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
@@ -182,7 +184,7 @@ jobs:
 
           kubectl rollout restart -n kube-system ds cilium
 
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -212,7 +214,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdumps-out
 
       - name: Upload cilium-sysdumps
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ failure() }}
         with:
           name: cilium-sysdumps-out.zip
@@ -220,14 +222,14 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested
           path: ${{ env.job_name }}*.json

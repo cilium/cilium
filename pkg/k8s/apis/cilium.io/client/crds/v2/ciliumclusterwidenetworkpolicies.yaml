@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: ciliumclusterwidenetworkpolicies.cilium.io
 spec:
   group: cilium.io
@@ -802,8 +802,8 @@ spec:
                                       items:
                                         description: |-
                                           HeaderMatch extends the HeaderValue for matching requirement of a
-                                          named header field against an immediate string, a secret value, or
-                                          a regex.  If none of the optional fields is present, then the
+                                          named header field against an immediate string or a secret value.
+                                          If none of the optional fields is present, then the
                                           header value is not matched, only presence of the header is enough.
                                         properties:
                                           mismatch:
@@ -986,8 +986,22 @@ spec:
                               TLS must be present and one of the provided SNIs must be indicated in the
                               TLS handshake.
                             items:
+                              description: |-
+                                ServerName allows using prefix only wildcards to match DNS names.
+
+                                - "*" matches 0 or more DNS valid characters, and may only occur at the
+                                beginning of the pattern. As a special case a "*" as the leftmost character,
+                                without a following "." matches all subdomains as well as the name to the right.
+
+                                Examples:
+                                  - `*.cilium.io` matches exactly one subdomain of cilium at that level www.cilium.io and blog.cilium.io match, cilium.io and google.com do not.
+                                  - `**.cilium.io` matches more than one subdomain of cilium, e.g. sub1.sub2.cilium.io and sub.cilium.io match, cilium.io do not.
+                              maxLength: 255
+                              pattern: ^(\*?\*\.)?([-a-zA-Z0-9_]+\.?)+$
                               type: string
+                            minItems: 1
                             type: array
+                            x-kubernetes-list-type: set
                           terminatingTLS:
                             description: |-
                               TerminatingTLS is the TLS context for the connection terminated by
@@ -1112,14 +1126,13 @@ spec:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
                         to the rule is allowed to initiate connections.
-                        Currently Cilium only supports toServices for K8s services without
-                        selectors.
-
-                        Example:
-                        Any endpoint with the label "app=backend-app" is allowed to
-                        initiate connections to all cidrs backing the "external-service" service
+                        Currently Cilium only supports toServices for K8s services.
                       items:
-                        description: Service wraps around selectors for services
+                        description: |-
+                          Service selects policy targets that are bundled as part of a
+                          logical load-balanced service.
+
+                          Currently only Kubernetes-based Services are supported.
                         properties:
                           k8sService:
                             description: K8sService selects service by name and namespace
@@ -1735,14 +1748,13 @@ spec:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
                         to the rule is allowed to initiate connections.
-                        Currently Cilium only supports toServices for K8s services without
-                        selectors.
-
-                        Example:
-                        Any endpoint with the label "app=backend-app" is allowed to
-                        initiate connections to all cidrs backing the "external-service" service
+                        Currently Cilium only supports toServices for K8s services.
                       items:
-                        description: Service wraps around selectors for services
+                        description: |-
+                          Service selects policy targets that are bundled as part of a
+                          logical load-balanced service.
+
+                          Currently only Kubernetes-based Services are supported.
                         properties:
                           k8sService:
                             description: K8sService selects service by name and namespace
@@ -2640,8 +2652,8 @@ spec:
                                       items:
                                         description: |-
                                           HeaderMatch extends the HeaderValue for matching requirement of a
-                                          named header field against an immediate string, a secret value, or
-                                          a regex.  If none of the optional fields is present, then the
+                                          named header field against an immediate string or a secret value.
+                                          If none of the optional fields is present, then the
                                           header value is not matched, only presence of the header is enough.
                                         properties:
                                           mismatch:
@@ -2824,8 +2836,22 @@ spec:
                               TLS must be present and one of the provided SNIs must be indicated in the
                               TLS handshake.
                             items:
+                              description: |-
+                                ServerName allows using prefix only wildcards to match DNS names.
+
+                                - "*" matches 0 or more DNS valid characters, and may only occur at the
+                                beginning of the pattern. As a special case a "*" as the leftmost character,
+                                without a following "." matches all subdomains as well as the name to the right.
+
+                                Examples:
+                                  - `*.cilium.io` matches exactly one subdomain of cilium at that level www.cilium.io and blog.cilium.io match, cilium.io and google.com do not.
+                                  - `**.cilium.io` matches more than one subdomain of cilium, e.g. sub1.sub2.cilium.io and sub.cilium.io match, cilium.io do not.
+                              maxLength: 255
+                              pattern: ^(\*?\*\.)?([-a-zA-Z0-9_]+\.?)+$
                               type: string
+                            minItems: 1
                             type: array
+                            x-kubernetes-list-type: set
                           terminatingTLS:
                             description: |-
                               TerminatingTLS is the TLS context for the connection terminated by
@@ -4263,8 +4289,8 @@ spec:
                                         items:
                                           description: |-
                                             HeaderMatch extends the HeaderValue for matching requirement of a
-                                            named header field against an immediate string, a secret value, or
-                                            a regex.  If none of the optional fields is present, then the
+                                            named header field against an immediate string or a secret value.
+                                            If none of the optional fields is present, then the
                                             header value is not matched, only presence of the header is enough.
                                           properties:
                                             mismatch:
@@ -4447,8 +4473,22 @@ spec:
                                 TLS must be present and one of the provided SNIs must be indicated in the
                                 TLS handshake.
                               items:
+                                description: |-
+                                  ServerName allows using prefix only wildcards to match DNS names.
+
+                                  - "*" matches 0 or more DNS valid characters, and may only occur at the
+                                  beginning of the pattern. As a special case a "*" as the leftmost character,
+                                  without a following "." matches all subdomains as well as the name to the right.
+
+                                  Examples:
+                                    - `*.cilium.io` matches exactly one subdomain of cilium at that level www.cilium.io and blog.cilium.io match, cilium.io and google.com do not.
+                                    - `**.cilium.io` matches more than one subdomain of cilium, e.g. sub1.sub2.cilium.io and sub.cilium.io match, cilium.io do not.
+                                maxLength: 255
+                                pattern: ^(\*?\*\.)?([-a-zA-Z0-9_]+\.?)+$
                                 type: string
+                              minItems: 1
                               type: array
+                              x-kubernetes-list-type: set
                             terminatingTLS:
                               description: |-
                                 TerminatingTLS is the TLS context for the connection terminated by
@@ -4573,14 +4613,13 @@ spec:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
                           to the rule is allowed to initiate connections.
-                          Currently Cilium only supports toServices for K8s services without
-                          selectors.
-
-                          Example:
-                          Any endpoint with the label "app=backend-app" is allowed to
-                          initiate connections to all cidrs backing the "external-service" service
+                          Currently Cilium only supports toServices for K8s services.
                         items:
-                          description: Service wraps around selectors for services
+                          description: |-
+                            Service selects policy targets that are bundled as part of a
+                            logical load-balanced service.
+
+                            Currently only Kubernetes-based Services are supported.
                           properties:
                             k8sService:
                               description: K8sService selects service by name and
@@ -5197,14 +5236,13 @@ spec:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
                           to the rule is allowed to initiate connections.
-                          Currently Cilium only supports toServices for K8s services without
-                          selectors.
-
-                          Example:
-                          Any endpoint with the label "app=backend-app" is allowed to
-                          initiate connections to all cidrs backing the "external-service" service
+                          Currently Cilium only supports toServices for K8s services.
                         items:
-                          description: Service wraps around selectors for services
+                          description: |-
+                            Service selects policy targets that are bundled as part of a
+                            logical load-balanced service.
+
+                            Currently only Kubernetes-based Services are supported.
                           properties:
                             k8sService:
                               description: K8sService selects service by name and
@@ -6103,8 +6141,8 @@ spec:
                                         items:
                                           description: |-
                                             HeaderMatch extends the HeaderValue for matching requirement of a
-                                            named header field against an immediate string, a secret value, or
-                                            a regex.  If none of the optional fields is present, then the
+                                            named header field against an immediate string or a secret value.
+                                            If none of the optional fields is present, then the
                                             header value is not matched, only presence of the header is enough.
                                           properties:
                                             mismatch:
@@ -6287,8 +6325,22 @@ spec:
                                 TLS must be present and one of the provided SNIs must be indicated in the
                                 TLS handshake.
                               items:
+                                description: |-
+                                  ServerName allows using prefix only wildcards to match DNS names.
+
+                                  - "*" matches 0 or more DNS valid characters, and may only occur at the
+                                  beginning of the pattern. As a special case a "*" as the leftmost character,
+                                  without a following "." matches all subdomains as well as the name to the right.
+
+                                  Examples:
+                                    - `*.cilium.io` matches exactly one subdomain of cilium at that level www.cilium.io and blog.cilium.io match, cilium.io and google.com do not.
+                                    - `**.cilium.io` matches more than one subdomain of cilium, e.g. sub1.sub2.cilium.io and sub.cilium.io match, cilium.io do not.
+                                maxLength: 255
+                                pattern: ^(\*?\*\.)?([-a-zA-Z0-9_]+\.?)+$
                                 type: string
+                              minItems: 1
                               type: array
+                              x-kubernetes-list-type: set
                             terminatingTLS:
                               description: |-
                                 TerminatingTLS is the TLS context for the connection terminated by

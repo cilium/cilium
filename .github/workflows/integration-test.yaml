@@ -147,17 +147,17 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
 
       - name: Set clang directory
         id: set_clang_dir
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
+        uses: KyleMayes/install-llvm-action@6ba6e2cd3813def9879be378609d87cb3ef3bac3 # v2.0.6
         with:
           version: "18.1.8"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
@@ -173,7 +173,7 @@ jobs:
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
           export CFLAGS="-Werror"
-          make integration-tests
+          make integration-tests LOG_CODEOWNERS=1
 
   commit-status-final:
     if: ${{ always() }}

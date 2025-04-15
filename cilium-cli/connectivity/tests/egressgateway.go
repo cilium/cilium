@@ -8,119 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
-	"time"
 
-	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/cilium-cli/utils/wait"
 )
-
-// bpfEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
-type bpfEgressGatewayPolicyEntry struct {
-	SourceIP  string `json:"sourceIP"`
-	DestCIDR  string `json:"destCIDR"`
-	EgressIP  string `json:"egressIP"`
-	GatewayIP string `json:"gatewayIP"`
-}
-
-// matches is an helper used to compare the receiver bpfEgressGatewayPolicyEntry with another entry
-func (e *bpfEgressGatewayPolicyEntry) matches(t bpfEgressGatewayPolicyEntry) bool {
-	return t.SourceIP == e.SourceIP &&
-		t.DestCIDR == e.DestCIDR &&
-		t.EgressIP == e.EgressIP &&
-		t.GatewayIP == e.GatewayIP
-}
-
-// WaitForEgressGatewayBpfPolicyEntries waits for the egress gateway policy maps on each node to WaitForEgressGatewayBpfPolicyEntries
-// with the entries returned by the targetEntriesCallback
-func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, t *check.Test,
-	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
-) {
-	ct := t.Context()
-
-	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
-	defer w.Cancel()
-
-	ensureBpfPolicyEntries := func() error {
-		for _, ciliumPod := range ct.CiliumPods() {
-			targetEntries := targetEntriesCallback(ciliumPod)
-
-			cmd := strings.Split("cilium bpf egress list -o json", " ")
-			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
-			if err != nil {
-				t.Fatal("failed to run cilium bpf egress list command: %w", err)
-			}
-
-			entries := []bpfEgressGatewayPolicyEntry{}
-			json.Unmarshal(stdout.Bytes(), &entries)
-
-		nextTargetEntry:
-			for _, targetEntry := range targetEntries {
-				for _, entry := range entries {
-					if targetEntry.matches(entry) {
-						continue nextTargetEntry
-					}
-				}
-
-				return fmt.Errorf("Could not find egress gateway policy entry matching %+v", targetEntry)
-			}
-
-		nextEntry:
-			for _, entry := range entries {
-				for _, targetEntry := range targetEntries {
-					if targetEntry.matches(entry) {
-						continue nextEntry
-					}
-				}
-
-				return fmt.Errorf("Untracked entry %+v in the egress gateway policy map", entry)
-			}
-		}
-
-		return nil
-	}
-
-	for {
-		if err := ensureBpfPolicyEntries(); err != nil {
-			if err := w.Retry(err); err != nil {
-				t.Fatal("Failed to ensure egress gateway policy map is properly populated:", err)
-			}
-
-			continue
-		}
-
-		return
-	}
-}
-
-// getGatewayNodeInternalIP returns the k8s internal IP of the node acting as gateway for this test
-func getGatewayNodeInternalIP(ct *check.ConnectivityTest, egressGatewayNode string) net.IP {
-	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
-	if !ok {
-		return nil
-	}
-
-	for _, addr := range gatewayNode.Status.Addresses {
-		if addr.Type != v1.NodeInternalIP {
-			continue
-		}
-
-		ip := net.ParseIP(addr.Address)
-		if ip == nil || ip.To4() == nil {
-			continue
-		}
-
-		return ip
-	}
-
-	return nil
-}
 
 // extractClientIPFromResponse extracts the client IP from the response of the echo-external service
 func extractClientIPFromResponse(res string) net.IP {
@@ -150,10 +44,14 @@ func extractClientIPFromResponse(res string) net.IP {
 // - reply traffic for services
 // - reply traffic for pods
 func EgressGateway() check.Scenario {
-	return &egressGateway{}
+	return &egressGateway{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGateway struct{}
+type egressGateway struct {
+	check.ScenarioBase
+}
 
 func (s *egressGateway) Name() string {
 	return "egress-gateway"
@@ -167,13 +65,13 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node")
 	}
 
-	egressGatewayNodeInternalIP := getGatewayNodeInternalIP(ct, egressGatewayNode)
+	egressGatewayNodeInternalIP := ct.GetGatewayNodeInternalIP(egressGatewayNode)
 	if egressGatewayNodeInternalIP == nil {
 		t.Fatal("Cannot get egress gateway node internal IP")
 	}
 
-	WaitForEgressGatewayBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
-		targetEntries := []bpfEgressGatewayPolicyEntry{}
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
 		if ciliumPod.Pod.Spec.NodeName == egressGatewayNode {
@@ -182,7 +80,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 
 		for _, client := range ct.ClientPods() {
 			targetEntries = append(targetEntries,
-				bpfEgressGatewayPolicyEntry{
+				check.BPFEgressGatewayPolicyEntry{
 					SourceIP:  client.Pod.Status.PodIP,
 					DestCIDR:  "0.0.0.0/0",
 					EgressIP:  egressIP,
@@ -192,7 +90,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 
 		for _, echo := range ct.EchoPods() {
 			targetEntries = append(targetEntries,
-				bpfEgressGatewayPolicyEntry{
+				check.BPFEgressGatewayPolicyEntry{
 					SourceIP:  echo.Pod.Status.PodIP,
 					DestCIDR:  "0.0.0.0/0",
 					EgressIP:  egressIP,
@@ -200,8 +98,13 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				})
 		}
 
-		return targetEntries
+		return targetEntries, nil
+	}, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+		return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Ping hosts (pod to host connectivity). Should not get masqueraded with egress IP
 	i := 0
@@ -236,11 +139,11 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, "-4"))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
@@ -254,11 +157,11 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
@@ -275,7 +178,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				echo := echo.ToNodeportService(node)
 
 				t.NewAction(s, fmt.Sprintf("curl-echo-service-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
+					a.ExecInPod(ctx, a.CurlCommand(echo))
 				})
 				i++
 			}
@@ -294,7 +197,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		for _, client := range ct.ExternalEchoPods() {
 			for _, echo := range ct.EchoPods() {
 				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
+					a.ExecInPod(ctx, a.CurlCommand(echo))
 				})
 				i++
 			}
@@ -311,10 +214,14 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 //
 // This suite tests the excludedCIDRs property and ensure traffic matching an excluded CIDR does not get masqueraded with the egress IP
 func EgressGatewayExcludedCIDRs() check.Scenario {
-	return &egressGatewayExcludedCIDRs{}
+	return &egressGatewayExcludedCIDRs{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayExcludedCIDRs struct{}
+type egressGatewayExcludedCIDRs struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayExcludedCIDRs) Name() string {
 	return "egress-gateway-excluded-cidrs"
@@ -328,13 +235,13 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node")
 	}
 
-	egressGatewayNodeInternalIP := getGatewayNodeInternalIP(ct, egressGatewayNode)
+	egressGatewayNodeInternalIP := ct.GetGatewayNodeInternalIP(egressGatewayNode)
 	if egressGatewayNodeInternalIP == nil {
 		t.Fatal("Cannot get egress gateway node internal IP")
 	}
 
-	WaitForEgressGatewayBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
-		targetEntries := []bpfEgressGatewayPolicyEntry{}
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
 		if ciliumPod.Pod.Spec.NodeName == egressGatewayNode {
@@ -353,7 +260,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 				}
 
 				targetEntries = append(targetEntries,
-					bpfEgressGatewayPolicyEntry{
+					check.BPFEgressGatewayPolicyEntry{
 						SourceIP:  client.Pod.Status.PodIP,
 						DestCIDR:  "0.0.0.0/0",
 						EgressIP:  egressIP,
@@ -361,7 +268,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 					})
 
 				targetEntries = append(targetEntries,
-					bpfEgressGatewayPolicyEntry{
+					check.BPFEgressGatewayPolicyEntry{
 						SourceIP:  client.Pod.Status.PodIP,
 						DestCIDR:  fmt.Sprintf("%s/32", nodeWithoutCilium.Status.Addresses[0].Address),
 						EgressIP:  egressIP,
@@ -370,8 +277,13 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 			}
 		}
 
-		return targetEntries
+		return targetEntries, nil
+	}, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+		return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Traffic matching an egress gateway policy and an excluded CIDR should leave the cluster masqueraded with the
 	// node IP where the pod is running rather than with the egress IP(pod to external service)
@@ -381,11 +293,11 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(net.ParseIP(client.Pod.Status.HostIP)) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++

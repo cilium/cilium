@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,22 +87,22 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				if err != nil {
 					require.NoError(t, err)
 				}
-				patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+				patchWanted := fmt.Appendf(nil, `{"metadata":{"annotations":%s}}`, raw)
 
 				patchReceived := action.(k8stesting.PatchAction).GetPatch()
-				require.EqualValues(t, string(patchWanted), string(patchReceived))
+				require.Equal(t, string(patchWanted), string(patchReceived))
 				patchChan <- true
 				return true, n1copy, nil
 			})
 
-		node1Cilium := ParseNode(toSlimNode(node1.DeepCopy()), source.Unspec)
+		node1Cilium := ParseNode(hivetest.Logger(t), toSlimNode(node1.DeepCopy()), source.Unspec)
 		node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		node.SetIPv4AllocRange(node1Cilium.IPv4AllocCIDR)
 
 		require.Equal(t, "10.2.0.0/16", node.GetIPv4AllocRange().String())
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
-		_, err := AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
+		_, err := AnnotateNode(hivetest.Logger(t), fakeK8sClient, "node1", *node1Cilium, 0)
 
 		require.NoError(t, err)
 
@@ -143,15 +144,15 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				if err != nil {
 					require.NoError(t, err)
 				}
-				patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+				patchWanted := fmt.Appendf(nil, `{"metadata":{"annotations":%s}}`, raw)
 
 				patchReceived := action.(k8stesting.PatchAction).GetPatch()
-				require.EqualValues(t, string(patchWanted), string(patchReceived))
+				require.Equal(t, string(patchWanted), string(patchReceived))
 				patchChan <- true
 				return true, n2Copy, nil
 			})
 
-		node2Cilium := ParseNode(toSlimNode(node2.DeepCopy()), source.Unspec)
+		node2Cilium := ParseNode(hivetest.Logger(t), toSlimNode(node2.DeepCopy()), source.Unspec)
 		node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		node.SetIPv4AllocRange(node2Cilium.IPv4AllocCIDR)
 		node.SetIPv6NodeRange(node2Cilium.IPv6AllocCIDR)
@@ -161,7 +162,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 		require.Equal(t, "10.254.0.0/16", node.GetIPv4AllocRange().String())
 		require.Equal(t, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96", node.GetIPv6AllocRange().String())
 
-		_, err = AnnotateNode(fakeK8sClient, "node2", *node2Cilium, 0)
+		_, err = AnnotateNode(hivetest.Logger(t), fakeK8sClient, "node2", *node2Cilium, 0)
 
 		require.NoError(t, err)
 
@@ -192,7 +193,7 @@ func TestRemovalOfNodeAnnotations(t *testing.T) {
 			delete(n1copy.Annotations, annotation.V4CIDRName)
 			patchWanted := []byte("[{\"op\":\"remove\",\"path\":\"/metadata/annotations/network.cilium.io~1ipv4-pod-cidr\",\"value\":null}]")
 			patchReceived := action.(k8stesting.PatchAction).GetPatch()
-			require.EqualValues(t, string(patchWanted), string(patchReceived))
+			require.Equal(t, string(patchWanted), string(patchReceived))
 			patchChan <- true
 			return true, n1copy, nil
 		})

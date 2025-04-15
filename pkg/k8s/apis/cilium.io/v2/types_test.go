@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -310,23 +311,25 @@ func TestParseSpec(t *testing.T) {
 	// Sanitize rule to populate aggregated selectors.
 	expectedSpecRule.Sanitize()
 
-	rules, err := expectedPolicyRule.Parse()
+	logger := hivetest.Logger(t)
+
+	rules, err := expectedPolicyRule.Parse(logger)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
-	require.EqualValues(t, *expectedSpecRule, *rules[0])
+	require.Equal(t, *expectedSpecRule, *rules[0])
 
 	b, err := json.Marshal(expectedPolicyRule)
 	require.NoError(t, err)
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse()
-	require.EqualValues(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
+	expectedPolicyRuleUnmarshalled.Parse(logger)
+	require.Equal(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	require.NoError(t, err)
-	require.EqualValues(t, *expectedPolicyRuleWithLabel, cnpl)
+	require.Equal(t, *expectedPolicyRuleWithLabel, cnpl)
 
 	empty := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -335,7 +338,7 @@ func TestParseSpec(t *testing.T) {
 			UID:       uuidRule,
 		},
 	}
-	_, err = empty.Parse()
+	_, err = empty.Parse(logger)
 	require.EqualValues(t, ErrEmptyCNP, err)
 
 	emptyCCNP := &CiliumClusterwideNetworkPolicy{
@@ -344,7 +347,7 @@ func TestParseSpec(t *testing.T) {
 			UID:  uuidRule,
 		},
 	}
-	_, err = emptyCCNP.Parse()
+	_, err = emptyCCNP.Parse(logger)
 	require.EqualValues(t, ErrEmptyCCNP, err)
 }
 
@@ -400,11 +403,13 @@ func TestParseRules(t *testing.T) {
 		expectedSpecRules[i].Sanitize()
 	}
 
-	rules, err := expectedPolicyRuleList.Parse()
+	logger := hivetest.Logger(t)
+
+	rules, err := expectedPolicyRuleList.Parse(logger)
 	require.NoError(t, err)
 	require.Len(t, rules, 2)
 	for i, rule := range rules {
-		require.EqualValues(t, expectedSpecRules[i], rule)
+		require.Equal(t, expectedSpecRules[i], rule)
 	}
 
 	b, err := json.Marshal(expectedPolicyRuleList)
@@ -412,13 +417,13 @@ func TestParseRules(t *testing.T) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse()
-	require.EqualValues(t, *expectedPolicyRuleList, expectedPolicyRuleUnmarshalled)
+	expectedPolicyRuleUnmarshalled.Parse(logger)
+	require.Equal(t, *expectedPolicyRuleList, expectedPolicyRuleUnmarshalled)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	require.NoError(t, err)
-	require.EqualValues(t, *expectedPolicyRuleListWithLabel, cnpl)
+	require.Equal(t, *expectedPolicyRuleListWithLabel, cnpl)
 }
 
 func TestParseWithNodeSelector(t *testing.T) {
@@ -472,6 +477,8 @@ func TestParseWithNodeSelector(t *testing.T) {
 	rule.EndpointSelector = emptySelector
 	rule.NodeSelector = prevEPSelector
 
+	logger := hivetest.Logger(t)
+
 	// Expect CNP parse error because it's not allowed to have a NodeSelector.
 	cnpl := CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -481,7 +488,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 		},
 		Spec: &rule,
 	}
-	_, err := cnpl.Parse()
+	_, err := cnpl.Parse(logger)
 	require.ErrorContains(t, err, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 
 	// CCNP parse is allowed to have a NodeSelector.
@@ -493,7 +500,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 		},
 		Spec: cnpl.Spec,
 	}
-	_, err = ccnpl.Parse()
+	_, err = ccnpl.Parse(logger)
 	require.NoError(t, err)
 
 	// CCNPs are received as CNP and initially parsed as CNP. Create a CNP with
@@ -506,7 +513,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 		},
 		Spec: &rule,
 	}
-	_, err = ccnplAsCNP.Parse()
+	_, err = ccnplAsCNP.Parse(logger)
 	require.NoError(t, err)
 
 	// Now test a CNP and CCNP with an EndpointSelector only.
@@ -514,17 +521,17 @@ func TestParseWithNodeSelector(t *testing.T) {
 	rule.NodeSelector = emptySelector
 
 	// CNP and CCNP parse is allowed to have an EndpointSelector.
-	_, err = cnpl.Parse()
+	_, err = cnpl.Parse(logger)
 	require.NoError(t, err)
-	_, err = ccnpl.Parse()
+	_, err = ccnpl.Parse(logger)
 	require.NoError(t, err)
-	_, err = ccnplAsCNP.Parse()
+	_, err = ccnplAsCNP.Parse(logger)
 	require.NoError(t, err)
 }
 
 func TestCiliumNodeInstanceID(t *testing.T) {
-	require.Equal(t, "", (*CiliumNode)(nil).InstanceID())
-	require.Equal(t, "", (&CiliumNode{}).InstanceID())
+	require.Empty(t, (*CiliumNode)(nil).InstanceID())
+	require.Empty(t, (&CiliumNode{}).InstanceID())
 	require.Equal(t, "foo", (&CiliumNode{Spec: NodeSpec{InstanceID: "foo"}}).InstanceID())
 	require.Equal(t, "foo", (&CiliumNode{Spec: NodeSpec{InstanceID: "foo", ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID())
 	require.Equal(t, "bar", (&CiliumNode{Spec: NodeSpec{ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID())
@@ -618,7 +625,7 @@ func BenchmarkSpecEquals(b *testing.B) {
 	b.Run("Reflected SpecEquals", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			reflect.DeepEqual(r.Spec, o.Spec)
 			reflect.DeepEqual(r.Specs, o.Specs)
 		}
@@ -626,7 +633,7 @@ func BenchmarkSpecEquals(b *testing.B) {
 	b.Run("Generated SpecEquals", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r.DeepEqual(o)
 		}
 	})

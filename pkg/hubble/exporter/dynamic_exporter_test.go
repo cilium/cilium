@@ -5,11 +5,10 @@ package exporter
 
 import (
 	"context"
-	"os"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,21 +26,24 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 	fileName := "testdata/valid-flowlogs-config.yaml"
 
 	// when
-	sut := NewDynamicExporter(logrus.New(), fileName)
+	logger := hivetest.Logger(t)
+	exporterFactory := &exporterFactory{logger}
+	exporterConfigParser := &exporterConfigParser{logger}
+	dynamicExporter := NewDynamicExporter(logger, fileName, exporterFactory, exporterConfigParser)
 
 	// then
-	assert.Len(t, sut.managedExporters, 3)
-	for _, v := range sut.managedExporters {
+	assert.Len(t, dynamicExporter.managedExporters, 3)
+	for _, v := range dynamicExporter.managedExporters {
 		exp := v.exporter.(*exporter)
 		assert.NotNil(t, exp.writer, "each individual exporter should be configured (writer != nil)")
 	}
 
 	// and when
-	assert.NoError(t, sut.Stop())
+	assert.NoError(t, dynamicExporter.Stop())
 
 	// then
-	assert.Len(t, sut.managedExporters, 3)
-	for _, v := range sut.managedExporters {
+	assert.Len(t, dynamicExporter.managedExporters, 3)
+	for _, v := range dynamicExporter.managedExporters {
 		exp := v.exporter.(*exporter)
 		assert.Nil(t, exp.writer, "each individual exporter should be stopped (writer == nil)")
 	}
@@ -49,87 +51,75 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 
 func TestAddNewExporter(t *testing.T) {
 	// given
-	sut := &DynamicExporter{
-		logger:           logrus.New(),
+	logger := hivetest.Logger(t)
+	exporter := &dynamicExporter{
+		logger:           logger,
+		exporterFactory:  &exporterFactory{logger},
 		managedExporters: make(map[string]*managedExporter),
 	}
 
 	// and
-	file := createEmptyLogFile(t)
-
-	// and
-	config := DynamicExportersConfig{
-		FlowLogs: []*FlowLogConfig{
-			{
-				Name:           "test001",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &future,
-			},
-		},
+	config := &FlowLogConfig{
+		Name:           "test001",
+		FilePath:       "test.log",
+		FieldMask:      FieldMask{},
+		IncludeFilters: FlowFilters{},
+		ExcludeFilters: FlowFilters{},
+		End:            &future,
 	}
 
 	// when
-	sut.onConfigReload(1, config)
+	exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
 
 	// then
-	assert.Len(t, sut.managedExporters, 1)
-	assert.Equal(t, config.FlowLogs[0], sut.managedExporters["test001"].config)
-	assert.NotNil(t, sut.managedExporters["test001"].exporter)
+	assert.Len(t, exporter.managedExporters, 1)
+	gotConfig, ok := exporter.managedExporters["test001"].config.(*FlowLogConfig)
+	assert.True(t, ok, "managed config should be of type FlowLogConfig")
+	assert.Equal(t, config, gotConfig)
+	assert.NotNil(t, exporter.managedExporters["test001"].exporter)
 }
 
 func TestConfigReloadChanges(t *testing.T) {
 	// given
-	sut := &DynamicExporter{
-		logger:           logrus.New(),
+	logger := hivetest.Logger(t)
+	exporter := &dynamicExporter{
+		logger:           logger,
+		exporterFactory:  &exporterFactory{logger},
 		managedExporters: make(map[string]*managedExporter),
 	}
 
 	// and
-	file := createEmptyLogFile(t)
-
-	// and
-	config := DynamicExportersConfig{
-		FlowLogs: []*FlowLogConfig{
-			{
-				Name:           "test001",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &future,
-			},
-		},
+	config := &FlowLogConfig{
+		Name:           "test001",
+		FilePath:       "test.log",
+		FieldMask:      FieldMask{},
+		IncludeFilters: FlowFilters{},
+		ExcludeFilters: FlowFilters{},
+		End:            &future,
 	}
 
 	mockExporter := &mockExporter{}
-	sut.managedExporters["test001"] = &managedExporter{
-		config:   config.FlowLogs[0],
+	exporter.managedExporters["test001"] = &managedExporter{
+		config:   config,
 		exporter: mockExporter,
 	}
 
 	// when
-	sut.onConfigReload(1, config)
+	exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
 
 	// then
 	assert.False(t, mockExporter.stopped, "should not reload when not changed")
 
 	// and when
-	newConfig := DynamicExportersConfig{
-		FlowLogs: []*FlowLogConfig{
-			{
-				Name:           "test001",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{"source"},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &future,
-			},
-		},
+	newConfig := &FlowLogConfig{
+		Name:           "test001",
+		FilePath:       "test.log",
+		FieldMask:      FieldMask{"source"},
+		IncludeFilters: FlowFilters{},
+		ExcludeFilters: FlowFilters{},
+		End:            &future,
 	}
-	sut.onConfigReload(1, newConfig)
+	exporter.onConfigReload(map[string]ExporterConfig{"test001": newConfig}, 1)
 
 	// then
 	assert.True(t, mockExporter.stopped, "should reload when changed")
@@ -137,83 +127,34 @@ func TestConfigReloadChanges(t *testing.T) {
 
 func TestEventPropagation(t *testing.T) {
 	// given
-	sut := &DynamicExporter{
-		logger:           logrus.New(),
+	exporter := &dynamicExporter{
+		logger:           hivetest.Logger(t),
 		managedExporters: make(map[string]*managedExporter),
-	}
-
-	// and
-	file := createEmptyLogFile(t)
-
-	// and
-	future := time.Now().Add(1 * time.Hour)
-	past := time.Now().Add(-1 * time.Hour)
-	config := DynamicExportersConfig{
-		FlowLogs: []*FlowLogConfig{
-			{
-				Name:           "test001",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &future,
-			},
-			{
-				Name:           "test002",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &future,
-			},
-			{
-				Name:           "test003",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &past,
-			},
-			{
-				Name:           "test004",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            nil,
-			},
-		},
 	}
 
 	mockExporter0 := &mockExporter{}
 	mockExporter1 := &mockExporter{}
 	mockExporter2 := &mockExporter{}
-	mockExporter3 := &mockExporter{}
-	sut.managedExporters["test001"] = &managedExporter{
-		config:   config.FlowLogs[0],
+	exporter.managedExporters["test001"] = &managedExporter{
+		config:   &FlowLogConfig{Name: "test001"},
 		exporter: mockExporter0,
 	}
-	sut.managedExporters["test002"] = &managedExporter{
-		config:   config.FlowLogs[1],
+	exporter.managedExporters["test002"] = &managedExporter{
+		config:   &FlowLogConfig{Name: "test002"},
 		exporter: mockExporter1,
 	}
-	sut.managedExporters["test003"] = &managedExporter{
-		config:   config.FlowLogs[2],
+	exporter.managedExporters["test003"] = &managedExporter{
+		config:   &FlowLogConfig{Name: "test003"},
 		exporter: mockExporter2,
-	}
-	sut.managedExporters["test004"] = &managedExporter{
-		config:   config.FlowLogs[3],
-		exporter: mockExporter3,
 	}
 
 	// when
-	sut.Export(context.TODO(), &v1.Event{})
+	exporter.Export(context.TODO(), &v1.Event{})
 
 	// then
 	assert.Equal(t, 1, mockExporter0.events)
 	assert.Equal(t, 1, mockExporter1.events)
-	assert.Equal(t, 0, mockExporter2.events)
-	assert.Equal(t, 1, mockExporter3.events)
+	assert.Equal(t, 1, mockExporter2.events)
 }
 
 func TestExporterReconfigurationMetricsReporting(t *testing.T) {
@@ -223,31 +164,26 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 	registry.MustRegister(DynamicExporterReconfigurations)
 
 	// and
-	sut := &DynamicExporter{
-		logger:           logrus.New(),
+	logger := hivetest.Logger(t)
+	exporter := &dynamicExporter{
+		logger:           logger,
+		exporterFactory:  &exporterFactory{logger},
 		managedExporters: make(map[string]*managedExporter),
 	}
 
-	// and
-	file := createEmptyLogFile(t)
-
 	t.Run("should report flowlog added metric", func(t *testing.T) {
 		// given
-		config := DynamicExportersConfig{
-			FlowLogs: []*FlowLogConfig{
-				{
-					Name:           "test001",
-					FilePath:       file.Name(),
-					FieldMask:      FieldMask{},
-					IncludeFilters: FlowFilters{},
-					ExcludeFilters: FlowFilters{},
-					End:            &future,
-				},
-			},
+		config := &FlowLogConfig{
+			Name:           "test001",
+			FilePath:       "test.log",
+			FieldMask:      FieldMask{},
+			IncludeFilters: FlowFilters{},
+			ExcludeFilters: FlowFilters{},
+			End:            &future,
 		}
 
 		// when
-		sut.onConfigReload(1, config)
+		exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -265,21 +201,17 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 
 	t.Run("should report flowlog updated metric", func(t *testing.T) {
 		// given
-		config := DynamicExportersConfig{
-			FlowLogs: []*FlowLogConfig{
-				{
-					Name:           "test001",
-					FilePath:       file.Name(),
-					FieldMask:      FieldMask{"source"},
-					IncludeFilters: FlowFilters{},
-					ExcludeFilters: FlowFilters{},
-					End:            &future,
-				},
-			},
+		config := &FlowLogConfig{
+			Name:           "test001",
+			FilePath:       "test.log",
+			FieldMask:      FieldMask{"source"},
+			IncludeFilters: FlowFilters{},
+			ExcludeFilters: FlowFilters{},
+			End:            &future,
 		}
 
 		// when
-		sut.onConfigReload(1, config)
+		exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -297,21 +229,17 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 
 	t.Run("should not increase flowlog updated metric when config not changed", func(t *testing.T) {
 		// given
-		config4 := DynamicExportersConfig{
-			FlowLogs: []*FlowLogConfig{
-				{
-					Name:           "test001",
-					FilePath:       file.Name(),
-					FieldMask:      FieldMask{"source"},
-					IncludeFilters: FlowFilters{},
-					ExcludeFilters: FlowFilters{},
-					End:            &future,
-				},
-			},
+		config := &FlowLogConfig{
+			Name:           "test001",
+			FilePath:       "test.log",
+			FieldMask:      FieldMask{"source"},
+			IncludeFilters: FlowFilters{},
+			ExcludeFilters: FlowFilters{},
+			End:            &future,
 		}
 
 		// when
-		sut.onConfigReload(1, config4)
+		exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -328,13 +256,8 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 	})
 
 	t.Run("should report flowlog removed metric", func(t *testing.T) {
-		// given
-		config := DynamicExportersConfig{
-			FlowLogs: []*FlowLogConfig{},
-		}
-
 		// when
-		sut.onConfigReload(1, config)
+		exporter.onConfigReload(map[string]ExporterConfig{}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -348,7 +271,6 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		assert.Equal(t, "op", *metric.Label[0].Name)
 		assert.Equal(t, "remove", *metric.Label[0].Value)
 		assert.Equal(t, float64(1), *metric.GetCounter().Value)
-
 	})
 }
 
@@ -360,33 +282,28 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 	registry.MustRegister(DynamicExporterConfigHash, DynamicExporterConfigLastApplied)
 
 	// and
-	sut := &DynamicExporter{
-		logger:           logrus.New(),
+	logger := hivetest.Logger(t)
+	exporter := &dynamicExporter{
+		logger:           logger,
+		exporterFactory:  &exporterFactory{logger},
 		managedExporters: make(map[string]*managedExporter),
 	}
 
-	// and
-	file := createEmptyLogFile(t)
-
 	// given
-	config := DynamicExportersConfig{
-		FlowLogs: []*FlowLogConfig{
-			{
-				Name:           "test001",
-				FilePath:       file.Name(),
-				FieldMask:      FieldMask{},
-				IncludeFilters: FlowFilters{},
-				ExcludeFilters: FlowFilters{},
-				End:            &future,
-			},
-		},
+	config := &FlowLogConfig{
+		Name:           "test001",
+		FilePath:       "test.log",
+		FieldMask:      FieldMask{},
+		IncludeFilters: FlowFilters{},
+		ExcludeFilters: FlowFilters{},
+		End:            &future,
 	}
 
-	//and
+	// and
 	configHash := uint64(4367168)
 
 	// when
-	sut.onConfigReload(configHash, config)
+	exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, configHash)
 
 	// then
 	metricFamilies, err := registry.Gather()
@@ -407,43 +324,39 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 
 func TestExportersMetricsReporting(t *testing.T) {
 	// given
-	sut := &DynamicExporter{
-		logger:           logrus.New(),
+	logger := hivetest.Logger(t)
+	exporter := &dynamicExporter{
+		logger:           logger,
+		exporterFactory:  &exporterFactory{logger},
 		managedExporters: make(map[string]*managedExporter),
 	}
 
 	// and
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(&dynamicExporterGaugeCollector{exporter: sut})
-
-	// and
-	file := createEmptyLogFile(t)
+	registry.MustRegister(&dynamicExporterGaugeCollector{exporter: exporter})
 
 	t.Run("should report gauge with exporters statuses", func(t *testing.T) {
 		// given
-		config := DynamicExportersConfig{
-			FlowLogs: []*FlowLogConfig{
-				{
-					Name:           "test001",
-					FilePath:       file.Name(),
-					FieldMask:      FieldMask{},
-					IncludeFilters: FlowFilters{},
-					ExcludeFilters: FlowFilters{},
-					End:            &future,
-				},
-				{
-					Name:           "test002",
-					FilePath:       file.Name(),
-					FieldMask:      FieldMask{},
-					IncludeFilters: FlowFilters{},
-					ExcludeFilters: FlowFilters{},
-					End:            &past,
-				},
-			},
+		config1 := &FlowLogConfig{
+
+			Name:           "test001",
+			FilePath:       "test1.log",
+			FieldMask:      FieldMask{},
+			IncludeFilters: FlowFilters{},
+			ExcludeFilters: FlowFilters{},
+			End:            &future,
+		}
+		config2 := &FlowLogConfig{
+			Name:           "test002",
+			FilePath:       "test2.log",
+			FieldMask:      FieldMask{},
+			IncludeFilters: FlowFilters{},
+			ExcludeFilters: FlowFilters{},
+			End:            &past,
 		}
 
 		// when
-		sut.onConfigReload(1, config)
+		exporter.onConfigReload(map[string]ExporterConfig{"test001": config1, "test002": config2}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -474,13 +387,8 @@ func TestExportersMetricsReporting(t *testing.T) {
 	})
 
 	t.Run("should remove individual status metric of removed flowlog", func(t *testing.T) {
-		// given
-		config := DynamicExportersConfig{
-			FlowLogs: []*FlowLogConfig{},
-		}
-
 		// when
-		sut.onConfigReload(1, config)
+		exporter.onConfigReload(map[string]ExporterConfig{}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -498,15 +406,6 @@ func TestExportersMetricsReporting(t *testing.T) {
 		assert.Equal(t, "inactive", *metricFamilies[0].Metric[1].Label[0].Value)
 		assert.Equal(t, float64(0), *metricFamilies[0].Metric[1].GetGauge().Value)
 	})
-}
-
-func createEmptyLogFile(t *testing.T) *os.File {
-	file, err := os.CreateTemp(t.TempDir(), "output.log")
-	if err != nil {
-		t.Fatalf("failed creating test file %v", err)
-	}
-
-	return file
 }
 
 var _ FlowLogExporter = (*mockExporter)(nil)

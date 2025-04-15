@@ -14,6 +14,7 @@
 /* Enable code paths under test*/
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
+#define ENABLE_MASQUERADE_IPV4	1
 #define ENABLE_ROUTING
 
 #define PRIMARY_IFACE 1
@@ -137,7 +138,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(v4_pod_one, 0, SECLABEL, 0, 0);
 
-	ct_create4(&CT_MAP_TCP4, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
+	ct_create4(&cilium_ct4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -198,6 +199,117 @@ int eni_nlb_symetric_routing_egress_v4_setup_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port changed");
+
+	test_finish();
+}
+
+/* The same test, but for ICMP */
+PKTGEN("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")
+int eni_nlb_symetric_routing_egress_v4_setup_icmp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_icmp_packet(&builder,
+					   (__u8 *)mac_zero, (__u8 *)mac_zero,
+					   v4_pod_one, v4_ext_one,
+					   ICMP_ECHOREPLY);
+	if (!l4)
+		return TEST_ERROR;
+	l4->un.echo.id = bpf_htons(1);
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")
+int eni_nlb_symetric_routing_egress_v4_setup_icmp_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple ct = {
+		.daddr = v4_ext_one,
+		.saddr = v4_pod_one,
+		.dport = 0,
+		.sport = bpf_htons(1),
+		.nexthdr = IPPROTO_ICMP,
+		.flags = TUPLE_F_IN,
+	};
+	struct ct_state state = {0};
+
+	state.src_sec_id = WORLD_ID;
+
+	endpoint_v4_add_entry(v4_pod_one, BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
+			      SECONDARY_IFACE, (__u8 *)LOCAL_BACKEND_MAC, (__u8 *)NODE_MAC);
+
+	ipcache_v4_add_entry(v4_pod_one, 0, SECLABEL, 0, 0);
+
+	ct_create4(&cilium_ct_any4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")
+int eni_nlb_symetric_routing_egress_v4_setup_icmp_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct icmphdr *l4;
+	__u32 key = 0;
+	__u32 *redirect_ifindex;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	if (*status_code != TC_ACT_REDIRECT)
+		test_fatal("packet has not been redirected");
+
+	redirect_ifindex = map_lookup_elem(&redirect_ifindex_map, &key);
+	if (!redirect_ifindex)
+		test_fatal("redirect_ifindex not found");
+
+	if (*redirect_ifindex != SECONDARY_IFACE)
+		test_fatal("redirected to ifindex %d, expected %d", *redirect_ifindex,
+			   SECONDARY_IFACE);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != v4_pod_one)
+		test_fatal("src IP changed");
+
+	if (l3->daddr != v4_ext_one)
+		test_fatal("dest IP changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct icmphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->un.echo.id != bpf_htons(1))
+		test_fatal("ICMP identifier changed");
 
 	test_finish();
 }

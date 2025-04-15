@@ -56,9 +56,9 @@ func TestNewFrom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			newLbls := NewFrom(tt.lbls)
 			// Verify that underlying maps are different
-			assert.NotSame(t, &tt.lbls, &newLbls)
+			assert.NotEqual(t, reflect.ValueOf(tt.lbls).UnsafePointer(), reflect.ValueOf(newLbls).UnsafePointer())
 			// Verify that the map contents are equal
-			assert.EqualValues(t, tt.want, newLbls)
+			assert.Equal(t, tt.want, newLbls)
 		})
 	}
 }
@@ -67,7 +67,7 @@ func TestSortMap(t *testing.T) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
 	sortedMap := lbls.SortedList()
-	require.EqualValues(t, []byte(lblsString), sortedMap)
+	require.Equal(t, []byte(lblsString), sortedMap)
 }
 
 func TestLabelArraySorted(t *testing.T) {
@@ -77,7 +77,7 @@ func TestLabelArraySorted(t *testing.T) {
 	for _, l := range lbls.LabelArray() {
 		str += fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
 	}
-	require.EqualValues(t, lblsString, str)
+	require.Equal(t, lblsString, str)
 }
 
 func TestMap2Labels(t *testing.T) {
@@ -90,7 +90,7 @@ func TestMap2Labels(t *testing.T) {
 		`//=/`:     "",
 		`%`:        `%ed`,
 	}, LabelSourceUnspec)
-	require.EqualValues(t, lbls, m)
+	require.Equal(t, lbls, m)
 }
 
 func TestMergeLabels(t *testing.T) {
@@ -107,7 +107,35 @@ func TestMergeLabels(t *testing.T) {
 	}
 	to.MergeLabels(from)
 	from["key1"] = NewLabel("key1", "changed", "source4")
-	require.EqualValues(t, want, to)
+	require.Equal(t, want, to)
+}
+
+func TestRemove(t *testing.T) {
+	to := Labels{
+		"key1": NewLabel("key1", "value1", "source1"),
+		"key2": NewLabel("key2", "value3", "source4"),
+	}
+	remove := Labels{
+		"key1": NewLabel("key1", "value3", "source4"),
+	}
+	want := Labels{
+		"key2": NewLabel("key2", "value3", "source4"),
+	}
+	to.Remove(remove)
+	require.Equal(t, want, to)
+}
+
+func TestRemoveFromSource(t *testing.T) {
+	to := Labels{
+		"key1": NewLabel("key1", "value1", "source1"),
+		"key2": NewLabel("key2", "value3", "source4"),
+		"key3": NewLabel("key2", "value5", "source1"),
+	}
+	want := Labels{
+		"key2": NewLabel("key2", "value3", "source4"),
+	}
+	to.RemoveFromSource("source1")
+	require.Equal(t, want, to)
 }
 
 func TestParseLabel(t *testing.T) {
@@ -137,7 +165,7 @@ func TestParseLabel(t *testing.T) {
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)
-		require.EqualValues(t, test.out, lbl)
+		require.Equal(t, test.out, lbl)
 	}
 }
 
@@ -167,8 +195,8 @@ func BenchmarkParseLabel(b *testing.B) {
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
 	}
 	count := 0
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, test := range tests {
 			if ParseLabel(test.str).Source == LabelSourceUnspec {
 				count++
@@ -201,7 +229,7 @@ func TestParseSelectLabel(t *testing.T) {
 	}
 	for _, test := range tests {
 		lbl := ParseSelectLabel(test.str)
-		require.EqualValues(t, test.out, lbl)
+		require.Equal(t, test.out, lbl)
 	}
 }
 
@@ -225,7 +253,7 @@ func TestLabel(t *testing.T) {
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	require.NoError(t, err)
 	require.Equal(t, LabelSourceUnspec, label.Source)
-	require.Equal(t, "", label.Value)
+	require.Empty(t, label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)
@@ -272,7 +300,7 @@ func TestLabelParseKey(t *testing.T) {
 	}
 	for _, test := range tests {
 		lbl := GetExtendedKeyFrom(test.str)
-		require.EqualValues(t, test.out, lbl)
+		require.Equal(t, test.out, lbl)
 	}
 }
 
@@ -482,16 +510,16 @@ func TestLabels_HasSource(t *testing.T) {
 
 func BenchmarkNewFrom(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = NewFrom(lbls)
 	}
 }
 
 func BenchmarkLabels_SortedList(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = lbls.SortedList()
 	}
 }
@@ -499,8 +527,8 @@ func BenchmarkLabels_SortedList(b *testing.B) {
 func BenchmarkLabel_FormatForKVStore(b *testing.B) {
 	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = l.FormatForKVStore()
 	}
 }
@@ -508,16 +536,16 @@ func BenchmarkLabel_FormatForKVStore(b *testing.B) {
 func BenchmarkLabel_String(b *testing.B) {
 	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = l.String()
 	}
 }
 
 func BenchmarkGenerateLabelString(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+
+	for b.Loop() {
 		generateLabelString("foo", "key", "value")
 	}
 }

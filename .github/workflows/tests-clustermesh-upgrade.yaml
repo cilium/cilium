@@ -82,8 +82,26 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci clustermesh-apiserver-ci
+
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
+    needs: wait-for-images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 60
     env:
@@ -170,7 +188,6 @@ jobs:
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
-            --set=bpf.monitorAggregation=medium \
             --set=hubble.enabled=true \
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \
@@ -197,6 +214,8 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS=" \
             --hubble=false \
             --flow-validation=disabled \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
             --test='check-log-errors' \
@@ -255,11 +274,23 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ inputs.SHA || github.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Label one of the nodes as external to the cluster
+        # Currently, we only use external nodes for the north/south
+        # conn-disrupt-test, which requires KPR to be enabled.
+        if: matrix.kube-proxy == 'none'
+        run: |
+          kubectl --context ${{ env.contextName1 }} label node \
+            ${{ env.clusterName1 }}-worker2 cilium.io/no-schedule=true
+          kubectl --context ${{ env.contextName2 }} label node \
+            ${{ env.clusterName2 }}-worker2 cilium.io/no-schedule=true
 
       # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
       # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
@@ -382,14 +413,6 @@ jobs:
           image-tag: ${{ steps.downgrade-branch.outputs.sha }}
           chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
 
-      - name: Wait for images to be available (newest)
-        timeout-minutes: 10
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci clustermesh-apiserver-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.newest-vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
-
       - name: Wait for images to be available (downgrade)
         timeout-minutes: 10
         shell: bash
@@ -408,7 +431,8 @@ jobs:
             ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --nodes-without-cilium
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
         if: ${{ !matrix.external-kvstore }}
@@ -424,7 +448,8 @@ jobs:
             ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster2 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster2 }} \
+            --nodes-without-cilium
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -450,7 +475,8 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -477,7 +503,8 @@ jobs:
             ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --nodes-without-cilium
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -549,7 +576,8 @@ jobs:
             ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=false
+            --set clustermesh.apiserver.kvstoremesh.enabled=false \
+            --nodes-without-cilium
 
       - name: Wait for cluster mesh status to be ready
         if: ${{ !matrix.external-kvstore }}
@@ -579,18 +607,18 @@ jobs:
 
       - name: Gather additional troubleshooting information
         run: |
-          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
+          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - post-upgrade (${{ join(matrix.*, ', ') }})
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-conn-disrupt-test \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post upgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})"
@@ -600,7 +628,8 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -656,11 +685,11 @@ jobs:
 
       - name: Gather additional troubleshooting information
         run: |
-          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
+          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - stress-test (${{ join(matrix.*, ', ') }})
         run: |
@@ -668,10 +697,13 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             --hubble=false \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
             --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
@@ -681,7 +713,8 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -708,7 +741,8 @@ jobs:
             ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --nodes-without-cilium
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -719,18 +753,18 @@ jobs:
 
       - name: Gather additional troubleshooting information
         run: |
-          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
+          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - post-downgrade (${{ join(matrix.*, ', ') }})
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-conn-disrupt-test \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
@@ -777,21 +811,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.name }}
           path: ${{ env.job_name }}*.json

@@ -228,16 +228,7 @@ func TestListCiliumEndpointSlices(t *testing.T) {
 
 	endpointSlices, err := client.ListCiliumEndpointSlices(context.Background(), metav1.ListOptions{})
 	assert.NoError(err)
-	assert.GreaterOrEqual(len(endpointSlices.Items), 0)
-}
-
-func TestListCiliumExternalWorkloads(t *testing.T) {
-	assert := assert.New(t)
-	client := &fakeClient{}
-
-	externalWorkloads, err := client.ListCiliumExternalWorkloads(context.Background(), metav1.ListOptions{})
-	assert.NoError(err)
-	assert.GreaterOrEqual(len(externalWorkloads.Items), 0)
+	assert.Len(endpointSlices.Items, 1)
 }
 
 func TestFilterPods(t *testing.T) {
@@ -618,31 +609,6 @@ func (c *fakeClient) ListCiliumEndpointSlices(_ context.Context, _ metav1.ListOp
 	return &ciliumEndpointSliceList, nil
 }
 
-func (c *fakeClient) ListCiliumExternalWorkloads(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error) {
-	ciliumExternalWorkloadList := ciliumv2.CiliumExternalWorkloadList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "List",
-			APIVersion: "v1",
-		},
-		ListMeta: metav1.ListMeta{},
-		Items: []ciliumv2.CiliumExternalWorkload{{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "CiliumEndpointSlice",
-				APIVersion: "v2alpha1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "testEndpointSlice1",
-			},
-			Spec: ciliumv2.CiliumExternalWorkloadSpec{
-				IPv4AllocCIDR: "10.100.0.0/24",
-				IPv6AllocCIDR: "FD00::/64",
-			},
-		},
-		},
-	}
-	return &ciliumExternalWorkloadList, nil
-}
-
 func (c *fakeClient) ListCiliumLocalRedirectPolicies(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
 	panic("implement me")
 }
@@ -721,7 +687,7 @@ func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOpti
 func Test_removeTopDirectory(t *testing.T) {
 	result, err := removeTopDirectory("/")
 	assert.NoError(t, err)
-	assert.Equal(t, "", result)
+	assert.Empty(t, result)
 
 	result, err = removeTopDirectory("a/b/c")
 	assert.NoError(t, err)

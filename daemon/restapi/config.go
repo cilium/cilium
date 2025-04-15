@@ -174,7 +174,7 @@ func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 
 // ConfigModifyEvents are serialized by the event queue, no need for additional locking for
 // changing 'Opts'
-func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigParams, resChan chan interface{}) {
+func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigParams, resChan chan any) {
 	cfgSpec := params.Configuration
 
 	om, err := option.Config.Opts.ValidateConfigurationMap(cfgSpec.Options)
@@ -230,7 +230,7 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 			if policyEnforcementChanged {
 				policy.SetPolicyEnabled(oldEnforcementValue)
 			}
-			option.Config.Opts.ApplyValidated(oldConfigOpts, func(string, option.OptionSetting, interface{}) {}, h)
+			option.Config.Opts.ApplyValidated(oldConfigOpts, func(string, option.OptionSetting, any) {}, h)
 			h.endpointManager.OverrideEndpointOpts(oldConfigOpts)
 			h.logger.Debug("finished reverting agent configuration changes")
 			resChan <- api.Error(daemonapi.PatchConfigFailureCode, msg)
@@ -245,7 +245,7 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	resChan <- daemonapi.NewPatchConfigOK()
 }
 
-func (h *ConfigModifyEventHandler) changedOption(key string, value option.OptionSetting, _ interface{}) {
+func (h *ConfigModifyEventHandler) changedOption(key string, value option.OptionSetting, _ any) {
 	if key == option.Debug {
 		// Set the log level of the agent (this can be a no-op)
 		if option.Config.Opts.IsEnabled(option.Debug) {
@@ -281,7 +281,7 @@ type ConfigModifyEvent struct {
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
-func (e *ConfigModifyEvent) Handle(res chan interface{}) {
+func (e *ConfigModifyEvent) Handle(res chan any) {
 	e.eventHandler.configModify(e.params, res)
 }
 
@@ -328,11 +328,11 @@ type getConfigHandler struct {
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
 	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
 
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 
 	// Collect config ignoring the mutable options.
 	e := reflect.ValueOf(option.Config).Elem()
-	for i := 0; i < e.NumField(); i++ {
+	for i := range e.NumField() {
 		if e.Field(i).Kind() != reflect.Func {
 			field := e.Type().Field(i)
 			// Only consider exported fields and ignore the mutable options.
@@ -415,7 +415,7 @@ func (h *getConfigHandler) getIPLocalReservedPorts() string {
 	// default, but is user configurable and thus should be included regardless.
 	// The Linux kernel documentation explicitly allows to reserve ports which
 	// are not part of the ephemeral port range, in which case this is a no-op.
-	if h.tunnelConfig.Protocol() != tunnel.Disabled {
+	if h.tunnelConfig.EncapProtocol() != tunnel.Disabled {
 		ports = append(ports, fmt.Sprintf("%d", h.tunnelConfig.Port()))
 	}
 

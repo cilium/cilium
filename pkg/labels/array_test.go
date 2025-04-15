@@ -33,12 +33,12 @@ func TestMatches(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	require.EqualValues(t, LabelArray{}, ParseLabelArray())
-	require.EqualValues(t, LabelArray{ParseLabel("magic")}, ParseLabelArray("magic"))
+	require.Equal(t, LabelArray{}, ParseLabelArray())
+	require.Equal(t, LabelArray{ParseLabel("magic")}, ParseLabelArray("magic"))
 	// LabelArray is sorted
-	require.EqualValues(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")}, ParseLabelArray("c", "a", "b"))
+	require.Equal(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")}, ParseLabelArray("c", "a", "b"))
 	// NewLabelArrayFromSortedList
-	require.EqualValues(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c=d")}, NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
+	require.Equal(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c=d")}, NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
 }
 
 func TestHas(t *testing.T) {
@@ -250,7 +250,7 @@ func TestOutputConversions(t *testing.T) {
 	sort.StringSlice(expectMdl).Sort()
 	mdl := lbls.GetModel()
 	sort.StringSlice(mdl).Sort()
-	require.Equal(t, len(expectMdl), len(mdl))
+	require.Len(t, mdl, len(expectMdl))
 	for i := range mdl {
 		require.Equal(t, expectMdl[i], mdl[i])
 	}
@@ -267,7 +267,7 @@ func TestOutputConversions(t *testing.T) {
 		LabelSourceUnspec + ":nosource": "value",
 		"actuallyASource:nosource":      "value"}
 	mp := lbls.StringMap()
-	require.Equal(t, len(expectMap), len(mp))
+	require.Len(t, mp, len(expectMap))
 	for k, v := range mp {
 		require.Equal(t, expectMap[k], v)
 	}
@@ -276,8 +276,8 @@ func TestOutputConversions(t *testing.T) {
 func BenchmarkLabelArray_GetModel(b *testing.B) {
 	l := NewLabelArrayFromSortedList("a;b;c;d;e;f;g;h;i;j;k;l;m;n;o;p;q;r;s;t;u;v;w;x;y;z")
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = l.GetModel()
 	}
 }
@@ -285,8 +285,8 @@ func BenchmarkLabelArray_GetModel(b *testing.B) {
 func BenchmarkLabelArray_String(b *testing.B) {
 	l := NewLabelArrayFromSortedList("a;b;c;d;e;f;g;h;i;j;k;l;m;n;o;p;q;r;s;t;u;v;w;x;y;z")
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = l.String()
 	}
 }

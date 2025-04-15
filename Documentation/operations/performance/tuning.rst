@@ -35,13 +35,15 @@ detail on this page and in this `KubeCon talk <https://sched.co/1R2s5>`__:
 - eBPF host-routing
 - BIG TCP for IPv4/IPv6
 - Bandwidth Manager (optional, for BBR congestion control)
+- Per-CPU distributed LRU and increased map size ratio
+- eBPF clock probe to use jiffies for CT map
 
 **Requirements:**
 
 * Kernel >= 6.8
 * Supported NICs for BIG TCP: mlx4, mlx5, ice
 
-To enable the first three settings:
+To enable the main settings:
 
 .. tabs::
 
@@ -54,11 +56,14 @@ To enable the first three settings:
              --set routingMode=native \\
              --set bpf.datapathMode=netkit \\
              --set bpf.masquerade=true \\
+             --set bpf.distributedLRU.enabled=true \\
+             --set bpf.mapDynamicSizeRatio=0.08 \\
              --set ipv6.enabled=true \\
              --set enableIPv6BIGTCP=true \\
              --set ipv4.enabled=true \\
              --set enableIPv4BIGTCP=true \\
-             --set kubeProxyReplacement=true
+             --set kubeProxyReplacement=true \\
+             --set bpfClockProbe=true
 
 For enabling BBR congestion control in addition, consider adding the following
 settings to the above Helm install:
@@ -155,6 +160,9 @@ This option is automatically enabled if your kernel supports it. To validate
 whether your installation is running with eBPF host-routing, run ``cilium status``
 in any of the Cilium pods and look for the line reporting the status for
 "Host Routing" which should state "BPF".
+
+.. note::
+   BPF host routing is incompatible with Istio (see :gh-issue:`36022` for details).
 
 **Requirements:**
 
@@ -688,6 +696,39 @@ To validate whether your installation is running with XDP Acceleration,
 run ``cilium status`` in any of the Cilium pods and look for the line
 reporting the status for "XDP Acceleration" which should say "Native".
 
+eBPF Map Backend Memory
+=======================
+
+Changing Cilium's core BPF map memory configuration from a node-global
+LRU memory pool to a distributed per-CPU memory pool helps to avoid
+spinlock contention in the kernel under stress (many CT/NAT element
+allocation and free operations).
+
+The trade-off is higher memory usage given the per-CPU pools cannot be
+shared anymore, so if a given CPU pool depletes it needs to recycle
+elements via LRU mechanism. It is therefore recommended to not only
+enable ``bpf.distributedLRU.enabled`` but to also increase the map
+sizing which can be done via ``bpf.mapDynamicSizeRatio``:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set kubeProxyReplacement=true \\
+             --set bpf.distributedLRU.enabled=true \\
+             --set bpf.mapDynamicSizeRatio=0.08
+
+Note that ``bpf.distributedLRU.enabled`` is off by default in Cilium for
+legacy reasons given enabling this setting on-the-fly is disruptive for
+in-flight traffic since the BPF maps have to be recreated. It is recommended
+to use the per-node configuration to gradually phase in this setting for
+new nodes joining the cluster. Alternatively, upon initial cluster creation
+it is recommended to consider enablement.
+
 eBPF Map Sizing
 ===============
 
@@ -698,6 +739,38 @@ memory.
 
 However, the upper capacity limits used by the Cilium agent can be overridden
 for advanced users. Please refer to the :ref:`bpf_map_limitations` guide.
+
+eBPF Clock Probe
+================
+
+Cilium can probe the underlying kernel to determine whether BPF supports
+retrieving jiffies instead of ktime. Given Cilium's CT map does not require
+high resolution, jiffies is more efficient and the preferred clock source.
+To enable probing and possibly using jiffies, ``bpfClockProbe=true`` can
+be set:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set kubeProxyReplacement=true \\
+             --set bpfClockProbe=true
+
+Note that ``bpfClockProbe`` is off by default in Cilium for legacy reasons
+given enabling this setting on-the-fly means that previous stored CT map
+entries with ktime as clock source for timestamps would now be interpreted
+as jiffies.
+
+It is therefore recommended to use the per-node configuration to gradually
+phase in this setting for new nodes joining the cluster. Alternatively, upon
+initial cluster creation it is recommended to consider enablement.
+
+To validate whether jiffies is now used run ``cilium status --verbose`` in
+any of the Cilium Pods and look for the line ``Clock Source for BPF``.
 
 Linux Kernel
 ============

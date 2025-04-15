@@ -77,7 +77,6 @@ get started and experiment with Cilium.
    network/bgp-toc
    network/ebpf/index
    network/clustermesh/index
-   network/external-toc
    network/egress-gateway-toc
    network/servicemesh/index
    network/vtep
@@ -134,6 +133,7 @@ get started and experiment with Cilium.
    contributing/docs/index
    api
    grpcapi
+   sdpapi
    internals/index
 
 .. toctree::

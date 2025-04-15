@@ -7,8 +7,15 @@ staticResources:
   - name: "envoy-prometheus-metrics-listener"
     address:
       socketAddress:
-        address: "0.0.0.0"
+        address: {{ .Values.ipv4.enabled | ternary "0.0.0.0" "::" | quote }}
         portValue: {{ .Values.envoy.prometheus.port }}
+    {{- if and .Values.ipv4.enabled .Values.ipv6.enabled }}
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: "::"
+          portValue: {{ .Values.envoy.prometheus.port }}
+    {{- end }}
     filterChains:
     - filters:
       - name: "envoy.filters.network.http_connection_manager"
@@ -47,7 +54,7 @@ staticResources:
             - addressPrefix: "::1"
               prefixLen: 128
             {{- end }}
-          streamIdleTimeout: "0s"
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
   {{- end }}
   {{- if and .Values.envoy.debug.admin.enabled }}
   - name: "envoy-admin-listener"
@@ -100,7 +107,7 @@ staticResources:
             - addressPrefix: "::1"
               prefixLen: 128
             {{- end }}
-          streamIdleTimeout: "0s"
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
   {{- end }}
   - name: "envoy-health-listener"
     address:
@@ -152,7 +159,7 @@ staticResources:
             - addressPrefix: "::1"
               prefixLen: 128
             {{- end }}
-          streamIdleTimeout: "0s"
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
   clusters:
   - name: "ingress-cluster"
     type: "ORIGINAL_DST"
@@ -289,7 +296,7 @@ overloadManager:
 applicationLogConfig:
   logFormat:
     {{- if .Values.envoy.log.format_json }}
-    jsonFormat: "{{ .Values.envoy.log.format_json | toJson }}"
+    jsonFormat: {{ .Values.envoy.log.format_json | toJson }}
     {{- else }}
     textFormat: "{{ .Values.envoy.log.format }}"
     {{- end }}

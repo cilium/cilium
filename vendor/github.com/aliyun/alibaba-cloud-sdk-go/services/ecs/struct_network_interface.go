@@ -19,6 +19,7 @@ package ecs
 type NetworkInterface struct {
 	SecurityGroupId             string                                           `json:"SecurityGroupId" xml:"SecurityGroupId"`
 	VSwitchId                   string                                           `json:"VSwitchId" xml:"VSwitchId"`
+	DeleteOnRelease             bool                                             `json:"DeleteOnRelease" xml:"DeleteOnRelease"`
 	InstanceType                string                                           `json:"InstanceType" xml:"InstanceType"`
 	MacAddress                  string                                           `json:"MacAddress" xml:"MacAddress"`
 	NetworkInterfaceTrafficMode string                                           `json:"NetworkInterfaceTrafficMode" xml:"NetworkInterfaceTrafficMode"`

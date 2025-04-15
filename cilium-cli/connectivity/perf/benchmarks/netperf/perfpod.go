@@ -6,11 +6,13 @@ package netperf
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/perf/benchmarks/profiler"
 	"github.com/cilium/cilium/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
@@ -22,11 +24,14 @@ const (
 // Network Performance
 func Netperf(n string) check.Scenario {
 	return &netPerf{
-		name: n,
+		name:         n,
+		ScenarioBase: check.NewScenarioBase(),
 	}
 }
 
 type netPerf struct {
+	check.ScenarioBase
+
 	name string
 }
 
@@ -40,12 +45,23 @@ func (s *netPerf) Name() string {
 func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 	perfParameters := t.Context().Params().PerfParameters
 
+	profilingPods := t.Context().PerfProfilingPods()
+	serverProfiler := profiler.New(profilingPods[check.PerfServerProfilingDeploymentName], perfParameters)
+	clientProfiler := profiler.New(profilingPods[check.PerfClientProfilingAcrossDeploymentName], perfParameters)
+
 	tests := []string{}
 
 	if perfParameters.Throughput {
 		tests = append(tests, "TCP_STREAM")
 		if perfParameters.UDP {
 			tests = append(tests, "UDP_STREAM")
+		}
+	}
+
+	if perfParameters.ThroughputMulti {
+		tests = append(tests, "TCP_STREAM_MULTI")
+		if perfParameters.UDP {
+			tests = append(tests, "UDP_STREAM_MULTI")
 		}
 	}
 
@@ -60,13 +76,33 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
+	if perfParameters.SetupDelay > 0 {
+		t.Context().Logf("⌛ Waiting %v before starting performance tests", perfParameters.SetupDelay)
+		select {
+		case <-time.After(perfParameters.SetupDelay):
+		case <-ctx.Done():
+			return
+		}
+		t.Context().Info("Finished waiting before starting performance tests")
+	}
+
 	for sample := 1; sample <= perfParameters.Samples; sample++ {
 		for _, c := range t.Context().PerfClientPods() {
 			c := c
 			for _, server := range t.Context().PerfServerPod() {
-				if !perfParameters.Mixed && (strings.Contains(server.Pod.Name, check.PerfHostName) != strings.Contains(c.Pod.Name, check.PerfHostName)) {
+				clientHost := strings.Contains(c.Pod.Name, check.PerfHostName)
+				serverHost := strings.Contains(server.Pod.Name, check.PerfHostName)
+
+				switch {
+				case clientHost && serverHost && perfParameters.HostNet:
+				case clientHost && !serverHost && perfParameters.HostToPod:
+				case !clientHost && serverHost && perfParameters.PodToHost:
+				case !clientHost && !serverHost && perfParameters.PodNet:
+
+				default:
 					continue
 				}
+
 				scenarioName := ""
 				if strings.Contains(c.Pod.Name, check.PerfHostName) {
 					scenarioName += "host"
@@ -80,13 +116,13 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 					scenarioName += "pod"
 				}
 
-				sameNode := true
+				sameNode, nodeType := true, "same-node"
 				if strings.Contains(c.Pod.Name, check.PerfOtherNode) {
-					sameNode = false
+					sameNode, nodeType = false, "other-node"
 				}
 
 				for _, test := range tests {
-					testName := netperfToolName + "_" + test + "_" + scenarioName
+					testName := netperfToolName + "_" + test + "_" + scenarioName + "_" + nodeType
 					action := t.NewAction(s, testName, &c, server, features.IPFamilyV4)
 
 					action.CollectFlows = false
@@ -97,12 +133,30 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 							SameNode: sameNode,
 							Sample:   sample,
 							Duration: perfParameters.Duration,
+							Streams:  perfParameters.Streams,
 							Scenario: scenarioName,
 							MsgSize:  perfParameters.MessageSize,
 							NetQos:   false,
 						}
+
+						var clientProfile *profiler.Profile
+						serverProfile := serverProfiler.Run(ctx, a)
+						if !sameNode {
+							clientProfile = clientProfiler.Run(ctx, a)
+						}
+
 						perfResult := NetperfCmd(ctx, server.Pod.Status.PodIP, k, a)
 						t.Context().PerfResults = append(t.Context().PerfResults, common.PerfSummary{PerfTest: k, Result: perfResult})
+
+						if err := serverProfile.Save(testName+"_server.perf", a); err != nil {
+							a.Fatalf("Failed capturing kernel profile on server node: %v", err)
+						}
+
+						if !sameNode {
+							if err := clientProfile.Save(testName+"_client.perf", a); err != nil {
+								a.Fatalf("Failed capturing kernel profile on client node: %v", err)
+							}
+						}
 					})
 				}
 			}
@@ -117,7 +171,7 @@ func buildExecCommand(test string, sip string, duration time.Duration, args []st
 	return exec
 }
 
-func parseDuration(a *check.Action, value string) time.Duration {
+func parseDuration(a action, value string) time.Duration {
 	res, err := time.ParseDuration(value + "us") // by default latencies in netperf are reported in microseconds
 	if err != nil {
 		a.Fatalf("Unable to process netperf result, duration: %s", value)
@@ -125,7 +179,7 @@ func parseDuration(a *check.Action, value string) time.Duration {
 	return res
 }
 
-func parseFloat(a *check.Action, value string) float64 {
+func parseFloat(a action, value string) float64 {
 	res, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		a.Fatalf("Unable to process netperf result, float: %s", value)
@@ -133,22 +187,8 @@ func parseFloat(a *check.Action, value string) float64 {
 	return res
 }
 
-func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
-	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
-	if perfTest.Test == "UDP_STREAM" || perfTest.NetQos {
-		args = append(args, "-m", fmt.Sprintf("%d", perfTest.MsgSize))
-	}
-	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, args)
-
-	a.ExecInPod(ctx, exec)
-	output := a.CmdOutput()
-	a.Debugf("Netperf output: ", output)
-	lines := strings.Split(output, "\n")
-	if len(lines) < 2 {
-		a.Fatal("Unable to process netperf result")
-	}
-	resultsLine := lines[len(lines)-2]
-	values := strings.Split(resultsLine, ",")
+func parseNetperfResult(a action, test, line string) common.PerfResult {
+	values := strings.Split(line, ",")
 	if len(values) != 9 {
 		a.Fatalf("Unable to process netperf result")
 	}
@@ -172,18 +212,74 @@ func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *c
 		},
 	}
 
-	if strings.HasSuffix(perfTest.Test, "_STREAM") {
+	if strings.HasSuffix(test, "_STREAM") {
 		// We don't want to report transaction rate or latency
 		res.TransactionRateMetric = nil
 		res.Latency = nil
 		// Verify that throughput unit is 10^6bits/s
 		if values[8] != "10^6bits/s" {
-			a.Fatal("Unable to process netperf result")
+			a.Fatalf("Unable to process netperf result")
 		}
 	}
-	if strings.HasSuffix(perfTest.Test, "_RR") || strings.HasSuffix(perfTest.Test, "_CRR") {
+	if strings.HasSuffix(test, "_RR") || strings.HasSuffix(test, "_CRR") {
 		// We don't want to report throughput
 		res.ThroughputMetric = nil
+	}
+
+	return res
+}
+
+type action interface {
+	ExecInPod(ctx context.Context, cmd []string)
+	CmdOutput() string
+
+	Debugf(format string, args ...any)
+	Fatalf(format string, args ...any)
+}
+
+func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a action) common.PerfResult {
+	test := strings.TrimSuffix(perfTest.Test, "_MULTI")
+
+	streams := uint(1)
+	if strings.HasSuffix(perfTest.Test, "_MULTI") {
+		streams = perfTest.Streams
+
+		if !strings.HasSuffix(test, "_STREAM") {
+			a.Fatalf("Only STREAM tests support parallelism")
+		}
+	}
+
+	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
+	if test == "UDP_STREAM" || perfTest.NetQos {
+		args = append(args, "-m", fmt.Sprintf("%d", perfTest.MsgSize))
+	}
+	exec := buildExecCommand(test, sip, perfTest.Duration, args)
+
+	if streams >= 2 {
+		exec = []string{"/bin/bash", "-c",
+			// We write the output of each process to a separate file and cat them
+			// at the end to prevent the possibility of interleaved output.
+			fmt.Sprintf("DIR=$(mktemp -d); for i in {1..%d}; do %s > $DIR/out$i.out & done; wait; cat $DIR/*; rm -rf $DIR",
+				streams, strings.Join(exec, " "),
+			)}
+	}
+
+	a.ExecInPod(ctx, exec)
+	output := a.CmdOutput()
+	a.Debugf("Netperf output: %s", output)
+	lines := slices.DeleteFunc(
+		strings.Split(output, "\n"),
+		// Result lines always start with a number, hence drop all the others.
+		func(line string) bool { return len(line) == 0 || line[0] < '0' || line[0] > '9' },
+	)
+	if uint(len(lines)) != streams {
+		a.Fatalf("Unable to process netperf result: expected %d, got %d", streams, len(lines))
+	}
+
+	res := parseNetperfResult(a, test, lines[0])
+	for _, line := range lines[1:] {
+		parsed := parseNetperfResult(a, test, line)
+		res.ThroughputMetric.Throughput += parsed.ThroughputMetric.Throughput
 	}
 
 	return res

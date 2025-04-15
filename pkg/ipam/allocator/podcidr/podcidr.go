@@ -6,10 +6,10 @@ package podcidr
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
@@ -34,8 +33,6 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pod-cidr")
-
 	ciliumNodesPodCidrControllerGroup = controller.NewGroup("update-cilium-nodes-pod-cidr")
 )
 
@@ -151,6 +148,7 @@ var updateK8sInterval = 15 * time.Second
 // NodesPodCIDRManager will be used to manage podCIDRs for the nodes in the
 // cluster.
 type NodesPodCIDRManager struct {
+	logger              *slog.Logger
 	k8sReSyncController *controller.Manager
 	k8sReSync           *trigger.Trigger
 
@@ -185,11 +183,13 @@ type NodesPodCIDRManager struct {
 // nodeGetter will be used to populate synced node status / spec with
 // kubernetes.
 func NewNodesPodCIDRManager(
+	logger *slog.Logger,
 	v4Allocators, v6Allocators []cidralloc.CIDRAllocator,
 	nodeGetter ipam.CiliumNodeGetterUpdater,
 	triggerMetrics trigger.MetricsObserver) *NodesPodCIDRManager {
 
 	n := &NodesPodCIDRManager{
+		logger:              logger,
 		nodesToAllocate:     map[string]*v2.CiliumNode{},
 		v4CIDRAllocators:    v4Allocators,
 		v6CIDRAllocators:    v6Allocators,
@@ -212,7 +212,7 @@ func NewNodesPodCIDRManager(
 					DoFunc: func(context.Context) error {
 						n.Mutex.Lock()
 						defer n.Mutex.Unlock()
-						return syncToK8s(nodeGetter, n.ciliumNodesToK8s)
+						return syncToK8s(n.logger, nodeGetter, n.ciliumNodesToK8s)
 					},
 					RunInterval: updateK8sInterval,
 				},
@@ -236,14 +236,11 @@ func NewNodesPodCIDRManager(
 // In case any of the nodes failed to be synced with kubernetes the returned
 // error is for one of those nodes. Remaining nodes will still be synced with
 // kubernetes.
-func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s map[string]*ciliumNodeK8sOp) (retErr error) {
+func syncToK8s(logger *slog.Logger, nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s map[string]*ciliumNodeK8sOp) (retErr error) {
 	for nodeName, nodeToK8s := range ciliumNodesToK8s {
 		var (
 			err, err2     error
 			newCiliumNode *v2.CiliumNode
-			log           = log.WithFields(logrus.Fields{
-				"node-name": nodeName,
-			})
 		)
 		switch nodeToK8s.op {
 		case k8sOpCreate:
@@ -252,7 +249,10 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 		case k8sOpUpdate:
 			var updatedNode *v2.CiliumNode
 			updatedNode, err = nodeGetterUpdater.Update(nil, nodeToK8s.ciliumNode)
-			log.WithError(err).Debug("Updated Node")
+			logger.Debug("Updated Node",
+				logfields.Error, err,
+				logfields.NodeName, nodeName,
+			)
 			if err != nil {
 				if k8sErrors.IsNotFound(err) {
 					// In case the node was not found we should not try to re-create
@@ -270,7 +270,10 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 			fallthrough
 		case k8sOpUpdateStatus:
 			_, err = nodeGetterUpdater.UpdateStatus(nil, nodeToK8s.ciliumNode)
-			log.WithError(err).Debug("UpdatedStatus Node")
+			logger.Debug("UpdatedStatus Node",
+				logfields.Error, err,
+				logfields.NodeName, nodeName,
+			)
 			switch {
 			case k8sErrors.IsNotFound(err):
 				// In case the node was not found we should not try to re-create
@@ -289,7 +292,11 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 				// already be deleted from k8s.
 				err = nil
 			} else {
-				log.WithError(err).Warn("Received a CiliumNode delete event, but the resource may not have been deleted (see error).")
+				logger.Warn(
+					"Received a CiliumNode delete event, but the resource may not have been deleted (see error).",
+					logfields.Error, err,
+					logfields.NodeName, nodeName,
+				)
 			}
 		}
 		switch {
@@ -423,10 +430,6 @@ func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
 func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNode, allocated, updateStatus bool, err error) {
 	var cidrs *nodeCIDRs
 
-	log = log.WithFields(logrus.Fields{
-		"node-name": node.Name,
-	})
-
 	defer func() {
 		// Overwrite err value if we want to update the status of the
 		// cilium node into kubernetes.
@@ -442,7 +445,7 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 		// If we can't allocate podCIDRs for now we should store the node
 		// temporarily until n.reSync is called.
 		if !n.canAllocatePodCIDRs {
-			log.Debug("Postponing CIDR allocation")
+			n.logger.Debug("Postponing CIDR allocation", logfields.NodeName, node.Name)
 			n.nodesToAllocate[node.GetName()] = node
 			return nil, false, false, nil
 		}
@@ -455,10 +458,12 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			return
 		}
 
-		log.WithFields(logrus.Fields{
-			"cidrs":     cidrs.String(),
-			"allocated": allocated,
-		}).Debug("Allocated new CIDRs")
+		n.logger.Debug(
+			"Allocated new CIDRs",
+			logfields.NodeName, node.Name,
+			logfields.CIDRs, cidrs,
+			logfields.Allocated, allocated,
+		)
 	} else {
 		cidrs, err = parsePodCIDRs(node.Spec.IPAM.PodCIDRs)
 		if err != nil {
@@ -475,11 +480,13 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			updateStatus = true
 			return
 		}
-		log.WithFields(logrus.Fields{
-			"cidrs":                 cidrs.String(),
-			"allocated":             allocated,
-			"n.canAllocatePodCIDRs": n.canAllocatePodCIDRs,
-		}).Debug("Allocated existing CIDRs")
+		n.logger.Debug(
+			"Allocated existing CIDRs",
+			logfields.NodeName, node.Name,
+			logfields.CIDRs, cidrs,
+			logfields.Allocated, allocated,
+			logfields.CanAllocatePodCIDRs, n.canAllocatePodCIDRs,
+		)
 		if !allocated {
 			// If we can't allocate podCIDRs for now we should store the node
 			// temporarily until n.reSync is called.
@@ -540,17 +547,13 @@ func (n *NodesPodCIDRManager) releaseIPNets(nodeName string) bool {
 
 	delete(n.nodes, nodeName)
 
-	log = log.WithFields(logrus.Fields{
-		"node-name": nodeName,
-	})
-
-	releaseCIDRs(n.v4CIDRAllocators, cidrs.v4PodCIDRs)
-	releaseCIDRs(n.v6CIDRAllocators, cidrs.v6PodCIDRs)
+	n.releaseCIDRs(n.v4CIDRAllocators, cidrs.v4PodCIDRs)
+	n.releaseCIDRs(n.v6CIDRAllocators, cidrs.v6PodCIDRs)
 
 	return true
 }
 
-func releaseCIDRs(cidrAllocators []cidralloc.CIDRAllocator, cidrsToRelease []*net.IPNet) {
+func (n *NodesPodCIDRManager) releaseCIDRs(cidrAllocators []cidralloc.CIDRAllocator, cidrsToRelease []*net.IPNet) {
 	if len(cidrAllocators) == 0 {
 		return
 	}
@@ -560,14 +563,14 @@ func releaseCIDRs(cidrAllocators []cidralloc.CIDRAllocator, cidrsToRelease []*ne
 				continue
 			}
 			err := clusterCIDR.Release(ipNet)
-			log = log.WithFields(logrus.Fields{
-				"cidr": ipNet.String(),
-			})
 			if err != nil {
-				log.WithError(err).Error("failed to release cidr")
+				n.logger.Error("failed to release cidr",
+					logfields.Error, err,
+					logfields.CIDR, ipNet,
+				)
 				continue
 			}
-			log.Info("node released cidrs")
+			n.logger.Info("node released CIDRs", logfields.CIDR, ipNet)
 			break
 		}
 	}
@@ -584,9 +587,6 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 ) (
 	newNodeCIDRs *nodeCIDRs, allocated bool, err error,
 ) {
-	log = log.WithFields(logrus.Fields{
-		"node-name": nodeName,
-	})
 	if len(n.v4CIDRAllocators) == 0 && len(v4CIDR) != 0 {
 		return nil, false, &ErrAllocatorNotFound{
 			cidr:          v4CIDR,
@@ -678,7 +678,10 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		}
 		revertStack.Push(revertFunc)
 		oldNodeCIDRs.v4PodCIDRs = v4CIDR
-		log.Debugf("Allocated v4CIDR %s", v4CIDR)
+		n.logger.Debug(
+			"Allocated v4CIDR",
+			logfields.NodeName, nodeName,
+		)
 		allocated = true
 	}
 
@@ -702,7 +705,10 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		}
 		revertStack.Push(revertFunc)
 		oldNodeCIDRs.v6PodCIDRs = v6CIDR
-		log.Debugf("Allocated v6CIDR %s", v6CIDR)
+		n.logger.Debug(
+			"Allocated v6CIDR",
+			logfields.NodeName, nodeName,
+		)
 		allocated = true
 	}
 
@@ -828,7 +834,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 			return nil, false, err
 		}
 
-		log.WithField("CIDR", v4CIDR).Debug("v4 allocated CIDR")
+		n.logger.Debug("v4 allocated CIDR", logfields.CIDR, v4CIDR)
 		cidrs.v4PodCIDRs = []*net.IPNet{v4CIDR}
 
 		revertStack.Push(revertFunc)
@@ -839,7 +845,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 			return nil, false, err
 		}
 
-		log.WithField("CIDR", v6CIDR).Debug("v6 allocated CIDR")
+		n.logger.Debug("v6 allocated CIDR", logfields.CIDR, v6CIDR)
 		cidrs.v6PodCIDRs = []*net.IPNet{v6CIDR}
 
 		revertStack.Push(revertFunc)

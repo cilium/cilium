@@ -30,6 +30,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 func testScheme() *runtime.Scheme {
@@ -37,6 +38,7 @@ func testScheme() *runtime.Scheme {
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
+	utilruntime.Must(ciliumv2alpha1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
 	registerGatewayAPITypesToScheme(scheme, optionalGVKs)

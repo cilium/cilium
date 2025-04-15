@@ -22,8 +22,8 @@ const (
 )
 
 // HeaderMatch extends the HeaderValue for matching requirement of a
-// named header field against an immediate string, a secret value, or
-// a regex.  If none of the optional fields is present, then the
+// named header field against an immediate string or a secret value.
+// If none of the optional fields is present, then the
 // header value is not matched, only presence of the header is enough.
 type HeaderMatch struct {
 	// Mismatch identifies what to do in case there is no match. The default is
@@ -113,7 +113,6 @@ type PortRuleHTTP struct {
 // of regular expressions (e.g. that specified by ECMAScript), so this function
 // may return some false positives. If the rule is invalid, returns an error.
 func (h *PortRuleHTTP) Sanitize() error {
-
 	if h.Path != "" {
 		_, err := regexp.Compile(h.Path)
 		if err != nil {

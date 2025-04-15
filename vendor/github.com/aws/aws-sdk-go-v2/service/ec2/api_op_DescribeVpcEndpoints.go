@@ -61,7 +61,7 @@ type DescribeVpcEndpointsInput struct {
 	//   | available | deleting | deleted | rejected | failed ).
 	//
 	//   - vpc-endpoint-type - The type of VPC endpoint ( Interface | Gateway |
-	//   GatewayLoadBalancer ).
+	//   GatewayLoadBalancer | Resource | ServiceNetwork ).
 	Filters []types.Filter
 
 	// The maximum number of items to return for this request. The request returns a
@@ -157,6 +157,9 @@ func (c *Client) addOperationDescribeVpcEndpointsMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpoints(options.Region), middleware.Before); err != nil {

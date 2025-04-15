@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -40,5 +41,18 @@ func CiliumNodeResource(params k8s.CiliumResourceParams, opts ...func(*metav1.Li
 	)
 	return resource.New[*cilium_api_v2.CiliumNode](params.Lifecycle, lw,
 		resource.WithMetric("CiliumNode"), resource.WithCRDSync(params.CRDSyncPromise),
+	), nil
+}
+
+func CiliumEndpointSliceResource(params k8s.CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumEndpointSliceList](params.ClientSet.CiliumV2alpha1().CiliumEndpointSlices()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw,
+		resource.WithMetric("CiliumEndpointSlice"), resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }

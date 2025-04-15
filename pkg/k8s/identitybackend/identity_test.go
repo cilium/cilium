@@ -4,12 +4,13 @@
 package identitybackend
 
 import (
-	"context"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -78,17 +79,20 @@ func TestSanitizeK8sLabels(t *testing.T) {
 
 	for _, test := range testCases {
 		selected, skipped := SanitizeK8sLabels(test.input)
-		require.EqualValues(t, test.selected, selected)
-		require.EqualValues(t, test.skipped, skipped)
-		require.EqualValues(t, test.validationErrors, validation.ValidateLabels(selected, path))
+		require.Equal(t, test.selected, selected)
+		require.Equal(t, test.skipped, skipped)
+		require.Equal(t, test.validationErrors, validation.ValidateLabels(selected, path))
 	}
 }
 
 type FakeHandler struct {
 	onUpsertFunc func()
+	onListDone   func()
 }
 
-func (f FakeHandler) OnListDone() {}
+func (f FakeHandler) OnListDone() {
+	f.onListDone()
+}
 
 func (f FakeHandler) OnUpsert(id idpool.ID, key allocator.AllocatorKey) { f.onUpsertFunc() }
 func (f FakeHandler) OnDelete(id idpool.ID, key allocator.AllocatorKey) {}
@@ -180,18 +184,19 @@ func TestGetIdentity(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			_, client := k8sClient.NewFakeClientset()
-			backend, err := NewCRDBackend(CRDBackendConfiguration{
-				Store:   nil,
-				Client:  client,
-				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
-			})
+			_, client := k8sClient.NewFakeClientset(hivetest.Logger(t))
+			backend, err := NewCRDBackend(hivetest.Logger(t),
+				CRDBackendConfiguration{
+					Store:    nil,
+					StoreSet: &atomic.Bool{},
+					Client:   client,
+					KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+				})
 			if err != nil {
 				t.Fatalf("Can't create CRD Backend: %s", err)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			addWaitGroup := sync.WaitGroup{}
 			addWaitGroup.Add(len(tc.identities))
@@ -210,10 +215,16 @@ func TestGetIdentity(t *testing.T) {
 				}
 			}
 
-			go backend.ListAndWatch(ctx, FakeHandler{onUpsertFunc: func() { addWaitGroup.Done() }})
+			var listSynced sync.WaitGroup
+			listSynced.Add(1)
+			go backend.ListAndWatch(ctx, FakeHandler{
+				onListDone:   func() { listSynced.Done() },
+				onUpsertFunc: func() { addWaitGroup.Done() },
+			})
 
 			// Wait for watcher to process the identities in the background
 			addWaitGroup.Wait()
+			listSynced.Wait()
 
 			id, err := backend.Get(ctx, tc.requestedKey)
 			if err != nil {

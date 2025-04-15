@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -196,6 +197,7 @@ func newTestAgent(ctx context.Context, wgClient wireguardClient) (*Agent, *ipcac
 		Context: ctx,
 	})
 	wgAgent := &Agent{
+		logger:           logging.DefaultSlogLogger.With(subsysLogAttr...),
 		wgClient:         wgClient,
 		ipCache:          ipCache,
 		listenPort:       types.ListenPort,
@@ -269,9 +271,6 @@ func TestAgent_PeerConfig(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
 			prevRoutingMode := option.Config.RoutingMode
 			defer func() { option.Config.RoutingMode = prevRoutingMode }()
 			option.Config.RoutingMode = c.RoutingMode
@@ -280,7 +279,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
 			option.Config.WireguardTrackAllIPsFallback = c.Fallback
 
-			wgAgent, ipCache := newTestAgent(ctx, newFakeWgClient())
+			wgAgent, ipCache := newTestAgent(t.Context(), newFakeWgClient())
 			defer ipCache.Shutdown()
 
 			// Test that IPCache updates before UpdatePeer are handled correctly
@@ -302,8 +301,8 @@ func TestAgent_PeerConfig(t *testing.T) {
 
 			k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
 			require.NotNil(t, k8s1)
-			require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
-			require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+			require.Equal(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+			require.Equal(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 			require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 			c.CheckExpectations(assertAllowedIPs) // checks entry 1
 
@@ -369,13 +368,13 @@ func TestAgent_PeerConfig(t *testing.T) {
 			<-ipCacheUpdated
 
 			k8s1 = wgAgent.peerByNodeName[k8s1NodeName]
-			require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
-			require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+			require.Equal(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+			require.Equal(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 			require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 
 			k8s2 := wgAgent.peerByNodeName[k8s2NodeName]
-			require.EqualValues(t, k8s2NodeIPv4, k8s2.nodeIPv4)
-			require.EqualValues(t, k8s2NodeIPv6, k8s2.nodeIPv6)
+			require.Equal(t, k8s2NodeIPv4, k8s2.nodeIPv4)
+			require.Equal(t, k8s2NodeIPv6, k8s2.nodeIPv6)
 			require.Equal(t, k8s2PubKey, k8s2.pubKey.String())
 			c.CheckExpectations(assertAllowedIPs) // checks entry 2
 
@@ -478,8 +477,6 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			ctx := context.Background()
-
 			prevRoutingMode := option.Config.RoutingMode
 			defer func() { option.Config.RoutingMode = prevRoutingMode }()
 			option.Config.RoutingMode = c.RoutingMode
@@ -499,7 +496,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				},
 			})
 
-			wgAgent, ipCache := newTestAgent(ctx, wgClient)
+			wgAgent, ipCache := newTestAgent(t.Context(), wgClient)
 			defer ipCache.Shutdown()
 
 			assertAllowedIPs := func(e expectation) {

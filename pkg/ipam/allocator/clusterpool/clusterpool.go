@@ -6,8 +6,7 @@ package clusterpool
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -15,23 +14,26 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/allocator/podcidr"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")
+var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-clusterpool"}
 
 // AllocatorOperator is an implementation of IPAM allocator interface for Cilium
 // IPAM.
 type AllocatorOperator struct {
+	rootLogger           *slog.Logger
+	logger               *slog.Logger
 	v4CIDRSet, v6CIDRSet []cidralloc.CIDRAllocator
 }
 
 // Init sets up Cilium allocator based on given options
-func (a *AllocatorOperator) Init(ctx context.Context) error {
+func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error {
+	a.rootLogger = logger
+	a.logger = logger.With(subsysLogAttr...)
 	if option.Config.EnableIPv4 {
 		if len(operatorOption.Config.ClusterPoolIPv4CIDR) == 0 {
 			return fmt.Errorf("%s must be provided when using ClusterPool", operatorOption.ClusterPoolIPv4CIDR)
@@ -65,10 +67,11 @@ func (a *AllocatorOperator) Init(ctx context.Context) error {
 
 // Start kicks of Operator allocation.
 func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	log.WithFields(logrus.Fields{
-		logfields.IPv4CIDRs: operatorOption.Config.ClusterPoolIPv4CIDR,
-		logfields.IPv6CIDRs: operatorOption.Config.ClusterPoolIPv6CIDR,
-	}).Info("Starting ClusterPool IP allocator")
+	a.logger.Info(
+		"Starting ClusterPool IP allocator",
+		logfields.IPv4CIDRs, operatorOption.Config.ClusterPoolIPv4CIDR,
+		logfields.IPv6CIDRs, operatorOption.Config.ClusterPoolIPv6CIDR,
+	)
 
 	var (
 		iMetrics trigger.MetricsObserver
@@ -80,7 +83,7 @@ func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGe
 		iMetrics = &ipamMetrics.NoOpMetricsObserver{}
 	}
 
-	nodeManager := podcidr.NewNodesPodCIDRManager(a.v4CIDRSet, a.v6CIDRSet, updater, iMetrics)
+	nodeManager := podcidr.NewNodesPodCIDRManager(a.logger, a.v4CIDRSet, a.v6CIDRSet, updater, iMetrics)
 
 	return nodeManager, nil
 }

@@ -5,25 +5,22 @@ package api
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Registry holds a set of registered metric handlers
 type Registry struct {
-	log      logrus.FieldLogger
 	mutex    lock.Mutex
 	handlers map[string]Plugin
 }
 
 // NewRegistry returns a new Registry
-func NewRegistry(log logrus.FieldLogger) *Registry {
-	return &Registry{
-		log: log,
-	}
+func NewRegistry() *Registry {
+	return &Registry{}
 }
 
 // Register registers a metrics handler plugin with the manager. After
@@ -47,27 +44,30 @@ type NamedHandler struct {
 // ConfigureHandlers enables a set of metric handlers and initializes them.
 // Only metrics handlers which have been previously registered via the
 // Register() function can be configured.
-func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled *Config) (*[]NamedHandler, error) {
+func (r *Registry) ConfigureHandlers(logger *slog.Logger, registry *prometheus.Registry, enabled *Config) (*[]NamedHandler, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
 	var enabledHandlers []NamedHandler
 	metricNames := enabled.GetMetricNames()
 	for _, metricsConfig := range enabled.Metrics {
-		h, err := r.ValidateAndCreateHandler(registry, metricsConfig, &metricNames)
+		h, err := r.validateAndCreateHandlerLocked(registry, metricsConfig, &metricNames)
 		if err != nil {
 			return nil, err
 		}
 		enabledHandlers = append(enabledHandlers, *h)
 	}
 
-	return InitHandlers(r.log, registry, &enabledHandlers)
+	return InitHandlers(logger, registry, &enabledHandlers)
 }
 
 func (r *Registry) ValidateAndCreateHandler(registry *prometheus.Registry, metricsConfig *MetricConfig, metricNames *map[string]*MetricConfig) (*NamedHandler, error) {
-	// r.mutex.Lock()
-	// defer r.mutex.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.validateAndCreateHandlerLocked(registry, metricsConfig, metricNames)
+}
 
+func (r *Registry) validateAndCreateHandlerLocked(registry *prometheus.Registry, metricsConfig *MetricConfig, metricNames *map[string]*MetricConfig) (*NamedHandler, error) {
 	plugin, ok := r.handlers[metricsConfig.Name]
 	if !ok {
 		return nil, fmt.Errorf("metric '%s' does not exist", metricsConfig.Name)

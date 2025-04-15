@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -140,16 +141,11 @@ func printConfigurations(cfgStatus *models.DaemonConfigurationStatus) {
 
 func dumpReadOnlyConfigs(cfgStatus *models.DaemonConfigurationStatus) {
 	fmt.Println("#### Read-only configurations ####")
-	keys := make([]string, 0, len(cfgStatus.DaemonConfigurationMap))
-	for k := range cfgStatus.DaemonConfigurationMap {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(cfgStatus.DaemonConfigurationMap)) {
 		v := cfgStatus.DaemonConfigurationMap[k]
 		if reflect.ValueOf(v).Kind() == reflect.Map {
 			mapString := make(map[string]string)
-			m, ok := v.(map[string]interface{})
+			m, ok := v.(map[string]any)
 			if ok {
 				fmt.Println(k)
 				for key, value := range m {

@@ -7,16 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"sort"
 	"strconv"
-	"time"
 
-	bgppacket "github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/spf13/cobra"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/client/bgp"
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/command"
@@ -96,7 +92,10 @@ var BgpRoutesCmd = &cobra.Command{
 		} else {
 			// print peer addresses for `advertised` routes without specifying a peer
 			printPeer := (params.TableType == adjRIBOutTableType) && (params.Neighbor == nil || *params.Neighbor == "")
-			printBGPRoutesTable(res.GetPayload(), printPeer)
+			w := NewTabWriter()
+			if err := api.PrintBGPRoutesTable(w, res.GetPayload(), printPeer, true); err != nil {
+				Fatalf("failed printing BGP routes: %s\n", err)
+			}
 		}
 	},
 }
@@ -180,52 +179,6 @@ func parseBGPPeerAddr(args []string) (string, error) {
 	}
 
 	return addr.String(), nil
-}
-
-func printBGPRoutesTable(routes []*models.BgpRoute, printPeer bool) {
-	// sort first by ASN, then by neighbor, then by prefix
-	sort.Slice(routes, func(i, j int) bool {
-		return routes[i].RouterAsn < routes[j].RouterAsn || routes[i].Neighbor < routes[j].Neighbor || routes[i].Prefix < routes[j].Prefix
-	})
-
-	// get new tab writer with predefined defaults
-	w := NewTabWriter()
-	if printPeer {
-		fmt.Fprintln(w, "VRouter\tPeer\tPrefix\tNextHop\tAge\tAttrs")
-	} else {
-		fmt.Fprintln(w, "VRouter\tPrefix\tNextHop\tAge\tAttrs")
-	}
-
-	for _, route := range routes {
-		r, err := api.ToAgentRoute(route)
-		if err != nil {
-			Fatalf("failed to decode API route: %s\n", err)
-		}
-		for _, path := range r.Paths {
-			fmt.Fprintf(w, "%d\t", route.RouterAsn)
-			if printPeer {
-				fmt.Fprintf(w, "%s\t", route.Neighbor)
-			}
-			fmt.Fprintf(w, "%s\t", path.NLRI)
-			fmt.Fprintf(w, "%s\t", nextHopFromPathAttributes(path.PathAttributes))
-			fmt.Fprintf(w, "%s\t", time.Duration(path.AgeNanoseconds).Round(time.Second))
-			fmt.Fprintf(w, "%s\t", path.PathAttributes)
-			fmt.Fprintf(w, "\n")
-		}
-	}
-	w.Flush()
-}
-
-func nextHopFromPathAttributes(pathAttributes []bgppacket.PathAttributeInterface) string {
-	for _, a := range pathAttributes {
-		switch attr := a.(type) {
-		case *bgppacket.PathAttributeNextHop:
-			return attr.Value.String()
-		case *bgppacket.PathAttributeMpReachNLRI:
-			return attr.Nexthop.String()
-		}
-	}
-	return "0.0.0.0"
 }
 
 func init() {

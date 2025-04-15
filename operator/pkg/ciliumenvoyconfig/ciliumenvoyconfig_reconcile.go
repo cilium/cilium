@@ -23,7 +23,10 @@ const (
 )
 
 func (r *ciliumEnvoyConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, "ciliumenvoyconfig", logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Controller, "ciliumenvoyconfig",
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Info("Starting reconciliation")
 
 	svc := &corev1.Service{}

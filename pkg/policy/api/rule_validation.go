@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -566,10 +567,8 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	if len(pr.ServerNames) > 0 && !pr.Rules.IsEmpty() && pr.TerminatingTLS == nil {
 		return fmt.Errorf("ServerNames are not allowed with L7 rules without TLS termination")
 	}
-	for _, sn := range pr.ServerNames {
-		if sn == "" {
-			return errEmptyServerName
-		}
+	if slices.Contains(pr.ServerNames, "") {
+		return errEmptyServerName
 	}
 
 	if len(pr.Ports) > maxPorts {

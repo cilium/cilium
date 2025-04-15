@@ -17,7 +17,7 @@ func TestSyncState(t *testing.T) {
 	ss := new(MetricsProvider(), types.ClusterInfo{Name: "test"})
 
 	// add several resource to the SyncState
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		doneFuncs = append(doneFuncs, ss.WaitForResource())
 	}
 	ss.Stop()

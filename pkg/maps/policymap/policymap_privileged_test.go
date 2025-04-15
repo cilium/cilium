@@ -4,6 +4,7 @@
 package policymap
 
 import (
+	"log/slog"
 	"os"
 	"testing"
 
@@ -19,6 +20,15 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+const (
+	testMapSize = 1024
+)
+
+func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
+	m, _ := newStatsMap(maxStatsEntries, slog.Default())
+	return m, m.OpenOrCreate()
+}
+
 func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	testutils.PrivilegedTest(tb)
 
@@ -28,10 +38,16 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 		tb.Fatal(err)
 	}
 
-	testMap := newMap("cilium_policy_v2_test")
+	stats, err := createStatsMapForTest(testMapSize)
+	require.NoError(tb, err)
+	require.NotNil(tb, stats)
 
-	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_test"))
-	err := testMap.CreateUnpinned()
+	testMap, err := newPolicyMap(0, testMapSize, stats)
+	require.NoError(tb, err)
+	require.NotNil(tb, testMap)
+
+	_ = os.RemoveAll(bpf.LocalMapPath(MapName, 0))
+	err = testMap.CreateUnpinned()
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
@@ -46,22 +62,25 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
-	err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	entry := newAllowEntry(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	//err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	err := testMap.Update(&fooKey, &entry)
 	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
 	require.NoError(t, err)
 	require.Len(t, dump, 1)
 
-	require.EqualValues(t, fooKey, dump[0].Key)
+	require.Equal(t, fooKey, dump[0].Key)
 
 	require.False(t, dump[0].PolicyEntry.AuthRequirement.IsExplicit())
 	require.Equal(t, policyTypes.AuthType(1), dump[0].PolicyEntry.AuthRequirement.AuthType())
 	require.Equal(t, policyTypes.ProxyPortPriority(42), dump[0].PolicyEntry.ProxyPortPriority)
 
 	// Special case: allow-all entry
-	barEntry := NewKey(0, 0, 0, 0, 0)
-	err = testMap.AllowKey(barEntry, 0, policyTypes.AuthRequirement(0), 0)
+	barKey := NewKey(0, 0, 0, 0, 0)
+	barEntry := newAllowEntry(barKey, 0, policyTypes.AuthRequirement(0), 0)
+	err = testMap.Update(&barKey, &barEntry)
 	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()
@@ -84,19 +103,20 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
 	fooEntry := newDenyEntry(fooKey)
-	err := testMap.DenyKey(fooKey)
+	err := testMap.Update(&fooKey, &fooEntry)
 	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
 	require.NoError(t, err)
 	require.Len(t, dump, 1)
 
-	require.EqualValues(t, fooKey, dump[0].Key)
-	require.EqualValues(t, fooEntry, dump[0].PolicyEntry)
+	require.Equal(t, fooKey, dump[0].Key)
+	require.Equal(t, fooEntry, dump[0].PolicyEntry)
 
 	// Special case: deny-all entry
 	barKey := NewKey(0, 0, 0, 0, 0)
-	err = testMap.DenyKey(barKey)
+	barEntry := newDenyEntry(barKey)
+	err = testMap.Update(&barKey, &barEntry)
 	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()

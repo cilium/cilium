@@ -58,7 +58,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.23.5
+  go-version: 1.24.2
 
 jobs:
   echo-inputs:
@@ -87,28 +87,28 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.4-20241218.004849'
+          - kernel: '5.4-20250409.163403'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'rhel8.6-20241218.004849'
+          - kernel: 'rhel8.6-20250409.163403'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20241218.004849'
+          - kernel: '5.10-20250409.163403'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20241218.004849'
+          - kernel: '5.15-20250409.163403'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20241218.004849'
+          - kernel: '6.1-20250409.163403'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20241218.004849'
+          - kernel: '6.6-20250409.163403'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20241218.004849'
+          - kernel: '6.12-20250409.163403'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20250110.013326'
+          - kernel: 'bpf-next-20250410.054140'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
@@ -126,7 +126,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -135,7 +135,7 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.19"
+          lvh-version: "v0.0.23"
           install-dependencies: 'true'
           cmd: |
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
@@ -155,7 +155,7 @@ jobs:
             rm -r /tmp/llvm
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -165,7 +165,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: datapath-verifier_${{ matrix.kernel }}
           path: datapath-verifier

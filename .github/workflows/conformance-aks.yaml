@@ -61,6 +61,7 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  test_concurrency: 5
 
 jobs:
   echo-inputs:
@@ -119,7 +120,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Login to Azure
-        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -145,9 +146,26 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
           echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-azure-ci hubble-relay-ci cilium-cli-ci
+
   installation-and-connectivity:
     name: Installation and Connectivity Test
-    needs: generate-matrix
+    needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -195,13 +213,20 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          # We explicity set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
+          # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --datapath-mode=aks-byocni \
             --helm-set cluster.name=${{ env.name }} \
             --helm-set loadBalancer.l7.backend=envoy \
-            --helm-set tls.secretsBackend=k8s \
             --helm-set=azure.resourceGroup=${{ env.name }} \
-            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16" # To avoid clashing with the default Service CIDR of AKS (10.0.0.0/16)
+            --helm-set=ipv4.enabled=true \
+            --helm-set=ipv6.enabled=true \
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false --collect-sysdump-on-failure --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
@@ -209,7 +234,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Login to Azure
-        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -229,6 +254,7 @@ jobs:
             --kubernetes-version ${{ matrix.version }} \
             --network-plugin none \
             --node-count 2 \
+            --ip-families ipv4,ipv6 \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
 
@@ -238,20 +264,21 @@ jobs:
             --resource-group ${{ env.name }} \
             --name ${{ env.name }}
 
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-azure-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -281,9 +308,18 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+      - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
@@ -315,9 +351,18 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
 
-      - name: Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
+          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
           --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
 
@@ -343,21 +388,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.index }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.index }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.index }}
           path: ${{ env.job_name }}*.json

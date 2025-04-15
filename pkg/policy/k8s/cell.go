@@ -5,10 +5,10 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -53,7 +53,7 @@ type PolicyManager interface {
 }
 
 type serviceCache interface {
-	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool)
+	ForEachService(func(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) bool)
 }
 
 type ipc interface {
@@ -68,12 +68,12 @@ type PolicyWatcherParams struct {
 
 	ClientSet client.Clientset
 	Config    *option.DaemonConfig
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	ServiceCache   *k8s.ServiceCache
+	ServiceCache   k8s.ServiceCache
 	IPCache        *ipcache.IPCache
 	PolicyImporter policycell.PolicyImporter
 

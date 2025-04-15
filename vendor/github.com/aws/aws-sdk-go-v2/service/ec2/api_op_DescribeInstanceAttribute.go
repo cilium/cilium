@@ -12,10 +12,7 @@ import (
 )
 
 // Describes the specified attribute of the specified instance. You can specify
-// only one attribute at a time. Valid attribute values are: instanceType | kernel
-// | ramdisk | userData | disableApiTermination | instanceInitiatedShutdownBehavior
-// | rootDeviceName | blockDeviceMapping | productCodes | sourceDestCheck |
-// groupSet | ebsOptimized | sriovNetSupport
+// only one attribute at a time.
 func (c *Client) DescribeInstanceAttribute(ctx context.Context, params *DescribeInstanceAttributeInput, optFns ...func(*Options)) (*DescribeInstanceAttributeOutput, error) {
 	if params == nil {
 		params = &DescribeInstanceAttributeInput{}
@@ -35,7 +32,7 @@ type DescribeInstanceAttributeInput struct {
 
 	// The instance attribute.
 	//
-	// Note: The enaSupport attribute is not supported at this time.
+	// Note that the enaSupport attribute is not supported.
 	//
 	// This member is required.
 	Attribute types.InstanceAttributeName
@@ -60,12 +57,12 @@ type DescribeInstanceAttributeOutput struct {
 	// The block device mapping of the instance.
 	BlockDeviceMappings []types.InstanceBlockDeviceMapping
 
-	// To enable the instance for Amazon Web Services Stop Protection, set this
-	// parameter to true ; otherwise, set it to false .
+	// Indicates whether stop protection is enabled for the instance.
 	DisableApiStop *types.AttributeBooleanValue
 
-	// If the value is true , you can't terminate the instance through the Amazon EC2
-	// console, CLI, or API; otherwise, you can.
+	// Indicates whether termination protection is enabled. If the value is true , you
+	// can't terminate the instance using the Amazon EC2 console, command line tools,
+	// or API.
 	DisableApiTermination *types.AttributeBooleanValue
 
 	// Indicates whether the instance is optimized for Amazon EBS I/O.
@@ -74,8 +71,8 @@ type DescribeInstanceAttributeOutput struct {
 	// Indicates whether enhanced networking with ENA is enabled.
 	EnaSupport *types.AttributeBooleanValue
 
-	// To enable the instance for Amazon Web Services Nitro Enclaves, set this
-	// parameter to true ; otherwise, set it to false .
+	// Indicates whether the instance is enabled for Amazon Web Services Nitro
+	// Enclaves.
 	EnclaveOptions *types.EnclaveOptions
 
 	// The security groups associated with the instance.
@@ -94,7 +91,7 @@ type DescribeInstanceAttributeOutput struct {
 	// The kernel ID.
 	KernelId *types.AttributeValue
 
-	// A list of product codes.
+	// The product codes.
 	ProductCodes []types.ProductCode
 
 	// The RAM disk ID.
@@ -103,12 +100,7 @@ type DescribeInstanceAttributeOutput struct {
 	// The device name of the root device volume (for example, /dev/sda1 ).
 	RootDeviceName *types.AttributeValue
 
-	// Enable or disable source/destination checks, which ensure that the instance is
-	// either the source or the destination of any traffic that it receives. If the
-	// value is true , source/destination checks are enabled; otherwise, they are
-	// disabled. The default value is true . You must disable source/destination checks
-	// if the instance runs services such as network address translation, routing, or
-	// firewalls.
+	// Indicates whether source/destination checks are enabled.
 	SourceDestCheck *types.AttributeBooleanValue
 
 	// Indicates whether enhanced networking with the Intel 82599 Virtual Function
@@ -186,6 +178,9 @@ func (c *Client) addOperationDescribeInstanceAttributeMiddlewares(stack *middlew
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDescribeInstanceAttributeValidationMiddleware(stack); err != nil {

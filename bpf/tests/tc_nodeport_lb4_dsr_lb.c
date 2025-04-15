@@ -52,9 +52,9 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include <bpf_host.c>
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -111,7 +111,7 @@ int nodeport_dsr_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 

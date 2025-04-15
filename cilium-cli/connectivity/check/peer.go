@@ -5,6 +5,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"strconv"
@@ -129,9 +130,7 @@ func (p Pod) Port() uint32 {
 
 func (p Pod) Labels() map[string]string {
 	newMap := make(map[string]string, len(p.Pod.Labels))
-	for k, v := range p.Pod.Labels {
-		newMap[k] = v
-	}
+	maps.Copy(newMap, p.Pod.Labels)
 	return newMap
 }
 
@@ -239,9 +238,7 @@ func (s Service) HasLabel(name, value string) bool {
 // Labels returns the copy of service labels
 func (s Service) Labels() map[string]string {
 	newMap := make(map[string]string, len(s.Service.Labels))
-	for k, v := range s.Service.Labels {
-		newMap[k] = v
-	}
+	maps.Copy(newMap, s.Service.Labels)
 	return newMap
 }
 
@@ -298,57 +295,6 @@ func (s NodeportService) Address(family features.IPFamily) string {
 // Port returns the first nodeport of the wrapped Service.
 func (s NodeportService) Port() uint32 {
 	return uint32(s.Service.Service.Spec.Ports[0].NodePort)
-}
-
-// ExternalWorkload is an external workload acting as a peer in a
-// connectivity test. It implements interface TestPeer.
-type ExternalWorkload struct {
-	// workload is the Kubernetes Cilium external workload resource.
-	workload *ciliumv2.CiliumExternalWorkload
-}
-
-// Name returns the name of the ExternalWorkload.
-func (e ExternalWorkload) Name() string {
-	return e.workload.Namespace + "/" + e.workload.Name
-}
-
-// Scheme returns an empty string.
-func (e ExternalWorkload) Scheme() string {
-	return ""
-}
-
-// Path returns an empty string.
-func (e ExternalWorkload) Path() string {
-	return ""
-}
-
-// Address returns the network address of the ExternalWorkload.
-func (e ExternalWorkload) Address(features.IPFamily) string {
-	return e.workload.Status.IP
-}
-
-// Port returns 0.
-func (e ExternalWorkload) Port() uint32 {
-	return 0
-}
-
-// HasLabel checks if given label exists and value matches.
-func (e ExternalWorkload) HasLabel(name, value string) bool {
-	v, ok := e.workload.Labels[name]
-	return ok && v == value
-}
-
-// Labels returns the copy of labels
-func (e ExternalWorkload) Labels() map[string]string {
-	newMap := make(map[string]string, len(e.workload.Labels))
-	for k, v := range e.workload.Labels {
-		newMap[k] = v
-	}
-	return newMap
-}
-
-func (e ExternalWorkload) FlowFilters() []*flow.FlowFilter {
-	return nil
 }
 
 // ICMPEndpoint returns a new ICMP endpoint.
@@ -487,9 +433,7 @@ func (he httpEndpoint) HasLabel(name, value string) bool {
 
 func (he httpEndpoint) Labels() map[string]string {
 	newMap := make(map[string]string, len(*he.labels))
-	for k, v := range *he.labels {
-		newMap[k] = v
-	}
+	maps.Copy(newMap, *he.labels)
 	return newMap
 }
 

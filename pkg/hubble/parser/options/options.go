@@ -4,10 +4,10 @@
 package options
 
 import (
-	"fmt"
+	"log/slog"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Option is used to configure parsers
@@ -15,8 +15,9 @@ type Option func(*Options)
 
 // Options contains all parser options
 type Options struct {
-	CacheSize            int
-	HubbleRedactSettings HubbleRedactSettings
+	CacheSize                      int
+	HubbleRedactSettings           HubbleRedactSettings
+	EnableNetworkPolicyCorrelation bool
 }
 
 // HubbleRedactSettings contains all hubble redact related options
@@ -42,7 +43,7 @@ func CacheSize(size int) Option {
 }
 
 // Redact configures which data Hubble will redact.
-func Redact(logger logrus.FieldLogger, httpQuery, httpUserInfo, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
+func WithRedact(logger *slog.Logger, httpQuery, httpUserInfo, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
 	return func(opt *Options) {
 		opt.HubbleRedactSettings.Enabled = true
 		opt.HubbleRedactSettings.RedactHTTPQuery = httpQuery
@@ -53,10 +54,21 @@ func Redact(logger logrus.FieldLogger, httpQuery, httpUserInfo, kafkaApiKey bool
 			Deny:  headerSliceToMap(denyHeaders),
 		}
 		if logger != nil {
-			logger.WithField(
-				"options",
-				fmt.Sprintf("%+v", opt)).Info("configured Hubble with redact options")
+			logger.Info(
+				"configured Hubble with redact",
+				logfields.Options, opt.HubbleRedactSettings,
+			)
 		}
+	}
+}
+
+// EnableL3L4PolicyCorrelation configures the Network Policy correlation of Hubble Flows.
+func WithNetworkPolicyCorrelation(logger *slog.Logger, enabled bool) Option {
+	return func(opt *Options) {
+		opt.EnableNetworkPolicyCorrelation = enabled
+		logger.Info("configured Hubble with network policy correlation",
+			logfields.Options, opt.EnableNetworkPolicyCorrelation,
+		)
 	}
 }
 

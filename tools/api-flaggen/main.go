@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -20,7 +21,6 @@ import (
 	operatorServer "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -70,12 +70,7 @@ func writeTable(wr io.Writer, spec *loads.Document) {
 	fmt.Fprintln(tabWriter, "=====================\t====================")
 
 	pathSet := api.NewPathSet(spec)
-	keys := make([]string, 0, len(pathSet))
-	for f := range pathSet {
-		keys = append(keys, f)
-	}
-	slices.Sort(keys)
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(pathSet)) {
 		desc := strings.TrimSuffix(pathSet[k].Description, "\n")
 		wrapped := wrap(desc, colWidth-flagWidth)
 		fmt.Fprintln(tabWriter, k+"\t"+wrapped[0])
@@ -121,5 +116,5 @@ func printAPIFlagTables(
 }
 
 func main() {
-	Hive.Run(slog.New(logging.SlogNopHandler))
+	Hive.Run(slog.New(slog.DiscardHandler))
 }

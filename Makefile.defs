@@ -58,8 +58,8 @@ ifeq ($(DOCKER_IMAGE_TAG),)
 endif
 
 # renovate: datasource=docker depName=gcr.io/etcd-development/etcd
-ETCD_IMAGE_VERSION = v3.5.17
-ETCD_IMAGE_SHA = sha256:15b1882f07aeaf357a48fbbcf35a566ae3ea110395704711488ea263fa86838d
+ETCD_IMAGE_VERSION = v3.5.21
+ETCD_IMAGE_SHA = sha256:fd158fbe55240e252947bbd2e8dddc217997ff43978071fac2bd202b6ad15c03
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
 CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
@@ -89,21 +89,28 @@ GO_TAGS_FLAGS += osusergo
 # RACE is specified.
 GOTEST_COVER_OPTS =
 
+CODEOWNERS_PATH ?= CODEOWNERS
+
 # By default, just print go test output immediately to the terminal. If tparse
 # is installed, use it to format the output. Use -progress instead of -follow,
 # as the latter is too verbose for most of the test suite.
 GOTEST_FORMATTER ?= cat
 ifneq ($(shell command -v tparse),)
 	GOTEST_COVER_OPTS += -json
-	GOTEST_FORMATTER = tparse
+	GOTEST_FORMATTER_FLAGS :=
 ifneq ($(V),0)
-	GOTEST_FORMATTER += -follow
+	GOTEST_FORMATTER_FLAGS += -follow
+endif
+ifneq ($(LOG_CODEOWNERS),)
+	GOTEST_FORMATTER = tee >($(GO) run ./tools/testowners --code-owners=$(CODEOWNERS_PATH)) >(tparse $(GOTEST_FORMATTER_FLAGS)) >/dev/null
+else
+	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
 endif
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v1.63.4
-GOLANGCILINT_IMAGE_SHA = sha256:7f4c8ee8a63d56caa41c099cf658f68b192b615e0f30e94b8864e81a3ceafb53
+GOLANGCILINT_WANT_VERSION = v2.0.2
+GOLANGCILINT_IMAGE_SHA = sha256:d55581f7797e7a0877a7c3aaa399b01bdc57d2874d6412601a046cc4062cb62e
 GOLANGCILINT_VERSION = $(shell golangci-lint version --format short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
@@ -149,7 +156,7 @@ GO_BUILD_FLAGS += -mod=vendor
 GO_TEST_FLAGS += -mod=vendor -vet=all
 GO_CLEAN_FLAGS += -mod=vendor
 
-GO_BUILD = CGO_ENABLED=0 $(GO) build
+CGO_ENABLED ?= 0
 
 # Support CGO cross-compiling for amd64 and arm64 targets
 CGO_CC =
@@ -162,15 +169,16 @@ ifeq ($(CROSS_ARCH),arm64)
 else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
-GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
+
+GO_BUILD = CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
 
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
     GO_TEST_FLAGS += -race
     GOTEST_COVER_OPTS += -covermode=atomic
 
-    # GO_BUILD becomes GO_BUILD_WITH_CGO as `-race` requires CGO
-    GO_BUILD = $(GO_BUILD_WITH_CGO)
+    # `-race` requires CGO
+    CGO_ENABLED = 1
     ifeq ($(LOCKDEBUG),)
         LOCKDEBUG=1
     endif
@@ -190,7 +198,6 @@ ifeq ($(NOOPT),1)
 endif
 
 GO_BUILD += $(GO_BUILD_FLAGS)
-GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
 
 GO_TEST = CGO_ENABLED=0 $(GO) test $(GO_TEST_FLAGS)
 GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
@@ -204,7 +211,7 @@ HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha25
 
 YQ_VERSION ?= "4.40.5"
 YQ_SHA ?= "32be61dc94d0acc44f513ba69d0fc05f1f92c2e760491f2a27e11fc13cde6327"
-YQ_IMAGE ?= "mikefarah/yq:$(YQ_VERSION)@sha256:$(YQ_SHA)"
+YQ_IMAGE ?= "docker.io/mikefarah/yq:$(YQ_VERSION)@sha256:$(YQ_SHA)"
 
 define print_help_line
   @printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)

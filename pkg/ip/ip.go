@@ -132,7 +132,7 @@ func removeRedundantCIDRs(CIDRs []*net.IPNet) []*net.IPNet {
 
 	if len(redundant) == 1 {
 		for i := range redundant {
-			return append(CIDRs[:i], CIDRs[i+1:]...)
+			return slices.Delete(CIDRs, i, i+1)
 		}
 	}
 
@@ -175,12 +175,12 @@ func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) []*net.IPNet {
 
 				// Remove CIDR that we have just processed and append new CIDRs
 				// that we computed from removing the CIDR to remove.
-				allowCIDRs = append(allowCIDRs[:i], allowCIDRs[i+1:]...)
+				allowCIDRs = slices.Delete(allowCIDRs, i, i+1)
 				allowCIDRs = append(allowCIDRs, nets...)
 			} else if remove.Contains(allowCIDR.IP.Mask(allowCIDR.Mask)) {
 				// If a CIDR that we want to remove contains a CIDR in the list
 				// that is allowed, then we can just remove the CIDR to allow.
-				allowCIDRs = append(allowCIDRs[:i], allowCIDRs[i+1:]...)
+				allowCIDRs = slices.Delete(allowCIDRs, i, i+1)
 			} else {
 				// Advance only if CIDR at index 'i' was not removed
 				i++
@@ -196,12 +196,12 @@ func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
 
 	if ipNet.IP.To4() == nil {
 		mask = make(net.IP, net.IPv6len)
-		for i := 0; i < len(ipNet.Mask); i++ {
+		for i := range ipNet.Mask {
 			mask[net.IPv6len-i-1] = ipNet.IP[net.IPv6len-i-1] & ^ipNet.Mask[i]
 		}
 	} else {
 		mask = make(net.IP, net.IPv4len)
-		for i := 0; i < net.IPv4len; i++ {
+		for i := range net.IPv4len {
 			mask[net.IPv4len-i-1] = ipNet.IP[net.IPv6len-i-1] & ^ipNet.Mask[i]
 		}
 	}
@@ -500,7 +500,7 @@ func mergeAdjacentCIDRs(ranges []*netWithRange) []*netWithRange {
 
 			// Since we have combined ranges[i] with the preceding item in the
 			// ranges list, we can delete ranges[i] from the slice.
-			ranges = append(ranges[:i], ranges[i+1:]...)
+			ranges = slices.Delete(ranges, i, i+1)
 		}
 	}
 	return ranges

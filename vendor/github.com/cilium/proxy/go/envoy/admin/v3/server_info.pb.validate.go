@@ -300,6 +300,8 @@ func (m *CommandLineOptions) validate(all bool) error {
 
 	// no validation rules for IgnoreUnknownDynamicFields
 
+	// no validation rules for SkipDeprecatedLogs
+
 	// no validation rules for AdminAddressPath
 
 	// no validation rules for LocalAddressIpVersion

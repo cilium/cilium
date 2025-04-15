@@ -23,7 +23,7 @@ func testEqualityRules(got, expected string, t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal([]byte(expected), expectedStruct)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedStruct, gotStruct)
+	require.Equal(t, expectedStruct, gotStruct)
 }
 
 func testEqualityEndpoint(got, expected string, t *testing.T) {
@@ -37,7 +37,7 @@ func testEqualityEndpoint(got, expected string, t *testing.T) {
 
 	slices.Sort(gotStruct.Labels)
 	slices.Sort(expectedStruct.Labels)
-	require.EqualValues(t, expectedStruct, gotStruct)
+	require.Equal(t, expectedStruct, gotStruct)
 }
 
 func TestPolicyUpdateMessage(t *testing.T) {

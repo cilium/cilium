@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -59,11 +60,11 @@ var mtuMock = fakeMTU{}
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
 	ipam.ConfigureAllocator()
 
 	allocv4, allocv6, status := ipam.Dump()
-	require.NotEqual(t, "", status)
+	require.NotEmpty(t, status)
 
 	// Test the format of the dumped ip addresses
 	for ip := range allocv4 {
@@ -80,7 +81,7 @@ func TestExpirationTimer(t *testing.T) {
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
 	ipam.ConfigureAllocator()
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
@@ -88,11 +89,11 @@ func TestExpirationTimer(t *testing.T) {
 
 	uuid, err := ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// must fail, already registered
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.Error(t, err)
-	require.Equal(t, "", uuid)
+	require.Empty(t, uuid)
 	// must fail, already in use
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
 	require.Error(t, err)
@@ -104,7 +105,7 @@ func TestExpirationTimer(t *testing.T) {
 	// register new expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// attempt to stop with an invalid uuid, must fail
 	err = ipam.StopExpirationTimer(ip, PoolDefault(), "unknown-uuid")
 	require.Error(t, err)
@@ -126,7 +127,7 @@ func TestExpirationTimer(t *testing.T) {
 	// register expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// release IP, must also stop expiration timer
 	err = ipam.ReleaseIP(ip, PoolDefault())
 	require.NoError(t, err)
@@ -136,7 +137,7 @@ func TestExpirationTimer(t *testing.T) {
 	// register expiration timer must succeed even though stop was never called
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// release IP
 	err = ipam.ReleaseIP(ip, PoolDefault())
 	require.NoError(t, err)
@@ -148,7 +149,7 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil)
 	ipam.ConfigureAllocator()
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test

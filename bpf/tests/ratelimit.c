@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "bpf/ctx/xdp.h"
-#include "node_config.h"
 #include "common.h"
-#include "lib/maps.h"
+
+#include <bpf/ctx/xdp.h>
+#include <bpf/config/node.h>
+
+#include <lib/maps.h>
+#include <lib/time.h>
 
 static __u64 mock_ktime_get_ns(void)
 {
@@ -35,19 +38,19 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	test_init();
 
 	TEST("bucket-created-when-missing", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (value)
 			test_fatal("Bucket already exits");
 
 		ratelimit_check_and_take(&key, &settings);
 
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 	})
 
 	TEST("block-on-bucket-empty", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 
@@ -63,7 +66,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	})
 
 	TEST("topup-after-interval", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 
@@ -79,7 +82,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	})
 
 	TEST("do-not-go-over-bucket-size", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 

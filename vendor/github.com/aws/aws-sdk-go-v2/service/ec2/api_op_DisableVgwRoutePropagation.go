@@ -120,6 +120,9 @@ func (c *Client) addOperationDisableVgwRoutePropagationMiddlewares(stack *middle
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDisableVgwRoutePropagationValidationMiddleware(stack); err != nil {
 		return err
 	}

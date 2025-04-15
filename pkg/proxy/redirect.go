@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
@@ -30,14 +32,16 @@ type RedirectImplementation interface {
 
 // Redirect is the common static config for each RedirectImplementation
 type Redirect struct {
+	logger       *slog.Logger
 	name         string
 	proxyPort    *proxyports.ProxyPort
 	dstPortProto restore.PortProto
 	endpointID   uint16
 }
 
-func initRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) Redirect {
+func initRedirect(logger *slog.Logger, epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) Redirect {
 	return Redirect{
+		logger:       logger,
 		name:         name,
 		proxyPort:    listener,
 		dstPortProto: restore.MakeV2PortProto(port, proto),

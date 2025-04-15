@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -41,10 +41,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -62,31 +62,31 @@ jobs:
           comment_on_pr: false
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@ec5d18412c0aeab7936cb16880d708ba2a64e1ae # v6.2.0
+        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
         with:
           # renovate: datasource=docker depName=golangci/golangci-lint
-          version: v1.63.4
+          version: v2.0.2
           skip-cache: true
-          args: "--out-${NO_FUTURE}format colored-line-number --verbose --modules-download-mode=vendor"
+          args: "--verbose --modules-download-mode=vendor"
 
   precheck:
     runs-on: ubuntu-24.04
     name: Precheck
     steps:
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -103,10 +103,10 @@ jobs:
     name: Generate API
     steps:
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -114,6 +114,9 @@ jobs:
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
       - name: Check api generated files
+        env:
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
         run: |
           cd src/github.com/cilium/cilium
           contrib/scripts/check-api-code-gen.sh
@@ -123,10 +126,10 @@ jobs:
     name: Generate k8s API
     steps:
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -134,6 +137,9 @@ jobs:
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
       - name: Check k8s generated files
+        env:
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
         run: |
           # Set GOBIN to ensure 'go install' binaries end up in the same directory
           # as the one actions/setup-go adds to PATH, regardless of GOPATH.

@@ -16,7 +16,8 @@ struct {
 	__type(value, union macaddr);	/* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
-} NODEPORT_NEIGH6 __section_maps_btf;
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_nodeport_neigh6 __section_maps_btf;
 
 static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 {
@@ -29,9 +30,9 @@ static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
 
-	mac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->saddr);
+	mac = map_lookup_elem(&cilium_nodeport_neigh6, &ip6->saddr);
 	if (!mac || eth_addrcmp(mac, &smac)) {
-		int ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr,
+		int ret = map_update_elem(&cilium_nodeport_neigh6, &ip6->saddr,
 					  &smac, 0);
 		if (ret < 0)
 			return ret;
@@ -42,7 +43,7 @@ static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 
 static __always_inline union macaddr *neigh_lookup_ip6(const union v6addr *addr)
 {
-	return map_lookup_elem(&NODEPORT_NEIGH6, addr);
+	return map_lookup_elem(&cilium_nodeport_neigh6, addr);
 }
 #else
 static __always_inline union macaddr *
@@ -59,7 +60,8 @@ struct {
 	__type(value, union macaddr);	/* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
-} NODEPORT_NEIGH4 __section_maps_btf;
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_nodeport_neigh4 __section_maps_btf;
 
 static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 {
@@ -72,9 +74,9 @@ static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
 
-	mac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->saddr);
+	mac = map_lookup_elem(&cilium_nodeport_neigh4, &ip4->saddr);
 	if (!mac || eth_addrcmp(mac, &smac)) {
-		int ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr,
+		int ret = map_update_elem(&cilium_nodeport_neigh4, &ip4->saddr,
 					  &smac, 0);
 		if (ret < 0)
 			return ret;
@@ -85,7 +87,7 @@ static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 
 static __always_inline union macaddr *neigh_lookup_ip4(const __be32 *addr)
 {
-	return map_lookup_elem(&NODEPORT_NEIGH4, addr);
+	return map_lookup_elem(&cilium_nodeport_neigh4, addr);
 }
 #else
 static __always_inline union macaddr *

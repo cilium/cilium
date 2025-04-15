@@ -47,8 +47,6 @@ var Cell = cell.Module(
 )
 
 type IngressConfig struct {
-	KubeProxyReplacement                 string
-	EnableNodePort                       bool
 	EnableIngressController              bool
 	EnforceIngressHTTPS                  bool
 	EnableIngressProxyProtocol           bool
@@ -67,8 +65,6 @@ type IngressConfig struct {
 }
 
 func (r IngressConfig) Flags(flags *pflag.FlagSet) {
-	flags.String("kube-proxy-replacement", r.KubeProxyReplacement, "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
-	flags.Bool("enable-node-port", r.EnableNodePort, "Enable NodePort type services by Cilium")
 	flags.Bool("enable-ingress-controller", r.EnableIngressController, "Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.")
 	flags.Bool("enforce-ingress-https", r.EnforceIngressHTTPS, "Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.")
 	flags.Bool("enable-ingress-proxy-protocol", r.EnableIngressProxyProtocol, "Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
@@ -106,8 +102,8 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
-	if params.IngressConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		!params.IngressConfig.EnableNodePort {
+	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+		!params.OperatorConfig.EnableNodePort {
 		params.Logger.Warn("Ingress Controller support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
@@ -123,7 +119,8 @@ func registerReconciler(params ingressParams) error {
 			IPv6Enabled: params.AgentConfig.EnableIPv6,
 		},
 		ListenerConfig: translation.ListenerConfig{
-			UseProxyProtocol: params.IngressConfig.EnableIngressProxyProtocol,
+			UseProxyProtocol:         params.IngressConfig.EnableIngressProxyProtocol,
+			StreamIdleTimeoutSeconds: params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
 		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,

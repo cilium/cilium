@@ -140,7 +140,7 @@ func (c *k8sStatusMockClient) ListCiliumEndpoints(_ context.Context, _ string, o
 	return c.ciliumEndpointList[options.LabelSelector], nil
 }
 
-func (c *k8sStatusMockClient) CiliumLogs(_ context.Context, _, _ string, _ time.Time, _ bool) (string, error) {
+func (c *k8sStatusMockClient) ContainerLogs(_ context.Context, _, _, _ string, _ time.Time, _ bool) (string, error) {
 	return "[error] a sample cilium-agent error message", nil
 }
 

@@ -27,7 +27,7 @@ subjects:
 {{- end}}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name}}
---- 
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -39,6 +39,9 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -62,6 +65,9 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -85,6 +91,9 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -104,6 +113,9 @@ metadata:
   namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -114,7 +126,7 @@ subjects:
   namespace: {{ include "cilium.namespace" . }}
 {{- end}}
 
-{{- if and $readSecretsOnlyFromSecretsNamespace .Values.tls.secretsNamespace.name }}
+{{- if and (not .Values.preflight.enabled) $readSecretsOnlyFromSecretsNamespace .Values.tls.secretsNamespace.name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -123,6 +135,9 @@ metadata:
   namespace: {{ .Values.tls.secretsNamespace.name | quote }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

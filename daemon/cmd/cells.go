@@ -4,11 +4,11 @@
 package cmd
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
@@ -32,22 +32,26 @@ import (
 	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/gops"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
-	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	identity "github.com/cilium/cilium/pkg/identity/cell"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	redirectpolicy_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -89,8 +93,7 @@ var (
 		"Infrastructure",
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
-		pprof.Cell,
-		cell.Config(pprofConfig),
+		pprof.Cell(pprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.EnableGops, defaults.GopsPortAgent),
@@ -138,6 +141,10 @@ var (
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
 		shellCell,
+
+		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
+		// packages.
+		defaultdns.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -167,16 +174,18 @@ var (
 		// read-only stores.
 		agentK8s.ResourcesCell,
 
+		// StateDB tables for Kubernetes objects.
+		agentK8s.TablesCell,
+
 		// Shared synchronization structures for waiting on K8s resources to
 		// be synced
 		k8sSynced.Cell,
 
-		// IdentityManager maintains the set of identities and a count of its
-		// users.
-		identitymanager.Cell,
-
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
+
+		// EndpointCreator helps creating endpoints
+		endpointcreator.Cell,
 
 		// Register the startup procedure to remove stale CiliumEndpoints referencing pods no longer
 		// managed by Cilium.
@@ -202,6 +211,9 @@ var (
 
 		// Experimental control-plane for configuring service load-balancing.
 		loadbalancer_experimental.Cell,
+
+		// Experimental control-plane implementation for local redirect policies.
+		redirectpolicy_experimental.Cell,
 
 		// Service is a datapath service handler. Its main responsibility is to reflect
 		// service-related changes into BPF maps used by datapath BPF programs.
@@ -232,7 +244,7 @@ var (
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
 
-		// Provides IdentityAllocators (Responsible for allocating security identities)
+		// Provides Identity Controlplane (Responsible for allocating & managing security identities)
 		identity.Cell,
 
 		// IPCache cell provides IPCache (IP to identity mappings)
@@ -287,6 +299,9 @@ var (
 		// and clustermesh.
 		dial.ServiceResolverCell,
 
+		// Provide resource groups to watch.
+		cell.Provide(func() watchers.ResourceGroupFunc { return allResourceGroups }),
+
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
 
@@ -314,16 +329,19 @@ var (
 
 		// Determines priorities of data sources.
 		source.Cell,
+
+		// FQDN rules cell provides the FQDN proxy functionality.
+		fqdn.Cell,
 	)
 )
 
-func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.DB, swaggerSpec *server.Spec) {
+func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.DB, swaggerSpec *server.Spec, logger *slog.Logger) {
 	s.EnabledListeners = []string{"unix"}
 	s.SocketPath = cfg.SocketPath
 	s.ReadTimeout = apiTimeout
 	s.WriteTimeout = apiTimeout
 
-	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
+	const msg = "Required API option is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag
 	for _, requiredAPI := range []string{
 		"GetConfig",        // CNI: Used to detect detect IPAM mode
@@ -334,13 +352,14 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
 	} {
 		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
-			log.WithFields(logrus.Fields{
-				logfields.Hint:   hint,
-				logfields.Params: requiredAPI,
-			}).Warning(msg)
+			logger.Warn(
+				msg,
+				logfields.Hint, hint,
+				logfields.Params, requiredAPI,
+			)
 		}
 	}
-	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
+	api.DisableAPIs(logger, swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
 
 	s.ConfigureAPI()
 
@@ -355,4 +374,40 @@ var pprofConfig = pprof.Config{
 	Pprof:        false,
 	PprofAddress: option.PprofAddressAgent,
 	PprofPort:    option.PprofPortAgent,
+}
+
+// resourceGroups are all of the core Kubernetes and Cilium resource groups
+// which the Cilium agent watches to implement CNI functionality.
+func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
+	k8sGroups := []string{
+		// To perform the service translation and have the BPF LB datapath
+		// with the right service -> backend (k8s endpoints) translation.
+		resources.K8sAPIGroupServiceV1Core,
+		// Pods can contain labels which are essential for endpoints
+		// being restored to have the right identity.
+		resources.K8sAPIGroupPodV1Core,
+		// To perform the service translation and have the BPF LB datapath
+		// with the right service -> backend (k8s endpoints) translation.
+		resources.K8sAPIGroupEndpointSliceOrEndpoint,
+	}
+
+	if option.NetworkPolicyEnabled(option.Config) {
+		// Namespaces can contain labels which are essential for
+		// endpoints being restored to have the right identity.
+		// Namespaces are only used when network policies are enabled.
+		k8sGroups = append(k8sGroups, resources.K8sAPIGroupNamespaceV1Core)
+	}
+
+	if cfg.K8sNetworkPolicyEnabled() {
+		// When the flag is set,
+		// We need all network policies in place before restoring to
+		// make sure we are enforcing the correct policies for each
+		// endpoint before restarting.
+		waitForCachesOnly = append(waitForCachesOnly, resources.K8sAPIGroupNetworkingV1Core)
+	}
+
+	ciliumGroups, waitOnlyList := watchers.GetGroupsForCiliumResources(logger, k8sSynced.AgentCRDResourceNames())
+	waitForCachesOnly = append(waitForCachesOnly, waitOnlyList...)
+
+	return append(k8sGroups, ciliumGroups...), waitForCachesOnly
 }

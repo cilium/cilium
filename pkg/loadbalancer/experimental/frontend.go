@@ -4,7 +4,10 @@
 package experimental
 
 import (
+	"encoding/json"
+	"fmt"
 	"iter"
+	"slices"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -50,7 +53,19 @@ type Frontend struct {
 	Status reconciler.Status
 
 	// Backends associated with the frontend.
-	Backends iter.Seq2[*Backend, statedb.Revision]
+	Backends backendsSeq2
+
+	// ID is the identifier allocated to this frontend. Used as the key
+	// in the services BPF map. This field is populated by the reconciler
+	// and is initially set to zero. It can be considered valid only when
+	// [Status] is set to done.
+	ID loadbalancer.ServiceID
+
+	// RedirectTo if set selects the backends from this service name instead
+	// of that of [FrontendParams.ServiceName]. This is used to implement the
+	// local redirect policies where traffic going to a specific service/frontend
+	// is redirected to a local pod instead.
+	RedirectTo *loadbalancer.ServiceName
 
 	// service associated with the frontend. If service is updated
 	// this pointer to the service will update as well and the
@@ -61,9 +76,16 @@ type Frontend struct {
 	service *Service
 }
 
-type BackendWithRevision struct {
-	*Backend
-	Revision statedb.Revision
+// backendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
+// marshalable.
+type backendsSeq2 iter.Seq2[BackendParams, statedb.Revision]
+
+func (s backendsSeq2) MarshalJSON() ([]byte, error) {
+	return json.Marshal(slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](s))))
+}
+
+func (s backendsSeq2) MarshalYAML() (any, error) {
+	return slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](s))), nil
 }
 
 func (fe *Frontend) Service() *Service {
@@ -91,6 +113,7 @@ func (fe *Frontend) TableHeader() []string {
 		"ServiceName",
 		"PortName",
 		"Backends",
+		"RedirectTo",
 		"Status",
 		"Since",
 		"Error",
@@ -98,12 +121,17 @@ func (fe *Frontend) TableHeader() []string {
 }
 
 func (fe *Frontend) TableRow() []string {
+	redirectTo := ""
+	if fe.RedirectTo != nil {
+		redirectTo = fe.RedirectTo.String()
+	}
 	return []string{
 		fe.Address.StringWithProtocol(),
 		string(fe.Type),
 		fe.ServiceName.String(),
 		string(fe.PortName),
 		showBackends(fe.Backends),
+		redirectTo,
 		string(fe.Status.Kind),
 		duration.HumanDuration(time.Since(fe.Status.UpdatedAt)),
 		fe.Status.Error,
@@ -111,29 +139,30 @@ func (fe *Frontend) TableRow() []string {
 }
 
 // showBackends returns the backends associated with a frontend in form
-// "1.2.3.4:80 (active), [2001::1]:443 (terminating)"
-// TODO: Skip showing the state?
-func showBackends(bes iter.Seq2[*Backend, statedb.Revision]) string {
+// "1.2.3.4:80, [2001::1]:443"
+func showBackends(bes backendsSeq2) string {
+	const maxToShow = 5
+	count := 0
 	var b strings.Builder
 	for be := range bes {
-		b.WriteString(be.L3n4Addr.String())
-		b.WriteString(" (")
-		state, err := be.State.String()
-		if err != nil {
-			state = err.Error()
+		if count < maxToShow {
+			b.WriteString(be.Address.String())
+			b.WriteString(", ")
 		}
-		b.WriteString(state)
-		b.WriteString(")")
-		b.WriteString(", ")
+		count++
 	}
 	s := b.String()
 	s, _ = strings.CutSuffix(s, ", ")
+
+	if count > maxToShow {
+		s += fmt.Sprintf(" + %d more ...", count-maxToShow)
+	}
 	return s
 }
 
 var (
 	frontendAddressIndex = statedb.Index[*Frontend, loadbalancer.L3n4Addr]{
-		Name: "frontends",
+		Name: "address",
 		FromObject: func(fe *Frontend) index.KeySet {
 			return index.NewKeySet(fe.Address.Bytes())
 		},

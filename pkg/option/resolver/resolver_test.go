@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +52,7 @@ func TestWriteConfigurations(t *testing.T) {
 func TestResolveConfigurations(t *testing.T) {
 	testNS := "test-ns"
 	g := gomega.NewWithT(t)
-	clients, _ := k8sClient.NewFakeClientset()
+	clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 	fakeNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -183,7 +184,7 @@ func TestResolveConfigurations(t *testing.T) {
 func TestWithBlockedFields(t *testing.T) {
 	testNS := "test-ns"
 	g := gomega.NewWithT(t)
-	clients, _ := k8sClient.NewFakeClientset()
+	clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 	fakeNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -347,7 +348,7 @@ func TestReadNodeConfigs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 
-			clients, _ := k8sClient.NewFakeClientset()
+			clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 			fakeNode := corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -462,7 +463,7 @@ func TestReadNodeConfigsAlpha(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 
-			clients, _ := k8sClient.NewFakeClientset()
+			clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 			fakeNode := corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{

@@ -14,11 +14,10 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -35,6 +34,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultEndpointManagerConfig),
 	cell.Provide(newDefaultEndpointManager),
+	cell.Provide(endpoint.NewEndpointBuildQueue),
 	cell.ProvidePrivate(newEndpointSynchronizer),
 )
 
@@ -90,30 +90,7 @@ type EndpointsLookup interface {
 
 type EndpointsModify interface {
 	// AddEndpoint takes the prepared endpoint object and starts managing it.
-	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) (err error)
-
-	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
-	// corresponding container necessarily existing. This is needed to be able to ingest and
-	// sync network policies applicable to Cilium Ingress to Envoy.
-	AddIngressEndpoint(
-		ctx context.Context,
-		owner regeneration.Owner,
-		policyGetter policyRepoGetter,
-		ipcache *ipcache.IPCache,
-		proxy endpoint.EndpointProxy,
-		allocator cache.IdentityAllocator,
-		ctMapGC ctmap.GCRunner,
-	) error
-
-	AddHostEndpoint(
-		ctx context.Context,
-		owner regeneration.Owner,
-		policyGetter policyRepoGetter,
-		ipcache *ipcache.IPCache,
-		proxy endpoint.EndpointProxy,
-		allocator cache.IdentityAllocator,
-		ctMapGC ctmap.GCRunner,
-	) error
+	AddEndpoint(ep *endpoint.Endpoint) (err error)
 
 	// RestoreEndpoint exposes the specified endpoint to other subsystems via the
 	// manager.
@@ -123,7 +100,7 @@ type EndpointsModify interface {
 	UpdateReferences(ep *endpoint.Endpoint) error
 
 	// RemoveEndpoint stops the active handling of events by the specified endpoint,
-	// and prevents the endpoint from being globally acccessible via other packages.
+	// and prevents the endpoint from being globally accessible via other packages.
 	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
 }
 
@@ -171,9 +148,6 @@ type EndpointManager interface {
 	// manager as policy.Endpoint interface set for the map key.
 	GetPolicyEndpoints() map[policy.Endpoint]struct{}
 
-	// HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
-	HasGlobalCT() bool
-
 	// CallbackForEndpointsAtPolicyRev registers a callback on all endpoints that
 	// exist when invoked. It is similar to WaitForEndpointsAtPolicyRevision but
 	// each endpoint that reaches the desired revision calls 'done' independently.
@@ -205,13 +179,15 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle       cell.Lifecycle
-	Config          EndpointManagerConfig
-	Clientset       client.Clientset
-	MetricsRegistry *metrics.Registry
-	Health          cell.Health
-	EPSynchronizer  EndpointResourceSynchronizer
-	LocalNodeStore  *node.LocalNodeStore
+	Lifecycle           cell.Lifecycle
+	Config              EndpointManagerConfig
+	Clientset           client.Clientset
+	MetricsRegistry     *metrics.Registry
+	Health              cell.Health
+	EPSynchronizer      EndpointResourceSynchronizer
+	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
+	LocalNodeStore      *node.LocalNodeStore
+	MonitorAgent        monitoragent.Agent
 }
 
 type endpointManagerOut struct {
@@ -225,7 +201,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(p.EPSynchronizer, p.LocalNodeStore, p.Health)
+	mgr := New(p.EPSynchronizer, p.KVStoreSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{

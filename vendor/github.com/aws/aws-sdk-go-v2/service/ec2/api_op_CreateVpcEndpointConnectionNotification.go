@@ -147,6 +147,9 @@ func (c *Client) addOperationCreateVpcEndpointConnectionNotificationMiddlewares(
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateVpcEndpointConnectionNotificationValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -4,14 +4,15 @@
 package redirectpolicy
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -44,7 +44,7 @@ var (
 type svcManager interface {
 	DeleteService(frontend lb.L3n4Addr) (bool, error)
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
-	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr)
+	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error
 }
 
 type svcCache interface {
@@ -68,12 +68,14 @@ type podID = k8s.ServiceID
 // For every local redirect policy configuration, it creates a
 // new lb.SVCTypeLocalRedirect service with a frontend that has at least one node-local backend.
 type Manager struct {
+	db *statedb.DB
+
 	// Service handler to manage service entries corresponding to redirect policies
 	svcManager svcManager
 
 	svcCache svcCache
 
-	localPods agentK8s.LocalPodResource
+	localPods statedb.Table[agentK8s.LocalPod]
 
 	epManager endpointManager
 
@@ -101,12 +103,13 @@ type Manager struct {
 	metricsManager LRPMetrics
 }
 
-func NewRedirectPolicyManager(svc svcManager, svcCache *k8s.ServiceCache, lpr agentK8s.LocalPodResource, epM endpointManager, metricsManager LRPMetrics) *Manager {
+func NewRedirectPolicyManager(db *statedb.DB, svc svcManager, svcCache k8s.ServiceCache, lp statedb.Table[agentK8s.LocalPod], epM endpointManager, metricsManager LRPMetrics) *Manager {
 	return &Manager{
+		db:                    db,
 		svcManager:            svc,
 		svcCache:              svcCache,
 		epManager:             epM,
-		localPods:             lpr,
+		localPods:             lp,
 		policyFrontendsByHash: make(map[string]policyID),
 		policyServices:        make(map[k8s.ServiceID]policyID),
 		policyPods:            make(map[podID][]policyID),
@@ -121,6 +124,10 @@ func NewRedirectPolicyManager(svc svcManager, svcCache *k8s.ServiceCache, lpr ag
 // AddRedirectPolicy parses the given local redirect policy config, and updates
 // internal state with the config fields.
 func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
+	if rpm == nil {
+		return true, nil
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -133,10 +140,14 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 			if rpm.skipLBMap == nil {
 				var err error
 				rpm.skipLBMap, err = lbmap.NewSkipLBMap()
+				if err == nil {
+					err = rpm.skipLBMap.OpenOrCreate()
+				}
 				if err != nil {
 					log.WithError(err).Warn("failed to init cilium_skip_lb maps: " +
 						"policies with skipRedirectFromBackend flag set not supported")
 				}
+
 			}
 
 			return false
@@ -221,6 +232,10 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 
 // DeleteRedirectPolicy deletes the internal state associated with the given policy.
 func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
+	if rpm == nil {
+		return nil
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -260,6 +275,10 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 // OnAddService handles Kubernetes service (clusterIP type) add events, and
 // updates the internal state for the policy config associated with the service.
 func (rpm *Manager) OnAddService(svcID k8s.ServiceID) {
+	if rpm == nil {
+		return
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -280,6 +299,10 @@ func (rpm *Manager) OnAddService(svcID k8s.ServiceID) {
 // EnsureService ensures that the LRP service is updated to the latest state.
 // It is called after synchronization is complete during agent startup.
 func (rpm *Manager) EnsureService(svcID k8s.ServiceID) (bool, error) {
+	if rpm == nil {
+		return false, nil
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -307,6 +330,10 @@ func (rpm *Manager) EnsureService(svcID k8s.ServiceID) (bool, error) {
 // OnDeleteService handles Kubernetes service deletes, and deletes the internal state
 // for the policy config that might be associated with the service.
 func (rpm *Manager) OnDeleteService(svcID k8s.ServiceID) {
+	if rpm == nil {
+		return
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -317,6 +344,10 @@ func (rpm *Manager) OnDeleteService(svcID k8s.ServiceID) {
 }
 
 func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
+	if rpm == nil {
+		return
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -338,7 +369,7 @@ func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
 }
 
 func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upsertNew bool) {
-	if len(rpm.policyConfigs) == 0 {
+	if rpm == nil || len(rpm.policyConfigs) == 0 {
 		return
 	}
 
@@ -409,6 +440,9 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 }
 
 func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod, needsReassign bool, ready bool) {
+	if rpm == nil {
+		return
+	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	// TODO add unit test to validate that we get callbacks only for relevant events
@@ -416,6 +450,9 @@ func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod, needsReassign bool, ready b
 }
 
 func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
+	if rpm == nil {
+		return
+	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -437,12 +474,18 @@ func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
 }
 
 func (rpm *Manager) EndpointCreated(ep *endpoint.Endpoint) {
+	if rpm == nil {
+		return
+	}
 	podID := k8s.ServiceID{
 		Name:      ep.GetK8sPodName(),
 		Namespace: ep.GetK8sNamespace(),
 	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
+
+	txn := rpm.db.ReadTxn()
+
 	if policyIDs, found := rpm.policyEndpoints[podID]; found {
 		for _, id := range policyIDs.UnsortedList() {
 			config := rpm.policyConfigs[id]
@@ -450,15 +493,15 @@ func (rpm *Manager) EndpointCreated(ep *endpoint.Endpoint) {
 			if !config.skipRedirectFromBackend {
 				continue
 			}
-			podStore, _ := rpm.localPods.Store(context.TODO())
-			pod, exists, err := podStore.GetByKey(resource.Key{Name: podID.Name, Namespace: podID.Namespace})
-			if err != nil || !exists {
+
+			pod, _, exists := rpm.localPods.Get(txn, agentK8s.PodByName(podID.Namespace, podID.Name))
+			if !exists {
 				return
 			}
 			if k8sUtils.GetLatestPodReadiness(pod.Status) != slimcorev1.ConditionTrue {
 				return
 			}
-			podData := rpm.getPodMetadata(pod)
+			podData := rpm.getPodMetadata(pod.Pod)
 			if podData == nil {
 				// This is a sanity check in case pod data isn't available yet.
 				return
@@ -601,9 +644,9 @@ func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 				continue
 			}
 			if config.skipRedirectFromBackend {
-				if be.AddrCluster.Is4() {
+				if be.AddrCluster.Is4() && option.Config.EnableIPv4 {
 					rpm.skipLBMap.DeleteLB4ByNetnsCookie(be.podNetnsCookie)
-				} else {
+				} else if option.Config.EnableIPv6 {
 					rpm.skipLBMap.DeleteLB6ByNetnsCookie(be.podNetnsCookie)
 				}
 			}
@@ -628,9 +671,9 @@ func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) 
 	if config.skipRedirectFromBackend {
 		// Delete skip_lb map entries.
 		addr := frontend.AddrCluster
-		if addr.Is4() {
+		if addr.Is4() && option.Config.EnableIPv4 {
 			rpm.skipLBMap.DeleteLB4ByAddrPort(addr.AsNetIP(), frontend.Port)
-		} else {
+		} else if option.Config.EnableIPv6 {
 			rpm.skipLBMap.DeleteLB6ByAddrPort(addr.AsNetIP(), frontend.Port)
 		}
 	}
@@ -717,11 +760,11 @@ func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
 			return fmt.Errorf("no valid pod netns cookie")
 		}
 		addr := mapping.feAddr
-		if addr.AddrCluster.Is4() {
+		if addr.AddrCluster.Is4() && option.Config.EnableIPv4 {
 			if err := rpm.skipLBMap.AddLB4(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb4 map: %w", err)
 			}
-		} else {
+		} else if option.Config.EnableIPv6 {
 			if err := rpm.skipLBMap.AddLB6(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb6 map: %w", err)
 			}
@@ -768,6 +811,7 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		Backends:         backendAddrs,
 		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
 		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		ProxyDelegation:  lb.SVCProxyDelegationNone,
 	}
 
 	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {
@@ -784,15 +828,10 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 	var (
 		retPods []*podMetadata
 		podData *podMetadata
-		err     error
 	)
 
-	podStore, err := rpm.localPods.Store(context.TODO())
-	if err != nil {
-		log.WithError(err).Error("failed to get reference to local pod store")
-		return nil, err
-	}
-	for _, pod := range podStore.List() {
+	for localPod := range rpm.localPods.All(rpm.db.ReadTxn()) {
+		pod := localPod.Pod
 		if !config.checkNamespace(pod.GetNamespace()) {
 			continue
 		}
@@ -1047,12 +1086,8 @@ func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *fe
 
 	if podPolicies, ok := rpm.policyPods[podID]; ok {
 		newPodPolicy := true
-		for _, poID := range podPolicies {
-			// Existing pod policy update
-			if poID == config.id {
-				newPodPolicy = false
-				break
-			}
+		if slices.Contains(podPolicies, config.id) {
+			newPodPolicy = false
 		}
 		if newPodPolicy {
 			// Pod selected by a new policy
@@ -1095,6 +1130,9 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod) *podMetadata {
 }
 
 func (rpm *Manager) GetLRPs() []*LRPConfig {
+	if rpm == nil {
+		return nil
+	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 

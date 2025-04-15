@@ -52,7 +52,7 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 	// cache.GetInformer will block until its context is cancelled if the cache was already started and it can not
 	// sync that informer (most commonly due to RBAC issues).
 	ctx, ks.startCancel = context.WithCancel(ctx)
-	ks.startedErr = make(chan error)
+	ks.startedErr = make(chan error, 1) // Buffer chan to not leak goroutines if WaitForSync isn't called
 	go func() {
 		var (
 			i       cache.Informer

@@ -143,6 +143,18 @@ type RWTable[Obj any] interface {
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	// InsertWatch an object into the table. Returns the object that was
+	// replaced if there was one and a watch channel that closes when the
+	// object is modified again.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	//
+	// Each inserted or updated object will be assigned a new unique
+	// revision.
+	InsertWatch(WriteTxn, Obj) (oldObj Obj, hadOld bool, watch <-chan struct{}, err error)
+
 	// Modify an existing object or insert a new object into the table. If an old object
 	// exists the [merge] function is called with the old and new objects.
 	//
@@ -332,6 +344,7 @@ func (i Index[Obj, Key]) fromString(s string) (index.Key, error) {
 		return index.Key{}, errFromStringNil
 	}
 	k, err := i.FromString(s)
+	k = i.encodeKey(k)
 	return k, err
 }
 
@@ -340,23 +353,30 @@ func (i Index[Obj, Key]) isUnique() bool {
 	return i.Unique
 }
 
+func (i Index[Obj, Key]) encodeKey(key []byte) []byte {
+	if !i.Unique {
+		return encodeNonUniqueBytes(key)
+	}
+	return key
+}
+
 // Query constructs a query against this index from a key.
 func (i Index[Obj, Key]) Query(key Key) Query[Obj] {
 	return Query[Obj]{
 		index: i.Name,
-		key:   i.FromKey(key),
+		key:   i.encodeKey(i.FromKey(key)),
 	}
 }
 
 func (i Index[Obj, Key]) QueryFromObject(obj Obj) Query[Obj] {
 	return Query[Obj]{
 		index: i.Name,
-		key:   i.FromObject(obj).First(),
+		key:   i.encodeKey(i.FromObject(obj).First()),
 	}
 }
 
 func (i Index[Obj, Key]) ObjectToKey(obj Obj) index.Key {
-	return i.FromObject(obj).First()
+	return i.encodeKey(i.FromObject(obj).First())
 }
 
 // Indexer is the "FromObject" subset of Index[Obj, Key]

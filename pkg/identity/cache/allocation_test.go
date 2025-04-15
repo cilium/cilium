@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -209,7 +210,7 @@ func testEventWatcherBatching(t *testing.T) {
 		}
 	}
 	require.NotEqual(t, 0, owner.WaitUntilID(1033))
-	require.EqualValues(t, lbls.LabelArray(), owner.GetIdentity(identity.NumericIdentity(1033)))
+	require.Equal(t, lbls.LabelArray(), owner.GetIdentity(identity.NumericIdentity(1033)))
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
 			Typ: allocator.AllocatorChangeDelete,
@@ -268,9 +269,9 @@ func testGetIdentityCache(t *testing.T, testConfig testConfig) {
 
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	cl := kvstore.SetupDummy(t, "etcd")
 	testAllocator(t)
-	testAllocatorOperatorIDManagement(t)
+	testAllocatorOperatorIDManagement(t, kvstoreClient{cl})
 }
 
 func testAllocator(t *testing.T) {
@@ -292,7 +293,7 @@ func testAllocator(t *testing.T) {
 	require.True(t, isNew)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id1a.ID))
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
+	require.Equal(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
 
 	// reuse the same identity
 	id1b, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
@@ -311,7 +312,7 @@ func testAllocator(t *testing.T) {
 	// This also means that we should have not received an event from the
 	// KV-store for the deletion of the identity, so it should still be in
 	// owner's cache.
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
+	require.Equal(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
 
 	id1b, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
 	require.NotNil(t, id1b)
@@ -321,11 +322,11 @@ func testAllocator(t *testing.T) {
 	require.False(t, isNew)
 	require.Equal(t, id1b.ID, id1a.ID)
 	// Should still be cached, no new events should have been received.
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
+	require.Equal(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
 
 	ident := mgr.LookupIdentityByID(context.TODO(), id1b.ID)
 	require.NotNil(t, ident)
-	require.EqualValues(t, ident.Labels, lbls1)
+	require.Equal(t, ident.Labels, lbls1)
 
 	id2, isNew, err := mgr.AllocateIdentity(context.Background(), lbls2, false, identity.InvalidIdentity)
 	require.NotNil(t, id2)
@@ -334,7 +335,7 @@ func testAllocator(t *testing.T) {
 	require.NotEqual(t, id2.ID, id1a.ID)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id2.ID))
-	require.EqualValues(t, lbls2.LabelArray(), owner.GetIdentity(id2.ID))
+	require.Equal(t, lbls2.LabelArray(), owner.GetIdentity(id2.ID))
 
 	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3, false, identity.InvalidIdentity)
 	require.NotNil(t, id3)
@@ -344,7 +345,7 @@ func testAllocator(t *testing.T) {
 	require.NotEqual(t, id3.ID, id2.ID)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id3.ID))
-	require.EqualValues(t, lbls3.LabelArray(), owner.GetIdentity(id3.ID))
+	require.Equal(t, lbls3.LabelArray(), owner.GetIdentity(id3.ID))
 
 	released, err = mgr.Release(context.Background(), id1b, false)
 	require.NoError(t, err)
@@ -372,7 +373,7 @@ func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
 	}
 }
 
-func testAllocatorOperatorIDManagement(t *testing.T) {
+func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 	const testNamePrefix = "operator_id_management"
 
 	type testCase struct {
@@ -408,7 +409,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			lbls1 := labels.NewLabelsFromSortedList("blah=%%//!!;id=foo;user=anna")
 
 			ctx := context.Background()
-			_, kubeClient := k8sClient.NewFakeClientset()
+			_, kubeClient := k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 			owner := newDummyOwner()
 			identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
@@ -428,11 +429,11 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			var err2 error
 			switch option.Config.IdentityAllocationMode {
 			case option.IdentityAllocationModeKVstore:
-				err = addIDKVStore(ctx, id.Name, lbls1)
+				err = cl.addIDKVStore(ctx, id.Name, lbls1)
 			case option.IdentityAllocationModeCRD:
 				_, err = kubeClient.CiliumV2().CiliumIdentities().Create(ctx, id, metav1.CreateOptions{})
 			case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
-				err2 = addIDKVStore(ctx, id.Name, lbls1)
+				err2 = cl.addIDKVStore(ctx, id.Name, lbls1)
 				_, err = kubeClient.CiliumV2().CiliumIdentities().Create(ctx, id, metav1.CreateOptions{})
 			}
 			require.NoError(t, err)
@@ -446,7 +447,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.EqualValues(t, lbls1.LabelArray(), id2.LabelArray)
+			require.Equal(t, lbls1.LabelArray(), id2.LabelArray)
 
 			// Repeat verification for the same lbls.
 			var id3 *identity.Identity
@@ -456,7 +457,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.EqualValues(t, lbls1.LabelArray(), id3.LabelArray)
+			require.Equal(t, lbls1.LabelArray(), id3.LabelArray)
 
 			released, err := mgr.Release(ctx, id2, false)
 			require.NoError(t, err)
@@ -464,11 +465,11 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 
 			switch option.Config.IdentityAllocationMode {
 			case option.IdentityAllocationModeKVstore:
-				err = removeIDKVStore(ctx, id.Name)
+				err = cl.removeIDKVStore(ctx, id.Name)
 			case option.IdentityAllocationModeCRD:
 				err = kubeClient.CiliumV2().CiliumIdentities().Delete(ctx, id.Name, metav1.DeleteOptions{})
 			case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
-				err = removeIDKVStore(ctx, id.Name)
+				err = cl.removeIDKVStore(ctx, id.Name)
 				err2 = kubeClient.CiliumV2().CiliumIdentities().Delete(ctx, id.Name, metav1.DeleteOptions{})
 			}
 			require.NoError(t, err)
@@ -492,22 +493,23 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 
 }
 
-func addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
-	kvStoreClient := kvstore.Client()
+type kvstoreClient struct{ kvstore.BackendOperations }
+
+func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
 	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
 	idPrefix := path.Join(IdentitiesPath, "id")
 	keyPath := path.Join(idPrefix, id)
-	success, err := kvStoreClient.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
+	success, err := c.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
 	if err != nil || !success {
 		return fmt.Errorf("unable to create master key '%s': %w", keyPath, err)
 	}
 	return nil
 }
 
-func removeIDKVStore(ctx context.Context, id string) error {
+func (c *kvstoreClient) removeIDKVStore(ctx context.Context, id string) error {
 	prefix := path.Join(IdentitiesPath, "id")
 	key := path.Join(prefix, id)
-	return kvstore.Client().Delete(ctx, key)
+	return c.Delete(ctx, key)
 }
 
 func TestLocalAllocation(t *testing.T) {
@@ -538,7 +540,7 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 	require.True(t, id.ID.HasLocalScope())
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
+	require.Equal(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
 
 	// reuse the same identity
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
@@ -555,7 +557,7 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 	require.False(t, released)
 
 	// Identity still exists
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
+	require.Equal(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
 
 	// 2nd Release, released
 	released, err = mgr.Release(context.Background(), id, true)

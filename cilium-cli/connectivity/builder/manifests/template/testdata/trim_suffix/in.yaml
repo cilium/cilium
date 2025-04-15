@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "client-egress-tls-sni"
+specs:
+- description: "TLS SNI policy"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "{{trimSuffix .ExternalTarget "."}}"

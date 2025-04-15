@@ -38,7 +38,7 @@ type Sniffer struct {
 }
 
 type debugLogger interface {
-	Debugf(string, ...interface{})
+	Debugf(string, ...any)
 }
 
 // Start starts a tcpdump capture on the given pod, listening to the specified
@@ -61,14 +61,21 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		// is to avoid a race after sending ^C (triggered by cancel()) which
 		// might terminate the tcpdump process before it gets a chance to dump
 		// its captures.
-		args := []string{"-i", iface, "--immediate-mode", "-w", sniffer.dumpPath}
+		//
+		// Add --print to have tcpdump print packet information to both stdout and our
+		// target filepath. This helps to ensure that the K8s exec connection does not
+		// close due to timeout.
+		args := []string{"-i", iface, "--immediate-mode", "--print", "-w", sniffer.dumpPath}
 		if sniffer.mode == ModeSanity {
 			// We limit the number of packets to be captured only when expecting
 			// them to be seen (i.e., in sanity mode). Otherwise, better to capture
 			// them all to provide more informative debug messages on failures.
 			args = append(args, "-c", "1")
 		}
-		sniffer.cmd = append([]string{"tcpdump"}, append(args, filter)...)
+		sniffer.cmd = append([]string{"tcpdump"}, append(args, "\""+filter+"\"")...)
+		// We wait before starting tcpdump to avoid an observed race
+		// condition when using a websocket connection
+		sniffer.cmd = append([]string{"sh", "-c"}, "sleep 1 && "+strings.Join(sniffer.cmd, " "))
 
 		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
@@ -97,7 +104,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 				return sniffer, nil
 			}
 
-			return nil, fmt.Errorf("Failed to execute tcpdump: %w", err)
+			return nil, fmt.Errorf("Failed to execute `%s`: %w", strings.Join(sniffer.cmd, " "), err)
 		case <-time.After(100 * time.Millisecond):
 			line, err := sniffer.stdout.ReadString('\n')
 			if err != nil && !errors.Is(err, io.EOF) {

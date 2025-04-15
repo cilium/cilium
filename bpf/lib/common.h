@@ -36,13 +36,6 @@
 #define EVENT_SOURCE 0
 #endif
 
-#ifndef THIS_MTU
-/* If not available, fall back to generically detected MTU instead of more
- * fine-grained per-device MTU.
- */
-# define THIS_MTU MTU
-#endif
-
 #ifdef PREALLOCATE_MAPS
 #define CONDITIONAL_PREALLOC 0
 #else
@@ -266,15 +259,6 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto 
 #define revalidate_data(ctx, data, data_end, ip)			\
 	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
-/* Macros for working with L3 cilium defined IPV6 addresses */
-#define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
-#define BPF_V6_1(dst, ...)	BPF_V6_2(dst, __VA_ARGS__)
-#define BPF_V6_2(dst, a1, a2)		\
-	({					\
-		dst.d1 = a1;			\
-		dst.d2 = a2;			\
-	})
-
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -343,14 +327,22 @@ struct endpoint_info {
 	__u32		pad[2];
 };
 
+#define DIRECTION_EGRESS 0
+#define DIRECTION_INGRESS 1
+
 struct edt_id {
-	__u64		id;
+	__u32		id;
+	__u8		direction;
+	__u8		pad[3];
 };
 
 struct edt_info {
 	__u64		bps;
 	__u64		t_last;
-	__u64		t_horizon_drop;
+	union {
+		__u64	t_horizon_drop;
+		__u64	tokens;
+	};
 	__u32		prio;
 	__u32		pad_32;
 	__u64		pad[3];
@@ -390,7 +382,7 @@ struct policy_key {
 	__u8		egress:1,
 			pad:7;
 	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
-	__u16		dport; /* can be wildcarded with CIDR-like prefix */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
 };
 
 /* POLICY_FULL_PREFIX gets full prefix length of policy_key */
@@ -407,8 +399,6 @@ struct policy_entry {
 	__u8		proxy_port_priority;
 	__u8		pad1;
 	__u16	        pad2;
-	__u64		packets;
-	__u64		bytes;
 };
 
 /*
@@ -417,6 +407,25 @@ struct policy_entry {
  */
 #define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
 #define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
+
+/*
+ * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
+ */
+struct policy_stats_key {
+	__u16		endpoint_id;
+	__u8		pad1;
+	__u8		prefix_len;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+struct policy_stats_value {
+	__u64		packets;
+	__u64		bytes;
+};
 
 struct auth_key {
 	__u32       local_sec_label;
@@ -429,17 +438,6 @@ struct auth_key {
 /* expiration is Unix epoch time in unit nanosecond/2^9 (ns/512). */
 struct auth_info {
 	__u64       expiration;
-};
-
-/*
- * Runtime configuration items for the datapath.
- */
-enum {
-	RUNTIME_CONFIG_UTIME_OFFSET = 0, /* Index to Unix time offset in 512 ns units */
-	/* Last monotonic time, periodically set by the agent to
-	 * tell the datapath its still updating maps
-	 */
-	RUNTIME_CONFIG_AGENT_LIVENESS = 1,
 };
 
 struct metrics_key {
@@ -468,6 +466,18 @@ struct egress_gw_policy_entry {
 	__u32 gateway_ip;
 };
 
+struct egress_gw_policy_key6 {
+	struct bpf_lpm_trie_key lpm_key;
+	union v6addr saddr;
+	union v6addr daddr;
+};
+
+struct egress_gw_policy_entry6 {
+	union v6addr egress_ip;
+	__u32 gateway_ip;
+	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+};
+
 struct srv6_vrf_key4 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 src_ip;
@@ -490,15 +500,6 @@ struct srv6_policy_key6 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 vrf_id;
 	union v6addr dst_cidr;
-};
-
-struct vtep_key {
-	__u32 vtep_ip;
-};
-
-struct vtep_value {
-	__u64 vtep_mac;
-	__u32 tunnel_endpoint;
 };
 
 struct node_key {
@@ -637,8 +638,11 @@ enum {
 #define DROP_HOST_NOT_READY	-202
 #define DROP_EP_NOT_READY	-203
 #define DROP_NO_EGRESS_IP	-204
+#define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
+#define LB_PUNT_TO_STACK	DROP_PUNT_PROXY
+
 #define NAT_NEEDED		CTX_ACT_OK
 #define NAT_46X64_RECIRC	100
 
@@ -659,6 +663,8 @@ enum {
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
 #define REASON_MISSED_CUSTOM_CALL	11
+#define REASON_DECRYPTING			12
+#define REASON_ENCRYPTING			13
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
@@ -696,15 +702,12 @@ enum metric_dir {
 #define MARK_MAGIC_PROXY_EGRESS		0x0B00
 #define MARK_MAGIC_HOST			0x0C00
 #define MARK_MAGIC_DECRYPT		0x0D00
-/* used to identify encrypted overlay traffic post decryption.
- * therefore, SPI bit can be reused to not steal an additional magic mark value.
- */
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
-#define MARK_MAGIC_OVERLAY		0x0400
-#define MARK_MAGIC_EGW_DONE		0x0500
+#define MARK_MAGIC_OVERLAY		0x0400 /* mark carries identity */
+#define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
@@ -762,14 +765,6 @@ enum metric_dir {
 struct encrypt_config {
 	__u8 encrypt_key;
 } __packed;
-
-/**
- * or_encrypt_key - mask and shift key into encryption format
- */
-static __always_inline __u32 or_encrypt_key(__u8 key)
-{
-	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
-}
 
 /*
  * ctx->tc_index uses
@@ -878,8 +873,9 @@ enum {
 enum {
 	SVC_FLAG_LOCALREDIRECT     = (1 << 0),	/* Local redirect service */
 	SVC_FLAG_NAT_46X64         = (1 << 1),	/* NAT-46/64 entry */
-	SVC_FLAG_L7LOADBALANCER    = (1 << 2),	/* tproxy redirect to local l7 loadbalancer */
+	SVC_FLAG_L7_LOADBALANCER   = (1 << 2),	/* TPROXY redirect to local L7 load-balancer */
 	SVC_FLAG_LOOPBACK          = (1 << 3),	/* HostPort with a loopback hostIP */
+	SVC_FLAG_L7_DELEGATE       = (1 << 3),	/* If set then delegate unmodified to local L7 proxy */
 	SVC_FLAG_INT_LOCAL_SCOPE   = (1 << 4),	/* internalTrafficPolicy=Local */
 	SVC_FLAG_TWO_SCOPES        = (1 << 5),	/* Two sets of backends are used for external/internal connections */
 	SVC_FLAG_QUARANTINED       = (1 << 6),	/* Backend slot (key: backend_slot > 0) is quarantined */
@@ -1053,7 +1049,7 @@ struct lb4_service {
 		 */
 		__u32 affinity_timeout;
 		/* For master entry: proxy port in host byte order,
-		 * only when flags2 & SVC_FLAG_L7LOADBALANCER is set.
+		 * only when flags2 & SVC_FLAG_L7_LOADBALANCER is set.
 		 */
 		__u32 l7_lb_proxy_port;
 	};
@@ -1193,41 +1189,6 @@ struct lb6_src_range_key {
 	__u16 pad;
 	union v6addr addr;
 };
-
-static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
-				       int ifindex __maybe_unused,
-				       bool needs_backlog __maybe_unused,
-				       bool from_tunnel)
-{
-	/* Going via CPU backlog queue (aka needs_backlog) is required
-	 * whenever we cannot do a fast ingress -> ingress switch but
-	 * instead need an ingress -> egress netns traversal or vice
-	 * versa.
-	 *
-	 * This is also the case if BPF host routing is disabled, or if
-	 * we are currently on egress which is indicated by ingress_ifindex
-	 * being 0. The latter is cleared upon skb scrubbing.
-	 *
-	 * In case of netkit, we're on the egress side and need a regular
-	 * redirect to the peer device's ifindex. In case of veth we're
-	 * on ingress and need a redirect peer to get to the target. Both
-	 * only traverse the CPU backlog queue once. In case of phys ->
-	 * Pod, the ingress_ifindex is > 0 and in both device types we
-	 * do want a redirect peer into the target Pod's netns.
-	 */
-	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING) ||
-	    ctx_get_ingress_ifindex(ctx) == 0) {
-		return (int)ctx_redirect(ctx, ifindex, 0);
-	}
-
-	/* When coming from overlay, we need to set packet type
-	 * to HOST as otherwise we might get dropped in IP layer.
-	 */
-	if (from_tunnel)
-		ctx_change_type(ctx, PACKET_HOST);
-
-	return ctx_redirect_peer(ctx, ifindex, 0);
-}
 
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {

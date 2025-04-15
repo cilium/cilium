@@ -37,11 +37,11 @@ func Name() string {
 	return fmt.Sprintf("%s_%s", Adjective(), Noun())
 }
 
-// Names generates a random set of names. It panics if max < 0.
-func Names(max int) []string {
-	n := rand.Intn(max + 1)
+// Names generates a random set of names. It panics if n < 0.
+func Names(n int) []string {
+	n = rand.Intn(n + 1)
 	names := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		names[i] = Name()
 	}
 	return names

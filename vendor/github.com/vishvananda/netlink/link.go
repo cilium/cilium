@@ -56,6 +56,8 @@ type LinkAttrs struct {
 	Vfs            []VfInfo // virtual functions available on link
 	Group          uint32
 	PermHWAddr     net.HardwareAddr
+	ParentDev      string
+	ParentDevBus   string
 	Slave          LinkSlave
 }
 
@@ -346,13 +348,14 @@ type TuntapFlag uint16
 // Tuntap links created via /dev/tun/tap, but can be destroyed via netlink
 type Tuntap struct {
 	LinkAttrs
-	Mode       TuntapMode
-	Flags      TuntapFlag
-	NonPersist bool
-	Queues     int
-	Fds        []*os.File
-	Owner      uint32
-	Group      uint32
+	Mode           TuntapMode
+	Flags          TuntapFlag
+	NonPersist     bool
+	Queues         int
+	DisabledQueues int
+	Fds            []*os.File
+	Owner          uint32
+	Group          uint32
 }
 
 func (tuntap *Tuntap) Attrs() *LinkAttrs {

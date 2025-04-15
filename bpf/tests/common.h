@@ -9,6 +9,8 @@
 #include <bpf/loader.h>
 #include <bpf/section.h>
 
+#define ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION		1
+
 /* We can use this macro inside the actual datapath code
  * to compile-in the code for testing. The primary usecase
  * is initializing map-in-map or prog-map.
@@ -267,7 +269,7 @@ test_result_cursor = 0;
 	/* Iterate until lookup encounters null when hitting cpu number */ \
 	/* Assumes at most 128 CPUS */ \
 	for (int i = 0; i < NR_CPUS; i++) { \
-		__entry = map_lookup_percpu_elem(&METRICS_MAP, &key, i); \
+		__entry = map_lookup_percpu_elem(&cilium_metrics, &key, i); \
 		if (!__entry) { \
 			break; \
 		} \

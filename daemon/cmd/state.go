@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -46,7 +47,7 @@ func (d *Daemon) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
-func (d *Daemon) WaitForInitialEnvoyPolicy(ctx context.Context) error {
+func (d *Daemon) WaitForInitialPolicy(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -54,6 +55,7 @@ func (d *Daemon) WaitForInitialEnvoyPolicy(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-d.endpointRestoreComplete:
 	case <-d.endpointInitialPolicyComplete:
 	}
 	return nil
@@ -179,7 +181,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, d, d.ipcache, dir, eptsID)
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d.endpointCreator, dir, eptsID)
 
 	if len(state.possible) == 0 {
 		log.Info("No old endpoints found.")
@@ -288,7 +290,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 
 	// Before regenerating, check whether the CT map has properties that
 	// match this Cilium userspace instance. If not, it must be removed
-	ctmap.DeleteIfUpgradeNeeded(nil)
+	ctmap.DeleteIfUpgradeNeeded()
 
 	// we need to signalize when the endpoints are regenerated, i.e., when
 	// they have finished to rebuild after being restored.
@@ -303,11 +305,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	// endpoint list.
 	for i := len(state.restored) - 1; i >= 0; i-- {
 		ep := state.restored[i]
-		// If the endpoint has local conntrack option enabled, then
-		// check whether the CT map needs upgrading (and do so).
-		if ep.Options.IsEnabled(option.ConntrackLocal) {
-			ctmap.DeleteIfUpgradeNeeded(ep)
-		}
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
@@ -317,7 +314,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		if err := d.endpointManager.RestoreEndpoint(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
-			state.restored = append(state.restored[:i], state.restored[i+1:]...)
+			state.restored = slices.Delete(state.restored, i, i+1)
 		}
 	}
 

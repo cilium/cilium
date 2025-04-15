@@ -12,7 +12,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpnodeconfigoverride",path="ciliumbgpnodeconfigoverrides",scope="Cluster",shortName={cbgpnodeoverride}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 // CiliumBGPNodeConfigOverride specifies configuration overrides for a CiliumBGPNodeConfig.
 // It allows fine-tuning of BGP behavior on a per-node basis. For the override to be effective,

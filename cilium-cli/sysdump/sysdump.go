@@ -642,10 +642,12 @@ func (c *Collector) Run() error {
 
 					p, err := c.Client.ListPods(ctx, namespace.Name, metav1.ListOptions{})
 					if err != nil {
-						return fmt.Errorf("failed to get logs from Hubble certgen pods")
+						return fmt.Errorf("failed to get logs from crashloop/restarted pods: %w", err)
 					}
-					if err := c.SubmitLogsTasks(filterCrashedPods(p, 0), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
-						return fmt.Errorf("failed to collect logs from Hubble certgen pods")
+					if err := c.SubmitLogsTasks(append(
+						filterCrashedPods(p, 0),
+						filterRestartedContainersPods(p, 0)...), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+						return fmt.Errorf("failed to collect logs from crashloop/restarted pods: %w", err)
 					}
 				}
 				return nil
@@ -681,26 +683,6 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteYAML(ciliumClusterWideNetworkPoliciesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium cluster-wide network policies: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium egress NAT policies",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				gvr := schema.GroupVersionResource{
-					Group:    "cilium.io",
-					Version:  "v2alpha1",
-					Resource: "ciliumegressnatpolicies",
-				}
-				allNamespace := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, gvr, &allNamespace, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
-				}
-				if err := c.WriteYAML(ciliumEgressNATPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
 				}
 				return nil
 			},
@@ -1468,21 +1450,6 @@ func (c *Collector) Run() error {
 				return fmt.Errorf("could not find running Cilium Pod")
 			},
 		},
-		{
-			CreatesSubtasks: true,
-			Description:     "Collecting Cilium external workloads",
-			Quick:           true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium external workloads: %w", err)
-				}
-				if err := c.WriteYAML(ciliumExternalWorkloadFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium external workloads: %w", err)
-				}
-				return nil
-			},
-		},
 	}
 
 	if c.Options.HubbleFlowsCount > 0 {
@@ -1667,7 +1634,7 @@ func (c *Collector) Run() error {
 			Description:     fmt.Sprintf("Collecting logs from extra pods %q", selector),
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+				p, err := c.Client.ListPods(ctx, metav1.NamespaceAll, metav1.ListOptions{
 					LabelSelector: selector,
 				})
 				if err != nil {
@@ -2174,6 +2141,7 @@ func (c *Collector) getEnvoyConfigTasks() []Task {
 
 func (c *Collector) getBGPControlPlaneTasks() []Task {
 	return []Task{
+		// BGPv1 resource
 		{
 			Description: "Collecting Cilium BGP Peering Policies",
 			Quick:       true,
@@ -2188,94 +2156,60 @@ func (c *Collector) getBGPControlPlaneTasks() []Task {
 				return nil
 			},
 		},
-		{
-			Description: "Collecting Cilium BGP Cluster Configs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPClusterConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Cluster Configs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGClusterConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Cluster Configs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Peer Configs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeerConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peer Configs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGPeerConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peer Configs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Advertisements",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPAdvertisements(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Advertisements: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGAdvertisementsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Advertisements: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Node Configs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPNodeConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Configs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGNodeConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Configs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Node Config Overrides",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPNodeConfigOverrides(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Config Overrides: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGNodeConfigOverridesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Config Overrides: %w", err)
-				}
-				return nil
-			},
+		// BGPv2 resources - can be either v2 or v2alpha1 version
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpclusterconfigs", "Cilium BGP Cluster Configs"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgppeerconfigs", "Cilium BGP Peer Configs"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpadvertisements", "Cilium BGP Advertisements"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpnodeconfigs", "Cilium BGP Node Configs"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpnodeconfigoverrides", "Cilium BGP Node Config Overrides"),
+	}
+}
+
+// collects objects of v2 (primarily) or v2alpha1 (fallback) version of a cilium.io resource
+func collectCiliumV2OrV2Alpha1Resource(collector *Collector, resource, title string) Task {
+	return Task{
+		Description: fmt.Sprintf("Collecting %s", title),
+		Quick:       true,
+		Task: func(ctx context.Context) error {
+			gvr := schema.GroupVersionResource{
+				Group:    "cilium.io",
+				Resource: resource,
+				Version:  "v2",
+			}
+			n := corev1.NamespaceAll
+			// try to collect the v2 version first
+			v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			if err != nil && k8sErrors.IsNotFound(err) {
+				// if the v2 version does not exist, try to collect the v2alpha1 version
+				gvr.Version = "v2alpha1"
+				v, err = collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			}
+			if err != nil {
+				return fmt.Errorf("failed to collect %s: %w", title, err)
+			}
+			if err := collector.WriteYAML(fmt.Sprintf(k8sResourceFileName, resource), v); err != nil {
+				return fmt.Errorf("failed to collect %s: %w", title, err)
+			}
+			return nil
 		},
 	}
 }
 
-func (c *Collector) log(msg string, args ...interface{}) {
+func (c *Collector) log(msg string, args ...any) {
 	fmt.Fprintf(c.logWriter, msg+"\n", args...)
 }
 
-func (c *Collector) logDebug(msg string, args ...interface{}) {
+func (c *Collector) logDebug(msg string, args ...any) {
 	if c.Options.Debug {
 		c.log("🩺 "+msg, args...)
 	}
 }
 
-func (c *Collector) logTask(msg string, args ...interface{}) {
+func (c *Collector) logTask(msg string, args ...any) {
 	c.log("🔍 "+msg, args...)
 }
 
-func (c *Collector) logWarn(msg string, args ...interface{}) {
+func (c *Collector) logWarn(msg string, args ...any) {
 	c.log("⚠️ "+msg, args...)
 }
 
@@ -2578,8 +2512,7 @@ func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
 }
 
 func extractGopsPID(output string) (string, error) {
-	entries := strings.Split(output, "\n")
-	for _, entry := range entries {
+	for entry := range strings.SplitSeq(output, "\n") {
 		match := gopsRegexp.FindStringSubmatch(entry)
 		if len(match) > 0 {
 			result := make(map[string]string)
@@ -2619,8 +2552,7 @@ func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName s
 			if err != nil {
 				return err
 			}
-			cniConfigFileNames := strings.Split(strings.TrimSpace(outputStr.String()), "\n")
-			for _, cniFileName := range cniConfigFileNames {
+			for cniFileName := range strings.SplitSeq(strings.TrimSpace(outputStr.String()), "\n") {
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
 				if err := c.WithFileSink(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), func(out io.Writer) error {
 					return c.Client.ExecInPodWithWriters(ctx, nil, p.GetNamespace(), p.GetName(), containerName, []string{

@@ -126,10 +126,12 @@ func Test_NeighborAddDel(t *testing.T) {
 	defer testDone()
 
 	// test setup, we configure two gobgp instances here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConfPassword, gobgpConf2}, newFixtureConf())
+	gobgpInstances, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConfPassword, gobgpConf2}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 2)
 	defer cleanup()
+
+	ready()
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
@@ -264,15 +266,16 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 	}
 
 	// This test run can take upto a minute
-	testCtx, testDone := context.WithTimeout(context.Background(), maxGracefulRestartTestDuration)
+	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
 	defer testDone()
 
 	// test setup, we configure single gobgp instance here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpInstances, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 1)
 	defer cleanup()
 
+	ready()
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
 			// update bgp policy with neighbors defined in test step

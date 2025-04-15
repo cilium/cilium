@@ -691,6 +691,7 @@ func newNeighborFromAPIStruct(a *api.Peer) (*oc.Neighbor, error) {
 		pconf.Config.Vrf = a.Conf.Vrf
 		pconf.AsPathOptions.Config.AllowOwnAs = uint8(a.Conf.AllowOwnAsn)
 		pconf.AsPathOptions.Config.ReplacePeerAs = a.Conf.ReplacePeerAsn
+		pconf.AsPathOptions.Config.AllowAsPathLoopLocal = a.Conf.AllowAspathLoopLocal
 		pconf.Config.SendSoftwareVersion = a.Conf.SendSoftwareVersion
 
 		switch a.Conf.RemovePrivate {

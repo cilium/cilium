@@ -6,7 +6,14 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-k8s add service.yaml endpointslice.yaml
+# Start with two backends that are both active.
+cp endpointslice.yaml.tmpl endpointslice.yaml
+replace '$TERM1' 'false' endpointslice.yaml
+replace '$READY1' 'true' endpointslice.yaml
+replace '$TERM2' 'false' endpointslice.yaml
+replace '$READY2' 'true' endpointslice.yaml
+
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table
@@ -15,51 +22,67 @@ db/cmp backends backends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps-active.expected lbmaps.actual
 
-# Set the backend as terminating
-k8s update endpointslice-terminating.yaml
-db/cmp frontends frontends-terminating.table
-db/cmp backends backends-terminating.table
+# Set the first backend as terminating. The second backend
+# will now serve the traffic.
+cp endpointslice.yaml.tmpl endpointslice.yaml
+replace '$TERM1' 'true' endpointslice.yaml
+replace '$READY1' 'false' endpointslice.yaml
+replace '$TERM2' 'false' endpointslice.yaml
+replace '$READY2' 'true' endpointslice.yaml
+k8s/update endpointslice.yaml
+db/cmp backends backends-terminating1.table
 
 # Check BPF maps
 lb/maps-dump lbmaps.actual
-* cmp lbmaps-terminating.expected lbmaps.actual
+* cmp lbmaps-terminating1.expected lbmaps.actual
+
+# Set also the second backend as terminating. Now since there
+# are now active backends the terminating backends are used
+# instead.
+cp endpointslice.yaml.tmpl endpointslice.yaml
+replace '$TERM1' 'true' endpointslice.yaml
+replace '$READY1' 'false' endpointslice.yaml
+replace '$TERM2' 'true' endpointslice.yaml
+replace '$READY2' 'false' endpointslice.yaml
+k8s/update endpointslice.yaml
+db/cmp frontends frontends-terminating2.table
+db/cmp backends backends-terminating2.table
 
 # Cleanup
-k8s delete service.yaml endpointslice.yaml 
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+k8s/delete service.yaml endpointslice.yaml
+
+# Tables and maps should be empty now
+* db/empty services frontends backends
+* lb/maps-empty
 
 #####
 
 -- services.table --
-Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/graceful-term-svc   k8s                  Cluster            Cluster                              0                     false              
+Name                     Source   PortNames  TrafficPolicy   Flags
+test/graceful-term-svc   k8s      =8081      Cluster         
 
 -- frontends.table --
-Address                 Type        ServiceName              Backends                              Status
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   10.244.0.112:8081/TCP (active)        Done
+Address                 Type        ServiceName              Status  Backends                              
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
 
--- frontends-terminating.table --
-Address                 Type        ServiceName              Backends                              Status
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   10.244.0.112:8081/TCP (terminating)   Done
+-- frontends-terminating2.table --
+Address                 Type        ServiceName              Status  Backends
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
 
 -- backends.table --
-Address                 State   Instances                NodeName                      ZoneID
-10.244.0.112:8081/TCP   active  test/graceful-term-svc   graceful-term-control-plane   0
+Address                 Instances                NodeName
+10.244.0.112:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
+10.244.0.113:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
 
--- backends-terminating.table --
-Address                 State         Instances                NodeName                      ZoneID
-10.244.0.112:8081/TCP   terminating   test/graceful-term-svc   graceful-term-control-plane   0
+-- backends-terminating1.table --
+Address                 Instances                              NodeName
+10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]   graceful-term-control-plane
+10.244.0.113:8081/TCP   test/graceful-term-svc                 graceful-term-control-plane
 
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address             State    Instances            NodeName           ZoneID
+-- backends-terminating2.table --
+Address                 Instances                             NodeName
+10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
+10.244.0.113:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
 
 -- service.yaml --
 apiVersion: v1
@@ -92,23 +115,9 @@ spec:
 status:
   loadBalancer: {}
 
--- endpointslice.yaml --
-addressType: IPv4
-apiVersion: discovery.k8s.io/v1
-endpoints:
-- addresses:
-  - 10.244.0.112
-  conditions:
-    ready: true
-    serving: true
-    terminating: false
-  nodeName: graceful-term-control-plane
-  targetRef:
-    kind: Pod
-    name: graceful-term-server
-    namespace: test
-    uid: 82f690d0-e3ed-4981-af97-30133d1b457e
+-- endpointslice.yaml.tmpl --
 kind: EndpointSlice
+apiVersion: discovery.k8s.io/v1
 metadata:
   creationTimestamp: "2023-02-02T01:21:10Z"
   generateName: graceful-term-svc-
@@ -127,58 +136,55 @@ metadata:
     uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
   resourceVersion: "729"
   uid: ed13283f-c92e-4531-ae1b-f6d6aa4463b7
-ports:
-- name: ""
-  port: 8081
-  protocol: TCP
-
--- endpointslice-terminating.yaml --
 addressType: IPv4
-apiVersion: discovery.k8s.io/v1
 endpoints:
 - addresses:
   - 10.244.0.112
   conditions:
-    ready: false
+    ready: $READY1
     serving: true
-    terminating: true
+    terminating: $TERM1
   nodeName: graceful-term-control-plane
   targetRef:
     kind: Pod
     name: graceful-term-server
     namespace: test
     uid: 82f690d0-e3ed-4981-af97-30133d1b457e
-kind: EndpointSlice
-metadata:
-  creationTimestamp: "2023-02-02T01:21:10Z"
-  generateName: graceful-term-svc-
-  generation: 4
-  labels:
-    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
-    kubernetes.io/service-name: graceful-term-svc
-  name: graceful-term-svc-pg7nd
-  namespace: test
-  ownerReferences:
-  - apiVersion: v1
-    blockOwnerDeletion: true
-    controller: true
-    kind: Service
-    name: graceful-term-svc
-    uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
-  resourceVersion: "730"
-  uid: ed13283f-c92e-4531-ae1b-f6d6aa4463b7
+
+- addresses:
+  - 10.244.0.113
+  conditions:
+    ready: $READY2
+    serving: true
+    terminating: $TERM2
+  nodeName: graceful-term-control-plane
+  targetRef:
+    kind: Pod
+    name: graceful-term-server-2
+    namespace: test
+    uid: 92f690d0-e3ed-4981-af97-30133d1b457e
 ports:
 - name: ""
   port: 8081
   protocol: TCP
 
+
 -- lbmaps-active.expected --
 BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=active
+BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=active
 REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
--- lbmaps-terminating.expected --
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-terminating1.expected --
+BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=terminating
+BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=active
+REV: ID=1 ADDR=10.96.116.33:8081
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-terminating2.expected --
 BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=terminating
 REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

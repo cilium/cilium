@@ -14,7 +14,10 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="quay.io/cilium/cilium-runtime"
+# Retrieve image from parameter and remove tag if one was provided, let make-image-tag in charge of creating the tag
+image=${1}
+image_dir=${2}
+image="${image%%:*}"
 
 image_tag="$(WITHOUT_SUFFIX=1 "${script_dir}/make-image-tag.sh" images/runtime)"
 
@@ -24,4 +27,4 @@ if [ -n "${sha256}" ]; then
   image_full="${image_full}@${sha256}"
 fi
 
-"${script_dir}/../runtime/update-cilium-runtime-image.sh" "${image_full}"
+"${script_dir}/../../${image_dir}/update-cilium-runtime-image.sh" "${image_full}"

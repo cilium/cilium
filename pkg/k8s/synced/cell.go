@@ -6,18 +6,22 @@ package synced
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type syncedParams struct {
 	cell.In
 
+	Logger      *slog.Logger
 	CacheStatus CacheStatus
 }
 
@@ -31,6 +35,7 @@ var Cell = cell.Module(
 
 	cell.Provide(func(params syncedParams) *Resources {
 		return &Resources{
+			logger:      params.Logger,
 			CacheStatus: params.CacheStatus,
 		}
 	}),
@@ -45,7 +50,20 @@ var CRDSyncCell = cell.Module(
 	"Provides promise for waiting for CRD to have been synchronized",
 
 	cell.Provide(newCRDSyncPromise),
+	cell.Config(DefaultCRDSyncConfig),
 )
+
+type CRDSyncConfig struct {
+	CRDWaitTimeout time.Duration
+}
+
+var DefaultCRDSyncConfig = CRDSyncConfig{
+	CRDWaitTimeout: 5 * time.Minute,
+}
+
+func (def CRDSyncConfig) Flags(flags *pflag.FlagSet) {
+	flags.Duration("crd-wait-timeout", def.CRDWaitTimeout, "Cilium will exit if CRDs are not available within this duration upon startup")
+}
 
 // CRDSync is an empty type used for promise.Promise. If SyncCRDs() fails, the error is passed via
 // promise Reject to the result of the promise Await() call.
@@ -66,6 +84,8 @@ var RejectedCRDSyncPromise = func() promise.Promise[CRDSync] {
 type syncCRDsPromiseParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Lifecycle     cell.Lifecycle
 	Jobs          job.Registry
 	Health        cell.Health
@@ -73,6 +93,7 @@ type syncCRDsPromiseParams struct {
 	Resources     *Resources
 	APIGroups     *APIGroups
 	ResourceNames CRDSyncResourceNames
+	Config        CRDSyncConfig
 }
 
 func newCRDSyncPromise(params syncCRDsPromiseParams) promise.Promise[CRDSync] {
@@ -84,7 +105,7 @@ func newCRDSyncPromise(params syncCRDsPromiseParams) promise.Promise[CRDSync] {
 
 	g := params.Jobs.NewGroup(params.Health)
 	g.Add(job.OneShot("sync-crds", func(ctx context.Context, health cell.Health) error {
-		err := SyncCRDs(ctx, params.Clientset, params.ResourceNames, params.Resources, params.APIGroups)
+		err := SyncCRDs(ctx, params.Logger, params.Clientset, params.ResourceNames, params.Resources, params.APIGroups, params.Config)
 		if err != nil {
 			crdSyncResolver.Reject(err)
 		} else {

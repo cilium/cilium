@@ -10,9 +10,11 @@ package restore
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/netip"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -20,6 +22,10 @@ import (
 
 // PortProtoV2 is 1 value at bit position 24.
 const PortProtoV2 = 1 << 24
+
+// ErrRemoteClusterAddr is returned when trying to parse a non local
+// (i.e: not belonging to the local cluster) IP or CIDR.
+var ErrRemoteClusterAddr = errors.New("IP or CIDR from remote cluster")
 
 // PortProto is uint32 that encodes two different
 // versions of port protocol keys. Version 1 is protocol
@@ -99,6 +105,14 @@ func (ip RuleIPOrCIDR) IsAddr() bool {
 	return netip.Prefix(ip).Bits() == -1
 }
 
+func (ip RuleIPOrCIDR) Addr() netip.Addr {
+	if ip.IsAddr() {
+		return netip.Prefix(ip).Addr()
+	} else {
+		return netip.Addr{}
+	}
+}
+
 func (ip RuleIPOrCIDR) String() string {
 	if ip.IsAddr() {
 		return netip.Prefix(ip).Addr().String()
@@ -122,7 +136,21 @@ func (ip RuleIPOrCIDR) MarshalText() ([]byte, error) {
 
 func (ip *RuleIPOrCIDR) UnmarshalText(b []byte) (err error) {
 	if b == nil {
-		return fmt.Errorf("cannot unmarshal nil into RuleIPOrCIDR")
+		return errors.New("cannot unmarshal nil into RuleIPOrCIDR")
+	}
+	if i := bytes.IndexByte(b, byte('@')); i >= 0 {
+		if i == len(b)-1 {
+			return errors.New("unexpected trailing @")
+		}
+		clusterIDStr := string(b[i+1:])
+		clusterID, err := strconv.ParseUint(clusterIDStr, 10, 32)
+		if err != nil {
+			return fmt.Errorf("unable to parse clusterID: %w", err)
+		}
+		if clusterID != 0 {
+			return ErrRemoteClusterAddr
+		}
+		b = b[:i]
 	}
 	if i := bytes.IndexByte(b, byte('/')); i < 0 {
 		var addr netip.Addr

@@ -6,11 +6,14 @@ package logging
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -27,6 +30,10 @@ const (
 	Syslog    = "syslog"
 	LevelOpt  = "level"
 	FormatOpt = "format"
+	WriterOpt = "writer"
+
+	StdOutOpt = "stdout"
+	StdErrOpt = "stderr"
 
 	LogFormatText          LogFormat = "text"
 	LogFormatTextTimestamp LogFormat = "text-ts"
@@ -64,7 +71,7 @@ var klogErrorOverrides = []logLevelOverride{
 func initializeKLog() error {
 	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
 
-	//Create a new flag set and set error handler
+	// Create a new flag set and set error handler
 	klogFlags := flag.NewFlagSet("cilium", flag.ExitOnError)
 
 	// Make sure that klog logging variables are initialized so that we can
@@ -99,6 +106,11 @@ type logLevelOverride struct {
 	matcher     *regexp.Regexp
 	targetLevel logrus.Level
 }
+
+var (
+	LevelPanic = slog.LevelError + 8
+	LevelFatal = LevelPanic + 2
+)
 
 func levelToPrintFunc(log *logrus.Entry, level logrus.Level) (func(args ...any), error) {
 	var printFunc func(args ...any)
@@ -144,7 +156,7 @@ func severityOverrideWriter(level logrus.Level, log *logrus.Entry, overrides []l
 func writerScanner(
 	entry *logrus.Entry,
 	reader *io.PipeReader,
-	defaultPrintFunc func(args ...interface{}),
+	defaultPrintFunc func(args ...any),
 	overrides []logLevelOverride) {
 
 	defer reader.Close()
@@ -286,7 +298,8 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	if debug {
 		logOpts[LevelOpt] = "debug"
 	}
-	initializeSlog(logOpts, len(loggers) == 0)
+
+	initializeSlog(logOpts, loggers)
 
 	// Updating the default log format
 	SetLogFormat(logOpts.GetLogFormat())
@@ -361,13 +374,7 @@ func (o LogOptions) validateOpts(logDriver string, supportedOpts map[string]bool
 			return fmt.Errorf("provided configuration key %q is not supported as a logging option for log driver %s", k, logDriver)
 		}
 		if validValues, ok := validKVs[k]; ok {
-			valid := false
-			for _, vv := range validValues {
-				if v == vv {
-					valid = true
-					break
-				}
-			}
+			valid := slices.Contains(validValues, v)
 			if !valid {
 				return fmt.Errorf("provided configuration value %q is not a valid value for %q in log driver %s, valid values: %v", v, k, logDriver, validValues)
 			}
@@ -395,7 +402,7 @@ func getLogDriverConfig(logDriver string, logOpts LogOptions) LogOptions {
 
 // MultiLine breaks a multi line text into individual log entries and calls the
 // logging function to log each entry
-func MultiLine(logFn func(args ...interface{}), output string) {
+func MultiLine(logFn func(args ...any), output string) {
 	scanner := bufio.NewScanner(bytes.NewReader([]byte(output)))
 	for scanner.Scan() {
 		logFn(scanner.Text())
@@ -411,4 +418,23 @@ func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
 // GetLevel returns the log level of the given logger.
 func GetLevel(logger *logrus.Logger) logrus.Level {
 	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
+}
+
+// GetSlogLevel returns the log level of the given sloger.
+func GetSlogLevel(logger FieldLogger) slog.Level {
+	switch {
+	case logger.Enabled(context.Background(), slog.LevelDebug):
+		return slog.LevelDebug
+	case logger.Enabled(context.Background(), slog.LevelInfo):
+		return slog.LevelInfo
+	case logger.Enabled(context.Background(), slog.LevelWarn):
+		return slog.LevelWarn
+	case logger.Enabled(context.Background(), slog.LevelError):
+		return slog.LevelError
+	case logger.Enabled(context.Background(), LevelPanic):
+		return LevelPanic
+	case logger.Enabled(context.Background(), LevelFatal):
+		return LevelFatal
+	}
+	return slog.LevelInfo
 }

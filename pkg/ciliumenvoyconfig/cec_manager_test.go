@@ -5,16 +5,17 @@ package ciliumenvoyconfig
 
 import (
 	"encoding/json"
-	"io"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -60,10 +61,8 @@ spec:
 `)
 
 func TestParseEnvoySpec(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -76,7 +75,7 @@ func TestParseEnvoySpec(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.True(t, useOriginalSourceAddress(&cec.ObjectMeta))
 
-	resources, err := parser.parseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
+	resources, err := parser.parseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, injectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), useOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
@@ -133,10 +132,8 @@ spec:
 `)
 
 func TestParseEnvoySpecWithService(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -156,7 +153,7 @@ func TestParseEnvoySpecWithService(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.True(t, useOriginalSourceAddress(&cec.ObjectMeta))
 
-	resources, err := parser.parseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
+	resources, err := parser.parseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, injectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), useOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, uint32(1025), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
@@ -508,12 +505,100 @@ func Test_convertToLBService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svcs := convertToLBService(tt.args.svc, tt.args.ep)
 			require.Len(t, svcs, len(tt.want))
-			for i := 0; i < len(svcs); i++ {
+			for i := range svcs {
 				require.Equal(t, tt.want[i].Name, svcs[i].Name)
 				require.Equal(t, tt.want[i].Frontend, svcs[i].Frontend)
 				require.Len(t, svcs[i].Backends, len(tt.want[i].Backends))
 				require.ElementsMatch(t, tt.want[i].Backends, svcs[i].Backends)
 			}
+		})
+	}
+}
+
+func Test_injectCiliumEnvoyFilters(t *testing.T) {
+	tests := []struct {
+		name string
+		meta *metav1.ObjectMeta
+		spec *cilium_v2.CiliumEnvoyConfigSpec
+		want bool
+	}{
+		{
+			name: "L7LB services defined",
+			meta: &metav1.ObjectMeta{},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{{
+					Name: "test",
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "L7LB services defined but override via annotation",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECInjectCiliumFilters: "false",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{{
+					Name: "test",
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "No L7LB services but explicit inject via annotation",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECInjectCiliumFilters: "true",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{},
+			},
+			want: true,
+		},
+		{
+			name: "L7LB services defined and invalid annotation value",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECInjectCiliumFilters: "invalid",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{{
+					Name: "test",
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "No L7LB services and invalid annotation value",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECInjectCiliumFilters: "invalid",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{},
+			},
+			want: false,
+		},
+		{
+			name: "No L7LB services and no annotation",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := injectCiliumEnvoyFilters(tt.meta, tt.spec)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

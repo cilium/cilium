@@ -4,7 +4,11 @@
 package cache
 
 import (
+	"context"
 	"fmt"
+	"maps"
+
+	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -29,9 +33,15 @@ type localIdentityCache struct {
 	// If an old nID is passed to lookupOrCreate(), then it is allowed to use a withhend entry here. Otherwise
 	// it must allocate a new ID not in this set.
 	withheldIdentities map[identity.NumericIdentity]struct{}
+
+	// Used to implement the stream.Observable interface.
+	changeSource stream.Observable[IdentityChange]
+	emitChange   func(IdentityChange)
 }
 
 func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity) *localIdentityCache {
+	// There isn't a natural completion of this observable, so let's drop it.
+	mcast, emit, _ := stream.Multicast[IdentityChange]()
 	return &localIdentityCache{
 		identitiesByID:      map[identity.NumericIdentity]*identity.Identity{},
 		identitiesByLabels:  map[string]*identity.Identity{},
@@ -40,6 +50,8 @@ func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity) *localI
 		minID:               minID,
 		maxID:               maxID,
 		withheldIdentities:  map[identity.NumericIdentity]struct{}{},
+		changeSource:        mcast,
+		emitChange:          emit,
 	}
 }
 
@@ -130,6 +142,8 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 	l.identitiesByLabels[string(repr)] = id
 	l.identitiesByID[numericIdentity] = id
 
+	l.emitChange(IdentityChange{Kind: IdentityChangeUpsert, ID: numericIdentity, Labels: lbls})
+
 	return id, true, nil
 }
 
@@ -151,6 +165,7 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 			// hitting the last use
 			delete(l.identitiesByLabels, string(id.Labels.SortedList()))
 			delete(l.identitiesByID, id.ID)
+			l.emitChange(IdentityChange{Kind: IdentityChangeDelete, ID: id.ID})
 
 			return true
 		}
@@ -223,16 +238,9 @@ func (l *localIdentityCache) lookupByID(id identity.NumericIdentity) *identity.I
 
 // GetIdentities returns all local identities
 func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*identity.Identity {
-	cache := map[identity.NumericIdentity]*identity.Identity{}
-
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
-
-	for key, id := range l.identitiesByID {
-		cache[key] = id
-	}
-
-	return cache
+	return maps.Clone(l.identitiesByID)
 }
 
 func (l *localIdentityCache) checkpoint(dst []*identity.Identity) []*identity.Identity {
@@ -248,4 +256,30 @@ func (l *localIdentityCache) size() int {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	return len(l.identitiesByID)
+}
+
+// Implements stream.Observable. Replays initial state as a sequence of adds.
+func (l *localIdentityCache) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+
+	for nid, id := range l.identitiesByID {
+		select {
+		case <-ctx.Done():
+			complete(ctx.Err())
+			return
+		default:
+		}
+		next(IdentityChange{Kind: IdentityChangeUpsert, ID: nid, Labels: id.Labels})
+	}
+
+	select {
+	case <-ctx.Done():
+		complete(ctx.Err())
+		return
+	default:
+	}
+	next(IdentityChange{Kind: IdentityChangeSync})
+
+	l.changeSource.Observe(ctx, next, complete)
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,12 +21,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
@@ -504,14 +504,14 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		Build()
 	globalServiceExports := operator.NewGlobalServiceExportCache(metric.NewGauge(metric.GaugeOpts{}))
-	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: logging.DefaultLogger}
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
 	for _, svcExport := range remoteSvcImportTestFixtures {
 		globalServiceExports.OnUpdate(svcExport)
 	}
 
 	r := &mcsAPIServiceImportReconciler{
 		Client:                     c,
-		Logger:                     logging.DefaultLogger,
+		Logger:                     hivetest.Logger(t),
 		cluster:                    localClusterName,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
@@ -839,6 +839,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		name                 string
 		remoteSvcImportValid func(*mcsapiv1alpha1.ServiceImport) bool
 		localSvcImportValid  func(*mcsapiv1alpha1.ServiceImport) bool
+		assertMsgInclude     string
 	}{
 		{
 			name: "conflict-type",
@@ -848,6 +849,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return svcImport.Spec.Type == mcsapiv1alpha1.ClusterSetIP
 			},
+			assertMsgInclude: "1/2 clusters disagree",
 		},
 		{
 			name: "conflict-port-name",
@@ -949,6 +951,12 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, conditionTypeReady))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportValid))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict))
+
+			if conflictTest.assertMsgInclude != "" {
+				condition := meta.FindStatusCondition(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
+				require.NotNil(t, condition)
+				require.Contains(t, condition.Message, conflictTest.assertMsgInclude)
+			}
 		})
 	}
 

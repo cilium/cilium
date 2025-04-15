@@ -104,7 +104,7 @@ func TestResource_WithFakeClient(t *testing.T) {
 		}
 
 		nodes          resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
+		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 		events <-chan resource.Event[*corev1.Node]
 	)
@@ -329,7 +329,7 @@ func TestResource_RepeatedDelete(t *testing.T) {
 	// Repeatedly create and delete the node in the background
 	// while "unreliably" processing some of the delete events.
 	go func() {
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			node.ObjectMeta.ResourceVersion = fmt.Sprintf("%d", i)
 
 			lw.events <- watch.Event{
@@ -453,7 +453,7 @@ func TestResource_CompletionOnStop(t *testing.T) {
 func TestResource_WithTransform(t *testing.T) {
 	type StrippedNode = metav1.PartialObjectMetadata
 	var strippedNodes resource.Resource[*StrippedNode]
-	var fakeClient, cs = k8sClient.NewFakeClientset()
+	var fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -525,7 +525,7 @@ func TestResource_WithoutIndexers(t *testing.T) {
 			},
 		}
 		nodeResource   resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
+		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	)
 
 	fakeClient.KubernetesFakeClientset.Tracker().Create(
@@ -632,10 +632,10 @@ func TestResource_WithIndexers(t *testing.T) {
 			},
 		}
 		nodeResource   resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
+		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 		indexName = "node-index-key"
-		indexFunc = func(obj interface{}) ([]string, error) {
+		indexFunc = func(obj any) ([]string, error) {
 			switch t := obj.(type) {
 			case *corev1.Node:
 				return []string{t.Name}, nil
@@ -678,7 +678,7 @@ func TestResource_WithIndexers(t *testing.T) {
 	events := nodeResource.Events(ctx)
 
 	// wait for the upsert events
-	for i := 0; i < len(nodes); i++ {
+	for range len(nodes) {
 		ev, ok := <-events
 		require.True(t, ok)
 		require.Equal(t, resource.Upsert, ev.Kind)
@@ -739,13 +739,13 @@ var RetryFiveTimes resource.ErrorHandler = func(key resource.Key, numRetries int
 func TestResource_Retries(t *testing.T) {
 	var (
 		nodes          resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
+		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	)
 
 	var rateLimiterUsed atomic.Int64
-	rateLimiter := func() workqueue.RateLimiter {
+	rateLimiter := func() workqueue.TypedRateLimiter[resource.WorkItem] {
 		rateLimiterUsed.Add(1)
-		return workqueue.DefaultControllerRateLimiter()
+		return workqueue.DefaultTypedControllerRateLimiter[resource.WorkItem]()
 	}
 
 	hive := hive.New(
@@ -878,7 +878,7 @@ func TestResource_Observe(t *testing.T) {
 				Phase: "init",
 			},
 		}
-		fakeClient, cs = k8sClient.NewFakeClientset()
+		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 		nodes          resource.Resource[*corev1.Node]
 	)
 
@@ -923,246 +923,6 @@ func TestResource_Observe(t *testing.T) {
 		t.Fatalf("hive.Stop failed: %s", err)
 	}
 	completeWg.Wait()
-}
-
-func TestResource_Releasable(t *testing.T) {
-	var (
-		nodeName = "some-node"
-		node     = &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            nodeName,
-				ResourceVersion: "0",
-			},
-			Status: corev1.NodeStatus{
-				Phase: "init",
-			},
-		}
-		nodeResource   resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
-	)
-
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
-
-	hive := hive.New(
-		cell.Provide(func() k8sClient.Clientset { return cs }),
-		cell.Provide(
-			func(lc cell.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
-				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
-				return resource.New[*corev1.Node](
-					lc, lw,
-					resource.WithStoppableInformer(),
-				)
-			},
-		),
-
-		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
-			nodeResource = r
-		}),
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	tlog := hivetest.Logger(t)
-	assert.NoError(t, hive.Start(tlog, ctx))
-
-	var (
-		store resource.Store[*corev1.Node]
-		err   error
-	)
-
-	// get a reference to the store and start the informer
-	store, err = nodeResource.Store(ctx)
-	assert.NoError(t, err)
-
-	// store should be synced
-	testStore(t, node, store)
-
-	// release the store and wait some time for the underlying informer to stop
-	store.Release()
-	time.Sleep(20 * time.Millisecond)
-
-	// the old store reference is still valid
-	testStore(t, node, store)
-
-	// add a new node and wait some time to be sure the update is visible if there is an active subscriber
-	node = &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "another-node",
-			ResourceVersion: "0",
-		},
-	}
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
-	time.Sleep(20 * time.Millisecond)
-
-	// the store won't see any change, since there is no active informer keeping it up to date
-	assert.Len(t, store.List(), 1)
-
-	// take a new reference to the store and start a new informer
-	store, err = nodeResource.Store(ctx)
-	assert.NoError(t, err)
-
-	// new store reference should be synced
-	assert.Len(t, store.List(), 2)
-
-	subCtx, subCancel := context.WithCancel(ctx)
-	defer subCancel()
-
-	var wg sync.WaitGroup
-
-	// subscribe to the resource events stream
-	subscribed := subscribe(subCtx, &wg, nodeResource)
-
-	// wait for subscription
-	<-subscribed
-
-	// release the store
-	store.Release()
-
-	// the store reference is still valid
-	assert.Len(t, store.List(), 2)
-
-	// the store will be eventually updated because the underlying informer is still alive thanks to the Events subscriber
-	node = &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "another-node-again",
-			ResourceVersion: "0",
-		},
-	}
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
-	assert.Eventually(
-		t,
-		func() bool { return len(store.List()) == 3 },
-		time.Second,
-		5*time.Millisecond,
-	)
-
-	// stop the subscriber and wait some time for the underlying informer to stop
-	subCancel()
-	time.Sleep(20 * time.Millisecond)
-
-	// add a new node and wait some time to be sure the update is visible if there is an active subscriber
-	node = &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "another-node-again-and-again",
-			ResourceVersion: "0",
-		},
-	}
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
-
-	// the underlying informer is now stopped and the store has not been updated
-	assert.Len(t, store.List(), 3)
-
-	assert.NoError(t, hive.Stop(tlog, ctx))
-}
-
-func TestResource_ReleasableCtxCanceled(t *testing.T) {
-	var (
-		nodeName = "some-node"
-		node     = &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            nodeName,
-				ResourceVersion: "0",
-			},
-			Status: corev1.NodeStatus{
-				Phase: "init",
-			},
-		}
-		nodeResource   resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
-	)
-
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
-
-	hive := hive.New(
-		cell.Provide(func() k8sClient.Clientset { return cs }),
-		cell.Provide(
-			func(lc cell.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
-				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
-				return resource.New[*corev1.Node](
-					lc, lw,
-					resource.WithStoppableInformer(),
-				)
-			},
-		),
-
-		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
-			nodeResource = r
-		}),
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	tlog := hivetest.Logger(t)
-	assert.NoError(t, hive.Start(tlog, ctx))
-
-	subCtx, subCancel := context.WithCancel(ctx)
-	subCancel()
-
-	// Store should return context.Canceled and should release the resource
-	_, err := nodeResource.Store(subCtx)
-	assert.ErrorIs(t, err, context.Canceled)
-
-	// resource should be able to start again after the first call to Store has been canceled
-	store, err := nodeResource.Store(ctx)
-	assert.NoError(t, err)
-
-	// store should be synced
-	testStore(t, node, store)
-
-	// release the store and wait some time for the underlying informer to stop
-	store.Release()
-	time.Sleep(20 * time.Millisecond)
-
-	// the store reference is still valid
-	testStore(t, node, store)
-
-	// add a new node and wait some time to be sure the update is visible if there is an active subscriber
-	node = &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "another-node",
-			ResourceVersion: "0",
-		},
-	}
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
-	time.Sleep(20 * time.Millisecond)
-
-	// the store won't see any change, since the informer should have been stopped
-	// (first call to Store was canceled and the second reference has been explicitly released)
-	assert.Len(t, store.List(), 1)
-
-	assert.NoError(t, hive.Stop(tlog, ctx))
-}
-
-func subscribe(ctx context.Context, wg *sync.WaitGroup, nodes resource.Resource[*corev1.Node]) <-chan struct{} {
-	subscribed := make(chan struct{})
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		events := nodes.Events(ctx)
-		close(subscribed)
-
-		for ev := range events {
-			ev.Done(nil)
-		}
-	}()
-
-	return subscribed
 }
 
 //
@@ -1212,14 +972,12 @@ func BenchmarkResource(b *testing.B) {
 	assert.Equal(b, resource.Sync, ev.Kind)
 	ev.Done(nil)
 
-	b.ResetTimer()
-
 	var wg sync.WaitGroup
 
 	// Feed in b.N nodes as watcher events
 	wg.Add(1)
 	go func() {
-		for i := 0; i < b.N; i++ {
+		for i := 0; b.Loop(); i++ {
 			name := fmt.Sprintf("node-%d", i)
 			lw.events <- watch.Event{Type: watch.Added, Object: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1232,7 +990,7 @@ func BenchmarkResource(b *testing.B) {
 	}()
 
 	// Consume the events via the resource
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ev, ok := <-events
 		assert.True(b, ok)
 		assert.Equal(b, resource.Upsert, ev.Kind)
@@ -1264,7 +1022,7 @@ func TestResource_SkippedDonePanics(t *testing.T) {
 			},
 		}
 		nodes          resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset()
+		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 		events         <-chan resource.Event[*corev1.Node]
 	)
 

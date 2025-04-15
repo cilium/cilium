@@ -318,7 +318,7 @@ func (c *cniConfigManager) setupCNIConfFile() (err error) {
 			c.log.Debugf("Failed to read existing CNI configuration file %s: %v", dest, err)
 		}
 		// commit CNI config
-		if err := renameio.WriteFile(dest, contents, 0644); err != nil {
+		if err := renameio.WriteFile(dest, contents, 0600); err != nil {
 			return fmt.Errorf("failed to write CNI configuration file at %s: %w", dest, err)
 		}
 		c.log.Infof("Wrote CNI configuration file to %s", dest)
@@ -465,7 +465,7 @@ func (c *cniConfigManager) findCNINetwork(wantNetwork string) ([]byte, error) {
 			continue
 		}
 
-		rawConfig := make(map[string]interface{})
+		rawConfig := make(map[string]any)
 		if err := json.Unmarshal(contents, &rawConfig); err != nil {
 			c.log.WithError(err).WithField("path", file).Warn("CNI configuration file has invalid json, skipping.")
 			continue
@@ -485,15 +485,15 @@ func (c *cniConfigManager) findCNINetwork(wantNetwork string) ([]byte, error) {
 
 		// Check to see if we need to upconvert to a CNI configuration list.
 		// The presence of a "plugins" configuration key means this is a conflist
-		plugins, ok := rawConfig["plugins"].([]interface{})
+		plugins, ok := rawConfig["plugins"].([]any)
 		if ok && len(plugins) > 0 {
 			return contents, nil
 		}
 
-		rawConfigList := map[string]interface{}{
+		rawConfigList := map[string]any{
 			"name":       wantNetwork,
 			"cniVersion": rawConfig["cniVersion"],
-			"plugins":    []interface{}{rawConfig},
+			"plugins":    []any{rawConfig},
 		}
 
 		return json.Marshal(rawConfigList)

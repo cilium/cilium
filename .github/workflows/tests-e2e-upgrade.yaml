@@ -78,6 +78,35 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/e2e"
+          destination_directory="/tmp/generated/e2e"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+
+      - name: Generate Matrix
+        id: generate-matrix
+        run: |
+          cd /tmp/generated/e2e
+          jq '[.[] | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          echo "Generated matrix:"
+          cat /tmp/generated/e2e/matrix.json
+          echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
+
   wait-for-images:
     name: Wait for images
     runs-on: ubuntu-24.04
@@ -91,415 +120,19 @@ jobs:
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA }}
+          SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    needs: [wait-for-images]
+    needs: [wait-for-images, generate-matrix]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     name: 'Setup & Test'
     env:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 31
+      max-parallel: 32
       matrix:
-        include:
-          - name: '1'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
-
-          - name: '2'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
-
-          - name: '3'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-            kvstore: 'true'
-
-          - name: '4'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '5'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            ingress-controller: 'true'
-
-          - name: '6'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            bgp-control-plane: 'true'
-
-          - name: '7'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
-
-          - name: '8'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-            misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-
-          - name: '9'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            encryption-strict-mode: 'true'
-            misc: 'socketLB.enabled=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-            kvstore: 'true'
-
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-            misc: 'socketLB.hostNamespaceOnly=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-
-          - name: '12'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            encryption-strict-mode: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '13'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            misc: 'policyCIDRMatchMode=nodes'
-
-          - name: '14'
-            # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
-            # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
-            # explains why 5.4 might cause north-south-loadbalancing tests to
-            # fail.
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241218.004849'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-
-          - name: '15'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            ingress-controller: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
-            ciliumendpointslice: 'true'
-
-          - name: '16'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'geneve'
-            lb-mode: 'snat'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            host-fw: 'true'
-            ciliumendpointslice: 'true'
-            ingress-controller: 'true'
-
-          - name: '17'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '18'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '19'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-            kvstore: 'true'
-
-          - name: '20'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '21'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '22'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '23'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-            host-fw: 'true'
-
-          - name: '24'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            ciliumendpointslice: 'true'
-            endpoint-routes: 'true'
-            ingress-controller: 'true'
-
-          - name: '25'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            ciliumendpointslice: 'true'
-            endpoint-routes: 'true'
-            ingress-controller: 'true'
-
-          - name: '26'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '27'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '28'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '29'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '30'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '31'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20241218.004849'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          # Example of a feature that is being introduced, and we want to test
-          # it without performing an upgrade, we use skip-upgrade: 'true'
-          # - name: '23'
-          #   # <insert renovate dependency descriptor here>
-          #   kernel: 'bpf-20241206.013345'
-          #   misc: 'bpf.datapathMode=netkit-l2'
-          #   skip-upgrade: 'true'
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
     timeout-minutes: 55
     steps:
@@ -533,6 +166,30 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
+          EXTRA_CLI_FLAGS=()
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          fi
+
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
+          fi
+
+          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+            --collect-sysdump-on-failure \
+            --flush-ct \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --sysdump-hubble-flows-count=1000000 \
+            --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
+            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
+            ${EXTRA_CLI_FLAGS[@]}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
+
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
@@ -543,6 +200,7 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
@@ -568,6 +226,7 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
@@ -591,6 +250,9 @@ jobs:
           IP_FAM="dual"
           if [ "${{ matrix.ipv6 }}" == "false" ]; then
             IP_FAM="ipv4"
+          fi
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            IP_FAM="ipv6"
           fi
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
@@ -616,11 +278,13 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -655,9 +319,9 @@ jobs:
             cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
           fi
 
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
           mkdir -p cilium-junits
 
@@ -670,13 +334,35 @@ jobs:
           kubectl apply -k untrusted/cilium-newest/examples/kubernetes-local-redirect
           kubectl rollout status -n kube-system ds/node-local-dns
 
+      - name: Prepare the bpftrace parameters
+        if: ${{ matrix.encryption != '' }}
+        id: bpftrace-params
+        run: |
+          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
+          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+
+          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+
+      - name: Start unencrypted packets check for upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # disable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
+
       - name: Start conn-disrupt-test
         shell: bash
         run: |
           # Create pods which establish long lived connections. It will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          cilium connectivity test --include-unsafe-tests --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -691,60 +377,60 @@ jobs:
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Setup Cilium CLI flags
-        id: cli-flags
-        run: |
-          EXTRA=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("\"--secondary-network-iface=eth1\"")
-          fi
-
-          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
-            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
-            EXTRA+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
-          fi
-
-          echo flags="--include-unsafe-tests \
-            --collect-sysdump-on-failure \
-            --flush-ct \
-            --sysdump-hubble-flows-count=1000000 \
-            --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
-            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
-            ${EXTRA[@]}" >> $GITHUB_OUTPUT
+      - name: Assert that no unencrypted packets are leaked during upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         shell: bash
         run: |
-          cilium connectivity test \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --include-unsafe-tests \
             --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            ${{ steps.cli-flags.outputs.flags }}
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
+
+      - name: Start unencrypted packets check for connectivity tests after upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # enable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         shell: bash
         run: |
-          cilium connectivity test \
-            --test "seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --test "seq-.*,!pod-to-world.*"
 
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
-          cilium connectivity test \
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
+          fi
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+            $TEST
 
-      - name: Setup conn dirstupt tests after a flush-ct Cilium tests
+      - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Setup conn disrupt tests after a flush-ct Cilium tests
         shell: bash
         run: |
           cilium connectivity test \
+            --include-unsafe-tests \
             --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
@@ -754,6 +440,15 @@ jobs:
         with:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
+
+      - name: Start unencrypted packets check for downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # disable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
+
 
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -766,34 +461,54 @@ jobs:
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Assert that no unencrypted packets are leaked during downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          cilium connectivity test \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --include-unsafe-tests \
             --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            ${{ steps.cli-flags.outputs.flags }}
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
+
+      - name: Start unencrypted packets check for connectivity tests after downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # enable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          cilium connectivity test \
-            --test "seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --test "seq-.*,!pod-to-world.*"
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          cilium connectivity test \
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
+          fi
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+            $TEST
+
+      - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
         uses: ./.github/actions/feature-status
@@ -818,21 +533,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.name }}
           path: ${{ env.job_name }}*.json

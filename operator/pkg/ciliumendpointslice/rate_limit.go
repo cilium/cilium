@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -27,7 +26,7 @@ type rateLimitConfig struct {
 	current          rateLimit
 	dynamicRateLimit dynamicRateLimit
 
-	rateLimiter *workqueue.BucketRateLimiter
+	rateLimiter *rate.Limiter
 
 	logger *slog.Logger
 }
@@ -44,7 +43,7 @@ func getRateLimitConfig(p params) (rateLimitConfig, error) {
 	}
 	rlc.dynamicRateLimit = parsed
 	rlc.updateRateLimitWithNodes(0, true)
-	rlc.rateLimiter = &workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(rlc.current.Limit), rlc.current.Burst)}
+	rlc.rateLimiter = rate.NewLimiter(rate.Limit(rlc.current.Limit), rlc.current.Burst)
 	return rlc, nil
 }
 
@@ -74,7 +73,7 @@ func (rlc *rateLimitConfig) updateRateLimiterWithNodes(nodes int) bool {
 	changed := rlc.updateRateLimitWithNodes(nodes, false)
 	if changed {
 		rlc.logger.Info("Updating rate limit",
-			"nodes", nodes,
+			logfields.Nodes, nodes,
 			logfields.WorkQueueQPSLimit, rlc.current.Limit,
 			logfields.WorkQueueBurstLimit, rlc.current.Burst)
 

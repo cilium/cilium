@@ -124,7 +124,6 @@ const (
 	// functions instead of using basic strings.
 
 	OptionConntrackAccounting = "ConntrackAccounting"
-	OptionConntrackLocal      = "ConntrackLocal"
 	OptionDebug               = "Debug"
 	OptionDropNotify          = "DropNotification"
 	OptionTraceNotify         = "TraceNotification"
@@ -173,12 +172,6 @@ const (
 
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
-
-	// CiliumStableHelmChartVersion should be the chart version that points
-	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.16"
-	CiliumStableVersion          = "v" + CiliumStableHelmChartVersion
-	CiliumLatestHelmChartVersion = "1.17.0-dev"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -308,6 +301,8 @@ var badLogMessages = map[string][]string{
 	routerIPMismatch:    nil,
 	emptyIPNodeIDAlloc:  nil,
 	"DATA RACE":         nil,
+	// Slog's badkey
+	"!BADKEY": nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	logutils.ErrorLogs: {opCantBeFulfilled, initLeaderElection, globalDataSupport,

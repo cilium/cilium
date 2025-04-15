@@ -15,6 +15,26 @@ type FakeCiliumV2 struct {
 	*testing.Fake
 }
 
+func (c *FakeCiliumV2) CiliumBGPAdvertisements() v2.CiliumBGPAdvertisementInterface {
+	return newFakeCiliumBGPAdvertisements(c)
+}
+
+func (c *FakeCiliumV2) CiliumBGPClusterConfigs() v2.CiliumBGPClusterConfigInterface {
+	return newFakeCiliumBGPClusterConfigs(c)
+}
+
+func (c *FakeCiliumV2) CiliumBGPNodeConfigs() v2.CiliumBGPNodeConfigInterface {
+	return newFakeCiliumBGPNodeConfigs(c)
+}
+
+func (c *FakeCiliumV2) CiliumBGPNodeConfigOverrides() v2.CiliumBGPNodeConfigOverrideInterface {
+	return newFakeCiliumBGPNodeConfigOverrides(c)
+}
+
+func (c *FakeCiliumV2) CiliumBGPPeerConfigs() v2.CiliumBGPPeerConfigInterface {
+	return newFakeCiliumBGPPeerConfigs(c)
+}
+
 func (c *FakeCiliumV2) CiliumClusterwideEnvoyConfigs() v2.CiliumClusterwideEnvoyConfigInterface {
 	return newFakeCiliumClusterwideEnvoyConfigs(c)
 }
@@ -33,10 +53,6 @@ func (c *FakeCiliumV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterf
 
 func (c *FakeCiliumV2) CiliumEnvoyConfigs(namespace string) v2.CiliumEnvoyConfigInterface {
 	return newFakeCiliumEnvoyConfigs(c, namespace)
-}
-
-func (c *FakeCiliumV2) CiliumExternalWorkloads() v2.CiliumExternalWorkloadInterface {
-	return newFakeCiliumExternalWorkloads(c)
 }
 
 func (c *FakeCiliumV2) CiliumIdentities() v2.CiliumIdentityInterface {

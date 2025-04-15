@@ -96,7 +96,7 @@ func TestUniqueKeepOrdering(t *testing.T) {
 		t.Fatalf("expected slice of %d elements, got %d", len(expected), len(got))
 	}
 
-	for i := 0; i < len(expected); i++ {
+	for i := range expected {
 		if got[i] != *expected[i] {
 			t.Fatalf("expected value %q at index %d, got %q", *expected[i], i, got[i])
 		}
@@ -450,7 +450,7 @@ func benchmarkUnique(b *testing.B, benchUniqueFunc bool) {
 
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				b.StopTimer()
 				values = values[:cap(values)]
 				copy(values, orig)
@@ -486,18 +486,18 @@ func BenchmarkSubsetOf(b *testing.B) {
 				b.ReportAllocs()
 
 				subset := make([]string, 0, bc.subsetSz)
-				for i := 0; i < bc.subsetSz; i++ {
+				for range bc.subsetSz {
 					subset = append(subset, strconv.Itoa(rand.IntN(bc.subsetSz)))
 				}
 
 				superset := make([]string, 0, bc.supersetSz)
-				for i := 0; i < bc.supersetSz; i++ {
+				for range bc.supersetSz {
 					superset = append(superset, strconv.Itoa(rand.IntN(bc.subsetSz)))
 				}
 
 				b.ResetTimer()
 
-				for i := 0; i < b.N; i++ {
+				for b.Loop() {
 					_, _ = SubsetOf(subset, superset)
 				}
 			},

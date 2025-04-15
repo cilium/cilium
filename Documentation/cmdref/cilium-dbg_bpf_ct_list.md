@@ -5,7 +5,7 @@
 List connection tracking entries
 
 ```
-cilium-dbg bpf ct list ( global | endpoint | cluster ) [identifier] [flags]
+cilium-dbg bpf ct list ( global | cluster <identifier> ) [flags]
 ```
 
 ### Options
@@ -21,9 +21,11 @@ cilium-dbg bpf ct list ( global | endpoint | cluster ) [identifier] [flags]
 ### Options inherited from parent commands
 
 ```
-      --config string   Config file (default is $HOME/.cilium.yaml)
-  -D, --debug           Enable debug messages
-  -H, --host string     URI to server-side API
+      --config string        Config file (default is $HOME/.cilium.yaml)
+  -D, --debug                Enable debug messages
+  -H, --host string          URI to server-side API
+      --log-driver strings   Logging endpoints to use (example: syslog)
+      --log-opt map          Log driver options (example: format=json)
 ```
 
 ### SEE ALSO

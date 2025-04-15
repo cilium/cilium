@@ -6,13 +6,12 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
-	"io"
 	"maps"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -310,14 +309,11 @@ func executeForConfigType[T k8sRuntime.Object](t *testing.T,
 ) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
-
 			manager := &fakeCECManager{
 				shouldFailFor: tc.shouldFailFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: hivetest.Logger(t), Manager: manager})
 
 			// init current state
 			configs := map[resource.Key]*config{}
@@ -530,14 +526,11 @@ func TestReconcileExistingConfigs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
-
 			manager := &fakeCECManager{
 				shouldFailFor: tc.failFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: hivetest.Logger(t), Manager: manager})
 
 			// init current state
 			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))
@@ -667,14 +660,11 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
-
 			manager := &fakeCECManager{
 				shouldFailFor: tc.failFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: hivetest.Logger(t), Manager: manager})
 
 			// init current state
 			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))

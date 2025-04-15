@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -68,6 +69,7 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 		clrps:       make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
 		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
 		conditionFn: nil,
+		verbose:     verbose,
 	}
 	// Setting the internal buffer to nil causes the logger to
 	// write directly to stdout in verbose or debug mode.
@@ -140,8 +142,9 @@ type Test struct {
 
 	// Buffer to store output until it's flushed by a failure.
 	// Unused when run in verbose or debug mode.
-	logMu  lock.RWMutex
-	logBuf io.ReadWriter
+	logMu   lock.RWMutex
+	logBuf  io.ReadWriter
+	verbose bool
 
 	// conditionFn is a function that returns true if the test needs to run,
 	// and false otherwise. By default, it's set to a function that returns
@@ -199,17 +202,20 @@ func (t *Test) setup(ctx context.Context) error {
 
 	// Apply Secrets to the cluster.
 	if err := t.applySecrets(ctx); err != nil {
-		t.CiliumLogs(ctx)
+		t.ContainerLogs(ctx)
 		return fmt.Errorf("applying Secrets: %w", err)
 	}
 
 	// Apply CNPs & KNPs to the cluster.
 	if err := t.applyResources(ctx); err != nil {
-		t.CiliumLogs(ctx)
+		t.ContainerLogs(ctx)
 		return fmt.Errorf("applying network policies: %w", err)
 	}
 
 	if t.installIPRoutesFromOutsideToPodCIDRs {
+		// Attempt to cleanup any leftover routes in case tests previously
+		// didn't cleanup correctly.
+		t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
 		if err := t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "add"); err != nil {
 			return fmt.Errorf("installing static routes: %w", err)
 		}
@@ -299,7 +305,10 @@ func (t *Test) willRun() (bool, string) {
 func (t *Test) finalize() {
 	t.Debug("Finalizing Test", t.Name())
 
-	for _, f := range t.finalizers {
+	// Iterate finalizers in backward order.
+	// As an example, first we create secrets that are referenced in policies.
+	// When performing cleanup, we want to first delete policies and then secrets.
+	for _, f := range slices.Backward(t.finalizers) {
 		// Use a detached context to make sure this call is not affected by
 		// context cancellation. Usually, finalization (e.g., netpol removal)
 		// needs to happen even when the user interrupted the program.
@@ -790,6 +799,17 @@ func (t *Test) NewGenericAction(s Scenario, name string) *Action {
 	return t.NewAction(s, name, nil, nil, features.IPFamilyAny)
 }
 
+// Scenarios returns a slice of all Scenarios belonging to the Test.
+func (t *Test) Scenarios() []Scenario {
+	var out []Scenario
+
+	for s := range t.scenarios {
+		out = append(out, s)
+	}
+
+	return out
+}
+
 // failedActions returns a list of failed Actions in the Test.
 func (t *Test) failedActions() []*Action {
 	var out []*Action
@@ -837,31 +857,7 @@ func (t *Test) collectSysdump() {
 }
 
 func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
-	ipFams := features.GetIPFamilies(t.ctx.Params().IPFamilies)
-
-	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
-	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
-	// and https://github.com/cilium/cilium/issues/23910).
-	if f, ok := t.Context().Feature(features.EndpointRoutes); ok &&
-		f.Enabled && t.HasNetworkPolicies() &&
-		versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) {
-
-		ipFams = []features.IPFamily{features.IPFamilyV4}
-	}
-
-	for _, ipFam := range ipFams {
-		switch ipFam {
-		case features.IPFamilyV4:
-			if f, ok := t.ctx.Features[features.IPv4]; ok && f.Enabled {
-				do(ipFam)
-			}
-
-		case features.IPFamilyV6:
-			if f, ok := t.ctx.Features[features.IPv6]; ok && f.Enabled {
-				do(ipFam)
-			}
-		}
-	}
+	t.ctx.ForEachIPFamily(t.HasNetworkPolicies(), do)
 }
 
 // CertificateCAs returns the CAs used to sign the certificates within the test.
@@ -879,10 +875,5 @@ func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRed
 }
 
 func (t *Test) HasNetworkPolicies() bool {
-	for _, obj := range t.resources {
-		if isPolicy(obj) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(t.resources, isPolicy)
 }

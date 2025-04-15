@@ -12,6 +12,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -460,7 +461,7 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 // does not contain ignore messages (map value).
 func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) {
 	uniqueFailures := make(map[string]int)
-	for _, msg := range strings.Split(logs, "\n") {
+	for msg := range strings.SplitSeq(logs, "\n") {
 		for fail, ignoreMessages := range blacklist {
 			if strings.Contains(msg, fail) {
 				ok := false
@@ -672,20 +673,7 @@ func (kub *Kubectl) GetNodeCILabel(nodeName string) string {
 
 // IsNodeWithoutCilium returns true if node node doesn't run Cilium.
 func IsNodeWithoutCilium(node string) bool {
-	for _, n := range GetNodesWithoutCilium() {
-		if n == node {
-			return true
-		}
-	}
-	return false
-}
-
-// GetLatestImageVersion infers which docker tag should be used
-func GetLatestImageVersion() string {
-	if len(config.CiliumTestConfig.CiliumTag) > 0 {
-		return config.CiliumTestConfig.CiliumTag
-	}
-	return "latest"
+	return slices.Contains(GetNodesWithoutCilium(), node)
 }
 
 // SkipQuarantined returns whether test under quarantine should be skipped

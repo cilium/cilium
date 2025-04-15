@@ -28,6 +28,10 @@ func (p *pluginTest) Check(ctx context.Context, pluginContext PluginContext, cli
 	return nil
 }
 
+func (p *pluginTest) Status(ctx context.Context, pluginContext PluginContext, cli *client.Client) error {
+	return nil
+}
+
 func TestRegistration(t *testing.T) {
 	err := Register("foo", &pluginTest{})
 	require.NoError(t, err)

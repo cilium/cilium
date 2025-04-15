@@ -231,9 +231,7 @@ func TestGC(t *testing.T) {
 				}),
 			)
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
+			ctx := t.Context()
 			tlog := hivetest.Logger(t)
 			assert.NoError(t, hive.Start(tlog, ctx))
 
@@ -281,6 +279,6 @@ func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
 	return nil
 }
 
-func (r *fakeRestorer) WaitForInitialEnvoyPolicy(_ context.Context) error {
+func (r *fakeRestorer) WaitForInitialPolicy(_ context.Context) error {
 	return nil
 }

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -53,6 +53,7 @@ type API struct {
 	enis           map[string]ENIMap
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
+	routeTables    map[string]*ipamTypes.RouteTable
 	securityGroups map[string]*types.SecurityGroup
 	instanceTypes  []ec2_types.InstanceTypeInfo
 	errors         map[Operation]error
@@ -64,7 +65,7 @@ type API struct {
 }
 
 // NewAPI returns a new mocked EC2 API
-func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
+func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup, routeTables []*ipamTypes.RouteTable) *API {
 
 	// Start with base CIDR 10.0.0.0/16
 	_, baseCidr, _ := net.ParseCIDR("10.10.0.0/16")
@@ -81,11 +82,78 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		panic(err)
 	}
 
+	instanceTypes := []ec2_types.InstanceTypeInfo{
+		{
+			InstanceType: "m5.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		},
+		{
+			InstanceType: "m5.4xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(8),
+				Ipv4AddressesPerInterface: aws.Int32(30),
+				Ipv6AddressesPerInterface: aws.Int32(30),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		},
+		{
+			InstanceType: "m3.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "m4.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(4),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "t2.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "c3.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(4),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "m4.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(2),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+	}
+
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
 		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
+		routeTables:    map[string]*ipamTypes.RouteTable{},
 		securityGroups: map[string]*types.SecurityGroup{},
 		instanceTypes:  []ec2_types.InstanceTypeInfo{},
 		allocator:      podCidrRange,
@@ -97,7 +165,8 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 
 	api.UpdateSubnets(subnets)
 	api.UpdateSecurityGroups(securityGroups)
-
+	api.UpdateRouteTables(routeTables)
+	api.UpdateInstanceTypes(instanceTypes)
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
@@ -108,21 +177,31 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 // UpdateSubnets replaces the subents which the mock API will return
 func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.subnets = map[string]*ipamTypes.Subnet{}
 	for _, s := range subnets {
 		e.subnets[s.ID] = s.DeepCopy()
 	}
-	e.mutex.Unlock()
+}
+
+// UpdateRouteTables replaces the route tables which the mock API will return
+func (e *API) UpdateRouteTables(routeTables []*ipamTypes.RouteTable) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.routeTables = map[string]*ipamTypes.RouteTable{}
+	for _, rt := range routeTables {
+		e.routeTables[rt.ID] = rt.DeepCopy()
+	}
 }
 
 // UpdateSecurityGroups replaces the security groups which the mock API will return
 func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.securityGroups = map[string]*types.SecurityGroup{}
 	for _, sg := range securityGroups {
 		e.securityGroups[sg.ID] = sg.DeepCopy()
 	}
-	e.mutex.Unlock()
 }
 
 // UpdateENIs replaces the ENIs which the mock API will return
@@ -140,22 +219,24 @@ func (e *API) UpdateENIs(enis map[string]ENIMap) {
 
 func (e *API) UpdateInstanceTypes(instanceTypes []ec2_types.InstanceTypeInfo) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.instanceTypes = instanceTypes
-	e.mutex.Unlock()
 }
 
 // SetMockError modifies the mock API to return an error for a particular
 // operation
 func (e *API) SetMockError(op Operation, err error) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.errors[op] = err
-	e.mutex.Unlock()
+
 }
 
 // SetDelay specifies the delay which should be simulated for an individual EC2
 // API operation
 func (e *API) SetDelay(op Operation, delay time.Duration) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	if op == AllOperations {
 		for op := AllOperations + 1; op < MaxOperation; op++ {
 			e.delaySim.SetDelay(op, delay)
@@ -163,7 +244,6 @@ func (e *API) SetDelay(op Operation, delay time.Duration) {
 	} else {
 		e.delaySim.SetDelay(op, delay)
 	}
-	e.mutex.Unlock()
 }
 
 // SetLimiter adds a rate limiter to all simulated API calls
@@ -173,13 +253,13 @@ func (e *API) SetLimiter(limit float64, burst int) {
 
 func (e *API) rateLimit() {
 	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
 	if e.limiter == nil {
-		e.mutex.RUnlock()
 		return
 	}
 
 	r := e.limiter.Reserve()
-	e.mutex.RUnlock()
 	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
 		time.Sleep(delay)
 	}
@@ -243,7 +323,6 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
-	log.Debugf(" ENI after initial creation %v", eni)
 	return eniID, eni.DeepCopy(), nil
 }
 
@@ -344,7 +423,7 @@ func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.T
 	return result, nil
 }
 
-func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
+func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AssignPrivateIpAddresses)
 
@@ -352,18 +431,18 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 	defer e.mutex.Unlock()
 
 	if err, ok := e.errors[AssignPrivateIpAddresses]; ok {
-		return err
+		return nil, err
 	}
 
 	for _, enis := range e.enis {
 		if eni, ok := enis[eniID]; ok {
 			subnet, ok := e.subnets[eni.Subnet.ID]
 			if !ok {
-				return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+				return nil, fmt.Errorf("subnet %s not found", eni.Subnet.ID)
 			}
 
 			if int(addresses) > subnet.AvailableAddresses {
-				return fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
+				return nil, fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
 			}
 
 			for i := int32(0); i < addresses; i++ {
@@ -374,10 +453,10 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 				eni.Addresses = append(eni.Addresses, ip.String())
 			}
 			subnet.AvailableAddresses -= int(addresses)
-			return nil
+			return eni.Addresses, nil
 		}
 	}
-	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+	return nil, fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
 func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error {
@@ -651,6 +730,18 @@ func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 		subnets[s.ID] = s.DeepCopy()
 	}
 	return subnets, nil
+}
+
+func (e *API) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+	routeTables := ipamTypes.RouteTableMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for _, rt := range e.routeTables {
+		routeTables[rt.ID] = rt.DeepCopy()
+	}
+	return routeTables, nil
 }
 
 func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {

@@ -54,6 +54,15 @@ type MapValue interface {
 	New() MapValue
 }
 
+// MapPerCPUValue is the same as MapValue, but for per-CPU maps. Implement to be
+// able to fetch map values from all CPUs.
+type MapPerCPUValue interface {
+	MapValue
+
+	// NewSlice must return a pointer to a slice of structs that implement MapValue.
+	NewSlice() any
+}
+
 type cacheEntry struct {
 	Key   MapKey
 	Value MapValue
@@ -161,6 +170,11 @@ func (m *Map) Flags() uint32 {
 		return m.spec.Flags
 	}
 	return 0
+}
+
+func (m *Map) hasPerCPUValue() bool {
+	mt := m.Type()
+	return mt == ebpf.PerCPUHash || mt == ebpf.PerCPUArray || mt == ebpf.LRUCPUHash || mt == ebpf.PerCPUCGroupStorage
 }
 
 func (m *Map) updateMetrics() {
@@ -583,7 +597,7 @@ func (m *Map) Close() error {
 	return nil
 }
 
-func (m *Map) NextKey(key, nextKeyOut interface{}) error {
+func (m *Map) NextKey(key, nextKeyOut any) error {
 	var duration *spanstat.SpanStat
 	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
@@ -604,8 +618,7 @@ type DumpCallback func(key MapKey, value MapValue)
 // each map entry. With the current implementation, it is safe for callbacks to
 // retain the values received, as they are guaranteed to be new instances.
 //
-// TODO(tb): This package currently doesn't support dumping per-cpu maps, as
-// ReadValueSize is always set to the size of a single value.
+// To dump per-cpu maps, use DumpPerCPUWithCallback.
 func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	if cb == nil {
 		return errors.New("empty callback")
@@ -628,6 +641,50 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 
 		mk = m.key.New()
 		mv = m.value.New()
+	}
+
+	return i.Err()
+}
+
+// DumpPerCPUCallback is called by DumpPerCPUWithCallback with the map key and
+// the slice of all values from all CPUs.
+type DumpPerCPUCallback func(key MapKey, values any)
+
+// DumpPerCPUWithCallback iterates over the Map and calls the given
+// DumpPerCPUCallback for each map entry, passing the slice with all values
+// from all CPUs. With the current implementation, it is safe for callbacks
+// to retain the values received, as they are guaranteed to be new instances.
+func (m *Map) DumpPerCPUWithCallback(cb DumpPerCPUCallback) error {
+	if cb == nil {
+		return errors.New("empty callback")
+	}
+
+	if !m.hasPerCPUValue() {
+		return fmt.Errorf("map %s is not a per-CPU map", m.name)
+	}
+
+	v, ok := m.value.(MapPerCPUValue)
+	if !ok {
+		return fmt.Errorf("map %s value type does not implement MapPerCPUValue", m.name)
+	}
+
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	// Don't need deep copies here, only fresh pointers.
+	mk := m.key.New()
+	mv := v.NewSlice()
+
+	i := m.m.Iterate()
+	for i.Next(mk, mv) {
+		cb(mk, mv)
+
+		mk = m.key.New()
+		mv = v.NewSlice()
 	}
 
 	return i.Err()
@@ -907,11 +964,11 @@ func startingChunkSize(maxEntries int) int {
 // If the iteration fails, then the Err() function will return the error that caused the failure.
 func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ...BatchIteratorOpt[KT, VT, KP, VP]) iter.Seq2[KP, VP] {
 	switch bi.m.Type() {
-	case ebpf.Hash, ebpf.LRUHash:
+	case ebpf.Hash, ebpf.LRUHash, ebpf.LPMTrie:
 		break
 	default:
 		bi.err = fmt.Errorf("unsupported map type %s, must be one either hash or lru-hash types", bi.m.Type())
-		return nil
+		return func(yield func(KP, VP) bool) {}
 	}
 
 	bi.chunkSize = startingChunkSize(int(bi.m.MaxEntries()))
@@ -1011,7 +1068,7 @@ func (m *Map) Dump(hash map[string][]string) error {
 
 // BatchLookup returns the count of elements in the map by dumping the map
 // using batch lookup.
-func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut interface{}, opts *ebpf.BatchOptions) (int, error) {
+func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut any, opts *ebpf.BatchOptions) (int, error) {
 	return m.m.BatchLookup(cursor, keysOut, valuesOut, opts)
 }
 
@@ -1276,6 +1333,44 @@ func (m *Map) DeleteAll() error {
 	}
 
 	return err
+}
+
+func (m *Map) ClearAll() error {
+	if m.eventsBufferEnabled || m.withValueCache {
+		return fmt.Errorf("clear map: events buffer and value cache are not supported")
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	defer m.updatePressureMetric()
+
+	if err := m.open(); err != nil {
+		return err
+	}
+
+	mk := m.key.New()
+	var mv any
+	if m.hasPerCPUValue() {
+		mv = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		mv = m.value.New()
+	}
+	empty := reflect.Indirect(reflect.ValueOf(mv)).Interface()
+
+	i := m.m.Iterate()
+	for i.Next(mk, mv) {
+		err := m.m.Update(mk, empty, ebpf.UpdateAny)
+
+		if metrics.BPFMapOps.IsEnabled() {
+			metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return i.Err()
 }
 
 // GetModel returns a BPF map in the representation served via the API

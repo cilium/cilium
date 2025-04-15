@@ -68,14 +68,6 @@ var (
 					},
 				)
 			},
-			func(lc cell.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
-				return k8s.PodResource(
-					lc, cs,
-					func(opts *metav1.ListOptions) {
-						opts.FieldSelector = fields.ParseSelectorOrDie("spec.nodeName=" + nodeTypes.GetName()).String()
-					},
-				)
-			},
 		),
 	)
 )
@@ -88,10 +80,6 @@ type LocalNodeResource resource.Resource[*slim_corev1.Node]
 // CiliumNode object associated with the node we are currently running on.
 type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 
-// LocalPodResource is a resource.Resource[*slim_corev1.Pod] but one which will only stream updates for pod
-// objects scheduled on the node we are currently running on.
-type LocalPodResource resource.Resource[*slim_corev1.Pod]
-
 // Resources is a convenience struct to group all the agent k8s resources as cell constructor parameters.
 type Resources struct {
 	cell.In
@@ -100,7 +88,6 @@ type Resources struct {
 	Endpoints                        resource.Resource[*k8s.Endpoints]
 	LocalNode                        LocalNodeResource
 	LocalCiliumNode                  LocalCiliumNodeResource
-	LocalPods                        LocalPodResource
 	Namespaces                       resource.Resource[*slim_corev1.Namespace]
 	NetworkPolicies                  resource.Resource[*slim_networkingv1.NetworkPolicy]
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]

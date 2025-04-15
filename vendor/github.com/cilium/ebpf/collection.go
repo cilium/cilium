@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/ebpf/internal/kallsyms"
 	"github.com/cilium/ebpf/internal/kconfig"
 	"github.com/cilium/ebpf/internal/linux"
+	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/sys"
 )
 
@@ -61,26 +63,34 @@ func (cs *CollectionSpec) Copy() *CollectionSpec {
 	}
 
 	cpy := CollectionSpec{
-		Maps:      make(map[string]*MapSpec, len(cs.Maps)),
-		Programs:  make(map[string]*ProgramSpec, len(cs.Programs)),
+		Maps:      copyMapOfSpecs(cs.Maps),
+		Programs:  copyMapOfSpecs(cs.Programs),
 		Variables: make(map[string]*VariableSpec, len(cs.Variables)),
 		ByteOrder: cs.ByteOrder,
 		Types:     cs.Types.Copy(),
 	}
 
-	for name, spec := range cs.Maps {
-		cpy.Maps[name] = spec.Copy()
-	}
-
-	for name, spec := range cs.Programs {
-		cpy.Programs[name] = spec.Copy()
-	}
-
 	for name, spec := range cs.Variables {
 		cpy.Variables[name] = spec.copy(&cpy)
 	}
+	if cs.Variables == nil {
+		cpy.Variables = nil
+	}
 
 	return &cpy
+}
+
+func copyMapOfSpecs[T interface{ Copy() T }](m map[string]T) map[string]T {
+	if m == nil {
+		return nil
+	}
+
+	cpy := make(map[string]T, len(m))
+	for k, v := range m {
+		cpy[k] = v.Copy()
+	}
+
+	return cpy
 }
 
 // RewriteMaps replaces all references to specific maps.
@@ -295,8 +305,7 @@ func (cs *CollectionSpec) LoadAndAssign(to interface{}, opts *CollectionOptions)
 
 	// Evaluate the loader's objects after all (lazy)loading has taken place.
 	for n, m := range loader.maps {
-		switch m.typ {
-		case ProgramArray:
+		if m.typ.canStoreProgram() {
 			// Require all lazy-loaded ProgramArrays to be assigned to the given object.
 			// The kernel empties a ProgramArray once the last user space reference
 			// to it closes, which leads to failed tail calls. Combined with the library
@@ -411,14 +420,9 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 	}
 
 	// Check for existing MapSpecs in the CollectionSpec for all provided replacement maps.
-	for name, m := range opts.MapReplacements {
-		spec, ok := coll.Maps[name]
-		if !ok {
+	for name := range opts.MapReplacements {
+		if _, ok := coll.Maps[name]; !ok {
 			return nil, fmt.Errorf("replacement map %s not found in CollectionSpec", name)
-		}
-
-		if err := spec.Compatible(m); err != nil {
-			return nil, fmt.Errorf("using replacement map %s: %w", spec.Name, err)
 		}
 	}
 
@@ -494,7 +498,22 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return nil, fmt.Errorf("missing map %s", mapName)
 	}
 
+	mapSpec = mapSpec.Copy()
+
+	// Defer setting the mmapable flag on maps until load time. This avoids the
+	// MapSpec having different flags on some kernel versions. Also avoid running
+	// syscalls during ELF loading, so platforms like wasm can also parse an ELF.
+	if isDataSection(mapSpec.Name) && haveMmapableMaps() == nil {
+		mapSpec.Flags |= sys.BPF_F_MMAPABLE
+	}
+
 	if replaceMap, ok := cl.opts.MapReplacements[mapName]; ok {
+		// Check compatibility with the replacement map after setting
+		// feature-dependent map flags.
+		if err := mapSpec.Compatible(replaceMap); err != nil {
+			return nil, fmt.Errorf("using replacement map %s: %w", mapSpec.Name, err)
+		}
+
 		// Clone the map to avoid closing user's map later on.
 		m, err := replaceMap.Clone()
 		if err != nil {
@@ -503,13 +522,6 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 
 		cl.maps[mapName] = m
 		return m, nil
-	}
-
-	// Defer setting the mmapable flag on maps until load time. This avoids the
-	// MapSpec having different flags on some kernel versions. Also avoid running
-	// syscalls during ELF loading, so platforms like wasm can also parse an ELF.
-	if isDataSection(mapSpec.Name) && haveMmapableMaps() == nil {
-		mapSpec.Flags |= sys.BPF_F_MMAPABLE
 	}
 
 	m, err := newMapWithOptions(mapSpec, cl.opts.Maps)
@@ -522,6 +534,7 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 	// that need to be finalized before invoking the verifier.
 	if !mapSpec.Type.canStoreMapOrProgram() {
 		if err := m.finalize(mapSpec); err != nil {
+			_ = m.Close()
 			return nil, fmt.Errorf("finalizing map %s: %w", mapName, err)
 		}
 	}
@@ -699,6 +712,10 @@ func resolveKconfig(m *MapSpec) error {
 		return errors.New("map value is not a Datasec")
 	}
 
+	if platform.IsWindows {
+		return fmt.Errorf(".kconfig: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	type configInfo struct {
 		offset uint32
 		size   uint32
@@ -791,6 +808,13 @@ func resolveKconfig(m *MapSpec) error {
 // Omitting Collection.Close() during application shutdown is an error.
 // See the package documentation for details around Map and Program lifecycle.
 func LoadCollection(file string) (*Collection, error) {
+	if platform.IsWindows {
+		// This mirrors a check in efW.
+		if ext := filepath.Ext(file); ext == ".sys" {
+			return loadCollectionFromNativeImage(file)
+		}
+	}
+
 	spec, err := LoadCollectionSpec(file)
 	if err != nil {
 		return nil, err

@@ -18,7 +18,6 @@ cilium-operator-azure [flags]
       --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
-      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
       --cilium-endpoint-gc-interval duration                 GC interval for cilium endpoints (default 5m0s)
       --cilium-pod-labels string                             Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
@@ -60,10 +59,9 @@ cilium-operator-azure [flags]
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-metrics                                       Enable Prometheus metrics
       --enable-node-ipam                                     Enable Node IPAM
-      --enable-node-port                                     Enable NodePort type services by Cilium
       --enable-node-selector-labels                          Enable use of node label based identity
       --enable-policy string                                 Enable policy enforcement (default "default")
-      --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)
+      --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
@@ -77,6 +75,7 @@ cilium-operator-azure [flags]
       --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --identity-management-mode string                      Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
       --ingress-default-request-timeout duration             Default request timeout for Ingress.
       --ingress-default-secret-name string                   Default secret name for Ingress.
@@ -90,14 +89,13 @@ cilium-operator-azure [flags]
       --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
       --instance-tags-filter map                             EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                          Backend to use for IPAM (default "azure")
-      --k8s-api-server string                                Kubernetes API server URL
+      --k8s-api-server-urls strings                          Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                 Name of the Kubernetes namespace in which Cilium Operator is deployed in
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                        Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kvstore string                                       Key-value store type
       --kvstore-lease-ttl duration                           Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure (default 2)

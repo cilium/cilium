@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net"
 	"os"
@@ -33,7 +34,6 @@ import (
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
 	once         sync.Once
 	probeManager *ProbeManager
 	tpl          = template.New("headerfile")
@@ -61,7 +61,7 @@ func init() {
 	var err error
 	tpl, err = tpl.Parse(content)
 	if err != nil {
-		log.WithError(err).Fatal("could not parse headerfile template")
+		logging.Fatal(logging.DefaultSlogLogger, "could not parse headerfile template", logfields.Error, err)
 	}
 }
 
@@ -182,14 +182,17 @@ type Features struct {
 
 // ProbeManager is a manager of BPF feature checks.
 type ProbeManager struct {
+	logger   *slog.Logger
 	features Features
 }
 
 // NewProbeManager returns a new instance of ProbeManager - a manager of BPF
 // feature checks.
-func NewProbeManager() *ProbeManager {
+func NewProbeManager(logger *slog.Logger) *ProbeManager {
 	newProbeManager := func() {
-		probeManager = &ProbeManager{}
+		probeManager = &ProbeManager{
+			logger: logger,
+		}
 		probeManager.features = probeManager.Probe()
 	}
 	once.Do(newProbeManager)
@@ -197,17 +200,17 @@ func NewProbeManager() *ProbeManager {
 }
 
 // Probe probes the underlying kernel for features.
-func (*ProbeManager) Probe() Features {
+func (p *ProbeManager) Probe() Features {
 	var features Features
 	out, err := exec.WithTimeout(
 		defaults.ExecTimeout,
 		"bpftool", "-j", "feature", "probe",
-	).CombinedOutput(log, true)
+	).CombinedOutput(p.logger, true)
 	if err != nil {
-		log.WithError(err).Fatal("could not run bpftool")
+		logging.Fatal(p.logger, "could not run bpftool", logfields.Error, err)
 	}
 	if err := json.Unmarshal(out, &features); err != nil {
-		log.WithError(err).Fatal("could not parse bpftool output")
+		logging.Fatal(p.logger, "could not parse bpftool output", logfields.Error, err)
 	}
 	return features
 }
@@ -223,7 +226,7 @@ func (p *ProbeManager) SystemConfigProbes() error {
 	var notFound bool
 	if !p.KernelConfigAvailable() {
 		notFound = true
-		log.Info("Kernel config file not found: if the agent fails to start, check the system requirements at https://docs.cilium.io/en/stable/operations/system_requirements")
+		p.logger.Info("Kernel config file not found: if the agent fails to start, check the system requirements at https://docs.cilium.io/en/stable/operations/system_requirements")
 	}
 	requiredParams := p.GetRequiredConfig()
 	for param, kernelOption := range requiredParams {
@@ -242,7 +245,14 @@ func (p *ProbeManager) SystemConfigProbes() error {
 			if kernelOption.CanBeModule {
 				module = " or module"
 			}
-			log.Warningf("%s optional kernel parameter%s is not in kernel (needed for: %s)", param, module, kernelOption.Description)
+			p.logger.Warn("optional kernel parameters is not in kernel",
+				logfields.OptionalParameter,
+				[]any{
+					logfields.Param, param,
+					logfields.Module, module,
+					logfields.NeedFor, kernelOption.Description,
+				},
+			)
 		}
 	}
 	return nil
@@ -347,13 +357,17 @@ func (p *ProbeManager) KernelConfigAvailable() bool {
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
 // check if a certain BPF program/helper copmbination is supported by the kernel.
 // On unexpected probe results this function will terminate with log.Fatal().
-func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
+func HaveProgramHelper(logger *slog.Logger, pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	err := features.HaveProgramHelper(pt, helper)
 	if errors.Is(err, ebpf.ErrNotSupported) {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).WithField("programtype", pt).WithField("helper", helper).Fatal("failed to probe helper")
+		logging.Fatal(logger, "failed to probe helper",
+			logfields.Error, err,
+			logfields.ProgType, pt,
+			logfields.Helper, helper,
+		)
 	}
 	return nil
 }
@@ -361,13 +375,13 @@ func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 // HaveLargeInstructionLimit is a wrapper around features.HaveLargeInstructions()
 // to check if the kernel supports the 1 Million instruction limit.
 // On unexpected probe results this function will terminate with log.Fatal().
-func HaveLargeInstructionLimit() error {
+func HaveLargeInstructionLimit(logger *slog.Logger) error {
 	err := features.HaveLargeInstructions()
 	if errors.Is(err, ebpf.ErrNotSupported) {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe large instruction limit")
+		logging.Fatal(logger, "failed to probe large instruction limit", logfields.Error, err)
 	}
 	return nil
 }
@@ -375,13 +389,13 @@ func HaveLargeInstructionLimit() error {
 // HaveBoundedLoops is a wrapper around features.HaveBoundedLoops()
 // to check if the kernel supports bounded loops in BPF programs.
 // On unexpected probe results this function will terminate with log.Fatal().
-func HaveBoundedLoops() error {
+func HaveBoundedLoops(logger *slog.Logger) error {
 	err := features.HaveBoundedLoops()
 	if errors.Is(err, ebpf.ErrNotSupported) {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe bounded loops")
+		logging.Fatal(logger, "failed to probe bounded loops", logfields.Error, err)
 	}
 	return nil
 }
@@ -403,13 +417,13 @@ func HaveWriteableQueueMapping() error {
 // HaveV2ISA is a wrapper around features.HaveV2ISA() to check if the kernel
 // supports the V2 ISA.
 // On unexpected probe results this function will terminate with log.Fatal().
-func HaveV2ISA() error {
+func HaveV2ISA(logger *slog.Logger) error {
 	err := features.HaveV2ISA()
 	if errors.Is(err, ebpf.ErrNotSupported) {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe V2 ISA")
+		logging.Fatal(logger, "failed to probe V2 ISA", logfields.Error, err)
 	}
 	return nil
 }
@@ -417,13 +431,13 @@ func HaveV2ISA() error {
 // HaveV3ISA is a wrapper around features.HaveV3ISA() to check if the kernel
 // supports the V3 ISA.
 // On unexpected probe results this function will terminate with log.Fatal().
-func HaveV3ISA() error {
+func HaveV3ISA(logger *slog.Logger) error {
 	err := features.HaveV3ISA()
 	if errors.Is(err, ebpf.ErrNotSupported) {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe V3 ISA")
+		logging.Fatal(logger, "failed to probe V3 ISA", logfields.Error, err)
 	}
 	return nil
 }
@@ -515,77 +529,14 @@ var HaveNetkit = sync.OnceValue(func() error {
 	})
 })
 
-// HaveOuterSourceIPSupport tests whether the kernel support setting the outer
-// source IP address via the bpf_skb_set_tunnel_key BPF helper. We can't rely
-// on the verifier to reject a program using the new support because the
-// verifier just accepts any argument size for that helper; non-supported
-// fields will simply not be used. Instead, we set the outer source IP and
-// retrieve it with bpf_skb_get_tunnel_key right after. If the retrieved value
-// equals the value set, we have a confirmation the kernel supports it.
-func HaveOuterSourceIPSupport() (err error) {
-	defer func() {
-		if err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
-			log.WithError(err).Fatal("failed to probe for outer source IP support")
-		}
-	}()
-
-	progSpec := &ebpf.ProgramSpec{
-		Name:    "set_tunnel_key_probe",
-		Type:    ebpf.SchedACT,
-		License: "GPL",
-	}
-	progSpec.Instructions = asm.Instructions{
-		asm.Mov.Reg(asm.R8, asm.R1),
-
-		asm.Mov.Imm(asm.R2, 0),
-		asm.StoreMem(asm.RFP, -8, asm.R2, asm.DWord),
-		asm.StoreMem(asm.RFP, -16, asm.R2, asm.DWord),
-		asm.StoreMem(asm.RFP, -24, asm.R2, asm.DWord),
-		asm.StoreMem(asm.RFP, -32, asm.R2, asm.DWord),
-		asm.StoreMem(asm.RFP, -40, asm.R2, asm.DWord),
-		asm.Mov.Imm(asm.R2, 42),
-		asm.StoreMem(asm.RFP, -44, asm.R2, asm.Word),
-		asm.Mov.Reg(asm.R2, asm.RFP),
-		asm.Add.Imm(asm.R2, -44),
-		asm.Mov.Imm(asm.R3, 44), // sizeof(struct bpf_tunnel_key) when setting the outer source IP is supported.
-		asm.Mov.Imm(asm.R4, 0),
-		asm.FnSkbSetTunnelKey.Call(),
-
-		asm.Mov.Reg(asm.R1, asm.R8),
-		asm.Mov.Reg(asm.R2, asm.RFP),
-		asm.Add.Imm(asm.R2, -44),
-		asm.Mov.Imm(asm.R3, 44),
-		asm.Mov.Imm(asm.R4, 0),
-		asm.FnSkbGetTunnelKey.Call(),
-
-		asm.LoadMem(asm.R0, asm.RFP, -44, asm.Word),
-		asm.Return(),
-	}
-	prog, err := ebpf.NewProgram(progSpec)
-	if err != nil {
-		return err
-	}
-	defer prog.Close()
-
-	pkt := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	ret, _, err := prog.Test(pkt)
-	if err != nil {
-		return err
-	}
-	if ret != 42 {
-		return ebpf.ErrNotSupported
-	}
-	return nil
-}
-
 // HaveSKBAdjustRoomL2RoomMACSupport tests whether the kernel supports the `bpf_skb_adjust_room` helper
 // with the `BPF_ADJ_ROOM_MAC` mode. To do so, we create a program that requests the passed in SKB
 // to be expanded by 20 bytes. The helper checks the `mode` argument and will return -ENOSUPP if
 // the mode is unknown. Otherwise it should resize the SKB by 20 bytes and return 0.
-func HaveSKBAdjustRoomL2RoomMACSupport() (err error) {
+func HaveSKBAdjustRoomL2RoomMACSupport(logger *slog.Logger) (err error) {
 	defer func() {
 		if err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
-			log.WithError(err).Fatal("failed to probe for bpf_skb_adjust_room L2 room MAC support")
+			logging.Fatal(logger, "failed to probe for bpf_skb_adjust_room L2 room MAC support", logfields.Error, err)
 		}
 	}()
 
@@ -735,7 +686,7 @@ func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
 // function that writes the actual C macro definitions.
 // Further needed probes should be added here, while new macro strings need to
 // be added in the correct `write*Header()` function.
-func ExecuteHeaderProbes() *FeatureProbes {
+func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	probes := FeatureProbes{
 		ProgramHelpers: make(map[ProgramHelper]bool),
 		Misc:           miscFeatures{},
@@ -764,7 +715,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.XDP, asm.FnXdpStoreBytes},
 	}
 	for _, ph := range progHelpers {
-		probes.ProgramHelpers[ph] = (HaveProgramHelper(ph.Program, ph.Helper) == nil)
+		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
 	}
 
 	probes.Misc.HaveFibIfindex = (HaveFibIfindex() == nil)

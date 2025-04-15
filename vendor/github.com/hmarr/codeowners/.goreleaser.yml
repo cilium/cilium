@@ -1,0 +1,47 @@
+version: 2
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - main: ./cmd/codeowners
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+brews:
+  - homepage: "https://github.com/hmarr/codeowners"
+    description: "Determine who owns what according CODEOWNERS files"
+
+    repository:
+      owner: hmarr
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_RELEASE_TOKEN }}"
+
+    commit_author:
+      name: release-bot
+      email: release-bot@hmarr.com
+
+    directory: Formula
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^build:'
+      - '^deps:'
+      - '(?i)typo'

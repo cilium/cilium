@@ -15,11 +15,15 @@ import (
 // FromCIDRToPod generates HTTP request from each node without Cilium to the
 // echo pods within the Cilium / K8s cluster.
 func FromCIDRToPod() check.Scenario {
-	return &fromCIDRToPod{}
+	return &fromCIDRToPod{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // fromCIDRToPod implements a Scenario.
-type fromCIDRToPod struct{}
+type fromCIDRToPod struct {
+	check.ScenarioBase
+}
 
 func (f *fromCIDRToPod) Name() string {
 	return "from-cidr-to-pod"
@@ -38,7 +42,7 @@ func (f *fromCIDRToPod) Run(ctx context.Context, t *check.Test) {
 			)
 
 			t.NewAction(f, "host-netns-to-pod", &clientPod, pod, ipFam).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, t.Context().CurlCommand(ep, ipFam))
+				a.ExecInPod(ctx, a.CurlCommand(ep))
 			})
 			i++
 		})

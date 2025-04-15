@@ -139,7 +139,7 @@ func Status(key string) map[string]string {
 	if err != nil {
 		return result
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		val := strings.Split(line, ",")
 		if len(val) > 2 && val[2] == "state" {
 			result[val[1]] = val[3]

@@ -220,7 +220,7 @@ func (m *mutualAuthHandler) handleConnection(ctx context.Context, conn net.Conn)
 }
 
 func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	m.log.Debug("Got new TLS connection", "SNI", info.ServerName)
+	m.log.Debug("Got new TLS connection", logfields.SNI, info.ServerName)
 	id, err := m.cert.SNIToNumericIdentity(info.ServerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity for SNI %s: %w", info.ServerName, err)
@@ -294,7 +294,7 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 		}
 
 		if id != nil { // this will be empty in the peer connection
-			m.log.Debug("Validating Server SNI", "SNI_ID", id.String())
+			m.log.Debug("Validating Server SNI", logfields.SNIID, id)
 			if valid, err := m.cert.ValidateIdentity(*id, leaf); err != nil {
 				return nil, fmt.Errorf("failed to validate SAN: %w", err)
 			} else if !valid {
@@ -304,7 +304,7 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 
 		expirationTime = &leaf.NotAfter
 
-		m.log.Debug("Validated certificate", "uri-san", leaf.URIs)
+		m.log.Debug("Validated certificate", logfields.URISan, leaf.URIs)
 	}
 
 	return expirationTime, nil

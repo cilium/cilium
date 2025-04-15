@@ -20,10 +20,14 @@ import (
 )
 
 func CiliumHealth() check.Scenario {
-	return &ciliumHealth{}
+	return &ciliumHealth{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type ciliumHealth struct{}
+type ciliumHealth struct {
+	check.ScenarioBase
+}
 
 func (s *ciliumHealth) Name() string {
 	return "cilium-health"
@@ -87,7 +91,7 @@ func validateHealthStatus(t *check.ConnectivityTest, pod *check.Pod, out bytes.B
 		}
 	)
 
-	var data interface{}
+	var data any
 	err := json.Unmarshal(out.Bytes(), &data)
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal cilium-health output: %w", err)
@@ -133,8 +137,7 @@ func filterJSON(data any, filter string) (string, error) {
 
 func parseKVPairs(s string) map[string]string {
 	result := make(map[string]string)
-	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(strings.TrimRight(s, "\n"), "\n") {
 		vals := strings.Split(line, "=")
 		if len(vals) == 2 {
 			result[vals[0]] = vals[1]

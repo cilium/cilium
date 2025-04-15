@@ -301,7 +301,7 @@ func TestCountIPs(t *testing.T) {
 	// Dump() returns the deduplicated (or consolidated) list of entries with
 	// length equal to CountFQDNs(), while CountIPs() returns the raw number of
 	// IPs.
-	require.Equal(t, len(names), len(cache.Dump()))
+	require.Len(t, cache.Dump(), len(names))
 	require.Equal(t, len(names), int(fqdns))
 	require.Equal(t, len(names)*2, int(ips))
 }
@@ -371,7 +371,7 @@ func makeEntries(now time.Time, live, redundant, expired uint32) (entries []*cac
 
 // Note: each "op" works on size things
 func BenchmarkGetIPs(b *testing.B) {
-	b.StopTimer()
+
 	now := time.Now()
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 60)
@@ -379,16 +379,15 @@ func BenchmarkGetIPs(b *testing.B) {
 	for _, entry := range entriesOrig {
 		cache.updateWithEntryIPs(entries, entry)
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		entries.getIPs(now)
 	}
 }
 
 // Note: each "op" works on size things
 func BenchmarkUpdateIPs(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StopTimer()
 		now := time.Now()
 		cache := NewDNSCache(0)
@@ -437,17 +436,16 @@ func BenchmarkMarshalJSON1000Repeat2(b *testing.B) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
-	b.StopTimer()
+
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
-	for i := 0; i < numDNSEntries; i++ {
+	for i := range numDNSEntries {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := cache.MarshalJSON()
 		require.NoError(b, err)
 	}
@@ -458,11 +456,11 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
-	b.StopTimer()
+
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
-	for i := 0; i < numDNSEntries; i++ {
+	for i := range numDNSEntries {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
 	}
@@ -470,13 +468,13 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 	data, err := cache.MarshalJSON()
 	require.NoError(b, err)
 
-	emptyCaches := make([]*DNSCache, b.N)
-	for i := 0; i < b.N; i++ {
+	n := b.N
+	emptyCaches := make([]*DNSCache, n)
+	for i := 0; i < n; i++ {
 		emptyCaches[i] = NewDNSCache(0)
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < n; i++ {
 		err := emptyCaches[i].UnmarshalJSON(data)
 		require.NoError(b, err)
 	}
@@ -555,10 +553,10 @@ func TestOverlimitEntriesWithValidLimit(t *testing.T) {
 		cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	require.EqualValues(t, sets.New[string]("test.com"), affectedNames)
+	require.Equal(t, sets.New[string]("test.com"), affectedNames)
 
 	require.Len(t, cache.Lookup("test.com"), limit)
-	require.EqualValues(t, []string{"foo.bar"}, cache.LookupIP(netip.MustParseAddr("1.1.1.1")))
+	require.Equal(t, []string{"foo.bar"}, cache.LookupIP(netip.MustParseAddr("1.1.1.1")))
 	require.Nil(t, cache.forward["test.com"][netip.MustParseAddr("1.1.1.1")])
 	require.Len(t, cache.Lookup("foo.bar"), 1)
 	require.Len(t, cache.Lookup("bar.foo"), 1)
@@ -568,7 +566,7 @@ func TestOverlimitEntriesWithValidLimit(t *testing.T) {
 func TestOverlimitEntriesWithoutLimit(t *testing.T) {
 	limit := 0
 	cache := NewDNSCacheWithLimit(0, limit)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
@@ -590,7 +588,7 @@ func TestGCOverlimitAfterTTLCleanup(t *testing.T) {
 	require.Len(t, cache.overLimit, 1)
 
 	result, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
-	require.EqualValues(t, sets.New[string]("test.com"), result)
+	require.Equal(t, sets.New[string]("test.com"), result)
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
 	affectedNames, _ := cache.cleanupOverLimitEntries()
@@ -784,14 +782,14 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 
 	// Limit the number of IPs per hostname, but associate 'test.com' with
 	// more IPs.
-	for i := 0; i < maxConnections+1; i++ {
+	for i := range maxConnections + 1 {
 		zombies.Upsert(now, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)), "test.com")
 	}
 
 	// Simulate that CT garbage collection marks some IPs as live, we'll
 	// use the first 'maxConnections' IPs just so we can sort the output
 	// in the test below.
-	for i := 0; i < maxConnections; i++ {
+	for i := range maxConnections {
 		zombies.MarkAlive(afterNow, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)))
 	}
 	zombies.SetCTGCTime(afterNow, afterNow.Add(5*time.Minute))
@@ -1274,7 +1272,7 @@ func validateZombieSort(t *testing.T, zombies []*DNSZombieMapping) {
 	}
 	// Don't try to be efficient, just check that the properties we want hold
 	// for every pair of zombie mappings.
-	for i := 0; i < sl; i++ {
+	for i := range sl {
 		for j := i + 1; j < sl; j++ {
 			if zombies[i].AliveAt.Before(zombies[j].AliveAt) {
 				continue
@@ -1389,7 +1387,7 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 	}
 
 	// Five random tests:
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		ts := make([]*DNSZombieMapping, len(allMappings))
 		copy(ts, allMappings)
 		rand.Shuffle(len(ts), func(i, j int) {

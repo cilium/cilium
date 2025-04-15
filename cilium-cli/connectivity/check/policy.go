@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	logfilter "github.com/cilium/cilium/cilium-cli/utils/log"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -294,7 +295,7 @@ func (t *Test) applyResources(ctx context.Context) error {
 	// performed if the user cancels during the policy revision wait time.
 	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
 		if err := t.deleteResources(ctx); err != nil {
-			t.CiliumLogs(ctx)
+			t.ContainerLogs(ctx)
 			return err
 		}
 
@@ -370,15 +371,21 @@ func (t *Test) deleteResources(ctx context.Context) error {
 	return nil
 }
 
-// CiliumLogs dumps the logs of all Cilium agents since the start of the Test.
+// ContainerLogs dumps the logs of all Cilium agents since the start of the Test.
 // filter is applied on each line of output.
-func (t *Test) CiliumLogs(ctx context.Context) {
+func (t *Test) ContainerLogs(ctx context.Context) {
 	for _, pod := range t.Context().ciliumPods {
-		log, err := pod.K8sClient.CiliumLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, t.startTime, false)
+		log, err := pod.K8sClient.ContainerLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, t.startTime, false)
 		if err != nil {
 			t.Fatalf("Error reading Cilium logs: %s", err)
 		}
-		t.Infof("Cilium agent %s/%s logs since %s:\n%s", pod.Pod.Namespace, pod.Pod.Name, t.startTime.String(), log)
+		t.Infof(
+			"Cilium agent %s/%s logs since %s:\n%s",
+			pod.Pod.Namespace,
+			pod.Pod.Name,
+			t.startTime.String(),
+			logfilter.Reduce(log, t.verbose),
+		)
 	}
 }
 

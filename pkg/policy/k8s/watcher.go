@@ -5,10 +5,10 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -24,7 +24,7 @@ import (
 )
 
 type policyWatcher struct {
-	log    logrus.FieldLogger
+	log    *slog.Logger
 	config *option.DaemonConfig
 
 	k8sResourceSynced *k8sSynced.Resources
@@ -73,13 +73,13 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 	// Only used during initialization
 	var knpDone, cnpDone, ccnpDone chan uint64
 	if p.config.EnableK8sNetworkPolicy {
-		knpDone = make(chan uint64, 100)
+		knpDone = make(chan uint64, 1024)
 	}
 	if p.config.EnableCiliumNetworkPolicy {
-		cnpDone = make(chan uint64, 100)
+		cnpDone = make(chan uint64, 1024)
 	}
 	if p.config.EnableCiliumClusterwideNetworkPolicy {
-		ccnpDone = make(chan uint64, 100)
+		ccnpDone = make(chan uint64, 1024)
 	}
 
 	// Consume result channels, decrement outstanding work counter.

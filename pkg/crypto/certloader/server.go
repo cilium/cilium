@@ -4,11 +4,14 @@
 package certloader
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
+	"slices"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var alpnProtocolH2 = "h2"
@@ -25,7 +28,7 @@ type ServerConfigBuilder interface {
 // rotation.
 type WatchedServerConfig struct {
 	*Watcher
-	log logrus.FieldLogger
+	log *slog.Logger
 }
 
 var (
@@ -39,7 +42,7 @@ var (
 // provided files. both certFile and privkeyFile must be provided. To configure
 // a mTLS capable ServerConfigBuilder, caFiles must contains at least one file
 // path.
-func NewWatchedServerConfig(log logrus.FieldLogger, caFiles []string, certFile, privkeyFile string) (*WatchedServerConfig, error) {
+func NewWatchedServerConfig(log *slog.Logger, caFiles []string, certFile, privkeyFile string) (*WatchedServerConfig, error) {
 	if certFile == "" {
 		return nil, ErrMissingCertFile
 	}
@@ -63,7 +66,7 @@ func NewWatchedServerConfig(log logrus.FieldLogger, caFiles []string, certFile, 
 // themselves don't exist yet. both certFile and privkeyFile must be provided.
 // To configure a mTLS capable ServerConfigBuilder, caFiles must contains at
 // least one file path.
-func FutureWatchedServerConfig(log logrus.FieldLogger, caFiles []string, certFile, privkeyFile string) (<-chan *WatchedServerConfig, error) {
+func FutureWatchedServerConfig(log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *WatchedServerConfig, error) {
 	if certFile == "" {
 		return nil, ErrMissingCertFile
 	}
@@ -120,8 +123,12 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 					tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 				}
 			}
-			c.log.WithField("keypair-sn", keypairId(keypair)).
-				Debug("Server tls handshake")
+			if c.log.Enabled(context.Background(), slog.LevelDebug) {
+				c.log.Debug(
+					"Server tls handshake",
+					logfields.KeyPairSN, keypairId(keypair),
+				)
+			}
 			return tlsConfig, nil
 		},
 		// Same issue as https://github.com/golang/go/issues/29139 but for
@@ -140,10 +147,8 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 
 // constructWithH2ProtoIfNeed constructs a new slice of protocols with h2
 func constructWithH2ProtoIfNeed(existingProtocols []string) []string {
-	for _, p := range existingProtocols {
-		if p == alpnProtocolH2 {
-			return existingProtocols
-		}
+	if slices.Contains(existingProtocols, alpnProtocolH2) {
+		return existingProtocols
 	}
 	ret := make([]string, 0, len(existingProtocols)+1)
 	ret = append(ret, existingProtocols...)

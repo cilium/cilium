@@ -58,9 +58,10 @@ type CreateSecurityGroupInput struct {
 	// This member is required.
 	Description *string
 
-	// The name of the security group.
+	// The name of the security group. Names are case-insensitive and must be unique
+	// within the VPC.
 	//
-	// Constraints: Up to 255 characters in length. Cannot start with sg- .
+	// Constraints: Up to 255 characters in length. Can't start with sg- .
 	//
 	// Valid characters: a-z, A-Z, 0-9, spaces, and ._-:/()#,@[]+=&;{}!$*
 	//
@@ -161,6 +162,9 @@ func (c *Client) addOperationCreateSecurityGroupMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateSecurityGroupValidationMiddleware(stack); err != nil {

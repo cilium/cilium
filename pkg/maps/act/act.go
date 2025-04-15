@@ -88,7 +88,6 @@ func newActiveConnectionTrackingMap(in struct {
 
 	out.NodeDefines = map[string]string{
 		"ENABLE_ACTIVE_CONNECTION_TRACKING": "1",
-		"LB_ACT_MAP":                        ActiveConnectionTrackingMapName,
 		"CILIUM_LB_ACT_MAP_MAX_ENTRIES":     strconv.Itoa(size),
 	}
 

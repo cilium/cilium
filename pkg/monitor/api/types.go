@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,13 +139,7 @@ func (m *MessageTypeFilter) Type() string {
 }
 
 func (m *MessageTypeFilter) Contains(typ int) bool {
-	for _, v := range *m {
-		if v == typ {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(*m, typ)
 }
 
 // Must be synchronized with <bpf/lib/trace.h>
@@ -161,6 +156,8 @@ const (
 	TraceFromOverlay
 	TraceFromNetwork
 	TraceToNetwork
+	TraceFromCrypto
+	TraceToCrypto
 )
 
 // TraceObservationPoints is a map of all supported trace observation points
@@ -171,12 +168,14 @@ var TraceObservationPoints = map[uint8]string{
 	TraceToStack:     "to-stack",
 	TraceToOverlay:   "to-overlay",
 	TraceToNetwork:   "to-network",
+	TraceToCrypto:    "to-crypto",
 	TraceFromLxc:     "from-endpoint",
 	TraceFromProxy:   "from-proxy",
 	TraceFromHost:    "from-host",
 	TraceFromStack:   "from-stack",
 	TraceFromOverlay: "from-overlay",
 	TraceFromNetwork: "from-network",
+	TraceFromCrypto:  "from-crypto",
 }
 
 // TraceObservationPoint returns the name of a trace observation point
@@ -199,7 +198,7 @@ type AgentNotify struct {
 // constructors in this package for possible values.
 type AgentNotifyMessage struct {
 	Type         AgentNotification
-	Notification interface{}
+	Notification any
 }
 
 // ToJSON encodes a AgentNotifyMessage to its JSON-based AgentNotify representation

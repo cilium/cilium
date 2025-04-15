@@ -37,7 +37,8 @@ const (
 
 var (
 	// PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
-	pingHeaderPattern = regexp.MustCompile(`^PING .* bytes of data\.`)
+	// PING 2606:4700:4700::1111(2606:4700:4700::1111) 56 data bytes
+	pingHeaderPattern = regexp.MustCompile(`^PING .*(bytes of data\.|data bytes)`)
 )
 
 // Action represents an individual action (e.g. a curl call) in a Scenario
@@ -1082,4 +1083,16 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 			// Ticker is delivered, let's retry.
 		}
 	}
+}
+
+func (a *Action) expectingSuccess() bool {
+	return a.expectedExitCode() == ExitCode(0)
+}
+
+func (a *Action) CurlCommandWithOutput(peer TestPeer, opts ...string) []string {
+	return a.test.ctx.CurlCommandWithOutput(peer, a.IPFamily(), a.expectingSuccess(), opts)
+}
+
+func (a *Action) CurlCommand(peer TestPeer, opts ...string) []string {
+	return a.test.ctx.CurlCommand(peer, a.IPFamily(), a.expectingSuccess(), opts)
 }

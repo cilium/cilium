@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -23,32 +22,28 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 type DaemonSuite struct {
@@ -61,15 +56,9 @@ type DaemonSuite struct {
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
 
-	// Owners interface mock
-	OnGetPolicyRepository  func() policy.PolicyRepository
-	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
-	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
-	OnGetCompilationLock   func() datapath.CompilationLock
-	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
-	OnGetCIDRPrefixLengths func() ([]int, []int)
-
 	PolicyImporter policycell.PolicyImporter
+	envoyXdsServer envoy.XDSServer
+	dnsProxy       defaultdns.Proxy
 }
 
 func setupTestDirectories() string {
@@ -99,19 +88,9 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 
-	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
-
 	time.Local = time.UTC
 
 	os.Exit(m.Run())
-}
-
-type dummyEpSyncher struct{}
-
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
-}
-
-func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
 func setupDaemonSuite(tb testing.TB) *DaemonSuite {
@@ -126,15 +105,19 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	var daemonPromise promise.Promise[*Daemon]
 	ds.hive = hive.New(
 		cell.Provide(
-			func() k8sClient.Clientset {
-				cs, _ := k8sClient.NewFakeClientset()
+			func(log *slog.Logger) k8sClient.Clientset {
+				cs, _ := k8sClient.NewFakeClientset(log)
 				cs.Disable()
 				return cs
 			},
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
+			func() policymap.Factory { return nil },
 			k8sSynced.RejectedCRDSyncPromise,
+			func() *experimental.TestConfig {
+				return &experimental.TestConfig{}
+			},
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
@@ -142,11 +125,18 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		ControlPlane,
 		metrics.Cell,
 		store.Cell,
+		defaultdns.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),
 		cell.Invoke(func(pi policycell.PolicyImporter) {
 			ds.PolicyImporter = pi
+		}),
+		cell.Invoke(func(envoyXdsServer envoy.XDSServer) {
+			ds.envoyXdsServer = envoyXdsServer
+		}),
+		cell.Invoke(func(dnsProxy defaultdns.Proxy) {
+			ds.dnsProxy = dnsProxy
 		}),
 	)
 
@@ -165,15 +155,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.d, err = daemonPromise.Await(ctx)
 	require.NoError(tb, err)
 
-	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
+	ds.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-
-	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
-	ds.OnQueueEndpointBuild = nil
-	ds.OnGetCompilationLock = ds.d.GetCompilationLock
-	ds.OnSendNotification = ds.d.SendNotification
-	ds.OnGetCIDRPrefixLengths = nil
 
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
@@ -244,82 +228,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 	}
 }
 
-func TestMinimumWorkerThreadsIsSet(t *testing.T) {
-	require.GreaterOrEqual(t, numWorkerThreads(), 2)
-	require.GreaterOrEqual(t, numWorkerThreads(), runtime.NumCPU())
-}
-
-func (ds *DaemonSuite) GetPolicyRepository() policy.PolicyRepository {
-	if ds.OnGetPolicyRepository != nil {
-		return ds.OnGetPolicyRepository()
-	}
-	panic("GetPolicyRepository should not have been called")
-}
-
-func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
-	if ds.OnGetNamedPorts != nil {
-		return ds.OnGetNamedPorts()
-	}
-	panic("GetNamedPorts should not have been called")
-}
-
-func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	if ds.OnQueueEndpointBuild != nil {
-		return ds.OnQueueEndpointBuild(ctx, epID)
-	}
-
-	return nil, nil
-}
-
-func (ds *DaemonSuite) GetCompilationLock() datapath.CompilationLock {
-	if ds.OnGetCompilationLock != nil {
-		return ds.OnGetCompilationLock()
-	}
-	panic("GetCompilationLock should not have been called")
-}
-
-func (ds *DaemonSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	if ds.OnSendNotification != nil {
-		return ds.OnSendNotification(msg)
-	}
-	panic("SendNotification should not have been called")
-}
-
-func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
-	if ds.OnGetCIDRPrefixLengths != nil {
-		return ds.OnGetCIDRPrefixLengths()
-	}
-	panic("GetCIDRPrefixLengths should not have been called")
-}
-
-func (ds *DaemonSuite) Loader() datapath.Loader {
-	return ds.d.loader
-}
-
-func (ds *DaemonSuite) Orchestrator() datapath.Orchestrator {
-	return ds.d.orchestrator
-}
-
-func (ds *DaemonSuite) BandwidthManager() datapath.BandwidthManager {
-	return ds.d.bwManager
-}
-
-func (ds *DaemonSuite) IPTablesManager() datapath.IptablesManager {
-	return ds.d.iptablesManager
-}
-
-func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {}
-
-func (ds *DaemonSuite) AddIdentity(id *identity.Identity) {}
-
-func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity) {}
-
-func (ds *DaemonSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
-
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
@@ -334,8 +242,9 @@ func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
 	ds.PolicyImporter.UpdatePolicy(upd)
 	<-dc
 }
+
 func TestMemoryMap(t *testing.T) {
 	pid := os.Getpid()
 	m := memoryMap(pid)
-	require.NotEqual(t, "", m)
+	require.NotEmpty(t, m)
 }

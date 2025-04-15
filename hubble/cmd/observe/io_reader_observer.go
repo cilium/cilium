@@ -21,6 +21,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // IOReaderObserver implements ObserverClient interface. It reads flows
@@ -85,11 +86,11 @@ type ioReaderClient struct {
 }
 
 func newIOReaderClient(ctx context.Context, scanner *bufio.Scanner, request *observerpb.GetFlowsRequest) (*ioReaderClient, error) {
-	allow, err := filters.BuildFilterList(ctx, request.GetWhitelist(), filters.DefaultFilters(logging.DefaultLogger))
+	allow, err := filters.BuildFilterList(ctx, request.GetWhitelist(), filters.DefaultFilters(logging.DefaultSlogLogger))
 	if err != nil {
 		return nil, err
 	}
-	deny, err := filters.BuildFilterList(ctx, request.GetBlacklist(), filters.DefaultFilters(logging.DefaultLogger))
+	deny, err := filters.BuildFilterList(ctx, request.GetBlacklist(), filters.DefaultFilters(logging.DefaultSlogLogger))
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (c *ioReaderClient) popFromLastBuffer() *observerpb.GetFlowsResponse {
 			// index into the ring buffer itself
 			// TODO: Add the ability to index into the ring buffer and we could avoid
 			// this copy.
-			c.buffer.Iterate(func(i interface{}) {
+			c.buffer.Iterate(func(i any) {
 				c.resps = append(c.resps, i.(*observerpb.GetFlowsResponse))
 			})
 		}
@@ -199,12 +200,15 @@ func (c *ioReaderClient) unmarshalNext() *observerpb.GetFlowsResponse {
 			// warning message and continue processing discarding unknown
 			// fields to avoid logging more than once.
 			c.discardUnknown = true
-			logger.Logger.Warn("unknown field detected, upgrade the Hubble CLI to get rid of this warning", "error", prevErr)
+			logger.Logger.Warn("unknown field detected, upgrade the Hubble CLI to get rid of this warning", logfields.Error, prevErr)
 		}
 	}
 	if err != nil {
 		line := c.scanner.Text()
-		logger.Logger.Warn("Failed to unmarshal json to flow", "error", err, "line", line)
+		logger.Logger.Warn("Failed to unmarshal json to flow",
+			logfields.Error, err,
+			logfields.Line, line,
+		)
 		return nil
 	}
 	if c.request.GetSince() != nil && c.request.GetSince().AsTime().After(res.GetTime().AsTime()) {

@@ -123,10 +123,10 @@ func TestImmSetUnion(t *testing.T) {
 
 func benchmarkImmSetInsert(b *testing.B, numItems int) {
 	s := NewImmSet[int]()
-	for i := 0; i < numItems; i++ {
+	for i := range numItems {
 		s = s.Insert(i)
 	}
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		s.Insert(numItems)
 	}
 }
@@ -138,13 +138,13 @@ func BenchmarkImmSetInsert_10000(b *testing.B) { benchmarkImmSetInsert(b, 10000)
 func benchmarkImmSetInsertMany(b *testing.B, numItems int) {
 	a1 := make([]int, numItems)
 	a2 := make([]int, numItems)
-	for i := 0; i < numItems; i++ {
+	for i := range numItems {
 		a1[i] = int(rand.IntN(numItems))
 		a2[i] = int(rand.IntN(numItems))
 	}
 	s := NewImmSet(a1...)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+
+	for b.Loop() {
 		s.Insert(a2...)
 	}
 }
@@ -161,13 +161,12 @@ func BenchmarkImmSetInsertMany_10000(b *testing.B) {
 
 func benchmarkImmSetDelete(b *testing.B, numItems int) {
 	s := NewImmSet[int]()
-	for i := 0; i < numItems; i++ {
+	for i := range numItems {
 		s = s.Insert(i)
 	}
 	idx := rand.IntN(numItems)
-	b.ResetTimer()
 
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		s.Delete(idx)
 	}
 }
@@ -179,13 +178,12 @@ func BenchmarkImmSetDelete_10000(b *testing.B) { benchmarkImmSetDelete(b, 10000)
 func benchmarkImmSetDeleteMany(b *testing.B, numItems int) {
 	s := NewImmSet[int]()
 	a := make([]int, 0, numItems)
-	for i := 0; i < numItems; i++ {
+	for range numItems {
 		s = s.Insert(int(rand.IntN(numItems)))
 		a = append(a, int(rand.IntN(numItems)))
 	}
-	b.ResetTimer()
 
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		s.Delete(a...)
 	}
 }
@@ -203,13 +201,12 @@ func BenchmarkImmSetDeleteMany_10000(b *testing.B) {
 func benchmarkImmSetDifference(b *testing.B, numItems int) {
 	s1 := NewImmSet[int]()
 	s2 := NewImmSet[int]()
-	for i := 0; i < numItems; i++ {
+	for range numItems {
 		s1 = s1.Insert(int(rand.IntN(numItems)))
 		s2 = s2.Insert(int(rand.IntN(numItems)))
 	}
-	b.ResetTimer()
 
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		s1.Difference(s2)
 	}
 }
@@ -227,14 +224,14 @@ func BenchmarkImmSetDifference_10000(b *testing.B) {
 func benchmarkImmSetUnion(b *testing.B, numItems int) {
 	a1 := make([]int, numItems)
 	a2 := make([]int, numItems)
-	for i := 0; i < numItems; i++ {
+	for i := range numItems {
 		a1[i] = int(rand.IntN(numItems))
 		a2[i] = int(rand.IntN(numItems))
 	}
 	s1 := NewImmSet(a1...)
 	s2 := NewImmSet(a2...)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+
+	for b.Loop() {
 		s1.Union(s2)
 	}
 }

@@ -10,16 +10,16 @@
 #define HAVE_FIB_NEIGH	1
 
 #define ENABLE_IPV4
+#define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY
 #define ENABLE_MASQUERADE_IPV4
+#define ENABLE_MASQUERADE_IPV6
 #define ENCAP_IFINDEX	42
 #define IFACE_IFINDEX	44
 
 /* Provide the desired egress interface to the datapath */
 #define EGRESS_IFINDEX	IFACE_IFINDEX
-
-#define SECCTX_FROM_IPCACHE 1
 
 #define fib_lookup mock_fib_lookup
 static __always_inline __maybe_unused long
@@ -106,6 +106,49 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 	});
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+
+	return ret;
+}
+
+/* Test that a packet matching an egress gateway policy on the from-overlay program
+ * gets correctly redirected to the target netdev for IPv6.
+ */
+PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface_v6")
+int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_REDIRECT,
+			.redirect = true,
+		});
+}
+
+SETUP("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface_v6")
+int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface_v6")
+int egressgw_redirect_check_v6(const struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+			.status_code = TC_ACT_REDIRECT,
+	});
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
 
 	return ret;
 }

@@ -5,11 +5,11 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	serviceapi "github.com/cilium/cilium/api/v1/server/restapi/service"
@@ -23,7 +23,7 @@ var warnIdTypeDeprecationOnce sync.Once
 type serviceRestApiHandlerParams struct {
 	cell.In
 
-	Logger         logrus.FieldLogger
+	Logger         *slog.Logger
 	ServiceManager ServiceManager
 }
 
@@ -59,15 +59,19 @@ func newServiceRestApiHandler(params serviceRestApiHandlerParams) serviceRestApi
 }
 
 type putServiceIDHandler struct {
-	logger         logrus.FieldLogger
+	logger         *slog.Logger
 	serviceManager ServiceManager
 }
 
 func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middleware.Responder {
 	warnIdTypeDeprecation(h.logger)
 
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
+	h.logger.Debug(
+		"PUT /service/{id} request",
+		logfields.Params, params,
+	)
 
+	maxID := int64(MaxSetOfServiceID)
 	if params.Config.ID == 0 {
 		if !params.Config.UpdateServices {
 			return api.Error(serviceapi.PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
@@ -84,6 +88,9 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 			return api.Error(serviceapi.PutServiceIDUpdateBackendFailureCode, err)
 		}
 		return serviceapi.NewPutServiceIDOK()
+	} else if params.Config.ID > maxID {
+		return api.Error(serviceapi.PutServiceIDFailureCode, fmt.Errorf("service ID %d exceeds the maximum limit of %d",
+			params.Config.ID, maxID))
 	}
 
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
@@ -169,20 +176,26 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 }
 
 type deleteServiceIDHandler struct {
-	logger         logrus.FieldLogger
+	logger         *slog.Logger
 	serviceManager ServiceManager
 }
 
 func (h *deleteServiceIDHandler) Handle(params serviceapi.DeleteServiceIDParams) middleware.Responder {
 	warnIdTypeDeprecation(h.logger)
 
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
+	h.logger.Debug(
+		"DELETE /service/{id} request",
+		logfields.Params, params,
+	)
 
 	found, err := h.serviceManager.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
 	switch {
 	case err != nil:
-		h.logger.WithError(err).WithField(logfields.ServiceID, params.ID).
-			Warn("DELETE /service/{id}: error deleting service")
+		h.logger.Warn(
+			"DELETE /service/{id}: error deleting service",
+			logfields.Error, err,
+			logfields.ServiceID, params.ID,
+		)
 		return api.Error(serviceapi.DeleteServiceIDFailureCode, err)
 	case !found:
 		return serviceapi.NewDeleteServiceIDNotFound()
@@ -192,14 +205,17 @@ func (h *deleteServiceIDHandler) Handle(params serviceapi.DeleteServiceIDParams)
 }
 
 type getServiceIDHandler struct {
-	logger         logrus.FieldLogger
+	logger         *slog.Logger
 	serviceManager ServiceManager
 }
 
 func (h *getServiceIDHandler) Handle(params serviceapi.GetServiceIDParams) middleware.Responder {
 	warnIdTypeDeprecation(h.logger)
 
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
+	h.logger.Debug(
+		"GET /service/{id} request",
+		logfields.Params, params,
+	)
 
 	if svc, ok := h.serviceManager.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
 		return serviceapi.NewGetServiceIDOK().WithPayload(svc.GetModel())
@@ -208,19 +224,22 @@ func (h *getServiceIDHandler) Handle(params serviceapi.GetServiceIDParams) middl
 }
 
 type getServiceHandler struct {
-	logger         logrus.FieldLogger
+	logger         *slog.Logger
 	serviceManager ServiceManager
 }
 
 func (h *getServiceHandler) Handle(params serviceapi.GetServiceParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
+	h.logger.Debug(
+		"GET /service request",
+		logfields.Params, params,
+	)
 	list := GetServiceModelList(h.serviceManager)
 	return serviceapi.NewGetServiceOK().WithPayload(list)
 }
 
-func warnIdTypeDeprecation(logger logrus.FieldLogger) {
+func warnIdTypeDeprecation(logger *slog.Logger) {
 	warnIdTypeDeprecationOnce.Do(func() {
-		logger.Warning("Deprecation: The type of {id} in /service/{id} will change from int to string in v1.14")
+		logger.Warn("Deprecation: The type of {id} in /service/{id} will change from int to string in v1.14")
 	})
 }
 

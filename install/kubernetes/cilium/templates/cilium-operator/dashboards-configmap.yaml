@@ -12,7 +12,7 @@ metadata:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-operator
     app.kubernetes.io/part-of: cilium
-    {{- with .Values.commonLabels }}
+    {{- with $.Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- if $.Values.operator.dashboards.label }}

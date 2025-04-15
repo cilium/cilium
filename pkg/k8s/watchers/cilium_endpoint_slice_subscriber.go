@@ -4,7 +4,7 @@
 package watchers
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -26,13 +27,15 @@ type localEndpointCache interface {
 }
 
 type cesSubscriber struct {
+	logger    *slog.Logger
 	epWatcher endpointWatcher
 	epCache   localEndpointCache
 	cepMap    *cepToCESmap
 }
 
-func newCESSubscriber(k *K8sCiliumEndpointsWatcher) *cesSubscriber {
+func newCESSubscriber(logger *slog.Logger, k *K8sCiliumEndpointsWatcher) *cesSubscriber {
 	return &cesSubscriber{
+		logger:    logger,
 		epWatcher: k,
 		epCache:   k.endpointManager,
 		cepMap:    newCEPToCESMap(),
@@ -45,10 +48,11 @@ func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
 	for _, ep := range ces.Endpoints {
 		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, ces.Namespace)
 		CEPName := cep.Namespace + "/" + cep.Name
-		log.WithFields(logrus.Fields{
-			"CESName": ces.GetName(),
-			"CEPName": CEPName,
-		}).Debug("CES added, calling CoreEndpointUpdate")
+		cs.logger.Debug(
+			"CES added, calling CoreEndpointUpdate",
+			logfields.CESName, ces.GetName(),
+			logfields.CEPName, CEPName,
+		)
 		if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
@@ -88,10 +92,11 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 	// Handle any new CEPs inserted in the CES.
 	for CEPName, newCEP := range newCEPs {
 		if _, exists := oldCEPs[CEPName]; !exists {
-			log.WithFields(logrus.Fields{
-				"CESName": newCES.GetName(),
-				"CEPName": CEPName,
-			}).Debug("CEP inserted, calling endpointUpdated")
+			cs.logger.Debug(
+				"CEP inserted, calling endpointUpdated",
+				logfields.CESName, newCES.GetName(),
+				logfields.CEPName, CEPName,
+			)
 			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(newCEP)); p != nil {
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
@@ -106,10 +111,11 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 			if oldCEP.DeepEqual(newCEP) {
 				continue
 			}
-			log.WithFields(logrus.Fields{
-				"CESName": newCES.GetName(),
-				"CEPName": CEPName,
-			}).Debug("CES updated, calling endpointUpdated")
+			cs.logger.Debug(
+				"CES updated, calling endpointUpdated",
+				logfields.CESName, newCES.GetName(),
+				logfields.CEPName, CEPName,
+			)
 			cs.addCEPwithCES(CEPName, newCES.GetName(), newCEP)
 		}
 	}
@@ -124,18 +130,14 @@ func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
 	}
 }
 
-// OnDelete calls endpointDeleted for CEPs from remote Nodes.
+// onDelete calls endpointDeleted for CEPs removed from a CES
 func (cs *cesSubscriber) onDelete(ces *cilium_v2a1.CiliumEndpointSlice, cep *types.CiliumEndpoint) {
 	CEPName := cep.Namespace + "/" + cep.Name
-	log.WithFields(logrus.Fields{
-		"CESName": ces.GetName(),
-		"CEPName": CEPName,
-	}).Debug("CES deleted, calling endpointDeleted")
-	// LocalNode already deleted the CEP.
-	// Hence, skip processing endpointDeleted for localNode CEPs.
-	if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
-		return
-	}
+	cs.logger.Debug(
+		"CES deleted, calling endpointDeleted",
+		logfields.CESName, ces.GetName(),
+		logfields.CEPName, CEPName,
+	)
 	// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
 	// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
 	cs.deleteCEPfromCES(CEPName, ces.GetName(), cep)
@@ -154,16 +156,18 @@ func (cs *cesSubscriber) deleteCEPfromCES(CEPName, CESName string, c *types.Cili
 	}
 	cep, exists := cs.cepMap.getCEPLocked(CEPName)
 	if !exists {
-		log.WithFields(logrus.Fields{
-			"CESName": CESName,
-			"CEPName": CEPName,
-		}).Debug("CEP deleted, calling endpointDeleted")
+		cs.logger.Debug(
+			"CEP deleted, calling endpointDeleted",
+			logfields.CESName, CESName,
+			logfields.CEPName, CEPName,
+		)
 		cs.epWatcher.endpointDeleted(c)
 	} else {
-		log.WithFields(logrus.Fields{
-			"CESName": CESName,
-			"CEPName": CEPName,
-		}).Debug("CEP deleted, other CEP exists, calling endpointUpdated")
+		cs.logger.Debug(
+			"CEP deleted, other CEP exists, calling endpointUpdated",
+			logfields.CESName, CESName,
+			logfields.CEPName, CEPName,
+		)
 		cs.epWatcher.endpointUpdated(c, cep)
 	}
 }

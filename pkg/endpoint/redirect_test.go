@@ -8,18 +8,18 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -61,7 +61,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	}
 
 	s.do.idmgr = identitymanager.NewIDManager()
-	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil, s.do.idmgr, api.NewPolicyMetricsNoop())
+	s.do.repo = policy.NewPolicyRepository(hivetest.Logger(tb), identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(tb), certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{
@@ -138,62 +138,6 @@ type DummyOwner struct {
 	idmgr identitymanager.IDManager
 }
 
-// GetPolicyRepository returns the policy repository of the owner.
-func (d *DummyOwner) GetPolicyRepository() policy.PolicyRepository {
-	return d.repo
-}
-
-// QueueEndpointBuild does nothing.
-func (d *DummyOwner) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	return nil, nil
-}
-
-// GetCompilationLock does nothing.
-func (d *DummyOwner) GetCompilationLock() datapath.CompilationLock {
-	return nil
-}
-
-// GetCIDRPrefixLengths does nothing.
-func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
-// SendNotification does nothing.
-func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
-}
-
-// Datapath returns a nil datapath.
-func (d *DummyOwner) Loader() datapath.Loader {
-	return nil
-}
-
-func (d *DummyOwner) Orchestrator() datapath.Orchestrator {
-	return nil
-}
-
-func (d *DummyOwner) BandwidthManager() datapath.BandwidthManager {
-	return nil
-}
-
-func (d *DummyOwner) IPTablesManager() datapath.IptablesManager {
-	return nil
-}
-
-func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {}
-
-func (s *DummyOwner) AddIdentity(id *identity.Identity) { s.idmgr.Add(id) }
-
-func (s *DummyOwner) RemoveIdentity(id *identity.Identity) { s.idmgr.Remove(id) }
-
-func (s *DummyOwner) RemoveOldAddNewIdentity(old, new *identity.Identity) {
-	s.idmgr.RemoveOldAddNew(old, new)
-}
-
 // GetNodeSuffix does nothing.
 func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
@@ -214,7 +158,13 @@ const (
 )
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
-	ep := NewTestEndpointWithState(s.do, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), 12345, StateRegenerating)
+	model := newTestEndpointModel(12345, StateRegenerating)
+	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep.Start(uint16(model.ID))
+	t.Cleanup(ep.Stop)
+
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
@@ -384,9 +334,7 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
+	cmp := completion.NewWaitGroup(t.Context())
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Redirect is still created, even if all MapState entries may have been overridden by a
@@ -397,7 +345,7 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort),
+		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort).WithListenerPriority(policy.ListenerPriorityHTTP),
 		mapKeyFoo:       policyTypes.DenyEntry(),
 	}
 
@@ -516,9 +464,7 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
+	cmp := completion.NewWaitGroup(t.Context())
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
@@ -528,7 +474,7 @@ func TestRedirectWithPriority(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithProxyPriority(1),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithListenerPriority(1),
 		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
@@ -571,9 +517,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
+	cmp := completion.NewWaitGroup(t.Context())
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
@@ -583,7 +527,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithProxyPriority(1),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithListenerPriority(1),
 		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{

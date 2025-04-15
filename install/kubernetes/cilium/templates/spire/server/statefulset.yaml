@@ -4,10 +4,6 @@ kind: StatefulSet
 metadata:
   name: spire-server
   namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
-  {{- with .Values.commonLabels }}
-  labels:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
   {{- if or .Values.authentication.mutual.spire.install.server.annotations .Values.authentication.mutual.spire.annotations }}
   annotations:
     {{- with .Values.authentication.mutual.spire.annotations }}
@@ -19,9 +15,12 @@ metadata:
   {{- end }}
   labels:
     app: spire-server
-  {{- with .Values.authentication.mutual.spire.install.server.labels }}
+    {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- with .Values.authentication.mutual.spire.install.server.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   replicas: 1
   selector:
@@ -30,6 +29,8 @@ spec:
   serviceName: spire-server
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: spire-server
       labels:
         app: spire-server
         {{- with .Values.commonLabels }}
@@ -76,7 +77,7 @@ spec:
         {{- with .Values.authentication.mutual.spire.install.server.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
-        {{- end }}        
+        {{- end }}
         ports:
         - name: grpc
           containerPort: 8081

@@ -181,8 +181,8 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 		// curlWithRetry retries the curl, to make sure that allowed curls don't
 		// flake on bad connectivity
-		curlWithRetry := func(name string, cmd string, optionalArgs ...interface{}) (res *helpers.CmdRes) {
-			for try := 0; try < 5; try++ {
+		curlWithRetry := func(name string, cmd string, optionalArgs ...any) (res *helpers.CmdRes) {
+			for range 5 {
 				res = vm.ContainerExec(name, helpers.CurlFail(cmd, optionalArgs...))
 				if res.WasSuccessful() {
 					return res
@@ -465,7 +465,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing egress access to the world")
 			curlFailures := 0
-			for i := 0; i < retries; i++ {
+			for range retries {
 				By("Accessing index.html using Docker container using host networking from %q (should work)", helpers.App1)
 				res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, cloudFlare))
 				if !res.WasSuccessful() {

@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"maps"
 	"math"
@@ -22,15 +23,18 @@ import (
 	"github.com/cilium/stream"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -52,10 +56,8 @@ var (
 )
 
 func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bool) {
-	// As we're using k8s.Endpoints we need to set this to ask ParseEndpoint*
-	// to handle the termination state. Eventually this should migrate to the
-	// package for the k8s data source.
-	option.Config.EnableK8sTerminatingEndpoint = true
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
 
 	svcs, epSlices := ServicesAndSlices(testSize)
 
@@ -63,30 +65,40 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 
 	var maps experimental.LBMaps
 	if testutils.IsPrivileged() {
-		maps = &experimental.BPFLBMaps{
+		bpfMaps := &experimental.BPFLBMaps{
+			Log:    log,
 			Pinned: false,
-			Cfg: experimental.LBMapsConfig{
-				MaxSockRevNatMapEntries:  3 * testSize,
-				ServiceMapMaxEntries:     3 * testSize,
-				BackendMapMaxEntries:     3 * testSize,
-				RevNatMapMaxEntries:      3 * testSize,
-				AffinityMapMaxEntries:    3 * testSize,
-				SourceRangeMapMaxEntries: 3 * testSize,
-				MaglevMapMaxEntries:      3 * testSize,
+			Cfg: experimental.ExternalConfig{
+				ZoneMapper: &option.DaemonConfig{},
+				LBMapsConfig: experimental.LBMapsConfig{
+					MaxSockRevNatMapEntries:  3 * testSize,
+					ServiceMapMaxEntries:     3 * testSize,
+					BackendMapMaxEntries:     3 * testSize,
+					RevNatMapMaxEntries:      3 * testSize,
+					AffinityMapMaxEntries:    3 * testSize,
+					SourceRangeMapMaxEntries: 3 * testSize,
+					MaglevMapMaxEntries:      3 * testSize,
+				},
+				EnableIPv4:                      true,
+				EnableIPv6:                      true,
+				ExternalClusterIP:               true,
+				EnableHealthCheckNodePort:       true,
+				KubeProxyReplacement:            true,
+				NodePortMin:                     30000,
+				NodePortMax:                     40000,
+				NodePortAlg:                     "random",
+				LoadBalancerAlgorithmAnnotation: false,
 			},
 			MaglevCfg: maglevConfig,
 		}
+		bpfMaps.Start(context.TODO())
+		maps = bpfMaps
 	} else {
 		maps = experimental.NewFakeLBMaps()
 	}
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1000)
 	services <- resource.Event[*slim_corev1.Service]{
-		Kind: resource.Sync,
-		Done: func(error) {},
-	}
-	pods := make(chan resource.Event[*slim_corev1.Pod], 1)
-	pods <- resource.Event[*slim_corev1.Pod]{
 		Kind: resource.Sync,
 		Done: func(error) {},
 	}
@@ -101,7 +113,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		db     *statedb.DB
 		bo     *experimental.BPFOps
 	)
-	h := testHive(maps, services, pods, endpoints, &writer, &db, &bo)
+	h := testHive(maps, services, endpoints, &writer, &db, &bo)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -114,7 +126,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 
 	var runs []run
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		runtime.GC()
 		var memory memoryPair
 		runtime.ReadMemStats(&memory.before)
@@ -125,12 +137,11 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		// Feed in all the test objects
 		//
 		fmt.Printf("Iteration %d: upsert ", i)
-		for _, svc := range svcs {
-			services <- upsertEvent(svc)
-		}
-
 		for _, slice := range epSlices {
 			endpoints <- upsertEvent(slice)
+		}
+		for _, svc := range svcs {
+			services <- upsertEvent(svc)
 		}
 
 		fmt.Print("wait ")
@@ -356,7 +367,7 @@ func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k
 
 		tmpSlice.Name = fmt.Sprintf("%s-%06d", slice.Name, j)
 
-		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(&tmpSlice))
+		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logging.DefaultSlogLogger, &tmpSlice))
 	}
 	return
 }
@@ -437,10 +448,10 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				if fe.Status.Kind != "Done" {
 					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
 				}
-				backends := slices.Collect(statedb.ToSeq(fe.Backends))
+				backends := slices.Collect(statedb.ToSeq(iter.Seq2[experimental.BackendParams, statedb.Revision](fe.Backends)))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
-					if backends[0].AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].AddrCluster, wantAddr))
+					if backends[0].Address.AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].Address.AddrCluster, wantAddr))
 					}
 				}
 
@@ -457,19 +468,16 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 			for be := range writer.Backends().All(txn) {
 				want := epSlices[i]
 				for wantAddr, wantBe := range want.Backends { // There is only one element in this map.
-					if be.AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.AddrCluster, wantAddr))
+					if be.Address.AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.Address.AddrCluster, wantAddr))
 					}
 					for _, wantPort := range wantBe.Ports { // There is only one element in this map.
-						if be.Port != wantPort.Port {
-							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Port, wantPort.Port))
+						if be.Address.Port != wantPort.Port {
+							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Address.Port, wantPort.Port))
 						}
-						if be.Protocol != wantPort.Protocol {
-							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Protocol, wantPort.Protocol))
+						if be.Address.Protocol != wantPort.Protocol {
+							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Address.Protocol, wantPort.Protocol))
 						}
-					}
-					if be.NodeName != wantBe.NodeName {
-						err = errors.Join(err, fmt.Errorf("Incorrect node name for backend #%06d, got %v, want %v", i, be.NodeName, wantBe.NodeName))
 					}
 				}
 				if be.Instances.Len() != 1 {
@@ -482,8 +490,8 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
 							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))
 						}
-						if instance.PortName != svcs[i].Spec.Ports[0].Name {
-							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortName, svcs[i].Spec.Ports[0].Name))
+						if instance.PortNames[0] != svcs[i].Spec.Ports[0].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortNames[0], svcs[i].Spec.Ports[0].Name))
 						}
 					}
 				}
@@ -505,23 +513,26 @@ var (
 
 func testHive(maps experimental.LBMaps,
 	services chan resource.Event[*slim_corev1.Service],
-	pods chan resource.Event[*slim_corev1.Pod],
 	endpoints chan resource.Event[*k8s.Endpoints],
 	writer **experimental.Writer,
 	db **statedb.DB,
 	bo **experimental.BPFOps,
 ) *hive.Hive {
 	extConfig := experimental.ExternalConfig{
-		ExternalClusterIP:     false,
-		EnableSessionAffinity: true,
-		NodePortMin:           option.NodePortMinDefault,
-		NodePortMax:           option.NodePortMaxDefault,
+		ZoneMapper:        &option.DaemonConfig{},
+		EnableIPv4:        true,
+		EnableIPv6:        true,
+		ExternalClusterIP: false,
+		NodePortMin:       option.NodePortMinDefault,
+		NodePortMax:       option.NodePortMaxDefault,
 	}
 
 	return hive.New(
 		cell.Module(
 			"loadbalancer-test",
 			"Test module",
+
+			client.FakeClientCell,
 
 			cell.Provide(
 				func() experimental.Config {
@@ -537,7 +548,6 @@ func testHive(maps experimental.LBMaps,
 					return experimental.StreamsOut{
 						ServicesStream:  stream.FromChannel(services),
 						EndpointsStream: stream.FromChannel(endpoints),
-						PodsStream:      stream.FromChannel(pods),
 					}
 				},
 
@@ -552,6 +562,8 @@ func testHive(maps experimental.LBMaps,
 					return maglev.New(maglevConfig, lc)
 				},
 			),
+
+			daemonk8s.PodTableCell,
 
 			cell.Invoke(func(db_ *statedb.DB, w *experimental.Writer, bo_ *experimental.BPFOps) {
 				*db = db_

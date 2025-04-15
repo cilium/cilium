@@ -4,16 +4,12 @@
 hive start
 db/initialized
 
-# Start with clean state.
-db/cmp services services_empty.table
-db/cmp ciliumenvoyconfigs cec_empty.table
-
 # Set up the services and endpoints
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 
 # Add the CiliumClusterwideEnvoyConfig and wait for it to be ingested.
-k8s add ccec.yaml
+k8s/add ccec.yaml
 db/cmp ciliumenvoyconfigs cec.table
 
 # Check that both services are now redirected to proxy.
@@ -25,25 +21,29 @@ envoy envoy.out
 
 # Test the processing other way around, e.g. CEC exists before
 # the service.
-k8s delete service.yaml endpointslice.yaml
-db/cmp services services_empty.table
+k8s/delete service.yaml endpointslice.yaml
+
+# Services should now be empty
+* db/empty services
 
 # Backends towards Envoy should be updated.
 envoy envoy.out
 * cmp envoy.out envoy2.expected
 
 # Add back the service and endpoints
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services_redirected.table
 
 # Check again that updates happened.
 envoy envoy.out
 * cmp envoy.out envoy3.expected
 
-# Cleanup. Remove CEC and check that proxy redirect is gone.
-k8s delete ccec.yaml
+# Remove the CCEC
+k8s/delete ccec.yaml
+
+# Proxy redirect and CEC should be gone
 db/cmp services services.table
-db/cmp ciliumenvoyconfigs cec_empty.table
+* db/empty ciliumenvoyconfigs
 
 # The listener should now be deleted.
 envoy envoy.out
@@ -51,19 +51,13 @@ envoy envoy.out
 
 # ---------------------------------------------
 
--- services_empty.table --
-Name        ProxyRedirect
-
 -- services.table --
-Name        ProxyRedirect
+Name        Flags
 test/echo2    
 
 -- services_redirected.table --
-Name        ProxyRedirect
-test/echo2  1000
-
--- cec_empty.table --
-Name    Services
+Name        Flags
+test/echo2  ProxyRedirect=1000
 
 -- cec.table --
 Name                  Selected  Services    Listeners
@@ -130,17 +124,17 @@ ports:
 
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+delete: listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=
+delete: listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+delete: listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+delete: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081

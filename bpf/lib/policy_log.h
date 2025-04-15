@@ -15,9 +15,9 @@
 #include "common.h"
 #include "ratelimit.h"
 
-#ifndef POLICY_VERDICT_LOG_FILTER
-DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
-#define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
+#if defined(IS_BPF_LXC)
+DECLARE_CONFIG(__u32, policy_verdict_log_filter, "The log level for policy verdicts in workload endpoints")
+#define POLICY_VERDICT_LOG_FILTER CONFIG(policy_verdict_log_filter)
 #endif
 
 struct policy_verdict_notify {
@@ -76,9 +76,11 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 	 */
 	if (match_type == POLICY_MATCH_ALL && verdict == CTX_ACT_OK)
 		return;
-#else
+#elif defined(IS_BPF_LXC)
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
 		return;
+#else
+	#error "policy_log.h only supports inclusion from bpf_host or bpf_lxc"
 #endif
 
 	if (verdict == 0)
@@ -105,7 +107,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 		.auth_type      = auth_type,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP,
+	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }

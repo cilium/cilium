@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -47,8 +46,10 @@ import (
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "wireguard")
-var wgDummyPeerKey = wgtypes.Key{}
+var (
+	subsysLogAttr  = []any{logfields.LogSubsys, "wireguard"}
+	wgDummyPeerKey = wgtypes.Key{}
+)
 
 // wireguardClient is an interface to mock wgctrl.Client
 type wireguardClient interface {
@@ -64,6 +65,8 @@ type wireguardClient interface {
 // UpdatePeer() inserts or updates the public key of peers discovered via the
 // node manager.
 type Agent struct {
+	logger *slog.Logger
+
 	lock.RWMutex
 
 	wgClient    wireguardClient
@@ -87,7 +90,7 @@ type Agent struct {
 }
 
 // NewAgent creates a new WireGuard Agent
-func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
+func NewAgent(rootLogger *slog.Logger, privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
 	// In tunneling mode we only need nodeIPs, which are always inserted in UpdatePeer.
 	// Therefore, we sync IPs from IPCache only in native routing mode
 	// or when the fallback flag WireguardTrackAllIPsFallback is enabled.
@@ -101,6 +104,7 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *
 		return nil, err
 	}
 	return &Agent{
+		logger:      rootLogger.With(subsysLogAttr...),
 		wgClient:    wgClient,
 		privKeyPath: privKeyPath,
 		listenPort:  types.ListenPort,
@@ -152,16 +156,18 @@ func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	a.Lock()
 	defer a.Unlock()
 
-	log.Debug("Initializing local node store with WireGuard public key and settings")
+	a.logger.Debug("Initializing local node store with WireGuard public key and settings")
 
 	localNode.EncryptionKey = types.StaticEncryptKey
 	localNode.WireguardPubKey = a.privKey.PublicKey().String()
 	localNode.Annotations[annotation.WireguardPubKey] = localNode.WireguardPubKey
 
 	if option.Config.EncryptNode && option.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(localNode.Labels)) {
-		log.WithField(logfields.Selector, option.Config.NodeEncryptionOptOutLabels).
-			Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
-				option.NodeEncryptionOptOutLabels)
+		a.logger.Info(
+			"Opting out from node-to-node encryption on this node as per "+
+				option.NodeEncryptionOptOutLabels+" label selector",
+			logfields.Selector, option.Config.NodeEncryptionOptOutLabels,
+		)
 		localNode.OptOutNodeEncryption = true
 		localNode.EncryptionKey = 0
 	}
@@ -334,27 +340,27 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 					pc.queueAllowedIPsRemove(ip)
 				}
 			}
-
-			log.WithFields(logrus.Fields{
-				logfields.Endpoint: pc.endpoint,
-				logfields.PubKey:   pc.pubKey,
-			}).Info("Removing obsolete AllowedIPs from WireGuard peer")
+			a.logger.Info(
+				"Removing obsolete AllowedIPs from WireGuard peer",
+				logfields.Endpoint, pc.endpoint,
+				logfields.PubKey, pc.pubKey,
+			)
 			if err := a.updatePeerByConfig(pc); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.Endpoint: pc.endpoint,
-					logfields.PubKey:   pc.pubKey,
-				}).Error("Failed to remove stale AllowedIPs from WireGuard peer")
+				a.logger.Error("Failed to remove stale AllowedIPs from WireGuard peer",
+					logfields.Error, err,
+					logfields.Endpoint, pc.endpoint,
+				)
 				return err
 			}
 		} else {
-			log.WithField(logfields.PubKey, p.PublicKey).Info("Removing obsolete peer")
+			a.logger.Info("Removing obsolete peer", logfields.PubKey, pc.pubKey)
 			if err := a.deletePeerByPubKey(p.PublicKey); err != nil {
 				return err
 			}
 		}
 	}
 
-	log.Debug("Finished restore")
+	a.logger.Debug("Finished restore")
 
 	return nil
 }
@@ -391,7 +397,10 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 
 	// Reinitialize peer if its public key changed.
 	if peer != nil && peer.pubKey != pubKey {
-		log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
+		a.logger.Debug(
+			"Pubkey has changed",
+			logfields.NodeName, nodeName,
+		)
 		if err := a.deletePeerByPubKey(peer.pubKey); err != nil {
 			return err
 		}
@@ -461,12 +470,13 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	peer.nodeIPv4 = nodeIPv4
 	peer.nodeIPv6 = nodeIPv6
 
-	log.WithFields(logrus.Fields{
-		logfields.NodeName: nodeName,
-		logfields.PubKey:   pubKeyHex,
-		logfields.NodeIPv4: nodeIPv4,
-		logfields.NodeIPv6: nodeIPv6,
-	}).Debug("Updating peer")
+	a.logger.Debug(
+		"Updating peer",
+		logfields.NodeName, nodeName,
+		logfields.PubKey, pubKeyHex,
+		logfields.NodeIPv4, nodeIPv4,
+		logfields.NodeIPv6, nodeIPv6,
+	)
 
 	if err := a.updatePeerByConfig(peer); err != nil {
 		return err
@@ -511,7 +521,10 @@ func (a *Agent) DeletePeer(nodeName string) error {
 }
 
 func (a *Agent) deletePeerByPubKey(pubKey wgtypes.Key) error {
-	log.WithField(logfields.PubKey, pubKey).Debug("Removing peer")
+	a.logger.Debug(
+		"Removing peer",
+		logfields.PubKey, pubKey,
+	)
 
 	peerCfg := wgtypes.PeerConfig{
 		PublicKey: pubKey,
@@ -556,11 +569,12 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 	// 2. when there are changes to the node's public key or IPs;
 	// 3. on IPcache upsertions.
 	if len(addedIPs) > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Endpoint: p.endpoint,
-			logfields.PubKey:   p.pubKey,
-			logfields.IPAddrs:  peer.AllowedIPs,
-		}).Debug("Updating peer config")
+		a.logger.Debug(
+			"Updating peer config",
+			logfields.Endpoint, p.endpoint,
+			logfields.PubKey, p.pubKey,
+			logfields.IPAddrs, peer.AllowedIPs,
+		)
 
 		if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 			return fmt.Errorf("while adding IPs to peer: %w", err)
@@ -589,20 +603,22 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 			},
 		}
 
-		log.WithFields(logrus.Fields{
-			logfields.Endpoint: p.endpoint,
-			logfields.PubKey:   wgDummyPeerKey,
-			logfields.IPAddrs:  removedIPs,
-		}).Debug("Moving removed IPs to dummy peer")
+		a.logger.Debug(
+			"Moving removed IPs to dummy peer",
+			logfields.Endpoint, p.endpoint,
+			logfields.PubKey, wgDummyPeerKey,
+			logfields.IPAddrs, removedIPs,
+		)
 
 		if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 			return fmt.Errorf("while moving removed IPs to dummy peer: %w", err)
 		}
 
-		log.WithFields(logrus.Fields{
-			logfields.PubKey:  wgDummyPeerKey,
-			logfields.IPAddrs: removedIPs,
-		}).Debug("Deleting dummy peer")
+		a.logger.Debug(
+			"Deleting dummy peer",
+			logfields.PubKey, wgDummyPeerKey,
+			logfields.IPAddrs, removedIPs,
+		)
 
 		if err := a.deletePeerByPubKey(wgDummyPeerKey); err != nil {
 			return fmt.Errorf("while deleting dummy peer: %w", err)
@@ -638,7 +654,7 @@ func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
 
 // OnIPIdentityCacheChange implements ipcache.IPIdentityMappingListener
 func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
-	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ *ipcache.K8sMetadata) {
+	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ *ipcache.K8sMetadata, _ uint8) {
 	ipnet := cidrCluster.AsIPNet()
 
 	// This function is invoked from the IPCache with the
@@ -691,14 +707,15 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 
 	if updatedPeer != nil {
 		if err := a.updatePeerByConfig(updatedPeer); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.Modification: modType,
-				logfields.IPAddr:       ipnet.String(),
-				logfields.OldNode:      oldHostIP,
-				logfields.NewNode:      newHostIP,
-				logfields.PubKey:       updatedPeer.pubKey,
-			}).WithError(err).
-				Error("Failed to update WireGuard peer after ipcache update")
+			a.logger.Error(
+				"Failed to update WireGuard peer after ipcache update",
+				logfields.Error, err,
+				logfields.Modification, modType,
+				logfields.IPAddr, ipnet,
+				logfields.OldNode, oldHostIP,
+				logfields.NewNode, newHostIP,
+				logfields.PubKey, updatedPeer.pubKey,
+			)
 		}
 	}
 }

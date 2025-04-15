@@ -143,7 +143,7 @@ func (f *sessionUDPFactory) SetSocketOptions(_ *net.UDPConn) error {
 
 // InitPool initializes a pool of buffers to be used with SessionUDP.
 func (f *sessionUDPFactory) InitPool(msgSize int) {
-	f.udpPool.New = func() interface{} {
+	f.udpPool.New = func() any {
 		return &sessionUDP{
 			f:   f,
 			m:   make([]byte, msgSize),

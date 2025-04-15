@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -18,10 +20,13 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -189,8 +194,12 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		}
 	}
 
+	ipfamily := ipam.DeriveFamily(family.PrimaryExternal())
+	masq := (ipfamily == ipam.IPv4 && option.Config.EnableIPv4Masquerade) ||
+		(ipfamily == ipam.IPv6 && option.Config.EnableIPv6Masquerade)
+
 	// Coalescing multiple CIDRs. GH #18868
-	if option.Config.EnableIPv4Masquerade &&
+	if masq &&
 		option.Config.IPAM == ipamOption.IPAMENI &&
 		result != nil &&
 		len(result.CIDRs) > 0 {
@@ -204,9 +213,9 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
-		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
+		routingInfo, err = linuxrouting.NewRoutingInfo(logging.DefaultSlogLogger, result.GatewayIP, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
-			option.Config.EnableIPv4Masquerade)
+			masq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
@@ -220,6 +229,36 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		}
 
 		node.SetRouterInfo(routingInfo)
+
+		d.jobGroup.Add(job.OneShot("egress-route-reconciler", func(ctx context.Context, health cell.Health) error {
+			// Limit the rate of reconciliation if for whatever reason the routes
+			// table is very busy. Once every 30 seconds seems reasonable as a
+			// worst case scenario.
+			limiter := rate.NewLimiter(30*time.Second, 1)
+
+			for {
+				watchSet, err := routingInfo.ReconcileGatewayRoutes(
+					d.mtuConfig.GetDeviceMTU(),
+					option.Config.EgressMultiHomeIPRuleCompat,
+					d.db.ReadTxn(),
+					d.routes,
+				)
+				if err != nil {
+					health.Degraded("Failed to install egress routes", err)
+					limiter.Wait(ctx)
+					continue
+				}
+
+				health.OK("Egress routes installed")
+
+				limiter.Wait(ctx)
+
+				_, err = watchSet.Wait(ctx, 0)
+				if err != nil {
+					return err
+				}
+			}
+		}))
 	}
 
 	return result.IP, nil
@@ -454,7 +493,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 			func(addr tables.NodeAddress) bool { return addr.DeviceName != tables.WildcardDeviceName }))
 
 	if option.Config.EnableIPv6 {
-		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+		log.Debugf("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 
 		if c := option.Config.IPv6NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv6 native routing prefix: %s", c.String())
@@ -474,7 +513,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4Router())
 
 	if option.Config.EnableIPv4 {
-		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
+		log.Debugf("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
 		if c := option.Config.IPv4NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv4 native routing prefix: %s", c.String())
@@ -556,12 +595,25 @@ func (d *Daemon) startIPAM() {
 }
 
 func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
-	return linuxrouting.NewRoutingInfo(
-		result.GatewayIP,
-		result.CIDRs,
-		result.PrimaryMAC,
-		result.InterfaceNumber,
-		option.Config.IPAM,
-		option.Config.EnableIPv4Masquerade,
-	)
+	if result.IP.To4() != nil {
+		return linuxrouting.NewRoutingInfo(
+			logging.DefaultSlogLogger,
+			result.GatewayIP,
+			result.CIDRs,
+			result.PrimaryMAC,
+			result.InterfaceNumber,
+			option.Config.IPAM,
+			option.Config.EnableIPv4Masquerade,
+		)
+	} else {
+		return linuxrouting.NewRoutingInfo(
+			logging.DefaultSlogLogger,
+			result.GatewayIP,
+			result.CIDRs,
+			result.PrimaryMAC,
+			result.InterfaceNumber,
+			option.Config.IPAM,
+			option.Config.EnableIPv6Masquerade,
+		)
+	}
 }

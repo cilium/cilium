@@ -20,7 +20,7 @@ jobs:
         operations-per-run: 1000
         stale-issue-label: stale
         exempt-all-issue-assignees: true
-        exempt-issue-labels: pinned,security,good-first-issue
+        exempt-issue-labels: pinned,security,good-first-issue,help-wanted
 
         days-before-issue-stale: 60
         stale-issue-message: |
@@ -32,7 +32,7 @@ jobs:
           Closing.
 
         stale-pr-label: stale
-        exempt-pr-labels: pinned,security,good-first-issue
+        exempt-pr-labels: pinned,security,good-first-issue,help-wanted
 
         days-before-pr-stale: 30
         stale-pr-message: |

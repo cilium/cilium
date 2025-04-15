@@ -6,8 +6,10 @@ package kvstore
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -18,12 +20,12 @@ var (
 	defaultClientSet = make(chan struct{})
 )
 
-func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) error {
-	scopedLog := log.WithField(fieldKVStoreModule, module.getName())
-	c, errChan := module.newClient(ctx, opts)
+func initClient(ctx context.Context, logger *slog.Logger, module backendModule, opts *ExtraOptions) error {
+	scopedLog := logger.With(fieldKVStoreModule, module.getName())
+	c, errChan := module.newClient(ctx, scopedLog, opts)
 	if c == nil {
 		err := <-errChan
-		scopedLog.WithError(err).Fatal("Unable to create kvstore client")
+		logging.Fatal(scopedLog, "Unable to create kvstore client", logfields.Error, err)
 	}
 
 	defaultClient = c
@@ -37,7 +39,7 @@ func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) e
 	go func() {
 		err, isErr := <-errChan
 		if isErr && err != nil {
-			scopedLog.WithError(err).Fatal("Unable to connect to kvstore")
+			logging.Fatal(scopedLog, "Unable to connect to kvstore", logfields.Error, err)
 		}
 	}()
 
@@ -51,11 +53,17 @@ func Client() BackendOperations {
 }
 
 // NewClient returns a new kvstore client based on the configuration
-func NewClient(ctx context.Context, selectedBackend string, opts map[string]string, options *ExtraOptions) (BackendOperations, chan error) {
+func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, options *ExtraOptions) (BackendOperations, chan error) {
 	// Channel used to report immediate errors, module.newClient will
 	// create and return a different channel, caller doesn't need to know
 	errChan := make(chan error, 1)
 	defer close(errChan)
+
+	// If in-memory backend is registered (i.e. we're testing), use it regardless of the
+	// requested backend.
+	if _, found := registeredBackends[InMemoryModuleName]; found {
+		selectedBackend = InMemoryModuleName
+	}
 
 	module := getBackend(selectedBackend)
 	if module == nil {
@@ -63,7 +71,7 @@ func NewClient(ctx context.Context, selectedBackend string, opts map[string]stri
 		return nil, errChan
 	}
 
-	if err := module.setConfig(opts); err != nil {
+	if err := module.setConfig(logger, opts); err != nil {
 		errChan <- err
 		return nil, errChan
 	}
@@ -73,28 +81,5 @@ func NewClient(ctx context.Context, selectedBackend string, opts map[string]stri
 		return nil, errChan
 	}
 
-	return module.newClient(ctx, options)
-}
-
-// Connected returns a channel which is closed when the following conditions
-// are being met at the same time:
-// * The kvstore client is configured
-// * Connectivity to the kvstore has been established
-// * The kvstore has quorum
-//
-// The channel will *not* be closed if the kvstore client is closed before
-// connectivity or quorum has been achieved. It will wait until a new kvstore
-// client is configured to again wait for connectivity and quorum.
-func Connected() <-chan struct{} {
-	c := make(chan struct{})
-	go func(c chan struct{}) {
-		for {
-			if err := <-Client().Connected(context.Background()); err == nil {
-				close(c)
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}(c)
-	return c
+	return module.newClient(ctx, logger, options)
 }

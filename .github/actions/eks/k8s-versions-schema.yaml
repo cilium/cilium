@@ -6,3 +6,4 @@ includeItem:
   default: bool(required=False)
   ipsec: bool(required=False)
   kpr: bool(required=False)
+  aws-eni-pd: bool(required=False)

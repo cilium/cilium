@@ -4,6 +4,8 @@
 package watchers
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -27,8 +29,12 @@ var Cell = cell.Module(
 	cell.Provide(newK8sEventReporter),
 )
 
+type ResourceGroupFunc = func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string)
+
 type k8sWatcherParams struct {
 	cell.In
+
+	Logger *slog.Logger
 
 	K8sEventReporter          *K8sEventReporter
 	K8sPodWatcher             *K8sPodWatcher
@@ -44,10 +50,13 @@ type k8sWatcherParams struct {
 	Clientset         k8sClient.Clientset
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
+	ResourceGroupsFn  ResourceGroupFunc
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 	return newWatcher(
+		params.Logger,
+		params.ResourceGroupsFn,
 		params.Clientset,
 		params.K8sPodWatcher,
 		params.K8sCiliumNodeWatcher,

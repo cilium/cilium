@@ -6,9 +6,9 @@ package ipam
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -33,7 +33,7 @@ type eniDeviceConfig struct {
 type configMap map[string]eniDeviceConfig // by MAC addr
 type linkMap map[string]netlink.Link      // by MAC addr
 
-func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) {
+func configureENIDevices(logger *slog.Logger, oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) {
 	var (
 		existingENIByName map[string]eniTypes.ENI
 		addedENIByMac     = configMap{}
@@ -56,21 +56,23 @@ func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuCon
 		if _, ok := existingENIByName[name]; !ok {
 			cfg, err := parseENIConfig(name, &eni, mtuConfig, usePrimary)
 			if err != nil {
-				log.WithError(err).
-					WithField(logfields.Resource, name).
-					Error("Skipping invalid ENI device config")
+				logger.Error(
+					"Skipping invalid ENI device config",
+					logfields.Error, err,
+					logfields.Resource, name,
+				)
 				continue
 			}
 			addedENIByMac[eni.MAC] = cfg
 		}
 	}
 
-	go setupENIDevices(addedENIByMac, sysctl)
+	go setupENIDevices(logger, addedENIByMac, sysctl)
 }
 
-func setupENIDevices(eniConfigByMac configMap, sysctl sysctl.Sysctl) {
+func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysctl.Sysctl) {
 	// Wait for the interfaces to be attached to the local node
-	eniLinkByMac, err := waitForNetlinkDevices(eniConfigByMac)
+	eniLinkByMac, err := waitForNetlinkDevices(logger, eniConfigByMac)
 	if err != nil {
 		attachedENIByMac := make(map[string]string, len(eniLinkByMac))
 		for mac, link := range eniLinkByMac {
@@ -81,27 +83,32 @@ func setupENIDevices(eniConfigByMac configMap, sysctl sysctl.Sysctl) {
 			requiredENIByMac[mac] = eni.name
 		}
 
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.AttachedENIs: attachedENIByMac,
-			logfields.ExpectedENIs: requiredENIByMac,
-		}).Error("Timed out waiting for ENIs to be attached")
+		logger.Error(
+			"Timed out waiting for ENIs to be attached",
+			logfields.Error, err,
+			logfields.AttachedENIs, attachedENIByMac,
+			logfields.ExpectedENIs, requiredENIByMac,
+		)
 	}
 
 	// Configure new interfaces.
 	for mac, link := range eniLinkByMac {
 		cfg, ok := eniConfigByMac[mac]
 		if !ok {
-			log.WithField(logfields.MACAddr, mac).Warning("No configuration found for ENI device")
+			logger.Warn(
+				"No configuration found for ENI device",
+				logfields.MACAddr, mac,
+			)
 			continue
 		}
 		err = configureENINetlinkDevice(link, cfg, sysctl)
 		if err != nil {
-			log.WithError(err).
-				WithFields(logrus.Fields{
-					logfields.MACAddr:  mac,
-					logfields.Resource: cfg.name,
-				}).
-				Error("Failed to configure ENI device")
+			logger.Error(
+				"Failed to configure ENI device",
+				logfields.Error, err,
+				logfields.MACAddr, mac,
+				logfields.Resource, cfg.name,
+			)
 		}
 	}
 }
@@ -132,11 +139,11 @@ const (
 	waitForNetlinkDevicesMaxRetryInterval = 30 * time.Second
 )
 
-func waitForNetlinkDevices(configByMac configMap) (linkByMac linkMap, err error) {
-	for try := 0; try < waitForNetlinkDevicesMaxTries; try++ {
+func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMac linkMap, err error) {
+	for try := range waitForNetlinkDevicesMaxTries {
 		links, err := safenetlink.LinkList()
 		if err != nil {
-			log.WithError(err).Warn("failed to obtain eni link list - retrying")
+			logger.Warn("failed to obtain eni link list - retrying", logfields.Error, err)
 		} else {
 			linkByMac = linkMap{}
 			for _, link := range links {

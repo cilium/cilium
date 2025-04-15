@@ -27,3 +27,4 @@ Kubernetes Networking
    kata
    ipam
    local-redirect-policy
+   identity-management-mode

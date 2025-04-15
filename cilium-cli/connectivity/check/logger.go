@@ -5,95 +5,124 @@ package check
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
-	"sync/atomic"
-	"time"
-
-	"github.com/cilium/cilium/pkg/lock"
 )
 
 // NewConcurrentLogger factory function that returns ConcurrentLogger.
-func NewConcurrentLogger(writer io.Writer, concurrency int) *ConcurrentLogger {
+func NewConcurrentLogger(writer io.Writer) *ConcurrentLogger {
 	return &ConcurrentLogger{
-		messageCh: make(chan message),
-		writer:    writer,
-		// The concurrency parameter is used for nsTestsCh buffer size calculation.
-		// The buffer will be able to accept 10 times more unique connectivity tests
-		// than concurrency value. Write to the channel implemented in a separate
-		// goroutine to avoid deadlock in case if buffer is full.
-		nsTestsCh:        make(chan string, concurrency*10),
-		nsTestMsgs:       make(map[string][]message),
-		nsTestMsgsLock:   lock.Mutex{},
-		collectorStarted: atomic.Bool{},
-		printerDoneCh:    make(chan bool),
+		writer:   writer,
+		messages: make(chan message),
+		done:     make(chan struct{}),
 	}
 }
 
 type ConcurrentLogger struct {
-	messageCh         chan message
-	writer            io.Writer
-	nsTestsCh         chan string
-	nsTestMsgs        map[string][]message
-	nsTestMsgsLock    lock.Mutex
-	collectorStarted  atomic.Bool
-	printerDoneCh     chan bool
-	nsTestFinishCount int
+	writer   io.Writer
+	messages chan message
+	done     chan struct{}
 }
 
-// Start starts ConcurrentLogger internals in separate goroutines:
-// - collector: collects incoming test messages.
-// - printer: sends messages to the writer in corresponding order.
-func (c *ConcurrentLogger) Start(ctx context.Context) {
-	c.collectorStarted.Store(true)
-	go c.collector(ctx)
-	go c.printer()
+// Start starts ConcurrentLogger
+func (c *ConcurrentLogger) Start() {
+	go func() {
+		// current is the test that is currently being streamed to the writer without
+		// buffering
+		var current *Test
+
+		// buffered is a map of tests (other than current one) that have not finished yet
+		buffered := make(map[*Test]*bytes.Buffer)
+
+		// finished is an ordered list of tests to be logged once the current test finishes
+		var finished []*bytes.Buffer
+
+		for m := range c.messages {
+			// make this the current test if none
+			if current == nil {
+				current = m.test
+			}
+
+			// stream the current test without buffering
+			if m.test == current {
+				mustWrite(c.writer, m.data)
+				if m.finish {
+					current = nil
+				}
+			} else {
+				// buffer other tests
+				buf, ok := buffered[m.test]
+				if !ok {
+					buf = &bytes.Buffer{}
+					buffered[m.test] = buf
+				}
+				mustWrite(buf, m.data)
+				if m.finish {
+					delete(buffered, m.test)
+					finished = append(finished, buf)
+				}
+			}
+
+			if current == nil {
+				// log any finished tests after done with the current test
+				for _, buf := range finished {
+					mustWrite(c.writer, buf.Bytes())
+				}
+				finished = finished[len(finished):]
+
+				// pick one of the running tests as the current one, if any
+				for test, buf := range buffered {
+					delete(buffered, test)
+					mustWrite(c.writer, buf.Bytes())
+					current = test
+					break
+				}
+			}
+		}
+		// No more messages, log all remaining messages
+		for _, buf := range finished {
+			mustWrite(c.writer, buf.Bytes())
+		}
+		for _, buf := range buffered {
+			mustWrite(c.writer, buf.Bytes())
+		}
+		close(c.done)
+	}()
 }
 
 // Stop closes incoming message channel and waits while all messages are printed.
 func (c *ConcurrentLogger) Stop() {
-	close(c.messageCh)
-	<-c.printerDoneCh
-	close(c.printerDoneCh)
+	close(c.messages)
+	<-c.done
 }
 
 type message struct {
-	namespace string
-	testName  string
-	data      string
-	finish    bool
-}
-
-func (m message) nsTest() string {
-	return fmt.Sprintf("%s:%s", m.namespace, m.testName)
+	test   *Test
+	data   []byte
+	finish bool
 }
 
 // Print schedules message for the test to be printed.
-func (c *ConcurrentLogger) Print(test *Test, msg string) {
-	buf := &bytes.Buffer{}
+func (c *ConcurrentLogger) Print(test *Test, msg []byte) {
 	if test.ctx.timestamp() {
-		mustFprint(buf, timestamp())
+		msg = append(timestampBytes(), msg...)
 	}
-	mustFprint(buf, msg)
-	c.messageCh <- message{
-		namespace: test.ctx.params.TestNamespace,
-		testName:  test.name,
-		data:      buf.String(),
+	c.messages <- message{
+		test: test,
+		data: msg,
 	}
 }
 
 // Printf schedules message for the test to be printed.
-func (c *ConcurrentLogger) Printf(test *Test, format string, args ...interface{}) {
+func (c *ConcurrentLogger) Printf(test *Test, format string, args ...any) {
 	buf := &bytes.Buffer{}
 	if test.ctx.timestamp() {
-		mustFprint(buf, timestamp())
+		mustWrite(buf, timestampBytes())
 	}
 	mustFprintf(buf, format, args...)
-	c.messageCh <- message{
-		namespace: test.ctx.params.TestNamespace,
-		testName:  test.name,
-		data:      buf.String(),
+	c.messages <- message{
+		test: test,
+		data: buf.Bytes(),
 	}
 }
 
@@ -106,90 +135,19 @@ func (c *ConcurrentLogger) FinishTest(test *Test) {
 			panic(fmt.Errorf("failed to read from test log buffer: %w", err))
 		}
 	}
-	c.messageCh <- message{
-		namespace: test.Context().Params().TestNamespace,
-		testName:  test.Name(),
-		data:      buf.String(),
-		finish:    true,
+	c.messages <- message{
+		test:   test,
+		data:   buf.Bytes(),
+		finish: true,
 	}
 }
 
-func (c *ConcurrentLogger) collector(ctx context.Context) {
-	defer c.collectorStarted.Store(false)
-	for {
-		select {
-		case m, open := <-c.messageCh:
-			if !open {
-				return
-			}
-			nsTest := m.nsTest()
-			c.nsTestMsgsLock.Lock()
-			nsTestMsgs, ok := c.nsTestMsgs[nsTest]
-			if !ok {
-				nsTestMsgs = make([]message, 0)
-				// use a separate goroutine to avoid deadlock if the channel
-				// buffer is full, printer goroutine will pull it eventually
-				go func() { c.nsTestsCh <- nsTest }()
-			}
-			c.nsTestMsgs[nsTest] = append(nsTestMsgs, m)
-			c.nsTestMsgsLock.Unlock()
-		case <-ctx.Done():
-			close(c.messageCh)
-			return
-		}
-	}
-}
-
-func (c *ConcurrentLogger) printer() {
-	// read messages while the collector is working
-	for c.collectorStarted.Load() {
-		// double-check if there are new messages to avoid
-		// deadlock reading from the `nsTestsCh` channel
-		if c.nsTestFinishCount < c.collectedTestCount() {
-			c.printTestMessages(<-c.nsTestsCh)
-		}
-	}
-	// collector stopped but there still might be messages to print
-	for c.nsTestFinishCount < c.collectedTestCount() {
-		c.printTestMessages(<-c.nsTestsCh)
-	}
-	c.printerDoneCh <- true
-	close(c.nsTestsCh)
-}
-
-func (c *ConcurrentLogger) collectedTestCount() int {
-	c.nsTestMsgsLock.Lock()
-	testCount := len(c.nsTestMsgs)
-	c.nsTestMsgsLock.Unlock()
-	return testCount
-}
-
-func (c *ConcurrentLogger) printTestMessages(nsTest string) {
-	for printedMessageIndex := 0; ; {
-		c.nsTestMsgsLock.Lock()
-		messages := c.nsTestMsgs[nsTest]
-		c.nsTestMsgsLock.Unlock()
-		if len(messages) == printedMessageIndex {
-			// wait for new test messages
-			time.Sleep(time.Millisecond * 50)
-			continue
-		}
-		for ; printedMessageIndex < len(messages); printedMessageIndex++ {
-			mustFprint(c.writer, messages[printedMessageIndex].data)
-			if messages[printedMessageIndex].finish {
-				c.nsTestFinishCount++
-				return
-			}
-		}
-	}
-}
-
-func mustFprint(writer io.Writer, msg string) {
-	if _, err := fmt.Fprint(writer, msg); err != nil {
+func mustWrite(writer io.Writer, msg []byte) {
+	if _, err := writer.Write(msg); err != nil {
 		panic(fmt.Errorf("failed to print log message: %w", err))
 	}
 }
-func mustFprintf(writer io.Writer, format string, args ...interface{}) {
+func mustFprintf(writer io.Writer, format string, args ...any) {
 	if _, err := fmt.Fprintf(writer, format, args...); err != nil {
 		panic(fmt.Errorf("failed to print log message: %w", err))
 	}

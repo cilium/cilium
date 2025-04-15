@@ -5,8 +5,8 @@ package exporter
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -16,18 +16,19 @@ import (
 
 // DefaultOptions specifies default values for Hubble exporter options.
 var DefaultOptions = Options{
-	NewWriterFunc:  StdoutNoOpWriter,
-	NewEncoderFunc: JsonEncoder,
+	newWriterFunc:  StdoutNoOpWriter,
+	newEncoderFunc: JsonEncoder,
 }
 
 // Options stores all the configurations values for Hubble exporter.
 type Options struct {
-	NewWriterFunc       NewWriterFunc
-	NewEncoderFunc      NewEncoderFunc
 	AllowList, DenyList []*flowpb.FlowFilter
 	FieldMask           fieldmask.FieldMask
 	OnExportEvent       []OnExportEvent
 
+	// keep types that can't be marshalled as JSON private
+	newWriterFunc             NewWriterFunc
+	newEncoderFunc            NewEncoderFunc
 	allowFilters, denyFilters filters.FilterFuncs
 }
 
@@ -37,7 +38,7 @@ type Option func(o *Options) error
 // WithNewWriterFunc sets the constructor function for the export event writer.
 func WithNewWriterFunc(newWriterFunc NewWriterFunc) Option {
 	return func(o *Options) error {
-		o.NewWriterFunc = newWriterFunc
+		o.newWriterFunc = newWriterFunc
 		return nil
 	}
 }
@@ -45,13 +46,13 @@ func WithNewWriterFunc(newWriterFunc NewWriterFunc) Option {
 // WithNewEncoderFunc sets the constructor function for the exporter encoder.
 func WithNewEncoderFunc(newEncoderFunc NewEncoderFunc) Option {
 	return func(o *Options) error {
-		o.NewEncoderFunc = newEncoderFunc
+		o.newEncoderFunc = newEncoderFunc
 		return nil
 	}
 }
 
 // WithAllowListFilter sets allowlist filter for the exporter.
-func WithAllowList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
+func WithAllowList(log *slog.Logger, f []*flowpb.FlowFilter) Option {
 	return func(o *Options) error {
 		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters(log))
 		if err != nil {
@@ -63,7 +64,7 @@ func WithAllowList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
 }
 
 // WithDenyListFilter sets denylist filter for the exporter.
-func WithDenyList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
+func WithDenyList(log *slog.Logger, f []*flowpb.FlowFilter) Option {
 	return func(o *Options) error {
 		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters(log))
 		if err != nil {
@@ -109,4 +110,12 @@ func (o *Options) AllowFilters() filters.FilterFuncs {
 
 func (o *Options) DenyFilters() filters.FilterFuncs {
 	return o.denyFilters
+}
+
+func (o *Options) NewWriterFunc() NewWriterFunc {
+	return o.newWriterFunc
+}
+
+func (o *Options) NewEncoderFunc() NewEncoderFunc {
+	return o.newEncoderFunc
 }

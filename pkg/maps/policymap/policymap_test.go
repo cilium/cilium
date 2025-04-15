@@ -4,6 +4,7 @@
 package policymap
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,27 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+// newAllowEntry returns an allow PolicyEntry for the specified parameters in
+// network byte-order.
+// This is separated out to be used in unit testing.
+func newAllowEntry(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
+	})
+	return newEntry(proxyPortPriority, authReq, proxyPort, pef)
+}
+
+// newDenyEntry returns a deny PolicyEntry for the specified parameters in
+// network byte-order.
+// This is separated out to be used in unit testing.
+func newDenyEntry(key PolicyKey) PolicyEntry {
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		IsDeny:    true,
+		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
+	})
+	return newEntry(0, 0, 0, pef)
+}
 
 func TestPolicyEntriesDump_Less(t *testing.T) {
 	type args struct {
@@ -316,11 +338,11 @@ func TestPolicyMapWildcarding(t *testing.T) {
 			require.Equal(t, uint8(0), entry.GetPrefixLen())
 		} else {
 			if key.DestPortNetwork == 0 {
-				require.Equal(t, StaticPrefixBits+NexthdrBits, key.Prefixlen)
+				require.Equal(t, StaticPrefixBits+uint32(NexthdrBits), key.Prefixlen)
 				require.Equal(t, uint8(NexthdrBits), entry.GetPrefixLen())
 			} else {
 				require.Equal(t, uint16(tt.args.dport), byteorder.NetworkToHost16(key.DestPortNetwork))
-				require.Equal(t, StaticPrefixBits+NexthdrBits+uint32(tt.args.dportPrefixLen), key.Prefixlen)
+				require.Equal(t, StaticPrefixBits+uint32(NexthdrBits+tt.args.dportPrefixLen), key.Prefixlen)
 				require.Equal(t, uint8(NexthdrBits)+tt.args.dportPrefixLen, entry.GetPrefixLen())
 			}
 		}
@@ -353,7 +375,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Fully specified port",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits+DestPortBits),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          0,
@@ -366,7 +388,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Fully specified port and proto",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits+DestPortBits),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          6,
@@ -379,7 +401,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Match TCP / wildcarded port",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          6,
@@ -392,7 +414,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Wildard proto / match upper 8 bits of port",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits/2,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits+DestPortBits/2),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          0,
@@ -405,5 +427,69 @@ func TestPortProtoString(t *testing.T) {
 	for _, tt := range tests {
 		got := tt.args.key.PortProtoString()
 		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
+	}
+}
+
+func TestNewEntryFromPolicyEntry(t *testing.T) {
+	tc := []struct {
+		key  policyTypes.Key
+		in   policyTypes.MapStateEntry
+		want PolicyEntry
+	}{
+		// deny all
+		{
+			key: policyTypes.IngressKey(),
+			in:  policyTypes.DenyEntry(),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny: true,
+				}),
+			},
+		},
+
+		{
+			key: policyTypes.EgressKey(),
+			in:  policyTypes.DenyEntry(),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny: true,
+				}),
+			},
+		},
+
+		// Proxy tcp 80 to proxy port 1337
+		{
+			key: policyTypes.EgressKey().WithTCPPort(80).WithIdentity(1234),
+			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithListenerPriority(42),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny:    false,
+					PrefixLen: 24,
+				}),
+				ProxyPortNetwork:  byteorder.HostToNetwork16(1337),
+				ProxyPortPriority: 128 - 42, //prio is inverted
+			},
+		},
+
+		// proxy ports 4-7
+		{
+			key: policyTypes.EgressKey().WithTCPPortPrefix(4, 14).WithIdentity(1234),
+			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithListenerPriority(42),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny:    false,
+					PrefixLen: 22,
+				}),
+				ProxyPortNetwork:  byteorder.HostToNetwork16(1337),
+				ProxyPortPriority: 128 - 42, //prio is inverted
+			},
+		},
+	}
+
+	for i, tt := range tc {
+		t.Run(fmt.Sprintf("case-%d", i), func(t *testing.T) {
+			key := NewKeyFromPolicyKey(tt.key)
+			require.Equal(t, tt.want, NewEntryFromPolicyEntry(key, tt.in))
+		})
 	}
 }

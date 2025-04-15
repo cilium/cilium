@@ -5,13 +5,14 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
 
 const (
@@ -41,7 +42,7 @@ var StateReconcilers = cell.ProvidePrivate(
 	NewStatusReconciler,
 )
 
-func GetActiveStateReconcilers(log logrus.FieldLogger, reconcilers []StateReconciler) []StateReconciler {
+func GetActiveStateReconcilers(logger *slog.Logger, reconcilers []StateReconciler) []StateReconciler {
 	recMap := make(map[string]StateReconciler)
 	for _, r := range reconcilers {
 		if r == nil {
@@ -49,23 +50,38 @@ func GetActiveStateReconcilers(log logrus.FieldLogger, reconcilers []StateReconc
 		}
 		if existing, exists := recMap[r.Name()]; exists {
 			if existing.Priority() == r.Priority() {
-				log.Warnf("Skipping duplicate reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
+				logger.Warn(
+					"Skipping duplicate reconciler with the same priority",
+					types.ReconcilerLogField, existing.Name(),
+					types.PriorityLogField, existing.Priority(),
+				)
 				continue
 			}
 			if existing.Priority() < r.Priority() {
-				log.Debugf("Skipping reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
-					r.Name(), r.Priority(), existing.Priority())
+				logger.Debug(
+					"Skipping reconciler as it has lower priority than the existing one",
+					types.ReconcilerLogField, r.Name(),
+					types.PriorityLogField, r.Priority(),
+					types.ExistingPriorityLogField, existing.Priority(),
+				)
 				continue
 			}
-			log.Debugf("Overriding existing reconciler %s (priority %d) with higher priority one (%d)",
-				existing.Name(), existing.Priority(), r.Priority())
+			logger.Debug(
+				"Overriding existing reconciler with a higher priority one",
+				types.ReconcilerLogField, existing.Name(),
+				types.ExistingPriorityLogField, existing.Priority(),
+				types.PriorityLogField, r.Priority(),
+			)
 		}
 		recMap[r.Name()] = r
 	}
 
 	var activeReconcilers []StateReconciler
 	for _, r := range recMap {
-		log.Debugf("Adding BGP state reconciler: %v (priority %d)", r.Name(), r.Priority())
+		logger.Debug("Adding BGP v2 reconciler",
+			types.ReconcilerLogField, r.Name(),
+			types.PriorityLogField, r.Priority(),
+		)
 		activeReconcilers = append(activeReconcilers, r)
 	}
 	sort.Slice(activeReconcilers, func(i, j int) bool {

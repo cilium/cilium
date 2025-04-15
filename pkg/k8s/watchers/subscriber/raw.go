@@ -34,7 +34,7 @@ func (l *RawChain) Register(cb cache.ResourceEventHandler) {
 }
 
 // NotifyAdd notifies all the subscribers of an add event to an object.
-func (l *RawChain) OnAdd(obj interface{}, isInInitialList bool) {
+func (l *RawChain) OnAdd(obj any, isInInitialList bool) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
@@ -43,7 +43,7 @@ func (l *RawChain) OnAdd(obj interface{}, isInInitialList bool) {
 }
 
 // NotifyUpdate notifies all the subscribers of an update event to an object.
-func (l *RawChain) OnUpdate(oldObj, newObj interface{}) {
+func (l *RawChain) OnUpdate(oldObj, newObj any) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
@@ -52,7 +52,7 @@ func (l *RawChain) OnUpdate(oldObj, newObj interface{}) {
 }
 
 // NotifyDelete notifies all the subscribers of an update event to an object.
-func (l *RawChain) OnDelete(obj interface{}) {
+func (l *RawChain) OnDelete(obj any) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {

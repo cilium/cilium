@@ -5,6 +5,7 @@ package operator
 
 import (
 	"context"
+	"log/slog"
 	"path"
 
 	"k8s.io/utils/ptr"
@@ -23,6 +24,7 @@ import (
 // remoteCluster implements the clustermesh business logic on top of
 // common.RemoteCluster.
 type remoteCluster struct {
+	logger *slog.Logger
 	// name is the name of the cluster
 	name string
 
@@ -51,7 +53,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if config.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
-		mgr = store.NewWatchStoreManagerImmediate(rc.name)
+		mgr = store.NewWatchStoreManagerImmediate(rc.logger, rc.name)
 	}
 
 	adapter := func(prefix string) string { return prefix }

@@ -2,8 +2,9 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/unspec.h>
+#include <bpf/config/global.h>
+#include <bpf/config/node.h>
 
-#include "node_config.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/nat.h"
@@ -12,6 +13,7 @@
 #include "lib/pcap.h"
 #include "lib/trace_sock.h"
 #include "lib/mcast.h"
+#include "lib/vtep.h"
 
 /*
  * The __COUNTER__ macro expands to an integer value which is increasing every
@@ -54,6 +56,8 @@ add_type(struct ipv6_revnat_tuple);
 add_type(struct ipv6_revnat_entry);
 add_type(struct ipv4_frag_id);
 add_type(struct ipv4_frag_l4ports);
+add_type(struct ipv6_frag_id);
+add_type(struct ipv6_frag_l4ports);
 add_type(union macaddr);
 add_type(struct lb4_affinity_key);
 add_type(struct lb6_affinity_key);

@@ -6,7 +6,7 @@ package directory
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -70,7 +70,7 @@ func (p *policyMananger) UpdatePolicy(u *policytypes.PolicyUpdate) {
 
 func TestTranslateToCNPObject(t *testing.T) {
 	policyMgr := newPolicyManager()
-	p := newPolicyWatcher(PolicyWatcherParams{Logger: logrus.New(), Importer: policyMgr}, defaultConfig)
+	p := newPolicyWatcher(PolicyWatcherParams{Logger: hivetest.Logger(t), Importer: policyMgr}, defaultConfig)
 
 	// valid yaml to cnp object
 	data := []byte(policy1)
@@ -88,13 +88,13 @@ func TestTranslateToCNPObject(t *testing.T) {
 func TestAddToPolicyEngine(t *testing.T) {
 	policyMgr := newPolicyManager()
 
-	p := newPolicyWatcher(PolicyWatcherParams{Logger: logrus.New(), Importer: policyMgr}, defaultConfig)
+	p := newPolicyWatcher(PolicyWatcherParams{Logger: hivetest.Logger(t), Importer: policyMgr}, defaultConfig)
 
 	// validate addToPolicyEngine returns no error and updates map entry
 	data := []byte(policy1)
 	cnp, _ := p.translateToCNPObject(data)
 	err := p.addToPolicyEngine(cnp, "test.yaml")
-	require.NoError(t, err, "")
+	require.NoError(t, err)
 	require.Len(t, p.fileNameToCnpCache, 1)
 	val := p.fileNameToCnpCache["test.yaml"]
 	require.NotNil(t, val)
@@ -112,16 +112,16 @@ func TestAddToPolicyEngine(t *testing.T) {
 
 func TestDeleteFromPolicyEngine(t *testing.T) {
 	policyMgr := newPolicyManager()
-	p := newPolicyWatcher(PolicyWatcherParams{Logger: logrus.New(), Importer: policyMgr}, defaultConfig)
+	p := newPolicyWatcher(PolicyWatcherParams{Logger: hivetest.Logger(t), Importer: policyMgr}, defaultConfig)
 
 	// validate deleteFromPolicyEngine returns no error and clears map entry
 	data := []byte(policy1)
 	cnp, _ := p.translateToCNPObject(data)
 	err := p.addToPolicyEngine(cnp, "test.yaml")
-	require.NoError(t, err, "")
+	require.NoError(t, err)
 	require.Len(t, p.fileNameToCnpCache, 1)
 	err = p.deleteFromPolicyEngine("test.yaml")
-	require.NoError(t, err, "")
+	require.NoError(t, err)
 	require.Empty(t, p.fileNameToCnpCache)
 
 	// Delete non existent entry and validate if appropriate error returned

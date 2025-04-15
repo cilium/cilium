@@ -23,10 +23,25 @@ jobs:
     name: Lint image build logic
     runs-on: ubuntu-24.04
     steps:
+      - name: Checkout base or default branch (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # We first check if base_ref exist, meaning we're in pull_request context, and if not we just use default_branch
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+
+      - name: Set runtime image env variable
+        uses: ./.github/actions/set-runtime-image
+        with:
+          repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
 
       - uses: docker://quay.io/cilium/image-maker:7de7f1c855ce063bdbe57fdfb28599a3ad5ec8f1@sha256:dde8500cbfbb6c41433d376fdfcb3831e2df9cec50cf4f49e8553dc6eba74e72
         name: Run make lint
@@ -35,10 +50,16 @@ jobs:
           args: -C images lint
 
       - uses: docker://quay.io/cilium/image-maker:7de7f1c855ce063bdbe57fdfb28599a3ad5ec8f1@sha256:dde8500cbfbb6c41433d376fdfcb3831e2df9cec50cf4f49e8553dc6eba74e72
-        name: Check if runtime and builder images are up-to-date
+        name: Check if builder image is up-to-date
         with:
           entrypoint: make
-          args: -C images check-runtime-image check-builder-image
+          args: -C images check-builder-image
+
+      - uses: docker://quay.io/cilium/image-maker:7de7f1c855ce063bdbe57fdfb28599a3ad5ec8f1@sha256:dde8500cbfbb6c41433d376fdfcb3831e2df9cec50cf4f49e8553dc6eba74e72
+        name: Check if runtime image is up-to-date
+        with:
+          entrypoint: make
+          args: -C images check-runtime-image RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
 
       - name: Check Cilium Envoy image
         run: make -C images check-envoy-image

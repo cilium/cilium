@@ -61,9 +61,9 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.201.0
+  eksctl_version: v0.207.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.32.1
+  kubectl_version: v1.32.3
 
 jobs:
   echo-inputs:
@@ -122,7 +122,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -154,9 +154,25 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
           echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+
   installation-and-connectivity:
     name: Installation and Connectivity Test
-    needs: generate-matrix
+    needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -210,6 +226,7 @@ jobs:
             --helm-set=ipam.mode=cluster-pool \
             --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
+            --helm-set=extraArgs={--enable-identity-mark=false} \
             --wait=false"
 
           if [ "${{ matrix.wireguard }}" == "true" ]; then
@@ -220,6 +237,8 @@ jobs:
 
           # L7 policies are not supported in chaining mode.
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=3 \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false --collect-sysdump-on-failure --test '!fqdn,!l7' \
             --external-target amazon.com. --external-ip 1.0.0.1 --external-other-ip 1.1.1.1"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
@@ -242,7 +261,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -261,8 +280,7 @@ jobs:
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
-          spot: false
-          default_addons: true
+          addons: "coredns kube-proxy vpc-cni"
 
       - name: Create EKS nodegroups
         uses: ./.github/actions/setup-eks-nodegroup
@@ -273,20 +291,21 @@ jobs:
           version: ${{ matrix.version }}
           spot: false
 
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -346,21 +365,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.version }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.version }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.version }}
           path: ${{ env.job_name }}*.json
@@ -441,7 +460,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}

@@ -6,8 +6,7 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 
-#define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
+#define ETH_HLEN 0
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define TUNNEL_MODE	1
@@ -31,6 +30,9 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
+
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
@@ -89,7 +91,7 @@ int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ct
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -189,7 +191,7 @@ int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ct
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
-	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, 1, 1);
+	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v6_add_backend(&frontend_ip, FRONTEND_PORT, 1, 124,
 			  &backend_ip, BACKEND_PORT, IPPROTO_TCP, 0);
 

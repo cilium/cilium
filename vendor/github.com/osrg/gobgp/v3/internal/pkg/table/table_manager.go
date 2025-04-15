@@ -88,10 +88,7 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time) 
 		pathList = append(pathList, p)
 	}
 	if reach != nil {
-		reachAttrs := make([]bgp.PathAttributeInterface, len(attrs)+1)
-		copy(reachAttrs, attrs)
-		// we sort attributes when creating a bgp message from paths
-		reachAttrs[len(reachAttrs)-1] = reach
+		nexthop := reach.Nexthop.String()
 
 		for _, nlri := range reach.Value {
 			// when build path from reach
@@ -99,6 +96,11 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time) 
 			// this happens when a MP peer send update to gobgp
 			// However nlri is always populated because how we build the path
 			// path.info{nlri: nlri}
+			// Compute a new attribute array for each path with one NLRI to make serialization
+			// of path attrs faster
+			nlriAttr := bgp.NewPathAttributeMpReachNLRI(nexthop, []bgp.AddrPrefixInterface{nlri})
+			reachAttrs := makeAttributeList(attrs, nlriAttr)
+
 			p := NewPath(peerInfo, nlri, false, reachAttrs, timestamp, false)
 			p.SetHash(hash)
 			pathList = append(pathList, p)
@@ -109,6 +111,17 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time) 
 		pathList = append(pathList, p)
 	}
 	return pathList
+}
+
+func makeAttributeList(
+	attrs []bgp.PathAttributeInterface, reach *bgp.PathAttributeMpReachNLRI,
+) []bgp.PathAttributeInterface {
+	reachAttrs := make([]bgp.PathAttributeInterface, len(attrs)+1)
+	copy(reachAttrs, attrs)
+	// we sort attributes when creating a bgp message from paths
+	reachAttrs[len(reachAttrs)-1] = reach
+
+	return reachAttrs
 }
 
 type TableManager struct {

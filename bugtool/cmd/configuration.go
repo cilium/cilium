@@ -104,6 +104,7 @@ var bpfMapsPath = []string{
 	"tc/globals/cilium_ipmasq_v4",
 	"tc/globals/cilium_ipmasq_v6",
 	"tc/globals/cilium_ipv4_frag_datagrams",
+	"tc/globals/cilium_ipv6_frag_datagrams",
 	"tc/globals/cilium_throttle",
 	"tc/globals/cilium_encrypt_state",
 	"tc/globals/cilium_egress_gw_policy_v4",
@@ -182,7 +183,7 @@ func miscSystemCommands() []string {
 		"ip a",
 		"ip -4 r",
 		"ip -6 r",
-		"ip -d -s l",
+		"ip -d -s -s l",
 		"ip -4 n",
 		"ip -6 n",
 		"ss -t -p -a -i -s -n -e",
@@ -330,7 +331,7 @@ func routeCommands() []string {
 	commands := []string{}
 	routes, _ := execCommand("ip route show table all | grep -E --only-matching 'table [0-9]+'")
 
-	for _, r := range bytes.Split(bytes.TrimSuffix(routes, []byte("\n")), []byte("\n")) {
+	for r := range bytes.SplitSeq(bytes.TrimSuffix(routes, []byte("\n")), []byte("\n")) {
 		routeTablev4 := fmt.Sprintf("ip -4 route show %s", r)
 		routeTablev6 := fmt.Sprintf("ip -6 route show %s", r)
 		commands = append(commands, routeTablev4, routeTablev6)
@@ -399,6 +400,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg bpf endpoint list",
 		"cilium-dbg bpf ct list global",
 		"cilium-dbg bpf nat list",
+		"cilium-dbg bpf nat retries list",
 		"cilium-dbg bpf ipmasq list",
 		"cilium-dbg bpf ipcache list",
 		"cilium-dbg bpf policy get --all --numeric",

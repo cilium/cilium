@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -256,7 +257,7 @@ func TestNeighborReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), hivetest.Logger(t), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -264,7 +265,7 @@ func TestNeighborReconciler(t *testing.T) {
 				testSC.Server.Stop()
 			})
 
-			r := NewNeighborReconciler(tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler
+			r := NewNeighborReconciler(hivetest.Logger(t), tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler
 
 			neighborReconciler := r.(*NeighborReconciler)
 
@@ -276,10 +277,7 @@ func TestNeighborReconciler(t *testing.T) {
 
 				neighborReconciler.updateMetadata(testSC, n.DeepCopy(), tcpPassword)
 
-				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: &n,
-					Password: tcpPassword,
-				})
+				testSC.Server.AddNeighbor(context.Background(), types.ToNeighborV1(&n, tcpPassword))
 			}
 
 			// create new virtual router config with desired neighbors
@@ -297,7 +295,7 @@ func TestNeighborReconciler(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = neighborReconciler.Reconcile(context.Background(), params)
 					if (tt.err == nil) != (err == nil) {

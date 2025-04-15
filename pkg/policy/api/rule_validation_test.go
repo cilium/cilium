@@ -277,7 +277,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 					Ports: []PortProtocol{
 						{Port: "443", Protocol: ProtoTCP},
 					},
-					ServerNames: []string{"foo.bar.com", "bar.foo.com"},
+					ServerNames: []ServerName{"foo.bar.com", "bar.foo.com"},
 				}},
 			},
 		},
@@ -297,7 +297,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 					Ports: []PortProtocol{
 						{Port: "443", Protocol: ProtoTCP},
 					},
-					ServerNames: []string{""},
+					ServerNames: []ServerName{""},
 				}},
 			},
 		},
@@ -317,7 +317,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 					Ports: []PortProtocol{
 						{Port: "443", Protocol: ProtoTCP},
 					},
-					ServerNames: []string{"foo.bar.com", "bar.foo.com"},
+					ServerNames: []ServerName{"foo.bar.com", "bar.foo.com"},
 					Rules: &L7Rules{
 						HTTP: []PortRuleHTTP{
 							{Method: "GET", Path: "/"},
@@ -348,7 +348,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 							Name: "test-secret",
 						},
 					},
-					ServerNames: []string{"foo.bar.com", "bar.foo.com"},
+					ServerNames: []ServerName{"foo.bar.com", "bar.foo.com"},
 					Rules: &L7Rules{
 						HTTP: []PortRuleHTTP{
 							{Method: "GET", Path: "/"},
@@ -1374,8 +1374,8 @@ func BenchmarkCIDRSanitize(b *testing.B) {
 	cidr6 := CIDRRule{Cidr: "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		err := cidr4.sanitize()
 		if err != nil {
 			b.Fatal(err)

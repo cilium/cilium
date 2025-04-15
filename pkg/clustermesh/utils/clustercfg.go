@@ -8,14 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -59,7 +59,7 @@ func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.Ci
 // (e.g., in case the associated lease unexpectedly expired).
 func EnforceClusterConfig(
 	ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig,
-	backend ClusterConfigBackend, log logrus.FieldLogger,
+	backend ClusterConfigBackend, log *slog.Logger,
 ) (stopAndWait func(), err error) {
 	var (
 		mgr = controller.NewManager()
@@ -83,7 +83,7 @@ func EnforceClusterConfig(
 
 				default:
 					if err != nil {
-						log.WithError(err).Warning("Failed to write cluster configuration")
+						log.Warn("Failed to write cluster configuration", logfields.Error, err)
 					}
 
 					return err

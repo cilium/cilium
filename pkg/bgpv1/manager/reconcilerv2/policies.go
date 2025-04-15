@@ -13,12 +13,13 @@ import (
 	"strings"
 
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -33,7 +34,7 @@ type ResourceRoutePolicyMap map[resource.Key]RoutePolicyMap
 type RoutePolicyMap map[string]*types.RoutePolicy
 
 type ReconcileRoutePoliciesParams struct {
-	Logger          logrus.FieldLogger
+	Logger          logging.FieldLogger
 	Ctx             context.Context
 	Router          types.Router
 	DesiredPolicies RoutePolicyMap
@@ -68,9 +69,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 	// add missing policies
 	for _, p := range toAdd {
-		rp.Logger.WithFields(logrus.Fields{
-			types.PolicyLogField: p.Name,
-		}).Debug("Adding route policy")
+		rp.Logger.Debug(
+			"Adding route policy",
+			types.PolicyLogField, p.Name,
+		)
 
 		err := rp.Router.AddRoutePolicy(rp.Ctx, types.RoutePolicyRequest{
 			DefaultExportAction: types.RoutePolicyActionReject, // do not advertise routes by default
@@ -88,9 +90,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 	for _, p := range toUpdate {
 		// As proper implementation of an update operation for complex policies would be quite involved,
 		// we resort to recreating the policies that need an update here.
-		rp.Logger.WithFields(logrus.Fields{
-			types.PolicyLogField: p.Name,
-		}).Debug("Updating (re-creating) route policy")
+		rp.Logger.Debug(
+			"Updating (re-creating) route policy",
+			types.PolicyLogField, p.Name,
+		)
 
 		existing := rp.CurrentPolicies[p.Name]
 		err := rp.Router.RemoveRoutePolicy(rp.Ctx, types.RoutePolicyRequest{Policy: existing})
@@ -113,9 +116,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 	// remove old policies
 	for _, p := range toRemove {
-		rp.Logger.WithFields(logrus.Fields{
-			types.PolicyLogField: p.Name,
-		}).Debug("Removing route policy")
+		rp.Logger.Debug(
+			"Removing route policy",
+			types.PolicyLogField, p.Name,
+		)
 
 		err := rp.Router.RemoveRoutePolicy(rp.Ctx, types.RoutePolicyRequest{Policy: p})
 		if err != nil {
@@ -132,9 +136,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 			continue
 		}
 
-		rp.Logger.WithFields(logrus.Fields{
-			types.PeerLogField: peer,
-		}).Debug("Resetting peer due to a routing policy change")
+		rp.Logger.Debug(
+			"Resetting peer due to a routing policy change",
+			types.PeerLogField, peer,
+		)
 
 		req := types.ResetNeighborRequest{
 			PeerAddress:        peer,
@@ -145,9 +150,11 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 		err = rp.Router.ResetNeighbor(rp.Ctx, req)
 		if err != nil {
 			// non-fatal error (may happen if the neighbor is not up), just log it
-			rp.Logger.WithFields(logrus.Fields{
-				types.PeerLogField: peer,
-			}).WithError(err).Debug("resetting peer failed after a routing policy change")
+			rp.Logger.Debug(
+				"resetting peer failed after a routing policy change",
+				logfields.Error, err,
+				types.PeerLogField, peer,
+			)
 		}
 	}
 
@@ -156,14 +163,14 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 // PolicyName returns a unique route policy name for the provided peer, family and advertisement type.
 // If there a is a need for multiple route policies per advertisement type, unique resourceID can be provided.
-func PolicyName(peer, family string, advertType v2alpha1.BGPAdvertisementType, resourceID string) string {
+func PolicyName(peer, family string, advertType v2.BGPAdvertisementType, resourceID string) string {
 	if resourceID == "" {
 		return fmt.Sprintf("%s-%s-%s", peer, family, advertType)
 	}
 	return fmt.Sprintf("%s-%s-%s-%s", peer, family, advertType, resourceID)
 }
 
-func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixMatchList, advert v2alpha1.BGPAdvertisement) (*types.RoutePolicy, error) {
+func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixMatchList, advert v2.BGPAdvertisement) (*types.RoutePolicy, error) {
 	policy := &types.RoutePolicy{
 		Name: name,
 		Type: types.RoutePolicyTypeExport,
@@ -249,6 +256,19 @@ func MergeRoutePolicies(policyA *types.RoutePolicy, policyB *types.RoutePolicy) 
 		}
 	}
 
+	// Sorting the prefixes for traffic engineering in core network based on BGP attributes
+	for n := range mergedPolicy.Statements {
+		sort.SliceStable(mergedPolicy.Statements[n].Conditions.MatchPrefixes, func(i, j int) bool {
+			return mergedPolicy.Statements[n].Conditions.MatchPrefixes[i].PrefixLenMax > mergedPolicy.Statements[n].Conditions.MatchPrefixes[j].PrefixLenMax
+		})
+	}
+	sort.SliceStable(mergedPolicy.Statements, func(i, j int) bool {
+		if mergedPolicy.Statements[i].Conditions.MatchPrefixes != nil && mergedPolicy.Statements[j].Conditions.MatchPrefixes != nil {
+			return mergedPolicy.Statements[i].Conditions.MatchPrefixes[0].PrefixLenMax > mergedPolicy.Statements[j].Conditions.MatchPrefixes[0].PrefixLenMax
+		}
+		return true
+	})
+
 	return mergedPolicy, nil
 }
 
@@ -260,9 +280,7 @@ func mergePolicy(
 	// This function aims to be purely functional.  Here, we are creating a copy of the input to hold the result
 	// of the merge operation.
 	outputPolicyStatements = map[string]*types.RoutePolicyStatement{}
-	for key, value := range inputPolicyStatements {
-		outputPolicyStatements[key] = value
-	}
+	maps.Copy(outputPolicyStatements, inputPolicyStatements)
 
 	for _, statement := range policy.Statements {
 		key := statement.Conditions.String()
@@ -297,7 +315,7 @@ func mergePolicy(
 	return outputPolicyStatements
 }
 
-func getCommunities(advert v2alpha1.BGPAdvertisement) (standard, large []string, err error) {
+func getCommunities(advert v2.BGPAdvertisement) (standard, large []string, err error) {
 	standard, err = mergeAndDedupCommunities(advert)
 	if err != nil {
 		return nil, nil, err
@@ -309,7 +327,7 @@ func getCommunities(advert v2alpha1.BGPAdvertisement) (standard, large []string,
 
 // mergeAndDedupCommunities merges numeric standard community and well-known community strings,
 // deduplicated by their actual community values.
-func mergeAndDedupCommunities(advert v2alpha1.BGPAdvertisement) ([]string, error) {
+func mergeAndDedupCommunities(advert v2.BGPAdvertisement) ([]string, error) {
 	var res []string
 
 	if advert.Attributes == nil || advert.Attributes.Communities == nil {
@@ -365,7 +383,7 @@ func parseCommunity(communityStr string) (uint32, error) {
 }
 
 // dedupLargeCommunities returns deduplicated large communities as a string slice.
-func dedupLargeCommunities(advert v2alpha1.BGPAdvertisement) []string {
+func dedupLargeCommunities(advert v2.BGPAdvertisement) []string {
 	var res []string
 
 	if advert.Attributes == nil || advert.Attributes.Communities == nil {

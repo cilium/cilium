@@ -4,10 +4,9 @@
 package endpoint
 
 import (
+	"log/slog"
 	"net/netip"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -33,7 +32,6 @@ type epInfoCache struct {
 	mac                    mac.MAC
 	ipv4                   netip.Addr
 	ipv6                   netip.Addr
-	conntrackLocal         bool
 	requireARPPassthrough  bool
 	requireEgressProg      bool
 	requireRouting         bool
@@ -63,6 +61,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 
 			id:       e.GetID(),
 			identity: e.getIdentity(),
+			ifIndex:  e.GetIfIndex(),
 			mac:      e.GetNodeMAC(),
 			ipv4:     e.IPv4Address(),
 			ipv6:     e.IPv6Address(),
@@ -81,7 +80,6 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		mac:                    e.GetNodeMAC(),
 		ipv4:                   e.IPv4Address(),
 		ipv6:                   e.IPv6Address(),
-		conntrackLocal:         e.ConntrackLocalLocked(),
 		requireARPPassthrough:  e.RequireARPPassthrough(),
 		requireEgressProg:      e.RequireEgressProg(),
 		requireRouting:         e.RequireRouting(),
@@ -130,19 +128,14 @@ func (ep *epInfoCache) GetIdentity() identity.NumericIdentity {
 	return ep.identity
 }
 
-// GetIdentityLocked returns the security identity of the endpoint.
-func (ep *epInfoCache) GetIdentityLocked() identity.NumericIdentity {
-	return ep.identity
-}
-
 // GetEndpointNetNsCookie returns the network namespace cookie for the endpoint
 func (ep *epInfoCache) GetEndpointNetNsCookie() uint64 {
 	return ep.netNsCookie
 }
 
 // Logger returns the logger for the endpoint that is being cached.
-func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
-	return ep.endpoint.Logger(subsystem)
+func (ep *epInfoCache) Logger(subsystem string) *slog.Logger {
+	return ep.endpoint.SLogger(subsystem)
 }
 
 // IPv4Address returns the cached IPv4 address for the endpoint.
@@ -158,10 +151,6 @@ func (ep *epInfoCache) IPv6Address() netip.Addr {
 // StateDir returns the directory for the endpoint's (next) state.
 func (ep *epInfoCache) StateDir() string    { return ep.epdir }
 func (ep *epInfoCache) GetNodeMAC() mac.MAC { return ep.mac }
-
-func (ep *epInfoCache) ConntrackLocalLocked() bool {
-	return ep.conntrackLocal
-}
 
 func (ep *epInfoCache) GetOptions() *option.IntOptions {
 	return ep.options

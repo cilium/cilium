@@ -110,6 +110,9 @@ type Parameters struct {
 	// HelmRepository specifies the Helm repository to download Cilium Helm charts from.
 	HelmRepository string
 
+	// HelmMaxHistory specifies the maximum number of Helm releases to keep.
+	HelmMaxHistory int
+
 	// HelmReleaseName specifies the Helm release name for the Cilium CLI.
 	// Useful for referencing Cilium installations installed directly through Helm
 	// or overriding the Cilium CLI for install/upgrade/enable.
@@ -163,7 +166,7 @@ func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInsta
 	}, nil
 }
 
-func (k *K8sInstaller) Log(format string, a ...interface{}) {
+func (k *K8sInstaller) Log(format string, a ...any) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 

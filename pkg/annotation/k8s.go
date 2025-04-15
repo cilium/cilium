@@ -5,8 +5,6 @@ package annotation
 
 import (
 	"regexp"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -36,6 +34,9 @@ const (
 
 	// CNIPrefix is the common prefix for CNI related annotations.
 	CNIPrefix = "cni.cilium.io"
+
+	// CECPrefix is the common prefix for CEC related annotations.
+	CECPrefix = "cec.cilium.io"
 
 	// PodAnnotationMAC is used to store the MAC address of the Pod.
 	PodAnnotationMAC = CNIPrefix + "/mac-address"
@@ -130,6 +131,11 @@ const (
 	// service is ignored and not installed into their datapath.
 	ServiceNodeExposure = ServicePrefix + "/node"
 
+	// ServiceNodeSelectorExposure is the label name used to mark a service to only a
+	// subset of the nodes which match the label selector. For all other nodes, this
+	// service is ignored and not installed into their datapath.
+	ServiceNodeSelectorExposure = ServicePrefix + "/node-selector"
+
 	// ServiceTypeExposure is the annotation name used to mark what service type
 	// to provision (only single type is allowed; allowed types: "ClusterIP",
 	// "NodePort" and "LoadBalancer").
@@ -144,6 +150,14 @@ const (
 	// list should act as an allow- or deny-list. Both "allow" or "deny" are
 	// possible values for this annotation.
 	ServiceSourceRangesPolicy = ServicePrefix + "/src-ranges-policy"
+
+	// ServiceProxyDelegation is the annotation name used to specify whether there
+	// should be delegation to a 3rd party proxy. Allowed values are "none" (default)
+	// and "delegate-if-local". The latter pushes all service packets to a user
+	// space proxy if the selected backend IP is the IP of the local node. If the
+	// selected backend IP is non-local then the BPF datapath forwards the packet
+	// back out again with the configured BPF load-balancing mechanism.
+	ServiceProxyDelegation = ServicePrefix + "/proxy-delegation"
 
 	// ServiceForwardingMode annotations determines the way packets are pushed to the
 	// remote backends.
@@ -182,6 +196,10 @@ const (
 	// which workloads should allocate their IP from
 	IPAMIPv6PoolKey = IPAMPrefix + "/ipv6-pool"
 
+	// IPAMIgnore is the annotation used to make the Cilium operator IPAM logic
+	// ignore the given CiliumNode object
+	IPAMIgnore = IPAMPrefix + "/ignore"
+
 	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
 	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
 
@@ -189,19 +207,24 @@ const (
 	LBIPAMSharingKeyAlias             = Prefix + "/lb-ipam-sharing-key"
 	LBIPAMSharingAcrossNamespace      = LBIPAMPrefix + "/sharing-cross-namespace"
 	LBIPAMSharingAcrossNamespaceAlias = Prefix + "/lb-ipam-sharing-cross-namespace"
+
+	CECInjectCiliumFilters = CECPrefix + "/inject-cilium-filters"
 )
 
-var (
-	// CiliumPrefixRegex is a regex matching Cilium specific annotations.
-	CiliumPrefixRegex = regexp.MustCompile(`^([A-Za-z0-9]+\.)*cilium.io/`)
-)
+// CiliumPrefixRegex is a regex matching Cilium specific annotations.
+var CiliumPrefixRegex = regexp.MustCompile(`^([A-Za-z0-9]+\.)*cilium.io/`)
+
+type annotatedObject interface {
+	GetAnnotations() map[string]string
+}
 
 // Get returns the annotation value associated with the given key, or any of
 // the additional aliases if not found.
-func Get(obj metav1.Object, key string, aliases ...string) (value string, ok bool) {
+func Get(obj annotatedObject, key string, aliases ...string) (value string, ok bool) {
 	keys := append([]string{key}, aliases...)
+	annotations := obj.GetAnnotations()
 	for _, k := range keys {
-		if value, ok = obj.GetAnnotations()[k]; ok {
+		if value, ok = annotations[k]; ok {
 			return value, ok
 		}
 	}

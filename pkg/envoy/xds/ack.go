@@ -116,6 +116,8 @@ type AckingResourceMutatorWrapper struct {
 	// restoring controls waiting for acks. When 'true' updates do not wait for acks from the xDS client,
 	// as xDS caches are pre-populated before passing any resources to xDS clients.
 	restoring bool
+
+	metrics Metrics
 }
 
 // pendingCompletion is an update that is pending completion.
@@ -133,11 +135,12 @@ type pendingCompletion struct {
 
 // NewAckingResourceMutatorWrapper creates a new AckingResourceMutatorWrapper
 // to wrap the given ResourceMutator.
-func NewAckingResourceMutatorWrapper(mutator ResourceMutator) *AckingResourceMutatorWrapper {
+func NewAckingResourceMutatorWrapper(mutator ResourceMutator, metrics Metrics) *AckingResourceMutatorWrapper {
 	return &AckingResourceMutatorWrapper{
 		mutator:            mutator,
 		ackedVersions:      make(map[string]uint64),
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
+		metrics:            metrics,
 	}
 }
 
@@ -363,7 +366,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	}
 }
 
-// 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
+// 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'ackVersion', is the last version that was NACKed.
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSAckedVersion: ackVersion,
@@ -408,9 +411,11 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 					if len(pending.remainingNodesResources) == 0 {
 						// completedComparision. Notify and remove from pending list.
 						if pending.version <= ackVersion {
+							m.metrics.IncreaseACK(typeURL)
 							ackLog.Debugf("completing ACK: %v", pending)
 							comp.Complete(nil)
 						} else {
+							m.metrics.IncreaseNACK(typeURL)
 							ackLog.Warningf("completing NACK: %v", pending)
 							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 						}

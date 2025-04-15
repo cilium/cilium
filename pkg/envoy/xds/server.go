@@ -76,6 +76,8 @@ type Server struct {
 	// lastStreamID is the identifier of the last processed stream.
 	// It is incremented atomically when starting the handling of a new stream.
 	lastStreamID atomic.Uint64
+
+	metrics Metrics
 }
 
 // ResourceTypeConfiguration is the configuration of the XDS server for a
@@ -93,7 +95,8 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer]) *Server {
+func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer],
+	metrics Metrics) *Server {
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
@@ -111,7 +114,7 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerProm
 
 	// TODO: Unregister the watchers when stopping the server.
 
-	return &Server{watchers: watchers, ackObservers: ackObservers}
+	return &Server{watchers: watchers, ackObservers: ackObservers, metrics: metrics}
 }
 
 func (s *Server) RestoreCompleted() {
@@ -191,11 +194,6 @@ type perTypeStreamState struct {
 	// If nil, no watch is pending.
 	pendingWatchCancel context.CancelFunc
 
-	// version is the last version sent. This is needed so that we'll know
-	// if a new request is an ACK (VersionInfo matches current version), or a NACK
-	// (VersionInfo matches an earlier version).
-	version uint64
-
 	// resourceNames is the list of names of resources sent in the last
 	// response to a request for this resource type.
 	resourceNames []string
@@ -265,6 +263,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 	nodeIP := ""
 	firstRequest := true
+	// Indicates if client received the first response,
+	// but it doesn't necessarily mean that it was ACKed.
+	clientReceivedFirstResponse := false
+	// responseAcked indicates if we already
+	// had some request on this stream that was ACKed by a client.
+	responseAcked := false
 
 	for {
 		// Process either a new request from the xDS stream or a response
@@ -299,22 +303,26 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
 
-			// Ensure that the version info is a string that was sent by this
-			// server or the empty string (the first request in a stream should
-			// always have an empty version info).
-			var versionInfo uint64
+			// VersionInfo is property of resources,
+			// while nonce is property of the stream.
+			// VersionInfo is only empty for a new client instance that did not
+			// receive any ACKed version of resources previously.
+			// In case of xDS server restart (cilium-agent),
+			// Envoy will send a request with VersionInfo set to the last ACKed version
+			// it received. Additionally, nonce will be empty.
+			var lastAppliedVersion uint64
 			if req.GetVersionInfo() != "" {
 				var err error
-				versionInfo, err = strconv.ParseUint(req.VersionInfo, 10, 64)
+				lastAppliedVersion, err = strconv.ParseUint(req.VersionInfo, 10, 64)
 				if err != nil {
 					requestLog.Errorf("invalid version info in xDS request, not a uint64")
 					return ErrInvalidVersionInfo
 				}
 			}
-			var nonce uint64
+			var lastReceivedVersion uint64
 			if req.GetResponseNonce() != "" {
 				var err error
-				nonce, err = strconv.ParseUint(req.ResponseNonce, 10, 64)
+				lastReceivedVersion, err = strconv.ParseUint(req.ResponseNonce, 10, 64)
 				if err != nil {
 					requestLog.Error("invalid response nonce info in xDS request, not a uint64")
 					return ErrInvalidResponseNonce
@@ -341,52 +349,68 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			state := &typeStates[index]
 			watcher := s.watchers[typeURL]
 
-			if nonce == 0 && versionInfo > 0 {
-				requestLog.Infof("xDS was restarted, setting nonce to %d", versionInfo)
-				nonce = versionInfo
+			if lastReceivedVersion > 0 {
+				// Non-zero lastReceivedVersion indicates that we have already sent
+				// a response to the client and client saw response.
+				clientReceivedFirstResponse = true
 			}
 
-			// Response nonce is always the same as the response version.
-			// Request version indicates the last acked version. If the
-			// response nonce in the request is different (smaller) than
-			// the version, all versions upto that version are acked, but
-			// the versions from that to and including the nonce are nacked.
-			if versionInfo <= nonce {
-				ackObserver := s.ackObservers[typeURL]
-				if ackObserver != nil {
-					requestLog.Debug("notifying observers of ACKs")
-					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
-				} else if firstRequest {
-					requestLog.Info("ACK received but no observers are waiting for ACKs")
-				}
-				if versionInfo < nonce {
-					// versions after VersionInfo, upto and including ResponseNonce are NACKed
-					requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
-					// Watcher will behave as if the sent version was acked.
-					// Otherwise we will just be sending the same failing
-					// version over and over filling logs.
-					versionInfo = state.version
-				}
+			if clientReceivedFirstResponse && lastAppliedVersion == lastReceivedVersion {
+				// Once we get the first ACK,
+				// we can start using versionInfo for ACKing observers.
+				responseAcked = true
+			}
 
-				if state.pendingWatchCancel != nil {
-					// A pending watch exists for this type URL. Cancel it to
-					// start a new watch.
-					requestLog.Debug("canceling pending watch")
-					state.pendingWatchCancel()
-				}
+			if lastAppliedVersion > 0 && firstRequest {
+				requestLog.Infof("xDS was restarted, previous versionInfo: %d", lastAppliedVersion)
+			}
 
-				respCh := make(chan *VersionedResources, 1)
-				selectCases[index].Chan = reflect.ValueOf(respCh)
-
-				ctx, cancel := context.WithCancel(ctx)
-				state.pendingWatchCancel = cancel
-
-				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
-				go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
-			} else {
+			if lastAppliedVersion > lastReceivedVersion && clientReceivedFirstResponse {
 				requestLog.Warning("received invalid nonce in xDS request")
 				return ErrInvalidResponseNonce
 			}
+
+			// We want to trigger HandleResourceVersionAck even for NACKs
+			if clientReceivedFirstResponse {
+				ackObserver := s.ackObservers[typeURL]
+				if ackObserver != nil {
+					requestLog.Debug("notifying observers of ACKs")
+					if !responseAcked {
+						// If we haven't received any ACK, it means that lastAppliedVersion
+						// is stale and we can't ACK anything.
+						// Also we can't send lastAppliedVersion as it would incorrectly be cached
+						// as last acked version.
+						ackObserver.HandleResourceVersionAck(0, lastReceivedVersion, nodeIP, state.resourceNames, typeURL, detail)
+					} else {
+						ackObserver.HandleResourceVersionAck(lastAppliedVersion, lastReceivedVersion, nodeIP, state.resourceNames, typeURL, detail)
+					}
+				} else {
+					requestLog.Info("ACK received but no observers are waiting for ACKs")
+				}
+			}
+
+			if lastAppliedVersion < lastReceivedVersion && clientReceivedFirstResponse {
+				s.metrics.IncreaseNACK(typeURL)
+				// versions after lastAppliedVersion, upto and including lastReceivedVersion are NACKed
+				requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
+			}
+
+			if state.pendingWatchCancel != nil {
+				// A pending watch exists for this type URL. Cancel it to
+				// start a new watch.
+				requestLog.Debug("canceling pending watch")
+				state.pendingWatchCancel()
+			}
+
+			respCh := make(chan *VersionedResources, 1)
+			selectCases[index].Chan = reflect.ValueOf(respCh)
+
+			ctx, cancel := context.WithCancel(ctx)
+			state.pendingWatchCancel = cancel
+
+			requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
+			go watcher.WatchResources(ctx, typeURL, lastReceivedVersion, lastAppliedVersion, nodeIP, req.GetResourceNames(), respCh)
+
 			firstRequest = false
 
 		default: // Pending watch response.
@@ -440,7 +464,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				return err
 			}
 
-			state.version = resp.Version
 			state.resourceNames = resp.ResourceNames
 		}
 	}

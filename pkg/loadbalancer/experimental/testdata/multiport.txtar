@@ -6,7 +6,7 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table 
@@ -16,36 +16,26 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
 # Cleanup
-k8s delete service.yaml endpointslice.yaml 
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+k8s/delete service.yaml endpointslice.yaml
+
+# Tables should be empty now
+* db/empty services frontends backends
 
 #####
 
 -- services.table --
-Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster                              0                     false              
+Name        Source   PortNames           TrafficPolicy   Flags
+test/echo   k8s      http=80, https=443  Cluster         
 
 -- frontends.table --
-
-Address                Type        ServiceName   PortName   Backends                      Status
-10.96.50.104:80/TCP    ClusterIP   test/echo     http       10.244.1.1:80/TCP (active)    Done
-10.96.50.104:443/TCP   ClusterIP   test/echo     https      10.244.1.1:443/TCP (active)   Done
+Address                Type        ServiceName   PortName   Backends             Status
+10.96.50.104:80/TCP    ClusterIP   test/echo     http       10.244.1.1:80/TCP    Done
+10.96.50.104:443/TCP   ClusterIP   test/echo     https      10.244.1.1:443/TCP   Done
 
 -- backends.table --
-Address              State    Instances           NodeName          ZoneID
-10.244.1.1:80/TCP    active   test/echo (http)    nodeport-worker   0
-10.244.1.1:443/TCP   active   test/echo (https)   nodeport-worker   0
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address             State    Instances            NodeName           ZoneID
+Address              Instances           NodeName
+10.244.1.1:80/TCP    test/echo (http)    nodeport-worker
+10.244.1.1:443/TCP   test/echo (https)   nodeport-worker
 
 -- service.yaml --
 apiVersion: v1
@@ -115,7 +105,7 @@ BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 BE: ID=2 ADDR=10.244.1.1:443/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 REV: ID=2 ADDR=10.96.50.104:443
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=2 ADDR=10.96.50.104:443/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=2 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

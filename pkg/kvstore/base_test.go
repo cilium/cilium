@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -20,18 +21,12 @@ var (
 
 func TestLock(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
-	testLock(t)
-}
+	client := SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
-func testLock(t *testing.T) {
 	prefix := "locktest/"
 
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
-
-	for i := 0; i < 10; i++ {
-		lock, err := LockPath(context.Background(), Client(), fmt.Sprintf("%sfoo/%d", prefix, i))
+	for i := range 10 {
+		lock, err := LockPath(context.Background(), hivetest.Logger(t), client, fmt.Sprintf("%sfoo/%d", prefix, i))
 		require.NoError(t, err)
 		require.NotNil(t, lock)
 		lock.Unlock(context.TODO())
@@ -48,143 +43,114 @@ func testValue(i int) string {
 
 func TestGetSet(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
-	testGetSet(t)
-}
+	client := SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
-func testGetSet(t *testing.T) {
 	prefix := "unit-test/"
 	maxID := 8
 
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
-
-	pairs, err := Client().ListPrefix(context.Background(), prefix)
+	pairs, err := client.ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
 	require.Empty(t, pairs)
 
-	for i := 0; i < maxID; i++ {
-		val, err := Client().Get(context.TODO(), testKey(prefix, i))
+	for i := range maxID {
+		val, err := client.Get(context.TODO(), testKey(prefix, i))
 		require.NoError(t, err)
 		require.Nil(t, val)
 
-		require.NoError(t, Client().Update(context.TODO(), testKey(prefix, i), []byte(testValue(i)), false))
+		require.NoError(t, client.Update(context.TODO(), testKey(prefix, i), []byte(testValue(i)), false))
 
-		val, err = Client().Get(context.TODO(), testKey(prefix, i))
+		val, err = client.Get(context.TODO(), testKey(prefix, i))
 		require.NoError(t, err)
-		require.EqualValues(t, testValue(i), string(val))
+		require.Equal(t, testValue(i), string(val))
 	}
 
-	pairs, err = Client().ListPrefix(context.Background(), prefix)
+	pairs, err = client.ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
 	require.Len(t, pairs, maxID)
 
-	for i := 0; i < maxID; i++ {
-		require.NoError(t, Client().Delete(context.TODO(), testKey(prefix, i)))
+	for i := range maxID {
+		require.NoError(t, client.Delete(context.TODO(), testKey(prefix, i)))
 
-		val, err := Client().Get(context.TODO(), testKey(prefix, i))
+		val, err := client.Get(context.TODO(), testKey(prefix, i))
 		require.NoError(t, err)
 		require.Nil(t, val)
 	}
 
-	pairs, err = Client().ListPrefix(context.Background(), prefix)
+	pairs, err = client.ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
 	require.Empty(t, pairs)
 }
 
 func BenchmarkGet(b *testing.B) {
 	testutils.IntegrationTest(b)
-	SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
-	benchmarkGet(b)
-}
+	client := SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
 
-func benchmarkGet(b *testing.B) {
 	prefix := "unit-test/"
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	key := testKey(prefix, 1)
-	require.NoError(b, Client().Update(context.TODO(), key, []byte(testValue(100)), false))
+	require.NoError(b, client.Update(context.TODO(), key, []byte(testValue(100)), false))
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := Client().Get(context.TODO(), key)
+	for b.Loop() {
+		_, err := client.Get(context.TODO(), key)
 		require.NoError(b, err)
 	}
 }
 
 func BenchmarkSet(b *testing.B) {
 	testutils.IntegrationTest(b)
-	SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
-	benchmarkSet(b)
-}
+	client := SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
 
-func benchmarkSet(b *testing.B) {
 	prefix := "unit-test/"
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	key, val := testKey(prefix, 1), testValue(100)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		require.NoError(b, Client().Update(context.TODO(), key, []byte(val), false))
+
+	for b.Loop() {
+		require.NoError(b, client.Update(context.TODO(), key, []byte(val), false))
 	}
 }
 
 func TestUpdate(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
-	testUpdate(t)
-}
+	client := SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
-func testUpdate(t *testing.T) {
 	prefix := "unit-test/"
 
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
-
 	// create
-	require.NoError(t, Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true))
+	require.NoError(t, client.Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true))
 
-	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
+	val, err := client.Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 
 	// update
-	require.NoError(t, Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true))
+	require.NoError(t, client.Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true))
 
-	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
+	val, err = client.Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 }
 
 func TestCreateOnly(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
-	testCreateOnly(t)
-}
+	client := SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
-func testCreateOnly(t *testing.T) {
 	prefix := "unit-test/"
 
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
-
-	success, err := Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
+	success, err := client.CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
 	require.NoError(t, err)
 	require.True(t, success)
 
-	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
+	val, err := client.Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 
-	success, err = Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(1)), false)
+	success, err = client.CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(1)), false)
 	require.NoError(t, err)
 	require.False(t, success)
 
-	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
+	val, err = client.Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 }
 
 func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val string) {
@@ -193,7 +159,7 @@ func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val 
 		require.Equal(t, typ, event.Typ)
 
 		if event.Typ != EventTypeListDone {
-			require.EqualValues(t, key, event.Key)
+			require.Equal(t, key, event.Key)
 			// etcd does not provide the value of deleted keys so we can't check it.
 		}
 	case <-time.After(10 * time.Second):
@@ -203,47 +169,41 @@ func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val 
 
 func TestListAndWatch(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
-	testListAndWatch(t)
-}
+	client := SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
-func testListAndWatch(t *testing.T) {
 	key1, key2 := "foo2/key1", "foo2/key2"
 	val1, val2 := "val1", "val2"
 
-	Client().DeletePrefix(context.TODO(), "foo2/")
-	defer Client().DeletePrefix(context.TODO(), "foo2/")
-
-	success, err := Client().CreateOnly(context.Background(), key1, []byte(val1), false)
+	success, err := client.CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
 	require.True(t, success)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	events := Client().ListAndWatch(ctx, "foo2/")
+	events := client.ListAndWatch(ctx, "foo2/")
 	require.NotNil(t, t)
 
 	expectEvent(t, events, EventTypeCreate, key1, val1)
 	expectEvent(t, events, EventTypeListDone, "", "")
 
-	success, err = Client().CreateOnly(context.Background(), key2, []byte(val2), false)
+	success, err = client.CreateOnly(context.Background(), key2, []byte(val2), false)
 	require.NoError(t, err)
 	require.True(t, success)
 	expectEvent(t, events, EventTypeCreate, key2, val2)
 
-	err = Client().Delete(context.TODO(), key1)
+	err = client.Delete(context.TODO(), key1)
 	require.NoError(t, err)
 	expectEvent(t, events, EventTypeDelete, key1, val1)
 
-	success, err = Client().CreateOnly(context.Background(), key1, []byte(val1), false)
+	success, err = client.CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
 	require.True(t, success)
 	expectEvent(t, events, EventTypeCreate, key1, val1)
 
-	err = Client().Delete(context.TODO(), key1)
+	err = client.Delete(context.TODO(), key1)
 	require.NoError(t, err)
 	expectEvent(t, events, EventTypeDelete, key1, val1)
 
-	err = Client().Delete(context.TODO(), key2)
+	err = client.Delete(context.TODO(), key2)
 	require.NoError(t, err)
 	expectEvent(t, events, EventTypeDelete, key2, val2)
 

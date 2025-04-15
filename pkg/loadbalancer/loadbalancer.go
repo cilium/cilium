@@ -8,18 +8,28 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
+	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
+)
+
+type IPFamily = bool
+
+const (
+	IPFamilyIPv4 = IPFamily(false)
+	IPFamilyIPv6 = IPFamily(true)
 )
 
 // SVCType is a type of a service.
@@ -74,10 +84,21 @@ func ToSVCForwardingMode(s string) SVCForwardingMode {
 type SVCLoadBalancingAlgorithm uint8
 
 const (
-	SVCLoadBalancingAlgorithmUndef  = 0
-	SVCLoadBalancingAlgorithmRandom = 1
-	SVCLoadBalancingAlgorithmMaglev = 2
+	SVCLoadBalancingAlgorithmUndef  SVCLoadBalancingAlgorithm = 0
+	SVCLoadBalancingAlgorithmRandom SVCLoadBalancingAlgorithm = 1
+	SVCLoadBalancingAlgorithmMaglev SVCLoadBalancingAlgorithm = 2
 )
+
+func (d SVCLoadBalancingAlgorithm) String() string {
+	switch d {
+	case SVCLoadBalancingAlgorithmRandom:
+		return "random"
+	case SVCLoadBalancingAlgorithmMaglev:
+		return "maglev"
+	default:
+		return "undef"
+	}
+}
 
 func ToSVCLoadBalancingAlgorithm(s string) SVCLoadBalancingAlgorithm {
 	if s == option.NodePortAlgMaglev {
@@ -94,6 +115,13 @@ type SVCSourceRangesPolicy string
 const (
 	SVCSourceRangesPolicyAllow = SVCSourceRangesPolicy("allow")
 	SVCSourceRangesPolicyDeny  = SVCSourceRangesPolicy("deny")
+)
+
+type SVCProxyDelegation string
+
+const (
+	SVCProxyDelegationNone            = SVCProxyDelegation("none")
+	SVCProxyDelegationDelegateIfLocal = SVCProxyDelegation("delegate-if-local")
 )
 
 // ServiceFlags is the datapath representation of the service flags that can be
@@ -152,9 +180,6 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagLoadBalancer
 	case SVCTypeHostPort:
 		flags |= serviceFlagHostPort
-		if p.LoopbackHostport {
-			flags |= serviceFlagLoopback
-		}
 	case SVCTypeLocalRedirect:
 		flags |= serviceFlagLocalRedirect
 	}
@@ -195,6 +220,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.SvcFwdModeDSR {
 		flags |= serviceFlagFwdModeDSR
+	}
+	if p.LoopbackHostport {
+		flags |= serviceFlagLoopback
 	}
 
 	return flags
@@ -299,7 +327,11 @@ func (s ServiceFlags) String() string {
 		str = append(str, "l7-load-balancer")
 	}
 	if s&serviceFlagLoopback != 0 {
-		str = append(str, "loopback")
+		if s.SVCType() == SVCTypeHostPort {
+			str = append(str, "loopback")
+		} else {
+			str = append(str, "delegate-if-local")
+		}
 	}
 	if !seenDeny && s&serviceFlagQuarantined != 0 {
 		str = append(str, "quarantined")
@@ -447,6 +479,29 @@ type ServiceName struct {
 	Cluster   string
 }
 
+func (m ServiceName) MarshalYAML() (any, error) {
+	return m.String(), nil
+}
+
+func (m *ServiceName) UnmarshalYAML(value *yaml.Node) error {
+	parts := strings.Split(value.Value, "/")
+	switch len(parts) {
+	case 0: /* empty name */
+	case 1:
+		m.Name = parts[0]
+	case 2:
+		m.Namespace = parts[0]
+		m.Name = parts[1]
+	case 3:
+		m.Cluster = parts[0]
+		m.Namespace = parts[1]
+		m.Name = parts[2]
+	default:
+		return fmt.Errorf("expected 0, 1 or 2 slashes, got %d", len(parts))
+	}
+	return nil
+}
+
 func (n *ServiceName) Equal(other ServiceName) bool {
 	return n.Namespace == other.Namespace &&
 		n.Name == other.Name &&
@@ -535,6 +590,7 @@ type SVC struct {
 	IntTrafficPolicy          SVCTrafficPolicy  // Service internal traffic policy
 	NatPolicy                 SVCNatPolicy      // Service NAT 46/64 policy
 	SourceRangesPolicy        SVCSourceRangesPolicy
+	ProxyDelegation           SVCProxyDelegation
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
 	HealthCheckNodePort       uint16                    // Service health check node port
@@ -803,7 +859,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 // keys for prefix searches, e.g. "1.2.3.4".
 // This must be kept in sync with Bytes().
 func L3n4AddrFromString(key string) (index.Key, error) {
-	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"")
+	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\" or classful prefix \"10.0.0.0/8\"")
 	var out []byte
 
 	if len(key) == 0 {
@@ -826,6 +882,22 @@ func L3n4AddrFromString(key string) (index.Key, error) {
 
 	addrCluster, err := cmtypes.ParseAddrCluster(addr)
 	if err != nil {
+		// See if the address is a prefix and try to parse it as such.
+		// We only support classful searches, e.g. /8, /16, /24, /32 since
+		// indexing is byte-wise.
+		if prefix, err := netip.ParsePrefix(addr); err == nil {
+			bits := prefix.Bits()
+			if bits%8 != 0 {
+				return index.Key{}, fmt.Errorf("%w: only classful prefixes supported (/8,/16,/24,/32)", keyErr)
+			}
+			bytes := prefix.Addr().As16()
+			if prefix.Addr().Is6() {
+				return index.Key(bytes[:bits/8]), nil
+			} else {
+				// The address is in the 16-byte format, cut from the last 4 bytes.
+				return index.Key(bytes[:12+bits/8]), nil
+			}
+		}
 		return index.Key{}, fmt.Errorf("%w: %w", keyErr, err)
 	}
 	addr20 := addrCluster.As20()
@@ -936,6 +1008,64 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
 }
 
+func (l *L3n4Addr) ParseFromString(s string) error {
+	formatError := fmt.Errorf(
+		"bad address %q, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"",
+		s,
+	)
+
+	// Parse address
+	var addr string
+	if strings.HasPrefix(s, "[") {
+		addr, s, _ = strings.Cut(s[1:], "]")
+		switch {
+		case strings.HasPrefix(s, ":"):
+			s = s[1:]
+		case len(s) > 0:
+			return formatError
+		}
+	} else {
+		addr, s, _ = strings.Cut(s, ":")
+	}
+
+	var err error
+	l.AddrCluster, err = cmtypes.ParseAddrCluster(addr)
+	if err != nil {
+		return formatError
+	}
+
+	// Parse port
+	if len(s) < 1 {
+		return formatError
+	}
+
+	var portS string
+	portS, s, _ = strings.Cut(s, "/")
+	port, err := strconv.ParseUint(portS, 10, 16)
+	if err != nil {
+		return formatError
+	}
+	l.L4Addr.Port = uint16(port)
+
+	// Parse protocol
+	l.L4Addr.Protocol = TCP
+	if len(s) > 0 {
+		var proto string
+		proto, s, _ = strings.Cut(s, "/")
+		l.L4Addr.Protocol = L4Type(strings.ToUpper(proto))
+		if !slices.Contains(AllProtocols, l.L4Addr.Protocol) {
+			return formatError
+		}
+	}
+
+	// Parse scope.
+	l.Scope = ScopeExternal
+	if s == "i" {
+		l.Scope = ScopeInternal
+	}
+	return nil
+}
+
 func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	if a == nil {
 		return nil
@@ -1029,6 +1159,12 @@ func (l *L3n4Addr) ProtocolsEqual(o *L3n4Addr) bool {
 			l.AddrCluster.Is6() && o.AddrCluster.Is6())
 }
 
+func (l *L3n4Addr) AddrString() string {
+	str := l.AddrCluster.Addr().String() + ":" + strconv.FormatUint(uint64(l.Port), 10)
+
+	return str
+}
+
 // Bytes returns the address as a byte slice for indexing purposes.
 // Similar to Hash() but includes the L4 protocol.
 func (l L3n4Addr) Bytes() []byte {
@@ -1044,6 +1180,14 @@ func (l L3n4Addr) Bytes() []byte {
 	key = append(key, L4TypeAsByte(l.Protocol))
 	key = append(key, l.Scope)
 	return key
+}
+
+func (l L3n4Addr) MarshalYAML() (any, error) {
+	return l.StringWithProtocol(), nil
+
+}
+func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
+	return l.ParseFromString(value.Value)
 }
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the

@@ -5,8 +5,10 @@ package watchers
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -19,18 +21,21 @@ func (f *fakeK8sWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
-func (f *fakeK8sWatcherConfiguration) KVstoreEnabledWithoutPodNetworkSupport() bool {
+func (f *fakeK8sWatcherConfiguration) KVstoreEnabled() bool {
 	return false
 }
 
 func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
-	fakeClientSet, _ := client.NewFakeClientset()
-
+	logger := hivetest.Logger(t)
+	fakeClientSet, _ := client.NewFakeClientset(logger)
 	w := newWatcher(
+		logger,
+		func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups []string, waitForCachesOnly []string) {
+			return []string{}, []string{}
+		},
 		fakeClientSet,
 		&K8sPodWatcher{
 			controllersStarted: make(chan struct{}),
-			podStoreSet:        make(chan struct{}),
 		},
 		nil,
 		nil,
@@ -43,10 +48,6 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		&fakeK8sWatcherConfiguration{},
 	)
-
-	w.resourceGroupsFn = func(cfg WatcherConfiguration) (resourceGroups []string, waitForCachesOnly []string) {
-		return []string{}, []string{}
-	}
 
 	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	deadline, _ := t.Deadline()

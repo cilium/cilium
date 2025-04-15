@@ -90,8 +90,8 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 	}
 
 	// This could be enabled via configmap check, so only check if it's not enabled already.
-	if !result[features.PolicySecretBackendK8s].Enabled {
-		result[features.PolicySecretBackendK8s] = features.Status{
+	if !result[features.PolicySecretsOnlyFromSecretsNamespace].Enabled {
+		result[features.PolicySecretsOnlyFromSecretsNamespace] = features.Status{
 			Enabled: canAccessK8sResourceSecret(cr),
 		}
 	}
@@ -160,11 +160,13 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 			if f.HostPort != nil {
 				result[features.KPRHostPort] = features.Status{Enabled: f.HostPort.Enabled}
 			}
-			if f.GracefulTermination != nil {
-				result[features.KPRGracefulTermination] = features.Status{Enabled: f.GracefulTermination.Enabled}
-			}
 			if f.NodePort != nil {
 				result[features.KPRNodePort] = features.Status{Enabled: f.NodePort.Enabled}
+				acceleration := strings.ToLower(f.NodePort.Acceleration)
+				result[features.KPRNodePortAcceleration] = features.Status{
+					Enabled: mode != "false" && acceleration != "disabled",
+					Mode:    mode,
+				}
 			}
 			if f.SessionAffinity != nil {
 				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}

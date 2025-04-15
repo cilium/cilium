@@ -5,10 +5,11 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -17,13 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	podCIDRTestLogger = logrus.WithField("unit_test", "reconcilerv2_podcidr")
 )
 
 // test fixtures
@@ -149,36 +145,36 @@ var (
 )
 
 func Test_PodCIDRAdvertisement(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name                  string
-		peerConfig            []*v2alpha1.CiliumBGPPeerConfig
-		advertisements        []*v2alpha1.CiliumBGPAdvertisement
+		peerConfig            []*v2.CiliumBGPPeerConfig
+		advertisements        []*v2.CiliumBGPAdvertisement
 		preconfiguredPaths    map[types.Family]map[string]struct{}
 		preconfiguredRPs      RoutePolicyMap
-		testCiliumNode        *v2api.CiliumNode
-		testBGPInstanceConfig *v2alpha1.CiliumBGPNodeInstance
+		testCiliumNode        *v2.CiliumNode
+		testBGPInstanceConfig *v2.CiliumBGPNodeInstance
 		expectedPaths         map[types.Family]map[string]struct{}
 		expectedRPs           RoutePolicyMap
 	}{
 		{
 			name: "pod cidr advertisement with no preconfigured advertisements",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{},
 			preconfiguredRPs:   map[string]*types.RoutePolicy{},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{
 							podCIDR1v4,
@@ -189,10 +185,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			testBGPInstanceConfig: &v2alpha1.CiliumBGPNodeInstance{
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					redPeer65001,
 				},
 			},
@@ -213,20 +209,20 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		},
 		{
 			name: "pod cidr advertisement with no preconfigured advertisements - two peers",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{
 							podCIDR1v4,
@@ -237,10 +233,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 			},
-			testBGPInstanceConfig: &v2alpha1.CiliumBGPNodeInstance{
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					redPeer65001,
 					bluePeer65001,
 				},
@@ -264,11 +260,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		},
 		{
 			name: "pod cidr advertisement - cleanup old pod cidr",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
@@ -282,20 +278,20 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			preconfiguredRPs: map[string]*types.RoutePolicy{
 				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
 			},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
 				},
 			},
-			testBGPInstanceConfig: &v2alpha1.CiliumBGPNodeInstance{
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					redPeer65001,
 				},
 			},
@@ -312,14 +308,14 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		},
 		{
 			name: "pod cidr advertisement - disable",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
-				//no pod cidr advertisement configured
-				//redPodCIDRAdvert,
-				//bluePodCIDRAdvert,
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				// no pod cidr advertisement configured
+				// redPodCIDRAdvert,
+				// bluePodCIDRAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				// pod cidr 1,2 already advertised, reconcile should clean this as there is no matching pod cidr advertisement.
@@ -334,20 +330,20 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
 				bluePeer65001v6PodCIDRRoutePolicy.Name: bluePeer65001v6PodCIDRRoutePolicy,
 			},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
 				},
 			},
-			testBGPInstanceConfig: &v2alpha1.CiliumBGPNodeInstance{
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					redPeer65001,
 				},
 			},
@@ -359,12 +355,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		},
 		{
 			name: "pod cidr advertisement - v4 only",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfigV4,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
-				//bluePodCIDRAdvert,
+				// bluePodCIDRAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
@@ -380,27 +376,25 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redPeer65001v4PodCIDRRoutePolicy.Name: redPeer65001v4PodCIDRRoutePolicy,
 				redPeer65001v6PodCIDRRoutePolicy.Name: redPeer65001v6PodCIDRRoutePolicy,
 			},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
 				},
 			},
-			testBGPInstanceConfig: &v2alpha1.CiliumBGPNodeInstance{
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name:        "red-peer-65001",
 						PeerAddress: ptr.To[string]("10.10.10.1"),
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red-v4",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red-v4",
 						},
 					},
 				},
@@ -423,12 +417,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 			// initialize pod cidr reconciler
 			p := PodCIDRReconcilerIn{
-				Logger: podCIDRTestLogger,
+				Logger: hivetest.Logger(t),
 				PeerAdvert: NewCiliumPeerAdvertisement(
 					PeerAdvertisementIn{
-						Logger:          podCIDRTestLogger,
-						PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
-						AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
+						Logger:          hivetest.Logger(t),
+						PeerConfigStore: store.InitMockStore[*v2.CiliumBGPPeerConfig](tt.peerConfig),
+						AdvertStore:     store.InitMockStore[*v2.CiliumBGPAdvertisement](tt.advertisements),
 					}),
 				DaemonConfig: &option.DaemonConfig{IPAM: "Kubernetes"},
 			}
@@ -454,7 +448,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 			// reconcile pod cidr
 			// run reconciler twice to ensure idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := podCIDRReconciler.Reconcile(context.Background(), ReconcileParams{
 					BGPInstance:   testBGPInstance,
 					DesiredConfig: tt.testBGPInstanceConfig,

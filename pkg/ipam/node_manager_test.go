@@ -6,11 +6,13 @@ package ipam
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -86,11 +88,11 @@ func (n *nodeOperationsMock) UpdatedNode(obj *v2.CiliumNode) {}
 
 func (n *nodeOperationsMock) PopulateStatusFields(resource *v2.CiliumNode) {}
 
-func (n *nodeOperationsMock) CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+func (n *nodeOperationsMock) CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *slog.Logger) (int, string, error) {
 	return 0, "operation not supported", fmt.Errorf("operation not supported")
 }
 
-func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (
+func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logger) (
 	ipamTypes.AllocationMap,
 	ipamStats.InterfaceStats,
 	error) {
@@ -104,7 +106,7 @@ func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedL
 	return available, stats, nil
 }
 
-func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error) {
+func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *slog.Logger) (*AllocationAction, error) {
 	n.allocator.mutex.RLock()
 	defer n.allocator.mutex.RUnlock()
 	return &AllocationAction{
@@ -119,7 +121,7 @@ func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *Alloca
 	n.mutex.Lock()
 	n.allocator.mutex.Lock()
 	n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
-	for i := 0; i < allocation.IPv4.AvailableForAllocation; i++ {
+	for range allocation.IPv4.AvailableForAllocation {
 		n.allocator.ipGenerator++
 		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
 	}
@@ -132,7 +134,7 @@ func (n *nodeOperationsMock) AllocateStaticIP(ctx context.Context, staticIPTags 
 	return "", nil
 }
 
-func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction {
+func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ReleaseAction {
 	n.mutex.RLock()
 	excessIPs = min(excessIPs, len(n.allocatedIPs))
 	r := &ReleaseAction{PoolID: testPoolID}
@@ -152,7 +154,7 @@ func (n *nodeOperationsMock) releaseIP(ip string) error {
 	defer n.allocator.mutex.Unlock()
 	for i, allocatedIP := range n.allocatedIPs {
 		if allocatedIP == ip {
-			n.allocatedIPs = append(n.allocatedIPs[:i], n.allocatedIPs[i+1:]...)
+			n.allocatedIPs = slices.Delete(n.allocatedIPs, i, i+1)
 			n.allocator.allocatedIPs--
 			return nil
 		}
@@ -184,7 +186,7 @@ func (n *nodeOperationsMock) IsPrefixDelegated() bool {
 func TestGetNodeNames(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -210,7 +212,7 @@ func TestGetNodeNames(t *testing.T) {
 func TestNodeManagerGet(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -229,7 +231,7 @@ func TestNodeManagerDelete(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	metrics := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metrics, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -239,7 +241,7 @@ func TestNodeManagerDelete(t *testing.T) {
 	require.NotNil(t, mngr.Get("node-foo"))
 	require.Nil(t, mngr.Get("node2"))
 
-	mngr.Resync(context.Background(), time.Now())
+	mngr.Resync(t.Context(), time.Now())
 	avail, used, needed := metrics.GetPerNodeMetrics("node-foo")
 	require.NotNil(t, avail)
 	require.NotNil(t, used)
@@ -328,7 +330,7 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 func TestNodeManagerDefaultAllocation(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -359,7 +361,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 func TestNodeManagerMinAllocate20(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -399,7 +401,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -448,7 +450,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -519,7 +521,7 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -606,7 +608,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	metricsapi := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -634,7 +636,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	// The above check returns as soon as the address requirements are met.
 	// The metrics may still be oudated, resync all nodes to update
 	// metrics.
-	mngr.Resync(context.TODO(), time.Now())
+	mngr.Resync(t.Context(), time.Now())
 
 	require.Equal(t, numNodes, metricsapi.Nodes("total"))
 	require.Equal(t, 0, metricsapi.Nodes("in-deficit"))
@@ -650,7 +652,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	am := newAllocationImplementationMock()
 	require.NotNil(b, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(b), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 

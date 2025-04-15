@@ -1,18 +1,11 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-# distroless images are signed by cosign. You should verify the image with the following public key:
-# $ cat cosign.pub
-# -----BEGIN PUBLIC KEY-----
-# MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWZzVzkb8A+DbgDpaJId/bOmV8n7Q
-# OqxYbK0Iro6GzSmOzxkn+N2AKawLyXi84WSwJQBK//psATakCgAQKkNTAA==
-# -----END PUBLIC KEY-----
-# $ cosign verify --key cosign.pub $BASE_IMAGE
-# The key may be found at the following address:
-# https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
-ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:63ebe035fbdd056ed682e6a87b286d07d3f05f12cb46f26b2b44fc10fc4a59ed
-ARG GOLANG_IMAGE=docker.io/library/golang:1.23.5@sha256:51a6466e8dbf3e00e422eb0f7a97ac450b2d57b33617bbe8d2ee0bddcd9d0d37
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:5f051eb45fd7ca3fd4f926a75bcd582d0a64c3b3@sha256:725a6a9ffe34381678943163f9232bddd8fd3583cb0b89d950b969d8c90082ac
+# distroless images are signed by cosign and can be verified using:
+# $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:c0f429e16b13e583da7e5a6ec20dd656d325d88e6819cafe0adb0828976529dc
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.2@sha256:1ecc479bc712a6bdb56df3e346e33edcc141f469f82840bab9f4bc2bc41bf91d
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:a18c9a04e531dd641801cfe85b171deaeda8e0f8@sha256:d398e6f3b2ed8cad465dcef79869725a25f9c4fef9af7224a08ced697d547ff4
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -54,14 +47,6 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/go/pkg \
     ./build-gops.sh
 
-#
-# gRPC health probes
-#
-FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} AS grpc_health_probe
-ARG BUILDPLATFORM
-COPY images/hubble-relay/download-grpc-health-probe.sh /tmp/download-grpc-health-probe.sh
-RUN /tmp/download-grpc-health-probe.sh
-
 FROM ${BASE_IMAGE} AS release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
@@ -69,7 +54,6 @@ ARG TARGETOS
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
-COPY --from=grpc_health_probe /out/${TARGETOS}/${TARGETARCH}/bin/grpc_health_probe /bin/grpc_health_probe
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin/hubble-relay
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot

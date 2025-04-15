@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -19,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -78,6 +80,13 @@ func registerPolicyValidator(params PolicyParams) {
 		return
 	}
 
+	// LRU size of 1 since we are only doing one-off validation of policies and
+	// the FQDN regexes are not referenced again.
+	if err := re.InitRegexCompileLRU(1); err != nil {
+		params.Logger.Error("CNP / CCNP validator can't run due to failure in initializing regex LRU cache.", logfields.Error, err)
+		return
+	}
+
 	pv := &policyValidator{
 		params: &params,
 	}
@@ -105,14 +114,17 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	pol := event.Object
-	log := pv.params.Logger.With(logfields.K8sNamespace, pol.Namespace, logfields.CiliumNetworkPolicyName, pol.Name)
+	log := pv.params.Logger.With(
+		logfields.K8sNamespace, pol.Namespace,
+		logfields.CiliumNetworkPolicyName, pol.Name,
+	)
 
 	var errs error
 	if pol.Spec != nil {
-		errs = errors.Join(pol.Spec.Sanitize())
+		errs = errors.Join(errs, pol.Spec.Sanitize())
 	}
 	for _, r := range pol.Specs {
-		errs = errors.Join(r.Sanitize())
+		errs = errors.Join(errs, r.Sanitize())
 	}
 
 	newPol := pol.DeepCopy()
@@ -122,7 +134,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	if errs != nil {
-		log.Debug("Detected invalid CNP, setting condition", logfields.Error, errs)
+		log.Error("Detected invalid CNP, setting condition", logfields.Error, errs)
 	} else {
 		log.Debug("CNP now valid, setting condition")
 	}
@@ -152,14 +164,17 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	pol := event.Object
-	log := pv.params.Logger.With(logfields.K8sNamespace, pol.Namespace, logfields.CiliumClusterwideNetworkPolicyName, pol.Name)
+	log := pv.params.Logger.With(
+		logfields.K8sNamespace, pol.Namespace,
+		logfields.CiliumClusterwideNetworkPolicyName, pol.Name,
+	)
 
 	var errs error
 	if pol.Spec != nil {
-		errs = errors.Join(pol.Spec.Sanitize())
+		errs = errors.Join(errs, pol.Spec.Sanitize())
 	}
 	for _, r := range pol.Specs {
-		errs = errors.Join(r.Sanitize())
+		errs = errors.Join(errs, r.Sanitize())
 	}
 
 	newPol := pol.DeepCopy()
@@ -220,7 +235,7 @@ func updateCondition(conditions []cilium_api_v2.NetworkPolicyCondition, errs err
 		Message:            message,
 	}
 
-	out := append([]cilium_api_v2.NetworkPolicyCondition{}, conditions...)
+	out := slices.Clone(conditions)
 
 	if foundIdx >= 0 {
 		// If the status did not change (just the message), don't bump the

@@ -49,9 +49,9 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_REDIRECT;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include <bpf_host.c>
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -111,7 +111,7 @@ int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_setup(struct __ctx_buff *ctx)
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 	__u16 revnat_id = 1;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -221,7 +221,7 @@ int ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd_setup(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IPV6;
 	__u16 revnat_id = 1;
 
-	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, 1, revnat_id);
+	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
 	lb_v6_add_backend(&frontend_ip, FRONTEND_PORT, 1, 124,
 			  &backend_ip, BACKEND_PORT, IPPROTO_TCP, 0);
 

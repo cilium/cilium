@@ -44,7 +44,6 @@ include:
   # K8sAgentFQDNTest Restart Cilium validate that FQDN is still working
   # K8sAgentFQDNTest Validate that FQDN policy continues to work after being updated
   # K8sAgentFQDNTest Validate that multiple specs are working correctly
-  # K8sAgentPerNodeConfigTest Correctly computes config overrides with CNC v2alpha1
   # K8sAgentPerNodeConfigTest Correctly computes config overrides with CNC v2
   - focus: "f02-agent-fqdn"
     cliFocus: "K8sAgentFQDNTest|K8sAgentPerNodeConfigTest"
@@ -112,8 +111,6 @@ include:
     cliFocus: "K8sDatapathConfig Check"
 
   ###
-  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes
-  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes and overlapping node and pod CIDRs
   # K8sDatapathConfig Iptables Skip conntrack for pod traffic
   # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
   # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR

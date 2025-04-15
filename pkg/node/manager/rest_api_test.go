@@ -33,7 +33,7 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	option.Config.IPv6ServiceRange = "auto"
 
 	h, _ := cell.NewSimpleHealth()
-	nm, err := New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h)
+	nm, err := New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(tb, err)
 
 	g := &GetNodesSuite{
@@ -50,7 +50,7 @@ func Test_getNodesHandle(t *testing.T) {
 	const numberOfClients = 10
 
 	clientIDs := make([]int64, 0, numberOfClients)
-	for i := 0; i < numberOfClients; i++ {
+	for range numberOfClients {
 		clientIDs = append(clientIDs, randGen.Int64())
 	}
 
@@ -346,13 +346,13 @@ func Test_getNodesHandle(t *testing.T) {
 			clients:     args.clients,
 		}
 		responder := h.Handle(args.params)
-		require.EqualValues(t, len(want.clients), len(h.clients))
+		require.Len(t, h.clients, len(want.clients))
 		for k, v := range h.clients {
 			wantClient, ok := want.clients[k]
 			require.True(t, ok)
-			require.EqualValues(t, wantClient.ClusterNodeStatus, v.ClusterNodeStatus)
+			require.Equal(t, wantClient.ClusterNodeStatus, v.ClusterNodeStatus)
 		}
-		require.EqualValues(t, middleware.Responder(want.responder), responder)
+		require.Equal(t, middleware.Responder(want.responder), responder)
 	}
 }
 
@@ -403,6 +403,6 @@ func Test_cleanupClients(t *testing.T) {
 			clients:     args.clients,
 		}
 		h.cleanupClients()
-		require.EqualValues(t, want.clients, h.clients)
+		require.Equal(t, want.clients, h.clients)
 	}
 }

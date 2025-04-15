@@ -143,6 +143,13 @@ type CreateSnapshotOutput struct {
 	// Indicates whether the snapshot is encrypted.
 	Encrypted *bool
 
+	// The full size of the snapshot, in bytes.
+	//
+	// This is not the incremental size of the snapshot. This is the full snapshot
+	// size and represents the size of all the blocks that were written to the source
+	// volume at the time the snapshot was created.
+	FullSnapshotSizeInBytes *int64
+
 	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
 	// volume encryption key for the parent volume.
 	KmsKeyId *string
@@ -285,6 +292,9 @@ func (c *Client) addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateSnapshotValidationMiddleware(stack); err != nil {

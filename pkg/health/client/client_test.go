@@ -336,19 +336,21 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 
 	nodes := make([]*models.NodeStatus, healthy+unhealthy)
 
-	for i := 0; i < healthy; i++ {
+	for i := range healthy {
 		nodes[i] = &models.NodeStatus{
 			Name: fmt.Sprintf("node%d", i),
 			Host: &models.HostStatus{
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:30:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:35:00Z",
 					},
 				},
 			},
@@ -356,12 +358,14 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:40:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:45:00Z",
 					},
 				},
 			},
@@ -375,10 +379,12 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:30:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:35:00Z",
 					},
 				},
 			},
@@ -386,10 +392,12 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:40:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:45:00Z",
 					},
 				},
 			},
@@ -432,9 +440,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "all healthy",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(4, 0, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(4, 0, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "1m14s",
 			},
 			allNodes:   false,
 			verbose:    false,
@@ -444,9 +453,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "all healthy verbose",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(4, 0, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(4, 0, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "1m14s",
 			},
 			allNodes:   false,
 			verbose:    true,
@@ -456,9 +466,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "all healthy all nodes",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(4, 0, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(4, 0, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "1m14s",
 			},
 			allNodes:   true,
 			verbose:    false,
@@ -468,9 +479,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "one unhealthy",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(3, 1, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(3, 1, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "8m5s",
 			},
 			allNodes:   false,
 			verbose:    false,
@@ -480,9 +492,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "one unhealthy verbose",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(3, 1, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(3, 1, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "8m5s",
 			},
 			allNodes:   false,
 			verbose:    true,
@@ -492,9 +505,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "one unhealthy all nodes",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(3, 1, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(3, 1, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "8m5s",
 			},
 			allNodes:   true,
 			verbose:    false,
@@ -504,9 +518,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "11 unhealthy",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(0, 11, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(0, 11, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "4m15s",
 			},
 			allNodes:   false,
 			verbose:    false,
@@ -516,9 +531,10 @@ func TestFormatHealthStatusResponse(t *testing.T) {
 		{
 			name: "11 healthy all nodes",
 			sr: &models.HealthStatusResponse{
-				Nodes:     createNodes(11, 0, 0),
-				Local:     localNode,
-				Timestamp: "2023-04-01T12:00:00Z",
+				Nodes:         createNodes(11, 0, 0),
+				Local:         localNode,
+				Timestamp:     "2023-04-01T12:00:00Z",
+				ProbeInterval: "4m15s",
 			},
 			allNodes:   true,
 			verbose:    false,

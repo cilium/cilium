@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"sync"
 	"time"
@@ -56,7 +57,7 @@ type Lifecycle interface {
 
 	Start(*slog.Logger, context.Context) error
 	Stop(*slog.Logger, context.Context) error
-	PrintHooks()
+	PrintHooks(io.Writer)
 }
 
 // DefaultLifecycle lifecycle implements a simple lifecycle management that conforms
@@ -178,27 +179,27 @@ func (lc *DefaultLifecycle) Stop(log *slog.Logger, ctx context.Context) error {
 	return errs
 }
 
-func (lc *DefaultLifecycle) PrintHooks() {
+func (lc *DefaultLifecycle) PrintHooks(w io.Writer) {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 
-	fmt.Printf("Start hooks:\n\n")
+	fmt.Fprintf(w, "Start hooks:\n\n")
 	for _, hook := range lc.hooks {
 		fnName, exists := getHookFuncName(hook.HookInterface, true)
 		if !exists {
 			continue
 		}
-		fmt.Printf("  • %s (%s)\n", fnName, hook.moduleID)
+		fmt.Fprintf(w, "  • %s (%s)\n", fnName, hook.moduleID)
 	}
 
-	fmt.Printf("\nStop hooks:\n\n")
+	fmt.Fprintf(w, "\nStop hooks:\n\n")
 	for i := len(lc.hooks) - 1; i >= 0; i-- {
 		hook := lc.hooks[i]
 		fnName, exists := getHookFuncName(hook.HookInterface, false)
 		if !exists {
 			continue
 		}
-		fmt.Printf("  • %s (%s)\n", fnName, hook.moduleID)
+		fmt.Fprintf(w, "  • %s (%s)\n", fnName, hook.moduleID)
 	}
 }
 

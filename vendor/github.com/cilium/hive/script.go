@@ -63,28 +63,54 @@ type ScriptCmdsOut struct {
 	ScriptCmds []ScriptCmd `group:"script-commands,flatten"`
 }
 
+const defaultScriptTimeout = time.Minute
+
 func hiveScriptCmd(h *Hive, log *slog.Logger) script.Cmd {
-	const defaultTimeout = time.Minute
 	return script.Command(
 		script.CmdUsage{
-			Summary: "manipulate the hive",
-			Args:    "cmd args...",
+			Summary: "show the hive",
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 1 {
-				return nil, fmt.Errorf("hive cmd args...\n'cmd' is one of: start, stop, jobs")
-			}
-			switch args[0] {
-			case "start":
-				ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+			switch {
+			// For backwards compatibility.
+			case len(args) >= 1 && args[0] == "start":
+				ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
 				defer cancel()
 				return nil, h.Start(log, ctx)
-			case "stop":
-				ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+			case len(args) >= 1 && args[0] == "stop":
+				ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
 				defer cancel()
 				return nil, h.Stop(log, ctx)
+			default:
+				err := h.PrintObjects(s.LogWriter(), log)
+				return nil, err
 			}
-			return nil, fmt.Errorf("unknown hive command %q, expected one of: start, stop, jobs", args[0])
+		},
+	)
+}
+
+func hiveStartCmd(h *Hive, log *slog.Logger) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "start the hive",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
+			defer cancel()
+			return nil, h.Start(log, ctx)
+		},
+	)
+}
+
+func hiveStopCmd(h *Hive, log *slog.Logger) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "stop the hive",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
+			defer cancel()
+			return nil, h.Stop(log, ctx)
 		},
 	)
 }
@@ -98,8 +124,13 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 		io.Reader
 		io.Writer
 	}{in, out}
-	term := term.NewTerminal(inout, prompt)
-	log := slog.New(slog.NewTextHandler(term, nil))
+	terminal := term.NewTerminal(inout, prompt)
+	log := slog.New(slog.NewTextHandler(terminal, nil))
+	if width, height, err := term.GetSize(int(in.Fd())); err == nil {
+		if err := terminal.SetSize(width, height); err != nil {
+			log.Error("Failed to set terminal size", "error", err)
+		}
+	}
 
 	cmds, err := h.ScriptCommands(log)
 	if err != nil {
@@ -142,7 +173,7 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 	s := newState()
 
 	for {
-		line, err := term.ReadLine()
+		line, err := terminal.ReadLine()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return
@@ -151,16 +182,16 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 			}
 		}
 
-		err = e.ExecuteLine(s, line, term)
+		err = e.ExecuteLine(s, line, terminal)
 		if err != nil {
-			fmt.Fprintln(term, err.Error())
+			fmt.Fprintln(terminal, err.Error())
 		}
 
 		if s.Context().Err() != nil {
 			// Context was cancelled due to interrupt. Re-create the state
 			// to run more commands.
 			s = newState()
-			fmt.Fprintln(term, "^C (interrupted)")
+			fmt.Fprintln(terminal, "^C (interrupted)")
 		}
 	}
 }

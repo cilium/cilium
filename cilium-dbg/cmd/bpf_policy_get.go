@@ -117,7 +117,7 @@ func listMap(args []string) {
 }
 
 func mapContent(file string) policymap.PolicyEntriesDump {
-	m, err := policymap.Open(file)
+	m, err := policymap.OpenPolicyMap(file)
 	if err != nil {
 		Fatalf("Failed to open map: %s\n", err)
 	}
@@ -177,7 +177,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle)
 	}
 	for _, stat := range statsMap {
-		prefixLen := stat.Key.Prefixlen - policymap.StaticPrefixBits
+		prefixLen := stat.Key.GetPrefixLen()
 		id := identity.NumericIdentity(stat.Key.Identity)
 		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()
@@ -193,9 +193,17 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		} else {
 			policyStr = "Allow"
 		}
+		packets := "-"
+		if stat.Packets != policymap.StatNotAvailable {
+			packets = strconv.FormatUint(stat.Packets, 10)
+		}
+		bytes := "-"
+		if stat.Bytes != policymap.StatNotAvailable {
+			bytes = strconv.FormatUint(stat.Bytes, 10)
+		}
 		if printIDs {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), stat.Bytes, stat.Packets, prefixLen)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
@@ -203,16 +211,16 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 					lbl = "ANY"
 				}
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
-						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.AuthRequirement.AuthType(), stat.Bytes, stat.Packets, prefixLen)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t\n",
+						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen)
 					first = false
 				} else {
 					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), stat.Bytes, stat.Packets, prefixLen)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen)
 		}
 	}
 }

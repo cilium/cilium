@@ -4,15 +4,13 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
-#define ROUTER_IP
-#undef ROUTER_IP
 
 #define NODE_ID 2333
+#define TUNNEL_ID 0x1234
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
-#define SECCTX_FROM_IPCACHE 1
 
 #define ENCAP_IFINDEX 4
 #define skb_set_tunnel_key mock_skb_set_tunnel_key
@@ -23,8 +21,7 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 			    __maybe_unused __u32 size,
 			    __maybe_unused __u32 flags)
 {
-	/* 0xfffff is the default SECLABEL */
-	if (from->tunnel_id != 0xfffff)
+	if (from->tunnel_id != TUNNEL_ID)
 		return -1;
 	if (from->local_ipv4 != 0)
 		return -2;
@@ -43,6 +40,9 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 }
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
+ASSIGN_CONFIG(__u32, security_label, TUNNEL_ID)
 
 #include "lib/ipcache.h"
 
@@ -106,7 +106,7 @@ int ipv4_ipsec_from_host_setup(struct __ctx_buff *ctx)
 	 */
 	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, 0);
 
-	set_encrypt_key_mark(ctx, ENCRYPT_KEY, NODE_ID);
+	ctx->mark = ipsec_encode_encryption_mark(ENCRYPT_KEY, NODE_ID);
 	set_identity_meta(ctx, SECLABEL_IPV4);
 	tail_call_static(ctx, entry_call_map, FROM_HOST);
 	return TEST_ERROR;
@@ -135,10 +135,6 @@ int ipv4_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(*status_code == EXPECTED_STATUS_CODE);
 
 	assert(ctx->mark == 0);
-
-#ifdef CHECK_CB_ENCRYPT_IDENTITY
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
-#endif
 
 	l2 = data + sizeof(*status_code);
 
@@ -230,7 +226,7 @@ int ipv6_ipsec_from_host_setup(struct __ctx_buff *ctx)
 	/* See comment for IPv4 counterpart. */
 	ipcache_v6_add_entry((union v6addr *)v6_pod_two, 0, 233, v4_node_two, 0);
 
-	set_encrypt_key_mark(ctx, ENCRYPT_KEY, NODE_ID);
+	ctx->mark = ipsec_encode_encryption_mark(ENCRYPT_KEY, NODE_ID);
 	set_identity_meta(ctx, SECLABEL_IPV6);
 	tail_call_static(ctx, entry_call_map, FROM_HOST);
 	return TEST_ERROR;
@@ -257,10 +253,6 @@ int ipv6_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	status_code = data;
 	assert(*status_code == EXPECTED_STATUS_CODE);
-
-#ifdef CHECK_CB_ENCRYPT_IDENTITY
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
-#endif
 
 	assert(ctx->mark == 0);
 

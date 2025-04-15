@@ -17,14 +17,14 @@ func TestIP(t *testing.T) {
 	var expectedAddress net.IP = []byte{10, 0, 0, 2}
 	result := testIPv4Address.IP()
 
-	require.EqualValues(t, expectedAddress, result)
+	require.Equal(t, expectedAddress, result)
 }
 
 func TestAddr(t *testing.T) {
 	expectedAddress := netip.MustParseAddr("10.0.0.2")
 	result := testIPv4Address.Addr()
 
-	require.EqualValues(t, expectedAddress, result)
+	require.Equal(t, expectedAddress, result)
 }
 
 func TestString(t *testing.T) {

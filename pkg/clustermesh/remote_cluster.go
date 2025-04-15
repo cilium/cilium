@@ -5,9 +5,8 @@ package clustermesh
 
 import (
 	"context"
+	"log/slog"
 	"path"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -73,7 +72,7 @@ type remoteCluster struct {
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
 
-	log logrus.FieldLogger
+	log *slog.Logger
 
 	// featureMetrics will track which features are enabled with in clustermesh.
 	featureMetrics ClusterMeshMetrics
@@ -115,7 +114,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if config.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
-		mgr = store.NewWatchStoreManagerImmediate(rc.name)
+		mgr = store.NewWatchStoreManagerImmediate(rc.log, rc.name)
 	}
 
 	adapter := func(prefix string) string { return prefix }
@@ -200,9 +199,11 @@ func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) e
 	// stale entries for a Cluster ID that has already been released, potentially
 	// leading to inconsistencies if the same ID is acquired again in the meanwhile.
 	if rc.clusterID != cmtypes.ClusterIDUnset {
-		rc.log.WithField(logfields.ClusterID, newConfig.ID).
-			Info("Remote Cluster ID changed: draining all known entries before reconnecting. ",
-				"Expect connectivity disruption towards this cluster")
+		rc.log.Info(
+			"Remote Cluster ID changed: draining all known entries before reconnecting. "+
+				"Expect connectivity disruption towards this cluster",
+			logfields.ClusterID, newConfig.ID,
+		)
 		rc.remoteNodes.Drain()
 		rc.remoteServices.Drain()
 		rc.ipCacheWatcher.Drain()

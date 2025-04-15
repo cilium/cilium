@@ -20,12 +20,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 )
 
 var (
 	httpRFFinalizer = "batch.gateway.io/finalizer"
+
+	// Used for GAMMA parentRef checks
+	serviceKind = (gatewayv1.Kind)("Service")
+	coreGroup   = (gatewayv1.Group)("")
 
 	crdsFixture = []client.Object{
 		// Minimal ServiceImport CRD for existence checking
@@ -103,6 +107,15 @@ var (
 				ControllerName: "io.cilium/gateway-controller",
 			},
 		},
+		// Non-Matching GatewayClass
+		&gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "someotherimplementation",
+			},
+			Spec: gatewayv1.GatewayClassSpec{
+				ControllerName: "someothergateway.io/implementation",
+			},
+		},
 
 		// Gateway for valid HTTPRoute
 		&gatewayv1.Gateway{
@@ -112,6 +125,25 @@ var (
 			},
 			Spec: gatewayv1.GatewaySpec{
 				GatewayClassName: "cilium",
+				Listeners: []gatewayv1.Listener{
+					{
+						Name:     "http",
+						Port:     80,
+						Hostname: ptr.To[gatewayv1.Hostname]("*.cilium.io"),
+					},
+				},
+			},
+			Status: gatewayv1.GatewayStatus{},
+		},
+
+		// Gateway that rolls up to a different GatewayClass
+		&gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "other-implementation-gateway",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.GatewaySpec{
+				GatewayClassName: "someotherimplementation",
 				Listeners: []gatewayv1.Listener{
 					{
 						Name:     "http",
@@ -196,6 +228,7 @@ var (
 			},
 			Status: gatewayv1.GatewayStatus{},
 		},
+
 		// Service for valid HTTPRoute
 		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -911,6 +944,137 @@ var (
 				},
 			},
 		},
+
+		// InvalidHTTPRoute, no Gateway ParentRef, should not be processed at all
+		&gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gamma-parentref-only",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name:  "dummy-backend",
+							Kind:  &serviceKind,
+							Group: &coreGroup,
+						},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "dummy-backend",
+										Port: ptr.To[gatewayv1.PortNumber](8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// ValidHTTPRoute, one Gateway ParentRef, one GAMMA, only Gateway should be processed
+		&gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "both-parentrefs",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name:  "dummy-backend",
+							Kind:  &serviceKind,
+							Group: &coreGroup,
+						},
+						{
+							Name: "dummy-gateway",
+						},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "dummy-backend",
+										Port: ptr.To[gatewayv1.PortNumber](8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// ValidHTTPRoute, belongs to another implementation
+		&gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "otherimpl-parentref",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name: "other-implementation-gateway",
+						},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "dummy-backend",
+										Port: ptr.To[gatewayv1.PortNumber](8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// ValidHTTPRoute, one Cilium Gateway ParentRef, one other impl, only Cilium Gateway should be processed
+		&gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "oneofeach-gateway-parentrefs",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name: "dummy-gateway",
+						},
+						{
+							Name: "other-implementation-gateway",
+						},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "dummy-backend",
+										Port: ptr.To[gatewayv1.PortNumber](8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 )
 
@@ -1074,6 +1238,44 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			NamespacedName: key,
 		})
 
+		require.Error(t, err, "Expecting Reconciliation error")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Empty(t, route.Status.RouteStatus.Parents, "Should have 0 parents")
+	})
+
+	t.Run("http route with only GAMMA parentRef", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "gamma-parentref-only",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.Error(t, err, "Expecting Reconciliation error")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Empty(t, route.Status.RouteStatus.Parents, "Should have 0 parents")
+	})
+
+	t.Run("valid http route with another GAMMA parentRef", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "both-parentrefs",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
@@ -1085,8 +1287,52 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
 
 		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
-		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
-		require.Equal(t, "InvalidHTTPRoute", route.Status.RouteStatus.Parents[0].Conditions[0].Reason)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+	})
+
+	t.Run("valid http route that belongs to another implementation", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "otherimpl-parentref",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.Error(t, err, "Expecting Reconciliation error")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Empty(t, route.Status.RouteStatus.Parents, "Should have 0 parents")
+	})
+
+	t.Run("valid http route with another implementation parentRef as well", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "oneofeach-gateway-parentrefs",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err, "Error reconciling httpRoute")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
 
 		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
 		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)

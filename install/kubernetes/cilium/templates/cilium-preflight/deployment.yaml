@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/name: cilium-pre-flight-check
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}    
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -64,7 +64,16 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
           env:
-          {{- if .Values.k8sServiceHost }}
+          {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.k8sServiceHostRef.name }}
+                key: {{ .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ include "k8sServicePort" . }}
+          {{- end }}
+            {{- if .Values.k8sServiceHost }}
           - name: KUBERNETES_SERVICE_HOST
             value: {{ include "k8sServiceHost" . }}
           - name: KUBERNETES_SERVICE_PORT

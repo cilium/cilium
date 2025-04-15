@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -32,7 +32,7 @@ var (
 func TestRemoteClusterStatus(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 	kvsService := map[string]string{
 		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
 	}
@@ -74,7 +74,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		},
 	}
 
-	st := store.NewFactory(store.MetricsProvider())
+	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
@@ -84,17 +84,15 @@ func TestRemoteClusterStatus(t *testing.T) {
 				cancel()
 				wg.Wait()
 
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
+				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			metrics := NewMetrics()
-			logger := logrus.New()
+			logger := hivetest.Logger(t)
 			cm := clusterMesh{
-				logger:       logger,
-				storeFactory: st,
-				globalServices: common.NewGlobalServiceCache(
-					metrics.TotalGlobalServices.WithLabelValues("foo"),
-				),
+				logger:         logger,
+				storeFactory:   st,
+				globalServices: common.NewGlobalServiceCache(logger, metrics.TotalGlobalServices.WithLabelValues("foo")),
 				globalServiceExports: NewGlobalServiceExportCache(
 					metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
 				),
@@ -104,11 +102,11 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range kvsService {
-				require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 			if tt.capabilityServiceExportsEnabled != nil {
 				for key, value := range kvsServiceExport {
-					require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+					require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 				}
 			}
 
@@ -144,7 +142,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			ready := make(chan error)
 			wg.Add(1)
 			go func() {
-				rc.Run(ctx, kvstore.Client(), cfg, ready)
+				rc.Run(ctx, client, cfg, ready)
 				wg.Done()
 			}()
 
@@ -179,25 +177,21 @@ func TestRemoteClusterStatus(t *testing.T) {
 func TestRemoteClusterHooks(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
-
-		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 	})
-	st := store.NewFactory(store.MetricsProvider())
+	logger := hivetest.Logger(t)
+	st := store.NewFactory(logger, store.MetricsProvider())
 	metrics := NewMetrics()
-	logger := logrus.New()
 	cm := clusterMesh{
-		logger:       logger,
-		storeFactory: st,
-		globalServices: common.NewGlobalServiceCache(
-			metrics.TotalGlobalServices.WithLabelValues("foo"),
-		),
+		logger:         logger,
+		storeFactory:   st,
+		globalServices: common.NewGlobalServiceCache(logger, metrics.TotalGlobalServices.WithLabelValues("foo")),
 		globalServiceExports: NewGlobalServiceExportCache(
 			metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
 		),
@@ -223,7 +217,7 @@ func TestRemoteClusterHooks(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		rc.Run(ctx, kvstore.Client(), cfg, ready)
+		rc.Run(ctx, client, cfg, ready)
 		wg.Done()
 	}()
 

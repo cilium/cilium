@@ -51,15 +51,16 @@ for identities. Additionally, when at least one inclusive label pattern is
 configured, the following inclusive label patterns are automatically added to
 the configuration:
 
-========================================== =====================================================
-Label                                      Description
------------------------------------------- -----------------------------------------------------
-``reserved:.*``                            Include all ``reserved:`` labels
-``io\.kubernetes\.pod\.namespace``         Include all ``io.kubernetes.pod.namespace`` labels
-``io\.cilium\.k8s\.namespace\.labels``     Include all ``io.cilium.k8s.namespace.labels`` labels
-``io\.cilium\.k8s\.policy\.cluster``       Include all ``io.cilium.k8s.policy.cluster`` labels
-``app\.kubernetes\.io``                    Include all ``app.kubernetes.io`` labels
-========================================== =====================================================
+=================================================== =========================================================
+Label                                               Description
+--------------------------------------------------- ---------------------------------------------------------
+``reserved:.*``                                     Include all ``reserved:`` labels
+``io\.kubernetes\.pod\.namespace``                  Include all ``io.kubernetes.pod.namespace`` labels
+``io\.cilium\.k8s\.namespace\.labels``              Include all ``io.cilium.k8s.namespace.labels`` labels
+``io\.cilium\.k8s\.policy\.cluster``                Include all ``io.cilium.k8s.policy.cluster`` labels
+``io\.cilium\.k8s\.policy\.serviceaccount``         Include all ``io.cilium.k8s.policy.serviceaccount`` labels
+``app\.kubernetes\.io``                             Include all ``app.kubernetes.io`` labels
+=================================================== =========================================================
 
 
 
@@ -92,17 +93,18 @@ with ``example.com``, whereas ``.*example\.com`` will match labels that contain
 the pattern matching too broadly and therefore including or excluding too many
 labels.
 
-The label patterns are using regular expressions. Therefore, using  ``kind$`` 
+The label patterns are using regular expressions. Therefore, using  ``kind$``
 or ``^kind$`` can exactly match the label key ``kind``, not just the prefix.
 
 Upon defining a custom list of label patterns in the ConfigMap, Cilium adds the
 provided list of label patterns to the default list of label patterns. After
-saving the ConfigMap, restart the Cilium Agents to pickup the new label pattern
-setting.
+saving the ConfigMap, if the Operator is managing identities (:ref:`IdentityManagementMode`),
+restart both the Cilium Operators and Agents to pickup the new label pattern setting. If the Agent
+is managing identities, restart the Cilium Agents to pickup the new label pattern.
 
 .. code-block:: shell-session
 
-    kubectl delete pods -n kube-system -l k8s-app=cilium
+    kubectl rollout restart -n kube-system ds/cilium
 
 .. note:: Configuring Cilium with label patterns via ``labels`` Helm value does
           **not** override the default set of label patterns. That is to say,
@@ -146,6 +148,7 @@ evaluating Cilium identities:
 - io\.kubernetes\.pod\.namespace
 - io\.cilium\.k8s.namespace\.labels
 - io\.cilium\.k8s\.policy\.cluster
+- io\.cilium\.k8s\.policy\.serviceaccount
 - app\.kubernetes\.io
 
 Note that ``io.kubernetes.pod.namespace`` is already included in default
@@ -160,7 +163,7 @@ for Cilium identities:
 - name-defined
 
 Because we have ``$`` in label key ``kind$`` and ``other$``. Only label keys using
-exactly ``kind`` and ``other`` will be evaluated for Cilium. 
+exactly ``kind`` and ``other`` will be evaluated for Cilium.
 
 When a single inclusive label is added to the filter, all labels not defined
 in the default list will be excluded. For example, pods running with the

@@ -134,10 +134,6 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 
 	cidKey, existsInDesiredState := r.desiredCIDState.LookupByID(cidName)
 	if !existsInDesiredState && !existsInStore {
-		err := r.makeIDAvailable(cidName)
-		r.logger.Warn("Failed to return CID to pool",
-			logfields.CIDName, cidName,
-			logfields.Error, err)
 		return nil
 	}
 
@@ -162,7 +158,12 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 		if cidIsUsed {
 			return r.createCID(cidName, cidKey)
 		} else {
-			r.desiredCIDState.Remove(cidName)
+			if err := r.makeIDAvailable(cidName); err != nil {
+				r.logger.Warn("Failed to return CID to pool",
+					logfields.CIDName, cidName,
+					logfields.Labels, cidKey.Labels(),
+					logfields.Error, err)
+			}
 			return nil
 		}
 	}
@@ -188,7 +189,10 @@ func (r *reconciler) createCID(cidName string, cidKey *key.GlobalIdentity) error
 		SecurityLabels: cidLabels,
 	}
 
-	r.logger.Info("Creating CID", "labels", cidLabels, logfields.CIDName, cidName)
+	r.logger.Info("Creating CID",
+		logfields.Labels, cidLabels,
+		logfields.CIDName, cidName,
+	)
 
 	_, err := r.clientset.CiliumV2().CiliumIdentities().Create(r.ctx, cid, metav1.CreateOptions{})
 	return err
@@ -214,6 +218,8 @@ func (r *reconciler) makeIDAvailable(cidName string) error {
 	if err != nil {
 		return err
 	}
+
+	r.desiredCIDState.Remove(cidName)
 	return r.idAllocator.ReturnToAvailablePool(idpool.ID(cidNum))
 }
 
@@ -347,7 +353,7 @@ func (r *reconciler) getRelevantLabelsForPod(pod *slim_corev1.Pod) (map[string]s
 		return nil, err
 	}
 
-	_, labelsMap := k8s.GetPodMetadata(ns, pod)
+	_, labelsMap := k8s.GetPodMetadata(r.logger, ns, pod)
 	return labelsMap, nil
 }
 
@@ -401,7 +407,10 @@ func (r *reconciler) updateAllPodsInNamespace(namespace string) error {
 	var lastErr error
 
 	for _, pod := range podList {
-		r.queueOps.enqueueReconciliation(PodItem{podResourceKey(pod.Name, pod.Namespace)}, 0)
+		if !pod.Spec.HostNetwork {
+			r.logger.Debug("Reconcile Pod in namespace", logfields.K8sPodName, pod.Name)
+			r.queueOps.enqueueReconciliation(PodItem{podResourceKey(pod.Name, pod.Namespace)}, 0)
+		}
 	}
 
 	return lastErr

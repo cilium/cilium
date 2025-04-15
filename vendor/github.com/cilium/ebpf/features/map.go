@@ -213,6 +213,47 @@ var haveMapTypeMatrix = internal.FeatureMatrix[ebpf.MapType]{
 		Version: "5.11",
 		Fn:      func() error { return probeStorageMap(sys.BPF_MAP_TYPE_TASK_STORAGE) },
 	},
+	ebpf.BloomFilter: {
+		Version: "5.16",
+		Fn: func() error {
+			return createMap(&sys.MapCreateAttr{
+				MapType:    sys.BPF_MAP_TYPE_BLOOM_FILTER,
+				KeySize:    0,
+				ValueSize:  4,
+				MaxEntries: 1,
+			})
+		},
+	},
+	ebpf.UserRingbuf: {
+		Version: "6.1",
+		Fn: func() error {
+			// keySize and valueSize need to be 0
+			// maxEntries needs to be power of 2 and PAGE_ALIGNED
+			return createMap(&sys.MapCreateAttr{
+				MapType:    sys.BPF_MAP_TYPE_USER_RINGBUF,
+				KeySize:    0,
+				ValueSize:  0,
+				MaxEntries: uint32(os.Getpagesize()),
+			})
+		},
+	},
+	ebpf.CgroupStorage: {
+		Version: "6.2",
+		Fn:      func() error { return probeStorageMap(sys.BPF_MAP_TYPE_CGRP_STORAGE) },
+	},
+	ebpf.Arena: {
+		Version: "6.9",
+		Fn: func() error {
+			return createMap(&sys.MapCreateAttr{
+				MapType:    sys.BPF_MAP_TYPE_ARENA,
+				KeySize:    0,
+				ValueSize:  0,
+				MaxEntries: 1, // one page
+				MapExtra:   0, // can mmap() at any address
+				MapFlags:   sys.BPF_F_MMAPABLE,
+			})
+		},
+	},
 }
 
 func init() {

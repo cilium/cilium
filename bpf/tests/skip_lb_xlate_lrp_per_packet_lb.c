@@ -13,13 +13,10 @@
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 #define HAVE_NETNS_COOKIE 1
 
-/* Set a dummy value for netns cookie*/
-#ifdef ENDPOINT_NETNS_COOKIE
-    #undef ENDPOINT_NETNS_COOKIE
-#endif
-#define ENDPOINT_NETNS_COOKIE 5000
-
 #include <bpf_lxc.c>
+
+ASSIGN_CONFIG(__u64, endpoint_netns_cookie, 5000)
+
 #include "lib/lb.h"
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
@@ -70,19 +67,19 @@ int  v4_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 SETUP("tc", "v4_local_redirect")
 int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
-	lb_v4_add_service_with_flags(V4_SERVICE_IP, SERVICE_PORT, 1, 1,
+	lb_v4_add_service_with_flags(V4_SERVICE_IP, SERVICE_PORT, IPPROTO_TCP, 1, 1,
 				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
 	lb_v4_add_backend(V4_SERVICE_IP, SERVICE_PORT, 1, 124,
 			  V4_BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
-	/* Add the service in LB4_SKIP_MAP to skip service translation for request originating from the local backend */
+	/* Add the service in cilium_skip_lb4 to skip service translation for request originating from the local backend */
 	struct skip_lb4_key key = {
 		.netns_cookie = ENDPOINT_NETNS_COOKIE,
 		.address = V4_SERVICE_IP,
 		.port = SERVICE_PORT,
 	};
 	__u8 val = 0;
-	map_update_elem(&LB4_SKIP_MAP, &key, &val, BPF_ANY);
+	map_update_elem(&cilium_skip_lb4, &key, &val, BPF_ANY);
 
 	/* Add an IPCache entry for the backend pod */
 	ipcache_v4_add_entry(V4_BACKEND_IP, 0, 112233, 0, 0);
@@ -168,12 +165,12 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	memcpy(service_ip.addr, (void *)V6_SERVICE_IP, 16);
 	memcpy(backend_ip.addr, (void *)V6_BACKEND_IP, 16);
 
-	lb_v6_add_service_with_flags(&service_ip, SERVICE_PORT, 1, 1,
+	lb_v6_add_service_with_flags(&service_ip, SERVICE_PORT, IPPROTO_TCP, 1, 1,
 				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
 	lb_v6_add_backend(&service_ip, SERVICE_PORT, 1, 124, &backend_ip,
 			  BACKEND_PORT, IPPROTO_TCP, 0);
 
-	/* Add the service in LB6_SKIP_MAP to skip service translation for request originating from the local backend */
+	/* Add the service in cilium_skip_lb6 to skip service translation for request originating from the local backend */
 	struct skip_lb6_key key __align_stack_8 = {
 		.netns_cookie = ENDPOINT_NETNS_COOKIE,
 		.port = SERVICE_PORT,
@@ -181,7 +178,7 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	__u8 val = 0;
 
 	memcpy(&key.address, (__u8 *)V6_SERVICE_IP, sizeof(V6_SERVICE_IP));
-	map_update_elem(&LB6_SKIP_MAP, &key, &val, BPF_ANY);
+	map_update_elem(&cilium_skip_lb6, &key, &val, BPF_ANY);
 
 	/* Add an IPCache entry for the backend pod */
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);

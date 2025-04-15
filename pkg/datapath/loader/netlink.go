@@ -6,6 +6,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/cilium/ebpf"
@@ -17,7 +18,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	mtuconst "github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,11 +37,14 @@ func directionToParent(dir string) uint32 {
 }
 
 // enableForwarding puts the given link into the up state and enables IP forwarding.
-func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
+func enableForwarding(logger *slog.Logger, sysctl sysctl.Sysctl, link netlink.Link) error {
 	ifName := link.Attrs().Name
 
 	if err := netlink.LinkSetUp(link); err != nil {
-		log.WithError(err).WithField("device", ifName).Warn("Could not set up the link")
+		logger.Warn("Could not set up the link",
+			logfields.Error, err,
+			logfields.Device, ifName,
+		)
 		return err
 	}
 
@@ -62,7 +68,7 @@ func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
 	return nil
 }
 
-func setupVethPair(sysctl sysctl.Sysctl, name, peerName string) error {
+func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName string) error {
 	// Create the veth pair if it doesn't exist.
 	if _, err := safenetlink.LinkByName(name); err != nil {
 		hostMac, err := mac.GenerateRandMAC()
@@ -92,14 +98,14 @@ func setupVethPair(sysctl sysctl.Sysctl, name, peerName string) error {
 	if err != nil {
 		return err
 	}
-	if err := enableForwarding(sysctl, veth); err != nil {
+	if err := enableForwarding(logger, sysctl, veth); err != nil {
 		return err
 	}
 	peer, err := safenetlink.LinkByName(peerName)
 	if err != nil {
 		return err
 	}
-	if err := enableForwarding(sysctl, peer); err != nil {
+	if err := enableForwarding(logger, sysctl, peer); err != nil {
 		return err
 	}
 
@@ -110,8 +116,8 @@ func setupVethPair(sysctl sysctl.Sysctl, name, peerName string) error {
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-func setupBaseDevice(sysctl sysctl.Sysctl, mtu int) (netlink.Link, netlink.Link, error) {
-	if err := setupVethPair(sysctl, defaults.HostDevice, defaults.SecondHostDevice); err != nil {
+func setupBaseDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mtu int) (netlink.Link, netlink.Link, error) {
+	if err := setupVethPair(logger, sysctl, defaults.HostDevice, defaults.SecondHostDevice); err != nil {
 		return nil, nil, err
 	}
 
@@ -172,10 +178,10 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, mtu int) error {
+func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	switch mode {
 	case tunnel.Geneve:
-		if err := setupGeneveDevice(sysctl, port, mtu); err != nil {
+		if err := setupGeneveDevice(logger, sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
 			return fmt.Errorf("setting up geneve device: %w", err)
 		}
 		if err := removeDevice(defaults.VxlanDevice); err != nil {
@@ -183,7 +189,7 @@ func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, 
 		}
 
 	case tunnel.VXLAN:
-		if err := setupVxlanDevice(sysctl, port, mtu); err != nil {
+		if err := setupVxlanDevice(logger, sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
 			return fmt.Errorf("setting up vxlan device: %w", err)
 		}
 		if err := removeDevice(defaults.GeneveDevice); err != nil {
@@ -207,10 +213,13 @@ func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, 
 //
 // Changing the destination port will recreate the device. Changing the MTU will
 // modify the device without recreating it.
-func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
+func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
+	}
+	if srcPortLow > 0 || srcPortHigh > 0 {
+		logger.Info("Source port range hint currently ignored for geneve driver (not supported)", logfields.Device, defaults.GeneveDevice)
 	}
 
 	dev := &netlink.Geneve{
@@ -223,7 +232,7 @@ func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
 		Dport:     dport,
 	}
 
-	l, err := ensureDevice(sysctl, dev)
+	l, err := ensureDevice(logger, sysctl, dev)
 	if err != nil {
 		return fmt.Errorf("creating geneve device: %w", err)
 	}
@@ -235,7 +244,7 @@ func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
 		if err := netlink.LinkDel(l); err != nil {
 			return fmt.Errorf("deleting outdated geneve device: %w", err)
 		}
-		if _, err := ensureDevice(sysctl, dev); err != nil {
+		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
 			return fmt.Errorf("recreating geneve device %s: %w", defaults.GeneveDevice, err)
 		}
 	}
@@ -244,11 +253,13 @@ func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
 }
 
 // setupVxlanDevice ensures the cilium_vxlan device is created with the given
-// port and mtu.
+// port, source port range, and MTU.
 //
 // Changing the port will recreate the device. Changing the MTU will modify the
-// device without recreating it.
-func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
+// device without recreating it. Changing the source port range at runtime is
+// not possible, and it's also not worth to recreate. It's a best effort hint
+// for first-time creation.
+func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
@@ -262,9 +273,11 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
 		},
 		FlowBased: true,
 		Port:      int(port),
+		PortLow:   int(srcPortLow),
+		PortHigh:  int(srcPortHigh),
 	}
 
-	l, err := ensureDevice(sysctl, dev)
+	l, err := ensureDevice(logger, sysctl, dev)
 	if err != nil {
 		return fmt.Errorf("creating vxlan device: %w", err)
 	}
@@ -276,11 +289,18 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
 		if err := netlink.LinkDel(l); err != nil {
 			return fmt.Errorf("deleting outdated vxlan device: %w", err)
 		}
-		if _, err := ensureDevice(sysctl, dev); err != nil {
+		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
 			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
 		}
 	}
-
+	if vxlan.PortLow != int(srcPortLow) || vxlan.PortHigh != int(srcPortHigh) {
+		logger.Info(
+			"Source port range hint ignored given VXLAN device already exists",
+			logfields.Hint, fmt.Sprintf("(%d-%d)", int(srcPortLow), int(srcPortHigh)),
+			logfields.Range, fmt.Sprintf("(%d-%d)", vxlan.PortLow, vxlan.PortHigh),
+			logfields.Device, defaults.VxlanDevice,
+		)
+	}
 	return nil
 }
 
@@ -306,18 +326,22 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
 // renamed to cilium_ip6tnl. This is to communicate to the user that Cilium has
 // taken control of the encapsulation stack on the node, as it currently doesn't
 // explicitly support sharing it with other tools/CNIs. Fallback devices are left
-// unused for production traffic. Only devices that were explicitly created are used.
-func setupIPIPDevices(sysctl sysctl.Sysctl, ipv4, ipv6 bool) error {
+// unused for production traffic. Only devices that were explicitly created are
+// used. As of Cilium 1.18, cilium_tunl and cilium_ip6tnl are not created anymore.
+func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool, mtu int) error {
 	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
 	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
-
 	if ipv4 {
-		// Set up IPv4 tunnel device if requested.
-		if _, err := ensureDevice(sysctl, &netlink.Iptun{
-			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv4Device},
+		dev := &netlink.Iptun{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: defaults.IPIPv4Device,
+				MTU:  mtu - mtuconst.IPIPv4Overhead,
+			},
 			FlowBased: true,
-		}); err != nil {
+		}
+
+		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
 			return fmt.Errorf("creating %s: %w", defaults.IPIPv4Device, err)
 		}
 
@@ -333,11 +357,15 @@ func setupIPIPDevices(sysctl sysctl.Sysctl, ipv4, ipv6 bool) error {
 	}
 
 	if ipv6 {
-		// Set up IPv6 tunnel device if requested.
-		if _, err := ensureDevice(sysctl, &netlink.Ip6tnl{
-			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv6Device},
+		dev := &netlink.Ip6tnl{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: defaults.IPIPv6Device,
+				MTU:  mtu - mtuconst.IPIPv6Overhead,
+			},
 			FlowBased: true,
-		}); err != nil {
+		}
+
+		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
 			return fmt.Errorf("creating %s: %w", defaults.IPIPv6Device, err)
 		}
 
@@ -362,7 +390,7 @@ func setupIPIPDevices(sysctl sysctl.Sysctl, ipv4, ipv6 bool) error {
 //
 // The device's state is set to 'up', L3 forwarding sysctls are applied, and MTU
 // is set.
-func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error) {
+func ensureDevice(logger *slog.Logger, sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error) {
 	name := attrs.Attrs().Name
 
 	// Reuse existing tunnel interface created by previous runs.
@@ -382,7 +410,7 @@ func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error
 		}
 	}
 
-	if err := enableForwarding(sysctl, l); err != nil {
+	if err := enableForwarding(logger, sysctl, l); err != nil {
 		return nil, fmt.Errorf("setting up device %s: %w", name, err)
 	}
 

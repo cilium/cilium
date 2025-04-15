@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/cilium/stream"
 	"github.com/google/renameio/v2"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/allocator/doublewrite"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -184,7 +186,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
 
-	log.WithFields(map[string]interface{}{
+	log.WithFields(map[string]any{
 		"min":        minID,
 		"max":        maxID,
 		"cluster-id": option.Config.ClusterID,
@@ -212,6 +214,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		case option.IdentityAllocationModeKVstore:
 			log.Debug("Identity allocation backed by KVStore")
 			backend, err = kvstoreallocator.NewKVStoreBackend(
+				logging.DefaultSlogLogger,
 				kvstoreallocator.KVStoreBackendConfiguration{
 					BasePath: m.identitiesPath,
 					Suffix:   owner.GetNodeSuffix(),
@@ -224,10 +227,11 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		case option.IdentityAllocationModeCRD:
 			log.Debug("Identity allocation backed by CRD")
-			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-				Store:   nil,
-				Client:  client,
-				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
+			backend, err = identitybackend.NewCRDBackend(logging.DefaultSlogLogger, identitybackend.CRDBackendConfiguration{
+				Store:    nil,
+				StoreSet: &atomic.Bool{},
+				Client:   client,
+				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
@@ -239,20 +243,23 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 				readFromKVStore = false
 			}
 			log.Debugf("Double-Write Identity allocation mode (CRD and KVStore) with reads from KVStore = %t", readFromKVStore)
-			backend, err = doublewrite.NewDoubleWriteBackend(doublewrite.DoubleWriteBackendConfiguration{
-				CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
-					Store:   nil,
-					Client:  client,
-					KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
-				},
-				KVStoreBackendConfiguration: kvstoreallocator.KVStoreBackendConfiguration{
-					BasePath: m.identitiesPath,
-					Suffix:   owner.GetNodeSuffix(),
-					Typ:      &key.GlobalIdentity{},
-					Backend:  kvstore.Client(),
-				},
-				ReadFromKVStore: readFromKVStore,
-			})
+			backend, err = doublewrite.NewDoubleWriteBackend(
+				logging.DefaultSlogLogger,
+				doublewrite.DoubleWriteBackendConfiguration{
+					CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
+						Store:    nil,
+						StoreSet: &atomic.Bool{},
+						Client:   client,
+						KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+					},
+					KVStoreBackendConfiguration: kvstoreallocator.KVStoreBackendConfiguration{
+						BasePath: m.identitiesPath,
+						Suffix:   owner.GetNodeSuffix(),
+						Typ:      &key.GlobalIdentity{},
+						Backend:  kvstore.Client(),
+					},
+					ReadFromKVStore: readFromKVStore,
+				})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize the Double Write backend for identity allocation")
 			}
@@ -273,7 +280,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		if m.maxAllocAttempts > 0 {
 			allocOptions = append(allocOptions, allocator.WithMaxAllocAttempts(m.maxAllocAttempts))
 		}
-		a, err := allocator.NewAllocator(&key.GlobalIdentity{}, backend, allocOptions...)
+		a, err := allocator.NewAllocator(logging.DefaultSlogLogger, &key.GlobalIdentity{}, backend, allocOptions...)
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to initialize Identity Allocator with backend %s", option.Config.IdentityAllocationMode)
 		}
@@ -794,12 +801,13 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 		prefix = path.Join(kvstore.StateToCachePrefix(prefix), remoteName)
 	}
 
-	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})
 	if err != nil {
 		return nil, fmt.Errorf("error setting up remote allocator backend: %w", err)
 	}
 
-	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend,
+	remoteAlloc, err := allocator.NewAllocator(logging.DefaultSlogLogger,
+		&key.GlobalIdentity{}, remoteAllocatorBackend,
 		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
 		allocator.WithCacheValidator(clusterIDValidator(remoteID)),
 		allocator.WithCacheValidator(clusterNameValidator(remoteName)),
@@ -831,7 +839,7 @@ type IdentityChange struct {
 	Labels labels.Labels
 }
 
-// Observe the identity changes. Conforms to stream.Observable.
+// Observe identity changes. Doesn't include local identities. Conforms to stream.Observable.
 // Replays the current state of the cache when subscribing.
 func (m *CachingIdentityAllocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
 	// This short-lived go routine serves the purpose of waiting for the global identity allocator becoming ready
@@ -878,6 +886,12 @@ func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
 	}
 
 	return idLabels
+}
+
+// LocalIdentityChanges returns an observable for (only) node-local identities.
+// Replays current state on subscription followed by a Sync event.
+func (m *CachingIdentityAllocator) LocalIdentityChanges() stream.Observable[IdentityChange] {
+	return m.localIdentities
 }
 
 // clusterIDValidator returns a validator ensuring that the identity ID belongs

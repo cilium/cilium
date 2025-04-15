@@ -4,17 +4,18 @@
 package redirectpolicy
 
 import (
-	"context"
 	"fmt"
+	"iter"
 	"net"
 	"net/netip"
 	"sync"
 	"testing"
 
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
 
+	agentk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -24,15 +25,18 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type ManagerSuite struct {
-	rpm *Manager
-	svc svcManager
-	epM endpointManager
+	db   *statedb.DB
+	pods statedb.RWTable[agentk8s.LocalPod]
+	rpm  *Manager
+	svc  svcManager
+	epM  endpointManager
 }
 
 func setupManagerSuite(tb testing.TB) *ManagerSuite {
@@ -40,11 +44,13 @@ func setupManagerSuite(tb testing.TB) *ManagerSuite {
 
 	m := &ManagerSuite{}
 	m.svc = &fakeSvcManager{}
-	fpr := &fakePodResource{
-		fakePodStore{},
-	}
 	m.epM = &fakeEpManager{}
-	m.rpm = NewRedirectPolicyManager(m.svc, nil, fpr, m.epM, NewLRPMetricsNoop())
+	var err error
+	m.db = statedb.New()
+	m.pods, err = agentk8s.NewPodTable(m.db)
+	require.NoError(tb, err, "NewPodTable")
+	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
+
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
 			Name:      "test-foo",
@@ -100,56 +106,11 @@ func (f *fakeSvcManager) UpsertService(s *lb.SVC) (bool, lb.ID, error) {
 	return true, 1, nil
 }
 
-func (f *fakeSvcManager) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
+func (f *fakeSvcManager) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error {
 	if f.destroyConnectionEvents != nil {
 		f.destroyConnectionEvents <- *l3n4Addr
 	}
-}
-
-type fakePodResource struct {
-	store fakePodStore
-}
-
-func (fpr *fakePodResource) Observe(ctx context.Context, next func(resource.Event[*slimcorev1.Pod]), complete func(error)) {
-	panic("unimplemented")
-}
-func (fpr *fakePodResource) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[*slimcorev1.Pod] {
-	panic("unimplemented")
-}
-func (fpr *fakePodResource) Store(context.Context) (resource.Store[*slimcorev1.Pod], error) {
-	return &fpr.store, nil
-}
-
-type fakePodStore struct {
-	OnList func() []*slimcorev1.Pod
-	Pods   map[resource.Key]*slimcorev1.Pod
-}
-
-func (ps *fakePodStore) List() []*slimcorev1.Pod {
-	if ps.OnList != nil {
-		return ps.OnList()
-	}
-	pods := []*slimcorev1.Pod{pod1, pod2}
-	return pods
-}
-
-func (ps *fakePodStore) IterKeys() resource.KeyIter { return nil }
-func (ps *fakePodStore) Get(obj *slimcorev1.Pod) (item *slimcorev1.Pod, exists bool, err error) {
-	return nil, false, nil
-}
-func (ps *fakePodStore) GetByKey(key resource.Key) (item *slimcorev1.Pod, exists bool, err error) {
-	if len(ps.Pods) != 0 {
-		return ps.Pods[key], true, nil
-	}
-	return nil, false, nil
-}
-func (ps *fakePodStore) CacheStore() cache.Store { return nil }
-
-func (ps *fakePodStore) IndexKeys(indexName, indexedValue string) ([]string, error) { return nil, nil }
-func (ps *fakePodStore) ByIndex(indexName, indexedValue string) ([]*slimcorev1.Pod, error) {
-	return nil, nil
-}
-func (ps *fakePodStore) Release() {
+	return nil
 }
 
 type fakeEpManager struct {
@@ -170,6 +131,36 @@ func (ps *fakeEpManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, erro
 type fakeSkipLBMap struct {
 	lb4Events chan skipLBParams
 	lb6Events chan skipLBParams
+}
+
+// Close implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) Close() error {
+	return nil
+}
+
+// OpenOrCreate implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) OpenOrCreate() error {
+	return nil
+}
+
+// AllLB4 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) AllLB4() iter.Seq2[*lbmap.SkipLB4Key, *lbmap.SkipLB4Value] {
+	panic("not implemented")
+}
+
+// AllLB6 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) AllLB6() iter.Seq2[*lbmap.SkipLB6Key, *lbmap.SkipLB6Value] {
+	panic("not implemented")
+}
+
+// DeleteLB4 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) DeleteLB4(key *lbmap.SkipLB4Key) error {
+	return nil
+}
+
+// DeleteLB6 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) DeleteLB6(key *lbmap.SkipLB6Key) error {
+	return nil
 }
 
 type skipLBParams struct {
@@ -199,20 +190,18 @@ func (f fakeSkipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error 
 }
 
 func (f fakeSkipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
-	panic("implement me")
 }
 
 func (f fakeSkipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
-	panic("implement me")
 }
 
 func (f fakeSkipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
-	panic("implement me")
 }
 
 func (f fakeSkipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
-	panic("implement me")
 }
+
+var _ lbmap.SkipLBMap = fakeSkipLBMap{}
 
 var (
 	tcpStr    = "TCP"
@@ -393,6 +382,11 @@ func TestManager_AddRedirectPolicy_SvcMatcherDuplicateConfig(t *testing.T) {
 func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 	m := setupManagerSuite(t)
 
+	txn := m.db.WriteTxn(m.pods)
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod1})
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod2})
+	txn.Commit()
+
 	// Add an addressMatcher type LRP with single port. The policy config
 	// frontend should have 2 pod backends with each of the podIPs.
 	podIPs := utils.ValidIPs(pod1.Status)
@@ -497,14 +491,10 @@ func TestManager_AddrMatcherConfigSinglePortMulPods(t *testing.T) {
 	newPod2 := pod2.DeepCopy()
 	newPod2.Labels["test"] = "foo"
 
-	psg := &fakePodResource{
-		fakePodStore{
-			OnList: func() []*slimcorev1.Pod {
-				return []*slimcorev1.Pod{pod1, newPod2}
-			},
-		},
-	}
-	m.rpm.localPods = psg
+	txn := m.db.WriteTxn(m.pods)
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod1})
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: newPod2})
+	txn.Commit()
 
 	// Add an addressMatcher type LRP with single port. The policy config
 	// frontend should have 4 pod backends with each of the podIPs.
@@ -556,6 +546,10 @@ func TestManager_AddrMatcherConfigSinglePortMulPods(t *testing.T) {
 // for an addressMatcher config with a frontend having multiple named ports.
 func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 	m := setupManagerSuite(t)
+	txn := m.db.WriteTxn(m.pods)
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod1})
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod2})
+	txn.Commit()
 
 	// Add an addressMatcher type LRP with multiple named ports.
 	configAddrType.frontendType = addrFrontendNamedPorts
@@ -641,14 +635,10 @@ func TestManager_AddrMatcherConfigMultiplePortsMulPods(t *testing.T) {
 	newPod2 := pod2.DeepCopy()
 	newPod2.Labels["test"] = "foo"
 
-	psg := &fakePodResource{
-		fakePodStore{
-			OnList: func() []*slimcorev1.Pod {
-				return []*slimcorev1.Pod{pod1, newPod2}
-			},
-		},
-	}
-	m.rpm.localPods = psg
+	txn := m.db.WriteTxn(m.pods)
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod1})
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: newPod2})
+	txn.Commit()
 
 	// Add an addressMatcher type LRP with multiple named ports.
 	configAddrType.frontendType = addrFrontendNamedPorts
@@ -758,20 +748,15 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 		podID:    pod3ID,
 	}}
 	pod3.Status.PodIPs = append(pod3.Status.PodIPs, pod3v6)
-	psg := &fakePodResource{
-		fakePodStore{
-			OnList: func() []*slimcorev1.Pod {
-				return []*slimcorev1.Pod{pod3}
-			},
-		},
-	}
-	m.rpm.localPods = psg
+	txn := m.db.WriteTxn(m.pods)
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod3})
+	txn.Commit()
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
 	require.True(t, added)
 	require.NoError(t, err)
-	require.Equal(t, len(expectedbes4), len(configAddrType.frontendMappings[0].podBackends))
+	require.Len(t, configAddrType.frontendMappings[0].podBackends, len(expectedbes4))
 	for i := range configAddrType.frontendMappings[0].podBackends {
 		require.Equal(t, expectedbes4[i], configAddrType.frontendMappings[0].podBackends[i])
 	}
@@ -788,7 +773,7 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 
 	require.True(t, added)
 	require.NoError(t, err)
-	require.Equal(t, len(expectedbes6), len(configAddrType.frontendMappings[0].podBackends))
+	require.Len(t, configAddrType.frontendMappings[0].podBackends, len(expectedbes6))
 
 	for i := range configAddrType.frontendMappings[0].podBackends {
 		require.Equal(t, expectedbes6[i], configAddrType.frontendMappings[0].podBackends[i])
@@ -844,18 +829,18 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	pod := pod1.DeepCopy()
 	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}
 	pods[pk1] = pod
-	fps := &fakePodResource{
-		fakePodStore{
-			Pods: pods,
-		},
+
+	txn := m.db.WriteTxn(m.pods)
+	for _, pod := range pods {
+		m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod})
 	}
-	m.rpm.localPods = fps
+	txn.Commit()
 	ep := &endpoint.Endpoint{
 		K8sPodName:   pod.Name,
 		K8sNamespace: pod.Namespace,
 		NetNsCookie:  1234,
 	}
-	m.rpm = NewRedirectPolicyManager(m.svc, nil, fps, m.epM, NewLRPMetricsNoop())
+	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
 
 	added, err := m.rpm.AddRedirectPolicy(pc)
@@ -913,14 +898,12 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	addr, _ := netip.ParseAddr(pod.Status.PodIP)
 	cookies[addr] = cookie
 	m.epM = &fakeEpManager{cookies: cookies}
-	fps = &fakePodResource{
-		fakePodStore{
-			OnList: func() []*slimcorev1.Pod {
-				return []*slimcorev1.Pod{pod}
-			},
-		},
-	}
-	m.rpm = NewRedirectPolicyManager(m.svc, nil, fps, m.epM, NewLRPMetricsNoop())
+
+	txn = m.db.WriteTxn(m.pods)
+	m.pods.DeleteAll(txn)
+	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod})
+	txn.Commit()
+	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 	lbEvents = make(chan skipLBParams)
 	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
 
@@ -979,12 +962,14 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 		Namespace: pod1.Namespace,
 	}
 	pods[pk1] = pod
-	fps = &fakePodResource{
-		fakePodStore{
-			Pods: pods,
-		},
+
+	txn = m.db.WriteTxn(m.pods)
+	m.pods.DeleteAll(txn)
+	for _, pod := range pods {
+		m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod})
 	}
-	m.rpm = NewRedirectPolicyManager(m.svc, nil, fps, m.epM, NewLRPMetricsNoop())
+	txn.Commit()
+	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 	lbEvents = make(chan skipLBParams)
 	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
 

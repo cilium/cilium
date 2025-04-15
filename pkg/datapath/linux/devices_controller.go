@@ -163,7 +163,7 @@ func (dc *devicesController) Start(startCtx cell.HookContext) error {
 		}
 
 		// Only probe for L3 device support when netlink isn't mocked by tests.
-		dc.l3DevSupported = probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbChangeHead) == nil
+		dc.l3DevSupported = probes.HaveProgramHelper(dc.log, ebpf.SchedCLS, asm.FnSkbChangeHead) == nil
 	}
 
 	var ctx context.Context
@@ -501,12 +501,18 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				if u.Type == unix.RTM_NEWROUTE {
 					_, _, err := dc.params.RouteTable.Insert(txn, &r)
 					if err != nil {
-						dc.log.Warn("Failed to insert route", logfields.Error, err, "route", r)
+						dc.log.Warn("Failed to insert route",
+							logfields.Error, err,
+							logfields.Route, r,
+						)
 					}
 				} else if u.Type == unix.RTM_DELROUTE {
 					_, _, err := dc.params.RouteTable.Delete(txn, &r)
 					if err != nil {
-						dc.log.Warn("Failed to delete route", logfields.Error, err, "route", r)
+						dc.log.Warn("Failed to delete route",
+							logfields.Error, err,
+							logfields.Route, r,
+						)
 					}
 				}
 			case netlink.NeighUpdate:
@@ -534,12 +540,18 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				if u.Type == unix.RTM_NEWNEIGH {
 					_, _, err := dc.params.NeighborTable.Insert(txn, &n)
 					if err != nil {
-						dc.log.Warn("Failed to insert neighbor", logfields.Error, err, "neighbor", n)
+						dc.log.Warn("Failed to insert neighbor",
+							logfields.Error, err,
+							logfields.Neighbor, n,
+						)
 					}
 				} else if u.Type == unix.RTM_DELNEIGH {
 					_, _, err := dc.params.NeighborTable.Delete(txn, &n)
 					if err != nil {
-						dc.log.Warn("Failed to delete neighbor", logfields.Error, err, "neighbor", n)
+						dc.log.Warn("Failed to delete neighbor",
+							logfields.Error, err,
+							logfields.Neighbor, n,
+						)
 					}
 				}
 			case netlink.LinkUpdate:
@@ -589,7 +601,10 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			// Create or update the device.
 			_, _, err := dc.params.DeviceTable.Insert(txn, d)
 			if err != nil {
-				dc.log.Warn("Failed to insert device", logfields.Error, err, logfields.Device, d)
+				dc.log.Warn("Failed to insert device",
+					logfields.Error, err,
+					logfields.Device, d,
+				)
 			}
 		}
 	}
@@ -675,6 +690,12 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		// purposes. In the rare cases where a user wants to load datapath
 		// programs onto them they can override device detection with --devices.
 		return false, "bridge-like device, use --devices to override"
+
+	case "ipoib":
+		// Skip IPoIB devices since they are untested and assumed to not work.
+		// In the rare cases where a user wants to load datapath programs onto
+		// them they can override device detection with --devices.
+		return false, "IPoIB device, use --devices to override"
 	}
 
 	if !hasGlobalRoute(d.Index, dc.params.RouteTable, txn) {
@@ -714,7 +735,7 @@ type netlinkFuncs struct {
 // makeNetlinkFuncs returns a *netlinkFuncs containing netlink accessors to the
 // network namespace of the calling goroutine's OS thread.
 func makeNetlinkFuncs() (*netlinkFuncs, error) {
-	netlinkHandle, err := netlink.NewHandle(unix.NETLINK_ROUTE, unix.NETLINK_NETFILTER)
+	netlinkHandle, err := netlink.NewHandle(unix.NETLINK_ROUTE)
 	if err != nil {
 		return nil, fmt.Errorf("creating netlink handle: %w", err)
 	}

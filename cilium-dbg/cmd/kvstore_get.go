@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var kvstoreGetCmd = &cobra.Command{
@@ -29,10 +29,10 @@ var kvstoreGetCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		setupKvstore(ctx)
+		client := setupKvstore(ctx, logging.DefaultSlogLogger)
 
 		if recursive {
-			pairs, err := kvstore.Client().ListPrefix(ctx, key)
+			pairs, err := client.ListPrefix(ctx, key)
 			if err != nil {
 				Fatalf("Unable to list keys: %s", err)
 			}
@@ -46,7 +46,7 @@ var kvstoreGetCmd = &cobra.Command{
 				fmt.Printf("%s => %s\n", k, v.Data)
 			}
 		} else {
-			val, err := kvstore.Client().Get(ctx, key)
+			val, err := client.Get(ctx, key)
 			if err != nil {
 				Fatalf("Unable to retrieve key %s: %s", key, err)
 			}

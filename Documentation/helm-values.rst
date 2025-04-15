@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:a5d0ce49aa801d475da48f8cb163c354ab95cab073cd3c138bd458fc8257fbf1","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:37f7b378a29ceb4c551b1b5582e27747b855bbfaa73fa11914fe0df028dc581f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -325,11 +325,19 @@
      - int
      - ``524288``
    * - :spelling:ignore:`bpf.datapathMode`
-     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
+     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2)
      - string
      - ``veth``
    * - :spelling:ignore:`bpf.disableExternalIPMitigation`
      - Disable ExternalIP mitigation (CVE-2020-8554)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bpf.distributedLRU`
+     - Control to use a distributed per-CPU backend memory for the core BPF LRU maps which Cilium uses. This improves performance significantly, but it is also recommended to increase BPF map sizing along with that.
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bpf.distributedLRU.enabled`
+     - Enable distributed LRU backend memory. For compatibility with existing installations it is off by default.
      - bool
      - ``false``
    * - :spelling:ignore:`bpf.enableTCX`
@@ -424,6 +432,10 @@
      - Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema
      - int
      - ``16384``
+   * - :spelling:ignore:`bpf.policyStatsMapMax`
+     - Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema
+     - int
+     - ``65536``
    * - :spelling:ignore:`bpf.preallocateMaps`
      - Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency.
      - bool
@@ -612,6 +624,10 @@
      - TCP port for the KVStoreMesh health API.
      - int
      - ``9881``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.kvstoreMode`
+     - Specify the KVStore mode when running KVStoreMesh Supported values: - "internal": remote cluster identities are cached in etcd that runs as a sidecar within ``clustermesh-apiserver`` pod. - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
+     - string
+     - ``"internal"``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.lifecycle`
      - lifecycle setting for the KVStoreMesh container
      - object
@@ -680,6 +696,10 @@
      - Relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
      - string
      - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.etcd.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.interval`
      - Interval for scrape metrics (apiserver metrics)
      - string
@@ -696,6 +716,10 @@
      - Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
      - string
      - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.labels`
      - Labels to add to ServiceMonitor clustermesh-apiserver
      - object
@@ -706,6 +730,10 @@
      - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.relabelings`
      - Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+     - string
+     - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
      - string
      - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.nodeSelector`
@@ -932,6 +960,10 @@
      - Install the CNI configuration and binary files into the filesystem.
      - bool
      - ``true``
+   * - :spelling:ignore:`cni.iptablesRemoveAWSRules`
+     - Enable the removal of iptables rules created by the AWS CNI VPC plugin.
+     - bool
+     - ``true``
    * - :spelling:ignore:`cni.logFile`
      - Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly.
      - string
@@ -948,6 +980,10 @@
      - commonLabels allows users to add common labels for all Cilium resources.
      - object
      - ``{}``
+   * - :spelling:ignore:`connectivityProbeFrequencyRatio`
+     - Ratio of the connectivity probe frequency vs resource usage, a float in [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing frequency is dynamically adjusted based on the cluster size.
+     - float64
+     - ``0.5``
    * - :spelling:ignore:`conntrackGCInterval`
      - Configure how frequently garbage collection should occur for the datapath connection tracking table.
      - string
@@ -996,6 +1032,10 @@
      - Enable debug logging
      - bool
      - ``false``
+   * - :spelling:ignore:`debug.metricsSamplingInterval`
+     - Set the agent-internal metrics sampling frequency. This sets the frequency of the internal sampling of the agent metrics. These are available via the "cilium-dbg shell -- metrics -s" command and are part of the metrics HTML page included in the sysdump. @schema type: [null, string] @schema
+     - string
+     - ``"5m"``
    * - :spelling:ignore:`debug.verbose`
      - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
      - string
@@ -1090,10 +1130,6 @@
      - ``true``
    * - :spelling:ignore:`enableInternalTrafficPolicy`
      - Enable Internal Traffic Policy
-     - bool
-     - ``true``
-   * - :spelling:ignore:`enableK8sTerminatingEndpoint`
-     - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
      - bool
      - ``true``
    * - :spelling:ignore:`enableLBIPAM`
@@ -1232,10 +1268,6 @@
      - Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - list
      - ``[]``
-   * - :spelling:ignore:`eni.updateEC2AdapterLimitViaAPI`
-     - Update ENI Adapter limits from the EC2 API
-     - bool
-     - ``true``
    * - :spelling:ignore:`envoy.affinity`
      - Affinity for cilium-envoy.
      - object
@@ -1304,6 +1336,10 @@
      - Maximum number of retries for each HTTP request
      - int
      - ``3``
+   * - :spelling:ignore:`envoy.httpUpstreamLingerTimeout`
+     - Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.idleTimeoutDurationSeconds`
      - Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s
      - int
@@ -1311,7 +1347,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:0a62df4ef2e56b428414cc9b68404ec5edb6fab3f590371a614238ab9d82b408","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1737536179-7717128c4e264aa4ec7e43f6bb795ab854340b16","useDigest":true}``
+     - ``{"digest":"sha256:b8f10a6769013b589725f95b99b990a07eeec6d6b34d5ea748f816dd671d04ca","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.2-1743993934-6e55b1412ae5976fb0c8fdc87a5e53942f70b0fc","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1376,6 +1412,10 @@
      - AppArmorProfile options for the ``cilium-agent`` and init containers
      - object
      - ``{"type":"Unconfined"}``
+   * - :spelling:ignore:`envoy.policyRestoreTimeoutDuration`
+     - Max duration to wait for endpoint policies to be restored on restart. Default "3m".
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.priorityClassName`
      - The priority class to use for cilium-envoy.
      - string
@@ -1383,7 +1423,7 @@
    * - :spelling:ignore:`envoy.prometheus`
      - Configure Cilium Envoy Prometheus options. Note that some of these apply to either cilium-agent or cilium-envoy.
      - object
-     - ``{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
+     - ``{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null}}``
    * - :spelling:ignore:`envoy.prometheus.enabled`
      - Enable prometheus metrics for cilium-envoy
      - bool
@@ -1415,7 +1455,11 @@
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.relabelings`
      - Relabeling configs for the ServiceMonitor cilium-envoy or for cilium-agent with Envoy configured.
      - list
-     - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+     - ``[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+   * - :spelling:ignore:`envoy.prometheus.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.readinessProbe.failureThreshold`
      - failure threshold of readiness probe
      - int
@@ -1456,6 +1500,10 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - :spelling:ignore:`envoy.streamIdleTimeoutDurationSeconds`
+     - Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. default 5 minutes
+     - int
+     - ``300``
    * - :spelling:ignore:`envoy.terminationGracePeriodSeconds`
      - Configure termination grace period for cilium-envoy DaemonSet.
      - int
@@ -1510,14 +1558,6 @@
      - ``false``
    * - :spelling:ignore:`externalIPs.enabled`
      - Enable ExternalIPs service support.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`externalWorkloads`
-     - Configure external workloads support
-     - object
-     - ``{"enabled":false}``
-   * - :spelling:ignore:`externalWorkloads.enabled`
-     - Enable support for external workloads, such as VMs (false by default).
      - bool
      - ``false``
    * - :spelling:ignore:`extraArgs`
@@ -1699,7 +1739,7 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -1759,7 +1799,11 @@
    * - :spelling:ignore:`hubble.metrics.serviceMonitor.relabelings`
      - Relabeling configs for the ServiceMonitor hubble
      - list
-     - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+     - ``[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+   * - :spelling:ignore:`hubble.metrics.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.metrics.tls.server.cert`
      - base64 encoded PEM values for the Hubble metrics server certificate (deprecated). Use existingSecret instead.
      - string
@@ -1792,6 +1836,10 @@
      - Name of the ConfigMap containing the CA to validate client certificates against. If mTLS is enabled and this is unspecified, it will default to the same CA used for Hubble metrics server certificates.
      - string
      - ``nil``
+   * - :spelling:ignore:`hubble.networkPolicyCorrelation`
+     - Enables network policy correlation of Hubble flows, i.e. populating ``egress_allowed_by``\ , ``ingress_denied_by`` fields with policy information.
+     - object
+     - ``{"enabled":true}``
    * - :spelling:ignore:`hubble.peerService.clusterDomain`
      - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
      - string
@@ -1836,10 +1884,6 @@
      - Annotations to be added to all top-level hubble-relay objects (resources under templates/hubble-relay)
      - object
      - ``{}``
-   * - :spelling:ignore:`hubble.relay.dialTimeout`
-     - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").  This option has been deprecated and is a no-op.
-     - string
-     - ``nil``
    * - :spelling:ignore:`hubble.relay.enabled`
      - Enable Hubble Relay (requires hubble.enabled=true)
      - bool
@@ -1903,7 +1947,7 @@
    * - :spelling:ignore:`hubble.relay.podSecurityContext`
      - hubble-relay pod security context
      - object
-     - ``{"fsGroup":65532}``
+     - ``{"fsGroup":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.pprof.address`
      - Configure pprof listen address for hubble-relay
      - string
@@ -1923,7 +1967,7 @@
    * - :spelling:ignore:`hubble.relay.prometheus`
      - Enable prometheus metrics for hubble-relay on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}``
+     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}``
    * - :spelling:ignore:`hubble.relay.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor hubble-relay
      - object
@@ -1948,6 +1992,10 @@
      - Relabeling configs for the ServiceMonitor hubble-relay
      - string
      - ``nil``
+   * - :spelling:ignore:`hubble.relay.prometheus.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.relay.replicas`
      - Number of replicas run for the hubble-relay deployment.
      - int
@@ -1967,7 +2015,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
@@ -2135,7 +2183,7 @@
    * - :spelling:ignore:`hubble.ui.backend.image`
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.1","useDigest":true}``
+     - ``{"digest":"sha256:a034b7e98e6ea796ed26df8f4e71f83fc16465a19d166eff67a03b822c0bfa15","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.2","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
      - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
      - bool
@@ -2175,7 +2223,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.image`
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.1","useDigest":true}``
+     - ``{"digest":"sha256:9e37c1296b802830834cc87342a9182ccbb71ffebb711971e849221bd9d59392","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.2","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.frontend.resources`
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -2239,9 +2287,13 @@
    * - :spelling:ignore:`hubble.ui.service`
      - hubble-ui service configuration.
      - object
-     - ``{"annotations":{},"nodePort":31235,"type":"ClusterIP"}``
+     - ``{"annotations":{},"labels":{},"nodePort":31235,"type":"ClusterIP"}``
    * - :spelling:ignore:`hubble.ui.service.annotations`
      - Annotations to be added for the Hubble UI service
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.ui.service.labels`
+     - Labels to be added for the Hubble UI service
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.ui.service.nodePort`
@@ -2292,6 +2344,10 @@
      - Time to wait before using new identity on endpoint identity change.
      - string
      - ``"5s"``
+   * - :spelling:ignore:`identityManagementMode`
+     - Control whether CiliumIdentities are created by the agent ("agent"), the operator ("operator") or both ("both"). "Both" should be used only to migrate between "agent" and "operator". Operator-managed identities is a beta feature.
+     - string
+     - ``"agent"``
    * - :spelling:ignore:`image`
      - Agent container image.
      - object
@@ -2492,6 +2548,22 @@
      - requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR range via the Kubernetes node resource
      - bool
      - ``false``
+   * - :spelling:ignore:`k8sClientExponentialBackoff`
+     - Configure exponential backoff for client-go in Cilium agent.
+     - object
+     - ``{"backoffBaseSeconds":1,"backoffMaxDurationSeconds":120,"enabled":true}``
+   * - :spelling:ignore:`k8sClientExponentialBackoff.backoffBaseSeconds`
+     - Configure base (in seconds) for exponential backoff.
+     - int
+     - ``1``
+   * - :spelling:ignore:`k8sClientExponentialBackoff.backoffMaxDurationSeconds`
+     - Configure maximum duration (in seconds) for exponential backoff.
+     - int
+     - ``120``
+   * - :spelling:ignore:`k8sClientExponentialBackoff.enabled`
+     - Enable exponential backoff for client-go in Cilium agent.
+     - bool
+     - ``true``
    * - :spelling:ignore:`k8sClientRateLimit`
      - Configure the client side rate limit for the agent  If the amount of requests to the Kubernetes API server exceeds the configured rate limit, the agent will start to throttle requests by delaying them until there is budget or the request times out.
      - object
@@ -2524,6 +2596,18 @@
      - Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap
      - string
      - ``""``
+   * - :spelling:ignore:`k8sServiceHostRef`
+     - Configure the Kubernetes service endpoint dynamically using a ConfigMap. Mutually exclusive with ``k8sServiceHost``.
+     - object
+     - ``{"key":null,"name":null}``
+   * - :spelling:ignore:`k8sServiceHostRef.key`
+     - Key in the ConfigMap containing the Kubernetes service endpoint
+     - string
+     - ``nil``
+   * - :spelling:ignore:`k8sServiceHostRef.name`
+     - name of the ConfigMap containing the Kubernetes service endpoint
+     - string
+     - ``nil``
    * - :spelling:ignore:`k8sServiceLookupConfigMapName`
      - When ``k8sServiceHost=auto``\ , allows to customize the configMap name. It defaults to ``cluster-info``.
      - string
@@ -2592,6 +2676,10 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`livenessProbe.requireK8sConnectivity`
+     - whether to require k8s connectivity as part of the check.
+     - bool
+     - ``false``
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
@@ -2641,7 +2729,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`name`
-     - Agent container name.
+     - Agent daemonset name.
      - string
      - ``"cilium"``
    * - :spelling:ignore:`namespaceOverride`
@@ -2895,7 +2983,7 @@
    * - :spelling:ignore:`operator.prometheus`
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null}}``
+     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -2922,6 +3010,10 @@
      - ``nil``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.relabelings`
      - Relabeling configs for the ServiceMonitor cilium-operator
+     - string
+     - ``nil``
+   * - :spelling:ignore:`operator.prometheus.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
      - string
      - ``nil``
    * - :spelling:ignore:`operator.removeNodeTaints`
@@ -3119,7 +3211,7 @@
    * - :spelling:ignore:`prometheus`
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"metricsService":false,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"trustCRDsExist":false}}``
+     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"metricsService":false,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"trustCRDsExist":false}}``
    * - :spelling:ignore:`prometheus.controllerGroupMetrics`
      - - Enable controller group metrics for monitoring specific Cilium subsystems. The list is a list of controller group names. The special values of "all" and "none" are supported. The set of controller group names is not guaranteed to be stable between Cilium versions.
      - list
@@ -3155,7 +3247,11 @@
    * - :spelling:ignore:`prometheus.serviceMonitor.relabelings`
      - Relabeling configs for the ServiceMonitor cilium-agent
      - list
-     - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+     - ``[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+   * - :spelling:ignore:`prometheus.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`prometheus.serviceMonitor.trustCRDsExist`
      - Set to ``true`` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
      - bool
@@ -3204,6 +3300,10 @@
      - Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
      - bool
      - ``false``
+   * - :spelling:ignore:`secretsNamespaceAnnotations`
+     - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+     - object
+     - ``{}``
    * - :spelling:ignore:`securityContext.capabilities.applySysctlOverwrites`
      - capabilities for the ``apply-sysctl-overwrites`` init container
      - list
@@ -3261,9 +3361,9 @@
      - bool
      - ``false``
    * - :spelling:ignore:`startupProbe.failureThreshold`
-     - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+     - failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts).
      - int
-     - ``105``
+     - ``300``
    * - :spelling:ignore:`startupProbe.periodSeconds`
      - interval between checks of the startup probe
      - int
@@ -3337,7 +3437,7 @@
      - object
      - ``{"enabled":null}``
    * - :spelling:ignore:`tls.secretSync.enabled`
-     - Enable synchronization of Secrets for TLS Interception. If disabled and tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
+     - Enable synchronization of Secrets for TLS Interception. If disabled and tls.readSecretsOnlyFromSecretsNamespace is set to 'false', then secrets will be read directly by the agent.
      - string
      - ``nil``
    * - :spelling:ignore:`tls.secretsBackend`
@@ -3368,6 +3468,14 @@
      - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels. Possible values:   - ""   - vxlan   - geneve
      - string
      - ``"vxlan"``
+   * - :spelling:ignore:`tunnelSourcePortRange`
+     - Configure VXLAN and Geneve tunnel source port range hint.
+     - string
+     - 0-0 to let the kernel driver decide the range
+   * - :spelling:ignore:`underlayProtocol`
+     - IP family for the underlay.
+     - string
+     - ``"ipv4"``
    * - :spelling:ignore:`updateStrategy`
      - Cilium agent update strategy
      - object

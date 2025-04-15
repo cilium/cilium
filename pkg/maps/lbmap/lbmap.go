@@ -77,7 +77,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		if len(p.PreferredBackends) > 0 {
 			backends = p.PreferredBackends
 		}
-		if p.UseMaglev && len(backends) != 0 {
+		if p.UseMaglev {
 			if err := lbmap.UpsertMaglevLookupTable(p.ID, backends, ipv6); err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 
 	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
-		p.SourceRangesPolicy, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
+		p.SourceRangesPolicy, p.CheckSourceRange, p.ProxyDelegation, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
@@ -176,6 +176,10 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
 func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
+	if len(backends) == 0 {
+		deleteMaglevTable(ipv6, svcID)
+		return nil
+	}
 	table := lbmap.maglev.GetLookupTable(
 		func(yield func(maglev.BackendInfo) bool) {
 			for _, be := range backends {
@@ -220,9 +224,7 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	}
 
 	if useMaglev {
-		if err := deleteMaglevTable(ipv6, uint16(svc.ID)); err != nil {
-			return fmt.Errorf("Unable to delete maglev lookup table %d: %w", svc.ID, err)
-		}
+		deleteMaglevTable(ipv6, uint16(svc.ID))
 	}
 
 	if err := deleteRevNatLocked(revNATKey); err != nil {
@@ -602,20 +604,29 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int,
-	svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode, svcExtLocal, svcIntLocal bool,
-	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy, checkSourceRange bool, l7lbProxyPort uint16,
+func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
+	revNATID int, svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode,
+	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
+	sessionAffinityTimeoutSec uint32, svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy,
+	checkSourceRange bool, svcProxyDelegation loadbalancer.SVCProxyDelegation, l7lbProxyPort uint16,
 	loopbackHostport bool, loadBalancingAlgorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+	if sessionAffinity && l7lbProxyPort != 0 {
+		log.Warn("Failure in updating master service entry: Service session affinity incompatible with L7 proxy feature")
+		return fmt.Errorf("invalid feature combination")
+	}
+	if loopbackHostport && svcProxyDelegation != loadbalancer.SVCProxyDelegationNone {
+		log.Warn("Failure in updating master service entry: Both HostPort (loopback) and proxy delegation features are incompatible")
+		return fmt.Errorf("invalid feature combination")
+	}
 
 	fe.SetBackendSlot(0)
 	v.SetCount(activeBackends)
 	v.SetQCount(quarantinedBackends)
 	v.SetRevNat(revNATID)
-	v.SetLbAlg(uint8(loadBalancingAlgorithm))
+	v.SetLbAlg(loadBalancingAlgorithm)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
@@ -627,11 +638,14 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 		SourceRangeDeny:  svcSourceRangesPolicy == loadbalancer.SVCSourceRangesPolicyDeny,
 		CheckSourceRange: checkSourceRange,
 		L7LoadBalancer:   l7lbProxyPort != 0,
-		LoopbackHostport: loopbackHostport,
+		LoopbackHostport: loopbackHostport || svcProxyDelegation != loadbalancer.SVCProxyDelegationNone,
 	})
 	v.SetFlags(flag.UInt16())
 	if sessionAffinity {
-		v.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
+		if err := v.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec); err != nil {
+			log.Warn("Failure in updateMasterService due to error from SetSessionAffinityTimeoutSec", logfields.Error, err)
+			return err
+		}
 	}
 	if l7lbProxyPort != 0 {
 		v.SetL7LBProxyPort(l7lbProxyPort)

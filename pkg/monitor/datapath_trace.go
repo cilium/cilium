@@ -30,7 +30,10 @@ const (
 const (
 	// TraceNotifyFlagIsIPv6 is set in TraceNotify.Flags when the
 	// notification refers to an IPv6 flow
-	TraceNotifyFlagIsIPv6 uint8 = 1
+	TraceNotifyFlagIsIPv6 uint8 = 1 << iota
+	// TraceNotifyFlagIsL3Device is set in TraceNotify.Flags when the
+	// notification refers to a L3 device.
+	TraceNotifyFlagIsL3Device
 )
 
 const (
@@ -265,15 +268,29 @@ func (n *TraceNotify) traceSummary() string {
 		return "<- overlay"
 	case api.TraceFromNetwork:
 		return "<- network"
+	case api.TraceFromCrypto:
+		return "<- crypto"
+	case api.TraceToCrypto:
+		return "-> crypto"
 	default:
 		return "unknown trace"
 	}
 }
 
+// IsL3Device returns true if the trace comes from an L3 device.
+func (n *TraceNotify) IsL3Device() bool {
+	return n.Flags&TraceNotifyFlagIsL3Device != 0
+}
+
+// IsIPv6 returns true if the trace refers to an IPv6 packet.
+func (n *TraceNotify) IsIPv6() bool {
+	return n.Flags&TraceNotifyFlagIsIPv6 != 0
+}
+
 // OriginalIP returns the original source IP if reverse NAT was performed on
 // the flow
 func (n *TraceNotify) OriginalIP() net.IP {
-	if (n.Flags & TraceNotifyFlagIsIPv6) != 0 {
+	if n.IsIPv6() {
 		return n.OrigIP[:]
 	}
 	return n.OrigIP[:4]
@@ -300,7 +317,7 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
 	buf.Flush()
 }
 

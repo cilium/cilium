@@ -29,6 +29,9 @@ const (
 
 	// DefaultProxyIdleTimeoutSeconds is the default value for the proxy idle timeout
 	DefaultProxyIdleTimeoutSeconds = 60
+
+	// DefaultProxyStreamIdleTimeoutSeconds is the default value for the proxy stream idle timeout
+	DefaultProxyStreamIdleTimeoutSeconds = 300
 )
 
 const (
@@ -92,11 +95,6 @@ const (
 
 	// AWS options
 
-	// AWSInstanceLimitMapping allows overwirting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AWSInstanceLimitMapping = "aws-instance-limit-mapping"
-
 	// AWSReleaseExcessIPs allows releasing excess free IP addresses from ENI.
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
@@ -125,10 +123,6 @@ const (
 
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
 	ParallelAllocWorkers = "parallel-alloc-workers"
-
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
-	// API to fill out the instancetype to adapter limit mapping.
-	UpdateEC2AdapterLimitViaAPI = "update-ec2-adapter-limit-via-api"
 
 	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
@@ -179,9 +173,20 @@ const (
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
 
+	// ProxyStreamIdleTimeoutSeconds is the stream timeout for proxy connections to upstream clusters
+	ProxyStreamIdleTimeoutSeconds = "proxy-stream-idle-timeout-seconds"
+
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
+
+	// KubeProxyReplacement is equivalent to the cilium-agent option, and
+	// is used to provide hints for misconfiguration.
+	KubeProxyReplacement = "kube-proxy-replacement"
+
+	// EnableNodePort is equivalent to the cilium-agent option, and
+	// is used to provide hints for misconfiguration.
+	EnableNodePort = "enable-node-port"
 
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
@@ -285,6 +290,11 @@ type OperatorConfig struct {
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
 
+	// KubeProxyReplacement or NodePort are required to implement cluster
+	// Ingress (or equivalent Gateway API functionality)
+	KubeProxyReplacement string
+	EnableNodePort       bool
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -302,11 +312,6 @@ type OperatorConfig struct {
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for accessing cloud provider APIs .
 	ParallelAllocWorkers int64
 
-	// AWSInstanceLimitMapping allows overwriting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AWSInstanceLimitMapping map[string]string
-
 	// AWSReleaseExcessIps allows releasing excess free IP addresses from ENI.
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
@@ -319,10 +324,6 @@ type OperatorConfig struct {
 	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
 	// node
 	AWSUsePrimaryAddress bool
-
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
-	// instancetype to adapter limit mapping.
-	UpdateEC2AdapterLimitViaAPI bool
 
 	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
 	// Defaults to 180 secs
@@ -363,6 +364,9 @@ type OperatorConfig struct {
 
 	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
 	ProxyIdleTimeoutSeconds int
+
+	// ProxyStreamIdleTimeoutSeconds is the stream idle timeout for the proxy to upstream cluster
+	ProxyStreamIdleTimeoutSeconds int
 
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
@@ -411,6 +415,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	if c.ProxyIdleTimeoutSeconds == 0 {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
 	}
+	c.ProxyStreamIdleTimeoutSeconds = vp.GetInt(ProxyStreamIdleTimeoutSeconds)
+	if c.ProxyStreamIdleTimeoutSeconds == 0 {
+		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
+	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
@@ -434,12 +442,15 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
 
+	// Gateways and Ingress
+	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
+	c.EnableNodePort = vp.GetBool(EnableNodePort)
+
 	// AWS options
 
 	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
 	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
 	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
-	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
@@ -474,12 +485,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		c.IPAMInstanceTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(vp, AWSInstanceLimitMapping); err != nil {
-		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
-	} else {
-		c.AWSInstanceLimitMapping = m
-	}
-
 	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
 		log.Fatalf("unable to parse %s: %s", ENITags, err)
 	} else {
@@ -505,7 +510,6 @@ var Config = &OperatorConfig{
 	IPAMSubnetsTags:                make(map[string]string),
 	IPAMInstanceTags:               make(map[string]string),
 	IPAMAutoCreateCiliumPodIPPools: make(map[string]string),
-	AWSInstanceLimitMapping:        make(map[string]string),
 	ENITags:                        make(map[string]string),
 	ENIGarbageCollectionTags:       make(map[string]string),
 }

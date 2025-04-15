@@ -123,7 +123,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	if (ret)
 		return ret;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -209,7 +209,7 @@ int test2_setup(struct __ctx_buff *ctx)
 	if (ret)
 		return ret;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 0, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 0, 1);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);

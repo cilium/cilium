@@ -47,6 +47,7 @@ type UpsertServiceParams struct {
 	ForwardingMode            loadbalancer.SVCForwardingMode
 	NatPolicy                 loadbalancer.SVCNatPolicy
 	SourceRangesPolicy        loadbalancer.SVCSourceRangesPolicy
+	ProxyDelegation           loadbalancer.SVCProxyDelegation
 	ExtLocal                  bool
 	IntLocal                  bool
 	Scope                     uint8

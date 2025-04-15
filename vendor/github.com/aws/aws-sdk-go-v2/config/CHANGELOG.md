@@ -1,3 +1,54 @@
+# v1.29.13 (2025-04-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.12 (2025-03-27)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.11 (2025-03-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.10 (2025-03-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.9 (2025-03-04.2)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.8 (2025-02-27)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.7 (2025-02-18)
+
+* **Bug Fix**: Bump go version to 1.22
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.6 (2025-02-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.5 (2025-02-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.4 (2025-01-31)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.3 (2025-01-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.2 (2025-01-24)
+
+* **Bug Fix**: Fix env config naming and usage of deprecated ioutil
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.22.2.
+
 # v1.29.1 (2025-01-17)
 
 * **Dependency Update**: Updated to the latest SDK module versions

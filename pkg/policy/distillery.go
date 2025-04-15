@@ -58,7 +58,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
-		cip.getPolicy().Detach()
+		cip.getPolicy().detach(true, 0)
 	}
 	return ok
 }
@@ -66,11 +66,15 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 // updateSelectorPolicy resolves the policy for the security identity of the
 // specified endpoint and stores it internally. It will skip policy resolution
 // if the cached policy is already at the revision specified in the repo.
+// The endpointID specifies which endpoint initiated this selector policy
+// update. This ensures that endpoints are not continuously triggering regenerations
+// of themselves if the selector policy is created and initiates a regeneration trigger
+// on detach.
 //
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity) (*selectorPolicy, bool, error) {
+func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
 	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint
@@ -96,7 +100,7 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 		return nil, false, err
 	}
 
-	cip.setPolicy(selPolicy)
+	cip.setPolicy(selPolicy, endpointID)
 
 	return selPolicy, true, nil
 }
@@ -173,11 +177,14 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 }
 
 // setPolicy updates the reference to the SelectorPolicy that is cached.
-// Calls Detach() on the old policy, if any.
-func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
+// Calls Detach() on the old policy, if any. It passes the endpointID of
+// the endpoint that initiated the old selector policy detach. Since detach
+// can trigger endpoint regenerations of all it users, this ensures
+// that endpoints do not continuously update themselves.
+func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) {
 	oldPolicy := cip.policy.Swap(policy)
 	if oldPolicy != nil {
 		// Release the references the previous policy holds on the selector cache.
-		oldPolicy.Detach()
+		oldPolicy.detach(false, endpointID)
 	}
 }

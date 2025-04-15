@@ -12,6 +12,7 @@ import (
 	"github.com/blang/semver/v4"
 	v1 "k8s.io/api/core/v1"
 
+	ciliumdef "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -24,16 +25,17 @@ const (
 	PortRanges         Feature = "port-ranges"
 	L7PortRanges       Feature = "l7-port-ranges"
 	Tunnel             Feature = "tunnel"
+	TunnelPort         Feature = "tunnel-port"
 	EndpointRoutes     Feature = "endpoint-routes"
 
-	KPRMode                Feature = "kpr-mode"
-	KPRExternalIPs         Feature = "kpr-external-ips"
-	KPRGracefulTermination Feature = "kpr-graceful-termination"
-	KPRHostPort            Feature = "kpr-hostport"
-	KPRSocketLB            Feature = "kpr-socket-lb"
-	KPRSocketLBHostnsOnly  Feature = "kpr-socket-lb-hostns-only"
-	KPRNodePort            Feature = "kpr-nodeport"
-	KPRSessionAffinity     Feature = "kpr-session-affinity"
+	KPRMode                 Feature = "kpr-mode"
+	KPRExternalIPs          Feature = "kpr-external-ips"
+	KPRHostPort             Feature = "kpr-hostport"
+	KPRSocketLB             Feature = "kpr-socket-lb"
+	KPRSocketLBHostnsOnly   Feature = "kpr-socket-lb-hostns-only"
+	KPRNodePort             Feature = "kpr-nodeport"
+	KPRNodePortAcceleration Feature = "kpr-nodeport-acceleration"
+	KPRSessionAffinity      Feature = "kpr-session-affinity"
 
 	BPFLBExternalClusterIP Feature = "bpf-lb-external-clusterip"
 
@@ -52,23 +54,41 @@ const (
 
 	Flavor Feature = "flavor"
 
-	// PolicySecretBackendK8s sets if Policy supports saving secrets in
-	// Kubernetes (instead of reading from local disk).
-	// It's enabled by setting tls.secretsBackend to "k8s" in
-	// Helm.
-	// This can have two possible effects, depending on if
-	// policy secret synchronization is enabled using tls.SecretSync.enabled
-	// in Helm:
-	// * If SecretSync is not enabled, then the agent will be granted read access
-	//   to _all_ Secrets in the cluster. Not desirable, included for backwards
-	//   compatibility.
-	// * If SecretSync is enabled, then the `enable-policy-secrets-sync` agent
-	//   param will be set in the configmap.
+	// The following settings control Policy Secrets tests.
 	//
-	// So, there are _two_ places where this feature will be set, either in the
-	// ClusterRole detection or the Configmap detection.
-	PolicySecretBackendK8s Feature = "secret-backend-k8s"
-	PolicySecretSync       Feature = "enable-policy-secrets-sync"
+	// Cilium can be in three states for Policy Secrets:
+	//
+	// * Policy Secrets can be read by the agent from anywhere in the cluster (via either
+	//   direct read or from the configured secret namespace via secret
+	//   synchonrization by the Cilium Operator).
+	// * Policy Secrets can be read by the agent, but only from the configured Secrets
+	//   namespace. This is an advanced use case, and is included for migration purposes.
+	// * Policy Secrets cannot be read.
+
+	// PolicySecretsOnlyFromSecretsNamespace sets if Cilium  will look only
+	// in the configured secrets namespace for Policy Secrets, or if it will look
+	// in the entire cluster.
+	//
+	// If it's `true`, then Cilium will only read Secrets from the configured namespace.
+	//
+	// If it's `false`, then the Cilium agent will be granted Read access to _all_ Secrets
+	// in the cluster.
+	//
+	// This feature replaces the existing `tls.secretsBackend: k8s` one. SecretsBackend
+	// will be removed in a future release.
+	//
+	// This feature has Helm automation to mirror the setting of secretsBackend in the meantime.
+	PolicySecretsOnlyFromSecretsNamespace Feature = "policy-secrets-only-from-secrets-namespace"
+
+	// PolicySecretSync controls whether the Cilium Operator will synchronize Secrets referenced
+	// in Network Policy into the configured Secrets namespace.
+	//
+	// This has important interactions with
+	PolicySecretSync Feature = "enable-policy-secrets-sync"
+	// For connectivity tests, we only care if Secrets can be read from the cluster
+	// _somehow_, whether that is via direct read or secret sync is not important.
+	// So, this feature tracks if we can read Policy secrets _somehow_.
+	PolicySecretsReadable Feature = "policy-secrets-readable"
 
 	CNP  Feature = "cilium-network-policy"
 	CCNP Feature = "cilium-clusterwide-network-policy"
@@ -239,7 +259,7 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 // ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
 // ConfigMap.
 func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
-	fs[Tunnel] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
+	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
 	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
 	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
@@ -258,7 +278,21 @@ func ExtractL7PortRanges(ciliumVersion semver.Version) Status {
 	}
 }
 
-func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) Status {
+func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) (Status, Status) {
+	getTunnelPortFeature := func(tunnelProtocol string) Status {
+		tunnelPort, ok := cm.Data["tunnel-port"]
+		switch {
+		case !ok && tunnelProtocol == "vxlan":
+			tunnelPort = fmt.Sprintf("%d", ciliumdef.TunnelPortVXLAN)
+		case !ok && tunnelProtocol == "geneve":
+			tunnelPort = fmt.Sprintf("%d", ciliumdef.TunnelPortGeneve)
+		}
+		return Status{
+			Enabled: ok,
+			Mode:    tunnelPort,
+		}
+	}
+
 	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
 		enabled, proto := true, "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
@@ -269,7 +303,7 @@ func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm
 		return Status{
 			Enabled: enabled,
 			Mode:    proto,
-		}
+		}, getTunnelPortFeature(proto)
 	}
 
 	mode := "tunnel"
@@ -285,7 +319,7 @@ func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm
 	return Status{
 		Enabled: mode != "native",
 		Mode:    tunnelProto,
-	}
+	}, getTunnelPortFeature(tunnelProto)
 }
 
 // ExtractFromConfigMap extracts features from the Cilium ConfigMap.
@@ -377,10 +411,14 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	// This could be enabled via ClusterRole check as well, so only
 	// check if it's false.
-	if !fs[PolicySecretBackendK8s].Enabled {
-		fs[PolicySecretBackendK8s] = Status{
+	if !fs[PolicySecretsOnlyFromSecretsNamespace].Enabled {
+		fs[PolicySecretsOnlyFromSecretsNamespace] = Status{
 			Enabled: cm.Data[string(PolicySecretSync)] == "true",
 		}
+	}
+
+	fs[PolicySecretSync] = Status{
+		Enabled: cm.Data[string(PolicySecretSync)] == "true",
 	}
 }
 

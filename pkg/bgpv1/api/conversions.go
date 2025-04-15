@@ -377,8 +377,19 @@ func ToAPIRoutePolicyStatement(s *types.RoutePolicyStatement) *models.BgpRoutePo
 		AddCommunities:      s.Actions.AddCommunities,
 		AddLargeCommunities: s.Actions.AddLargeCommunities,
 		SetLocalPreference:  localPref,
+		Nexthop:             toApiRoutePolicyActionNextHop(s.Actions.NextHop),
 	}
 	return ret
+}
+
+func toApiRoutePolicyActionNextHop(a *types.RoutePolicyActionNextHop) *models.BgpRoutePolicyNexthopAction {
+	if a == nil {
+		return nil
+	}
+	return &models.BgpRoutePolicyNexthopAction{
+		Self:      a.Self,
+		Unchanged: a.Unchanged,
+	}
 }
 
 func ToAgentRoutePolicyStatement(s *models.BgpRoutePolicyStatement) (*types.RoutePolicyStatement, error) {
@@ -405,9 +416,20 @@ func ToAgentRoutePolicyStatement(s *models.BgpRoutePolicyStatement) (*types.Rout
 			AddCommunities:      s.AddCommunities,
 			AddLargeCommunities: s.AddLargeCommunities,
 			SetLocalPreference:  localPref,
+			NextHop:             toAgentRoutePolicyActionNextHop(s.Nexthop),
 		},
 	}
 	return ret, nil
+}
+
+func toAgentRoutePolicyActionNextHop(a *models.BgpRoutePolicyNexthopAction) *types.RoutePolicyActionNextHop {
+	if a == nil {
+		return nil
+	}
+	return &types.RoutePolicyActionNextHop{
+		Self:      a.Self,
+		Unchanged: a.Unchanged,
+	}
 }
 
 func ToApiMatchPrefixes(prefixes []*types.RoutePolicyPrefixMatch) []*models.BgpRoutePolicyPrefixMatch {

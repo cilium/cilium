@@ -162,7 +162,7 @@ func newStats(params params) (*Stats, error) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+			ctx, cancel := context.WithTimeout(hc, time.Second*120)
 			defer cancel()
 			nmap4, err := params.NatMap4.Await(ctx)
 			if err != nil {
@@ -192,7 +192,7 @@ func newStats(params params) (*Stats, error) {
 				<-time.After(5 * time.Second)
 				tr.Trigger()
 			}()
-			return params.Jobs.Start(hc)
+			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
 			m.complete4(nil)
@@ -333,7 +333,7 @@ func (t *topk) Push(key SNATTupleAccessor, count int) {
 }
 
 func (t *topk) popForEach(fn func(key SNATTupleAccessor, count, ith int)) {
-	for i := 0; i < t.size; i++ {
+	for i := range t.size {
 		tuple := heap.Pop(t.mq).(tupleBucket)
 		fn(tuple.key, tuple.count, t.size-i)
 	}

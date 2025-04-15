@@ -76,16 +76,6 @@ spec:
                   - client auth
                   validity: {{ $certValidityStr }}
                 {{- end }}
-                {{- if .Values.externalWorkloads.enabled }}
-                - name: clustermesh-apiserver-client-cert
-                  namespace: {{ include "cilium.namespace" . }}
-                  commonName: "externalworkload"
-                  usage:
-                  - signing
-                  - key encipherment
-                  - client auth
-                  validity: {{ $certValidityStr }}
-                {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}

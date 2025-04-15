@@ -6,18 +6,30 @@ package exportercell
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type config struct {
+var Cell = cell.Module(
+	"hubble-exporters",
+	"Exports hubble events to remote destination",
+
+	cell.Provide(NewValidatedConfig),
+	cell.Provide(newHubbleStaticExporter),
+	cell.Provide(newHubbleDynamicExporter),
+	cell.Config(DefaultConfig),
+)
+
+type Config struct {
 	// FlowlogsConfigFilePath specifies the filepath with configuration of
 	// hubble flowlogs. e.g. "/etc/cilium/flowlog.yaml".
 	FlowlogsConfigFilePath string `mapstructure:"hubble-flowlogs-config-path"`
@@ -32,36 +44,36 @@ type config struct {
 	// ExportFileCompress specifies whether rotated files are compressed.
 	ExportFileCompress bool `mapstructure:"hubble-export-file-compress"`
 	// ExportAllowlist specifies allow list filter use by exporter.
-	ExportAllowlist []*flowpb.FlowFilter `mapstructure:"hubble-export-allowlist"`
+	ExportAllowlist string `mapstructure:"hubble-export-allowlist"`
 	// ExportDenylist specifies deny list filter use by exporter.
-	ExportDenylist []*flowpb.FlowFilter `mapstructure:"hubble-export-denylist"`
+	ExportDenylist string `mapstructure:"hubble-export-denylist"`
 	// ExportFieldmask specifies list of fields to log in exporter.
 	ExportFieldmask []string `mapstructure:"hubble-export-fieldmask"`
 }
 
-var DefaultConfig = config{
+var DefaultConfig = Config{
 	FlowlogsConfigFilePath: "",
 	ExportFilePath:         "",
 	ExportFileMaxSizeMB:    exporter.DefaultFileMaxSizeMB,
 	ExportFileMaxBackups:   exporter.DefaultFileMaxBackups,
 	ExportFileCompress:     false,
-	ExportAllowlist:        []*flowpb.FlowFilter{},
-	ExportDenylist:         []*flowpb.FlowFilter{},
+	ExportAllowlist:        "",
+	ExportDenylist:         "",
 	ExportFieldmask:        []string{},
 }
 
-func (def config) Flags(flags *pflag.FlagSet) {
+func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String("hubble-flowlogs-config-path", def.FlowlogsConfigFilePath, "Filepath with configuration of hubble flowlogs")
 	flags.String("hubble-export-file-path", def.ExportFilePath, "Filepath to write Hubble events to. By specifying `stdout` the flows are logged instead of written to a rotated file.")
 	flags.Int("hubble-export-file-max-size-mb", def.ExportFileMaxSizeMB, "Size in MB at which to rotate Hubble export file.")
 	flags.Int("hubble-export-file-max-backups", def.ExportFileMaxBackups, "Number of rotated Hubble export files to keep.")
 	flags.Bool("hubble-export-file-compress", def.ExportFileCompress, "Compress rotated Hubble export files.")
-	flags.StringSlice("hubble-export-allowlist", []string{}, "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
-	flags.StringSlice("hubble-export-denylist", []string{}, "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
+	flags.String("hubble-export-allowlist", "", "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
+	flags.String("hubble-export-denylist", "", "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
 	flags.StringSlice("hubble-export-fieldmask", def.ExportFieldmask, "Specify list of fields to use for field mask in Hubble exporter.")
 }
 
-func (cfg config) validate() error {
+func (cfg Config) Validate() error {
 	if fm := cfg.ExportFieldmask; len(fm) > 0 {
 		_, err := fieldmaskpb.New(&flowpb.Flow{}, fm...)
 		if err != nil {
@@ -74,78 +86,104 @@ func (cfg config) validate() error {
 type hubbleExportersParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
-	Config    validatedConfig
-
-	// TODO: replace by slog
-	Logger logrus.FieldLogger
+	Config    ValidatedConfig
 }
 
 type hubbleExportersOut struct {
 	cell.Out
 
-	Exporters []exporter.FlowLogExporter `group:"hubble-flow-log-exporters,flatten"`
+	ExporterBuilders []*FlowLogExporterBuilder `group:"hubble-exporter-builders,flatten"`
 }
 
-// validatedConfig is a config that is known to be valid.
-type validatedConfig config
+// ValidatedConfig is a config that is known to be valid.
+type ValidatedConfig Config
 
-func NewValidatedConfig(cfg config) (validatedConfig, error) {
-	if err := cfg.validate(); err != nil {
-		return validatedConfig{}, fmt.Errorf("hubble-exporter configuration error: %w", err)
+func NewValidatedConfig(cfg Config) (ValidatedConfig, error) {
+	if err := cfg.Validate(); err != nil {
+		return ValidatedConfig{}, fmt.Errorf("hubble-exporter configuration error: %w", err)
 	}
-	return validatedConfig(cfg), nil
+	return ValidatedConfig(cfg), nil
 }
 
-func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
+func newHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
 	if params.Config.ExportFilePath == "" {
-		// exporter is disabled
+		params.Logger.Info("The Hubble static exporter is disabled")
 		return hubbleExportersOut{}, nil
 	}
 
-	exporterOpts := []exporter.Option{
-		exporter.WithAllowList(params.Logger, params.Config.ExportAllowlist),
-		exporter.WithDenyList(params.Logger, params.Config.ExportDenylist),
-		exporter.WithFieldMask(params.Config.ExportFieldmask),
-	}
-	if params.Config.ExportFilePath != "stdout" {
-		exporterOpts = append(exporterOpts, exporter.WithNewWriterFunc(exporter.FileWriter(exporter.FileWriterConfig{
-			Filename:   params.Config.ExportFilePath,
-			MaxSize:    params.Config.ExportFileMaxSizeMB,
-			MaxBackups: params.Config.ExportFileMaxBackups,
-			Compress:   params.Config.ExportFileCompress,
-		})))
-	}
-	staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
-	if err != nil {
-		// non-fatal failure, log and continue
-		params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
-		return hubbleExportersOut{}, nil
-	}
+	builder := &FlowLogExporterBuilder{
+		Name: "static-exporter",
+		Build: func() (exporter.FlowLogExporter, error) {
+			params.Logger.Info("Building the Hubble static exporter", logfields.Config, params.Config)
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hc cell.HookContext) error {
-			return staticExporter.Stop()
+			allowList, err := hubble.ParseFlowFilters(params.Config.ExportAllowlist)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse allowlist: %w", err)
+			}
+			denyList, err := hubble.ParseFlowFilters(params.Config.ExportDenylist)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse denylist: %w", err)
+			}
+
+			exporterOpts := []exporter.Option{
+				exporter.WithAllowList(params.Logger, allowList),
+				exporter.WithDenyList(params.Logger, denyList),
+				exporter.WithFieldMask(params.Config.ExportFieldmask),
+			}
+			if params.Config.ExportFilePath != "stdout" {
+				exporterOpts = append(exporterOpts, exporter.WithNewWriterFunc(exporter.FileWriter(exporter.FileWriterConfig{
+					Filename:   params.Config.ExportFilePath,
+					MaxSize:    params.Config.ExportFileMaxSizeMB,
+					MaxBackups: params.Config.ExportFileMaxBackups,
+					Compress:   params.Config.ExportFileCompress,
+				})))
+			}
+			staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
+			if err != nil {
+				// non-fatal failure, log and continue
+				params.Logger.Error("Failed to configure Hubble static exporter", logfields.Error, err)
+				return nil, nil
+			}
+
+			params.Lifecycle.Append(cell.Hook{
+				OnStop: func(hc cell.HookContext) error {
+					return staticExporter.Stop()
+				},
+			})
+			return staticExporter, nil
 		},
-	})
-	return hubbleExportersOut{Exporters: []exporter.FlowLogExporter{staticExporter}}, nil
+	}
+	return hubbleExportersOut{ExporterBuilders: []*FlowLogExporterBuilder{builder}}, nil
 }
 
-func NewHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
+func newHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
 	if params.Config.FlowlogsConfigFilePath == "" {
-		// exporter is disabled
+		params.Logger.Info("The Hubble dynamic exporter is disabled")
 		return hubbleExportersOut{}, nil
 	}
 
-	dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath)
-	params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
-		return dynamicExporter.Watch(ctx)
-	}))
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hc cell.HookContext) error {
-			return dynamicExporter.Stop()
+	builder := &FlowLogExporterBuilder{
+		Name: "dynamic-exporter",
+		Build: func() (exporter.FlowLogExporter, error) {
+			params.Logger.Info("Building the Hubble dynamic exporter", logfields.Config, params.Config)
+
+			exporterFactory := exporter.NewExporterFactory(params.Logger)
+			exporterConfigParser := exporter.NewExporterConfigParser(params.Logger)
+			dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, exporterFactory, exporterConfigParser)
+			params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
+				return dynamicExporter.Watch(ctx)
+			}))
+			params.Lifecycle.Append(cell.Hook{
+				OnStop: func(hc cell.HookContext) error {
+					return dynamicExporter.Stop()
+				},
+			})
+			return dynamicExporter, nil
 		},
-	})
-	return hubbleExportersOut{Exporters: []exporter.FlowLogExporter{dynamicExporter}}, nil
+	}
+	return hubbleExportersOut{ExporterBuilders: []*FlowLogExporterBuilder{builder}}, nil
 }

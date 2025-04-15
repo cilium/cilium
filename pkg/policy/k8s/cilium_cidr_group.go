@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -57,7 +58,12 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 		for i, c := range cidrGroup.Spec.ExternalCIDRs {
 			pfx, err := netip.ParsePrefix(string(c))
 			if err != nil {
-				p.log.WithField(logfields.CIDRGroupRef, name).WithError(err).Warnf("CIDRGroup has invalid CIDR at index %d", i)
+				p.log.Warn(
+					"CIDRGroup has invalid CIDR",
+					logfields.Error, err,
+					logfields.CIDRGroupRef, name,
+					logfields.Index, i,
+				)
 				continue
 			}
 			newCIDRs.Insert(pfx)
@@ -92,7 +98,7 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 		cidrLbls.AddWorldLabel(newCIDR.Addr())
 
 		mu = append(mu, ipcache.MU{
-			Prefix:   newCIDR,
+			Prefix:   cmtypes.NewLocalPrefixCluster(newCIDR),
 			Source:   source.Generated,
 			Resource: resourceID,
 			Metadata: []ipcache.IPMetadata{cidrLbls},
@@ -106,7 +112,7 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 	mu = make([]ipcache.MU, 0, len(oldCIDRs))
 	for oldCIDR := range oldCIDRs {
 		mu = append(mu, ipcache.MU{
-			Prefix:   oldCIDR,
+			Prefix:   cmtypes.NewLocalPrefixCluster(oldCIDR),
 			Source:   source.Generated,
 			Resource: resourceID,
 			Metadata: []ipcache.IPMetadata{labels.Labels{}},

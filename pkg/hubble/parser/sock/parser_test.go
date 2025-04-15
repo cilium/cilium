@@ -12,7 +12,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -399,7 +399,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 
-	p, err := New(logrus.New(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
+	p, err := New(hivetest.Logger(t), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
 	assert.NoError(t, err)
 
 	for _, tc := range tt {
@@ -418,7 +418,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				assert.ErrorContains(t, err, tc.errMsg)
 			} else {
 				assert.NoError(t, err)
-				require.EqualValues(t, tc.flow, flow)
+				require.Equal(t, tc.flow, flow)
 			}
 		})
 	}

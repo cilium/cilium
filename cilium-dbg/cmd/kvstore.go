@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
+	"maps"
 
 	"github.com/spf13/cobra"
 
@@ -24,7 +26,7 @@ var kvstoreCmd = &cobra.Command{
 	Short: "Direct access to the kvstore",
 }
 
-func setupKvstore(ctx context.Context) {
+func setupKvstore(ctx context.Context, logger *slog.Logger) kvstore.BackendOperations {
 	if kvStore == "" || len(kvStoreOpts) == 0 {
 		resp, err := client.ConfigGet()
 		if err != nil {
@@ -41,15 +43,21 @@ func setupKvstore(ctx context.Context) {
 		}
 
 		if len(kvStoreOpts) == 0 {
-			for k, v := range cfgStatus.KvstoreConfiguration.Options {
-				kvStoreOpts[k] = v
-			}
+			maps.Copy(kvStoreOpts, cfgStatus.KvstoreConfiguration.Options)
 		}
 	}
 
-	if err := kvstore.Setup(ctx, kvStore, kvStoreOpts, nil); err != nil {
-		Fatalf("Unable to setup kvstore: %s", err)
+	client, errch := kvstore.NewClient(ctx, logger, kvStore, kvStoreOpts, nil)
+	select {
+	case <-ctx.Done():
+		Fatalf("Unable to connect to the kvstore")
+	case err, isErr := <-errch:
+		if isErr {
+			Fatalf("Unable to connect to the kvstore: %v", err)
+		}
 	}
+
+	return client
 }
 
 func init() {

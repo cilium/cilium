@@ -375,6 +375,24 @@ type VirtualNetwork struct {
 // VirtualNetworkMap indexes virtual networks by their ID
 type VirtualNetworkMap map[string]*VirtualNetwork
 
+// RouteTable is a representation of a route table but only for the purpose of
+// to check the subnets are in the same route table. It is not a full
+// representation of a route table.
+type RouteTable struct {
+	// ID is the ID of the route table
+	ID string
+
+	// VirtualNetworkID is the virtual network the route table is in
+	VirtualNetworkID string
+
+	// Subnets maps subnet IDs to their presence in this route table
+	// +deepequal-gen=false
+	Subnets map[string]struct{}
+}
+
+// RouteTableMap indexes route tables by their ID
+type RouteTableMap map[string]*RouteTable
+
 // PoolNotExists indicate that no such pool ID exists
 const PoolNotExists = PoolID("")
 
@@ -431,6 +449,17 @@ type InterfaceRevision struct {
 	Fingerprint string
 }
 
+// DeepCopy returns a deep copy
+func (i *InterfaceRevision) DeepCopy() *InterfaceRevision {
+	if i == nil {
+		return nil
+	}
+	return &InterfaceRevision{
+		Resource:    i.Resource.DeepCopyInterface(),
+		Fingerprint: i.Fingerprint,
+	}
+}
+
 // Instance is the representation of an instance, typically a VM, subject to
 // per-node IPAM logic
 //
@@ -440,6 +469,20 @@ type Instance struct {
 	// interfaces is a map of all interfaces attached to the instance
 	// indexed by the interface ID
 	Interfaces map[string]InterfaceRevision
+}
+
+// DeepCopy returns a deep copy
+func (i *Instance) DeepCopy() *Instance {
+	if i == nil {
+		return nil
+	}
+	c := &Instance{
+		Interfaces: map[string]InterfaceRevision{},
+	}
+	for k, v := range i.Interfaces {
+		c.Interfaces[k] = *v.DeepCopy()
+	}
+	return c
 }
 
 // InstanceMap is the list of all instances indexed by instance ID
@@ -490,7 +533,7 @@ func (m *InstanceMap) updateLocked(instanceID string, iface InterfaceRevision) {
 	i.Interfaces[iface.Resource.InterfaceID()] = iface
 }
 
-type Address interface{}
+type Address any
 
 // AddressIterator is the function called by the ForeachAddress iterator
 type AddressIterator func(instanceID, interfaceID, ip, poolID string, address Address) error

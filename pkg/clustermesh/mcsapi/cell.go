@@ -7,20 +7,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var Cell = cell.Module(
@@ -43,7 +44,7 @@ type mcsAPIParams struct {
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	JobGroup job.Group
 }
 
@@ -91,9 +92,15 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		return nil
 	}
 
-	params.Logger.WithField("requiredGVK", requiredGVK).Info("Checking for required MCS-API resources")
+	params.Logger.Info(
+		"Checking for required MCS-API resources",
+		logfields.RequiredGVK, requiredGVK,
+	)
 	if err := checkRequiredCRDs(context.Background(), params.Clientset); err != nil {
-		params.Logger.WithError(err).Error("Required MCS-API resources are not found, please refer to docs for installation instructions")
+		params.Logger.Error(
+			"Required MCS-API resources are not found, please refer to docs for installation instructions",
+			logfields.Error, err,
+		)
 		return err
 	}
 	if err := mcsapiv1alpha1.AddToScheme(params.Scheme); err != nil {

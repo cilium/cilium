@@ -164,9 +164,9 @@ var (
 			traits.SubtractorType,
 	}
 	// ListType represents the runtime list type.
-	ListType = NewListType(nil)
+	ListType = NewListType(DynType)
 	// MapType represents the runtime map type.
-	MapType = NewMapType(nil, nil)
+	MapType = NewMapType(DynType, DynType)
 	// NullType represents the type of a null value.
 	NullType = &Type{
 		kind:            NullTypeKind,
@@ -766,6 +766,19 @@ func ProtoAsType(t *celpb.Type) (*Type, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", t)
 	}
+}
+
+// TypeToProto converts from a CEL-native type representation to canonical CEL celpb.Type protobuf type.
+func TypeToProto(t *Type) (*celpb.Type, error) {
+	exprType, err := TypeToExprType(t)
+	if err != nil {
+		return nil, err
+	}
+	var pbtype celpb.Type
+	if err = convertProto(exprType, &pbtype); err != nil {
+		return nil, err
+	}
+	return &pbtype, nil
 }
 
 func maybeWrapper(t *Type, pbType *exprpb.Type) *exprpb.Type {

@@ -39,19 +39,11 @@ func TestPromiseResolve(t *testing.T) {
 func TestPromiseReject(t *testing.T) {
 	resolver, promise := New[int]()
 
-	rejectError := errors.New("rejected")
-	expectedError := errors.New("finalized error")
+	expectedError := errors.New("rejected")
 
-	ePromise := MapError(promise, func(err error) error {
-		if errors.Is(err, rejectError) {
-			return expectedError
-		}
-		return err
-	})
+	go resolver.Reject(expectedError)
 
-	go resolver.Reject(rejectError)
-
-	i, err := ePromise.Await(context.TODO())
+	i, err := promise.Await(context.TODO())
 	if !errors.Is(err, expectedError) {
 		t.Fatalf("expected %s error, got %s", expectedError, err)
 	}
@@ -63,20 +55,11 @@ func TestPromiseReject(t *testing.T) {
 func TestPromiseCancelled(t *testing.T) {
 	_, promise := New[int]()
 
-	expectedError := errors.New("finalized error")
-
-	ePromise := MapError(promise, func(err error) error {
-		if errors.Is(err, context.Canceled) {
-			return expectedError
-		}
-		return err
-	})
-
 	ctx, cancel := context.WithCancel(context.Background())
 	go cancel()
-	_, err := ePromise.Await(ctx)
+	_, err := promise.Await(ctx)
 
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("expected %s error, got %s", expectedError, err)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected %s error, got %s", context.Canceled, err)
 	}
 }

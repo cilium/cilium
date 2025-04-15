@@ -4,12 +4,15 @@
 package service
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell provides access to the Service Manager.
@@ -29,6 +32,8 @@ var Cell = cell.Module(
 type serviceManagerParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	JG           job.Group
 	LBMap        types.LBMap
 	MonitorAgent monitorAgent.Agent
@@ -36,6 +41,8 @@ type serviceManagerParams struct {
 	HealthCheckers []HealthChecker `group:"healthCheckers"`
 	Clientset      k8sClient.Clientset
 	NodeNeighbors  types.NodeNeighbors
+
+	Config *option.DaemonConfig
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
@@ -46,7 +53,8 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		}
 	}
 
-	svc := newService(params.MonitorAgent, params.LBMap, params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled())
+	svc := newService(params.Logger, params.MonitorAgent, params.LBMap, params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled(),
+		params.Config)
 
 	params.JG.Add(job.OneShot("health-check-event-watcher", svc.handleHealthCheckEvent))
 

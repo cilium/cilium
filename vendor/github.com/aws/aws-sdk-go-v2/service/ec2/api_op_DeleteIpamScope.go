@@ -122,6 +122,9 @@ func (c *Client) addOperationDeleteIpamScopeMiddlewares(stack *middleware.Stack,
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteIpamScopeValidationMiddleware(stack); err != nil {
 		return err
 	}

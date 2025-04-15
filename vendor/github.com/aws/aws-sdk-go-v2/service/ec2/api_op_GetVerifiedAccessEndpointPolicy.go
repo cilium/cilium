@@ -120,6 +120,9 @@ func (c *Client) addOperationGetVerifiedAccessEndpointPolicyMiddlewares(stack *m
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetVerifiedAccessEndpointPolicyValidationMiddleware(stack); err != nil {
 		return err
 	}

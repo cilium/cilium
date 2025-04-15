@@ -14,7 +14,7 @@ cnt = 0
 
 
 @rule@
-identifier f, fn, x, z;
+identifier f, fn, x, z, s1, s2;
 assignment operator op;
 expression e;
 type T0, T;
@@ -38,6 +38,7 @@ position p;
   // Avoid matching any function where x's value is assigned or x is passed to
   // another function.
   ... when != *x op ...
+      when != x[...] op ...
       when != x->z op ...
       when != x->z[...] op ...
       when != &x->z
@@ -46,6 +47,7 @@ position p;
       when != WRITE_ONCE(x->z[...], ...)
       when != f(..., x, ...)
       when != f(..., x->z, ...)
+      when != struct s1 s2 = { ..., .z = x, ... };
   }
 )
 

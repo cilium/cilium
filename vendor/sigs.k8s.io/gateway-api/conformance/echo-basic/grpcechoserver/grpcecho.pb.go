@@ -177,11 +177,11 @@ type TLSAssertions struct {
 
 	// The TLS version used by the connection, e.g. "TLSv1.3"
 	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	// The negotatiated protocol.
+	// The negotiated protocol.
 	NegotiatedProtocol string `protobuf:"bytes,2,opt,name=negotiated_protocol,json=negotiatedProtocol,proto3" json:"negotiated_protocol,omitempty"`
 	// The server name indication extension sent by the client.
 	ServerName string `protobuf:"bytes,3,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
-	// The cipher suite negotatiated for the connection, e.g. "TLS_EDCHE_ECDSA_WITH_AES_128_GCM_SHA256"
+	// The cipher suite negotiated for the connection, e.g. "TLS_EDCHE_ECDSA_WITH_AES_128_GCM_SHA256"
 	CipherSuite string `protobuf:"bytes,4,opt,name=cipher_suite,json=cipherSuite,proto3" json:"cipher_suite,omitempty"`
 	// The parsed certificates sent by the peer, in the order in which they were sent.
 	PeerCertificates []string `protobuf:"bytes,5,rep,name=peer_certificates,json=peerCertificates,proto3" json:"peer_certificates,omitempty"`

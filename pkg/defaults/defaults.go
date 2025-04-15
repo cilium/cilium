@@ -313,10 +313,6 @@ const (
 	// a kvstore path for too long.
 	KVStoreStaleLockTimeout = 30 * time.Second
 
-	// KVstorePodNetworkSupport represents whether to enable the support for
-	// running the Cilium KVstore in pod network.
-	KVstorePodNetworkSupport = false
-
 	// KVstoreQPS is default rate limit for kv store operations
 	KVstoreQPS = 20
 
@@ -330,10 +326,6 @@ const (
 	// AllocatorListTimeout specifies the standard time to allow for listing
 	// initial allocator state from kvstore before exiting.
 	AllocatorListTimeout = 3 * time.Minute
-
-	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
-	// should watch for.
-	K8sWatcherEndpointSelector = "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager"
 
 	// ConntrackGCMaxLRUInterval is the maximum conntrack GC interval when using LRU maps
 	ConntrackGCMaxLRUInterval = 12 * time.Hour
@@ -418,6 +410,9 @@ const (
 	// per GC interval
 	ENIGarbageCollectionMaxPerInterval = 25
 
+	// ENIMaxResultsPerApiCall is the maximum number of ENI objects to fetch per DescribeNetworkInterfaces API call
+	ENIMaxResultsPerApiCall = 1000
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
@@ -468,6 +463,10 @@ const (
 	// L4-based lookups
 	EnableIPv4FragmentsTracking = true
 
+	// EnableIPv6FragmentsTracking enables IPv6 fragments tracking for
+	// L4-based lookups
+	EnableIPv6FragmentsTracking = true
+
 	// FragmentsMapEntries is the default number of entries allowed in an
 	// the map used to track datagram fragments.
 	FragmentsMapEntries = 8192
@@ -507,6 +506,13 @@ const (
 
 	// TunnelProtocol is the default tunneling protocol
 	TunnelProtocol = "vxlan"
+
+	// TunnelSourcePortRange specifies the default tunnel source port range. Both
+	// zero means that we rely on the kernel driver defaults.
+	TunnelSourcePortRange = "0-0"
+
+	// UnderlayProtocol is the default IP family for the underlay.
+	UnderlayProtocol = "ipv4"
 
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"
@@ -549,6 +555,9 @@ const (
 	// EnableNodeSelectorLabels is the default value for option.EnableNodeSelectorLabels
 	EnableNodeSelectorLabels = false
 
+	// BPFDistributedLRU enables per-CPU distributed backend memory
+	BPFDistributedLRU = false
+
 	// BPFEventsDropEnabled controls whether the Cilium datapath exposes "drop" events to Cilium monitor and Hubble.
 	BPFEventsDropEnabled = true
 
@@ -581,6 +590,9 @@ const (
 
 	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
 	WireguardTrackAllIPsFallback = false
+
+	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
+	ConnectivityProbeFrequencyRatio = 0.5
 )
 
 var (

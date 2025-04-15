@@ -13,6 +13,9 @@ inputs:
   endpoint-routes:
     description: 'Enable endpoint routes'
     default: 'false'
+  ipv4:
+    description: 'Enable IPv4'
+    default: 'true'
   ipv6:
     description: 'Enable IPv6'
     default: 'true'
@@ -79,8 +82,8 @@ runs:
             --chart-directory=${{ inputs.chart-dir }} \
             --helm-set=debug.enabled=true \
             --helm-set=debug.verbose=envoy \
+            --helm-set=debug.metricsSamplingInterval=30s \
             --helm-set=hubble.eventBufferCapacity=65535 \
-            --helm-set=bpf.monitorAggregation=none \
             --helm-set=cluster.name=default \
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
@@ -124,6 +127,11 @@ runs:
           ENDPOINT_ROUTES=""
           if [ "${{ inputs.endpoint-routes }}" == "true" ]; then
             ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
+          fi
+
+          IPV4=""
+          if [ "${{ inputs.ipv4 }}" == "false" ]; then
+            IPV4="--helm-set=ipv4.enabled=false"
           fi
 
           IPV6=""
@@ -188,5 +196,5 @@ runs:
             BGP_CONTROL_PLANE="${{ env.BGP_CONTROL_PLANE_HELM_VALUES }}"
           fi
 
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV4} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT

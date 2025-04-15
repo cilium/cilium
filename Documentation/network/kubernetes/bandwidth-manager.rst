@@ -31,21 +31,12 @@ based on TBF (Token Bucket Filter) instead of EDT.
    (see `this comparison <https://github.com/cilium/cilium/issues/29083#issuecomment-1831867718>`_
    for more details).
 
-Cilium's bandwidth manager supports the ``kubernetes.io/egress-bandwidth`` Pod
-annotation which is enforced on egress at the native host networking devices.
+Cilium's bandwidth manager supports both ``kubernetes.io/egress-bandwidth`` and
+``kubernetes.io/ingress-bandwidth`` Pod annotations. The ``egress-bandwidth`` is enforced on egress at
+the native host networking devices using EDT (Earliest Departure Time), while the ``ingress-bandwidth``
+is enforced using an eBPF-based token bucket implementation.
 The bandwidth enforcement is supported for direct routing as well as tunneling
 mode in Cilium.
-
-The ``kubernetes.io/ingress-bandwidth`` annotation is not supported and also not
-recommended to use. Limiting bandwidth happens natively at the egress point of
-networking devices in order to reduce or pace bandwidth usage on the wire.
-Enforcing at ingress would add yet another layer of buffer queueing right in the
-critical fast-path of a node via ``ifb`` device where ingress traffic first needs
-to be redirected to the ``ifb``'s egress point in order to perform shaping before
-traffic can go up the stack. At this point traffic has already occupied the
-bandwidth usage on the wire, and the node has already spent resources on
-processing the packet. ``kubernetes.io/ingress-bandwidth`` annotation is ignored
-by Cilium's bandwidth manager.
 
 .. include:: ../../installation/k8s-install-download-release.rst
 
@@ -94,8 +85,8 @@ is enforced:
     $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep BandwidthManager
     BandwidthManager:       EDT with BPF [BBR] [eth0]
 
-To verify that egress bandwidth limits are indeed being enforced, one can deploy two
-``netperf`` Pods in different nodes — one acting as a server and one acting as the client:
+To verify that bandwidth limits are indeed being enforced, one can deploy two
+``netperf`` Pods in different nodes:
 
 .. code-block:: yaml
 
@@ -104,8 +95,9 @@ To verify that egress bandwidth limits are indeed being enforced, one can deploy
     kind: Pod
     metadata:
       annotations:
-        # Limits egress bandwidth to 10Mbit/s.
+        # Limits egress bandwidth to 10Mbit/s and ingress bandwidth to 20Mbit/s.
         kubernetes.io/egress-bandwidth: "10M"
+        kubernetes.io/ingress-bandwidth: "20M"
       labels:
         # This pod will act as server.
         app.kubernetes.io/name: netperf-server
@@ -114,8 +106,11 @@ To verify that egress bandwidth limits are indeed being enforced, one can deploy
       containers:
       - name: netperf
         image: cilium/netperf
+        args:
+        - iperf3
+        - "-s"
         ports:
-        - containerPort: 12865
+        - containerPort: 5201
     ---
     apiVersion: v1
     kind: Pod
@@ -142,24 +137,61 @@ To verify that egress bandwidth limits are indeed being enforced, one can deploy
         - infinity
         image: cilium/netperf
 
-Once up and running, the ``netperf-client`` Pod can be used to test egress bandwidth enforcement
-on the ``netperf-server`` Pod. As the test streaming direction is from the ``netperf-server`` Pod
-towards the client, we need to check ``TCP_MAERTS``:
+Once up and running, the ``netperf-client`` Pod can be used to test bandwidth enforcement
+on the ``netperf-server`` Pod.
+First test the egress bandwidth:
 
 .. code-block:: shell-session
 
-  $ NETPERF_SERVER_IP=$(kubectl get pod netperf-server -o jsonpath='{.status.podIP}')
-  $ kubectl exec netperf-client -- \
-      netperf -t TCP_MAERTS -H "${NETPERF_SERVER_IP}"
-  MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.217.0.254 () port 0 AF_INET
-  Recv   Send    Send
-  Socket Socket  Message  Elapsed
-  Size   Size    Size     Time     Throughput
-  bytes  bytes   bytes    secs.    10^6bits/sec
-
-   87380  16384  16384    10.00       9.56
+   $ NETPERF_SERVER_IP=$(kubectl get pod netperf-server -o jsonpath='{.status.podIP}')
+   $ kubectl exec netperf-client -- \
+      iperf3 -R -c "${NETPERF_SERVER_IP}"
+      Connecting to host 10.42.0.52, port 5201
+      Reverse mode, remote host 10.42.0.52 is sending
+      [  5] local 10.42.1.23 port 49422 connected to 10.42.0.52 port 5201
+      [ ID] Interval           Transfer     Bitrate
+      [  5]   0.00-1.00   sec  1.19 MBytes  9.99 Mbits/sec
+      [  5]   1.00-2.00   sec  1.17 MBytes  9.77 Mbits/sec
+      [  5]   2.00-3.00   sec  1.10 MBytes  9.26 Mbits/sec
+      [  5]   3.00-4.00   sec  1.17 MBytes  9.77 Mbits/sec
+      [  5]   4.00-5.00   sec  1.17 MBytes  9.77 Mbits/sec
+      [  5]   5.00-6.00   sec  1.10 MBytes  9.26 Mbits/sec
+      [  5]   6.00-7.00   sec  1.17 MBytes  9.77 Mbits/sec
+      [  5]   7.00-8.00   sec  1.10 MBytes  9.26 Mbits/sec
+      [  5]   8.00-9.00   sec  1.17 MBytes  9.77 Mbits/sec
+      [  5]   9.00-10.00  sec  1.10 MBytes  9.26 Mbits/sec
+      - - - - - - - - - - - - - - - - - - - - - - - - -
+      [ ID] Interval           Transfer     Bitrate         Retr
+      [  5]   0.00-10.09  sec  14.1 MBytes  11.7 Mbits/sec    0             sender
+      [  5]   0.00-10.00  sec  11.4 MBytes  9.59 Mbits/sec                  receiver
 
 As can be seen, egress traffic of the ``netperf-server`` Pod has been limited to 10Mbit per second.
+Then test the ingress bandwidth.
+
+.. code-block:: shell-session
+
+   $ NETPERF_SERVER_IP=$(kubectl get pod netperf-server -o jsonpath='{.status.podIP}')
+   $ kubectl exec netperf-client -- \
+      iperf3 -c "${NETPERF_SERVER_IP}"
+      Connecting to host 10.42.0.52, port 5201
+      [  5] local 10.42.1.23 port 40058 connected to 10.42.0.52 port 5201
+      [ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+      [  5]   0.00-1.00   sec  6.73 MBytes  56.4 Mbits/sec  551   25.9 KBytes
+      [  5]   1.00-2.00   sec  3.56 MBytes  29.9 Mbits/sec  159   8.19 KBytes
+      [  5]   2.00-3.00   sec  2.45 MBytes  20.6 Mbits/sec  191   2.73 KBytes
+      [  5]   3.00-4.00   sec  1.17 MBytes  9.77 Mbits/sec  170   34.1 KBytes
+      [  5]   4.00-5.00   sec  2.39 MBytes  20.1 Mbits/sec  224   8.19 KBytes
+      [  5]   5.00-6.00   sec  2.45 MBytes  20.6 Mbits/sec  274   6.83 KBytes
+      [  5]   6.00-7.00   sec  2.39 MBytes  20.1 Mbits/sec  170   2.73 KBytes
+      [  5]   7.00-8.00   sec  2.45 MBytes  20.6 Mbits/sec  262   5.46 KBytes
+      [  5]   8.00-9.00   sec  2.45 MBytes  20.6 Mbits/sec  260   5.46 KBytes
+      [  5]   9.00-10.00  sec  2.42 MBytes  20.3 Mbits/sec  210   32.8 KBytes
+      - - - - - - - - - - - - - - - - - - - - - - - - -
+      [ ID] Interval           Transfer     Bitrate         Retr
+      [  5]   0.00-10.00  sec  28.5 MBytes  23.9 Mbits/sec  2471             sender
+      [  5]   0.00-10.04  sec  25.6 MBytes  21.4 Mbits/sec                  receiver
+
+As can be seen, ingress traffic of the ``netperf-server`` Pod has been limited to 20Mbit per second.
 
 In order to introspect current endpoint bandwidth settings from BPF side, the following
 command can be run (replace ``cilium-xxxxx`` with the name of the Cilium Pod that is co-located with
@@ -168,8 +200,9 @@ the ``netperf-server`` Pod):
 .. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system cilium-xxxxxx -- cilium-dbg bpf bandwidth list
-    IDENTITY   EGRESS BANDWIDTH (BitsPerSec)
-    491        10M
+    IDENTITY   DIRECTION   PRIO   BANDWIDTH (BitsPerSec)
+    724        Egress      0      10M
+    724        Ingress     0      50M
 
 Each Pod is represented in Cilium as an :ref:`endpoint` which has an identity. The above
 identity can then be correlated with the ``cilium-dbg endpoint list`` command.

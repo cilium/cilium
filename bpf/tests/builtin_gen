@@ -2,13 +2,21 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright Authors of Cilium
 
-for i in 8 16 32 64
-do
-	echo -e "\ttest___builtin_$1_single($i, 1);"
-	((j = 2 * i))
-	while [[ $j -le $2 ]]
-	do
-		echo -e "\ttest___builtin_$1_single($i, $((j / i)));"
-		((j = j + 2 * i))
-	done
-done
+case "$1" in
+	memmove2|memmove3|memmove4|memmove5)
+		# __bpf_memmove_fwd doesn't support odd length.
+		#
+		# Even though memmove3 uses __bpf_memmove_bwd, the compiler can't prove
+		# that, and it checks the odd length with both fwd and bwd versions,
+		# failing to compile the former, so memmove3 is also excluded.
+		echo -e "\ttest___builtin_$1_single(1);"
+		for (( j = 2; j <= "$2"; j += 2 )); do
+			echo -e "\ttest___builtin_$1_single($j);"
+		done
+		;;
+	*)
+		for (( j = 1; j <= "$2"; j += 1 )); do
+			echo -e "\ttest___builtin_$1_single($j);"
+		done
+		;;
+esac

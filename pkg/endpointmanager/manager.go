@@ -21,15 +21,15 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -68,6 +68,10 @@ type endpointManager struct {
 	// up-to-date information about endpoints managed by the endpoint manager.
 	EndpointResourceSynchronizer
 
+	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
+	// information about endpoints.
+	kvstoreSyncher *ipcache.IPIdentitySynchronizer
+
 	// subscribers are notified when events occur in the endpointManager.
 	subscribers map[Subscriber]struct{}
 
@@ -90,12 +94,14 @@ type endpointManager struct {
 
 	policyMapPressure *policyMapPressure
 
-	// locaNodeStore allows to retrieve information and observe changes about
+	// localNodeStore allows to retrieve information and observe changes about
 	// the local node.
 	localNodeStore *node.LocalNodeStore
 
 	// Allocator for local endpoint identifiers.
 	epIDAllocator *epIDAllocator
+
+	monitorAgent monitoragent.Agent
 }
 
 // endpointDeleteFunc is used to abstract away concrete Endpoint Delete
@@ -103,17 +109,19 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, ks *ipcache.IPIdentitySynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent) *endpointManager {
 	mgr := endpointManager{
 		health:                       health,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
+		kvstoreSyncher:               ks,
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),
 		localNodeStore:               lns,
 		epIDAllocator:                newEPIDAllocator(),
+		monitorAgent:                 monitorAgent,
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 	mgr.policyMapPressure = newPolicyMapPressure()
@@ -448,10 +456,14 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 }
 
 // removeEndpoint stops the active handling of events by the specified endpoint,
-// and prevents the endpoint from being globally acccessible via other packages.
+// and prevents the endpoint from being globally accessible via other packages.
 func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	mgr.unexpose(ep)
 	result := ep.Delete(conf)
+
+	if !option.Config.DryMode {
+		_ = mgr.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
+	}
 
 	mgr.mutex.RLock()
 	for s := range mgr.subscribers {
@@ -463,7 +475,7 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 }
 
 // RemoveEndpoint stops the active handling of events by the specified endpoint,
-// and prevents the endpoint from being globally acccessible via other packages.
+// and prevents the endpoint from being globally accessible via other packages.
 func (mgr *endpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	return mgr.deleteEndpoint(ep, conf)
 }
@@ -609,17 +621,6 @@ func (mgr *endpointManager) OverrideEndpointOpts(om option.OptionMap) {
 	}
 }
 
-// HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
-func (mgr *endpointManager) HasGlobalCT() bool {
-	eps := mgr.GetEndpoints()
-	for _, e := range eps {
-		if !e.Options.IsEnabled(option.ConntrackLocal) {
-			return true
-		}
-	}
-	return false
-}
-
 // GetEndpoints returns a slice of all endpoints present in endpoint manager.
 func (mgr *endpointManager) GetEndpoints() []*endpoint.Endpoint {
 	mgr.mutex.RLock()
@@ -659,6 +660,8 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	mgr.updateReferencesLocked(ep, identifiers)
 	mgr.mutex.Unlock()
 
+	ep.SetKVStoreSynchronizer(mgr.kvstoreSyncher)
+
 	ep.InitEndpointHealth(mgr.health)
 	mgr.RunK8sCiliumEndpointSync(ep, ep.GetReporter("cep-k8s-sync"))
 
@@ -688,7 +691,7 @@ func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) (err error) {
+func (mgr *endpointManager) AddEndpoint(ep *endpoint.Endpoint) (err error) {
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
@@ -697,7 +700,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	// when endpoint and its logger are created pod details are not populated
 	// and all subsequent logs have empty pod details like ip addresses, k8sPodName
 	// this update will populate pod details in logger
-	ep.UpdateLogger(map[string]interface{}{
+	ep.UpdateLogger(map[string]any{
 		logfields.ContainerID: ep.GetShortContainerID(),
 		logfields.IPv4:        ep.GetIPv4Address(),
 		logfields.IPv6:        ep.GetIPv6Address(),
@@ -710,6 +713,10 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 		return err
 	}
 
+	if !option.Config.DryMode {
+		_ = mgr.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointCreateMessage(ep))
+	}
+
 	mgr.mutex.RLock()
 	for s := range mgr.subscribers {
 		s.EndpointCreated(ep)
@@ -717,58 +724,6 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	mgr.mutex.RUnlock()
 
 	return nil
-}
-
-func (mgr *endpointManager) AddIngressEndpoint(
-	ctx context.Context,
-	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
-	ipcache *ipcache.IPCache,
-	proxy endpoint.EndpointProxy,
-	allocator cache.IdentityAllocator,
-	ctMapGC ctmap.GCRunner,
-) error {
-	ep, err := endpoint.CreateIngressEndpoint(owner, policyGetter, ipcache, proxy, allocator, ctMapGC)
-	if err != nil {
-		return err
-	}
-
-	if err := mgr.AddEndpoint(owner, ep); err != nil {
-		return err
-	}
-
-	ep.InitWithIngressLabels(ctx, launchTime)
-
-	return nil
-}
-
-func (mgr *endpointManager) AddHostEndpoint(
-	ctx context.Context,
-	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
-	ipcache *ipcache.IPCache,
-	proxy endpoint.EndpointProxy,
-	allocator cache.IdentityAllocator,
-	ctMapGC ctmap.GCRunner,
-) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator, ctMapGC)
-	if err != nil {
-		return err
-	}
-
-	if err := mgr.AddEndpoint(owner, ep); err != nil {
-		return err
-	}
-
-	node.SetEndpointID(ep.GetID())
-
-	mgr.initHostEndpointLabels(ctx, ep)
-
-	return nil
-}
-
-type policyRepoGetter interface {
-	GetPolicyRepository() policy.PolicyRepository
 }
 
 // InitHostEndpointLabels initializes the host endpoint's labels with the

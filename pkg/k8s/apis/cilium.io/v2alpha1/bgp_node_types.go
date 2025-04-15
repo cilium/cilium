@@ -13,7 +13,7 @@ import (
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpnodeconfig",path="ciliumbgpnodeconfigs",scope="Cluster",shortName={cbgpnode}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 // CiliumBGPNodeConfig is node local configuration for BGP agent. Name of the object should be node name.
 // This resource will be created by Cilium operator and is read-only for the users.
@@ -141,6 +141,14 @@ type CiliumBGPNodeStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	BGPInstances []CiliumBGPNodeInstanceStatus `json:"bgpInstances,omitempty"`
+
+	// The current conditions of the CiliumBGPNodeConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type CiliumBGPNodeInstanceStatus struct {
@@ -237,3 +245,7 @@ type BGPFamilyRouteCount struct {
 	// +kubebuilder:validation:Optional
 	Advertised *int32 `json:"advertised,omitempty"`
 }
+
+const (
+	BGPInstanceConditionReconcileError = "cilium.io/BGPReconcileError"
+)

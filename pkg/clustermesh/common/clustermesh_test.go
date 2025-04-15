@@ -47,7 +47,7 @@ func (f *fakeRemoteCluster) Remove(ctx context.Context) {
 
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
@@ -56,7 +56,7 @@ func TestClusterMesh(t *testing.T) {
 	capabilities := types.CiliumClusterConfigCapabilities{Cached: true, MaxConnectedClusters: 511}
 	for i, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
 		cfg := types.CiliumClusterConfig{ID: uint32(i + 1), Capabilities: capabilities}
-		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, kvstore.Client()))
+		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, client))
 	}
 
 	var ready, stopped, removed lock.Map[string, bool]
@@ -88,6 +88,7 @@ func TestClusterMesh(t *testing.T) {
 	var clusters []*fakeRemoteCluster
 
 	cm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
 		Config:      Config{ClusterMeshConfig: baseDir},
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
@@ -112,7 +113,7 @@ func TestClusterMesh(t *testing.T) {
 			count++
 			return nil
 		}), "ForEachRemoteCluster should not have returned an error")
-		require.EqualValues(t, expected, count, "ForEachRemoteCluster not triggered for all expected clusters")
+		require.Equal(t, expected, count, "ForEachRemoteCluster not triggered for all expected clusters")
 	}
 
 	// Verify that the onStop method of remote clusters is called upon clustermesh
@@ -138,14 +139,14 @@ func TestClusterMesh(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, is(&ready, "cluster2")) }, timeout, tick, "Cluster2 is not ready")
 	assertStatus(t, "cluster1", 1)
 	assertStatus(t, "cluster2", 2)
-	require.EqualValues(t, 2, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
+	require.Equal(t, 2, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
 	assertForEachRemoteCluster(t, 2)
 
 	// A cluster whose configuration is subsequently added should eventually turn ready
 	writeFile(t, path("cluster3"), data)
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, is(&ready, "cluster3")) }, timeout, tick, "Cluster3 is not ready")
 	assertStatus(t, "cluster3", 3)
-	require.EqualValues(t, 3, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
+	require.Equal(t, 3, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
 	assertForEachRemoteCluster(t, 3)
 
 	// A cluster whose configuration is changed should eventually turn ready again
@@ -153,7 +154,7 @@ func TestClusterMesh(t *testing.T) {
 	writeFile(t, path("cluster3"), data+"\n")
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, is(&ready, "cluster3")) }, timeout, tick, "Cluster3 is not ready")
 	assertStatus(t, "cluster3", 3)
-	require.EqualValues(t, 3, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
+	require.Equal(t, 3, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
 	assertForEachRemoteCluster(t, 3)
 
 	// A cluster for which etcd does not contain the cluster configuration should not turn ready
@@ -173,14 +174,14 @@ func TestClusterMesh(t *testing.T) {
 		assert.Equal(c, &cfg, status.Config, "The status for cluster4 should report the cluster config as required but not found")
 	}, timeout, tick, "Status incorrectly reported for cluster4")
 	require.False(t, is(&ready, "cluster4"), "Cluster4 should not be ready")
-	require.EqualValues(t, 3, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
+	require.Equal(t, 3, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
 	assertForEachRemoteCluster(t, 4)
 
 	// A cluster whose configuration is removed should be stopped and removed
 	require.NoError(t, os.Remove(path("cluster2")))
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, is(&stopped, "cluster2")) }, timeout, tick, "Cluster2 has not been stopped")
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, is(&removed, "cluster2")) }, timeout, tick, "Cluster2 has not been removed")
-	require.EqualValues(t, 2, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
+	require.Equal(t, 2, cm.NumReadyClusters(), "Number of ready remote clusters reported incorrectly")
 	assertForEachRemoteCluster(t, 3)
 
 	// ForEachRemoteCluster should correctly propagate errors
@@ -190,7 +191,7 @@ func TestClusterMesh(t *testing.T) {
 
 func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
@@ -198,7 +199,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	for i, cluster := range []string{"cluster1", "cluster2", "cluster3", "cluster4"} {
 		writeFile(t, path(cluster), fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 		cfg := types.CiliumClusterConfig{ID: uint32(i + 1)}
-		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, kvstore.Client()))
+		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, client))
 	}
 
 	var ready lock.Map[string, bool]
@@ -214,6 +215,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	blockRemoval.Store("cluster4", make(chan struct{}))
 
 	gcm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
 		Config:      Config{ClusterMeshConfig: baseDir},
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {

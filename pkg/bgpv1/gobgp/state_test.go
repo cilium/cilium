@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -15,13 +16,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-test")
-
 	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,
 		PeerAddress:             "192.168.0.1/32",
@@ -219,7 +216,7 @@ func TestGetPeerState(t *testing.T) {
 				},
 			},
 			localASN: 64124,
-			errStr:   "failed to parse PeerAddress: netip.ParsePrefix(\"192.168.0.XYZ\"): no '/'",
+			errStr:   "failed while adding peer invalid IP with ASN 64125: NeighborAddress is not configured",
 		},
 		{
 			name: "test invalid neighbor update",
@@ -244,7 +241,7 @@ func TestGetPeerState(t *testing.T) {
 			},
 			localASN:     64124,
 			errStr:       "",
-			updateErrStr: "failed retrieving peer: could not find existing peer with ASN: 64999 and IP: 192.168.0.1",
+			updateErrStr: "failed to get existing peer: could not find existing peer with ASN: 64999 and IP: 192.168.0.1",
 		},
 	}
 	for _, tt := range table {
@@ -256,7 +253,7 @@ func TestGetPeerState(t *testing.T) {
 			},
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			testSC, err := NewGoBGPServer(context.Background(), log, srvParams)
+			testSC, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), srvParams)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
@@ -267,9 +264,7 @@ func TestGetPeerState(t *testing.T) {
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
 
-				err = testSC.AddNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: n,
-				})
+				err = testSC.AddNeighbor(context.Background(), types.ToNeighborV1(n, ""))
 				if tt.errStr != "" {
 					require.EqualError(t, err, tt.errStr)
 					return // no more checks
@@ -290,9 +285,7 @@ func TestGetPeerState(t *testing.T) {
 			// update neighbours
 			for _, n := range tt.neighborsAfterUpdate {
 				n.SetDefaults()
-				err = testSC.UpdateNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: n,
-				})
+				err = testSC.UpdateNeighbor(context.Background(), types.ToNeighborV1(n, ""))
 				if tt.updateErrStr != "" {
 					require.EqualError(t, err, tt.updateErrStr)
 					return // no more checks
@@ -327,7 +320,7 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 		require.EqualValues(t, expKeepAlive, p.ConfiguredKeepAliveTimeSeconds)
 
 		if n.GracefulRestart != nil {
-			require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
+			require.Equal(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
 			expGRRestartTime := ptr.Deref[int32](n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds)
 			require.EqualValues(t, expGRRestartTime, p.GracefulRestart.RestartTimeSeconds)
 		} else {
@@ -359,7 +352,7 @@ func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *v2alpha1api.Cili
 }
 
 func TestGetRoutes(t *testing.T) {
-	testSC, err := NewGoBGPServer(context.Background(), log, types.ServerParameters{
+	testSC, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        65000,
 			RouterID:   "127.0.0.1",
@@ -372,9 +365,7 @@ func TestGetRoutes(t *testing.T) {
 		testSC.Stop()
 	})
 
-	err = testSC.AddNeighbor(context.TODO(), types.NeighborRequest{
-		Neighbor: neighbor64125,
-	})
+	err = testSC.AddNeighbor(context.TODO(), types.ToNeighborV1(neighbor64125, ""))
 	require.NoError(t, err)
 
 	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{

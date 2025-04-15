@@ -18,16 +18,18 @@ type ciliumEnvoyConfigReconciler struct {
 	client client.Client
 	logger *slog.Logger
 
-	algorithm          string
-	ports              []string
-	maxRetries         int
-	idleTimeoutSeconds int
-	enableIpv4         bool
-	enableIpv6         bool
+	algorithm                string
+	ports                    []string
+	maxRetries               int
+	idleTimeoutSeconds       int
+	streamIdleTimeoutSeconds int
+	enableIpv4               bool
+	enableIpv6               bool
 }
 
 func newCiliumEnvoyConfigReconciler(c client.Client, logger *slog.Logger, defaultAlgorithm string, ports []string,
-	maxRetries int, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool) *ciliumEnvoyConfigReconciler {
+	maxRetries int, idleTimeoutSeconds int, streamIdleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool,
+) *ciliumEnvoyConfigReconciler {
 	return &ciliumEnvoyConfigReconciler{
 		client: c,
 		logger: logger,
@@ -46,5 +48,6 @@ func (r *ciliumEnvoyConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
+		Named("service-l7lb").
 		Complete(r)
 }

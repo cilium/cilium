@@ -7,30 +7,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive"
-	v2_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
 )
 
 var (
@@ -43,12 +39,12 @@ var (
 )
 
 type policyLister interface {
-	List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+	List() ([]*v2alpha1.CiliumBGPPeeringPolicy, error)
 }
 
-type policyListerFunc func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+type policyListerFunc func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error)
 
-func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func (plf policyListerFunc) List() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 	return plf()
 }
 
@@ -57,18 +53,20 @@ func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error
 // Controller listens for events and drives BGP related sub-systems
 // to maintain a desired state.
 type Controller struct {
+	Logger *slog.Logger
+
 	// CiliumNodeResource provides a stream of events for changes to the local CiliumNode resource.
 	CiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 	// LocalCiliumNode is the CiliumNode object for the local node.
-	LocalCiliumNode *v2_api.CiliumNode
+	LocalCiliumNode *v2.CiliumNode
 	// PolicyResource provides a store of cached policies and allows us to observe changes to the objects in its
 	// store.
-	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
+	PolicyResource resource.Resource[*v2alpha1.CiliumBGPPeeringPolicy]
 	// PolicyLister is an interface which allows for the listing of all known policies
 	PolicyLister policyLister
 
 	// BGP v2 node store
-	BGPNodeConfigStore store.BGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]
+	BGPNodeConfigStore store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 
 	// Sig informs the Controller that a Kubernetes
 	// event of interest has occurred.
@@ -90,6 +88,7 @@ type Controller struct {
 type ControllerParams struct {
 	cell.In
 
+	Logger                  *slog.Logger
 	Lifecycle               cell.Lifecycle
 	Health                  cell.Health
 	JobGroup                job.Group
@@ -97,8 +96,8 @@ type ControllerParams struct {
 	Sig                     *signaler.BGPCPSignaler
 	ConfigMode              *mode.ConfigMode
 	RouteMgr                BGPRouterManager
-	PolicyResource          resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
-	BGPNodeConfigStore      store.BGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]
+	PolicyResource          resource.Resource[*v2alpha1.CiliumBGPPeeringPolicy]
+	BGPNodeConfigStore      store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 	DaemonConfig            *option.DaemonConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 }
@@ -119,6 +118,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 	}
 
 	c := &Controller{
+		Logger:             params.Logger,
 		Sig:                params.Sig,
 		ConfigMode:         params.ConfigMode,
 		BGPMgr:             params.RouteMgr,
@@ -147,7 +147,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 				if err != nil {
 					return fmt.Errorf("error creating CiliumBGPPeeringPolicy resource store: %w", err)
 				}
-				c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				c.PolicyLister = policyListerFunc(func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 					return policyStore.List(), nil
 				})
 
@@ -169,19 +169,15 @@ func NewController(params ControllerParams) (*Controller, error) {
 // A cancel of the provided ctx will kill the control loop along with the running
 // informers.
 func (c *Controller) Run(ctx context.Context) {
-	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "Controller.Run",
-		})
-	)
+	scopedLog := c.Logger.With(types.ComponentLogField, "Controller.Run")
 
-	l.Info("Cilium BGP Control Plane Controller now running...")
+	scopedLog.Info("Cilium BGP Control Plane Controller now running...")
 	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
 		select {
 		case ev, ok := <-ciliumNodeCh:
 			if !ok {
-				l.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down")
+				scopedLog.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down")
 				return
 			}
 			switch ev.Kind {
@@ -193,15 +189,18 @@ func (c *Controller) Run(ctx context.Context) {
 			}
 			ev.Done(nil)
 		case <-ctx.Done():
-			l.Info("Cilium BGP Control Plane Controller shut down")
+			scopedLog.Info("Cilium BGP Control Plane Controller shut down")
 			return
 		case <-c.Sig.Sig:
 			if c.LocalCiliumNode == nil {
-				l.Debug("localCiliumNode has not been set yet")
+				scopedLog.Debug("localCiliumNode has not been set yet")
 			} else if err := c.reconcileWithRetry(ctx); err != nil {
-				l.WithError(err).Error("Reconciliation with retries failed")
+				scopedLog.Error(
+					"Reconciliation with retries failed",
+					logfields.Error, err,
+				)
 			} else {
-				l.Debug("Successfully completed reconciliation")
+				scopedLog.Debug("Successfully completed reconciliation")
 			}
 		}
 	}
@@ -221,7 +220,7 @@ func (c *Controller) reconcileWithRetry(ctx context.Context) error {
 	retryFn := func(ctx context.Context) (bool, error) {
 		err = c.Reconcile(ctx)
 		if err != nil {
-			log.WithError(err).Debug("Reconciliation failed")
+			c.Logger.Debug("Reconciliation failed", logfields.Error, err)
 			return false, nil
 		}
 		return true, nil
@@ -254,7 +253,7 @@ func (c *Controller) reconcileWithRetry(ctx context.Context) error {
 func (c *Controller) Reconcile(ctx context.Context) error {
 	bgpp, err := c.bgppSelection()
 	if err != nil {
-		log.WithError(err).Error("bgp peering policy selection failed")
+		c.Logger.Error("bgp peering policy selection failed", logfields.Error, err)
 		return err
 	}
 	bgppExists := bgpp != nil
@@ -264,10 +263,10 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrStoreUninitialized) {
-			log.Debug("BGPNodeConfig store not yet initialized")
+			c.Logger.Debug("BGPNodeConfig store not yet initialized")
 			return nil // skip the reconciliation - once the store is initialized, it will trigger new reconcile event
 		}
-		log.WithError(err).Error("failed to get BGPNodeConfig")
+		c.Logger.Error("failed to get BGPNodeConfig", logfields.Error, err)
 		return err
 	}
 	if bgpncExists {
@@ -308,7 +307,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	return err
 }
 
-func (c *Controller) reconcileBGPP(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
+func (c *Controller) reconcileBGPP(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy) error {
 	// apply policy defaults to have consistent default config across sub-systems
 	policy = policy.DeepCopy() // deepcopy to not modify the policy object in store
 	policy.SetDefaults()
@@ -331,32 +330,27 @@ func (c *Controller) cleanupBGPP(ctx context.Context) {
 	err := c.BGPMgr.ConfigurePeers(ctx, nil, nil)
 	if err != nil {
 		// log cleanup error
-		log.WithError(err).Error("failed to cleanup BGP peering policy peers")
+		c.Logger.Error("failed to cleanup BGP peering policy peers", logfields.Error, err)
 	}
 
 	c.ConfigMode.Set(mode.Disabled)
 }
 
-func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2alpha1api.CiliumBGPNodeConfig) error {
-	err := c.BGPMgr.ReconcileInstances(ctx, bgpnc, c.LocalCiliumNode)
-	if err != nil {
-		return fmt.Errorf("failed to reconcile BGPNodeConfig: %w", err)
-	}
-
+func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig) error {
 	c.ConfigMode.Set(mode.BGPv2)
-	return nil
+	return c.BGPMgr.ReconcileInstances(ctx, bgpnc, c.LocalCiliumNode)
 }
 
 func (c *Controller) cleanupBGPNC(ctx context.Context) {
 	err := c.BGPMgr.ReconcileInstances(ctx, nil, c.LocalCiliumNode)
 	if err != nil {
-		log.WithError(err).Error("failed to cleanup BGPNodeConfig")
+		c.Logger.Error("failed to cleanup BGPNodeConfig", logfields.Error, err)
 	}
 
 	c.ConfigMode.Set(mode.Disabled)
 }
 
-func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func (c *Controller) bgppSelection() (*v2alpha1.CiliumBGPPeeringPolicy, error) {
 	// retrieve all CiliumBGPPeeringPolicies
 	policies, err := c.PolicyLister.List()
 	if err != nil {
@@ -365,7 +359,7 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 	// perform policy selection based on node.
 	labels := c.LocalCiliumNode.Labels
 
-	return PolicySelection(labels, policies)
+	return PolicySelection(c.Logger, labels, policies)
 }
 
 // PolicySelection returns a CiliumBGPPeeringPolicy which applies to the provided
@@ -378,17 +372,15 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 //   - If (N > 1) policies match the provided *corev1.Node an error is returned.
 //     only a single policy may apply to a node to avoid ambiguity at this stage
 //     of development.
-func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func PolicySelection(logger *slog.Logger, labels map[string]string, policies []*v2alpha1.CiliumBGPPeeringPolicy) (*v2alpha1.CiliumBGPPeeringPolicy, error) {
 	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "PolicySelection",
-		})
-
+		l = logger.With(
+			types.ComponentLogField, "PolicySelection",
+		)
 		// determine which policies match our node's labels.
-		selectedPolicy *v2alpha1api.CiliumBGPPeeringPolicy
+		selectedPolicy *v2alpha1.CiliumBGPPeeringPolicy
 		slimLabels     = slimlabels.Set(labels)
 	)
-
 	// range over policies and see if any match this node's labels.
 	//
 	// for now, only a single BGP policy can be applied to a node. if more than
@@ -397,18 +389,22 @@ func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGP
 	for _, policy := range policies {
 		var selected bool
 
-		l.WithFields(logrus.Fields{
-			"policyName":         policy.Name,
-			"nodeLabels":         slimLabels,
-			"policyNodeSelector": policy.Spec.NodeSelector.String(),
-		}).Debug("Comparing BGP policy node selector with node's labels")
+		l.Debug(
+			"Comparing BGP policy node selector with node's labels",
+			types.PolicyLogField, policy.Name,
+			types.NodeLabelsLogField, slimLabels,
+			types.PolicyNodeSelectorLogField, policy.Spec.NodeSelector,
+		)
 
 		if policy.Spec.NodeSelector == nil {
 			selected = true
 		} else {
 			nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
 			if err != nil {
-				l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
+				l.Error(
+					"Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface",
+					logfields.Error, err,
+				)
 				continue
 			}
 			if nodeSelector.Matches(slimLabels) {
@@ -430,7 +426,7 @@ func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGP
 // validatePolicy validates the CiliumBGPPeeringPolicy.
 // The validation is normally done by kube-apiserver (based on CRD validation markers),
 // this validates only those constraints that cannot be enforced by them.
-func (c *Controller) validatePolicy(policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
+func (c *Controller) validatePolicy(policy *v2alpha1.CiliumBGPPeeringPolicy) error {
 	for _, r := range policy.Spec.VirtualRouters {
 		for _, n := range r.Neighbors {
 			if err := n.Validate(); err != nil {

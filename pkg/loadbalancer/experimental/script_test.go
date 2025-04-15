@@ -5,17 +5,19 @@ package experimental
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
-	"net"
 	"net/http"
 	"os"
 	"slices"
-	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
+	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
@@ -26,17 +28,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
 	// version/capabilities are unfortunately a global variable, so we're forcing it here.
@@ -46,28 +54,33 @@ func TestScript(t *testing.T) {
 	// Issue for fixing this: https://github.com/cilium/cilium/issues/35537
 	version.Force(testutils.DefaultVersion)
 
-	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
-	option.Config.EnableK8sTerminatingEndpoint = true
-
 	// Set the node name
 	nodeTypes.SetName("testnode")
 
-	log := hivetest.Logger(t)
+	var opts []hivetest.LogOption
+	if *debug {
+		opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
+		logging.SetLogLevelToDebug()
+	}
+	log := hivetest.Logger(t, opts...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
+
 	scripttest.Test(t,
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
+				daemonk8s.TablesCell,
 				Cell,
 				cell.Config(TestConfig{
 					// By default 10% of the time the LBMap operations fail
 					TestFaultProbability: 0.1,
 				}),
 				maglev.Cell,
+				node.LocalNodeStoreCell,
 				cell.Provide(
 					func(cfg TestConfig) *TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
@@ -75,16 +88,23 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                   true,
-							EnableIPv6:                   true,
-							SockRevNatEntries:            1000,
-							LBMapEntries:                 1000,
-							NodePortAlg:                  cfg.NodePortAlg,
-							EnableHealthCheckNodePort:    cfg.EnableHealthCheckNodePort,
-							EnableK8sTerminatingEndpoint: true,
+							EnableIPv4:                      true,
+							EnableIPv6:                      true,
+							SockRevNatEntries:               1000,
+							LBMapEntries:                    1000,
+							NodePortAlg:                     cfg.NodePortAlg,
+							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
+							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
+							EnableNodePort:                  true,
+							ExternalClusterIP:               cfg.ExternalClusterIP,
+							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
+					func(ops *BPFOps, lns *node.LocalNodeStore, w *Writer) uhive.ScriptCmdsOut {
+						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
+					},
 				),
+
 				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 			)
 
@@ -109,11 +129,12 @@ func TestScript(t *testing.T) {
 			cmds["http/get"] = httpGetCmd
 
 			return &script.Engine{
-				Cmds: cmds,
+				Cmds:             cmds,
+				RetryInterval:    20 * time.Millisecond,
+				MaxRetryInterval: 500 * time.Millisecond,
 			}
 		}, []string{
-			fmt.Sprintf("PORT1=%d", getRandomOpenPort(t)),
-			fmt.Sprintf("PORT2=%d", getRandomOpenPort(t)),
+			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddressForTesting(), 0)),
 		}, "testdata/*.txtar")
 }
 
@@ -140,9 +161,7 @@ var httpGetCmd = script.Command(
 
 		fmt.Fprintf(f, "%s\n", resp.Status)
 
-		keys := slices.Collect(maps.Keys(resp.Header))
-		sort.Strings(keys)
-		for _, k := range keys {
+		for _, k := range slices.Sorted(maps.Keys(resp.Header)) {
 			h := resp.Header[k]
 			if k == "Date" {
 				h = []string{"<omitted>"}
@@ -155,22 +174,92 @@ var httpGetCmd = script.Command(
 	},
 )
 
-func getRandomOpenPort(t *testing.T) int {
-	for range 100 {
-		l, err := net.Listen("tcp", ":0")
-		if err != nil {
-			t.Fatalf("failed to get random open port: %v", err)
-		}
-		addr := l.Addr().(*net.TCPAddr)
-		if addr.Port < 10000 {
-			// To keep things simple for comparing, we'll only accept port numbers
-			// that are 5 chars long.
-			l.Close()
-			continue
-		}
-		defer l.Close()
-		return addr.Port
+type testCommands struct {
+	w   *Writer
+	lns *node.LocalNodeStore
+	ops *BPFOps
+}
+
+func (tc testCommands) cmds() map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"test/update-backend-health": tc.updateHealth(),
+		"test/bpfops-reset":          tc.opsReset(),
+		"test/bpfops-summary":        tc.opsSummary(),
+		"test/set-node-labels":       tc.setNodeLabels(),
 	}
-	t.Fatalf("failed to get a random open port number that was >=10000")
-	return 0
+}
+
+func (tc testCommands) updateHealth() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Update backend healthyness",
+			Args:    "service-name backend-addr healthy",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 3 {
+				return nil, fmt.Errorf("%w: expected service name, backend address and health", script.ErrUsage)
+			}
+			ns, name, _ := strings.Cut(args[0], "/")
+			svc := loadbalancer.ServiceName{Namespace: ns, Name: name}
+
+			var beAddr loadbalancer.L3n4Addr
+			if err := beAddr.ParseFromString(args[1]); err != nil {
+				return nil, err
+			}
+
+			healthy, err := strconv.ParseBool(args[2])
+			if err != nil {
+				return nil, err
+			}
+
+			txn := tc.w.WriteTxn()
+			defer txn.Commit()
+
+			_, err = tc.w.UpdateBackendHealth(txn, svc, beAddr, healthy)
+			return nil, err
+		})
+}
+
+func (tc testCommands) opsReset() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Reset and restart BPF ops",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			return nil, tc.ops.resetAndRestore()
+		})
+}
+
+func (tc testCommands) opsSummary() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Write out summary of BPFOps state",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				stdout = tc.ops.stateSummary()
+				return
+			}, nil
+		})
+}
+
+func (tc testCommands) setNodeLabels() script.Cmd {
+	return script.Command(
+		script.CmdUsage{Summary: "Set local node labels", Args: "key=value..."},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			labels := map[string]string{}
+			for _, arg := range args {
+				key, value, found := strings.Cut(arg, "=")
+				if !found {
+					return nil, fmt.Errorf("bad key=value: %q", arg)
+				}
+				labels[key] = value
+			}
+			tc.lns.Update(func(n *node.LocalNode) {
+				n.Labels = labels
+				s.Logf("Labels set to %v\n", labels)
+			})
+			return nil, nil
+		})
+
 }

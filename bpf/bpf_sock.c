@@ -4,10 +4,9 @@
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
+#include <bpf/config/node.h>
 #include <netdev_config.h>
 
-#define SKIP_POLICY_MAP	1
 #define SKIP_CALLS_MAP	1
 
 #include "lib/common.h"
@@ -134,7 +133,8 @@ struct {
 	__type(value, struct ipv4_revnat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
-} LB4_REVERSE_NAT_SK_MAP __section_maps_btf;
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_lb4_reverse_sk __section_maps_btf;
 
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
@@ -153,9 +153,9 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	val.port = orig_key->dport;
 	val.rev_nat_index = rev_nat_id;
 
-	tmp = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+	tmp = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &key,
+		ret = map_update_elem(&cilium_lb4_reverse_sk, &key,
 				      &val, 0);
 	return ret;
 }
@@ -285,7 +285,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	}
 	if (!svc)
 		return -ENXIO;
-	if (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))
+	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))
 		return -EHOSTUNREACH;
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
@@ -313,7 +313,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * policy enforcement to take place after l7 load balancer and
 	 * we can't currently do that from the socket layer.
 	 */
-	if (lb4_svc_is_l7loadbalancer(svc)) {
+	if (lb4_svc_is_l7_loadbalancer(svc)) {
 		/* TC level eBPF datapath does not handle node local traffic,
 		 * but we need to redirect for L7 LB also in that case.
 		 */
@@ -462,7 +462,8 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	if (svc && (lb4_svc_is_nodeport(svc) ||
 		    lb4_svc_is_external_ip(svc) ||
 		    lb4_svc_is_loadbalancer(svc)) &&
-	    !lb4_svc_is_l7loadbalancer(svc))
+	    !__lb4_svc_is_l7_loadbalancer(svc) &&
+	    !lb4_svc_is_l7_punt_proxy(svc))
 		return -EADDRINUSE;
 
 	return 0;
@@ -506,7 +507,7 @@ static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 	};
 	int ret;
 
-	ret = map_update_elem(&LB4_HEALTH_MAP, &key, &val, 0);
+	ret = map_update_elem(&cilium_lb4_health, &key, &val, 0);
 	if (!ret)
 		sock4_auto_bind(ctx);
 	return ret;
@@ -544,7 +545,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_REV, dst_ip,
 				bpf_ntohs(dst_port));
-	val = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+	val = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
 	if (val) {
 		struct lb4_service *svc;
 		struct lb4_key svc_key = {
@@ -565,8 +566,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 						ctx_in_hostns(ctx_full, NULL));
 		}
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
-		    (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))) {
-			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+		    (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))) {
+			map_delete_elem(&cilium_lb4_reverse_sk, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
@@ -621,7 +622,8 @@ struct {
 	__type(value, struct ipv6_revnat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
-} LB6_REVERSE_NAT_SK_MAP __section_maps_btf;
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_lb6_reverse_sk __section_maps_btf;
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
@@ -640,9 +642,9 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	val.port = orig_key->dport;
 	val.rev_nat_index = rev_nat_index;
 
-	tmp = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+	tmp = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &key,
+		ret = map_update_elem(&cilium_lb6_reverse_sk, &key,
 				      &val, 0);
 	return ret;
 }
@@ -853,7 +855,8 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	if (svc && (lb6_svc_is_nodeport(svc) ||
 		    lb6_svc_is_external_ip(svc) ||
 		    lb6_svc_is_loadbalancer(svc)) &&
-	    !lb6_svc_is_l7loadbalancer(svc))
+	    !__lb6_svc_is_l7_loadbalancer(svc) &&
+	    !lb6_svc_is_l7_punt_proxy(svc))
 		return -EADDRINUSE;
 
 	return 0;
@@ -927,7 +930,7 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 		return sock6_pre_bind_v4_in_v6(ctx);
 #ifdef ENABLE_IPV6
 	key = get_socket_cookie(ctx);
-	ret = map_update_elem(&LB6_HEALTH_MAP, &key, &val, 0);
+	ret = map_update_elem(&cilium_lb6_health, &key, &val, 0);
 	if (!ret)
 		sock6_auto_bind(ctx);
 #endif
@@ -993,7 +996,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	}
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
-	if (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))
+	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))
 		return -EHOSTUNREACH;
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
@@ -1010,7 +1013,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */
-	if (lb6_svc_is_l7loadbalancer(svc)) {
+	if (lb6_svc_is_l7_loadbalancer(svc)) {
 		if (is_defined(HAVE_NETNS_COOKIE) && in_hostns) {
 			union v6addr loopback = { .addr[15] = 1, };
 
@@ -1145,7 +1148,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &key.address,
 				bpf_ntohs(dst_port));
 
-	val = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+	val = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
 	if (val) {
 		struct lb6_service *svc;
 		struct lb6_key svc_key = {
@@ -1166,8 +1169,8 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 						ctx_in_hostns(ctx, NULL));
 		}
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
-		    (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))) {
-			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+		    (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))) {
+			map_delete_elem(&cilium_lb6_reverse_sk, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}

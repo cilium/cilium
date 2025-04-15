@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"regexp"
@@ -232,11 +233,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 	// Make sure sub-tests are executed in alphabetic order, to make test results repeatable if programs rely on
 	// the order of execution.
-	testNames := make([]string, 0, len(testNameToPrograms))
-	for name := range testNameToPrograms {
-		testNames = append(testNames, name)
-	}
-	slices.Sort(testNames)
+	testNames := slices.Sorted(maps.Keys(testNameToPrograms))
 
 	// Get maps used for common mocking facilities
 	skbMdMap := coll.Maps[mockSkbMetaMap]
@@ -388,7 +385,7 @@ func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t
 				var key int32
 				value := make([]byte, m.ValueSize())
 				m.Lookup(&key, &value)
-				for i := 0; i < len(value); i++ {
+				for i := range value {
 					value[i] = 0
 				}
 				m.Update(&key, &value, ebpf.UpdateAny)

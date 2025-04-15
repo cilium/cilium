@@ -23,6 +23,7 @@ type Operation int
 
 const (
 	AllOperations Operation = iota
+	GetInstance
 	GetInstances
 	GetVpcsAndSubnets
 	AssignPrivateIpAddressesVMSS
@@ -125,6 +126,28 @@ func (a *API) rateLimit() {
 	}
 }
 
+func (a *API) GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
+	a.rateLimit()
+	a.delaySim.Delay(GetInstance)
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	if err, ok := a.errors[GetInstance]; ok {
+		return nil, err
+	}
+
+	instance := ipamTypes.Instance{}
+	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+	if err := a.instances.ForeachInterface(instanceID, func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
+		instance.Interfaces[interfaceID] = iface
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return instance.DeepCopy(), nil
+}
+
 func (a *API) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	a.rateLimit()
 	a.delaySim.Delay(GetInstances)
@@ -202,7 +225,7 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 			return fmt.Errorf("subnet %s does not exist", subnetID)
 		}
 
-		for i := 0; i < addresses; i++ {
+		for range addresses {
 			ip, err := s.allocator.AllocateNext()
 			if err != nil {
 				panic("Unable to allocate IP from allocator")

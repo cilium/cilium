@@ -56,6 +56,12 @@ const (
 	BestEffortQoSDefaultPriority = 5 + 1
 )
 
+// Must be in sync with DIRECTION_* in <bpf/lib/common.h>
+const (
+	DirectionEgress  uint8 = 0
+	DirectionIngress uint8 = 1
+)
+
 type manager struct {
 	enabled bool
 
@@ -75,7 +81,6 @@ func (m *manager) defines() (defines.Map, error) {
 
 	if m.Enabled() {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
-		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName
 		cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bwmap.MapSize)
 	}
 
@@ -92,16 +97,19 @@ func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio 
 		// * init() seems to be too early to call node.GetEndpointID()
 		// * Adding a dependency to node manager to call GetHostEndpoint() introduces a nested import.
 		hostEpID := uint16(node.GetEndpointID())
-		_, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(hostEpID))
+		_, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+			EndpointID: epID,
+			Direction:  DirectionEgress,
+		}))
 		if !found {
 			m.params.EdtTable.Insert(
 				txn,
-				bwmap.NewEdt(hostEpID, 0, GuaranteedQoSDefaultPriority),
+				bwmap.NewEdt(hostEpID, DirectionEgress, 0, GuaranteedQoSDefaultPriority),
 			)
 		}
 		m.params.EdtTable.Insert(
 			txn,
-			bwmap.NewEdt(epID, bytesPerSecond, prio),
+			bwmap.NewEdt(epID, DirectionEgress, bytesPerSecond, prio),
 		)
 		txn.Commit()
 	}
@@ -110,7 +118,35 @@ func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio 
 func (m *manager) DeleteBandwidthLimit(epID uint16) {
 	if m.enabled {
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
-		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(epID))
+		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+			EndpointID: epID,
+			Direction:  DirectionEgress,
+		}))
+		if found {
+			m.params.EdtTable.Delete(txn, obj)
+		}
+		txn.Commit()
+	}
+}
+
+func (m *manager) UpdateIngressBandwidthLimit(epID uint16, bytesPerSecond uint64) {
+	if m.enabled {
+		txn := m.params.DB.WriteTxn(m.params.EdtTable)
+		m.params.EdtTable.Insert(
+			txn,
+			bwmap.NewEdt(epID, DirectionIngress, bytesPerSecond, 0),
+		)
+		txn.Commit()
+	}
+}
+
+func (m *manager) DeleteIngressBandwidthLimit(epID uint16) {
+	if m.enabled {
+		txn := m.params.DB.WriteTxn(m.params.EdtTable)
+		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+			EndpointID: epID,
+			Direction:  DirectionIngress,
+		}))
 		if found {
 			m.params.EdtTable.Delete(txn, obj)
 		}
@@ -143,7 +179,7 @@ func (m *manager) probe() error {
 		//
 		// - https://lpc.events/event/11/contributions/953/
 		// - https://lore.kernel.org/bpf/20220302195519.3479274-1-kafai@fb.com/
-		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbSetTstamp) != nil {
+		if probes.HaveProgramHelper(m.params.Log, ebpf.SchedCLS, asm.FnSkbSetTstamp) != nil {
 			return fmt.Errorf("cannot enable --%s, needs kernel 5.18 or newer", types.EnableBBRFlag)
 		}
 	}
@@ -196,7 +232,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 		scopedLog := p.Log.With(
 			logfields.SysParamName, strings.Join(setting.name, "."),
 			logfields.SysParamValue, currentValue,
-			"baselineValue", setting.val,
+			logfields.SysParamBaselineValue, setting.val,
 		)
 
 		if currentValue >= setting.val {

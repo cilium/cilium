@@ -6,6 +6,7 @@ package k8s
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -45,7 +46,7 @@ func TestGetPodMetadata(t *testing.T) {
 	t.Run("normal scenario", func(t *testing.T) {
 		pod := pod.DeepCopy()
 
-		_, labels := GetPodMetadata(ns, pod)
+		_, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
 		require.Equal(t, expectedLabels, labels)
 	})
 
@@ -54,7 +55,7 @@ func TestGetPodMetadata(t *testing.T) {
 			pod := pod.DeepCopy()
 			pod.Labels["io.cilium.k8s.namespace.labels.namespace-level-key"] = "override-namespace-level-value"
 
-			_, labels := GetPodMetadata(ns, pod)
+			_, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
 			require.Equal(t, expectedLabels, labels)
 		})
 
@@ -62,7 +63,7 @@ func TestGetPodMetadata(t *testing.T) {
 			pod := pod.DeepCopy()
 			pod.Labels["io.cilium.k8s.namespace.labels.another-namespace-key"] = "another-namespace-level-value"
 
-			_, labels := GetPodMetadata(ns, pod)
+			_, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
 			require.Equal(t, expectedLabels, labels)
 		})
 	})

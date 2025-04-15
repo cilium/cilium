@@ -6,13 +6,13 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"sync"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -66,7 +66,7 @@ func TestClusterMesh(t *testing.T) {
 		wg.Wait()
 	}()
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
@@ -74,7 +74,7 @@ func TestClusterMesh(t *testing.T) {
 	t.Cleanup(mgr.Close)
 
 	dir := t.TempDir()
-	etcdConfig := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
+	etcdConfig := fmt.Appendf(nil, "endpoints:\n- %s\n", kvstore.EtcdDummyAddress())
 
 	// cluster3 doesn't have cluster configuration on kvstore.
 	// We should not be able to establish a connection in this case.
@@ -91,7 +91,7 @@ func TestClusterMesh(t *testing.T) {
 			config.Capabilities.SyncedCanaries = true
 		}
 
-		err := cmutils.SetClusterConfig(ctx, name, config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, name, config, client)
 		require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 	}
 
@@ -110,7 +110,7 @@ func TestClusterMesh(t *testing.T) {
 	t.Cleanup(func() { ipc.Shutdown() })
 
 	usedIDs := NewClusterMeshUsedIDs(localClusterID)
-	storeFactory := store.NewFactory(store.MetricsProvider())
+	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	nodesObserver := newNodesObserver()
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
@@ -123,11 +123,11 @@ func TestClusterMesh(t *testing.T) {
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          storeFactory,
 		FeatureMetrics:        NewClusterMeshMetricsNoop(),
-		Logger:                logrus.New(),
+		Logger:                slog.Default(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 	// cluster2 is the cluster which is tested with sync canaries
-	nodesWSS := storeFactory.NewSyncStore("cluster2", kvstore.Client(), nodeStore.NodeStorePrefix)
+	nodesWSS := storeFactory.NewSyncStore("cluster2", client, nodeStore.NodeStorePrefix)
 	wg.Add(1)
 	go func() {
 		nodesWSS.Run(ctx)
@@ -157,7 +157,7 @@ func TestClusterMesh(t *testing.T) {
 			MaxConnectedClusters: 255,
 		},
 	}
-	err := cmutils.SetClusterConfig(ctx, "cluster1", config, kvstore.Client())
+	err := cmutils.SetClusterConfig(ctx, "cluster1", config, client)
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")
 	// Ugly hack to trigger config update
 	etcdConfigNew := append(etcdConfig, []byte("\n")...)

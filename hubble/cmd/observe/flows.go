@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/hubble/pkg/logger"
 	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
 	hubtime "github.com/cilium/cilium/hubble/pkg/time"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -85,12 +86,14 @@ var flowEventTypeSubtypes = map[string][]string{
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceFromOverlay],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceFromProxy],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceFromStack],
+		monitorAPI.TraceObservationPoints[monitorAPI.TraceFromCrypto],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceToLxc],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceToHost],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceToNetwork],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceToOverlay],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceToProxy],
 		monitorAPI.TraceObservationPoints[monitorAPI.TraceToStack],
+		monitorAPI.TraceObservationPoints[monitorAPI.TraceToCrypto],
 	},
 	monitorAPI.MessageTypeNameL7:            nil,
 	monitorAPI.MessageTypeNamePolicyVerdict: nil,
@@ -166,7 +169,7 @@ var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client obs
 	if err != nil {
 		return nil, nil, err
 	}
-	logger.Logger.Debug("connected to Hubble API", "server", config.KeyServer)
+	logger.Logger.Debug("connected to Hubble API", logfields.Server, config.KeyServer)
 	cleanup = hubbleConn.Close
 	client = observerpb.NewObserverClient(hubbleConn)
 	return client, cleanup, nil
@@ -328,7 +331,7 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 			}
 			defer cleanup()
 
-			logger.Logger.Debug("Sending GetFlows request", "request", req)
+			logger.Logger.Debug("Sending GetFlows request", logfields.Request, req)
 			if err := getFlows(ctx, client, req); err != nil {
 				msg := err.Error()
 				// extract custom error message from failed grpc call

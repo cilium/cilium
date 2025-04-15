@@ -4,10 +4,13 @@
 package policy
 
 import (
+	"log/slog"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -51,12 +54,7 @@ func newUser(t *testing.T, name string, sc *SelectorCache) *cachedSelectionUser 
 }
 
 func haveNid(nid identity.NumericIdentity, selections []identity.NumericIdentity) bool {
-	for i := range selections {
-		if selections[i] == nid {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(selections, nid)
 }
 
 func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
@@ -121,7 +119,7 @@ func (csu *cachedSelectionUser) WaitForUpdate() (adds, deletes int) {
 	return csu.adds, csu.deletes
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector policytypes.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, selector policytypes.CachedSelector, added, deleted []identity.NumericIdentity) {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
@@ -143,7 +141,7 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector policytypes.Ca
 	csu.selections[selector] = selections
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionCommit(*versioned.Tx) {
+func (csu *cachedSelectionUser) IdentitySelectionCommit(*slog.Logger, *versioned.Tx) {
 	csu.updateCond.Signal()
 }
 
@@ -195,7 +193,7 @@ func (cs *testCachedSelector) deleteSelections(selections ...int) (deletes []ide
 		}
 		for i := 0; i < len(cs.selections); i++ {
 			if nid == cs.selections[i] {
-				cs.selections = append(cs.selections[:i], cs.selections[i+1:]...)
+				cs.selections = slices.Delete(cs.selections, i, i+1)
 				i--
 			}
 		}
@@ -213,12 +211,7 @@ func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArray {
 	return nil
 }
 func (cs *testCachedSelector) Selects(_ *versioned.VersionHandle, nid identity.NumericIdentity) bool {
-	for _, id := range cs.selections {
-		if id == nid {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cs.selections, nid)
 }
 
 func (cs *testCachedSelector) IsWildcard() bool {
@@ -234,7 +227,7 @@ func (cs *testCachedSelector) String() string {
 }
 
 func TestAddRemoveSelector(t *testing.T) {
-	sc := testNewSelectorCache(identity.IdentityMap{})
+	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -286,7 +279,7 @@ func TestAddRemoveSelector(t *testing.T) {
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
-	sc := testNewSelectorCache(identity.IdentityMap{})
+	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -330,7 +323,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	shouldSelect := func(sel api.EndpointSelector, wantIDs ...identity.NumericIdentity) {
 		csel := user1.AddIdentitySelector(sel)
 		selections := csel.GetSelections(versioned.Latest())
-		require.EqualValues(t, identity.NumericIdentitySlice(wantIDs), selections)
+		require.Equal(t, identity.NumericIdentitySlice(wantIDs), selections)
 		user1.RemoveSelector(csel)
 	}
 
@@ -347,7 +340,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 }
 
 func TestIdentityUpdates(t *testing.T) {
-	sc := testNewSelectorCache(identity.IdentityMap{})
+	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -420,7 +413,7 @@ func TestIdentityUpdates(t *testing.T) {
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
-	sc := testNewSelectorCache(identity.IdentityMap{})
+	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -465,7 +458,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	require.Equal(t, identity.NumericIdentity(345), selections[1])
 	require.Equal(t, identity.NumericIdentity(1234), selections[2])
 
-	require.EqualValues(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
+	require.Equal(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
 
 	user1.Reset()
 	user2.Reset()
@@ -490,7 +483,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	require.Equal(t, identity.NumericIdentity(345), selections[0])
 	require.Equal(t, identity.NumericIdentity(1234), selections[1])
 
-	require.EqualValues(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
+	require.Equal(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
 
 	user1.RemoveSelector(cached)
 	user2.RemoveSelector(cached2)
@@ -500,7 +493,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 }
 
 func TestTransactionalUpdate(t *testing.T) {
-	sc := testNewSelectorCache(identity.IdentityMap{})
+	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -600,15 +593,16 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	}()
 
 	idSel := identitySelector{
-		key:   "test",
-		users: make(map[CachedSelectionUser]struct{}),
+		logger: hivetest.Logger(t),
+		key:    "test",
+		users:  make(map[CachedSelectionUser]struct{}),
 	}
 	selections := idSel.GetSelections(versioned.Latest())
 	require.Empty(t, selections)
 }
 
-func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
-	sc := NewSelectorCache(ids)
+func testNewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
+	sc := NewSelectorCache(logger, ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }

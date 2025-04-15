@@ -94,16 +94,16 @@ type SubResourceClientConstructor interface {
 	// - ServiceAccount token creation:
 	//     sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
 	//     token := &authenticationv1.TokenRequest{}
-	//     c.SubResourceClient("token").Create(ctx, sa, token)
+	//     c.SubResource("token").Create(ctx, sa, token)
 	//
 	// - Pod eviction creation:
 	//     pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
-	//     c.SubResourceClient("eviction").Create(ctx, pod, &policyv1.Eviction{})
+	//     c.SubResource("eviction").Create(ctx, pod, &policyv1.Eviction{})
 	//
 	// - Pod binding creation:
 	//     pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
 	//     binding := &corev1.Binding{Target: corev1.ObjectReference{Name: "my-node"}}
-	//     c.SubResourceClient("binding").Create(ctx, pod, binding)
+	//     c.SubResource("binding").Create(ctx, pod, binding)
 	//
 	// - CertificateSigningRequest approval:
 	//     csr := &certificatesv1.CertificateSigningRequest{
@@ -115,17 +115,17 @@ type SubResourceClientConstructor interface {
 	//         }},
 	//       },
 	//     }
-	//     c.SubResourceClient("approval").Update(ctx, csr)
+	//     c.SubResource("approval").Update(ctx, csr)
 	//
 	// - Scale retrieval:
 	//     dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
 	//     scale := &autoscalingv1.Scale{}
-	//     c.SubResourceClient("scale").Get(ctx, dep, scale)
+	//     c.SubResource("scale").Get(ctx, dep, scale)
 	//
 	// - Scale update:
 	//     dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
 	//     scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: 2}}
-	//     c.SubResourceClient("scale").Update(ctx, dep, client.WithSubResourceBody(scale))
+	//     c.SubResource("scale").Update(ctx, dep, client.WithSubResourceBody(scale))
 	SubResource(subResource string) SubResourceClient
 }
 
@@ -193,7 +193,7 @@ type IndexerFunc func(Object) []string
 // FieldIndexer knows how to index over a particular "field" such that it
 // can later be used by a field selector.
 type FieldIndexer interface {
-	// IndexFields adds an index with the given field name on the given object type
+	// IndexField adds an index with the given field name on the given object type
 	// by using the given function to extract the value for that field.  If you want
 	// compatibility with the Kubernetes API server, only return one key, and only use
 	// fields that the API server supports.  Otherwise, you can return multiple keys,

@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -45,7 +46,7 @@ type EndpointInfo struct {
 // This function is only used for testing, but in multiple packages.
 //
 // TODO: add support for redirects
-func LookupFlow(repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (api.Decision, error) {
+func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (api.Decision, error) {
 	if flow.From.ID == 0 || flow.To.ID == 0 {
 		return api.Undecided, fmt.Errorf("cannot lookup flow: numeric IDs missing")
 	}
@@ -78,14 +79,14 @@ func LookupFlow(repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (a
 	dstEP.remoteEndpoint = srcEP
 
 	// Resolve and look up the flow as egress from the source
-	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{})
+	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{}, srcEP.ID)
 	if err != nil {
 		return api.Undecided, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
 
-	epp := selPolSrc.DistillPolicy(srcEP, nil)
+	epp := selPolSrc.DistillPolicy(logger, srcEP, nil)
 	epp.Ready()
-	epp.Detach()
+	epp.Detach(logger)
 	key := EgressKey().WithIdentity(flow.To.ID).WithPortProto(flow.Proto, flow.Dport)
 	entry, _, _ := epp.Lookup(key)
 	if entry.IsDeny() {
@@ -93,13 +94,13 @@ func LookupFlow(repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (a
 	}
 
 	// Resolve ingress policy for destination
-	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{})
+	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{}, dstEP.ID)
 	if err != nil {
 		return api.Undecided, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
-	epp = selPolDst.DistillPolicy(dstEP, nil)
+	epp = selPolDst.DistillPolicy(logger, dstEP, nil)
 	epp.Ready()
-	epp.Detach()
+	epp.Detach(logger)
 	key = IngressKey().WithIdentity(flow.From.ID).WithPortProto(flow.Proto, flow.Dport)
 	entry, _, _ = epp.Lookup(key)
 	if entry.IsDeny() {
@@ -133,11 +134,11 @@ func (ei *EndpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8
 
 func (ei *EndpointInfo) PolicyDebug(fields logrus.Fields, msg string) {
 	if ei.Logger != nil {
-		args := make([]any, 0, len(fields)*2)
+		attrs := make([]any, 0, len(fields)*2)
 		for k, v := range fields {
-			args = append(args, k, v)
+			attrs = append(attrs, k, v)
 		}
-		ei.Logger.Debug(msg, args...)
+		ei.Logger.Debug(msg, attrs...)
 	}
 }
 
@@ -149,6 +150,13 @@ func (ei *EndpointInfo) IsHost() bool {
 // new map. Return 0 here as this is only used for testing.
 func (ei *EndpointInfo) MapStateSize() int {
 	return 0
+}
+
+// RegenerateIfAlive returns immediately as there is nothing to regenerate
+func (ei *EndpointInfo) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
 }
 
 type dummyPolicyStats struct {

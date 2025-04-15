@@ -13,9 +13,11 @@ NAT mapping tables
 ### Options inherited from parent commands
 
 ```
-      --config string   Config file (default is $HOME/.cilium.yaml)
-  -D, --debug           Enable debug messages
-  -H, --host string     URI to server-side API
+      --config string        Config file (default is $HOME/.cilium.yaml)
+  -D, --debug                Enable debug messages
+  -H, --host string          URI to server-side API
+      --log-driver strings   Logging endpoints to use (example: syslog)
+      --log-opt map          Log driver options (example: format=json)
 ```
 
 ### SEE ALSO
@@ -23,4 +25,5 @@ NAT mapping tables
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
 * [cilium-dbg bpf nat flush](cilium-dbg_bpf_nat_flush.md)	 - Flush all NAT mapping entries
 * [cilium-dbg bpf nat list](cilium-dbg_bpf_nat_list.md)	 - List all NAT mapping entries
+* [cilium-dbg bpf nat retries](cilium-dbg_bpf_nat_retries.md)	 - Histogram of retries
 

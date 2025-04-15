@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/part"
-	"github.com/cilium/statedb/reconciler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -44,7 +44,8 @@ type (
 func cecListerWatchers(cs client.Clientset) (out struct {
 	cell.Out
 	LW listerWatchers
-}) {
+},
+) {
 	if cs.IsEnabled() {
 		out.LW.cec = utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumEnvoyConfigs(""))
 		out.LW.ccec = utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumClusterwideEnvoyConfigs())
@@ -57,6 +58,7 @@ type nodeLabels struct {
 }
 
 func registerCECReflector(
+	dcfg *option.DaemonConfig,
 	ecfg experimental.Config,
 	p *cecResourceParser,
 	crdSync promise.Promise[synced.CRDSync],
@@ -66,8 +68,10 @@ func registerCECReflector(
 	g job.Group,
 	db *statedb.DB,
 	tbl statedb.RWTable[*CEC],
-	frontends statedb.Table[*experimental.Frontend],
 ) error {
+	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
+		return nil
+	}
 	if lws.cec == nil || !ecfg.EnableExperimentalLB {
 		return nil
 	}
@@ -93,8 +97,8 @@ func registerCECReflector(
 			selector, err = slim_metav1.LabelSelectorAsSelector(spec.NodeSelector)
 			if err != nil {
 				log.Warn("Skipping CiliumEnvoyConfig due to invalid NodeSelector",
-					"namespace", objMeta.GetNamespace(),
-					"name", objMeta.GetName(),
+					logfields.K8sNamespace, objMeta.GetNamespace(),
+					logfields.Name, objMeta.GetName(),
 					logfields.Error, err)
 				return nil, false
 			}
@@ -106,13 +110,14 @@ func registerCECReflector(
 			objMeta.GetName(),
 			spec.Resources,
 			len(spec.Services) > 0,
+			injectCiliumEnvoyFilters(objMeta, spec),
 			useOriginalSourceAddress(objMeta),
 			true,
 		)
 		if err != nil {
 			log.Warn("Skipping CiliumEnvoyConfig due to malformed xDS resources",
-				"namespace", objMeta.GetNamespace(),
-				"name", objMeta.GetName(),
+				logfields.K8sNamespace, objMeta.GetNamespace(),
+				logfields.Name, objMeta.GetName(),
 				logfields.Error, err)
 			return nil, false
 		}
@@ -138,12 +143,7 @@ func registerCECReflector(
 			Spec:             spec,
 			Resources:        resources,
 			Listeners:        listeners,
-			Status:           reconciler.StatusPending(),
 		}
-
-		// Fill in the endpoints
-		updateBackends(cec, txn, frontends)
-
 		return cec, true
 	}
 

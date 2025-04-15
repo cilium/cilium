@@ -6,6 +6,7 @@ package experimental
 import (
 	"context"
 	"encoding/binary"
+	"iter"
 	"log/slog"
 	"os"
 	"slices"
@@ -211,7 +212,6 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
 	name2 := loadbalancer.ServiceName{Namespace: "test", Name: "test2"}
-	name3 := loadbalancer.ServiceName{Namespace: "test", Name: "test3"}
 
 	nextAddr := 0
 	mkAddr := func(port uint16) loadbalancer.L3n4Addr {
@@ -242,9 +242,6 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		wtxn.Commit()
 	}
 
-	fe, _, found := p.FrontendTable.Get(p.DB.ReadTxn(), FrontendByServiceName(name1))
-	require.True(t, found, "Lookup frontend failed")
-
 	// UpsertBackends
 	beAddr1, beAddr2, beAddr3 := mkAddr(4000), mkAddr(5000), mkAddr(6000)
 	{
@@ -256,12 +253,12 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			name1,
 			source.Kubernetes,
 			BackendParams{
-				L3n4Addr: beAddr1,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr1,
+				State:   loadbalancer.BackendStateActive,
 			},
 			BackendParams{
-				L3n4Addr: beAddr2,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr2,
+				State:   loadbalancer.BackendStateActive,
 			},
 		)
 
@@ -271,8 +268,8 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			name2,
 			source.Kubernetes,
 			BackendParams{
-				L3n4Addr: beAddr3,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr3,
+				State:   loadbalancer.BackendStateActive,
 			},
 		)
 
@@ -287,78 +284,20 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		for _, addr := range []loadbalancer.L3n4Addr{beAddr1, beAddr2, beAddr3} {
 			be, _, found := p.BackendTable.Get(txn, BackendByAddress(addr))
 			if assert.True(t, found, "Backend not found with address %s", addr) {
-				assert.True(t, be.L3n4Addr.DeepEqual(&addr), "Backend address %s does not match %s", be.L3n4Addr, addr)
+				assert.True(t, be.Address.DeepEqual(&addr), "Backend address %s does not match %s", be.Address, addr)
 			}
 		}
 
 		// By service
 		bes := statedb.Collect(p.BackendTable.List(txn, BackendByServiceName(name1)))
 		require.Len(t, bes, 2)
-		require.True(t, bes[0].L3n4Addr.DeepEqual(&beAddr1))
-		require.True(t, bes[1].L3n4Addr.DeepEqual(&beAddr2))
+		require.True(t, bes[0].Address.DeepEqual(&beAddr1))
+		require.True(t, bes[1].Address.DeepEqual(&beAddr2))
 
 		// Backends for [name2] can be found even though the service doesn't exist (yet).
 		bes = statedb.Collect(p.BackendTable.List(txn, BackendByServiceName(name2)))
 		require.Len(t, bes, 1)
-		require.True(t, bes[0].L3n4Addr.DeepEqual(&beAddr3))
-	}
-
-	// SetBackendHealth
-	{
-
-		wtxn := p.Writer.WriteTxn()
-
-		be, _, _ := p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateActive, be.State)
-
-		err := p.Writer.SetBackendHealth(wtxn, beAddr1, false)
-		require.NoError(t, err, "SetBackendHealth")
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateQuarantined, be.State)
-
-		err = p.Writer.SetBackendHealth(wtxn, beAddr1, true)
-		require.NoError(t, err, "SetBackendHealth")
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateActive, be.State)
-
-		// Marking the backend terminating will cause health updates to be ignored.
-		p.Writer.UpsertBackends(wtxn, name2, source.Kubernetes,
-			BackendParams{
-				L3n4Addr: beAddr1,
-				State:    loadbalancer.BackendStateTerminating,
-			},
-		)
-
-		err = p.Writer.SetBackendHealth(wtxn, beAddr1, false)
-		require.NoError(t, err, "SetBackendHealth")
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateTerminating, be.State)
-
-		// Adding another active instance to the backend won't change the
-		// computed state.
-		p.Writer.UpsertBackends(wtxn, name3, source.Kubernetes,
-			BackendParams{
-				L3n4Addr: beAddr1,
-				State:    loadbalancer.BackendStateActive,
-			},
-		)
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateTerminating, be.State)
-		require.Equal(t, 3, be.Instances.Len()) // name1, name2, name3
-
-		// Removing the "terminating" instance will not change the state, e.g.
-		// when a backend has been marked terminating by any instances it'll stay
-		// terminating until removed.
-		p.Writer.ReleaseBackend(wtxn, name2, beAddr1)
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, 2, be.Instances.Len()) // name1, name3
-		require.Equal(t, loadbalancer.BackendStateTerminating, be.State)
-
-		wtxn.Abort()
+		require.True(t, bes[0].Address.DeepEqual(&beAddr3))
 	}
 
 	// ReleaseBackend
@@ -367,24 +306,8 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 		// Release the [name1] reference to [beAddr1].
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.ReleaseBackend(wtxn, name1, beAddr1)
+		err := p.Writer.ReleaseBackends(wtxn, name1, beAddr1)
 		require.NoError(t, err, "ReleaseBackend failed")
-
-		wtxn.Abort()
-	}
-
-	// DeleteBackendsBySource
-	{
-		wtxn := p.Writer.WriteTxn()
-
-		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.DeleteBackendsBySource(wtxn, source.Kubernetes)
-		require.NoError(t, err, "DeleteBackendsBySource failed")
-		iter := p.BackendTable.All(wtxn)
-		require.Empty(t, statedb.Collect(iter))
-
-		// No backends remain for the service.
-		require.Empty(t, statedb.Collect(fe.Backends))
 
 		wtxn.Abort()
 	}
@@ -451,7 +374,7 @@ func TestWriter_Initializers(t *testing.T) {
 	require.NotEmpty(t, p.ServiceTable.PendingInitializers(firstTxn), "expected services to be uninitialized")
 }
 
-func TestSetBackends(t *testing.T) {
+func TestWriter_SetBackends(t *testing.T) {
 	p := fixture(t)
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
@@ -464,9 +387,13 @@ func TestSetBackends(t *testing.T) {
 	beAddr2 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122), 4242, loadbalancer.ScopeExternal)
 	beAddr3 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4243, loadbalancer.ScopeExternal)
 
-	backend1 := BackendParams{L3n4Addr: beAddr1}
-	backend2 := BackendParams{L3n4Addr: beAddr2}
-	backend3 := BackendParams{L3n4Addr: beAddr3}
+	backend1 := BackendParams{Address: beAddr1}
+	backend2 := BackendParams{Address: beAddr2}
+	backend3 := BackendParams{Address: beAddr3}
+
+	backend1_cluster1 := BackendParams{Address: beAddr1, ClusterID: 1}
+	backend2_cluster1 := BackendParams{Address: beAddr2, ClusterID: 1}
+	backend3_cluster2 := BackendParams{Address: beAddr3, ClusterID: 2}
 
 	type testCase struct {
 		desc   string
@@ -558,6 +485,28 @@ func TestSetBackends(t *testing.T) {
 			},
 			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: false, beAddr2: false, beAddr3: false},
 		},
+		{
+			desc: "add backend from other clusters",
+			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 1, backend1_cluster1, backend2_cluster1))
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 2, backend3_cluster2))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: true, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: true, beAddr3: true},
+		},
+		{
+			desc: "delete backend2 from first cluster",
+			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 1, backend1_cluster1))
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 2, backend3_cluster2))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: false, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: false, beAddr3: true},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -576,7 +525,7 @@ func TestSetBackends(t *testing.T) {
 							require.Nil(t, ptr) // ...or not be associated with the service.
 						}
 						for be := range fe.Backends {
-							require.NotEqual(t, addr, be.L3n4Addr)
+							require.NotEqual(t, addr, be.Address)
 						}
 					} else {
 						be, _, found := p.Writer.Backends().Get(txn, BackendByAddress(addr))
@@ -585,7 +534,7 @@ func TestSetBackends(t *testing.T) {
 						require.NotNil(t, ptr)
 						foundInFrontend := false
 						for be := range fe.Backends {
-							foundInFrontend = foundInFrontend || be.L3n4Addr == addr
+							foundInFrontend = foundInFrontend || be.Address == addr
 						}
 						require.True(t, foundInFrontend)
 					}
@@ -593,13 +542,13 @@ func TestSetBackends(t *testing.T) {
 			}
 			for addr, shouldExist := range tc.existence {
 				_, _, found := p.Writer.Backends().Get(txn, BackendByAddress(addr))
-				require.Equal(t, shouldExist, found, addr)
+				require.Equal(t, shouldExist, found, "address: %s", addr.String())
 			}
 		})
 	}
 }
 
-func TestWithConflictingSources(t *testing.T) {
+func TestWriter_WithConflictingSources(t *testing.T) {
 	p := fixture(t)
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
@@ -608,7 +557,7 @@ func TestWithConflictingSources(t *testing.T) {
 	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1234), 1234, loadbalancer.ScopeExternal)
 	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1235), 1235, loadbalancer.ScopeExternal)
 
-	backendTemplate := BackendParams{L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
+	backendTemplate := BackendParams{Address: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
 	backend10 := backendTemplate
 	backend10.Weight = 10
 	backend11 := backendTemplate
@@ -665,9 +614,10 @@ func TestWithConflictingSources(t *testing.T) {
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)}, // no change here
 		},
 		{
-			desc: "delete backends by source",
+			desc: "delete backends",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.DeleteBackendsBySource(wtxn, source.KubeAPIServer))
+				require.NoError(t, w.DeleteBackendsOfService(wtxn, name1, source.KubeAPIServer))
+				require.NoError(t, w.DeleteBackendsOfService(wtxn, name2, source.KubeAPIServer))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](12), name2: nil}, // change from the previous case surfaces now
 		},
@@ -680,9 +630,9 @@ func TestWithConflictingSources(t *testing.T) {
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
 		},
 		{
-			desc: "delete backend by source for one service",
+			desc: "delete via SetBackends",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.ReleaseBackendsFromSource(wtxn, name1, source.KubeAPIServer))
+				require.NoError(t, w.SetBackends(wtxn, name1, source.KubeAPIServer))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](12), name2: ptr.To[weight](20)},
 		},
@@ -692,13 +642,6 @@ func TestWithConflictingSources(t *testing.T) {
 				require.NoError(t, w.SetBackends(wtxn, name1, source.KubeAPIServer, backend11))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
-		},
-		{
-			desc: "delete it again via SetBackends",
-			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.SetBackends(wtxn, name1, source.KubeAPIServer))
-			},
-			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](12), name2: ptr.To[weight](20)},
 		},
 	}
 
@@ -713,7 +656,7 @@ func TestWithConflictingSources(t *testing.T) {
 				if weight == nil {
 					_, _, found := p.Writer.Backends().Get(txn, BackendByServiceName(name))
 					require.False(t, found)
-					require.Empty(t, statedb.Collect(fe.Backends))
+					require.Empty(t, statedb.Collect(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
 				} else {
 					backends := p.Writer.Backends().List(txn, BackendByServiceName(name))
 					count := 0
@@ -723,15 +666,52 @@ func TestWithConflictingSources(t *testing.T) {
 						backendFromTable = b
 					}
 					require.Equal(t, 1, count)
-					actual := slices.Collect(statedb.ToSeq(fe.Backends))
+					actual := slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
 					require.Len(t, actual, 1)
-					for desc, b := range map[string]*Backend{"from table": backendFromTable, "from Frontend": actual[0]} {
-						bi := b.GetInstance(name)
-						require.NotNil(t, bi, desc)
-						require.Equal(t, int(*weight), int(bi.Weight), "backend %s", desc)
+					for desc, b := range map[string]BackendParams{"from table": *backendFromTable.GetInstance(name), "from Frontend": actual[0]} {
+						require.NotNil(t, b, desc)
+						require.Equal(t, int(*weight), int(b.Weight), "backend %s", desc)
 					}
 				}
 			}
 		})
 	}
+}
+
+func TestWriter_SetSelectBackends(t *testing.T) {
+	p := fixture(t)
+	w := p.Writer
+
+	var feAddr loadbalancer.L3n4Addr
+	feAddr.ParseFromString("1.0.0.1:80/TCP")
+	svcName := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+
+	var beAddr loadbalancer.L3n4Addr
+	beAddr.ParseFromString("2.0.0.1:80/TCP")
+
+	w.SetSelectBackendsFunc(func(bes iter.Seq2[BackendParams, statedb.Revision], svc *Service, fe *Frontend) iter.Seq2[BackendParams, statedb.Revision] {
+		require.NotNil(t, bes)
+		require.NotNil(t, svc)
+		require.NotNil(t, fe)
+		require.Equal(t, feAddr.String(), fe.Address.String())
+		return func(yield func(BackendParams, uint64) bool) {
+			yield(BackendParams{
+				Address: beAddr,
+				Source:  "test",
+			}, 1)
+		}
+	})
+
+	wtxn := w.WriteTxn()
+	err := w.UpsertServiceAndFrontends(wtxn,
+		&Service{Name: svcName},
+		FrontendParams{Address: feAddr, ServiceName: loadbalancer.ServiceName{Namespace: "test", Name: "test"}})
+	require.NoError(t, err, "UpsertServiceAndFrontends")
+	txn := wtxn.Commit()
+
+	fe, _, found := w.Frontends().Get(txn, FrontendByAddress(feAddr))
+	require.True(t, found)
+	bes := slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
+	require.Len(t, bes, 1)
+	require.Equal(t, beAddr.String(), bes[0].Address.String())
 }

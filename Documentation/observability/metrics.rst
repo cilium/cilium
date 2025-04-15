@@ -659,7 +659,7 @@ Name                               Labels                                       
 ``session_state``                  ``vrouter``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
 ``advertised_routes``              ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
 ``received_routes``                ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
-``reconcile_error_count``          ``vrouter``                                                     Enabled  Number of reconciliation runs that returned an error
+``reconcile_errors_total``         ``vrouter``                                                     Enabled  Number of reconciliation runs that returned an error
 ``reconcile_run_duration_seconds`` ``vrouter``                                                     Enabled  Histogram of reconciliation run duration
 ================================== =============================================================== ======== ===================================================================
 
@@ -715,11 +715,12 @@ All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
 BGP Control Plane Operator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-================================== ======================= ======== ======================================================================
-Name                               Labels                  Default  Description
-================================== ======================= ======== ======================================================================
-``cluster_config_error_count``     ``bgp_cluster_config``  Enabled  Number of errors returned per BGP cluster configuration reconciliation
-================================== ======================= ======== ======================================================================
+================================== ===================================== ======== ======================================================================
+Name                               Labels                                Default  Description
+================================== ===================================== ======== ======================================================================
+``reconcile_errors_total``         ``resource_kind``, ``resource_name``  Enabled  Number of errors returned per BGP resource reconciliation
+``reconcile_run_duration_seconds``                                       Enabled  Histogram of reconciliation run duration
+================================== ===================================== ======== ======================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
@@ -813,11 +814,40 @@ enabled, the following metrics are available:
 ============================================ ======= ========== ============================================================
 Name                                         Labels  Default    Description
 ============================================ ======= ========== ============================================================
-``doublewrite_identity_crd_total``                   Enabled    The total number of CRD identities
-``doublewrite_identity_kvstore_total``               Enabled    The total number of identities in the KVStore
-``doublewrite_identity_crd_only_total``              Enabled    The number of CRD identities not present in the KVStore
-``doublewrite_identity_kvstore_only_total``          Enabled    The number of identities in the KVStore not present as a CRD
+``doublewrite_crd_identities``                       Enabled    The total number of CRD identities
+``doublewrite_kvstore_identities``                   Enabled    The total number of identities in the KVStore
+``doublewrite_crd_only_identities``                  Enabled    The number of CRD identities not present in the KVStore
+``doublewrite_kvstore_only_identities``              Enabled    The number of identities in the KVStore not present as a CRD
 ============================================ ======= ========== ============================================================
+
+.. _identity_management_metrics:
+
+Identity Management Mode
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+=========================================== =========================== =====================================================================================
+Name                                        Labels                      Description
+=========================================== =========================== =====================================================================================
+``cid_controller_work_queue_event_count``   ``resource``, ``outcome``   Counts processed events by CID controller work queues
+``cid_controller_work_queue_latency``       ``resource``, ``phase``     Duration of CID controller work queues enqueuing and processing latencies in seconds
+=========================================== =========================== =====================================================================================
+
+Internal WorkQueues
+~~~~~~~~~~~~~~~~~~~~
+
+The Operator uses internal queues to manage the processing of various tasks. Currently only the Cilium Node Synchronizer queues are reporting the metrics listed below.
+
+==================================================== ============================================= ========== ===========================================================
+Name                                                 Labels                                        Default    Description
+==================================================== ============================================= ========== ===========================================================
+``workqueue_depth``                                  ``queue_name``                                 Enabled    Current depth of workqueue
+``workqueue_adds_total``                             ``queue_name``                                 Enabled    Total number of adds handled by workqueue
+``workqueue_queue_duration_seconds``                 ``queue_name``                                 Enabled    Duration in seconds an item stays in workqueue prior to request
+``workqueue_work_duration_seconds``                  ``queue_name``                                 Enabled    Duration in seconds to process an item from workqueue
+``workqueue_unfinished_work_seconds``                ``queue_name``                                 Enabled    Duration in seconds of work in progress that hasn't been observed by work_duration. Large values indicate stuck threads. You can deduce the number of stuck threads by observing the rate at which this value increases.
+``workqueue_longest_running_processor_seconds``      ``queue_name``                                 Enabled    Duration in seconds of the longest running processor for workqueue
+``workqueue_retries_total``                          ``queue_name``                                 Enabled    Total number of retries handled by workqueue
+==================================================== ============================================= ========== ===========================================================
 
 
 Hubble

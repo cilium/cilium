@@ -7,12 +7,12 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -30,7 +30,7 @@ type clusterMesh struct {
 
 	cfg       ClusterMeshConfig
 	cfgMCSAPI MCSAPIConfig
-	logger    logrus.FieldLogger
+	logger    *slog.Logger
 	Metrics   Metrics
 
 	// globalServices is a list of all global services. The datastructure
@@ -96,12 +96,10 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 	params.Logger.Info("Operator ClusterMesh component enabled")
 
 	cm := clusterMesh{
-		cfg:       params.Cfg,
-		cfgMCSAPI: params.CfgMCSAPI,
-		logger:    params.Logger,
-		globalServices: common.NewGlobalServiceCache(
-			params.Metrics.TotalGlobalServices.WithLabelValues(params.ClusterInfo.Name),
-		),
+		cfg:            params.Cfg,
+		cfgMCSAPI:      params.CfgMCSAPI,
+		logger:         params.Logger,
+		globalServices: common.NewGlobalServiceCache(params.Logger, params.Metrics.TotalGlobalServices.WithLabelValues(params.ClusterInfo.Name)),
 		globalServiceExports: NewGlobalServiceExportCache(
 			params.Metrics.TotalGlobalServiceExports.WithLabelValues(params.ClusterInfo.Name),
 		),
@@ -109,6 +107,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		syncTimeoutConfig: params.TimeoutConfig,
 	}
 	cm.common = common.NewClusterMesh(common.Configuration{
+		Logger:           params.Logger,
 		Config:           params.Config,
 		ClusterInfo:      params.ClusterInfo,
 		NewRemoteCluster: cm.newRemoteCluster,
@@ -185,6 +184,7 @@ func (cm *clusterMesh) GlobalServiceExports() *GlobalServiceExportCache {
 
 func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
+		logger:                        cm.logger,
 		name:                          name,
 		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
 		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.ClusterMeshEnableMCSAPI,
@@ -202,7 +202,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			serviceStore.NamespacedNameValidator(),
 		),
 		common.NewSharedServicesObserver(
-			cm.logger.WithField(logfields.ClusterName, name),
+			cm.logger.With(logfields.ClusterName, name),
 			cm.globalServices,
 			func(svc *serviceStore.ClusterService) {
 				for _, hook := range cm.clusterServiceUpdateHooks {
@@ -284,7 +284,7 @@ func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 		// and continue normally, as if the synchronization completed successfully.
 		// This ensures that we don't block forever in case of misconfigurations.
 		cm.syncTimeoutLogOnce.Do(func() {
-			cm.logger.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
+			cm.logger.Warn("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
 		})
 
 		return nil

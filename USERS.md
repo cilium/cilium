@@ -191,6 +191,12 @@ Users (Alphabetically)
       Q: @ant31
       L: https://conny.de
 
+    * N: CoreWeave
+      D: CoreWeave, The AI Hyperscaler™, uses Cilium as the default CNI for CoreWeave Kubernetes Service.
+      U: Networking
+      L: https://www.coreweave.com/
+      Q: @dswaffordcw
+
     * N: Cosmonic
       D: Cilium is the CNI for Cosmonic's Nomad based PaaS
       U: Networking, NetworkPolicy, Transparent Encryption
@@ -274,6 +280,12 @@ Users (Alphabetically)
       L: https://documentation.elasticpath.com/cloudops-kubernetes/docs/index.html
       Q: @Neil Seward
 
+    * N: Entrywan
+      D: Entrywan provides Cilium as a CNI option in its managed kubernetes service
+      U: CNI
+      L: https://www.entrywan.com/docs#kubernetes
+      Q: @aarongroom
+
     * N: Equinix
       D: Equinix Metal is using Cilium for production and non-production environments on bare metal
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
@@ -285,6 +297,12 @@ Users (Alphabetically)
       U: CNI, network policies, visibility
       L: https://www.equinix.nl/products/support-services/managed-services/netherlands
       Q: @jonkerj
+
+    * N: EvoCloud
+      D: EvoCloud uses Cilium as a Kubernetes proxy replacement, CNI with Gateway API integration, Cluster mesh with BGP enabled, Network policy and Hubble Observability.
+      U: L4/L7 Networking, L2 Announcement, Network Policies, Kube-proxy replacement, CNI with Gateway API, Hubble for tracing and observability, ClusterMesh and ServiceMesh
+      L: https://github.com/evocloud-dev/evocloud-paas
+      Q: @geanttechnology, @escapevelocity17321
 
     * N: Exoscale
       D: Exoscale is offering Cilium as a CNI option on its managed Kubernetes service named SKS (Scalable Kubernetes Service)
@@ -411,6 +429,12 @@ Users (Alphabetically)
       U: Custom eBPF programs, networking, network policy, kube-proxy replacement
       L: https://youtu.be/WRACr5nXl9U
       Q: @gyutaeb
+
+    * N: KA-NABELL
+      D: KA-NABELL harnesses Cilium to deliver Kubernetes networking with robust security and clear observability.
+      U: CNI/ENI Networking, kube-proxy replacement, Monitoring via Prometheus metrics & Hubble, eBPF, CiliumNetworkPolicy
+      L: https://speakerdeck.com/andoshin11/envoy-external-authztogrpc-extensionwoli-yong-sita-wan-zhang-ranai-microservicesren-zheng-ren-ke-ji-pan?slide=8
+      Q: @kahirokunn
 
     * N: Keploy
       D: Keploy is using the Cilium to capture the network traffic to perform E2E Testing.
@@ -796,6 +820,12 @@ Users (Alphabetically)
       D: Sproutfi uses Cilium as the CNI on its GKE based clusters
       U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics
       Q: @edude03
+
+    * N: Stream Security
+      D: Stream Security uses Tetragon for Network, Process, and File observability and protection in Kubernetes clusters
+      U: Tetragon Network Policies, Process Policies, File Policies
+      L: https://www.stream.security/
+      Q: @vitali-streamsec
 
     * N: SuperOrbital
       D: As a Kubernetes-focused consulting firm, we have implemented Cilium on customer engagements

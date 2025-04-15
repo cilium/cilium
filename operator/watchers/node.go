@@ -81,11 +81,11 @@ func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
+				AddFunc: func(obj any) {
 					key, _ := queueKeyFunc(obj)
 					nodeQueue.Add(key)
 				},
-				UpdateFunc: func(_, newObj interface{}) {
+				UpdateFunc: func(_, newObj any) {
 					key, _ := queueKeyFunc(newObj)
 					nodeQueue.Add(key)
 				},
@@ -104,7 +104,7 @@ func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-
 	})
 }
 
-func transformToNode(obj interface{}) (interface{}, error) {
+func transformToNode(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *slim_corev1.Node:
 		n := &slim_corev1.Node{

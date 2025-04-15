@@ -1,6 +1,6 @@
 {{- $kvstoreMetricsEnabled := and .Values.clustermesh.apiserver.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled -}}
 {{- if and
-  (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  .Values.clustermesh.useAPIServer
   (or .Values.clustermesh.apiserver.metrics.enabled $kvstoreMetricsEnabled .Values.clustermesh.apiserver.metrics.etcd.enabled)
   .Values.clustermesh.apiserver.metrics.serviceMonitor.enabled }}
 ---
@@ -35,9 +35,12 @@ spec:
     matchNames:
     - {{ include "cilium.namespace" . }}
   endpoints:
-  {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+  {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
   - port: apiserv-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.interval | quote }}
+    {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.relabelings }}
@@ -52,6 +55,9 @@ spec:
   {{- if $kvstoreMetricsEnabled }}
   - port: kvmesh-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval | quote }}
+    {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.relabelings }}
@@ -63,9 +69,12 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
-  {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+  {{- if and .Values.clustermesh.apiserver.metrics.etcd.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
   - port: etcd-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.interval | quote }}
+    {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.relabelings }}

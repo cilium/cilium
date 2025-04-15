@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -592,7 +593,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), hivetest.Logger(t), srvParams)
 			require.NoError(t, err)
 
 			testSC.Config = &v2alpha1api.CiliumBGPVirtualRouter{
@@ -611,7 +612,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				podStore.Upsert(obj)
 			}
 
-			policyReconciler := NewRoutePolicyReconciler(lbStore, podStore).Reconciler.(*RoutePolicyReconciler)
+			policyReconciler := NewRoutePolicyReconciler(hivetest.Logger(t), lbStore, podStore).Reconciler.(*RoutePolicyReconciler)
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: testSC.Config,
@@ -629,7 +630,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name+"-init", func(t *testing.T) {
 					err = policyReconciler.Reconcile(context.Background(), params)
 					if tt.expectError {
@@ -659,7 +660,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			}
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name+"-follow-up", func(t *testing.T) {
 					err = policyReconciler.Reconcile(context.Background(), params)
 					require.NoError(t, err)
@@ -678,7 +679,7 @@ func validatePoliciesMatch(t *testing.T, actual map[string]*types.RoutePolicy, e
 	for _, expPolicy := range expected {
 		policy := actual[expPolicy.Name]
 		require.NotNil(t, policy)
-		require.EqualValues(t, expPolicy, policy)
+		require.Equal(t, expPolicy, policy)
 	}
 }
 
@@ -749,7 +750,7 @@ func TestCommunityDeduplication(t *testing.T) {
 
 			res2 := dedupLargeCommunities(tt.large)
 
-			require.EqualValues(t, tt.expected, append(res, res2...))
+			require.Equal(t, tt.expected, append(res, res2...))
 		})
 	}
 }

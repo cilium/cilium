@@ -313,11 +313,21 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,
 		},
+		ListenerConfig: translation.ListenerConfig{
+			StreamIdleTimeoutSeconds: 300,
+		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: 60,
 		},
 	})
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false, string(corev1.ServiceExternalTrafficPolicyCluster))
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
+		HostNetworkConfig: translation.HostNetworkConfig{
+			Enabled: false,
+		},
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+		},
+	})
 
 	r := &gatewayReconciler{
 		Client:     c,

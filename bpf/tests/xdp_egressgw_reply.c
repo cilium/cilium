@@ -8,6 +8,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
+#define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
 
@@ -100,7 +101,7 @@ int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 		.to_sport = MASQ_PORT,
 	};
 
-	map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &nat_entry, BPF_ANY);
+	map_update_elem(&cilium_snat_v4_external, &tuple, &nat_entry, BPF_ANY);
 
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
 			.test = TEST_XDP_REPLY,
@@ -129,7 +130,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 		.to_dport = client_port(TEST_XDP_REPLY),
 	};
 
-	map_update_elem(&SNAT_MAPPING_IPV4, &snat_tuple, &snat_entry, BPF_ANY);
+	map_update_elem(&cilium_snat_v4_external, &snat_tuple, &snat_entry, BPF_ANY);
 
 	/* install ipcache entry for the CLIENT_IP: */
 	ipcache_v4_add_entry(CLIENT_IP, 0, 0, CLIENT_NODE_IP, 0);
@@ -236,6 +237,175 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("innerDstPort hasn't been revNATed to client port");
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+
+	test_finish();
+}
+
+/* Test that a EgressGW reply gets RevSNATed, and forwarded to the
+ * worker node via tunnel (IPv6).
+ */
+PKTGEN("xdp", "xdp_egressgw_reply_v6")
+int egressgw_reply_pktgen_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+
+	/* Add a new NAT entry so that pktgen can figure out the correct destination port */
+	struct ipv6_ct_tuple __align_stack_8 tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.dport   = EXTERNAL_SVC_PORT,
+		.sport   = client_port(TEST_XDP_REPLY),
+	};
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	ipv6_addr_copy(&tuple.daddr, &ext_svc_ip);
+
+	struct ipv6_nat_entry nat_entry = {
+		.to_sport = MASQ_PORT,
+	};
+	ipv6_addr_copy(&nat_entry.to_saddr, &egress_ip);
+
+	map_update_elem(&cilium_snat_v6_external, &tuple, &nat_entry, BPF_ANY);
+
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_XDP_REPLY,
+			.dir = CT_INGRESS,
+		});
+}
+
+SETUP("xdp", "xdp_egressgw_reply_v6")
+int egressgw_reply_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+
+	/* install EgressGW policy for the connection: */
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
+
+	/* install RevSNAT entry */
+	struct ipv6_ct_tuple snat_tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.dport   = MASQ_PORT,
+		.sport   = EXTERNAL_SVC_PORT,
+		.flags   = NAT_DIR_INGRESS,
+	};
+	ipv6_addr_copy(&snat_tuple.daddr, &egress_ip);
+	ipv6_addr_copy(&snat_tuple.saddr, &ext_svc_ip);
+
+	struct ipv6_nat_entry snat_entry = {
+		.to_dport = client_port(TEST_XDP_REPLY),
+	};
+	ipv6_addr_copy(&snat_entry.to_daddr, &client_ip);
+
+	map_update_elem(&cilium_snat_v6_external, &snat_tuple, &snat_entry, BPF_ANY);
+
+	/* install ipcache entry for the CLIENT_IP: */
+	ipcache_v6_add_entry(&client_ip, 0, 0, CLIENT_NODE_IP, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("xdp", "xdp_egressgw_reply_v6")
+int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *inner_l4;
+	struct udphdr *l4;
+	struct ethhdr *l2, *inner_l2;
+	struct ipv6hdr *inner_l3;
+	struct iphdr *l3;
+	struct vxlanhdr *vxlan;
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(*l2) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(*l2);
+	if ((void *)l3 + sizeof(*l3) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(*l3);
+	if ((void *)l4 + sizeof(*l4) > data_end)
+		test_fatal("l4 out of bounds");
+
+	vxlan = (void *)l4 + sizeof(*l4);
+	if ((void *)vxlan + sizeof(*vxlan) > data_end)
+		test_fatal("vxlan out of bounds");
+
+	inner_l2 = (void *)vxlan + sizeof(*vxlan);
+	if ((void *)inner_l2 + sizeof(*inner_l2) > data_end)
+		test_fatal("inner l2 out of bounds");
+
+	inner_l3 = (void *)inner_l2 + sizeof(*inner_l2);
+	if ((void *)inner_l3 + sizeof(*inner_l3) > data_end)
+		test_fatal("inner l3 out of bounds");
+
+	inner_l4 = (void *)inner_l3 + sizeof(*inner_l3);
+	if ((void *)inner_l4 + sizeof(*inner_l4) > data_end)
+		test_fatal("inner l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)gateway_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the gateway MAC")
+	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the client node MAC")
+
+	if (l2->h_proto != bpf_htons(ETH_P_IP))
+		test_fatal("l2 doesn't have correct proto type")
+
+	if (l3->protocol != IPPROTO_UDP)
+		test_fatal("outer IP doesn't have correct L4 protocol")
+
+	if (l3->check != bpf_htons(0x526a))
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+
+	if (l3->saddr != IPV4_DIRECT_ROUTING)
+		test_fatal("outerSrcIP is not correct")
+
+	if (l3->daddr != CLIENT_NODE_IP)
+		test_fatal("outerDstIP is not correct")
+
+	if (l4->dest != bpf_htons(TUNNEL_PORT))
+		test_fatal("outerDstPort is not tunnel port")
+
+	if (inner_l2->h_proto != bpf_htons(ETH_P_IPV6))
+		test_fatal("inner L2 doesn't have correct ethertype")
+
+	if (inner_l3->nexthdr != IPPROTO_TCP)
+		test_fatal("inner IP doesn't have correct L4 protocol")
+
+	if (memcmp(&inner_l3->saddr, &ext_svc_ip, sizeof(union v6addr)) != 0)
+		test_fatal("innerSrcIP is not the external SVC IP");
+
+	if (memcmp(&inner_l3->daddr, &client_ip, sizeof(union v6addr)) != 0)
+		test_fatal("innerDstIP hasn't been revNATed to the client IP");
+
+	if (inner_l4->source != EXTERNAL_SVC_PORT)
+		test_fatal("innerSrcPort is not the external SVC port");
+
+	if (inner_l4->dest != client_port(TEST_XDP_REPLY))
+		test_fatal("innerDstPort hasn't been revNATed to client port");
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
 
 	test_finish();
 }

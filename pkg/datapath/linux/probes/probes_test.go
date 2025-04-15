@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -231,6 +233,7 @@ func TestSystemConfigProbes(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		manager := &ProbeManager{
+			logger:   hivetest.Logger(t),
 			features: Features{SystemConfig: tc.systemConfig},
 		}
 		err := manager.SystemConfigProbes()
@@ -291,7 +294,7 @@ func TestWriteFeatureHeader(t *testing.T) {
 func TestExecuteSystemConfigProbes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	if err := NewProbeManager().SystemConfigProbes(); err != nil {
+	if err := NewProbeManager(hivetest.Logger(t)).SystemConfigProbes(); err != nil {
 		t.Error(err)
 	}
 }
@@ -299,17 +302,8 @@ func TestExecuteSystemConfigProbes(t *testing.T) {
 func TestExecuteHeaderProbes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	if ExecuteHeaderProbes() == nil {
+	if ExecuteHeaderProbes(hivetest.Logger(t)) == nil {
 		t.Error("expected probes to not be nil")
-	}
-}
-
-func TestOuterSourceIPProbe(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	testutils.SkipOnOldKernel(t, "5.19", "source IP support in struct bpf_tunnel_key")
-
-	if err := HaveOuterSourceIPSupport(); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -317,7 +311,7 @@ func TestSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "5.2", "BPF_ADJ_ROOM_MAC mode support in bpf_skb_adjust_room")
 
-	if err := HaveSKBAdjustRoomL2RoomMACSupport(); err != nil {
+	if err := HaveSKBAdjustRoomL2RoomMACSupport(hivetest.Logger(t)); err != nil {
 		t.Fatal(err)
 	}
 }

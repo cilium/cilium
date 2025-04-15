@@ -4,10 +4,13 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 // Model holds an abstracted data model representing the translation
@@ -36,6 +39,7 @@ type Listener interface {
 	GetPort() uint32
 	GetAnnotations() map[string]string
 	GetLabels() map[string]string
+	GetService() *Service
 }
 
 // HTTPListener holds configuration for any listener that terminates and proxies HTTP
@@ -100,6 +104,10 @@ func (l HTTPListener) GetLabels() map[string]string {
 	return nil
 }
 
+func (l HTTPListener) GetService() *Service {
+	return l.Service
+}
+
 // TLSPassthroughListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
@@ -152,7 +160,12 @@ func (l TLSPassthroughListener) GetPort() uint32 {
 	return l.Port
 }
 
+func (l TLSPassthroughListener) GetService() *Service {
+	return l.Service
+}
+
 // Service holds the configuration for desired Service details
+// Note: This is a subset of the Service.Spec struct from k8s Service. Not all fields are supported.
 type Service struct {
 	// Type is the type of service that is being used for Listener (e.g. Load Balancer or Node port)
 	// Defaults to Load Balancer type
@@ -163,6 +176,15 @@ type Service struct {
 	// SecureNodePort is the back-end port of the service that is being used for HTTPS Listener
 	// Applicable only if Type is Node NodePort
 	SecureNodePort *uint32 `json:"secure_node_port,omitempty"`
+
+	ExternalTrafficPolicy          string   `json:"external_traffic_policy,omitempty"`
+	LoadBalancerClass              *string  `json:"load_balancer_class,omitempty"`
+	LoadBalancerSourceRanges       []string `json:"load_balancer_source_ranges,omitempty"`
+	LoadBalancerSourceRangesPolicy string   `json:"load_balancer_source_ranges_policy,omitempty"`
+	IPFamilies                     []string `json:"ip_families,omitempty"`
+	IPFamilyPolicy                 *string  `json:"ip_family_policy,omitempty"`
+	AllocateLoadBalancerNodePorts  *bool    `json:"allocate_load_balancer_node_ports,omitempty"`
+	TrafficDistribution            *string  `json:"traffic_distribution,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including
@@ -466,4 +488,82 @@ type HTTPRetry struct {
 	// Backoff specifies the minimum duration a Gateway should wait between
 	// retry attempts
 	Backoff *time.Duration `json:"backoff,omitempty"`
+}
+
+// IsEmpty returns true if the model has no HTTP or TLS Passthrough listeners.
+func (m *Model) IsEmpty() bool {
+	return len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0
+}
+
+// IsHTTPListenerConfigured returns true if the model has any HTTP listeners.
+func (m *Model) IsHTTPListenerConfigured() bool {
+	return len(m.HTTP) > 0
+}
+
+// IsHTTPSListenerConfigured returns true if the model has any HTTPS listeners.
+func (m *Model) IsHTTPSListenerConfigured() bool {
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.
+func (m *Model) IsTLSPassthroughListenerConfigured() bool {
+	return len(m.TLSPassthrough) > 0
+}
+
+// HTTPPorts returns a list of unique ports for all HTTP listeners.
+func (m *Model) HTTPPorts() []uint32 {
+	var ports []uint32
+	for _, l := range m.HTTP {
+		ports = append(ports, l.Port)
+	}
+	return slices.SortedUnique(ports)
+}
+
+// TLSPassthroughPorts returns a list of unique ports for all TLS Passthrough listeners.
+func (m *Model) TLSPassthroughPorts() []uint32 {
+	var ports []uint32
+	for _, l := range m.TLSPassthrough {
+		ports = append(ports, l.Port)
+	}
+	return slices.SortedUnique(ports)
+}
+
+// AllPorts returns a list of unique ports for all listeners.
+func (m *Model) AllPorts() []uint32 {
+	var ports []uint32
+	ports = append(ports, m.HTTPPorts()...)
+	ports = append(ports, m.TLSPassthroughPorts()...)
+	return slices.SortedUnique(ports)
+}
+
+// TLSBackendsToHostnames returns a map of TLS backends to hostnames.
+// This is only for TLS Passthrough listeners.
+func (m *Model) TLSBackendsToHostnames() map[string][]string {
+	res := make(map[string][]string)
+	for _, h := range m.TLSPassthrough {
+		for _, route := range h.Routes {
+			for _, backend := range route.Backends {
+				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
+				res[key] = append(res[key], route.Hostnames...)
+			}
+		}
+	}
+	return res
+}
+
+// TLSSecretsToHostnames returns a map of TLS secrets to hostnames.
+// This is only for HTTP listeners.
+func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
+	res := make(map[TLSSecret][]string)
+	for _, h := range m.HTTP {
+		for _, s := range h.TLS {
+			res[s] = append(res[s], h.Hostname)
+		}
+	}
+	return res
 }

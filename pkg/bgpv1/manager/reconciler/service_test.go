@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -631,6 +632,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
+			l := hivetest.Logger(t)
 			// setup our test server, create a BgpServer, advertise the tt.advertised
 			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
 			srvParams := types.ServerParameters{
@@ -645,7 +647,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.oldServiceSelector,
 			}
-			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), l, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -693,7 +695,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -718,7 +720,10 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 				}
 			}
 
-			log.Printf("%+v %+v", serviceAnnouncements, tt.updated)
+			l.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
 
 			// ensure we see tt.updated in testSC.ServiceAnnouncements
 			for svcKey, cidrs := range tt.updated {
@@ -1292,6 +1297,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
 			// setup our test server, create a BgpServer, advertise the tt.advertised
 			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
 			srvParams := types.ServerParameters{
@@ -1354,7 +1360,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -1379,7 +1385,10 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				}
 			}
 
-			log.Printf("%+v %+v", serviceAnnouncements, tt.updated)
+			log.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
 
 			// ensure we see tt.updated in testSC.ServiceAnnouncements
 			for svcKey, cidrs := range tt.updated {
@@ -1951,6 +1960,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
 			// setup our test server, create a BgpServer, advertise the tt.advertised
 			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
 			srvParams := types.ServerParameters{
@@ -2013,7 +2023,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -2038,7 +2048,10 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 				}
 			}
 
-			log.Printf("%+v %+v", serviceAnnouncements, tt.updated)
+			log.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
 
 			// ensure we see tt.updated in testSC.ServiceAnnouncements
 			for svcKey, cidrs := range tt.updated {
@@ -2181,7 +2194,7 @@ func TestEPUpdateOnly(t *testing.T) {
 		ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPClusterIPAddr},
 	}
 
-	testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+	testSC, err := instance.NewServerWithConfig(context.Background(), hivetest.Logger(t), srvParams)
 	req.NoError(err)
 
 	testSC.Config = vr
@@ -2301,6 +2314,7 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
 			// setup our test server, create a BgpServer, advertise the tt.advertised
 			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
 			srvParams := types.ServerParameters{
@@ -2363,7 +2377,7 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -2388,7 +2402,10 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 				}
 			}
 
-			log.Printf("%+v %+v", serviceAnnouncements, tt.updated)
+			log.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
 
 			// ensure we see tt.updated in testSC.ServiceAnnouncements
 			for svcKey, cidrs := range tt.updated {

@@ -17,13 +17,6 @@
 #define ENABLE_MASQUERADE_IPV6 1
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include "node_config.h"
-
-/*
  * Simulate sending traffic from pod_one on node_one directly to
  * node_two. Tests are written from the perspective of node_one,
  * allowing us access to nodeport_snat_fwd_ipv{4,6}.
@@ -41,6 +34,8 @@
  * Include entrypoint into host stack
  */
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, {.addr = v6_node_one_addr})
 
 /*
  * Include test helpers
@@ -108,9 +103,9 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 * Otherwise, leftover state from previous tests will have an impact,
 	 * as the tests and checks assume we have a fresh state every time.
 	 */
-	clear_map(&METRICS_MAP);
-	clear_map(&CT_MAP_TCP4);
-	clear_map(&CT_MAP_TCP6);
+	clear_map(&cilium_metrics);
+	clear_map(&cilium_ct4_global);
+	clear_map(&cilium_ct6_global);
 	clear_map(get_cluster_snat_map_v4(0));
 	clear_map(get_cluster_snat_map_v6(0));
 
@@ -167,7 +162,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	key.reason = REASON_FORWARDED;
 	key.dir = METRIC_EGRESS;
 
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found")
 
@@ -214,9 +209,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {
 		struct ipv6hdr *l3;
-		union v6addr masq_addr;
-
-		BPF_V6(masq_addr, IPV6_MASQUERADE);
+		union v6addr masq_addr = CONFIG(nat_ipv6_masquerade);
 
 		l3 = (void *)l2 + sizeof(struct ethhdr);
 

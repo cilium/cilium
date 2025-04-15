@@ -29,7 +29,8 @@ func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[stri
 	// Test L7 HTTPS interception using an egress policy on the clients.
 	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
+		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretSync)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy with TLS interception
@@ -50,7 +51,7 @@ func clientEgressL7ExtraTlsHeadersTest(ct *check.ConnectivityTest, templates map
 	// Test L7 HTTPS interception using an egress policy on the clients.
 	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretSync)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget). // Only one certificate for ExternalTarget

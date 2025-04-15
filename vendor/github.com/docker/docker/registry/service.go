@@ -52,7 +52,7 @@ func (s *Service) ReplaceConfig(options ServiceOptions) (commit func(), err erro
 // Auth contacts the public registry with the provided credentials,
 // and returns OK if authentication was successful.
 // It can be used to verify the validity of a client's credentials.
-func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, userAgent string) (status, token string, err error) {
+func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, userAgent string) (statusMessage, token string, _ error) {
 	// TODO Use ctx when searching for repositories
 	registryHostName := IndexHostname
 
@@ -68,27 +68,37 @@ func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, use
 		registryHostName = u.Host
 	}
 
-	// Lookup endpoints for authentication using "LookupPushEndpoints", which
-	// excludes mirrors to prevent sending credentials of the upstream registry
-	// to a mirror.
-	endpoints, err := s.LookupPushEndpoints(registryHostName)
+	// Lookup endpoints for authentication but exclude mirrors to prevent
+	// sending credentials of the upstream registry to a mirror.
+	s.mu.RLock()
+	endpoints, err := s.lookupV2Endpoints(registryHostName, false)
+	s.mu.RUnlock()
 	if err != nil {
 		return "", "", invalidParam(err)
 	}
 
+	var lastErr error
 	for _, endpoint := range endpoints {
-		status, token, err = loginV2(authConfig, endpoint, userAgent)
-		if err == nil {
-			return
+		authToken, err := loginV2(authConfig, endpoint, userAgent)
+		if err != nil {
+			if errdefs.IsUnauthorized(err) {
+				// Failed to authenticate; don't continue with (non-TLS) endpoints.
+				return "", "", err
+			}
+			// Try next endpoint
+			log.G(ctx).WithFields(log.Fields{
+				"error":    err,
+				"endpoint": endpoint,
+			}).Infof("Error logging in to endpoint, trying next endpoint")
+			lastErr = err
+			continue
 		}
-		if errdefs.IsUnauthorized(err) {
-			// Failed to authenticate; don't continue with (non-TLS) endpoints.
-			return status, token, err
-		}
-		log.G(ctx).WithError(err).Infof("Error logging in to endpoint, trying next endpoint")
+
+		// TODO(thaJeztah): move the statusMessage to the API endpoint; we don't need to produce that here?
+		return "Login Succeeded", authToken, nil
 	}
 
-	return "", "", err
+	return "", "", lastErr
 }
 
 // ResolveRepository splits a repository name into its components
@@ -96,17 +106,17 @@ func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, use
 func (s *Service) ResolveRepository(name reference.Named) (*RepositoryInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return newRepositoryInfo(s.config, name)
+	// TODO(thaJeztah): remove error return as it's no longer used.
+	return newRepositoryInfo(s.config, name), nil
 }
 
 // APIEndpoint represents a remote API endpoint
 type APIEndpoint struct {
 	Mirror                         bool
 	URL                            *url.URL
-	Version                        APIVersion // Deprecated: v1 registries are deprecated, and endpoints are always v2.
-	AllowNondistributableArtifacts bool
+	AllowNondistributableArtifacts bool // Deprecated: non-distributable artifacts are deprecated and enabled by default. This field will be removed in the next release.
 	Official                       bool
-	TrimHostname                   bool
+	TrimHostname                   bool // Deprecated: hostname is now trimmed unconditionally for remote names. This field will be removed in the next release.
 	TLSConfig                      *tls.Config
 }
 
@@ -116,7 +126,7 @@ func (s *Service) LookupPullEndpoints(hostname string) (endpoints []APIEndpoint,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.lookupV2Endpoints(hostname)
+	return s.lookupV2Endpoints(hostname, true)
 }
 
 // LookupPushEndpoints creates a list of v2 endpoints to try to push to, in order of preference.
@@ -125,15 +135,7 @@ func (s *Service) LookupPushEndpoints(hostname string) (endpoints []APIEndpoint,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	allEndpoints, err := s.lookupV2Endpoints(hostname)
-	if err == nil {
-		for _, endpoint := range allEndpoints {
-			if !endpoint.Mirror {
-				endpoints = append(endpoints, endpoint)
-			}
-		}
-	}
-	return endpoints, err
+	return s.lookupV2Endpoints(hostname, false)
 }
 
 // IsInsecureRegistry returns true if the registry at given host is configured as

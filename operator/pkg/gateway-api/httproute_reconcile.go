@@ -7,15 +7,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -26,7 +26,10 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Controller, httpRoute,
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Info("Reconciling HTTPRoute")
 
 	// Fetch the HTTPRoute instance
@@ -46,6 +49,12 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	hr := original.DeepCopy()
 
+	if !r.hasMatchingGatewayParent()(hr) {
+		scopedLog.Warn("HTTPRoute does not have a matching Gateway Parent, this should not be possible")
+		err := fmt.Errorf("Reconciliation failure: somehow selected a HTTPRoute without a matching Gateway parent")
+		return controllerruntime.Fail(err)
+	}
+
 	// check if this cert is allowed to be used by this gateway
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
@@ -64,7 +73,17 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// gateway validators
 	for _, parent := range hr.Spec.ParentRefs {
 
-		// set acceptance to okay, this wil be overwritten in checks if needed
+		// If this parentRef is not a Gateway parentRef, then skip it.
+		if !helpers.IsGateway(parent) {
+			continue
+		}
+
+		// Similarly, if this Gateway is not a matching one, then
+		if !r.parentIsMatchingGateway(parent, hr.Namespace) {
+			continue
+		}
+
+		// set Accepted to okay, this wil be overwritten in checks if needed
 		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
@@ -72,16 +91,16 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			Message: "Accepted HTTPRoute",
 		})
 
-		// set status to okay, this wil be overwritten in checks if needed
-		i.SetAllParentCondition(metav1.Condition{
+		// set ResolvedRefs to okay, this wil be overwritten in checks if needed
+		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,
 			Reason:  string(gatewayv1.RouteReasonResolvedRefs),
 			Message: "Service reference is valid",
 		})
 
-		// run the actual validators
-		for _, fn := range []routechecks.CheckParentFunc{
+		// run the Gateway validators
+		for _, fn := range []routechecks.CheckWithParentFunc{
 			routechecks.CheckGatewayRouteKindAllowed,
 			routechecks.CheckGatewayMatchingPorts,
 			routechecks.CheckGatewayMatchingHostnames,
@@ -97,25 +116,27 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				break
 			}
 		}
+
+		// Run the Rule validators, these need to be run per-parent so that we
+		// don't update status for parents we don't own.
+		for _, fn := range []routechecks.CheckWithParentFunc{
+			routechecks.CheckAgainstCrossNamespaceBackendReferences,
+			routechecks.CheckBackend,
+			routechecks.CheckHasServiceImportSupport,
+			routechecks.CheckBackendIsExistingService,
+		} {
+			continueCheck, err := fn(i, parent)
+			if err != nil {
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), hr, original)
+			}
+
+			if !continueCheck {
+				break
+			}
+		}
 	}
 
-	for _, fn := range []routechecks.CheckRuleFunc{
-		routechecks.CheckAgainstCrossNamespaceBackendReferences,
-		routechecks.CheckBackend,
-		routechecks.CheckHasServiceImportSupport,
-		routechecks.CheckBackendIsExistingService,
-	} {
-		continueCheck, err := fn(i)
-		if err != nil {
-			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, hr)
-		}
-
-		if !continueCheck {
-			break
-		}
-	}
-
-	if err := r.updateStatus(ctx, original, hr); err != nil {
+	if err := r.ensureStatus(ctx, hr, original); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
@@ -123,19 +144,12 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return controllerruntime.Success()
 }
 
-func (r *httpRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1.HTTPRoute, new *gatewayv1.HTTPRoute) error {
-	oldStatus := original.Status.DeepCopy()
-	newStatus := new.Status.DeepCopy()
-
-	opts := cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")
-	if cmp.Equal(oldStatus, newStatus, opts) {
-		return nil
-	}
-	return r.Client.Status().Update(ctx, new)
+func (r *httpRouteReconciler) ensureStatus(ctx context.Context, hr *gatewayv1.HTTPRoute, original *gatewayv1.HTTPRoute) error {
+	return r.Client.Status().Patch(ctx, hr, client.MergeFrom(original))
 }
 
-func (r *httpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) (ctrl.Result, error) {
-	if err := r.updateStatus(ctx, original, modified); err != nil {
+func (r *httpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, hr, original *gatewayv1.HTTPRoute) (ctrl.Result, error) {
+	if err := r.ensureStatus(ctx, hr, original); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update HTTPRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 

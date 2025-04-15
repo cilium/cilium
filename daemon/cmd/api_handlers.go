@@ -37,14 +37,7 @@ type handlersOut struct {
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
 
-	PolicyDeleteFqdnCacheHandler      policy.DeleteFqdnCacheHandler
-	PolicyGetFqdnCacheHandler         policy.GetFqdnCacheHandler
-	PolicyGetFqdnCacheIDHandler       policy.GetFqdnCacheIDHandler
-	PolicyGetFqdnNamesHandler         policy.GetFqdnNamesHandler
-	PolicyGetIdentityEndpointsHandler policy.GetIdentityEndpointsHandler
-	PolicyGetIdentityHandler          policy.GetIdentityHandler
-	PolicyGetIdentityIDHandler        policy.GetIdentityIDHandler
-	PolicyGetIPHandler                policy.GetIPHandler
+	PolicyGetIPHandler policy.GetIPHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -110,21 +103,8 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /endpoint/{id}/healthz
 	out.EndpointGetEndpointIDHealthzHandler = wrapAPIHandler(dp, getEndpointIDHealthzHandler)
 
-	// /identity/
-	out.PolicyGetIdentityHandler = wrapAPIHandler(dp, getIdentityHandler)
-	out.PolicyGetIdentityIDHandler = wrapAPIHandler(dp, getIdentityIDHandler)
-
-	// /identity/endpoints
-	out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
-
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
-
-	// /fqdn/cache
-	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
-	out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
-	out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
-	out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
 
 	// /ip/
 	out.PolicyGetIPHandler = wrapAPIHandler(dp, getIPHandler)

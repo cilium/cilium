@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -240,61 +239,4 @@ func KeyCreator(validators ...clusterServiceValidator) store.KeyCreator {
 	return func() store.Key {
 		return &ValidatingClusterService{validators: validators}
 	}
-}
-
-type clusterServiceObserver struct {
-	// merger is the interface responsible to merge service and
-	// endpoints into an existing cache
-	merger ServiceMerger
-
-	// swg provides a mechanism to know when the services were synchronized
-	// with the datapath.
-	swg *lock.StoppableWaitGroup
-}
-
-// OnUpdate is called when a service in a remote cluster is updated
-func (c *clusterServiceObserver) OnUpdate(key store.Key) {
-	if svc, ok := key.(*ValidatingClusterService); ok {
-		scopedLog := log.WithField(logfields.ServiceName, svc.String())
-		scopedLog.Debugf("Update event of cluster service %#v", svc)
-
-		c.merger.MergeClusterServiceUpdate(&svc.ClusterService, c.swg)
-	} else {
-		log.Warningf("Received unexpected cluster service update object %+v", key)
-	}
-}
-
-// OnDelete is called when a service in a remote cluster is deleted
-func (c *clusterServiceObserver) OnDelete(key store.NamedKey) {
-	if svc, ok := key.(*ValidatingClusterService); ok {
-		scopedLog := log.WithField(logfields.ServiceName, svc.String())
-		scopedLog.Debugf("Delete event of cluster service %#v", svc)
-
-		c.merger.MergeClusterServiceDelete(&svc.ClusterService, c.swg)
-	} else {
-		log.Warningf("Received unexpected cluster service delete object %+v", key)
-	}
-}
-
-// JoinClusterServices starts a controller for syncing services from the kvstore
-func JoinClusterServices(merger ServiceMerger, clusterName string) {
-	swg := lock.NewStoppableWaitGroup()
-
-	log.Info("Enumerating cluster services")
-	// JoinSharedStore performs initial sync of services
-	_, err := store.JoinSharedStore(store.Configuration{
-		Prefix: path.Join(ServiceStorePrefix, clusterName),
-		KeyCreator: KeyCreator(
-			ClusterNameValidator(clusterName),
-			NamespacedNameValidator(),
-		),
-		Observer: &clusterServiceObserver{
-			merger: merger,
-			swg:    swg,
-		},
-	})
-	if err != nil {
-		log.WithError(err).Fatal("Enumerating cluster services failed")
-	}
-	swg.Stop()
 }

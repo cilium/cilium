@@ -6,10 +6,11 @@ package k8s
 import (
 	"context"
 	"errors"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -26,12 +27,14 @@ import (
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
-	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService)
+	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService, event.Endpoints, event.OldEndpoints)
 	if err != nil {
-		p.log.WithError(err).WithFields(logrus.Fields{
-			logfields.Event:     event.Action,
-			logfields.ServiceID: event.ID,
-		}).Warning("Failed to recalculate CiliumNetworkPolicy rules after service event")
+		p.log.Warn(
+			"Failed to recalculate CiliumNetworkPolicy rules after service event",
+			logfields.Error, err,
+			logfields.Event, event.Action,
+			logfields.ServiceID, event.ID,
+		)
 	}
 }
 
@@ -39,12 +42,13 @@ func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 // added, removed, its endpoints have changed, or its labels have changed).
 // This function then checks if any of the known CNP/CCNPs are affected by this
 // change, and recomputes them by calling resolveCiliumNetworkPolicyRefs.
-func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
+func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.MinimalService, newEps, oldEps *k8s.MinimalEndpoints) error {
 	var errs []error
+	endpointsChanged := !newEps.DeepEqual(oldEps)
 	// newService is true if this is the first time we observe this service
 	newService := oldSVC == nil
-	// changedService is true if the service label or selector has changed
-	changedService := !newSVC.DeepEqual(oldSVC)
+	// changedService is true if the service label, selector or endpoints has changed
+	changedService := !newSVC.DeepEqual(oldSVC) || endpointsChanged
 
 	// candidatePolicyKeys contains the set of policy names we need to process
 	// for this service update. By default, we consider all policies with
@@ -62,10 +66,11 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 	for key := range candidatePolicyKeys {
 		cnp, ok := p.cnpCache[key]
 		if !ok {
-			p.log.WithFields(logrus.Fields{
-				logfields.Key:       key,
-				logfields.ServiceID: svcID,
-			}).Error("BUG: Candidate policy for service update not found. Please report this bug to Cilium developers.")
+			p.log.Error(
+				"BUG: Candidate policy for service update not found. Please report this bug to Cilium developers.",
+				logfields.Key, key,
+				logfields.ServiceID, svcID,
+			)
 			continue
 		}
 
@@ -76,12 +81,13 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 		}
 
 		if p.config.Debug {
-			p.log.WithFields(logrus.Fields{
-				logfields.CiliumNetworkPolicyName: cnp.Name,
-				logfields.K8sAPIVersion:           cnp.APIVersion,
-				logfields.K8sNamespace:            cnp.Namespace,
-				logfields.ServiceID:               svcID,
-			}).Debug("Service updated or deleted, recalculating CiliumNetworkPolicy rules")
+			p.log.Debug(
+				"Service updated or deleted, recalculating CiliumNetworkPolicy rules",
+				logfields.CiliumNetworkPolicyName, cnp.Name,
+				logfields.K8sAPIVersion, cnp.APIVersion,
+				logfields.K8sNamespace, cnp.Namespace,
+				logfields.ServiceID, svcID,
+			)
 		}
 		initialRecvTime := time.Now()
 
@@ -97,7 +103,7 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) {
 	// We consult the service cache to obtain the service endpoints
 	// which are selected by the ToServices selectors found in the CNP.
-	p.svcCache.ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool {
+	p.svcCache.ForEachService(func(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) bool {
 		// svcEndpoints caches the selected endpoints in case they are
 		// referenced more than once by this CNP
 		svcEndpoints := newServiceEndpoints(svcID, svc, eps)
@@ -122,7 +128,7 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 
 // cnpMatchesService returns true if the cnp contains a ToServices rule which
 // matches the provided service svcID/svc
-func (p *policyWatcher) cnpMatchesService(cnp *types.SlimCNP, svcID k8s.ServiceID, svc *k8s.Service) bool {
+func (p *policyWatcher) cnpMatchesService(cnp *types.SlimCNP, svcID k8s.ServiceID, svc *k8s.MinimalService) bool {
 	if svc == nil {
 		return false
 	}
@@ -163,7 +169,7 @@ func (p *policyWatcher) clearCNPForService(key resource.Key, svcID k8s.ServiceID
 
 // specHasMatchingToServices returns true if the rule contains a ToServices rule which
 // matches the provided service svcID/svc
-func hasMatchingToServices(spec *api.Rule, svcID k8s.ServiceID, svc *k8s.Service) bool {
+func hasMatchingToServices(spec *api.Rule, svcID k8s.ServiceID, svc *k8s.MinimalService) bool {
 	if spec == nil {
 		return false
 	}
@@ -189,12 +195,7 @@ func hasToServices(cnp *types.SlimCNP) bool {
 	if specHasToServices(cnp.Spec) {
 		return true
 	}
-	for _, spec := range cnp.Specs {
-		if specHasToServices(spec) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(cnp.Specs, specHasToServices)
 }
 
 // specHasToServices returns true if the rule contains a ToServices rule
@@ -213,7 +214,7 @@ func specHasToServices(spec *api.Rule) bool {
 
 // serviceSelectorMatches returns true if the ToServices k8sServiceSelector
 // matches the labels of the provided service svc
-func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svcID k8s.ServiceID, svc *k8s.Service) bool {
+func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svcID k8s.ServiceID, svc *k8s.MinimalService) bool {
 	if !(sel.Namespace == svcID.Namespace || sel.Namespace == "") {
 		return false
 	}
@@ -233,8 +234,8 @@ func serviceRefMatches(ref *api.K8sServiceNamespace, svcID k8s.ServiceID) bool {
 // serviceEndpoints stores the endpoints associated with a service
 type serviceEndpoints struct {
 	svcID k8s.ServiceID
-	svc   *k8s.Service
-	eps   *k8s.EndpointSlices
+	svc   *k8s.MinimalService
+	eps   *k8s.MinimalEndpoints
 
 	valid                  bool
 	enableHighScaleIPcache bool
@@ -242,7 +243,7 @@ type serviceEndpoints struct {
 }
 
 // newServiceEndpoints returns an initialized serviceEndpoints struct
-func newServiceEndpoints(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) *serviceEndpoints {
+func newServiceEndpoints(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) *serviceEndpoints {
 	return &serviceEndpoints{
 		svcID: svcID,
 		svc:   svc,
@@ -257,7 +258,7 @@ func (s *serviceEndpoints) endpoints() []api.CIDR {
 		return s.cached
 	}
 
-	prefixes := s.eps.GetEndpoints().Prefixes()
+	prefixes := s.eps.Prefixes()
 	s.cached = make([]api.CIDR, 0, len(prefixes))
 	for _, prefix := range prefixes {
 		s.cached = append(s.cached, api.CIDR(prefix.String()))
@@ -279,10 +280,7 @@ func appendEndpoints(toCIDRSet *api.CIDRRuleSlice, endpoints []api.CIDR) {
 
 // appendSelector appends the service selector as a generated EndpointSelector
 func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]string, namespace string) {
-	selector := make(map[string]string)
-	for k, v := range svcSelector {
-		selector[k] = v
-	}
+	selector := maps.Clone(svcSelector)
 	selector[labels.LabelSourceK8sKeyPrefix+k8sConst.PodNamespaceLabel] = namespace
 	endpointSelector := api.NewESFromMatchRequirements(selector, nil)
 	endpointSelector.Generated = true

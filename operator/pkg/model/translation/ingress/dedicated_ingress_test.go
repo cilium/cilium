@@ -307,7 +307,8 @@ func Test_translator_Translate(t *testing.T) {
 						IPv6Enabled: tt.args.ipv6Enabled,
 					},
 					ListenerConfig: translation.ListenerConfig{
-						UseProxyProtocol: tt.args.useProxyProtocol,
+						UseProxyProtocol:         tt.args.useProxyProtocol,
+						StreamIdleTimeoutSeconds: 300,
 					},
 					ClusterConfig: translation.ClusterConfig{
 						IdleTimeoutSeconds: 60,

@@ -5,17 +5,21 @@ package synced
 
 import (
 	"fmt"
+	"log/slog"
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // Resources maps resource names to channels that are closed upon initial
 // sync with k8s.
 type Resources struct {
+	logger      *slog.Logger
 	CacheStatus CacheStatus
 
 	lock.RWMutex
@@ -70,7 +74,10 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 	// Log an error caches have already synchronized, as the caller is making this call too late
 	// and the resource in question was missed in the initial cache sync.
 	if r.CacheStatus.Synchronized() {
-		log.WithField("kubernetesResource", resourceName).Errorf("BlockWaitGroupToSyncResources called after Caches have already synced")
+		r.logger.Error(
+			"BlockWaitGroupToSyncResources called after Caches have already synced",
+			logfields.Resource, resourceName,
+		)
 		return
 	}
 	ch := make(chan struct{})
@@ -84,7 +91,7 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 	r.Unlock()
 
 	go func() {
-		scopedLog := log.WithField("kubernetesResource", resourceName)
+		scopedLog := r.logger.With(logfields.Resource, resourceName)
 		scopedLog.Debug("waiting for cache to synchronize")
 		if ok := cache.WaitForCacheSync(stop, hasSyncedFunc); !ok {
 			select {
@@ -100,7 +107,10 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 				r.Unlock()
 			default:
 				// Fatally exit it resource fails to sync
-				scopedLog.Fatalf("failed to wait for cache to sync")
+				logging.Fatal(
+					scopedLog,
+					"failed to wait for cache to sync",
+				)
 			}
 		} else {
 			scopedLog.Debug("cache synced")
@@ -130,7 +140,7 @@ func (r *Resources) WaitForCacheSync(resourceNames ...string) {
 			continue
 		}
 		for {
-			scopedLog := log.WithField("kubernetesResource", resourceName)
+			scopedLog := r.logger.With(logfields.Resource, resourceName)
 			<-c
 			r.RLock()
 			stopWait := r.stopWait[resourceName]
@@ -195,9 +205,17 @@ func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceN
 						// We reset the timer to wait the timeout period minus the
 						// time since the last event.
 						currTimeout = timeout - time.Since(lastEvent)
-						log.Debugf("resource %q received event %s ago, waiting for additional %s before timing out", resource, time.Since(lastEvent), currTimeout)
+						r.logger.Debug(
+							"received event for resource type, waiting before timeout",
+							logfields.Resource, resource,
+							logfields.LastEventReceived, time.Since(lastEvent),
+							logfields.Timeout, currTimeout,
+						)
 					case <-done:
-						log.Debugf("resource %q cache has synced, stopping timeout watcher", resource)
+						r.logger.Debug(
+							"cache has synced, stopping timeout watcher",
+							logfields.Resource, resource,
+						)
 						return nil
 					}
 				}

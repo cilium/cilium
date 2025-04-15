@@ -1,0 +1,10 @@
+- metadata:
+    annotations:
+      multicluster.kubernetes.io/derived-service: my-service
+    creationTimestamp: null
+    name: my-service
+    namespace: default
+  spec:
+    ports: null
+    type: ""
+  status: {}

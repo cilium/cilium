@@ -4,6 +4,7 @@
 package maps
 
 import (
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -24,10 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-maps")
-)
-
 // endpointManager checks against its list of the current endpoints to determine
 // whether map paths should be removed, and implements map removal.
 //
@@ -37,21 +33,22 @@ type endpointManager interface {
 	EndpointExists(endpointID uint16) bool
 	RemoveDatapathMapping(endpointID uint16) error
 	RemoveMapPath(path string)
-	HasGlobalCT() bool
 }
 
 // MapSweeper is responsible for checking stale map paths on the filesystem
 // and garbage collecting the endpoint if the corresponding endpoint no longer
 // exists.
 type MapSweeper struct {
+	logger *slog.Logger
 	endpointManager
 	bwManager dptypes.BandwidthManager
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(g endpointManager, bwm dptypes.BandwidthManager) *MapSweeper {
+func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager) *MapSweeper {
 	return &MapSweeper{
+		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
 		endpointManager: g,
 		bwManager:       bwm,
 	}
@@ -70,19 +67,13 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 		} else {
 			err2 := ms.RemoveDatapathMapping(epID)
 			if err2 != nil {
-				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)
+				ms.logger.Debug("Failed to remove ID from global policy map",
+					logfields.Error, err2,
+					logfields.ID, tmp,
+				)
 			}
 			ms.RemoveMapPath(path)
 		}
-	}
-}
-
-func (ms *MapSweeper) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := ms.HasGlobalCT() || option.Config.EnableNodePort ||
-		!option.Config.InstallIptRules && option.Config.MasqueradingEnabled()
-
-	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
-		ms.RemoveMapPath(path)
 	}
 }
 
@@ -99,8 +90,6 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 		callsmap.CustomCallsMapName,
 	}
 
-	ms.checkStaleGlobalMap(path, filename)
-
 	for _, m := range mapPrefix {
 		if strings.HasPrefix(filename, m) {
 			if endpointID := strings.TrimPrefix(filename, m); endpointID != filename {
@@ -116,7 +105,7 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 // datapath.
 func (ms *MapSweeper) CollectStaleMapGarbage() {
 	if err := filepath.Walk(bpf.TCGlobalsPath(), ms.walk); err != nil {
-		log.WithError(err).Warn("Error while scanning for stale maps")
+		ms.logger.Warn("Error while scanning for stale maps", logfields.Error, err)
 	}
 }
 
@@ -185,6 +174,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !option.Config.EnableIPv4FragmentsTracking {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
+	}
+
+	if !option.Config.EnableIPv6FragmentsTracking {
+		maps = append(maps, "cilium_ipv6_frag_datagrams")
 	}
 
 	if !ms.bwManager.Enabled() {

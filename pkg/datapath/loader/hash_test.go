@@ -42,7 +42,7 @@ func TestHashDatapath(t *testing.T) {
 
 func TestHashEndpoint(t *testing.T) {
 	var base datapathHash
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
 
 	// Error from ConfigWriter is forwarded.
@@ -63,7 +63,7 @@ func TestHashEndpoint(t *testing.T) {
 
 func TestHashTemplate(t *testing.T) {
 	var base datapathHash
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
 
 	// Error from ConfigWriter is forwarded.
@@ -87,8 +87,8 @@ func TestHashTemplate(t *testing.T) {
 
 type fakeConfigWriter []byte
 
-func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
-	if cfg == nil {
+func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, lnc *datapath.LocalNodeConfiguration) error {
+	if lnc == nil {
 		return errors.New("LocalNodeConfiguration is nil")
 	}
 	_, err := w.Write(fc)

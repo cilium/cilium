@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path"
@@ -23,7 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 
-	"github.com/google/go-github/v68/github"
+	"github.com/google/go-github/v71/github"
 	"golang.org/x/oauth2"
 )
 
@@ -306,11 +307,7 @@ func (s *Feature) printSummaryFromJsons(workflowData perWorkflowMetrics) error {
 			}
 		}
 	}
-	var metricNamesSorted []string
-	for key := range metricNamesSet {
-		metricNamesSorted = append(metricNamesSorted, key)
-	}
-	slices.Sort(metricNamesSorted)
+	metricNamesSorted := slices.Sorted(maps.Keys(metricNamesSet))
 
 	// Generate markdown for the summary table
 	detailsBuilder := &bytes.Buffer{}
@@ -370,11 +367,7 @@ func (s *Feature) printSummaryFromJsons(workflowData perWorkflowMetrics) error {
 		//  metric+label / workflow / jobs / nodes / value
 		metricsPerWorkflow := result[metricName]
 
-		var orderedWorkflows []string
-		for workflow := range metricsPerWorkflow {
-			orderedWorkflows = append(orderedWorkflows, workflow)
-		}
-		slices.Sort(orderedWorkflows)
+		orderedWorkflows := slices.Sorted(maps.Keys(metricsPerWorkflow))
 
 		var printJob string
 
@@ -384,18 +377,10 @@ func (s *Feature) printSummaryFromJsons(workflowData perWorkflowMetrics) error {
 				continue
 			}
 			printJobDetails := true
-			var orderedJobs []string
-			for job := range metricsPerJob {
-				orderedJobs = append(orderedJobs, job)
-			}
-			slices.Sort(orderedJobs)
+			orderedJobs := slices.Sorted(maps.Keys(metricsPerJob))
 			for _, job := range orderedJobs {
 				printJob = job
-				var orderedNodes []string
-				for node := range metricsPerJob[job] {
-					orderedNodes = append(orderedNodes, node)
-				}
-				slices.Sort(orderedNodes)
+				orderedNodes := slices.Sorted(maps.Keys(metricsPerJob[job]))
 				previousValue := -1.0
 				isFirst := true
 				allEqual := true

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -427,18 +428,18 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := informer.CastInformerEvent[slim_corev1.Node](oldObj); oldK8sNP != nil {
-						if newK8sNP := informer.CastInformerEvent[slim_corev1.Node](newObj); newK8sNP != nil {
+				AddFunc: func(obj any) {},
+				UpdateFunc: func(oldObj, newObj any) {
+					if oldK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), oldObj); oldK8sNP != nil {
+						if newK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), newObj); newK8sNP != nil {
 							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
 								return
 							}
 						}
 					}
 				},
-				DeleteFunc: func(obj interface{}) {
-					k8sNP := informer.CastInformerEvent[slim_corev1.Node](obj)
+				DeleteFunc: func(obj any) {
+					k8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -447,7 +448,7 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						k8sNP = informer.CastInformerEvent[slim_corev1.Node](deletedObj.Obj)
+						k8sNP = informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), deletedObj.Obj)
 						if k8sNP == nil {
 							return
 						}
@@ -464,8 +465,8 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {},
-				UpdateFunc: func(oldObj, newObj interface{}) {
+				AddFunc: func(obj any) {},
+				UpdateFunc: func(oldObj, newObj any) {
 					if oldK8sNP := OldCopyObjToV1Node(oldObj); oldK8sNP != nil {
 						if newK8sNP := OldCopyObjToV1Node(newObj); newK8sNP != nil {
 							if OldEqualV1Node(oldK8sNP, newK8sNP) {
@@ -474,7 +475,7 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 						}
 					}
 				},
-				DeleteFunc: func(obj interface{}) {
+				DeleteFunc: func(obj any) {
 					k8sNP := OldCopyObjToV1Node(obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -514,7 +515,7 @@ func OldEqualV1Node(node1, node2 *slim_corev1.Node) bool {
 		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
 }
 
-func OldCopyObjToV1Node(obj interface{}) *slim_corev1.Node {
+func OldCopyObjToV1Node(obj any) *slim_corev1.Node {
 	node, ok := obj.(*slim_corev1.Node)
 	if !ok {
 		return nil

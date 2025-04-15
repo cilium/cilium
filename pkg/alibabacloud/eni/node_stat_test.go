@@ -4,9 +4,9 @@
 package eni
 
 import (
-	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
@@ -37,7 +37,8 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	})
 
 	n := &Node{
-		node: mockIPAMNode("vm1"),
+		logger: hivetest.Logger(t),
+		node:   mockIPAMNode("vm1"),
 		manager: &InstancesManager{
 			instances: m,
 		},
@@ -49,7 +50,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), n.logger)
 	assert.NoError(err)
 	// 3 ENIs, 10 IPs per ENI, 1 primary IP and one ENI is primary.
 	assert.Equal(19, stats.NodeCapacity)

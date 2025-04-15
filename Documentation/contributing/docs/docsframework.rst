@@ -136,6 +136,12 @@ Other auto-generated contents include:
   - Relies on the contents of ``api``, linked as ``Documentation/_api``
   - Included from ``Documentation/grpcapi.rst``
 
+- SDP gRPC API reference
+
+  - Markdown generated from the main ``Makefile`` at the root of the repository
+  - Relies on the contents of ``api``, linked as ``Documentation/_api``
+  - Included from ``Documentation/sdpapi.rst``
+
 Build system
 ============
 

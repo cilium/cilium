@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"sync/atomic"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -74,7 +74,7 @@ func TestManager(t *testing.T) {
 				return ops
 			}),
 
-			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+			cell.Provide(func(logger *slog.Logger) *ipset {
 				return &ipset{
 					executable: funcExecutable(
 						func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
@@ -83,8 +83,7 @@ func TestManager(t *testing.T) {
 
 							var commands [][]string
 							if arg[0] == "restore" {
-								lines := strings.Split(stdin, "\n")
-								for _, line := range lines {
+								for line := range strings.SplitSeq(stdin, "\n") {
 									if len(line) > 0 {
 										commands = append(commands, strings.Split(line, " "))
 									}
@@ -308,7 +307,7 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
 				return ops
 			}),
-			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+			cell.Provide(func(logger *slog.Logger) *ipset {
 				return &ipset{
 					executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
 						mu.Lock()
@@ -387,8 +386,7 @@ func withLocked(m *lock.Mutex, f func()) {
 }
 
 func TestOpsPruneEnabled(t *testing.T) {
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	db := statedb.New()
 	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
@@ -441,6 +439,82 @@ func TestOpsPruneEnabled(t *testing.T) {
 	assert.True(t, nCalled.Load())
 }
 
+func TestOpsRetry(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	var (
+		db    *statedb.DB
+		table statedb.RWTable[*tables.IPSetEntry]
+	)
+
+	shouldFail := true
+
+	hive := hive.New(
+		cell.Provide(func() config {
+			return config{NodeIPSetNeeded: true}
+		}),
+
+		cell.Provide(
+			tables.NewIPSetTable,
+			newOps,
+			newReconciler,
+		),
+		cell.Provide(func(logger *slog.Logger) *ipset {
+			return &ipset{
+				executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
+					// fail the operation at the first attempt
+					if shouldFail {
+						shouldFail = false
+						return nil, errors.New("test error")
+					}
+					return nil, nil
+				}),
+				log: logger,
+			}
+		}),
+
+		cell.Invoke(
+			func(db_ *statedb.DB, table_ statedb.RWTable[*tables.IPSetEntry], reconciler_ reconciler.Reconciler[*tables.IPSetEntry]) {
+				db = db_
+				table = table_
+				_ = reconciler_ // to start the reconciler
+			},
+		),
+	)
+
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+
+	require.NoError(t, hive.Start(log, t.Context()))
+
+	obj := &tables.IPSetEntry{
+		Name:   CiliumNodeIPSetV4,
+		Family: string(INetFamily),
+		Addr:   netip.MustParseAddr("1.1.1.1"),
+		Status: reconciler.StatusPending(),
+	}
+
+	txn := db.WriteTxn(table)
+	_, _, err := table.Insert(txn, obj)
+	require.NoError(t, err)
+	txn.Commit()
+
+	for {
+		queryObj, _, watch, found := table.GetWatch(db.ReadTxn(), tables.IPSetEntryIndex.QueryFromObject(obj))
+		require.True(t, found)
+
+		if queryObj.Status.Kind == reconciler.StatusKindDone {
+			require.Equal(t, CiliumNodeIPSetV4, queryObj.Name)
+			require.Equal(t, netip.MustParseAddr("1.1.1.1"), queryObj.Addr)
+			require.Equal(t, string(INetFamily), queryObj.Family)
+			break
+		}
+
+		<-watch
+	}
+
+	require.NoError(t, hive.Stop(log, t.Context()))
+}
+
 func TestIPSetList(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -470,8 +544,7 @@ func TestIPSetList(t *testing.T) {
 		},
 	}
 
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := slog.New(slog.DiscardHandler)
 
 	tmpl := template.Must(template.New("ipsets").Parse(textTmpl))
 
@@ -482,8 +555,8 @@ func TestIPSetList(t *testing.T) {
 				t.Fatalf("unable to execute ipset list output template: %s", err)
 			}
 			ipset := &ipset{
-				&mockExec{t, bb.Bytes(), nil},
-				fakeLogger,
+				log:        fakeLogger,
+				executable: &mockExec{t, bb.Bytes(), nil},
 			}
 			got, err := ipset.list(context.Background(), "")
 			if err != nil {
@@ -497,13 +570,12 @@ func TestIPSetList(t *testing.T) {
 }
 
 func TestIPSetListInexistentIPSet(t *testing.T) {
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := slog.New(slog.DiscardHandler)
 
 	expectedErr := errors.New("ipset v7.19: The set with the given name does not exist")
 	ipset := &ipset{
-		&mockExec{t, nil, expectedErr},
-		fakeLogger,
+		log:        fakeLogger,
+		executable: &mockExec{t, nil, expectedErr},
 	}
 
 	_, err := ipset.list(context.Background(), "")
@@ -550,7 +622,7 @@ func BenchmarkManager(b *testing.B) {
 				return ops
 			}),
 
-			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+			cell.Provide(func(logger *slog.Logger) *ipset {
 				return &ipset{
 					executable: funcExecutable(
 						func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
@@ -587,8 +659,6 @@ func BenchmarkManager(b *testing.B) {
 	tlog := hivetest.Logger(b)
 	assert.NoError(b, hive.Start(tlog, context.Background()))
 
-	b.ResetTimer()
-
 	numEntries := 1000
 
 	toNetIP := func(i int) netip.Addr {
@@ -597,8 +667,8 @@ func BenchmarkManager(b *testing.B) {
 		return netip.AddrFrom4(addr1)
 	}
 
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < numEntries; i++ {
+	for b.Loop() {
+		for i := range numEntries {
 			ip := toNetIP(i)
 			mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, ip)
 		}
@@ -608,7 +678,7 @@ func BenchmarkManager(b *testing.B) {
 			time.Sleep(time.Millisecond)
 
 		}
-		for i := 0; i < numEntries; i++ {
+		for i := range numEntries {
 			ip := toNetIP(i)
 			mgr.RemoveFromIPSet(CiliumNodeIPSetV4, ip)
 		}

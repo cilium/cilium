@@ -12,22 +12,22 @@ runs:
         echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true" >> $GITHUB_ENV
         echo "BGP_CONTROL_PLANE_HELM_VALUES=--helm-set=bgpControlPlane.enabled=true" >> $GITHUB_ENV
         echo "CILIUM_CLI_RELEASE_REPO=cilium/cilium-cli" >> $GITHUB_ENV
-        # renovate: datasource=github-releases depName=cilium/cilium-cli
-        CILIUM_CLI_VERSION="v0.16.23"
+        CILIUM_CLI_VERSION=""
         echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> $GITHUB_ENV
         echo "CILIUM_CLI_IMAGE_REPO=quay.io/cilium/cilium-cli-ci" >> $GITHUB_ENV
         echo "CILIUM_CLI_SKIP_BUILD=true" >> $GITHUB_ENV
+        echo "CILIUM_CLI_CODE_OWNERS_PATHS=CODEOWNERS" >> $GITHUB_ENV
+        echo "CILIUM_CLI_EXCLUDE_OWNERS=@cilium/github-sec" >> $GITHUB_ENV
         echo "PUSH_TO_DOCKER_HUB=true" >> $GITHUB_ENV
         echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
+        echo "CILIUM_RUNTIME_IMAGE_PREFIX=quay.io/cilium/" >> $GITHUB_ENV
 
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-        KIND_VERSION="v0.26.0"
+        KIND_VERSION="v0.27.0"
         # renovate: datasource=docker
         KIND_K8S_IMAGE="quay.io/cilium/kindest-node:v1.32.0@sha256:22cf2864f90cfab0d442fda2decf2eae107edd03483053a902614dec637eff76"
         KIND_K8S_VERSION=$(echo "$KIND_K8S_IMAGE" | sed -r 's|.+:(v[0-9a-z.-]+)(@.+)?|\1|')
-        CILIUM_RUNTIME_IMAGE="quay.io/cilium/cilium-runtime:38f4286a000b2326b614bf880d29f153585b9ebf@sha256:1deea3508c08fe23b5ff686f84902558c0cef80ec213404aa94702589d3c2da4"
 
-        echo "CILIUM_RUNTIME_IMAGE=$CILIUM_RUNTIME_IMAGE" >> $GITHUB_ENV
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
         echo "KIND_K8S_IMAGE=$KIND_K8S_IMAGE" >> $GITHUB_ENV
         echo "KIND_K8S_VERSION=$KIND_K8S_VERSION" >> $GITHUB_ENV

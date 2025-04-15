@@ -9,7 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -18,7 +18,9 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -27,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 var (
@@ -169,7 +170,7 @@ var (
 // getXDSNetworkPolicies returns the representation of the xDS network policies
 // as a map of IP addresses to NetworkPolicy objects
 func (ds *DaemonSuite) getXDSNetworkPolicies(t *testing.T, resourceNames []string) map[string]*cilium.NetworkPolicy {
-	networkPolicies, err := ds.d.envoyXdsServer.GetNetworkPolicies(resourceNames)
+	networkPolicies, err := ds.envoyXdsServer.GetNetworkPolicies(resourceNames)
 	require.NoError(t, err)
 	return networkPolicies
 }
@@ -202,8 +203,16 @@ func (ds *DaemonSuite) prepareEndpoint(t *testing.T, identity *identity.Identity
 	if qa {
 		testEndpointID = testQAEndpointID
 	}
-	e := endpoint.NewTestEndpointWithState(ds.d, ds.d, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, ds.d.ctMapGC, testEndpointID, endpoint.StateWaitingForIdentity)
-	e.SetPropertyValue(endpoint.PropertyFakeEndpoint, false)
+	model := &models.EndpointChangeRequest{
+		ID:    int64(testEndpointID),
+		State: ptr.To(models.EndpointState(endpoint.StateWaitingForIdentity)),
+	}
+	e, err := ds.d.endpointCreator.NewEndpointFromChangeModel(t.Context(), model)
+	require.NoError(t, err)
+
+	e.Start(testEndpointID)
+	t.Cleanup(e.Stop)
+
 	e.SetPropertyValue(endpoint.PropertyWithouteBPFDatapath, true)
 	e.SetPropertyValue(endpoint.PropertySkipBPFPolicy, true)
 	if qa {
@@ -291,7 +300,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -350,9 +359,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		// uint32(prodFooSecLblsCtx.ID),
 		// uint32(prodFooJoeSecLblsCtx.ID),
 	}
-	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
-		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
-	})
+	slices.Sort(expectedRemotePolicies)
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
@@ -393,9 +400,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		uint32(prodFooSecLblsCtx.ID),
 		uint32(prodFooJoeSecLblsCtx.ID),
 	}
-	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
-		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
-	})
+	slices.Sort(expectedRemotePolicies)
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
 		EndpointIps:      []string{ProdIPv6Addr.String(), ProdIPv4Addr.String()},
@@ -472,7 +477,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -562,7 +567,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -653,7 +658,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -823,7 +828,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -915,7 +920,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 

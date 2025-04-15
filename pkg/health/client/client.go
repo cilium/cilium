@@ -193,12 +193,13 @@ func SummarizePathConnectivityStatusType(cps []*models.PathStatus) map[Connectiv
 
 func formatConnectivityStatus(w io.Writer, cs *models.ConnectivityStatus, path, indent string) {
 	status := cs.Status
+	lastProbed := cs.LastProbed
 	switch GetConnectivityStatusType(cs) {
 	case ConnStatusReachable:
 		latency := time.Duration(cs.Latency)
 		status = fmt.Sprintf("OK, RTT=%s", latency)
 	}
-	fmt.Fprintf(w, "%s%s:\t%s\n", indent, path, status)
+	fmt.Fprintf(w, "%s%s:\t%s\t(Last probed: %s)\n", indent, path, status, lastProbed)
 }
 
 func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent string, verbose bool) {
@@ -412,8 +413,8 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, al
 		}
 	}
 
-	fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
-		healthy, len(sr.Nodes), sr.Timestamp)
+	fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\t(Probe interval: %s)\n",
+		healthy, len(sr.Nodes), sr.Timestamp, sr.ProbeInterval)
 
 	fmt.Fprintf(w, "Name\tIP\tNode\tEndpoints\n")
 

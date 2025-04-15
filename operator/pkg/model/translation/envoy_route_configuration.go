@@ -19,7 +19,7 @@ import (
 type RouteConfigurationMutator func(*envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration
 
 // desiredEnvoyHTTPRouteConfiguration returns the route configuration for the given model.
-func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
+func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 
 	type hostnameRedirect struct {
@@ -107,11 +107,14 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 		// otherwise the request will be dropped by envoy
 		routeName := fmt.Sprintf("listener-%s", port)
 		goslices.SortStableFunc(virtualhosts, func(a, b *envoy_config_route_v3.VirtualHost) int { return cmp.Compare(a.Name, b.Name) })
-		rc, _ := routeConfiguration(routeName, virtualhosts)
+		rc, err := routeConfiguration(routeName, virtualhosts)
+		if err != nil {
+			return nil, err
+		}
 		res = append(res, rc)
 	}
 
-	return res
+	return res, nil
 }
 
 // routeConfiguration returns a new route configuration for a given list of http routes.

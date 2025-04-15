@@ -153,6 +153,20 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 		}
 	}
 
+	// BackendID corresponds to a union type in bpf/lib/common.h, and we stringify it differently depending on the case of the union.
+	stringFromBackendID := func(svcValue lbmap.ServiceValue, slot int) string {
+		if slot != 0 {
+			return fmt.Sprintf("BEID=%s", sanitizeID(svcValue.GetBackendID(), sanitizeIDs))
+		}
+		if loadbalancer.ServiceFlags(svcValue.GetFlags()).IsL7LB() {
+			return fmt.Sprintf("L7Proxy=%d", svcValue.GetL7LBProxyPort())
+		}
+		return fmt.Sprintf("LBALG=%s AFFTimeout=%d",
+			loadbalancer.SVCLoadBalancingAlgorithm(svcValue.GetLbAlg()).String(),
+			svcValue.GetSessionAffinityTimeoutSec(),
+		)
+	}
+
 	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
 		svcKey = svcKey.ToHost()
 		svcValue = svcValue.ToHost()
@@ -162,11 +176,11 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
 			addrS += "/i"
 		}
-		out = append(out, fmt.Sprintf("SVC: ID=%s ADDR=%s SLOT=%d BEID=%s COUNT=%d QCOUNT=%d FLAGS=%s",
+		out = append(out, fmt.Sprintf("SVC: ID=%s ADDR=%s SLOT=%d %s COUNT=%d QCOUNT=%d FLAGS=%s",
 			sanitizeID(svcValue.GetRevNat(), sanitizeIDs),
 			addrS,
 			svcKey.GetBackendSlot(),
-			sanitizeID(svcValue.GetBackendID(), sanitizeIDs),
+			stringFromBackendID(svcValue, svcKey.GetBackendSlot()),
 			svcValue.GetCount(),
 			svcValue.GetQCount(),
 			strings.ReplaceAll(
@@ -300,7 +314,7 @@ func FastCheckEmptyTablesAndState(db *statedb.DB, writer *Writer, bo *BPFOps) bo
 	if writer.Frontends().NumObjects(txn) > 0 || writer.Backends().NumObjects(txn) > 0 || writer.Services().NumObjects(txn) > 0 {
 		return false
 	}
-	if len(bo.backendReferences) > 0 || len(bo.backendStates) > 0 || len(bo.nodePortAddrByService) > 0 || len(bo.serviceIDAlloc.entities) > 0 || len(bo.backendIDAlloc.entities) > 0 {
+	if len(bo.backendReferences) > 0 || len(bo.backendStates) > 0 || len(bo.nodePortAddrByPort) > 0 || len(bo.serviceIDAlloc.entities) > 0 || len(bo.backendIDAlloc.entities) > 0 {
 		return false
 	}
 	return true

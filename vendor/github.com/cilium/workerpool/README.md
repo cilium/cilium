@@ -53,7 +53,6 @@ func IsPrime(n int64) bool {
 func main() {
 	wp := workerpool.New(runtime.NumCPU())
 	for i, n := 0, int64(1_000_000_000_000_000_000); n < 1_000_000_000_000_000_100; i, n = i+1, n+1 {
-		n := n // https://golang.org/doc/faq#closures_and_goroutines
 		id := fmt.Sprintf("task #%d", i)
 		// Use Submit to submit tasks for processing. Submit blocks when no
 		// worker is available to pick up the task.

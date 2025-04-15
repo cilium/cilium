@@ -3,6 +3,8 @@
 
 ##@ Development (Kind)
 
+WAIT_DURATION ?= 30s
+
 .PHONY: kind
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh
@@ -163,8 +165,9 @@ kind-build-image-agent: ## Build cilium-dev docker image
 $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: .SHELLFLAGS=-c
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME); \
-	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
+	$(QUIET)for node in $(shell kind -n $(KIND_CLUSTER_NAME) get nodes); do \
+		kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME) --nodes $$node; \
+	done
 
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
@@ -173,8 +176,9 @@ kind-build-image-operator: ## Build cilium-operator-dev docker image
 $(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: .SHELLFLAGS=-c
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME); \
-	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
+	$(QUIET)for node in $(shell kind -n $(KIND_CLUSTER_NAME) get nodes); do \
+		kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME) --nodes $$node; \
+	done
 
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
 kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
@@ -203,9 +207,10 @@ kind-install-cilium-fast: .SHELLFLAGS=-c
 kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
 	docker pull quay.io/cilium/cilium-ci:latest
-	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-		kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
-		[ $$? -eq 0 ] || kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
+	$(QUIET)for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		for node in $(shell kind -n "$$cluster_name" get nodes); do \
+			kind load docker-image quay.io/cilium/cilium-ci:latest -n $$cluster_name --nodes $$node; \
+		done; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
@@ -319,14 +324,10 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	# cilium-cli's --wait flag doesn't work, so we just force it to run
-	# in the background instead and wait for the resources to be available.
-	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
-		--version= \
-		>/dev/null 2>&1 &
+		--version=
 
 GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
 # Set this to "standard" to use the standard CRDs instead
@@ -352,10 +353,9 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml \
-		--version= \
-		>/dev/null 2>&1 &
+		--version=
 
-	$(CILIUM_CLI) status --wait --wait-duration 30s
+	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
 	@echo "LB_CIDR: $(LB_CIDR)"
@@ -382,7 +382,7 @@ kind-servicemesh-prereqs: check_deps kind-ready
 
 .PHONY: kind-servicemesh-install-cilium-fast
 kind-servicemesh-install-cilium-fast: | kind-servicemesh-prereqs kind-image-fast kind-install-cilium-fast
-	$(CILIUM_CLI) status --wait --wait-duration 30s
+	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
 	@echo "LB_CIDR: $(LB_CIDR)"
@@ -400,16 +400,12 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	# cilium-cli's --wait flag doesn't work, so we just force it to run
-	# in the background instead and wait for the resources to be available.
-	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
 		--nodes-without-cilium \
-		--version= \
-		>/dev/null 2>&1 &
+		--version=
 
 KVSTORE_POD_NAME ?= "kvstore"
 KVSTORE_POD_PORT ?= "2378"

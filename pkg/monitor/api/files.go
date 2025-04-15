@@ -28,12 +28,13 @@ var files = map[uint8]string{
 	107: "mcast.h",
 	108: "ipv4.h",
 	109: "conntrack.h",
-	110: "l3.h",
+	110: "local_delivery.h",
 	111: "trace.h",
 	112: "encap.h",
 	113: "encrypt.h",
 	114: "host_firewall.h",
 	115: "nodeport_egress.h",
+	116: "ipv6.h",
 
 	// @@ source files list end
 }

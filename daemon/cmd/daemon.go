@@ -7,16 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
+	"log/slog"
 	"net"
 	"net/netip"
-	"runtime"
 	"sync"
 
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -37,10 +36,9 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/fqdn"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -49,11 +47,12 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -62,7 +61,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -75,7 +73,6 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -89,15 +86,14 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ctx              context.Context
-	clientset        k8sClient.Clientset
-	db               *statedb.DB
-	buildEndpointSem *semaphore.Weighted
-	l7Proxy          *proxy.Proxy
-	envoyXdsServer   envoy.XDSServer
-	svc              service.ServiceManager
-	policy           policy.PolicyRepository
-	idmgr            identitymanager.IDManager
+	ctx       context.Context
+	logger    *slog.Logger
+	clientset k8sClient.Clientset
+	db        *statedb.DB
+	l7Proxy   *proxy.Proxy
+	svc       service.ServiceManager
+	policy    policy.PolicyRepository
+	idmgr     identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -107,16 +103,9 @@ type Daemon struct {
 	ciliumHealth *health.CiliumHealth
 
 	directRoutingDev datapathTables.DirectRoutingDevice
+	routes           statedb.Table[*datapathTables.Route]
 	devices          statedb.Table[*datapathTables.Device]
 	nodeAddrs        statedb.Table[datapathTables.NodeAddress]
-
-	// dnsNameManager tracks which api.FQDNSelector are present in policy which
-	// apply to locally running endpoints.
-	dnsNameManager *fqdn.NameManager
-
-	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
-	// programs.
-	compilationLock datapath.CompilationLock
 
 	clusterInfo cmtypes.ClusterInfo
 	clustermesh *clustermesh.ClusterMesh
@@ -134,6 +123,9 @@ type Daemon struct {
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
 
+	policyMapFactory policymap.Factory
+
+	endpointCreator endpointcreator.EndpointCreator
 	endpointManager endpointmanager.EndpointManager
 
 	endpointRestoreComplete       chan struct{}
@@ -144,7 +136,7 @@ type Daemon struct {
 	ipcache *ipcache.IPCache
 
 	k8sWatcher  *watchers.K8sWatcher
-	k8sSvcCache *k8s.ServiceCache
+	k8sSvcCache k8s.ServiceCache
 
 	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
 	endpointMetadataFetcher endpointMetadataFetcher
@@ -164,6 +156,7 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+	jobGroup    job.Group
 
 	// BIG-TCP config values
 	bigTCPConfig *bigtcp.Configuration
@@ -181,25 +174,15 @@ type Daemon struct {
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
 
-	wireguardAgent  *wireguard.Agent
-	orchestrator    datapath.Orchestrator
-	iptablesManager datapath.IptablesManager
-	hubble          hubblecell.HubbleIntegration
+	wireguardAgent *wireguard.Agent
+	orchestrator   datapath.Orchestrator
+	hubble         hubblecell.HubbleIntegration
 
 	lrpManager   *redirectpolicy.Manager
 	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
-}
 
-// GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
-	return d.policy
-}
-
-// GetCompilationLock returns the mutex responsible for synchronizing compilation
-// of BPF programs.
-func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
-	return d.compilationLock
+	explbConfig experimental.Config
 }
 
 func (d *Daemon) init() error {
@@ -292,15 +275,21 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		if !option.Config.TunnelingEnabled() {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
 		}
-		if params.TunnelConfig.Protocol() != tunnel.VXLAN {
+		if params.TunnelConfig.EncapProtocol() != tunnel.VXLAN {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling protocol")
+		}
+	}
+
+	if option.Config.TunnelingEnabled() && params.TunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
+		if option.Config.EnableIPSec || option.Config.EnableWireguard {
+			return nil, nil, fmt.Errorf("Transparent encryption (both IPsec and WireGuard) requires an IPv4 underlay")
 		}
 	}
 
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
 	if !option.Config.DryMode {
-		if err := probes.HaveManagedNeighbors(); err == nil {
+		if err := probes.HaveManagedNeighbors(params.Logger); err == nil {
 			log.Info("Using Managed Neighbor Kernel support")
 			option.Config.ARPPingKernelManaged = true
 		}
@@ -318,7 +307,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
-	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 
 	lbmapInitParams := lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -359,14 +347,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d := Daemon{
 		ctx:               ctx,
+		logger:            params.Logger,
 		clientset:         params.Clientset,
 		db:                params.DB,
-		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
-		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
 		loader:            params.Loader,
 		nodeAddressing:    params.NodeAddressing,
+		routes:            params.Routes,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -374,6 +362,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
+		jobGroup:          params.JobGroup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
@@ -387,23 +376,24 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:      params.MonitorAgent,
 		svc:               params.ServiceManager,
 		l7Proxy:           params.L7Proxy,
-		envoyXdsServer:    params.EnvoyXdsServer,
 		authManager:       params.AuthManager,
 		settings:          params.Settings,
 		bigTCPConfig:      params.BigTCPConfig,
 		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
+		policyMapFactory:  params.PolicyMapFactory,
+		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
-		iptablesManager:   params.IPTablesManager,
 		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
+		explbConfig:       params.ExpLBConfig,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -519,8 +509,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				return nil
 			}
 
-			policyRepo := d.GetPolicyRepository()
-			policyRepo.Iterate(func(rule *policyAPI.Rule) {
+			d.policy.Iterate(func(rule *policyAPI.Rule) {
 				for _, er := range rule.Egress {
 					_ = er.ToPorts.Iterate(removeL7DNSRules)
 				}
@@ -533,7 +522,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 			// Bump revision to trigger policy recalculation
 			log.Infof("Triggering policy recalculation to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
-			policyRepo.BumpRevision()
+			d.policy.BumpRevision()
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason:            "unloading DNS rules on graceful shutdown",
 				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
@@ -555,17 +544,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache, d.ipcache)
+	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
-	if proxy.DefaultDNSProxy != nil {
-		// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
-		cleaner.preCleanupFuncs.Add(func() {
-			proxy.DefaultDNSProxy.Cleanup()
-		})
-	}
+
+	// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
+	cleaner.preCleanupFuncs.Add(func() {
+		params.DNSProxy.Cleanup()
+	})
 
 	bootstrapStats.fqdn.End(true)
 
@@ -721,39 +709,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Configure IPAM without using the configuration yet.
 	d.configureIPAM()
 
-	if option.Config.JoinCluster {
-		if params.Clientset.IsEnabled() {
-			log.WithError(err).Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
-			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
-		}
-		if option.Config.KVStore == "" {
-			log.WithError(err).Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
-			return nil, nil, fmt.Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
-		}
-
-		agentLabels := labels.NewLabelsFromModel(option.Config.AgentLabels).K8sStringMap()
-		if option.Config.K8sNamespace != "" {
-			agentLabels[k8sConst.PodNamespaceLabel] = option.Config.K8sNamespace
-		}
-		agentLabels[k8sConst.PodNameLabel] = nodeTypes.GetName()
-		agentLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
-
-		// Set configured agent labels to local node for node registration
-		params.LocalNodeStore.Update(func(ln *node.LocalNode) {
-			ln.Labels = maps.Clone(ln.Labels)
-			maps.Copy(ln.Labels, agentLabels)
-		})
-
-		// This can override node addressing config, so do this before starting IPAM
-		log.WithField(logfields.NodeName, nodeTypes.GetName()).Debug("Calling JoinCluster()")
-		if err := d.nodeDiscovery.JoinCluster(nodeTypes.GetName()); err != nil {
-			return nil, nil, err
-		}
-
-		// Start services watcher
-		serviceStore.JoinClusterServices(d.k8sSvcCache, option.Config.ClusterName)
-	}
-
 	// Start IPAM
 	d.startIPAM()
 
@@ -791,6 +746,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		latestLocalNode, err := d.nodeLocalStore.Get(ctx)
 		if err == nil {
 			_, err = k8s.AnnotateNode(
+				d.logger,
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,
@@ -834,8 +790,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
-	// iptables rules can be updated only after d.init() intializes the iptables above.
-	err = d.updateDNSDatapathRules(d.ctx)
+	// iptables rules can be updated only after d.init() initializes the iptables above.
+	err = params.DNSProxy.UpdateDNSDatapathRules(d.ctx)
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
@@ -864,7 +820,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
+	if option.Config.KVStore != "" {
+		go func() {
+			log.Info("Starting IP identity watcher")
+			params.IPIdentityWatcher.Watch(ctx, kvstore.Client(), ipcache.WithSelfDeletionProtection(params.IPIdentitySyncer))
+		}()
+	}
 
 	if err := params.IPsecKeyCustodian.StartBackgroundJobs(params.NodeHandler); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
@@ -879,25 +840,6 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-// numWorkerThreads returns the number of worker threads with a minimum of 2.
-func numWorkerThreads() int {
-	ncpu := runtime.NumCPU()
-	minWorkerThreads := 2
-
-	if ncpu < minWorkerThreads {
-		return minWorkerThreads
-	}
-	return ncpu
-}
-
-// SendNotification sends an agent notification to the monitor
-func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) error {
-	if option.Config.DryMode {
-		return nil
-	}
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
 }
 
 type endpointMetadataFetcher interface {

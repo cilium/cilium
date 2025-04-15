@@ -139,8 +139,8 @@ func TestNewIdentityFromLabelArray(t *testing.T) {
 		"b": labels.ParseLabel("b"),
 	}
 	require.Equal(t, NumericIdentity(1001), id.ID)
-	require.EqualValues(t, lbls, id.Labels)
-	require.EqualValues(t, lbls.LabelArray(), id.LabelArray)
+	require.Equal(t, lbls, id.Labels)
+	require.Equal(t, lbls.LabelArray(), id.LabelArray)
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {
@@ -450,7 +450,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			prefix := tt.pair.PrefixString()
-			assert.Equal(t, len(tt.expected), len(prefix))
+			assert.Len(t, prefix, len(tt.expected))
 			assert.Equal(t, tt.expected, prefix)
 		})
 	}
@@ -499,7 +499,7 @@ func BenchmarkIPIdentityPair_PrefixString(b *testing.B) {
 	b.ResetTimer()
 	for _, tt := range cases {
 		b.Run(tt.name, func(bb *testing.B) {
-			for i := 0; i < bb.N; i++ {
+			for bb.Loop() {
 				_ = tt.pair.PrefixString()
 			}
 		})

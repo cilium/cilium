@@ -49,8 +49,6 @@ func TestPolicyMapsHive(t *testing.T) {
 				require.NoError(t, merged.Merge(def))
 			}
 
-			require.Contains(t, merged, "SRV6_POLICY_MAP4")
-			require.Contains(t, merged, "SRV6_POLICY_MAP6")
 			require.Contains(t, merged, "SRV6_POLICY_MAP_SIZE")
 
 			// Setup cleanup

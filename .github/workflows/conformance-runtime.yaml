@@ -58,7 +58,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.23.5
+  go-version: 1.24.2
 
 jobs:
   echo-inputs:
@@ -118,7 +118,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo runtime from GH cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -126,10 +126,10 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -189,15 +189,10 @@ jobs:
           # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
           # RuntimeAgentFQDNPolicies CNAME follow
           # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
-          # RuntimeAgentFQDNPolicies Enforces L3 policy even when no IPs are inserted
-          # RuntimeAgentFQDNPolicies Enforces ToFQDNs policy
-          # RuntimeAgentFQDNPolicies Implements matchPattern: *
           # RuntimeAgentFQDNPolicies Interaction with other ToCIDR rules
-          # RuntimeAgentFQDNPolicies Roundrobin DNS
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) L3-dependent L7/HTTP with toFQDN updates proxy policy
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) Policy addition after DNS lookup
           # RuntimeAgentFQDNPolicies Validate dns-proxy monitor information
-          # RuntimeAgentFQDNPolicies With verbose policy logs Validates DNSSEC responses
           # RuntimeAgentKVStoreTest KVStore tests Etcd KVStore
           # RuntimeAgentPolicies Init Policy Default Drop Test tests egress
           # RuntimeAgentPolicies Init Policy Default Drop Test tests ingress
@@ -211,12 +206,10 @@ jobs:
           # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L7 policy
           # RuntimeAgentPolicies Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated
           # RuntimeAgentPolicies Tests EntityNone as a deny-all
-          # RuntimeSSHTests Should fail when context times out
           - focus: "agent"
-            cliFocus: "RuntimeAgent|RuntimeSSHTests"
+            cliFocus: "RuntimeAgent"
 
           ###
-          # RuntimeDatapathConntrackInVethModeTest Conntrack-related configuration options for endpoints
           # RuntimeDatapathMonitorTest With Sample Containers checks container ids match monitor output
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --from
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --related-to
@@ -224,7 +217,7 @@ jobs:
           # RuntimeDatapathMonitorTest With Sample Containers Cilium monitor event types
           # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
           - focus: "datapath"
-            cliFocus: "RuntimeDatapathConntrackInVethModeTest|RuntimeDatapathMonitorTest"
+            cliFocus: "RuntimeDatapathMonitorTest"
 
     timeout-minutes: 50
     steps:
@@ -262,22 +255,22 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "bpf-next-20250110.013326@sha256:4f33de8f4deb6c5af3fdcdd8f57bc7567f7e0ea56e511c296b427a99d15c9c42"
+          image-version: "bpf-next-20250110.013326"
           host-mount: ./
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.19"
+          lvh-version: "v0.0.23"
           mem: 12G
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
-        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -285,10 +278,10 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.2
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -324,7 +317,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -379,7 +372,7 @@ jobs:
       - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -389,11 +382,11 @@ jobs:
             go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
-            make SKIP_COVERAGE=1 tests-privileged GO=go${{ env.go-version }}
+            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 tests-privileged GO=go${{ env.go-version }}
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -407,7 +400,7 @@ jobs:
         # which is 'agent' and 'datapath' focus.
         if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -426,7 +419,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.focus }}
           path: |
@@ -447,14 +440,14 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.focus }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.focus }}
           path: ${{ env.job_name }}*.json

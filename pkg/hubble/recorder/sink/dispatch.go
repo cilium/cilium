@@ -6,22 +6,19 @@ package sink
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "recorder-sink")
 
 // record is a captured packet which will be written to file in the pcap format
 type record struct {
@@ -86,6 +83,8 @@ type PcapSink struct {
 // Dispatch implements consumer.MonitorConsumer and dispatches incoming
 // recorder captures to registered sinks based on their rule ID.
 type Dispatch struct {
+	logger *slog.Logger
+
 	mutex lock.RWMutex
 
 	bootTimeOffset int64
@@ -96,7 +95,7 @@ type Dispatch struct {
 
 // NewDispatch creates a new sink dispatcher. Each registered sink may have a
 // queue of up to sinkQueueSize pending captures.
-func NewDispatch(sinkQueueSize int) (*Dispatch, error) {
+func NewDispatch(logger *slog.Logger, sinkQueueSize int) (*Dispatch, error) {
 	if sinkQueueSize < 1 {
 		return nil, fmt.Errorf("invalid sink queue size: %d", sinkQueueSize)
 	}
@@ -107,6 +106,7 @@ func NewDispatch(sinkQueueSize int) (*Dispatch, error) {
 	}
 
 	return &Dispatch{
+		logger:         logger.With(logfields.LogSubsys, "recorder-sink"),
 		bootTimeOffset: bootTimeOffset,
 		sinkQueueSize:  sinkQueueSize,
 		sinkByRuleID:   map[uint16]*sink{},
@@ -204,7 +204,7 @@ func estimateBootTimeOffset() (bootTimeOffset int64, err error) {
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	for round := 0; round < estimationRounds; round++ {
+	for range estimationRounds {
 		var bootTimespec unix.Timespec
 
 		// Ideally we would use __vdso_clock_gettime for both clocks here,
@@ -244,7 +244,7 @@ func (d *Dispatch) NotifyPerfEvent(data []byte, cpu int) {
 
 	rec, err := d.decodeRecordCaptureLocked(data)
 	if err != nil {
-		log.WithError(err).Warning("Failed to parse capture record")
+		d.logger.Warn("Failed to parse capture record", logfields.Error, err)
 		return
 	}
 
@@ -256,13 +256,14 @@ func (d *Dispatch) NotifyPerfEvent(data []byte, cpu int) {
 
 // NotifyPerfEventLost implements consumer.MonitorConsumer
 func (d *Dispatch) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
-	log.WithFields(logrus.Fields{
-		"numEvents": numLostEvents,
-		"cpu":       cpu,
-	}).Warning("Perf ring buffer events lost. This may affect captured packets.")
+	d.logger.Warn(
+		"Perf ring buffer events lost. This may affect captured packets.",
+		logfields.NumEvents, numLostEvents,
+		logfields.CPU, cpu,
+	)
 }
 
 // NotifyAgentEvent implements consumer.MonitorConsumer
-func (d *Dispatch) NotifyAgentEvent(typ int, message interface{}) {
+func (d *Dispatch) NotifyAgentEvent(typ int, message any) {
 	// ignored
 }

@@ -10,21 +10,91 @@
 #include "eps.h"
 #include "maps.h"
 
+/* Global policy stats map */
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+	__type(key, struct policy_stats_key);
+	__type(value, struct policy_stats_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_STATS_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_COMMON_LRU);
+} cilium_policystats __section_maps_btf;
+
+/*
+ * Both non-host and host EP programs have HOST_EP_ID defined, but only non-host EPs have LXC_ID
+ * defined. Hence, if LXC_ID is defined, we are doing policy for a non-host EP, otherwise for the
+ * host EP, or zero if neither is defined.
+ */
+#ifdef LXC_ID
+#define EFFECTIVE_EP_ID LXC_ID
+#elif defined(HOST_EP_ID)
+#define EFFECTIVE_EP_ID HOST_EP_ID
+#else
+#define EFFECTIVE_EP_ID 0
+#endif
+
+static __always_inline void
+__policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lpm_prefix_length,
+		 __u64 bytes)
+{
+	struct policy_stats_value *value;
+	struct policy_stats_key stats_key = {
+		.endpoint_id = EFFECTIVE_EP_ID,
+		.pad1 = 0,
+		.prefix_len = lpm_prefix_length,
+		.sec_label = remote_id,
+		.egress = egress,
+		.pad = 0,
+	};
+
+	/*
+	 * Must compute the wildcarded protocol and port for the policy stats map key.
+	 * If bpf lookup ever returned the key of the matching entry we would not need
+	 * to do this.
+	 */
+	if (lpm_prefix_length <= LPM_PROTO_PREFIX_BITS) {
+		if (lpm_prefix_length < LPM_PROTO_PREFIX_BITS) {
+			/* Protocol is not partially maskable */
+			proto = 0;
+		}
+		dport = 0;
+	} else if (lpm_prefix_length < LPM_FULL_PREFIX_BITS) {
+		dport &= bpf_htons((__u16)(0xffff << (LPM_FULL_PREFIX_BITS - lpm_prefix_length)));
+	}
+	stats_key.protocol = proto;
+	stats_key.dport = dport;
+
+	value = map_lookup_elem(&cilium_policystats, &stats_key);
+
+	if (value) {
+		__sync_fetch_and_add(&value->packets, 1);
+		__sync_fetch_and_add(&value->bytes, bytes);
+	} else {
+		struct policy_stats_value newval = { 1, bytes };
+
+		map_update_elem(&cilium_policystats, &stats_key, &newval, BPF_NOEXIST);
+	}
+}
+
+/* Per-endpoint policy enforcement map */
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct policy_key);
+	__type(value, struct policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_v2 __section_maps_btf;
+
 static __always_inline int
-__account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
-		    const struct policy_entry *policy2, __s8 *ext_err, __u16 *proxy_port)
+__policy_check(struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
+	       __u16 *proxy_port)
 {
 	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
 	 * match, and the chosen policy has no explicit auth type: in this case the auth type is
 	 * derived from the less specific policy entry.
 	 */
 	__u8 auth_type;
-
-#ifdef POLICY_ACCOUNTING
-	/* FIXME: Use per cpu counters */
-	__sync_fetch_and_add(&policy->packets, 1);
-	__sync_fetch_and_add(&policy->bytes, ctx_full_len(ctx));
-#endif
 
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
@@ -61,7 +131,7 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 
 static __always_inline int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
-		    __u32 remote_id, __u16 ethertype __maybe_unused, __u16 dport,
+		    __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
 		    __u8 proto, int off __maybe_unused, int dir,
 		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		    __u16 *proxy_port)
@@ -168,19 +238,25 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 check_policy:
 	cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id, dport << 16 | proto);
 	p_len = policy->lpm_prefix_length;
+#ifdef POLICY_ACCOUNTING
+	__policy_account(remote_id, key.egress, proto, dport, p_len, ctx_full_len(ctx));
+#endif
 	*match_type =
 		p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :	/* 1. id/proto/port */
 		p_len > 0 ? POLICY_MATCH_L3_PROTO :			/* 3. id/proto/ANY */
 		POLICY_MATCH_L3_ONLY;					/* 5. id/ANY/ANY */
-	return __account_and_check(ctx, policy, l4policy, ext_err, proxy_port);
+	return __policy_check(policy, l4policy, ext_err, proxy_port);
 
 check_l4_policy:
 	p_len = l4policy->lpm_prefix_length;
+#ifdef POLICY_ACCOUNTING
+	__policy_account(0, key.egress, proto, dport, p_len, ctx_full_len(ctx));
+#endif
 	*match_type =
 		p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
 		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
 		POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
-	return __account_and_check(ctx, l4policy, policy, ext_err, proxy_port);
+	return __policy_check(l4policy, policy, ext_err, proxy_port);
 }
 
 /**
@@ -205,7 +281,7 @@ check_l4_policy:
  */
 static __always_inline int
 policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
-		   __u16 ethertype, __u16 dport, __u8 proto, int l4_off,
+		   __u16 ethertype, __be16 dport, __u8 proto, int l4_off,
 		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
 		   __s8 *ext_err, __u16 *proxy_port)
 {
@@ -232,13 +308,14 @@ policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 
 
 static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const void *map,
 					       const struct ipv6_ct_tuple *tuple,
-					       int l4_off,  __u32 src_id, __u32 dst_id,
+					       int l4_off, bool is_untracked_fragment,
+					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
 					       __s8 *ext_err, __u16 *proxy_port)
 {
 	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
-				 tuple->nexthdr, l4_off, false, match_type, audited,
-				 ext_err, proxy_port);
+				 tuple->nexthdr, l4_off, is_untracked_fragment,
+				 match_type, audited, ext_err, proxy_port);
 }
 
 static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
@@ -255,7 +332,7 @@ static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
 }
 
 #ifdef HAVE_ENCAP
-static __always_inline bool is_encap(__u16 dport, __u8 proto)
+static __always_inline bool is_encap(__be16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP && dport == bpf_htons(TUNNEL_PORT);
 }
@@ -263,7 +340,7 @@ static __always_inline bool is_encap(__u16 dport, __u8 proto)
 
 static __always_inline int
 policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
-		  __u16 ethertype, __u16 dport, __u8 proto, int l4_off, __u8 *match_type,
+		  __u16 ethertype, __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
 		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;

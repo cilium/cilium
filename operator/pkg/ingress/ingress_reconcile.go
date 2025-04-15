@@ -36,7 +36,10 @@ const (
 )
 
 func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, "ingress", logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Controller, "ingress",
+		logfields.Resource, req.NamespacedName,
+	)
 
 	scopedLog.Info("Reconciling Ingress")
 	ingress := &networkingv1.Ingress{}
@@ -71,14 +74,6 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		if err := r.tryCleanupDedicatedResources(ctx, req.NamespacedName); err != nil {
 			return controllerruntime.Fail(err)
-		}
-
-		scopedLog.Debug("Trying to cleanup Ingress status of unmanaged Ingress")
-		if err := r.tryCleanupIngressStatus(ctx, ingress); err != nil {
-			// One attempt to cleanup the status of the Ingress.
-			// Don't fail (and retry) on an error, as this might result in
-			// interferences with the new responsible Ingress controller.
-			scopedLog.Warn("Failed to cleanup Ingress status", logfields.Error, err)
 		}
 
 		scopedLog.Info("Successfully cleaned Ingress resources")
@@ -449,16 +444,6 @@ func (r *ingressReconciler) updateIngressLoadbalancerStatus(ctx context.Context,
 
 	if err := r.client.Status().Update(ctx, ingress); err != nil {
 		return fmt.Errorf("failed to write Ingress status: %w", err)
-	}
-
-	return nil
-}
-
-func (r *ingressReconciler) tryCleanupIngressStatus(ctx context.Context, ingress *networkingv1.Ingress) error {
-	ingress.Status.LoadBalancer.Ingress = []networkingv1.IngressLoadBalancerIngress{}
-
-	if err := r.client.Status().Update(ctx, ingress); err != nil {
-		return fmt.Errorf("failed to update Ingress status: %w", err)
 	}
 
 	return nil

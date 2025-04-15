@@ -7,7 +7,7 @@ db/initialized
 set-node-labels foo=a
 
 # Add CECs with foo=a and foo=b node selectors
-k8s add cec_a.yaml cec_b.yaml
+k8s/add cec_a.yaml cec_b.yaml
 
 # CEC with foo=a should be selected.
 db/cmp ciliumenvoyconfigs cec_a.table
@@ -24,18 +24,15 @@ envoy envoy.out
 
 # ---------------------------------------------
 
--- cec_empty.table --
-Name    Services
-
 -- cec_a.table --
-Name                    Selected  NodeSelector  StatusKind
-test/envoy-a            true      foo=a         Done
-test/envoy-b            false     foo=b         Done
+Name                    Selected  NodeSelector
+test/envoy-a            true      foo=a       
+test/envoy-b            false     foo=b       
 
 -- cec_b.table --
-Name                    Selected  NodeSelector  StatusKind
-test/envoy-a            false     foo=a         Done
-test/envoy-b            true      foo=b         Done
+Name                    Selected  NodeSelector
+test/envoy-a            false     foo=a       
+test/envoy-b            true      foo=b       
 
 -- cec_a.yaml --
 apiVersion: cilium.io/v2
@@ -75,9 +72,9 @@ spec:
 
 -- envoy_a.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=test/a:*=,test/a=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=
+delete: listeners=<nil> endpoints=<nil>
 -- envoy_b.expected --
-policy-trigger-count: 1
-update: count=2 listeners=test/envoy-b/envoy-lb-listener/1000 endpoints=test/b:*=,test/b=
-delete: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=test/a:*=,test/a=
+policy-trigger-count: 3
+update: listeners=test/envoy-b/envoy-lb-listener/1000 endpoints=
+delete: listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=

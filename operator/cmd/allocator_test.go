@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -29,7 +30,7 @@ import (
 func TestPodCIDRAllocatorOverlap(t *testing.T) {
 	// We need to run the test multiple times since we are testing a race condition which is dependant on the order
 	// of a hash map.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		fmt.Printf("Run %d/5\n", i+1)
 
 		podCIDRAllocatorOverlapTestRun(t)
@@ -86,7 +87,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	}
 
 	// Create a new pod manager with only our IPv4 allocator and fake client set.
-	podCidrManager := podcidr.NewNodesPodCIDRManager([]cidralloc.CIDRAllocator{
+	podCidrManager := podcidr.NewNodesPodCIDRManager(hivetest.Logger(t), []cidralloc.CIDRAllocator{
 		set,
 	}, nil, &ciliumNodeUpdateImplementation{clientset: fakeSet}, nil)
 

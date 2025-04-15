@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -40,6 +41,9 @@ import (
 )
 
 func TestScript(t *testing.T) {
+	// Catch any leaked goroutines.
+	t.Cleanup(func() { goleak.VerifyNone(t) })
+
 	version.Force(testutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		fakeEnvoy := &fakeEnvoySyncerAndPolicyTrigger{}
@@ -48,6 +52,7 @@ func TestScript(t *testing.T) {
 		h := hive.New(
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
+			daemonk8s.TablesCell,
 			cell.Config(cecConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
 			experimental.Cell,
@@ -58,10 +63,14 @@ func TestScript(t *testing.T) {
 				source.NewSources,
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
-						EnableIPv4:        true,
-						EnableIPv6:        true,
-						SockRevNatEntries: 1000,
-						LBMapEntries:      1000,
+						EnableIPv4:           true,
+						EnableIPv6:           true,
+						EnableNodePort:       true,
+						SockRevNatEntries:    1000,
+						LBMapEntries:         1000,
+						EnableL7Proxy:        true,
+						EnableEnvoyConfig:    true,
+						KubeProxyReplacement: option.KubeProxyReplacementTrue,
 					}
 				},
 				func() *experimental.TestConfig {
@@ -124,7 +133,7 @@ func TestScript(t *testing.T) {
 				}
 				for _, info := range fakeEnvoy.all() {
 					if info.res == nil {
-						_, err = fmt.Fprintf(f, "%s: count=%d listeners=<nil> endpoints=<nil>\n", info.name, info.count)
+						_, err = fmt.Fprintf(f, "%s: listeners=<nil> endpoints=<nil>\n", info.name)
 						if err != nil {
 							return nil, err
 						}
@@ -148,7 +157,7 @@ func TestScript(t *testing.T) {
 						}
 					}
 					sort.Strings(endpoints)
-					_, err = fmt.Fprintf(f, "%s: count=%d listeners=%s endpoints=%s\n", info.name, info.count, strings.Join(listeners, ","), strings.Join(endpoints, ","))
+					_, err = fmt.Fprintf(f, "%s: listeners=%s endpoints=%s\n", info.name, strings.Join(listeners, ","), strings.Join(endpoints, ","))
 					if err != nil {
 						return nil, err
 					}
@@ -175,12 +184,15 @@ func TestScript(t *testing.T) {
 			})
 
 		return &script.Engine{
-			Cmds: cmds,
+			Cmds:             cmds,
+			RetryInterval:    100 * time.Millisecond,
+			MaxRetryInterval: time.Second,
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
+
 	scripttest.Test(t,
 		ctx,
 		setup,

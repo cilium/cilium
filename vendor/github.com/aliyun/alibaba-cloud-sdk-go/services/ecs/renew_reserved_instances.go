@@ -71,16 +71,23 @@ func (client *Client) RenewReservedInstancesWithCallback(request *RenewReservedI
 // RenewReservedInstancesRequest is the request struct for api RenewReservedInstances
 type RenewReservedInstancesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	AutoRenewPeriod      requests.Integer `position:"Query" name:"AutoRenewPeriod"`
-	Period               requests.Integer `position:"Query" name:"Period"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
-	ReservedInstanceId   *[]string        `position:"Query" name:"ReservedInstanceId"  type:"Repeated"`
-	AutoRenew            requests.Boolean `position:"Query" name:"AutoRenew"`
+	ResourceOwnerId      requests.Integer                       `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                                 `position:"Query" name:"ClientToken"`
+	AutoRenewPeriod      requests.Integer                       `position:"Query" name:"AutoRenewPeriod"`
+	Period               requests.Integer                       `position:"Query" name:"Period"`
+	AutoPay              requests.Boolean                       `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount string                                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                                 `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                       `position:"Query" name:"OwnerId"`
+	PromotionOptions     RenewReservedInstancesPromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	PeriodUnit           string                                 `position:"Query" name:"PeriodUnit"`
+	ReservedInstanceId   *[]string                              `position:"Query" name:"ReservedInstanceId"  type:"Repeated"`
+	AutoRenew            requests.Boolean                       `position:"Query" name:"AutoRenew"`
+}
+
+// RenewReservedInstancesPromotionOptions is a repeated param struct in RenewReservedInstancesRequest
+type RenewReservedInstancesPromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // RenewReservedInstancesResponse is the response struct for api RenewReservedInstances

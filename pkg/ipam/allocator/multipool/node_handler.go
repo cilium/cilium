@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -20,7 +21,8 @@ import (
 )
 
 type NodeHandler struct {
-	mutex lock.Mutex
+	logger *slog.Logger
+	mutex  lock.Mutex
 
 	poolManager *PoolAllocator
 	nodeUpdater ipam.CiliumNodeGetterUpdater
@@ -36,8 +38,9 @@ var ipamMultipoolSyncControllerGroup = controller.NewGroup("ipam-multi-pool-sync
 
 var _ allocator.NodeEventHandler = (*NodeHandler)(nil)
 
-func NewNodeHandler(manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpdater) *NodeHandler {
+func NewNodeHandler(logger *slog.Logger, manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpdater) *NodeHandler {
 	return &NodeHandler{
+		logger:                 logger,
 		poolManager:            manager,
 		nodeUpdater:            nodeUpdater,
 		nodesPendingAllocation: map[string]*v2.CiliumNode{},
@@ -57,9 +60,11 @@ func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
 
 	err := n.poolManager.ReleaseNode(resource.Name)
 	if err != nil {
-		log.WithField(logfields.NodeName, resource.Name).
-			WithError(err).
-			Warning("Errors while release node and its CIDRs")
+		n.logger.Warn(
+			"Errors while release node and its CIDRs",
+			logfields.Error, err,
+			logfields.NodeName, resource.Name,
+		)
 	}
 
 	delete(n.nodesPendingAllocation, resource.Name)
@@ -116,8 +121,11 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 
 			err := n.poolManager.AllocateToNode(resource)
 			if err != nil {
-				log.WithField(logfields.NodeName, resource.Name).WithError(err).
-					Warning("Failed to allocate PodCIDRs to node")
+				n.logger.Warn(
+					"Failed to allocate PodCIDRs to node",
+					logfields.Error, err,
+					logfields.NodeName, resource.Name,
+				)
 				errorMessage = err.Error()
 				controllerErr = err
 			}

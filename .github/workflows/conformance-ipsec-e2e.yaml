@@ -56,6 +56,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  test_concurrency: 5
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -116,7 +119,7 @@ jobs:
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA }}
+          SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
@@ -158,7 +161,18 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
+
+          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+                                      --collect-sysdump-on-failure \
+                                      --sysdump-hubble-flows-count=1000000 \
+                                      --sysdump-hubble-flows-timeout=5m \
+                                      --log-code-owners \
+                                      --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+                                      --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+                                      --flush-ct"
+
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Derive Cilium installation config and junit type
         id: cilium-config
@@ -201,7 +215,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Setup bootid file
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -225,11 +239,13 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -259,7 +275,7 @@ jobs:
 
           cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -276,20 +292,31 @@ jobs:
       - name: Start unencrypted packets check
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct
+            --test 'seq-.*'
+
+      - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test '!seq-.*' \
+            --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -303,10 +330,10 @@ jobs:
       - name: Start unencrypted packets check for key rotation
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           # As we are not testing with proxy connections during key rotation,
           # disable the check for proxy traffic.
-          args: ${{ steps.bpftrace-params.outputs.params }} "false"
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
 
       - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-setup
@@ -328,26 +355,30 @@ jobs:
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
 
-          TEST=""
-          if [ "${{ matrix.key-one }}" = "gcm(aes)" ] && [ "${{ matrix.key-two }}" = "cbc(aes)" ]; then
-            # Until https://github.com/cilium/cilium/issues/29480 is resolved
-            TEST='--test "!pod-to-pod-no-frag"'
-          fi
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct $TEST
+            --test 'seq-.*'
+
+      - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test "!seq-.*" \
+            --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -375,21 +406,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.name }}
           path: ${{ env.job_name }}*.json

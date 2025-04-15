@@ -5,11 +5,13 @@ package redirectpolicy
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	serviceapi "github.com/cilium/cilium/api/v1/server/restapi/service"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -25,15 +27,21 @@ var Cell = cell.Module(
 type lrpManagerParams struct {
 	cell.In
 
+	DB             *statedb.DB
 	Svc            service.ServiceManager
-	SvcCache       *k8s.ServiceCache
-	Lpr            agentK8s.LocalPodResource
+	SvcCache       k8s.ServiceCache
+	Pods           statedb.Table[agentK8s.LocalPod]
 	Ep             endpointmanager.EndpointManager
 	MetricsManager LRPMetrics
+	ExpConfig      experimental.Config
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
-	return NewRedirectPolicyManager(params.Svc, params.SvcCache, params.Lpr, params.Ep, params.MetricsManager)
+	if params.ExpConfig.EnableExperimentalLB {
+		// The experimental implementation is enabled, do nothing here.
+		return nil
+	}
+	return NewRedirectPolicyManager(params.DB, params.Svc, params.SvcCache, params.Pods, params.Ep, params.MetricsManager)
 }
 
 func newLRPApiHandler(lrpManager *Manager) serviceapi.GetLrpHandler {

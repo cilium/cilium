@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -205,6 +206,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
+			l := hivetest.Logger(t)
 			// Setup the test server, create a bgp virtual router, and upsert the test pools
 			// into the diff store.
 			srvParams := types.ServerParameters{
@@ -214,7 +216,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), l, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -230,7 +232,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 			for _, obj := range tt.upsertedPools {
 				store.Upsert(obj)
 			}
-			reconciler := NewPodIPPoolReconciler(store).Reconciler.(*PodIPPoolReconciler)
+			reconciler := NewPodIPPoolReconciler(l, store).Reconciler.(*PodIPPoolReconciler)
 
 			node := &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
@@ -245,7 +247,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -267,7 +269,10 @@ func TestPodIPPoolReconciler(t *testing.T) {
 				}
 			}
 
-			log.Printf("%+v %+v", podIPPoolAnnouncements, tt.updated)
+			l.Debug("debug message",
+				types.PodIPPoolLogField, podIPPoolAnnouncements,
+				types.PodIPPoolLogFieldUpdatedLogField, tt.updated,
+			)
 
 			// Ensure we see tt.updated in testSC.PodIPPoolAnnouncements
 			for poolKey, cidrs := range tt.updated {

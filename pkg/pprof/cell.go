@@ -33,20 +33,17 @@ type Server interface {
 
 // Cell creates the cell for pprof, that registers its HTTP handlers to serve
 // profiling data in the format expected by the pprof visualization tool.
-var Cell = cell.Module(
-	"pprof",
-	"pprof HTTP server to expose runtime profiling data",
+func Cell[Cfg cell.Flagger](cfg Cfg) cell.Cell {
+	return cell.Module(
+		"pprof",
+		"pprof HTTP server to expose runtime profiling data",
 
-	// We don't call cell.Config directly here, because the operator
-	// uses different flags names for the same pprof config flags.
-	// Therefore, to register each flag with the correct name, we leave
-	// the call to cell.Config to the user of the cell.
-
-	// Provide coupled with Invoke is used to improve cell testability,
-	// namely to allow taking a reference to the Server and call Port() on it.
-	cell.Provide(newServer),
-	cell.Invoke(func(srv Server) {}),
-)
+		// Provide coupled with Invoke is used to improve cell testability,
+		// namely to allow taking a reference to the Server and call Port() on it.
+		cell.Config(cfg),
+		cell.Provide(newServer),
+		cell.Invoke(func(srv Server) {}))
+}
 
 // Config contains the configuration for the pprof cell.
 type Config struct {

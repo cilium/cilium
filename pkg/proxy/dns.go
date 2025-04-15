@@ -4,47 +4,38 @@
 package proxy
 
 import (
+	"errors"
+
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/fqdn/proxy"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
-var (
-	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
-	DefaultDNSProxy proxy.DNSProxier
-)
-
 // dnsRedirect implements the Redirect interface for an l7 proxy
 type dnsRedirect struct {
 	Redirect
-	proxyRuleUpdater proxyRuleUpdater
+	dnsProxy defaultdns.Proxy
 }
 
 func (dr *dnsRedirect) GetRedirect() *Redirect {
 	return &dr.Redirect
 }
 
-// proxyRuleUpdater updates L7 proxy rules per endpoint.
-//
-// Note: Implementations must not take the IPcache lock, as the usage of this
-// interface is within the endpoint regeneration critical section.
-type proxyRuleUpdater interface {
-	// UpdateAllowed updates the rules in the DNS proxy with newRules for the
-	// endpointID and destPort.
-	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error)
-}
-
 // setRules replaces old l7 rules of a redirect with new ones.
 func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) (revert.RevertFunc, error) {
-	log.WithFields(logrus.Fields{
-		"newRules":           newRules,
-		logfields.EndpointID: dr.endpointID,
-	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
-	return dr.proxyRuleUpdater.UpdateAllowed(uint64(dr.endpointID), dr.dstPortProto, newRules)
+	dr.logger.Debug(
+		"DNS Proxy updating matchNames in allowed list during UpdateRules",
+		logfields.NewRules, newRules,
+		logfields.EndpointID, dr.endpointID,
+	)
+	dnsProxy := dr.dnsProxy.Get()
+	if dnsProxy == nil {
+		return nil, errors.New("no dns proxy exists to update")
+	}
+	return dnsProxy.UpdateAllowed(uint64(dr.endpointID), dr.dstPortProto, newRules)
 }
 
 // UpdateRules atomically replaces the proxy rules in effect for this redirect.
@@ -60,19 +51,16 @@ func (dr *dnsRedirect) Close() {
 }
 
 type dnsProxyIntegration struct {
+	dnsProxy defaultdns.Proxy
 }
 
 // createRedirect creates a redirect to the dns proxy. The redirect structure passed
 // in is safe to access for reading and writing.
 func (p *dnsProxyIntegration) createRedirect(redirect Redirect) (RedirectImplementation, error) {
 	dr := &dnsRedirect{
-		Redirect:         redirect,
-		proxyRuleUpdater: DefaultDNSProxy,
+		Redirect: redirect,
+		dnsProxy: p.dnsProxy,
 	}
-
-	log.WithFields(logrus.Fields{
-		"dnsRedirect": dr,
-	}).Debug("Creating DNS Proxy redirect")
 
 	return dr, nil
 }

@@ -10,7 +10,7 @@ type MonitorConsumer interface {
 	// depends on the value of typ:
 	//  - MessageTypeAccessLog:		accesslog.LogRecord
 	//  - MessageTypeAgent:			api.AgentNotify
-	NotifyAgentEvent(typ int, message interface{})
+	NotifyAgentEvent(typ int, message any)
 
 	// NotifyPerfEvent informs the consumer about an datapath event obtained
 	// via perf events ring buffer.

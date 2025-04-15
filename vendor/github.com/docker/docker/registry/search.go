@@ -93,12 +93,8 @@ func (s *Service) searchUnfiltered(ctx context.Context, term string, limit int, 
 
 	// Search is a long-running operation, just lock s.config to avoid block others.
 	s.mu.RLock()
-	index, err := newIndexInfo(s.config, indexName)
+	index := newIndexInfo(s.config, indexName)
 	s.mu.RUnlock()
-
-	if err != nil {
-		return nil, err
-	}
 	if index.Official {
 		// If pull "library/foo", it's stored locally under "foo"
 		remoteName = strings.TrimPrefix(remoteName, "library/")
@@ -158,5 +154,24 @@ func splitReposSearchTerm(reposName string) (string, string) {
 // for that.
 func ParseSearchIndexInfo(reposName string) (*registry.IndexInfo, error) {
 	indexName, _ := splitReposSearchTerm(reposName)
-	return newIndexInfo(emptyServiceConfig, indexName)
+	indexName = normalizeIndexName(indexName)
+	if indexName == IndexName {
+		return &registry.IndexInfo{
+			Name:     IndexName,
+			Mirrors:  []string{},
+			Secure:   true,
+			Official: true,
+		}, nil
+	}
+
+	insecure := false
+	if isInsecure(indexName) {
+		insecure = true
+	}
+
+	return &registry.IndexInfo{
+		Name:    indexName,
+		Mirrors: []string{},
+		Secure:  !insecure,
+	}, nil
 }

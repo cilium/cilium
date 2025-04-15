@@ -42,7 +42,7 @@ spec:
       lb_policy: ROUND_ROBIN
       type: EDS
       edsClusterConfig:
-        serviceName: default/echo-service:8080
+        serviceName: default/echo-service
       circuit_breakers:
         thresholds:
         - priority: "DEFAULT"

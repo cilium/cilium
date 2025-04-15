@@ -17,7 +17,7 @@ import (
 )
 
 // PlotSamples plots the given samples as a line graph using the unicode braille characters.
-func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Duration, samples []float32, sb SampleBitmap) {
+func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan, samplingInterval time.Duration, samples []float32, sb SampleBitmap) {
 	// Do not let panics propagate from here. Log the sample input that caused the panic.
 	defer func() {
 		if err := recover(); err != nil {
@@ -71,7 +71,7 @@ func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Dura
 
 	// Write out the labels, also centered, but leave some margins.
 	if labels != "" {
-		for _, line := range strings.Split(wordwrap.WrapString(labels, uint(plotWidth-4)), "\n") {
+		for line := range strings.SplitSeq(wordwrap.WrapString(labels, uint(plotWidth-4)), "\n") {
 			fmt.Fprintf(w, "%s%s[ %s ]\n",
 				indentPlotOriginX,
 				strings.Repeat(" ", plotWidth/2-(len(line)+4)/2),
@@ -81,8 +81,8 @@ func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Dura
 
 	// Set up a canvas into which to draw in.
 	canvas := make([]rune, width*height)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
+	for x := range width {
+		for y := range height {
 			if x >= originX && y <= originY {
 				// initialize the plot area to the braille base. this way we can
 				// just OR in the dots we want to show.
@@ -190,7 +190,7 @@ func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Dura
 	}
 
 	// Plot the samples (up to second to last column)
-	for x := 0; x < plotWidthDots-1; x++ {
+	for x := range plotWidthDots - 1 {
 		if v, exists := getSample(x); exists {
 			setDot(x, mapToY(v))
 		}

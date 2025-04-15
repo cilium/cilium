@@ -6,8 +6,8 @@ package reconciler
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -15,6 +15,7 @@ import (
 )
 
 type advertisementsReconcilerParams struct {
+	logger    *slog.Logger
 	ctx       context.Context
 	name      string
 	component string
@@ -32,10 +33,10 @@ type advertisementsReconcilerParams struct {
 // currently being announced.
 func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]*types.Path, error) {
 	var (
-		l = log.WithFields(
-			logrus.Fields{
-				"component": params.component,
-			},
+		l = params.logger.With(
+			types.ComponentLogField, params.component,
+			types.NameLogField, params.name,
+			types.LocalASNLogField, params.newc.LocalASN,
 		)
 		// holds advertisements which must be advertised
 		toAdvertise []*types.Path
@@ -47,15 +48,19 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]*
 		newAdverts []*types.Path
 	)
 
-	l.Debugf("Begin reconciling %s advertisements for virtual router with local ASN %v", params.name, params.newc.LocalASN)
+	l.Debug(
+		"Begin reconciling advertisements for virtual router with local ASN",
+	)
 
 	// if advertisement is turned off withdraw any previously advertised
 	// cidrs and early return nil.
 	if !params.enabled {
-		l.Debugf("%s advertisements disabled for virtual router with local ASN %v", params.name, params.newc.LocalASN)
+		l.Debug(
+			"advertisements disabled for virtual router with local ASN",
+		)
 
 		for _, advrt := range params.currentAdvertisements {
-			l.Debugf("Withdrawing %s advertisement %v for local ASN %v", params.name, advrt.NLRI, params.newc.LocalASN)
+			params.logger.Debug("Withdrawing advertisement for local ASN", types.NLRILogField, advrt.NLRI)
 			if err := params.sc.Server.WithdrawPath(params.ctx, types.PathRequest{Path: advrt}); err != nil {
 				return nil, err
 			}
@@ -127,13 +132,13 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]*
 	}
 
 	if len(toAdvertise) == 0 && len(toWithdraw) == 0 {
-		l.Debugf("No reconciliation necessary")
-		return append([]*types.Path{}, params.currentAdvertisements...), nil
+		l.Debug("No reconciliation necessary")
+		return slices.Clone(params.currentAdvertisements), nil
 	}
 
 	// create new adverts
 	for _, advrt := range toAdvertise {
-		l.Debugf("Advertising %s %v for policy with local ASN: %v", params.name, advrt.NLRI, params.newc.LocalASN)
+		params.logger.Debug("Advertising for policy with local ASN", types.NLRILogField, advrt.NLRI)
 		advrtResp, err := params.sc.Server.AdvertisePath(params.ctx, types.PathRequest{Path: advrt})
 		if err != nil {
 			return nil, fmt.Errorf("failed to advertise %s prefix %v: %w", params.name, advrt.NLRI, err)
@@ -143,7 +148,7 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]*
 
 	// withdraw unneeded adverts
 	for _, advrt := range toWithdraw {
-		l.Debugf("Withdrawing %s %v for policy with local ASN: %v", params.name, advrt.NLRI, params.newc.LocalASN)
+		params.logger.Debug("Withdrawing for policy with local ASN", types.NLRILogField, advrt.NLRI)
 		if err := params.sc.Server.WithdrawPath(params.ctx, types.PathRequest{Path: advrt}); err != nil {
 			return nil, err
 		}

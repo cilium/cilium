@@ -5,19 +5,19 @@ package hubblecell
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hubble/exporter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	"github.com/cilium/cilium/pkg/hubble/parser"
+	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -37,18 +37,27 @@ var Cell = cell.Module(
 	"hubble",
 	"Exposes the Observer gRPC API and Hubble metrics",
 
+	Core,
+
+	// Hubble flow log exporters
+	exportercell.Cell,
+
+	// Parser for Hubble flows
+	parsercell.Cell,
+)
+
+// The core cell group, which contains the Hubble integration and the
+// Hubble integration configuration isolated from the dependency graph
+// will enable us to run hubble with a different dataplane
+var Core = cell.Group(
 	cell.Provide(newHubbleIntegration),
 	cell.Config(defaultConfig),
-
-	// Provide Hubble flow log exporters
-	cell.ProvidePrivate(exportercell.NewValidatedConfig),
-	cell.ProvidePrivate(exportercell.NewHubbleStaticExporter),
-	cell.ProvidePrivate(exportercell.NewHubbleDynamicExporter),
-	cell.Config(exportercell.DefaultConfig),
 )
 
 type hubbleParams struct {
 	cell.In
+
+	Logger *slog.Logger
 
 	JobGroup job.Group
 
@@ -65,18 +74,18 @@ type hubbleParams struct {
 	Recorder          *recorder.Recorder
 
 	// NOTE: ordering is not guaranteed, do not rely on it.
-	ObserverOptions []observeroption.Option    `group:"hubble-observer-options"`
-	Exporters       []exporter.FlowLogExporter `group:"hubble-flow-log-exporters"`
+	ObserverOptions  []observeroption.Option                `group:"hubble-observer-options"`
+	ExporterBuilders []*exportercell.FlowLogExporterBuilder `group:"hubble-exporter-builders"`
+
+	PayloadParser parser.Decoder
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
 	Config      config
-
-	// TODO: replace by slog
-	Logger logrus.FieldLogger
 }
 
 type HubbleIntegration interface {
+	Launch(ctx context.Context) error
 	Status(ctx context.Context) *models.HubbleStatus
 }
 
@@ -94,7 +103,8 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.MonitorAgent,
 		params.Recorder,
 		params.ObserverOptions,
-		params.Exporters,
+		params.ExporterBuilders,
+		params.PayloadParser,
 		params.AgentConfig,
 		params.Config,
 		params.Logger,
@@ -104,16 +114,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 	}
 
 	params.JobGroup.Add(job.OneShot("hubble", func(ctx context.Context, _ cell.Health) error {
-		h.launch(ctx)
-
-		// NOTE: launch() sets the observer pointer at the very end of starting
-		// up all components successfully. While not ideal, this is the only
-		// signal we have to report whether Hubble was initialized successfully
-		// for now.
-		if h.observer.Load() == nil {
-			return errors.New("Hubble launch failed")
-		}
-		return nil
+		return h.Launch(ctx)
 	}))
 
 	return h, nil

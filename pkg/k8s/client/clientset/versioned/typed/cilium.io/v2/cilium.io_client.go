@@ -15,12 +15,16 @@ import (
 
 type CiliumV2Interface interface {
 	RESTClient() rest.Interface
+	CiliumBGPAdvertisementsGetter
+	CiliumBGPClusterConfigsGetter
+	CiliumBGPNodeConfigsGetter
+	CiliumBGPNodeConfigOverridesGetter
+	CiliumBGPPeerConfigsGetter
 	CiliumClusterwideEnvoyConfigsGetter
 	CiliumClusterwideNetworkPoliciesGetter
 	CiliumEgressGatewayPoliciesGetter
 	CiliumEndpointsGetter
 	CiliumEnvoyConfigsGetter
-	CiliumExternalWorkloadsGetter
 	CiliumIdentitiesGetter
 	CiliumLocalRedirectPoliciesGetter
 	CiliumNetworkPoliciesGetter
@@ -31,6 +35,26 @@ type CiliumV2Interface interface {
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
 type CiliumV2Client struct {
 	restClient rest.Interface
+}
+
+func (c *CiliumV2Client) CiliumBGPAdvertisements() CiliumBGPAdvertisementInterface {
+	return newCiliumBGPAdvertisements(c)
+}
+
+func (c *CiliumV2Client) CiliumBGPClusterConfigs() CiliumBGPClusterConfigInterface {
+	return newCiliumBGPClusterConfigs(c)
+}
+
+func (c *CiliumV2Client) CiliumBGPNodeConfigs() CiliumBGPNodeConfigInterface {
+	return newCiliumBGPNodeConfigs(c)
+}
+
+func (c *CiliumV2Client) CiliumBGPNodeConfigOverrides() CiliumBGPNodeConfigOverrideInterface {
+	return newCiliumBGPNodeConfigOverrides(c)
+}
+
+func (c *CiliumV2Client) CiliumBGPPeerConfigs() CiliumBGPPeerConfigInterface {
+	return newCiliumBGPPeerConfigs(c)
 }
 
 func (c *CiliumV2Client) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInterface {
@@ -51,10 +75,6 @@ func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterfa
 
 func (c *CiliumV2Client) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigInterface {
 	return newCiliumEnvoyConfigs(c, namespace)
-}
-
-func (c *CiliumV2Client) CiliumExternalWorkloads() CiliumExternalWorkloadInterface {
-	return newCiliumExternalWorkloads(c)
 }
 
 func (c *CiliumV2Client) CiliumIdentities() CiliumIdentityInterface {

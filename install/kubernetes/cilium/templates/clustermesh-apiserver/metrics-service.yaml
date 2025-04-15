@@ -1,6 +1,6 @@
 {{- $kvstoreMetricsEnabled := and .Values.clustermesh.apiserver.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled -}}
 {{- if and
-  (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  .Values.clustermesh.useAPIServer
   (or .Values.clustermesh.apiserver.metrics.enabled $kvstoreMetricsEnabled .Values.clustermesh.apiserver.metrics.etcd.enabled) }}
 apiVersion: v1
 kind: Service
@@ -24,11 +24,13 @@ spec:
   clusterIP: None
   type: ClusterIP
   ports:
-  {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+  {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+    {{- if .Values.clustermesh.apiserver.metrics.enabled }}
   - name: apiserv-metrics
     port: {{ .Values.clustermesh.apiserver.metrics.port }}
     protocol: TCP
     targetPort: apiserv-metrics
+    {{- end }}
   {{- end }}
   {{- if $kvstoreMetricsEnabled }}
   - name: kvmesh-metrics
@@ -36,11 +38,13 @@ spec:
     protocol: TCP
     targetPort: kvmesh-metrics
   {{- end }}
-  {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+  {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+    {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
   - name: etcd-metrics
     port: {{ .Values.clustermesh.apiserver.metrics.etcd.port }}
     protocol: TCP
     targetPort: etcd-metrics
+    {{- end }}
   {{- end }}
   selector:
     k8s-app: clustermesh-apiserver

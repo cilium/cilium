@@ -130,7 +130,6 @@ func (fs *fakeStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 	return nil, nil
 }
 func (fs *fakeStore[T]) CacheStore() cache.Store { return nil }
-func (fs *fakeStore[T]) Release()                {}
 
 var _ resource.Resource[runtime.Object] = (*fakeResource[runtime.Object])(nil)
 
@@ -368,7 +367,7 @@ func TestHappyPathPermutations(t *testing.T) {
 		} else {
 			generate(k-1, fns)
 
-			for i := 0; i < k-1; i++ {
+			for i := range k - 1 {
 				if k%2 == 0 {
 					fns[i], fns[k-1] = fns[k-1], fns[i]
 				} else {

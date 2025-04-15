@@ -6,12 +6,13 @@ package identitybackend
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -25,13 +26,8 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "crd-allocator")
 )
 
 const (
@@ -46,17 +42,19 @@ const (
 	byKeyIndex = "by-key-index"
 )
 
-func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
-	return &crdBackend{CRDBackendConfiguration: c}, nil
+func NewCRDBackend(logger *slog.Logger, c CRDBackendConfiguration) (allocator.Backend, error) {
+	return &crdBackend{logger: logger, CRDBackendConfiguration: c}, nil
 }
 
 type CRDBackendConfiguration struct {
-	Store   cache.Indexer
-	Client  clientset.Interface
-	KeyFunc func(map[string]string) allocator.AllocatorKey
+	Store    cache.Indexer
+	StoreSet *atomic.Bool
+	Client   clientset.Interface
+	KeyFunc  func(map[string]string) allocator.AllocatorKey
 }
 
 type crdBackend struct {
+	logger *slog.Logger
 	CRDBackendConfiguration
 }
 
@@ -96,7 +94,10 @@ func SanitizeK8sLabels(old map[string]string) (selected, skipped map[string]stri
 // Returns an allocator key with the cilium identity stored in it.
 func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (allocator.AllocatorKey, error) {
 	selectedLabels, skippedLabels := SanitizeK8sLabels(key.GetAsMap())
-	log.WithField(logfields.Labels, skippedLabels).Info("Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination")
+	c.logger.Info(
+		"Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination",
+		logfields.Labels, skippedLabels,
+	)
 
 	identity := &v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -155,7 +156,11 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 
 	ts, ok = ci.Annotations[HeartBeatAnnotation]
 	if ok {
-		log.WithField(logfields.Identity, ci).Infof("Identity marked for deletion (at %s); attempting to unmark it", ts)
+		c.logger.Info(
+			"Identity marked for deletion; attempting to unmark it",
+			logfields.Timeout, ts,
+			logfields.Identity, ci,
+		)
 		ci = ci.DeepCopy()
 		delete(ci.Annotations, HeartBeatAnnotation)
 		_, err = c.Client.CiliumV2().CiliumIdentities().Update(ctx, ci, metav1.UpdateOptions{})
@@ -181,19 +186,22 @@ func (c *crdBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, id
 func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
 	err := c.AcquireReference(ctx, id, key, nil)
 	if err == nil {
-		log.WithFields(logrus.Fields{
-			logfields.Identity: id,
-			logfields.Labels:   key,
-		}).Debug("Acquired reference for identity")
+		c.logger.Debug(
+			"Acquired reference for identity",
+			logfields.Identity, id,
+			logfields.Labels, key,
+		)
 		return nil
 	}
 
 	// The CRD (aka the master key) is missing. Try to recover by recreating it
 	// if reliablyMissing is set.
-	log.WithError(err).WithFields(logrus.Fields{
-		logfields.Identity: id,
-		logfields.Labels:   key,
-	}).Warning("Unable update CRD identity information with a reference for this node")
+	c.logger.Warn(
+		"Unable update CRD identity information with a reference for this node",
+		logfields.Error, err,
+		logfields.Identity, id,
+		logfields.Labels, key,
+	)
 
 	if reliablyMissing {
 		// Recreate a missing master key
@@ -227,7 +235,7 @@ func (c *crdLock) Unlock(ctx context.Context) error {
 
 // Comparator does nothing. Locking is not supported with the k8s
 // CRD allocator. It is here to meet interface requirements.
-func (c *crdLock) Comparator() interface{} {
+func (c *crdLock) Comparator() any {
 	return nil
 }
 
@@ -235,7 +243,7 @@ func (c *crdLock) Comparator() interface{} {
 // In the case of duplicate entries, return an identity entry
 // from a sorted list.
 func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *v2.CiliumIdentity {
-	if c.Store == nil {
+	if !c.StoreSet.Load() {
 		return nil
 	}
 
@@ -295,7 +303,7 @@ func (c *crdBackend) GetIfLocked(ctx context.Context, key allocator.AllocatorKey
 // getById fetches the identities from the local store. Returns a nil `err` and
 // false `exists` if an Identity is not found for the given `id`.
 func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *v2.CiliumIdentity, exists bool, err error) {
-	if c.Store == nil {
+	if !c.StoreSet.Load() {
 		return nil, false, fmt.Errorf("store is not available yet")
 	}
 
@@ -345,8 +353,8 @@ func (c *crdBackend) Release(ctx context.Context, id idpool.ID, key allocator.Al
 	return nil
 }
 
-func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj interface{}) ([]string, error) {
-	return func(obj interface{}) ([]string, error) {
+func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj any) ([]string, error) {
+	return func(obj any) ([]string, error) {
 		if identity, ok := obj.(*v2.CiliumIdentity); ok {
 			return []string{keyFunc(identity.SecurityLabels).GetKey()}, nil
 		}
@@ -355,14 +363,17 @@ func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorK
 }
 
 func (c *crdBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err error) {
-	if c.Store == nil {
+	if !c.StoreSet.Load() {
 		return nil, fmt.Errorf("store is not available yet")
 	}
 
 	for _, identity := range c.Store.List() {
 		idParsed, err := strconv.ParseUint(identity.(*v2.CiliumIdentity).Name, 10, 64)
 		if err != nil {
-			log.WithField(logfields.Identity, identity.(*v2.CiliumIdentity).Name).Warn("Cannot parse identity ID")
+			c.logger.Warn(
+				"Cannot parse identity ID",
+				logfields.Identity, identity.(*v2.CiliumIdentity).Name,
+			)
 			continue
 		}
 		identityIDs = append(identityIDs, idpool.ID(idParsed))
@@ -379,14 +390,14 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 		&v2.CiliumIdentity{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
+			AddFunc: func(obj any) {
 				if identity, ok := obj.(*v2.CiliumIdentity); ok {
 					if id, err := strconv.ParseUint(identity.Name, 10, 64); err == nil {
 						handler.OnUpsert(idpool.ID(id), c.KeyFunc(identity.SecurityLabels))
 					}
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
+			UpdateFunc: func(oldObj, newObj any) {
 				if oldIdentity, ok := oldObj.(*v2.CiliumIdentity); ok {
 					if newIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
 						if oldIdentity.DeepEqual(newIdentity) {
@@ -398,7 +409,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 					}
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
+			DeleteFunc: func(obj any) {
 				// The delete event is sometimes for items with unknown state that are
 				// deleted anyway.
 				if deleteObj, isDeleteObj := obj.(cache.DeletedFinalStateUnknown); isDeleteObj {
@@ -410,7 +421,10 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						handler.OnDelete(idpool.ID(id), c.KeyFunc(identity.SecurityLabels))
 					}
 				} else {
-					log.Debugf("Ignoring unknown delete event %#v", obj)
+					c.logger.Debug(
+						"Ignoring unknown delete event",
+						logfields.Object, obj,
+					)
 				}
 			},
 		},
@@ -420,6 +434,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 
 	go func() {
 		if ok := cache.WaitForCacheSync(ctx.Done(), identityInformer.HasSynced); ok {
+			c.StoreSet.Store(true)
 			handler.OnListDone()
 		}
 	}()

@@ -16,6 +16,10 @@
 package stdlib
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
@@ -28,6 +32,7 @@ import (
 var (
 	stdFunctions []*decls.FunctionDecl
 	stdTypes     []*decls.VariableDecl
+	utcTZ        = types.String("UTC")
 )
 
 func init() {
@@ -497,71 +502,115 @@ func init() {
 		// Timestamp / duration functions
 		function(overloads.TimeGetFullYear,
 			decls.MemberOverload(overloads.TimestampToYear,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetFullYear(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToYearWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType)),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetFullYear))),
 
 		function(overloads.TimeGetMonth,
 			decls.MemberOverload(overloads.TimestampToMonth,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetMonth(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToMonthWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType)),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetMonth))),
 
 		function(overloads.TimeGetDayOfYear,
 			decls.MemberOverload(overloads.TimestampToDayOfYear,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetDayOfYear(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToDayOfYearWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType)),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetDayOfYear))),
 
 		function(overloads.TimeGetDayOfMonth,
 			decls.MemberOverload(overloads.TimestampToDayOfMonthZeroBased,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetDayOfMonthZeroBased(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToDayOfMonthZeroBasedWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType)),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetDayOfMonthZeroBased))),
 
 		function(overloads.TimeGetDate,
 			decls.MemberOverload(overloads.TimestampToDayOfMonthOneBased,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetDayOfMonthOneBased(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToDayOfMonthOneBasedWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType)),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetDayOfMonthOneBased))),
 
 		function(overloads.TimeGetDayOfWeek,
 			decls.MemberOverload(overloads.TimestampToDayOfWeek,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetDayOfWeek(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToDayOfWeekWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType)),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetDayOfWeek))),
 
 		function(overloads.TimeGetHours,
 			decls.MemberOverload(overloads.TimestampToHours,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetHours(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToHoursWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetHours)),
 			decls.MemberOverload(overloads.DurationToHours,
-				argTypes(types.DurationType), types.IntType)),
+				argTypes(types.DurationType), types.IntType,
+				decls.UnaryBinding(types.DurationGetHours))),
 
 		function(overloads.TimeGetMinutes,
 			decls.MemberOverload(overloads.TimestampToMinutes,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetMinutes(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToMinutesWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetMinutes)),
 			decls.MemberOverload(overloads.DurationToMinutes,
-				argTypes(types.DurationType), types.IntType)),
+				argTypes(types.DurationType), types.IntType,
+				decls.UnaryBinding(types.DurationGetMinutes))),
 
 		function(overloads.TimeGetSeconds,
 			decls.MemberOverload(overloads.TimestampToSeconds,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetSeconds(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToSecondsWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetSeconds)),
 			decls.MemberOverload(overloads.DurationToSeconds,
-				argTypes(types.DurationType), types.IntType)),
+				argTypes(types.DurationType), types.IntType,
+				decls.UnaryBinding(types.DurationGetSeconds))),
 
 		function(overloads.TimeGetMilliseconds,
 			decls.MemberOverload(overloads.TimestampToMilliseconds,
-				argTypes(types.TimestampType), types.IntType),
+				argTypes(types.TimestampType), types.IntType,
+				decls.UnaryBinding(func(ts ref.Val) ref.Val {
+					return timestampGetMilliseconds(ts, utcTZ)
+				})),
 			decls.MemberOverload(overloads.TimestampToMillisecondsWithTz,
-				argTypes(types.TimestampType, types.StringType), types.IntType),
+				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.BinaryBinding(timestampGetMilliseconds)),
 			decls.MemberOverload(overloads.DurationToMilliseconds,
-				argTypes(types.DurationType), types.IntType)),
+				argTypes(types.DurationType), types.IntType,
+				decls.UnaryBinding(types.DurationGetMilliseconds))),
 	}
 }
 
@@ -617,4 +666,119 @@ func convertToType(t ref.Type) functions.UnaryOp {
 	return func(val ref.Val) ref.Val {
 		return val.ConvertToType(t)
 	}
+}
+
+func timestampGetFullYear(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Year())
+}
+
+func timestampGetMonth(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	// CEL spec indicates that the month should be 0-based, but the Time value
+	// for Month() is 1-based.
+	return types.Int(t.Month() - 1)
+}
+
+func timestampGetDayOfYear(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.YearDay() - 1)
+}
+
+func timestampGetDayOfMonthZeroBased(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Day() - 1)
+}
+
+func timestampGetDayOfMonthOneBased(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Day())
+}
+
+func timestampGetDayOfWeek(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Weekday())
+}
+
+func timestampGetHours(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Hour())
+}
+
+func timestampGetMinutes(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Minute())
+}
+
+func timestampGetSeconds(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Second())
+}
+
+func timestampGetMilliseconds(ts, tz ref.Val) ref.Val {
+	t, err := inTimeZone(ts, tz)
+	if err != nil {
+		return types.NewErrFromString(err.Error())
+	}
+	return types.Int(t.Nanosecond() / 1000000)
+}
+
+func inTimeZone(ts, tz ref.Val) (time.Time, error) {
+	t := ts.(types.Timestamp)
+	val := string(tz.(types.String))
+	ind := strings.Index(val, ":")
+	if ind == -1 {
+		loc, err := time.LoadLocation(val)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return t.In(loc), nil
+	}
+
+	// If the input is not the name of a timezone (for example, 'US/Central'), it should be a numerical offset from UTC
+	// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
+	hr, err := strconv.Atoi(string(val[0:ind]))
+	if err != nil {
+		return time.Time{}, err
+	}
+	min, err := strconv.Atoi(string(val[ind+1:]))
+	if err != nil {
+		return time.Time{}, err
+	}
+	var offset int
+	if string(val[0]) == "-" {
+		offset = hr*60 - min
+	} else {
+		offset = hr*60 + min
+	}
+	secondsEastOfUTC := int((time.Duration(offset) * time.Minute).Seconds())
+	timezone := time.FixedZone("", secondsEastOfUTC)
+	return t.In(timezone), nil
 }

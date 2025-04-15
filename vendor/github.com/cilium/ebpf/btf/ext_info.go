@@ -666,20 +666,19 @@ func parseLineInfos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 // These records appear after a btf_ext_info_sec header in the line_info
 // sub-section of .BTF.ext.
 func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32, offsetInBytes bool) ([]bpfLineInfo, error) {
-	var li bpfLineInfo
-
-	if exp, got := uint32(binary.Size(li)), recordSize; exp != got {
+	if exp, got := uint32(binary.Size(bpfLineInfo{})), recordSize; exp != got {
 		// BTF blob's record size is longer than we know how to parse.
 		return nil, fmt.Errorf("expected LineInfo record size %d, but BTF blob contains %d", exp, got)
 	}
 
-	out := make([]bpfLineInfo, 0, recordNum)
-	for i := uint32(0); i < recordNum; i++ {
-		if err := binary.Read(r, bo, &li); err != nil {
-			return nil, fmt.Errorf("can't read line info: %v", err)
-		}
+	out := make([]bpfLineInfo, recordNum)
+	if err := binary.Read(r, bo, out); err != nil {
+		return nil, fmt.Errorf("can't read line info: %v", err)
+	}
 
-		if offsetInBytes {
+	if offsetInBytes {
+		for i := range out {
+			li := &out[i]
 			if li.InsnOff%asm.InstructionSize != 0 {
 				return nil, fmt.Errorf("offset %v is not aligned with instruction size", li.InsnOff)
 			}
@@ -688,8 +687,6 @@ func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, r
 			// Convert as early as possible.
 			li.InsnOff /= asm.InstructionSize
 		}
-
-		out = append(out, li)
 	}
 
 	return out, nil

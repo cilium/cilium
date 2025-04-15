@@ -4,13 +4,17 @@
 package gobgp
 
 import (
+	"log/slog"
+
 	gobgpLog "github.com/osrg/gobgp/v3/pkg/log"
-	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // implement github.com/osrg/gobgp/v3/pkg/log/Logger interface
 type ServerLogger struct {
-	l         *logrus.Logger
+	l         *slog.Logger
 	asn       uint32
 	component string
 	subsys    string
@@ -22,7 +26,7 @@ type LogParams struct {
 	SubSys    string
 }
 
-func NewServerLogger(l *logrus.Logger, params LogParams) *ServerLogger {
+func NewServerLogger(l *slog.Logger, params LogParams) *ServerLogger {
 	return &ServerLogger{
 		l:         l,
 		asn:       params.AS,
@@ -32,51 +36,125 @@ func NewServerLogger(l *logrus.Logger, params LogParams) *ServerLogger {
 }
 
 func (l *ServerLogger) Panic(msg string, fields gobgpLog.Fields) {
-	fields["asn"] = l.asn
-	fields["component"] = l.component
-	fields["subsys"] = l.subsys
-	l.l.WithFields(logrus.Fields(fields)).Panic(msg)
+	logAttrs := make([]any, 0, len(fields)+3)
+	for k, v := range fields {
+		logAttrs = append(
+			logAttrs,
+			k, v,
+		)
+	}
+	logAttrs = append(
+		logAttrs,
+		types.LocalASNLogField, l.asn,
+		types.ComponentLogField, l.component,
+		types.SubsysLogField, l.subsys,
+	)
+	logging.Panic(l.l, msg, logAttrs...)
 }
 
 func (l *ServerLogger) Fatal(msg string, fields gobgpLog.Fields) {
-	fields["asn"] = l.asn
-	fields["component"] = l.component
-	fields["subsys"] = l.subsys
-	l.l.WithFields(logrus.Fields(fields)).Fatal(msg)
+	logAttrs := make([]any, 0, len(fields)+3)
+	for k, v := range fields {
+		logAttrs = append(
+			logAttrs,
+			k, v,
+		)
+	}
+	logAttrs = append(
+		logAttrs,
+		types.LocalASNLogField, l.asn,
+		types.ComponentLogField, l.component,
+		types.SubsysLogField, l.subsys,
+	)
+	logging.Fatal(l.l, msg, logAttrs...)
 }
 
 func (l *ServerLogger) Error(msg string, fields gobgpLog.Fields) {
-	fields["asn"] = l.asn
-	fields["component"] = l.component
-	fields["subsys"] = l.subsys
-	l.l.WithFields(logrus.Fields(fields)).Error(msg)
+	logAttrs := make([]any, 0, len(fields)+3)
+	for k, v := range fields {
+		logAttrs = append(
+			logAttrs,
+			k, v,
+		)
+	}
+	logAttrs = append(
+		logAttrs,
+		types.LocalASNLogField, l.asn,
+		types.ComponentLogField, l.component,
+		types.SubsysLogField, l.subsys,
+	)
+	l.l.Error(msg, logAttrs...)
 }
 
 func (l *ServerLogger) Warn(msg string, fields gobgpLog.Fields) {
-	fields["asn"] = l.asn
-	fields["component"] = l.component
-	fields["subsys"] = l.subsys
-	l.l.WithFields(logrus.Fields(fields)).Warn(msg)
+	logAttrs := make([]any, 0, len(fields)+3)
+	for k, v := range fields {
+		logAttrs = append(
+			logAttrs,
+			k, v,
+		)
+	}
+	logAttrs = append(
+		logAttrs,
+		types.LocalASNLogField, l.asn,
+		types.ComponentLogField, l.component,
+		types.SubsysLogField, l.subsys,
+	)
+	l.l.Warn(msg, logAttrs...)
 }
 
 func (l *ServerLogger) Info(msg string, fields gobgpLog.Fields) {
-	fields["asn"] = l.asn
-	fields["component"] = l.component
-	fields["subsys"] = l.subsys
-	l.l.WithFields(logrus.Fields(fields)).Info(msg)
+	logAttrs := make([]any, 0, len(fields)+3)
+	for k, v := range fields {
+		logAttrs = append(
+			logAttrs,
+			k, v,
+		)
+	}
+	logAttrs = append(
+		logAttrs,
+		types.LocalASNLogField, l.asn,
+		types.ComponentLogField, l.component,
+		types.SubsysLogField, l.subsys,
+	)
+	l.l.Info(msg, logAttrs...)
 }
 
 func (l *ServerLogger) Debug(msg string, fields gobgpLog.Fields) {
-	fields["asn"] = l.asn
-	fields["component"] = l.component
-	fields["subsys"] = l.subsys
-	l.l.WithFields(logrus.Fields(fields)).Debug(msg)
+	logAttrs := make([]any, 0, len(fields)+3)
+	for k, v := range fields {
+		logAttrs = append(
+			logAttrs,
+			k, v,
+		)
+	}
+	logAttrs = append(
+		logAttrs,
+		types.LocalASNLogField, l.asn,
+		types.ComponentLogField, l.component,
+		types.SubsysLogField, l.subsys,
+	)
+	l.l.Debug(msg, logAttrs...)
 }
 
-func (l *ServerLogger) SetLevel(level gobgpLog.LogLevel) {
-	l.l.SetLevel(logrus.Level(level))
+func (l *ServerLogger) SetLevel(gobgpLog.LogLevel) {
 }
 
 func (l *ServerLogger) GetLevel() gobgpLog.LogLevel {
-	return gobgpLog.LogLevel(l.l.GetLevel())
+	switch logging.GetSlogLevel(l.l) {
+	case slog.LevelDebug:
+		return gobgpLog.DebugLevel
+	case slog.LevelInfo:
+		return gobgpLog.InfoLevel
+	case slog.LevelWarn:
+		return gobgpLog.WarnLevel
+	case slog.LevelError:
+		return gobgpLog.ErrorLevel
+	case logging.LevelPanic:
+		return gobgpLog.PanicLevel
+	case logging.LevelFatal:
+		return gobgpLog.FatalLevel
+	default:
+		return gobgpLog.InfoLevel
+	}
 }

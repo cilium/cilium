@@ -23,25 +23,22 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -208,30 +205,13 @@ func CleanupEndpoint() {
 	}
 }
 
-// EndpointAdder is any type which adds an endpoint to be managed by Cilium.
-type EndpointAdder interface {
-	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) error
-}
-
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint, but
 // with special reserved labels.
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context,
-	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
-	ipcache *ipcache.IPCache,
-	mtuConfig mtu.MTU,
-	bigTCPConfig *bigtcp.Configuration,
-	epMgr EndpointAdder,
-	allocator cache.IdentityAllocator,
-	routingConfig routingConfigurer,
-	ctMapGC ctmap.GCRunner,
-	sysctl sysctl.Sysctl,
-) (*Client, error) {
-
+func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, routingConfig routingConfigurer, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -273,7 +253,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupVethWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
 			info, sysctl)
@@ -285,7 +265,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-		_, epLink, err := connector.SetupNetkitWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupNetkitWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), l2Mode,
 			info, sysctl)
@@ -319,7 +299,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpointCreator.NewEndpointFromChangeModel(baseCtx, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
@@ -358,12 +338,11 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			option.Config.EgressMultiHomeIPRuleCompat,
 			false,
 		); err != nil {
-
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %w", err)
 		}
 	}
 
-	if err := epMgr.AddEndpoint(owner, ep); err != nil {
+	if err := endpointManager.AddEndpoint(ep); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %w", err)
 	}
 
@@ -377,10 +356,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
-}
-
-type policyRepoGetter interface {
-	GetPolicyRepository() policy.PolicyRepository
 }
 
 type routingConfigurer interface {

@@ -276,16 +276,31 @@ accessible from endpoints that have both labels ``env=prod`` and
 Services based
 --------------
 
-Traffic from pods to services running in your cluster can be allowed via
-``toServices`` statements in Egress rules. Currently Kubernetes
-`Services <https://kubernetes.io/docs/concepts/services-networking/service>`_
-are supported when defined by their name and namespace or label selector.
-For services backed by pods, use `Endpoints Based` rules on the backend pod
-labels.
+Traffic from endpoints to services running in your cluster can be allowed via
+``toServices`` statements in Egress rules. Policies can reference
+`Kubernetes Services <https://kubernetes.io/docs/concepts/services-networking/service>`_
+by name or label selector.
+
+This feature uses the discovered services' `label selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`_
+as an :ref:`endpoint selector <endpoints based>` within the policy.
+
+.. note::
+
+   `Services without selectors <https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors>`_
+   are handled differently. The IPs in the service's EndpointSlices are, converted to
+   :ref:`CIDR <cidr based>` selectors. CIDR selectors cannot select pods,
+   and that limitation applies here as well.
+
+   The special Kubernetes Service ``default/kubernetes`` does not use a label
+   selector. It is **not recommended** to grant access to the Kubernetes API server
+   with a ``toServices``-based policy. Use instead the
+   `kube-apiserver entity <kube_apiserver_entity>`.
+
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
-namespace ``default``.
+namespace ``default`` as well as all services with label ``env=staging`` in
+namespace ``another-namespace``.
 
 .. only:: html
 
@@ -301,23 +316,6 @@ namespace ``default``.
 
         .. literalinclude:: ../../../examples/policies/l3/service/service.json
 
-This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of all kubernetes services which
-have ``serviceName:myservice`` set as the label.
-
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
 
 .. _Entities based:
 
@@ -349,7 +347,8 @@ cluster
     Cluster is the logical group of all network endpoints inside of the local
     cluster. This includes all Cilium-managed endpoints of the local cluster,
     unmanaged endpoints in the local cluster, as well as the host,
-    remote-node, and init identities.
+    remote-node, and init identities. This also includes all remote nodes
+    in a clustermesh scenario.
 init
     The init entity contains all endpoints in bootstrap phase for which the
     security identity has not been resolved yet. This is typically only
@@ -378,6 +377,8 @@ all
    the original source IP. You may be able to use a broader ``fromEntities: cluster`` rule
    instead. Restricting *egress traffic* via ``toEntities: kube-apiserver`` however is expected
    to work on these Kubernetes distributions.
+
+.. _kube_apiserver_entity:
 
 Access to/from kube-apiserver
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -922,6 +923,67 @@ to any layer 3 destination:
            :language: json
 
 
+Limit TLS Server Name Indication (SNI)
+--------------------------------------
+
+When multiple websites are hosted on the same server with a shared IP address,
+Server Name Indication (SNI), an extension of the TLS protocol, ensures that
+the client receives the correct SSL certificate for the website they are
+trying to access. SNI allows the hostname or domain name of the website to be
+specified during the TLS handshake, rather than after the handshake when the
+HTTP connection is established.
+
+Cilium Network Policy can limit an endpoint's ability to establish a TLS
+handshake to a specified list of SNIs. The SNI policy is always configured
+at the egress level and is usually set up alongside port policies.
+
+Example (TLS SNI)
+~~~~~~~~~~~~~~~~~
+
+.. note:: TLS SNI policy enforcement requires L7 proxy enabled.
+
+The following rule limits all endpoints with the label ``app=myService`` to
+only be able to establish TLS connections with ``one.one.one.one`` SNI. Any
+other attempt to another SNI (for example, with ``cilium.io``) will be rejected.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_sni.yaml
+           :language: yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_sni.json
+           :language: json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_sni.json
+           :language: json
+
+Below is the same SSL error while trying to connect to ``cilium.io`` from curl.
+
+.. code-block:: shell-session
+
+    $ kubectl exec <my-service-pod> -- curl -v https://cilium.io
+    * Host cilium.io:443 was resolved.
+    * IPv6: (none)
+    * IPv4: 104.198.14.52
+    *   Trying 104.198.14.52:443...
+    * Connected to cilium.io (104.198.14.52) port 443
+    * ALPN: curl offers h2,http/1.1
+    * TLSv1.3 (OUT), TLS handshake, Client hello (1):
+    *  CAfile: /etc/ssl/certs/ca-certificates.crt
+    *  CApath: /etc/ssl/certs
+    * Recv failure: Connection reset by peer
+    * OpenSSL SSL_connect: Connection reset by peer in connection to cilium.io:443
+    * Closing connection
+    curl: (35) Recv failure: Connection reset by peer
+    command terminated with exit code 35
+
 
 .. _l7_policy:
 
@@ -984,6 +1046,10 @@ latter rule will have no effect.
           When Envoy is embedded in the agent pod, Layer 7 traffic targeted by policies
           will therefore depend on the availability of the Cilium agent pod.
 
+.. note:: L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) are `broken <https://github.com/cilium/cilium/issues/37932#issuecomment-2730287932>`__
+          and waiting for the `kernel fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__.
+
+
 HTTP
 ----
 
@@ -1008,6 +1074,11 @@ Host
 Headers
   Headers is a list of HTTP headers which must be present in the request. If
   omitted or empty, requests are allowed regardless of headers present.
+
+  It's also possible to do some more advanced header matching against header
+  values. ``HeaderMatches`` is a list of HTTP headers which must be present and
+  match against the given values. Mismatch field can be used to specify what
+  to do when there is no match.
 
 Allow GET /public
 ~~~~~~~~~~~~~~~~~

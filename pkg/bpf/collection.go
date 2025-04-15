@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/datapath/config"
 )
 
 // LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
@@ -114,7 +114,7 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 			ref := movR2.Reference()
 
 			// Ignore static tail calls made to maps that are not the calls map
-			if !strings.Contains(ref, callsmap.MapName) || strings.Contains(ref, callsmap.CustomCallsMapName) {
+			if ref != "cilium_calls" {
 				log.Debugf("program '%s'/'%s', found tail call at %d, reference '%s', not a calls map, skipping",
 					prog.SectionName, prog.Name, i, ref)
 				continue
@@ -234,8 +234,6 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 // objects to the given object. It is a wrapper around [LoadCollection]. See its
 // documentation for more details on the loading process.
 func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
-	log.Debug("Loading Collection into kernel")
-
 	coll, commit, err := LoadCollection(spec, opts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
@@ -257,8 +255,9 @@ func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (
 type CollectionOptions struct {
 	ebpf.CollectionOptions
 
-	// Replacements for constants defined using the DECLARE_CONFIG macros.
-	Constants map[string]uint64
+	// Replacements for datapath runtime configs declared using DECLARE_CONFIG.
+	// Pass a pointer to a populated object from pkg/datapath/config.
+	Constants any
 
 	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
 	// value is the new name.
@@ -292,6 +291,11 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 	if opts == nil {
 		opts = &CollectionOptions{}
 	}
+
+	log.WithFields(logrus.Fields{
+		"MapRenames": opts.MapRenames,
+		"Constants":  fmt.Sprintf("%#v", opts.Constants)}).
+		Debug("Loading Collection into kernel")
 
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
@@ -415,46 +419,34 @@ func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
 	return nil
 }
 
-// Must match the prefix used by the CONFIG macro in static_data.h.
-const constantPrefix = "__config_"
-const configSection = ".rodata.config"
-
 // applyConstants sets the values of BPF C runtime configurables defined using
 // the DECLARE_CONFIG macro.
-func applyConstants(spec *ebpf.CollectionSpec, constants map[string]uint64) error {
+func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
+	if obj == nil {
+		return nil
+	}
+
+	constants, err := config.StructToMap(obj)
+	if err != nil {
+		return fmt.Errorf("converting struct to map: %w", err)
+	}
+
 	for name, value := range constants {
-		constName := constantPrefix + name
+		constName := config.ConstantPrefix + name
 
 		v, ok := spec.Variables[constName]
 		if !ok {
 			return fmt.Errorf("can't set non-existent Variable %s", name)
 		}
 
-		if v.MapName() != configSection {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", configSection, v.MapName(), name)
+		if v.MapName() != config.Section {
+			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.MapName(), name)
 		}
 
-		if err := setVariable(v, value); err != nil {
+		if err := v.Set(value); err != nil {
 			return fmt.Errorf("setting Variable %s: %w", name, err)
 		}
 	}
 
 	return nil
-}
-
-// setVariable writes the given value to the VariableSpec, truncating it
-// depending on the width of the VariableSpec.
-func setVariable(v *ebpf.VariableSpec, value uint64) error {
-	switch v.Size() {
-	case 8:
-		return v.Set(value)
-	case 4:
-		return v.Set(uint32(value))
-	case 2:
-		return v.Set(uint16(value))
-	case 1:
-		return v.Set(uint8(value))
-	}
-
-	return fmt.Errorf("unsupported size %d", v.Size())
 }

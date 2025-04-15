@@ -5,11 +5,13 @@ package ipam
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -106,9 +108,7 @@ func (f fakePoolAllocator) Dump() (map[Pool]map[string]string, string) {
 		if _, ok := result[name]; !ok {
 			result[name] = map[string]string{}
 		}
-		for k, v := range dump[name] {
-			result[name][k] = v
-		}
+		maps.Copy(result[name], dump[name])
 	}
 	return result, fmt.Sprintf("%d pools", len(f.pools))
 }
@@ -122,7 +122,7 @@ func (f fakePoolAllocator) RestoreFinished() {}
 func TestLock(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
 	ipam.ConfigureAllocator()
 
 	// Since the IPs we have allocated to the endpoints might or might not
@@ -140,13 +140,13 @@ func TestLock(t *testing.T) {
 	// Let's allocate the IP first so we can see the tests failing
 	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault())
 	require.NoError(t, err)
-	require.EqualValues(t, net.IP(ipv4.AsSlice()), result.IP)
+	require.Equal(t, net.IP(ipv4.AsSlice()), result.IP)
 }
 
 func TestExcludeIP(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
 	ipam.ConfigureAllocator()
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
@@ -194,7 +194,7 @@ func TestIPAMMetadata(t *testing.T) {
 		}
 	})
 
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil)
 	ipam.ConfigureAllocator()
 	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
 		"default": "10.10.0.0/16",
@@ -253,7 +253,7 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil)
 	ipam.ConfigureAllocator()
 
 	// AllocateIP requires explicit pool

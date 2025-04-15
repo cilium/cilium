@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
+	"os"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -17,7 +19,9 @@ import (
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -38,14 +42,16 @@ var healthServerCell = cell.Module(
 type healthServerParams struct {
 	cell.In
 
-	Jobs      job.Group
-	Log       *slog.Logger
-	DB        *statedb.DB
-	Config    Config
-	ExtConfig ExternalConfig
-	Frontends statedb.Table[*Frontend]
-	Backends  statedb.Table[*Backend]
-	Writer    *Writer
+	Jobs          job.Group
+	Log           *slog.Logger
+	DB            *statedb.DB
+	Config        Config
+	TestConfig    *TestConfig `optional:"true"`
+	ExtConfig     ExternalConfig
+	Frontends     statedb.Table[*Frontend]
+	Backends      statedb.Table[*Backend]
+	Writer        *Writer
+	NodeAddresses statedb.Table[tables.NodeAddress]
 }
 
 // healthServer manages HTTP health check ports. For each added service,
@@ -53,14 +59,15 @@ type healthServerParams struct {
 // responds with 200 OK if there are local endpoints for the service, or with
 // 503 Service Unavailable if the service does not have any local endpoints.
 type healthServer struct {
-	params        healthServerParams
-	serverByPort  map[uint16]*httpHealthServer
-	portByService map[lb.ServiceName]uint16
-	nodeName      string
+	params           healthServerParams
+	serverByPort     map[uint16]*httpHealthServer
+	portByService    map[lb.ServiceName]uint16
+	nodeName         string
+	healthServerAddr *cmtypes.AddrCluster
 }
 
 func registerHealthServer(params healthServerParams) {
-	if !params.Config.EnableExperimentalLB || !params.ExtConfig.EnableHealthCheckNodePort {
+	if !params.Config.EnableExperimentalLB {
 		return
 	}
 
@@ -69,16 +76,37 @@ func registerHealthServer(params healthServerParams) {
 		serverByPort:  map[uint16]*httpHealthServer{},
 		portByService: map[lb.ServiceName]uint16{},
 	}
+
+	if params.TestConfig != nil {
+		addr := chooseHealthServerLoopbackAddressForTesting()
+		addrCluster := cmtypes.AddrClusterFrom(addr, 0)
+		s.healthServerAddr = &addrCluster
+	}
+
 	params.Jobs.Add(job.OneShot("control-loop", s.controlLoop))
 }
 
-var (
-	// healthServerAddr is the IP address on which the health HTTP servers
-	// listen on.
-	healthServerAddr = cmtypes.MustParseAddrCluster("127.0.0.88")
-)
+func chooseHealthServerLoopbackAddressForTesting() netip.Addr {
+	// Choose a loopback IP address that's tied to the process ID.
+	// This makes it possible to stress test the health server in parallel
+	// as each process gets its own address.
+	pid := os.Getpid()
+	return netip.AddrFrom4(
+		[4]byte{
+			127,
+			1 | byte(pid>>16&0xff),
+			byte(pid >> 8 & 0xff),
+			1 | byte(pid&0xff),
+		},
+	)
+}
 
 func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) error {
+	extCfg := s.params.ExtConfig
+	if !extCfg.KubeProxyReplacement || !extCfg.EnableHealthCheckNodePort {
+		return nil
+	}
+
 	s.nodeName = nodeTypes.GetName()
 
 	// Watch services for changes to add and remove the listeners.
@@ -91,6 +119,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 
 	// Limit the rate at which the change batches are processed.
 	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+	defer limiter.Stop()
 
 	defer s.cleanupListeners(ctx)
 
@@ -102,13 +131,13 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 		changes, watch := frontendChanges.Next(s.params.DB.ReadTxn())
 		for change := range changes {
 			fe := change.Object
-			if fe.Type != lb.SVCTypeLoadBalancer {
+			if (fe.Type != lb.SVCTypeLoadBalancer && fe.Type != lb.SVCTypeNodePort) ||
+				fe.Address.Scope == lb.ScopeInternal {
 				continue
 			}
 
 			svc := fe.service
 			name := svc.Name
-			healthServiceName := name.AppendSuffix("-healthserver")
 			port := svc.HealthCheckNodePort
 
 			// Health server is only for LoadBalancer services with a local
@@ -119,68 +148,93 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 
 			// Check if a health checker server exists already for this service and remove it if port has changed
 			// or if the service is no longer applicable.
+			// NOTE: A complication here is that we may have both a NodePort and a LoadBalancer frontend and
+			// we will process both here. We may see the NodePort first and create the listener and then we'll
+			// see the LoadBalancer and create the Frontend for providing access to the health server using the
+			// LoadBalancer VIP.
 			oldPort, exists := s.portByService[name]
 			if exists && (oldPort != port || !needsServer) {
 				s.removeListener(ctx, oldPort)
 				delete(s.portByService, name)
 				exists = false
-				wtxn := s.params.Writer.WriteTxn()
-				s.params.Writer.DeleteServiceAndFrontends(
-					wtxn,
-					healthServiceName,
-				)
-				wtxn.Commit()
 			}
 
-			if !needsServer || exists {
-				continue
+			if !exists && needsServer {
+				s.addListener(svc, port)
+				s.portByService[name] = port
 			}
 
-			s.serverByPort[port] = s.addListener(svc, port)
-			s.portByService[name] = port
+			if fe.Type == lb.SVCTypeLoadBalancer {
+				healthServiceName := name.AppendSuffix(":healthserver")
+				if !needsServer {
+					wtxn := s.params.Writer.WriteTxn()
+					s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
+					s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
+					wtxn.Commit()
+				} else {
+					// Create a LoadBalancer service to expose the health server on the $LB_VIP.
+					// For NodePort we don't need anything as the HealthServer is already listening on
+					// all node addresses.
+					wtxn := s.params.Writer.WriteTxn()
+					s.params.Writer.UpsertServiceAndFrontends(
+						wtxn,
+						&Service{
+							Name:             healthServiceName,
+							Source:           source.Local,
+							ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
+							IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
+						},
+						FrontendParams{
+							Address: lb.L3n4Addr{
+								AddrCluster: fe.Address.AddrCluster,
+								L4Addr: lb.L4Addr{
+									Protocol: lb.TCP,
+									Port:     port,
+								},
+								Scope: lb.ScopeExternal,
+							},
+							Type:        lb.SVCTypeLoadBalancer,
+							ServiceName: healthServiceName,
+							ServicePort: port,
+						},
+					)
 
-			// Create a NodePort service to expose the health server.
-			wtxn := s.params.Writer.WriteTxn()
-			s.params.Writer.UpsertServiceAndFrontends(
-				wtxn,
-				&Service{
-					Name:             healthServiceName,
-					Source:           source.Local,
-					ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
-					IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
-				},
-				FrontendParams{
-					Address: lb.L3n4Addr{
-						AddrCluster: fe.Address.AddrCluster,
-						L4Addr: lb.L4Addr{
-							Protocol: lb.TCP,
-							Port:     port,
+					// Find NodePort addr to use as a backend for $LB_VIP:$HC_NODEPORT frontend.
+					beAddr := netip.IPv4Unspecified()
+					is4 := fe.Address.AddrCluster.Is4()
+					if !is4 {
+						beAddr = netip.IPv6Unspecified()
+					}
+					for addr := range s.params.NodeAddresses.List(wtxn, tables.NodeAddressNodePortIndex.Query(true)) {
+						if is4 && addr.Addr.Is4() {
+							beAddr = addr.Addr
+							break
+						} else if !is4 && addr.Addr.Is6() {
+							beAddr = addr.Addr
+							break
+						}
+					}
+
+					s.params.Writer.SetBackends(
+						wtxn,
+						healthServiceName,
+						source.Local,
+						BackendParams{
+							Address: lb.L3n4Addr{
+								AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
+								L4Addr: lb.L4Addr{
+									Protocol: lb.TCP,
+									Port:     port,
+								},
+								Scope: lb.ScopeInternal,
+							},
+							NodeName: s.nodeName,
+							State:    lb.BackendStateActive,
 						},
-						Scope: lb.ScopeExternal,
-					},
-					Type:        fe.Type,
-					ServiceName: healthServiceName,
-					ServicePort: port,
-				},
-			)
-			s.params.Writer.UpsertBackends(
-				wtxn,
-				healthServiceName,
-				source.Local,
-				BackendParams{
-					L3n4Addr: lb.L3n4Addr{
-						AddrCluster: healthServerAddr,
-						L4Addr: lb.L4Addr{
-							Protocol: lb.TCP,
-							Port:     port,
-						},
-						Scope: lb.ScopeInternal,
-					},
-					NodeName: s.nodeName,
-					State:    lb.BackendStateActive,
-				},
-			)
-			wtxn.Commit()
+					)
+					wtxn.Commit()
+				}
+			}
 		}
 		health.OK(fmt.Sprintf("%d health servers running", len(s.serverByPort)))
 
@@ -198,7 +252,16 @@ func (s *healthServer) cleanupListeners(ctx context.Context) {
 	}
 }
 
-func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer {
+func (s *healthServer) addListener(svc *Service, port uint16) {
+	if srv, exists := s.serverByPort[port]; exists {
+		s.params.Log.Warn("HealthServer: Listener already exists",
+			logfields.Port, port,
+			logfields.New, svc.Name,
+			logfields.Old, srv.name,
+		)
+		return
+	}
+
 	srv := &httpHealthServer{
 		nodeName: s.nodeName,
 		name:     svc.Name,
@@ -206,8 +269,12 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 		db:       s.params.DB,
 		backends: s.params.Backends,
 	}
+	bindAddr := fmt.Sprintf(":%d", port)
+	if s.healthServerAddr != nil {
+		bindAddr = s.healthServerAddr.Addr().String() + bindAddr
+	}
 	srv.Server = http.Server{
-		Addr:    fmt.Sprintf("%s:%d", healthServerAddr.Addr().String(), port),
+		Addr:    bindAddr,
 		Handler: srv,
 	}
 	s.params.Jobs.Add(
@@ -225,8 +292,7 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 			}),
 		),
 	)
-
-	return srv
+	s.serverByPort[port] = srv
 }
 
 func (s *healthServer) removeListener(ctx context.Context, port uint16) {
@@ -266,11 +332,15 @@ func (h *httpHealthServer) getLocalEndpointCount() int {
 
 	txn := h.db.ReadTxn()
 
-	// Gather the backends. Since the service has traffic policy set to local the
-	// backends we find here are node local.
+	// Gather the backends for the service.
 	activeCount := 0
 	for be := range h.backends.List(txn, BackendByServiceName(h.name)) {
-		if be.State == lb.BackendStateActive {
+		inst := be.GetInstance(h.name)
+		if inst.NodeName != "" && inst.NodeName != h.nodeName {
+			// Skip non-local backends.
+			continue
+		}
+		if inst.State == lb.BackendStateActive {
 			activeCount++
 		}
 	}
