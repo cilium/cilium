@@ -1,0 +1,4 @@
+/release-note-bug-fix
+gateway-api: Fix HTTPRoute with RequestRedirect and hostnames
+
+This commit fixes an issue where a HTTPRoute with a RequestRedirect filter doesn't work when hostnames are specified in the HTTPRoute.
