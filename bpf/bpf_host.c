@@ -19,10 +19,6 @@
 /* Pass unknown ICMPv6 NS to stack */
 #define ACTION_UNKNOWN_ICMP6_NS CTX_ACT_OK
 
-#ifndef VLAN_FILTER
-# define VLAN_FILTER(ifindex, vlan_id) return false;
-#endif
-
 #include "lib/common.h"
 #include "lib/config_map.h"
 #include "lib/edt.h"
@@ -63,10 +59,6 @@
 /* Bit 0 is skipped for robustness, as it's used in some places to indicate from_host itself. */
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
-
-static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
-	VLAN_FILTER(ifindex, vlan_id);
-}
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
@@ -1229,7 +1221,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
-	int ret;
 
 #ifdef ENABLE_WIREGUARD
 	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
@@ -1240,18 +1231,14 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		obs_point = TRACE_FROM_CRYPTO;
 #endif
 
-	/* Filter allowed vlan id's and pass them back to kernel.
+	/* Pass tagged packets back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
 	 */
 	if (ctx->vlan_present) {
 		__u32 vlan_id = ctx->vlan_tci & 0xfff;
 
 		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
-				return CTX_ACT_OK;
-
-			ret = DROP_VLAN_FILTERED;
-			goto drop_err;
+			return CTX_ACT_OK;
 		}
 	}
 
@@ -1269,8 +1256,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 
 	if (!validate_ethertype(ctx, &proto)) {
 #ifdef ENABLE_HOST_FIREWALL
-		ret = DROP_UNSUPPORTED_L2;
-		goto drop_err;
+		return send_drop_notify_error(ctx, src_id, DROP_UNSUPPORTED_L2, METRIC_INGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN,
@@ -1294,9 +1280,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 
 	return do_netdev(ctx, proto, UNKNOWN_ID, obs_point, false);
-
-drop_err:
-	return send_drop_notify_error(ctx, src_id, ret, METRIC_INGRESS);
 }
 
 /*
@@ -1400,16 +1383,12 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 #endif
 
-	/* Filter allowed vlan id's and pass them back to kernel.
+	/* Pass tagged packets back to kernel.
 	 */
 	if (ctx->vlan_present) {
 		vlan_id = ctx->vlan_tci & 0xfff;
 		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
-				return CTX_ACT_OK;
-
-			ret = DROP_VLAN_FILTERED;
-			goto drop_err;
+			return CTX_ACT_OK;
 		}
 	}
 
