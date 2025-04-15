@@ -739,6 +739,9 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		return err
 	}
 
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
 	// Get the first map key.
 	if err := m.NextKey(nil, currentKey); err != nil {
 		stats.Lookup = 1
