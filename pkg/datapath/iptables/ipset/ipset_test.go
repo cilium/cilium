@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/netip"
 	"strings"
@@ -386,7 +385,7 @@ func withLocked(m *lock.Mutex, f func()) {
 }
 
 func TestOpsPruneEnabled(t *testing.T) {
-	fakeLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fakeLogger := slog.New(slog.DiscardHandler)
 
 	db := statedb.New()
 	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
