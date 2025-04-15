@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"sync/atomic"
@@ -461,7 +462,7 @@ func TestOpsRetry(t *testing.T) {
 			newOps,
 			newReconciler,
 		),
-		cell.Provide(func(logger *slog.Logger) *ipset {
+		cell.Provide(func(logger logrus.FieldLogger) *ipset {
 			return &ipset{
 				executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
 					// fail the operation at the first attempt
@@ -486,7 +487,7 @@ func TestOpsRetry(t *testing.T) {
 
 	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
 
-	require.NoError(t, hive.Start(log, t.Context()))
+	require.NoError(t, hive.Start(log, context.Background()))
 
 	obj := &tables.IPSetEntry{
 		Name:   CiliumNodeIPSetV4,
@@ -514,7 +515,7 @@ func TestOpsRetry(t *testing.T) {
 		<-watch
 	}
 
-	require.NoError(t, hive.Stop(log, t.Context()))
+	require.NoError(t, hive.Stop(log, context.Background()))
 }
 
 func TestIPSetList(t *testing.T) {
