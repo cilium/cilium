@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/models"
+	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -42,6 +43,7 @@ var Cell = cell.Module(
 	"Collects and provides Cilium status information",
 
 	cell.Provide(newStatusCollector),
+	cell.Provide(newStatusAPIHandler),
 	cell.Invoke(func(StatusCollector) {}), // explicit start of statuscollector
 )
 
@@ -109,4 +111,18 @@ func newStatusCollector(params statusParams) StatusCollector {
 	})
 
 	return collector
+}
+
+type statusAPIHandlerOut struct {
+	cell.Out
+
+	GetHealthzHandler daemonapi.GetHealthzHandler
+}
+
+func newStatusAPIHandler(collector StatusCollector) statusAPIHandlerOut {
+	return statusAPIHandlerOut{
+		GetHealthzHandler: &GetHealthzHandler{
+			collector: collector,
+		},
+	}
 }
