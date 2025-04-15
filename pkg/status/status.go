@@ -7,24 +7,16 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime/pprof"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-const (
-	subsystem = "status"
-)
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 // Status is passed to a probe when its state changes
 type Status struct {
@@ -62,6 +54,8 @@ type Probe struct {
 
 // Collector concurrently runs probes used to check status of various subsystems
 type Collector struct {
+	logger *slog.Logger
+
 	lock.RWMutex   // protects staleProbes and probeStartTime
 	config         Config
 	stop           chan struct{}
@@ -92,8 +86,9 @@ var DefaultConfig = Config{
 }
 
 // NewCollector creates a collector.
-func NewCollector(config Config) *Collector {
+func NewCollector(logger *slog.Logger, config Config) *Collector {
 	c := &Collector{
+		logger:         logger,
 		config:         config,
 		stop:           make(chan struct{}),
 		staleProbes:    make(map[string]struct{}),
@@ -229,9 +224,10 @@ func (c *Collector) runProbe(p *Probe) {
 
 		case <-warningThreshold:
 			// Just warn and continue waiting for probe
-			log.WithField(logfields.Probe, p.Name).
-				Warnf("No response from probe within %v seconds",
-					c.config.WarningThreshold.Seconds())
+			c.logger.Warn("No response from probe",
+				logfields.Duration, c.config.WarningThreshold.Seconds(),
+				logfields.Probe, p.Name,
+			)
 
 		case <-probeReturned:
 			// The probe completed and we can return from runProbe
@@ -277,10 +273,10 @@ func (c *Collector) updateProbeStatus(p *Probe, data any, stale bool, err error)
 	c.Unlock()
 
 	if stale {
-		log.WithFields(logrus.Fields{
-			logfields.StartTime: startTime,
-			logfields.Probe:     p.Name,
-		}).Warn("Timeout while waiting probe")
+		c.logger.Warn("Timeout while waiting probe",
+			logfields.StartTime, startTime,
+			logfields.Probe, p.Name,
+		)
 
 		// We just had a probe time out. This is commonly caused by a deadlock.
 		// So, capture a stack dump to aid in debugging.
@@ -316,12 +312,15 @@ func (c *Collector) maybeDumpStack() {
 
 	out, err := os.Create(c.config.StackdumpPath)
 	if err != nil {
-		log.WithError(err).WithField("path", c.config.StackdumpPath).Warn("Failed to write stack dump")
+		c.logger.Warn("Failed to write stack dump",
+			logfields.Error, err,
+			logfields.Path, c.config.StackdumpPath,
+		)
 	}
 	defer out.Close()
 	gzout := gzip.NewWriter(out)
 	defer gzout.Close()
 
 	profile.WriteTo(gzout, 2) // 2: print same stack format as panic
-	log.Infof("Wrote stack dump to %s", c.config.StackdumpPath)
+	c.logger.Info("Wrote stack dump", logfields.Path, c.config.StackdumpPath)
 }
