@@ -2,9 +2,6 @@
 
 # Tests advertisements with external / internal service traffic policy.
 # Service routes should be withdrawn for a service with local traffic policy in case of no local endpoints.
-# NOTE: ATM, BGP CP service diff reconciliation is not triggered after complete removal of
-# endpoint / endpointslice k8s resource of a service, therefore we are only testing endpoint changes here,
-# (see https://github.com/cilium/cilium/issues/38924).
 
 # Start the hive
 hive start
@@ -41,6 +38,20 @@ gobgp/routes -o routes.actual
 
 # Update endpoints for the LB service (local endpoint does not exist)
 k8s/update endpoints-non-local.yaml
+
+# Validate that only ClusterIP with iTP=Cluster is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-tp-cluster.expected routes.actual
+
+# Update endpoints for the LB service (local endpoint exists)
+k8s/update endpoints-local.yaml
+
+# Validate that all svc IPs are advertised again
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Delete endpoints of the LB service
+k8s/delete endpoints-local.yaml
 
 # Validate that only ClusterIP with iTP=Cluster is advertised
 gobgp/routes -o routes.actual

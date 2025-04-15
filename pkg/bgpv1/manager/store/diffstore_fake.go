@@ -20,13 +20,15 @@ type fakeDiffStore[T runtime.Object] struct {
 	objects map[resource.Key]T
 
 	changedMu lock.Mutex
-	changed   map[string]updatedKeysMap // updated keys per caller ID
+	changed   map[string]updatedKeysMap     // updated keys per caller ID
+	deleted   map[string]map[resource.Key]T // deleted objects per caller ID
 }
 
 func NewFakeDiffStore[T runtime.Object]() *fakeDiffStore[T] {
 	return &fakeDiffStore[T]{
 		objects: make(map[resource.Key]T),
 		changed: make(map[string]updatedKeysMap),
+		deleted: make(map[string]map[resource.Key]T),
 	}
 }
 
@@ -42,9 +44,10 @@ func (mds *fakeDiffStore[T]) InitDiff(callerID string) {
 	defer mds.changedMu.Unlock()
 
 	mds.changed[callerID] = make(map[resource.Key]bool)
+	mds.deleted[callerID] = make(map[resource.Key]T)
 }
 
-func (mds *fakeDiffStore[T]) Diff(callerID string) (upserted []T, deleted []resource.Key, err error) {
+func (mds *fakeDiffStore[T]) Diff(callerID string) (upserted []T, deleted []T, err error) {
 	mds.changedMu.Lock()
 	defer mds.changedMu.Unlock()
 
@@ -60,13 +63,16 @@ func (mds *fakeDiffStore[T]) Diff(callerID string) (upserted []T, deleted []reso
 		}
 		if exists {
 			upserted = append(upserted, obj)
-		} else {
-			deleted = append(deleted, key)
 		}
 	}
 
-	// Reset the changed map
+	for _, obj := range mds.deleted[callerID] {
+		deleted = append(deleted, obj)
+	}
+
+	// Reset the maps
 	mds.changed[callerID] = make(map[resource.Key]bool)
+	mds.deleted[callerID] = make(map[resource.Key]T)
 
 	return upserted, deleted, nil
 }
@@ -76,6 +82,7 @@ func (mds *fakeDiffStore[T]) CleanupDiff(callerID string) {
 	defer mds.changedMu.Unlock()
 
 	delete(mds.changed, callerID)
+	delete(mds.deleted, callerID)
 }
 
 // List returns all items currently in the store.
@@ -108,14 +115,15 @@ func (mds *fakeDiffStore[T]) Upsert(obj T) {
 	}
 }
 
-func (mds *fakeDiffStore[T]) Delete(key resource.Key) {
+func (mds *fakeDiffStore[T]) Delete(obj T) {
 	mds.objMu.Lock()
 	mds.changedMu.Lock()
 	defer mds.objMu.Unlock()
 	defer mds.changedMu.Unlock()
 
-	delete(mds.objects, key)
-	for _, changed := range mds.changed {
-		changed[key] = true
+	key := resource.NewKey(obj)
+	for _, deleted := range mds.deleted {
+		deleted[key] = obj
 	}
+	delete(mds.objects, key)
 }

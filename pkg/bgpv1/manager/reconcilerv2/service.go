@@ -451,15 +451,13 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 	// For externalTrafficPolicy=local, we need to take care of
 	// the endpoint changes in addition to the service changes.
 	// Take a diff of the EPs and get affected services.
-	// We don't handle service deletion here since we only see
-	// the key, we cannot resolve associated service, so we have
-	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance))
+	// Also upsert services with deleted endpoints to handle potential withdrawal.
+	epsUpserted, epsDeleted, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance))
 	if err != nil {
 		return nil, nil, fmt.Errorf("EPs store diff: %w", err)
 	}
 
-	for _, eps := range epsUpserted {
+	for _, eps := range slices.Concat(epsUpserted, epsDeleted) {
 		svc, exists, err := r.resolveSvcFromEndpoints(eps)
 		if err != nil {
 			// Cannot resolve service from EPs. We have nothing to do here.
@@ -490,7 +488,12 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 		},
 	)
 
-	return deduped, deleted, nil
+	deletedKeys := make([]resource.Key, 0, len(deleted))
+	for _, svc := range deleted {
+		deletedKeys = append(deletedKeys, resource.Key{Name: svc.Name, Namespace: svc.Namespace})
+	}
+
+	return deduped, deletedKeys, nil
 }
 
 func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
