@@ -377,6 +377,10 @@ cilium-agent [flags]
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")
       --static-cnp-path string                                    Directory path to watch and load static cilium network policy yaml files.
+      --status-collector-failure-threshold duration               The duration after which a probe is considered failed (default 1m0s)
+      --status-collector-interval duration                        The interval between probe invocations (default 5s)
+      --status-collector-stackdump-path string                    The path where probe stackdumps should be written to (default "/run/cilium/state/agent.stack.gz")
+      --status-collector-warning-threshold duration               The duration after which a probe is declared as stale (default 15s)
       --tofqdns-dns-reject-response-code string                   DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-dns-compression                            Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-endpoint-max-ip-per-hostname int                  Maximum number of IPs to maintain per FQDN name for each endpoint (default 1000)
