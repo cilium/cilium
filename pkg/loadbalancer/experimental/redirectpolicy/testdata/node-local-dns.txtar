@@ -15,8 +15,13 @@ db/cmp frontends frontends-before.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual lbmaps-before.expected
 
-# Add the redirect and the pod.
-k8s/add lrp-kubedns.yaml pod-1-nodelocaldns.yaml pod-2-nodelocaldns.yaml
+# Add the redirect and the first pod
+k8s/add lrp-kubedns.yaml pod-1-nodelocaldns.yaml
+db/cmp frontends frontends-no-pod2.table
+
+# Add the second pod separately to make sure we get backends
+# in consistent order.
+k8s/add pod-2-nodelocaldns.yaml
 db/cmp services services-after.table
 db/cmp frontends frontends-after.table
 
@@ -28,7 +33,7 @@ lb/maps-dump lbmaps.actual
 # as LRP backend and then revert.
 sed 'k8s-app: node-local-dns' 'k8s-app: foo' pod-2-nodelocaldns.yaml
 k8s/update pod-2-nodelocaldns.yaml
-db/cmp frontends frontends-after-no-pod2.table
+db/cmp frontends frontends-no-pod2.table
 
 sed 'k8s-app: foo' 'k8s-app: node-local-dns' pod-2-nodelocaldns.yaml
 k8s/update pod-2-nodelocaldns.yaml
@@ -65,7 +70,7 @@ Address                    Type        ServiceName           PortName   Redirect
 10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP, 10.244.0.226:53/UDP
 10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
 
--- frontends-after-no-pod2.table --
+-- frontends-no-pod2.table --
 Address                    Type        ServiceName           PortName   RedirectTo                               Status  Backends
 10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP
 10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP
@@ -95,16 +100,16 @@ BE: ID=10 ADDR=10.244.0.226:53/UDP STATE=active
 BE: ID=5 ADDR=10.244.1.51:9153/TCP STATE=active
 BE: ID=6 ADDR=10.244.1.68:9153/TCP STATE=active
 BE: ID=7 ADDR=10.244.0.225:53/TCP STATE=active
-BE: ID=8 ADDR=10.244.0.226:53/TCP STATE=active
-BE: ID=9 ADDR=10.244.0.225:53/UDP STATE=active
+BE: ID=8 ADDR=10.244.0.225:53/UDP STATE=active
+BE: ID=9 ADDR=10.244.0.226:53/TCP STATE=active
 REV: ID=1 ADDR=10.96.0.10:53
 REV: ID=2 ADDR=10.96.0.10:53
 REV: ID=3 ADDR=10.96.0.10:9153
 SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=2 BEID=9 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=1 BEID=9 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=2 BEID=10 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
