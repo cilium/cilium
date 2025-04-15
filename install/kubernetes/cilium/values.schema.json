@@ -4011,12 +4011,7 @@
                 "integer"
               ]
             },
-            "qps": {
-              "type": [
-                "null",
-                "integer"
-              ]
-            }
+            "qps": {}
           },
           "type": "object"
         },
