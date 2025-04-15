@@ -64,8 +64,21 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	}
 
 	for _, port := range []string{insecureHost, secureHost} {
+		// the route name should match the value in http connection manager
+		// otherwise the request will be dropped by envoy
+		routeName := fmt.Sprintf("listener-%s", port)
+
 		hostNames, exists := portHostNameRedirect[port]
 		if !exists {
+			if port == insecureHost && !m.IsHTTPListenerConfigured() ||
+				port == secureHost && !m.IsHTTPSListenerConfigured() {
+				continue
+			}
+			rc, err := routeConfiguration(routeName, nil)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, rc)
 			continue
 		}
 		var virtualhosts []*envoy_config_route_v3.VirtualHost
@@ -103,9 +116,6 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 			virtualhosts = append(virtualhosts, vhs)
 		}
 
-		// the route name should match the value in http connection manager
-		// otherwise the request will be dropped by envoy
-		routeName := fmt.Sprintf("listener-%s", port)
 		goslices.SortStableFunc(virtualhosts, func(a, b *envoy_config_route_v3.VirtualHost) int { return cmp.Compare(a.Name, b.Name) })
 		rc, err := routeConfiguration(routeName, virtualhosts)
 		if err != nil {
