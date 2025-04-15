@@ -70,9 +70,7 @@ func newFixture(t testing.TB) *fixture {
 	fakePolicyStore := &fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]{}
 
 	params := l2AnnouncerParams{
-		Logger:    logrus.New(),
-		Lifecycle: &cell.DefaultLifecycle{},
-		Health:    h,
+		Logger: logrus.New(),
 		DaemonConfig: &option.DaemonConfig{
 			K8sNamespace:             "kube_system",
 			EnableL2Announcements:    true,
@@ -114,21 +112,27 @@ type fakeStore[T runtime.Object] struct {
 func (fs *fakeStore[T]) List() []T {
 	return fs.slice
 }
+
 func (fs *fakeStore[T]) IterKeys() resource.KeyIter { return nil }
+
 func (fs *fakeStore[T]) Get(obj T) (item T, exists bool, err error) {
 	var def T
 	return def, false, nil
 }
+
 func (fs *fakeStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {
 	var def T
 	return def, false, nil
 }
+
 func (fs *fakeStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
 	return nil, nil
 }
+
 func (fs *fakeStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 	return nil, nil
 }
+
 func (fs *fakeStore[T]) CacheStore() cache.Store { return nil }
 
 var _ resource.Resource[runtime.Object] = (*fakeResource[runtime.Object])(nil)
@@ -138,7 +142,6 @@ type fakeResource[T runtime.Object] struct {
 }
 
 func (fr *fakeResource[T]) Observe(ctx context.Context, next func(event resource.Event[T]), complete func(error)) {
-
 }
 
 func (fr *fakeResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[T] {
@@ -880,7 +883,6 @@ func TestPolicySelection(t *testing.T) {
 
 	assert.Len(t, fix.announcer.selectedPolicies, 1)
 	assert.Empty(t, fix.announcer.selectedServices)
-
 }
 
 // Test that when the selected IP types in the policy changes, that proxy neighbor table is updated properly.
