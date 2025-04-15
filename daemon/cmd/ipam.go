@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -32,42 +31,6 @@ import (
 const (
 	mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 )
-
-// DumpIPAM dumps in the form of a map, the list of
-// reserved IPv4 and IPv6 addresses.
-func (d *Daemon) DumpIPAM() *models.IPAMStatus {
-	allocv4, allocv6, st := d.ipam.Dump()
-	status := &models.IPAMStatus{
-		Status: st,
-	}
-
-	v4 := make([]string, 0, len(allocv4))
-	for ip := range allocv4 {
-		v4 = append(v4, ip)
-	}
-
-	v6 := make([]string, 0, len(allocv6))
-	if allocv4 == nil {
-		allocv4 = map[string]string{}
-	}
-	for ip, owner := range allocv6 {
-		v6 = append(v6, ip)
-		// merge allocv6 into allocv4
-		allocv4[ip] = owner
-	}
-
-	if option.Config.EnableIPv4 {
-		status.IPV4 = v4
-	}
-
-	if option.Config.EnableIPv6 {
-		status.IPV6 = v6
-	}
-
-	status.Allocations = allocv4
-
-	return status
-}
 
 func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if option.Config.LocalRouterIPv4 != "" {
