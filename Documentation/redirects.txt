@@ -27,3 +27,4 @@
 "security/memcached.rst" "security/network/proxy/envoy.rst"
 "network/external-toc.rst" "network/clustermesh/index.rst"
 "network/external-workloads.rst" "network/clustermesh/index.rst"
+"configuration/vlan-802.1q.rst" "configuration/index.rst"

@@ -1231,11 +1231,6 @@ data:
   cgroup-root: {{ .Values.cgroup.hostRoot | quote }}
 {{- end }}
 
-{{- if .Values.bpf.vlanBypass }}
-  # A space separated list of explicitly allowed vlan id's
-  vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
-{{- end }}
-
 {{- if .Values.bpf.disableExternalIPMitigation }}
   disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
 {{- end }}

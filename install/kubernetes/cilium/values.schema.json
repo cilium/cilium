@@ -664,12 +664,6 @@
             "null",
             "boolean"
           ]
-        },
-        "vlanBypass": {
-          "type": [
-            "null",
-            "array"
-          ]
         }
       },
       "type": "object"

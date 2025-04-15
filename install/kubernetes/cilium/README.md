@@ -162,7 +162,6 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.preallocateMaps | bool | `false` | Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency. |
 | bpf.root | string | `"/sys/fs/bpf"` | Configure the mount point for the BPF filesystem |
 | bpf.tproxy | bool | `false` | Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. |
-| bpf.vlanBypass | list | `[]` | Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering. |
 | bpfClockProbe | bool | `false` | Enable BPF clock source probing for more efficient tick retrieval. |
 | certgen | object | `{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.3","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
 | certgen.affinity | object | `{}` | Affinity for certgen |

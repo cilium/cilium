@@ -72,7 +72,6 @@ Core Agent
    api-restrictions
    per-node-config
    sctp
-   vlan-802.1q
    argocd-issues
 
 Security

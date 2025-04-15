@@ -448,10 +448,6 @@
      - Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy.
      - bool
      - ``false``
-   * - :spelling:ignore:`bpf.vlanBypass`
-     - Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering.
-     - list
-     - ``[]``
    * - :spelling:ignore:`bpfClockProbe`
      - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
