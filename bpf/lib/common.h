@@ -472,6 +472,7 @@ struct egress_gw_policy_entry6 {
 	union v6addr egress_ip;
 	__u32 gateway_ip;
 	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+	__u32 egress_ifindex;
 };
 
 struct srv6_vrf_key4 {
