@@ -493,7 +493,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(daddr, 0);
-		if (info && info->sec_identity) {
+		if (info) {
 			*dst_sec_identity = info->sec_identity;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
@@ -936,7 +936,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
-		if (info && info->sec_identity) {
+		if (info) {
 			*dst_sec_identity = info->sec_identity;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
