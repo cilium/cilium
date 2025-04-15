@@ -230,7 +230,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -271,9 +271,9 @@ int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT_EXCL_CIDR));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip);
+				     &egress_ip, 0);
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_EXCLUDED_CIDR,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -321,7 +321,7 @@ int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_NO_GATEWAY,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -385,7 +385,7 @@ int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 
 	create_ct_entry_v6(ctx, client_port(TEST_DROP_NO_EGRESS_IP));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, GATEWAY_NODE_IP,
-				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6, 0);
 
 	return netdev_send_packet(ctx);
 }
