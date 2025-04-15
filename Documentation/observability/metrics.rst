@@ -830,12 +830,12 @@ The command-line options to configure them are ``--enable-hubble``,
 ``--hubble-metrics-server``, and ``--hubble-metrics``.
 ``--hubble-metrics-server`` takes an ``IP:Port`` pair, but
 passing an empty IP (e.g. ``:9965``) will bind the server to all available
-interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics.
+interfaces. ``--hubble-metrics`` takes a space-separated list of metrics.
 It's also possible to configure Hubble metrics to listen with TLS and
 optionally use mTLS for authentication. For details see :ref:`hubble_configure_metrics_tls`.
 
 Some metrics can take additional semicolon-separated options per metric, e.g.
-``--hubble-metrics="dns:query;ignoreAAAA,http:destinationContext=workload-name"``
+``--hubble-metrics="dns:query;ignoreAAAA http:destinationContext=workload-name"``
 will enable the ``dns`` metric with the ``query`` and ``ignoreAAAA`` options,
 and the ``http`` metric with the ``destinationContext=workload-name`` option.
 
