@@ -7,7 +7,6 @@
 #include <bpf/config/node.h>
 #include <netdev_config.h>
 
-#define SKIP_POLICY_MAP	1
 #define SKIP_CALLS_MAP	1
 
 #include "lib/common.h"
