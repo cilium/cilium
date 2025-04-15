@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -42,6 +43,8 @@ type policyGatewayConfig struct {
 type gatewayConfig struct {
 	// ifaceName is the name of the interface used to SNAT traffic
 	ifaceName string
+	// egressIfindex is the ifindex of the interface used to SNAT traffic
+	egressIfindex uint32
 	// egressIP4 is the IP used to SNAT traffic with IPv4 policies
 	egressIP4 netip.Addr
 	// egressIP6 is the IP used to SNAT traffic with IPv6 policies
@@ -170,6 +173,14 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		// If the gateway config specifies an interface, use the first IPv4/v6 assigned to that
 		// interface as egress IPs
 		gwc.ifaceName = gc.iface
+
+		iface, err := safenetlink.LinkByName(gwc.ifaceName)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
+		}
+
+		gwc.egressIfindex = uint32(iface.Attrs().Index)
+
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
@@ -205,6 +216,8 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
+		gwc.egressIfindex = uint32(iface.Attrs().Index)
+
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
