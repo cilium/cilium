@@ -1036,9 +1036,6 @@ const (
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
 
-	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
-	VLANBPFBypass = "vlan-bpf-bypass"
-
 	// DisableExternalIPMitigation disable ExternalIP mitigation (CVE-2020-8554)
 	DisableExternalIPMitigation = "disable-external-ip-mitigation"
 
