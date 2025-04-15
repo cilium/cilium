@@ -647,8 +647,8 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 	return sr
 }
 
-func (d *statusCollector) startStatusCollector(ctx context.Context) error {
-	probes := []Probe{
+func (d *statusCollector) getProbes() []Probe {
+	return []Probe{
 		{
 			Name: "kvstore",
 			Probe: func(ctx context.Context) (any, error) {
@@ -986,7 +986,9 @@ func (d *statusCollector) startStatusCollector(ctx context.Context) error {
 			},
 		},
 	}
+}
 
+func (d *statusCollector) startStatusCollector(ctx context.Context) error {
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
@@ -1000,7 +1002,7 @@ func (d *statusCollector) startStatusCollector(ctx context.Context) error {
 	d.statusResponse.AttachMode = d.getAttachModeStatus()
 	d.statusResponse.DatapathMode = d.getDatapathModeStatus()
 
-	d.statusCollector = NewCollector(probes, DefaultConfig)
+	d.statusCollector = NewCollector(d.getProbes(), DefaultConfig)
 
 	// Block until all probes have been executed at least once, to make sure that
 	// the status has been fully initialized once we exit from this function.
