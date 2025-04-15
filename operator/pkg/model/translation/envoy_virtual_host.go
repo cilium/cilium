@@ -588,21 +588,37 @@ func getHeaderMatchers(hostnames []string, hostNameSuffixMatch bool, headers []m
 
 	if !hostNameSuffixMatch {
 		for _, host := range hostnames {
-			if len(host) != 0 && host != wildCard && strings.Contains(host, wildCard) {
-				// Make sure that wildcard character only match one single dns domain.
-				// For example, if host is *.foo.com, baz.bar.foo.com should not match
-				result = append(result, &envoy_config_route_v3.HeaderMatcher{
-					Name: envoyAuthority,
-					HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-						StringMatch: &envoy_type_matcher_v3.StringMatcher{
-							MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
-								SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-									Regex: getMatchingHeaderRegex(host),
+			if len(host) != 0 && host != wildCard {
+				if strings.Contains(host, wildCard) {
+					// Make sure that wildcard character only match one single dns domain.
+					// For example, if host is *.foo.com, baz.bar.foo.com should not match
+					result = append(result, &envoy_config_route_v3.HeaderMatcher{
+						Name: envoyAuthority,
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+									SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+										Regex: getMatchingHeaderRegex(host),
+									},
 								},
 							},
 						},
-					},
-				})
+					})
+				} else {
+					// For exact hostname matches, add a regex matcher to match hostname with optional port
+					result = append(result, &envoy_config_route_v3.HeaderMatcher{
+						Name: envoyAuthority,
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+									SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+										Regex: fmt.Sprintf("^%s(:\\d+)?$", regexp.QuoteMeta(host)),
+									},
+								},
+							},
+						},
+					})
+				}
 			}
 		}
 	}

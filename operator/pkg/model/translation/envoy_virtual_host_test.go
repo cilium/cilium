@@ -597,6 +597,50 @@ func Test_requestMirrorMutation(t *testing.T) {
 	})
 }
 
+func Test_getHeaderMatchers(t *testing.T) {
+	t.Run("with exact hostname", func(t *testing.T) {
+		hostnames := []string{"example.com"}
+		headerMatchers := getHeaderMatchers(hostnames, false, nil, nil)
+
+		// Should have one header matcher for the hostname
+		require.Len(t, headerMatchers, 1)
+		require.Equal(t, envoyAuthority, headerMatchers[0].Name)
+
+		// Should be a regex matcher that matches the hostname with optional port
+		regex := headerMatchers[0].GetStringMatch().GetSafeRegex().GetRegex()
+		require.Equal(t, "^example\\.com(:\\d+)?$", regex)
+	})
+
+	t.Run("with wildcard hostname", func(t *testing.T) {
+		hostnames := []string{"*.example.com"}
+		headerMatchers := getHeaderMatchers(hostnames, false, nil, nil)
+
+		// Should have one header matcher for the hostname
+		require.Len(t, headerMatchers, 1)
+		require.Equal(t, envoyAuthority, headerMatchers[0].Name)
+
+		// Should be a regex matcher that matches the wildcard hostname
+		regex := headerMatchers[0].GetStringMatch().GetSafeRegex().GetRegex()
+		require.Equal(t, "^[^.]+[.]example[.]com$", regex)
+	})
+
+	t.Run("with multiple hostnames", func(t *testing.T) {
+		hostnames := []string{"example.com", "www.example.com"}
+		headerMatchers := getHeaderMatchers(hostnames, false, nil, nil)
+
+		// Should have two header matchers for the hostnames
+		require.Len(t, headerMatchers, 2)
+		require.Equal(t, envoyAuthority, headerMatchers[0].Name)
+		require.Equal(t, envoyAuthority, headerMatchers[1].Name)
+
+		// Should be regex matchers that match the hostnames with optional port
+		regex1 := headerMatchers[0].GetStringMatch().GetSafeRegex().GetRegex()
+		regex2 := headerMatchers[1].GetStringMatch().GetSafeRegex().GetRegex()
+		require.Equal(t, "^example\\.com(:\\d+)?$", regex1)
+		require.Equal(t, "^www\\.example\\.com(:\\d+)?$", regex2)
+	})
+}
+
 func Test_retryMutation(t *testing.T) {
 	t.Run("no retry", func(t *testing.T) {
 		route := &envoy_config_route_v3.Route_Route{
