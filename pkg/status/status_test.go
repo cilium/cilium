@@ -28,10 +28,11 @@ func setUpTest(_ testing.TB) *StatusTestSuite {
 	s := &StatusTestSuite{}
 	s.mutex.Lock()
 	s.config = Config{
-		StatusCollectorInterval:         10 * time.Millisecond,
-		StatusCollectorWarningThreshold: 20 * time.Millisecond,
-		StatusCollectorFailureThreshold: 80 * time.Millisecond,
-		StatusCollectorStackdumpPath:    "",
+		StatusCollectorInterval:          10 * time.Millisecond,
+		StatusCollectorWarningThreshold:  20 * time.Millisecond,
+		StatusCollectorFailureThreshold:  80 * time.Millisecond,
+		StatusCollectorProbeCheckTimeout: 3 * time.Second,
+		StatusCollectorStackdumpPath:     "",
 	}
 	s.mutex.Unlock()
 
