@@ -76,7 +76,8 @@ func TestVariableProbeInterval(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := NewCollector(s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for 5 probe intervals to occur with 1 millisecond interval
@@ -109,7 +110,8 @@ func TestCollectorFailureTimeout(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := NewCollector(s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for the failure timeout to kick in
@@ -146,7 +148,8 @@ func TestCollectorSuccess(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := NewCollector(s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for the probe to succeed 3 times and to return the error 3 times
@@ -175,12 +178,12 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 				} else {
 					ok.Add(1)
 				}
-
 			},
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := NewCollector(s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for the probe to timeout (warning and failure) and then to succeed
@@ -205,7 +208,8 @@ func TestWaitForFirstRun(t *testing.T) {
 		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := NewCollector(s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	test := func() error {

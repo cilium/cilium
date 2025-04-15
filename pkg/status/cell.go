@@ -79,7 +79,8 @@ type statusParams struct {
 
 func newStatusCollector(params statusParams) StatusCollector {
 	collector := &statusCollector{
-		statusParams: params,
+		statusParams:    params,
+		statusCollector: NewCollector(DefaultConfig),
 	}
 
 	params.Lifecycle.Append(cell.Hook{
