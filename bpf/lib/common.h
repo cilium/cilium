@@ -1190,41 +1190,6 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
-static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
-				       int ifindex __maybe_unused,
-				       bool needs_backlog __maybe_unused,
-				       bool from_tunnel)
-{
-	/* Going via CPU backlog queue (aka needs_backlog) is required
-	 * whenever we cannot do a fast ingress -> ingress switch but
-	 * instead need an ingress -> egress netns traversal or vice
-	 * versa.
-	 *
-	 * This is also the case if BPF host routing is disabled, or if
-	 * we are currently on egress which is indicated by ingress_ifindex
-	 * being 0. The latter is cleared upon skb scrubbing.
-	 *
-	 * In case of netkit, we're on the egress side and need a regular
-	 * redirect to the peer device's ifindex. In case of veth we're
-	 * on ingress and need a redirect peer to get to the target. Both
-	 * only traverse the CPU backlog queue once. In case of phys ->
-	 * Pod, the ingress_ifindex is > 0 and in both device types we
-	 * do want a redirect peer into the target Pod's netns.
-	 */
-	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING) ||
-	    ctx_get_ingress_ifindex(ctx) == 0) {
-		return (int)ctx_redirect(ctx, ifindex, 0);
-	}
-
-	/* When coming from overlay, we need to set packet type
-	 * to HOST as otherwise we might get dropped in IP layer.
-	 */
-	if (from_tunnel)
-		ctx_change_type(ctx, PACKET_HOST);
-
-	return ctx_redirect_peer(ctx, ifindex, 0);
-}
-
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {
 #ifdef HAVE_CSUM_LEVEL

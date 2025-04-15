@@ -1,22 +1,20 @@
-#! --test-peering-ips=fd00::aa:bb:cc:101,fd00::aa:bb:cc:102
-# NOTE: Each test should use unique peering IPs, as the tests are executed in parallel.
+#! --probe-tcp-md5 --test-peering-ips=fd00::aa:bb:cc:101,fd00::aa:bb:cc:102
 
-# HINT: Put "break" anywhere in the test to observe the state with "bgp" and "gobgp" commands. For example:
-# - "bgp/peers" shows peers on the Cilium side
-# - "gobgp/peers" shows peers on the test GoBGP server side
+# Tests IPv6 peering with authentication.
 
 # Start the hive
 hive start
 
 # Wait for k8s watchers to be initialized
 k8s/wait-watchers cilium.io.v2.ciliumnodes cilium.io.v2.ciliumbgpnodeconfigs cilium.io.v2.ciliumbgppeerconfigs cilium.io.v2.ciliumbgpadvertisements
+k8s/wait-watchers v1.services v1.secrets
 
 # Configure gobgp server
-gobgp/add-server --router-id=1.2.3.4 65000 fd00::aa:bb:cc:101 1790
-gobgp/add-peer fd00::aa:bb:cc:102 65001
+gobgp/add-server --router-id=1.2.3.4 65001 fd00::aa:bb:cc:101 1790
+gobgp/add-peer --password=Cilium123 fd00::aa:bb:cc:102 65001
 
 # Configure BGP on Cilium
-k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml auth-secret.yaml
 
 # Wait for peering to be established
 gobgp/wait-state fd00::aa:bb:cc:102 ESTABLISHED
@@ -24,14 +22,6 @@ gobgp/wait-state fd00::aa:bb:cc:102 ESTABLISHED
 # Validate peering state
 gobgp/peers -o peers.actual
 * cmp gobgp-peers.expected peers.actual
-
-# Validate IPv4 PodCIDR routes
-gobgp/routes -o routes.actual ipv4 unicast
-* cmp gobgp-routes-ipv4.expected routes.actual
-
-# Validate IPv6 PodCIDR routes
-gobgp/routes -o routes.actual ipv6 unicast
-* cmp gobgp-routes-ipv6.expected routes.actual
 
 #####
 
@@ -42,14 +32,8 @@ metadata:
   name: test-node
 spec:
   addresses:
-  - ip: 10.0.1.201
-    type: InternalIP
-  - ip: 10.0.1.201
-    type: CiliumInternalIP
   - ip: fd00::aa:bb:cc:102
     type: InternalIP
-  - ip: fd00::aa:bb:cc:102
-    type: CiliumInternalIP
   ipam:
     podCIDRs:
     - 10.244.0.0/24
@@ -63,10 +47,11 @@ metadata:
 spec:
   bgpInstances:
   - localASN: 65001
+    routerID: 5.6.7.8
     name: tor
     peers:
     - name: gobgp-peer
-      peerASN: 65000
+      peerASN: 65001
       peerAddress: fd00::aa:bb:cc:101
       localAddress: fd00::aa:bb:cc:102
       peerConfigRef:
@@ -80,8 +65,9 @@ metadata:
 spec:
   transport:
     peerPort: 1790
+  authSecretRef: bgp-auth-secret
   timers:
-    connectRetryTimeSeconds: 10
+    connectRetryTimeSeconds: 1
   families:
   - afi: ipv4
     safi: unicast
@@ -105,12 +91,16 @@ spec:
   advertisements:
   - advertisementType: PodCIDR
 
+-- auth-secret.yaml --
+apiVersion: v1
+kind: Secret
+type: string
+metadata:
+  name: bgp-auth-secret
+  namespace: kube-system
+data:
+  password: Q2lsaXVtMTIz
+
 -- gobgp-peers.expected --
-PeerAddress          PeerASN   SessionState   HoldTime
-fd00::aa:bb:cc:102   65001     ESTABLISHED    90
--- gobgp-routes-ipv4.expected --
-Prefix          NextHop              Attrs
-10.244.0.0/24   fd00::aa:bb:cc:102   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:102, NLRIs: [10.244.0.0/24]}}]
--- gobgp-routes-ipv6.expected --
-Prefix            NextHop              Attrs
-fd00:11:22::/64   fd00::aa:bb:cc:102   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:cc:102, NLRIs: [fd00:11:22::/64]}}]
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+fd00::aa:bb:cc:102   5.6.7.8    65001     ESTABLISHED    30          90         0
