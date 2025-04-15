@@ -56,11 +56,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-03-14 | ``quay.io/cilium/cilium:v1.17.2``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.2>`__  |
+| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-04-14 | ``quay.io/cilium/cilium:v1.17.3``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.3>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-03-14 | ``quay.io/cilium/cilium:v1.16.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.8>`__  |
+| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-04-14 | ``quay.io/cilium/cilium:v1.16.9``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.9>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2025-03-14 | ``quay.io/cilium/cilium:v1.15.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.15>`__ |
+| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2025-04-14 | ``quay.io/cilium/cilium:v1.15.16`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.16>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures
@@ -95,7 +95,7 @@ corresponding image pull tags and their release notes where applicable:
 +----------------------------------------------------------------------------+------------+-----------------------------------------+---------------------------------------------------------------------------------+
 | `main <https://github.com/cilium/cilium/commits/main>`__                   | daily      | ``quay.io/cilium/cilium-ci:latest``     | N/A                                                                             |
 +----------------------------------------------------------------------------+------------+-----------------------------------------+---------------------------------------------------------------------------------+
-| `v1.18.0-pre.0 <https://github.com/cilium/cilium/commits/v1.18.0-pre.0>`__ | 2025-03-03 | ``quay.io/cilium/cilium:v1.18.0-pre.0`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.18.0-pre.0>`__ |
+| `v1.18.0-pre.1 <https://github.com/cilium/cilium/commits/v1.18.0-pre.1>`__ | 2025-03-31 | ``quay.io/cilium/cilium:v1.18.0-pre.1`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.18.0-pre.1>`__ |
 +----------------------------------------------------------------------------+------------+-----------------------------------------+---------------------------------------------------------------------------------+
 
 Functionality Overview
