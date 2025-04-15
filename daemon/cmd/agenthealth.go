@@ -51,7 +51,7 @@ func (d *Daemon) startAgentHealthHTTPService() {
 			return false
 		}
 		statusCode := http.StatusOK
-		sr := d.getStatus(true, requireK8sConnectivity)
+		sr := d.statusCollector.GetStatus(true, requireK8sConnectivity)
 		if isUnhealthy(&sr) {
 			log.WithError(errors.New(sr.Cilium.Msg)).WithFields(logrus.Fields{
 				logfields.State: sr.Cilium.State,
