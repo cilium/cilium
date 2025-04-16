@@ -34,7 +34,6 @@ import (
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
@@ -589,7 +588,7 @@ func testHive(maps lbmaps.LBMaps,
 			// Reconcile tables to BPF maps
 			lbreconciler.Cell,
 
-			cell.Provide(experimental.NetnsCookieSupportFunc),
+			cell.Provide(lbmaps.NetnsCookieSupportFunc),
 
 			cell.Provide(
 				tables.NewNodeAddressTable,

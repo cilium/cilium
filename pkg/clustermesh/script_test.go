@@ -44,7 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -88,7 +88,8 @@ func TestScript(t *testing.T) {
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
-			experimental.Cell,
+			lbcell.Cell,
+
 			maglev.Cell,
 			node.LocalNodeStoreCell,
 			cni.Cell,

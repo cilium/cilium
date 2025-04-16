@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package redirectpolicy
+package redirectpolicy_test
 
 import (
 	"context"
@@ -29,11 +29,8 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
-	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
-	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -70,13 +67,8 @@ func TestScript(t *testing.T) {
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
 
-				experimental.Cell,
-				reflectors.Cell,
-				writer.Cell,
-				reconciler.Cell,
-				lbmaps.Cell,
+				lbcell.Cell,
 
-				Cell,
 				node.LocalNodeStoreCell,
 				maglev.Cell,
 				cell.Provide(
@@ -95,7 +87,7 @@ func TestScript(t *testing.T) {
 							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
 						}
 					},
-					func() testSkipLBMap {
+					func() redirectpolicy.TestSkipLBMap {
 						// Only use fake SkipLBMap if we're running unprivileged tests.
 						if testutils.IsPrivileged() {
 							return nil
