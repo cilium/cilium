@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package loadbalancer
 
 import (
 	"github.com/spf13/pflag"
@@ -75,8 +75,8 @@ type ExternalConfig struct {
 	LoadBalancerAlgorithmAnnotation bool
 }
 
-// newExternalConfig maps the daemon config to [ExternalConfig].
-func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
+// NewExternalConfig maps the daemon config to [ExternalConfig].
+func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
 		LBMapsConfig:                    newLBMapsConfig(cfg),
 		ZoneMapper:                      cfg,
@@ -90,6 +90,47 @@ func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		NodePortAlg:                     cfg.NodePortAlg,
 		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 	}
+}
+
+// LBMapsConfig specifies the configuration for the load-balancing BPF
+// maps.
+type LBMapsConfig struct {
+	MaxSockRevNatMapEntries                                         int
+	ServiceMapMaxEntries, BackendMapMaxEntries, RevNatMapMaxEntries int
+	AffinityMapMaxEntries                                           int
+	SourceRangeMapMaxEntries                                        int
+	MaglevMapMaxEntries                                             int
+}
+
+// newLBMapsConfig creates the config from the DaemonConfig. When we
+// move to the new implementation this should be replaced with a cell.Config.
+func newLBMapsConfig(dcfg *option.DaemonConfig) (cfg LBMapsConfig) {
+	cfg.MaxSockRevNatMapEntries = dcfg.SockRevNatEntries
+	cfg.ServiceMapMaxEntries = dcfg.LBMapEntries
+	cfg.BackendMapMaxEntries = dcfg.LBMapEntries
+	cfg.RevNatMapMaxEntries = dcfg.LBMapEntries
+	cfg.AffinityMapMaxEntries = dcfg.LBMapEntries
+	cfg.SourceRangeMapMaxEntries = dcfg.LBMapEntries
+	cfg.MaglevMapMaxEntries = dcfg.LBMapEntries
+	if dcfg.LBServiceMapEntries > 0 {
+		cfg.ServiceMapMaxEntries = dcfg.LBServiceMapEntries
+	}
+	if dcfg.LBBackendMapEntries > 0 {
+		cfg.BackendMapMaxEntries = dcfg.LBBackendMapEntries
+	}
+	if dcfg.LBRevNatEntries > 0 {
+		cfg.RevNatMapMaxEntries = dcfg.LBRevNatEntries
+	}
+	if dcfg.LBAffinityMapEntries > 0 {
+		cfg.AffinityMapMaxEntries = dcfg.LBAffinityMapEntries
+	}
+	if dcfg.LBSourceRangeMapEntries > 0 {
+		cfg.SourceRangeMapMaxEntries = dcfg.LBSourceRangeMapEntries
+	}
+	if dcfg.LBMaglevMapEntries > 0 {
+		cfg.MaglevMapMaxEntries = dcfg.LBMaglevMapEntries
+	}
+	return
 }
 
 type ZoneMapper interface {

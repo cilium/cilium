@@ -79,18 +79,18 @@ func TestScript(t *testing.T) {
 				experimental.Cell,
 				reflectors.Cell,
 
-				cell.Config(experimental.TestConfig{
+				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
 					TestFaultProbability: 0.1,
 				}),
 				maglev.Cell,
 				node.LocalNodeStoreCell,
 				cell.Provide(
-					func(cfg experimental.TestConfig) *experimental.TestConfig { return &cfg },
+					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					source.NewSources,
-					func(cfg experimental.TestConfig) *option.DaemonConfig {
+					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
 							EnableIPv4:                      true,
 							EnableIPv6:                      true,

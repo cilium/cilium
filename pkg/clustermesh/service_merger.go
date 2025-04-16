@@ -28,7 +28,7 @@ type serviceMergerParams struct {
 
 	ClusterInfo  cmtypes.ClusterInfo
 	ServiceCache k8s.ServiceCache
-	ExpConfig    experimental.Config
+	ExpConfig    loadbalancer.Config
 	Writer       *experimental.Writer
 }
 
@@ -79,7 +79,7 @@ func (sm *expServiceMerger) MergeExternalServiceUpdate(service *serviceStore.Clu
 	)
 }
 
-func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []experimental.BackendParams) {
+func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
 	for ipString, portConfig := range service.Backends {
 		addrCluster := cmtypes.MustParseAddrCluster(ipString)
 		for name, l4 := range portConfig {
@@ -87,7 +87,7 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 			if name != "" {
 				portNames = []string{name}
 			}
-			bep := experimental.BackendParams{
+			bep := loadbalancer.BackendParams{
 				Address: loadbalancer.L3n4Addr{
 					AddrCluster: addrCluster,
 					L4Addr:      *l4,

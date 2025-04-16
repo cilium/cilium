@@ -44,8 +44,8 @@ var ReconcilerCell = cell.Module(
 		newBPFReconciler,
 	),
 	cell.Invoke(
-		// Force the registration even if none uses Reconciler[*Frontend].
-		func(reconciler.Reconciler[*Frontend]) {},
+		// Force the registration even if none uses Reconciler[*loadbalancer.Frontend].
+		func(reconciler.Reconciler[*loadbalancer.Frontend]) {},
 	),
 )
 
@@ -61,7 +61,7 @@ const (
 	initGracePeriod = 10 * time.Second
 )
 
-func newBPFReconciler(p reconciler.Params, g job.Group, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
+func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.RWTable[*loadbalancer.Frontend], w *Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
 	if !w.IsEnabled() {
 		return nil, nil
 	}
@@ -77,11 +77,16 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg Config, ops *BPFOps,
 
 	r, err := reconciler.Register(
 		p,
-		w.fes,
+		fes,
 
-		(*Frontend).Clone,
-		(*Frontend).setStatus,
-		(*Frontend).getStatus,
+		(*loadbalancer.Frontend).Clone,
+		func(fe *loadbalancer.Frontend, s reconciler.Status) *loadbalancer.Frontend {
+			fe.Status = s
+			return fe
+		},
+		func(fe *loadbalancer.Frontend) reconciler.Status {
+			return fe.Status
+		},
 		ops,
 		nil,
 
@@ -123,7 +128,7 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg Config, ops *BPFOps,
 type BPFOps struct {
 	LBMaps LBMaps
 	log    *slog.Logger
-	cfg    ExternalConfig
+	cfg    loadbalancer.ExternalConfig
 	maglev *maglev.Maglev
 
 	serviceIDAlloc     idAllocator
@@ -175,8 +180,8 @@ type bpfOpsParams struct {
 
 	Lifecycle     cell.Lifecycle
 	Log           *slog.Logger
-	Cfg           Config
-	ExtCfg        ExternalConfig
+	Cfg           loadbalancer.Config
+	ExtCfg        loadbalancer.ExternalConfig
 	LBMaps        LBMaps
 	Maglev        *maglev.Maglev
 	DB            *statedb.DB
@@ -286,7 +291,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) error {
+func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *loadbalancer.Frontend) error {
 	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -339,7 +344,7 @@ func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, b
 	}
 }
 
-func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
+func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
@@ -622,7 +627,7 @@ func (ops *BPFOps) pruneMaglev() error {
 }
 
 // Prune implements reconciler.Operations.
-func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Frontend, statedb.Revision]) error {
+func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
 	ops.log.Debug("Pruning")
 	return errors.Join(
 		ops.pruneRestoredIDs(),
@@ -635,7 +640,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Fron
 }
 
 // Update implements reconciler.Operations.
-func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) error {
+func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
 	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -691,7 +696,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) 
 	return nil
 }
 
-func (ops *BPFOps) updateFrontend(fe *Frontend) error {
+func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	// WARNING: This method must be idempotent. Any updates to state must happen only after
 	// the operations that depend on the state have been performed. If this invariant is not
 	// followed then we may leak data due to not retrying a failed operation.
@@ -729,7 +734,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
-	svc := fe.Service()
+	svc := fe.Service
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
@@ -871,7 +876,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 	orphanSourceRanges := prevSourceRanges.Clone()
 	srcRangeValue := &lbmap.SourceRangeValue{}
-	for _, cidr := range fe.service.SourceRanges {
+	for _, cidr := range fe.Service.SourceRanges {
 		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
 			continue
 		}
@@ -914,7 +919,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	ops.log.Debug("Update master service",
 		logfields.ID, feID,
 		logfields.Type, fe.Type,
-		logfields.ProxyRedirect, fe.service.ProxyRedirect,
+		logfields.ProxyRedirect, fe.Service.ProxyRedirect,
 		logfields.Address, fe.Address,
 		logfields.Count, backendCount)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount); err != nil {
@@ -940,10 +945,10 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	return nil
 }
 
-func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
+func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
 	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.NodePortAlg)
 	if ops.cfg.LoadBalancerAlgorithmAnnotation {
-		alg := fe.service.GetLBAlgorithmAnnotation()
+		alg := fe.Service.GetLBAlgorithmAnnotation()
 		if alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
 			return alg
 		}
@@ -951,7 +956,7 @@ func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgori
 	return defaultAlgorithm
 }
 
-func (ops *BPFOps) useMaglev(fe *Frontend) bool {
+func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 	if ops.lbAlgorithm(fe) != loadbalancer.SVCLoadBalancingAlgorithmMaglev {
 		return false
 	}
@@ -996,7 +1001,7 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, terminatingBackends, inactiveBackends int) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *loadbalancer.Frontend, activeBackends, terminatingBackends, inactiveBackends int) error {
 	svcKey.SetBackendSlot(0)
 	if activeBackends == 0 {
 		// If there are no active backends we can use the terminating backends.
@@ -1010,7 +1015,7 @@ func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVal
 	svcVal.SetBackendID(0)
 	svcVal.SetLbAlg(ops.lbAlgorithm(fe))
 
-	svc := fe.Service()
+	svc := fe.Service
 
 	// Set the SessionAffinity/L7ProxyPort. These re-use the "backend ID".
 	if svc.SessionAffinity {
@@ -1035,7 +1040,7 @@ func (ops *BPFOps) cleanupSlots(svcKey lbmap.ServiceKey, oldCount, newCount int)
 	return nil
 }
 
-func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *BackendParams) (err error) {
+func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *loadbalancer.BackendParams) (err error) {
 	var lbbe lbmap.Backend
 	proto, err := u8proto.ParseProtocol(be.Address.Protocol)
 	if err != nil {
@@ -1109,7 +1114,12 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey lbmap.ServiceKey, svc
 
 }
 
-func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBackends []backendWithRevision) error {
+type backendWithRevision struct {
+	*loadbalancer.BackendParams
+	Revision statedb.Revision
+}
+
+func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.ID, activeBackends []backendWithRevision) error {
 	if len(activeBackends) == 0 {
 		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
@@ -1126,7 +1136,7 @@ func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBacken
 	return nil
 }
 
-var _ reconciler.Operations[*Frontend] = &BPFOps{}
+var _ reconciler.Operations[*loadbalancer.Frontend] = &BPFOps{}
 
 func (ops *BPFOps) updateBackendRefCounts(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) {
 	newRefs := backends.Clone()
@@ -1225,7 +1235,7 @@ func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer
 //
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
-func (ops *BPFOps) sortedBackends(fe *Frontend) []backendWithRevision {
+func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevision {
 	quarantined := ops.restoredQuarantinedBackends[fe.Address]
 
 	bes := []backendWithRevision{}
