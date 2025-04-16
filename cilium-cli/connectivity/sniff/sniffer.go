@@ -76,7 +76,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		sniffer.cmd = append([]string{"tcpdump"}, append(args, "\""+filter+"\"")...)
 		// We wait before starting tcpdump to avoid an observed race
 		// condition when using a websocket connection
-		sniffer.cmd = append([]string{"sh", "-c"}, "sleep 1 && "+strings.Join(sniffer.cmd, " "))
+		sniffer.cmd = append([]string{"sh", "-c"}, "echo test && sleep 1 && "+strings.Join(sniffer.cmd, " "))
 
 		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
