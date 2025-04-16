@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -46,7 +46,7 @@ type skiplbParams struct {
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Map                lbmap.SkipLBMap
 	EM                 endpointmanager.EndpointManager `optional:"true"`
-	NetNSCookieSupport experimental.HaveNetNSCookieSupport
+	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 }
 
 func registerSkipLBReconciler(p skiplbParams, rp reconciler.Params) {
@@ -358,17 +358,17 @@ func (sub *skiplbEndpointSubscriber) EndpointRestored(ep *endpoint.Endpoint) {
 	sub.EndpointCreated(ep)
 }
 
-// testSkipLBMap is a SkipLBMap that the test suite can provide to override the
+// TestSkipLBMap is a SkipLBMap that the test suite can provide to override the
 // map implementation.
-type testSkipLBMap lbmap.SkipLBMap
+type TestSkipLBMap lbmap.SkipLBMap
 
 type skiplbmapParams struct {
 	cell.In
 
 	IsEnabled          lrpIsEnabled
-	TestSkipLBMap      testSkipLBMap `optional:"true"`
+	TestSkipLBMap      TestSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
-	NetNSCookieSupport experimental.HaveNetNSCookieSupport
+	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 }
 
 func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmap.SkipLBMap], err error) {

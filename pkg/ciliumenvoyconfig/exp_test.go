@@ -44,11 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lbexperimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
-	lbreflectors "github.com/cilium/cilium/pkg/loadbalancer/reflectors"
-	lbwriter "github.com/cilium/cilium/pkg/loadbalancer/writer"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -80,11 +76,7 @@ func TestScript(t *testing.T) {
 			cell.Config(cecConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
 
-			lbexperimental.Cell,
-			lbreflectors.Cell,
-			lbwriter.Cell,
-			lbreconciler.Cell,
-			lbmaps.Cell,
+			lbcell.Cell,
 
 			cell.Provide(
 				tables.NewNodeAddressTable,

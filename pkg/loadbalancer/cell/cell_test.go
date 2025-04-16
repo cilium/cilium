@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package cell
 
 import (
 	"testing"
@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -33,7 +32,6 @@ func TestCell(t *testing.T) {
 		maglev.Cell,
 		node.LocalNodeStoreCell,
 		Cell,
-		writer.Cell,
 		cell.Provide(source.NewSources),
 		cell.Provide(
 			tables.NewNodeAddressTable,

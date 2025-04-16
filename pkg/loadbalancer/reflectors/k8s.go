@@ -37,7 +37,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -84,7 +84,7 @@ type reflectorParams struct {
 	Pods                   statedb.Table[daemonK8s.LocalPod]
 	Writer                 *writer.Writer
 	ExtConfig              loadbalancer.ExternalConfig
-	HaveNetNSCookieSupport experimental.HaveNetNSCookieSupport
+	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
 }
 
@@ -727,7 +727,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)

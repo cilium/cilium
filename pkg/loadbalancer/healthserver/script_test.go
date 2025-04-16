@@ -33,12 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/loadbalancer/healthserver"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
-	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
-	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
@@ -78,12 +74,8 @@ func TestScript(t *testing.T) {
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
-				experimental.Cell,
-				reflectors.Cell,
-				writer.Cell,
-				lbmaps.Cell,
-				reconciler.Cell,
-				healthserver.Cell,
+
+				lbcell.Cell,
 
 				cell.Config(loadbalancer.TestConfig{}),
 				maglev.Cell,
