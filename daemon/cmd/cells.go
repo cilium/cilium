@@ -54,6 +54,7 @@ import (
 	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	redirectpolicy_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental/redirectpolicy"
 	loadbalancer_reflectors "github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	loadbalancer_writer "github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -217,6 +218,7 @@ var (
 		// Experimental control-plane for configuring service load-balancing.
 		loadbalancer_experimental.Cell,
 		loadbalancer_reflectors.Cell,
+		loadbalancer_writer.Cell,
 
 		// Experimental control-plane implementation for local redirect policies.
 		redirectpolicy_experimental.Cell,

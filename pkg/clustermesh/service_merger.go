@@ -9,7 +9,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
@@ -29,7 +29,7 @@ type serviceMergerParams struct {
 	ClusterInfo  cmtypes.ClusterInfo
 	ServiceCache k8s.ServiceCache
 	ExpConfig    loadbalancer.Config
-	Writer       *experimental.Writer
+	Writer       *writer.Writer
 }
 
 func newServiceMerger(p serviceMergerParams) ServiceMerger {
@@ -41,7 +41,7 @@ func newServiceMerger(p serviceMergerParams) ServiceMerger {
 
 type expServiceMerger struct {
 	clusterInfo cmtypes.ClusterInfo
-	writer      *experimental.Writer
+	writer      *writer.Writer
 }
 
 // MergeExternalServiceDelete implements k8s.ServiceCache.

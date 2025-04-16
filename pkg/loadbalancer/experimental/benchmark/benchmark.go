@@ -35,8 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -110,7 +112,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	}
 
 	var (
-		writer *experimental.Writer
+		writer *writer.Writer
 		db     *statedb.DB
 		bo     *experimental.BPFOps
 	)
@@ -391,7 +393,7 @@ func deleteEvent[Obj k8sRuntime.Object](obj Obj) resource.Event[Obj] {
 	}
 }
 
-func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) error {
+func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) error {
 	txn := db.ReadTxn()
 	var err error
 
@@ -515,7 +517,7 @@ var (
 func testHive(maps experimental.LBMaps,
 	services chan resource.Event[*slim_corev1.Service],
 	endpoints chan resource.Event[*k8s.Endpoints],
-	writer **experimental.Writer,
+	writerPtr **writer.Writer,
 	db **statedb.DB,
 	bo **experimental.BPFOps,
 ) *hive.Hive {
@@ -534,6 +536,7 @@ func testHive(maps experimental.LBMaps,
 			"Test module",
 
 			client.FakeClientCell,
+			node.LocalNodeStoreCell,
 
 			cell.Provide(
 				func() loadbalancer.Config {
@@ -559,21 +562,22 @@ func testHive(maps experimental.LBMaps,
 					return maps
 				},
 
-				func(lc cell.Lifecycle) (*maglev.Maglev, error) {
-					return maglev.New(maglevConfig, lc)
+				func(lc cell.Lifecycle) (*maglev.Maglev, maglev.Config, error) {
+					m, err := maglev.New(maglevConfig, lc)
+					return m, maglevConfig, err
 				},
 			),
 
 			daemonk8s.PodTableCell,
 
-			cell.Invoke(func(db_ *statedb.DB, w *experimental.Writer, bo_ *experimental.BPFOps) {
+			cell.Invoke(func(db_ *statedb.DB, w *writer.Writer, bo_ *experimental.BPFOps) {
 				*db = db_
-				*writer = w
+				*writerPtr = w
 				*bo = bo_
 			}),
 
 			// Provides [Writer] API and the load-balancing tables.
-			experimental.TablesCell,
+			writer.Cell,
 
 			// Reflects Kubernetes services and endpoints to the load-balancing tables
 			// using the [Writer].

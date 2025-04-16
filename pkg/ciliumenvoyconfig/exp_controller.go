@@ -24,7 +24,7 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -38,7 +38,7 @@ type cecControllerParams struct {
 	Metrics        experimentalMetrics
 	CECs           statedb.Table[*CEC]
 	EnvoyResources statedb.RWTable[*EnvoyResource]
-	Writer         *experimental.Writer
+	Writer         *writer.Writer
 }
 
 // cecController processes changes to Table[CEC] and populates Table[EnvoyResource]. These
@@ -165,7 +165,7 @@ type cecProcessor struct {
 	watchSets      map[CECName]*statedb.WatchSet
 	orphans        sets.Set[CECName]
 	cecs           statedb.Table[*CEC]
-	writer         *experimental.Writer
+	writer         *writer.Writer
 	envoyResources statedb.RWTable[*EnvoyResource]
 }
 
@@ -305,7 +305,7 @@ type backendProcessor struct {
 	// per service name so we know when it needs to be recomputed.
 	watchSets      map[loadbalancer.ServiceName]*statedb.WatchSet
 	envoyResources statedb.RWTable[*EnvoyResource]
-	writer         *experimental.Writer
+	writer         *writer.Writer
 }
 
 func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) {
