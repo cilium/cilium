@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
@@ -81,7 +82,7 @@ type reflectorParams struct {
 	ServicesResource       stream.Observable[resource.Event[*slim_corev1.Service]]
 	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
 	Pods                   statedb.Table[daemonK8s.LocalPod]
-	Writer                 *experimental.Writer
+	Writer                 *writer.Writer
 	ExtConfig              loadbalancer.ExternalConfig
 	HaveNetNSCookieSupport experimental.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
@@ -112,7 +113,7 @@ func RegisterK8sReflector(p reflectorParams) {
 	)
 }
 
-func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(experimental.WriteTxn)) error {
+func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(writer.WriteTxn)) error {
 	// Wait for pod table to be populated before proceeding.
 	health.OK("Waiting for pods to be initialized")
 	_, podsInitialized := p.Pods.Initialized(p.DB.ReadTxn())
@@ -129,7 +130,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 
 	rh := newReflectorHealth(health, p.Log)
 
-	processBuffer := func(txn experimental.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
+	processBuffer := func(txn writer.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
 		for _, change := range buf {
 			obj := change.Object.Pod
 			podName := obj.Namespace + "/" + obj.Name
@@ -191,10 +192,10 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 	return nil
 }
 
-func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(experimental.WriteTxn)) error {
+func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(writer.WriteTxn)) error {
 	rh := newReflectorHealth(health, p.Log)
 
-	processServiceEvent := func(txn experimental.WriteTxn, kind resource.EventKind, obj *slim_corev1.Service) {
+	processServiceEvent := func(txn writer.WriteTxn, kind resource.EventKind, obj *slim_corev1.Service) {
 		switch kind {
 		case resource.Sync:
 			initServices(txn)
@@ -226,7 +227,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	}
 
 	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
-	processEndpointsEvent := func(txn experimental.WriteTxn, kind resource.EventKind, obj *k8s.Endpoints) {
+	processEndpointsEvent := func(txn writer.WriteTxn, kind resource.EventKind, obj *k8s.Endpoints) {
 		switch kind {
 		case resource.Sync:
 			initEndpoints(txn)
@@ -726,7 +727,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn experimental.WriteTxn, writer *experimental.Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
@@ -887,7 +888,7 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig l
 	return nil
 }
 
-func deleteHostPort(params reflectorParams, wtxn experimental.WriteTxn, pod *slim_corev1.Pod) error {
+func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_corev1.Pod) error {
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
 	for svc := range params.Writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
 		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
