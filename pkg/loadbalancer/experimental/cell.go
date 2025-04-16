@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/statedb"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
@@ -18,8 +19,8 @@ var Cell = cell.Module(
 	"loadbalancer",
 	"Experimental load-balancing control-plane",
 
-	cell.Config(DefaultConfig),
-	cell.Provide(newExternalConfig),
+	cell.Config(loadbalancer.DefaultConfig),
+	cell.Provide(loadbalancer.NewExternalConfig),
 
 	// Provides [Writer] API and the load-balancing tables.
 	TablesCell,
@@ -56,16 +57,13 @@ var Cell = cell.Module(
 // TablesCell provides the [Writer] API for configuring load-balancing and the
 // Table[*Service], Table[*Frontend] and Table[*Backend] for read-only access
 // to load-balancing state.
-var TablesCell = cell.Module(
-	"loadbalancer-tables",
-	"Tables for load-balancing",
-
+var TablesCell = cell.Group(
 	// Provide the RWTable[Service] and RWTable[Backend] privately to this
 	// module so that the tables are only modified via the Services API.
 	cell.ProvidePrivate(
-		NewServicesTable,
-		NewFrontendsTable,
-		NewBackendsTable,
+		loadbalancer.NewServicesTable,
+		loadbalancer.NewFrontendsTable,
+		loadbalancer.NewBackendsTable,
 	),
 
 	cell.Provide(
@@ -73,9 +71,9 @@ var TablesCell = cell.Module(
 		NewWriter,
 
 		// Provide direct read-only access to the tables.
-		toReadOnlyTable[*Service],
-		toReadOnlyTable[*Frontend],
-		toReadOnlyTable[*Backend],
+		toReadOnlyTable[*loadbalancer.Service],
+		toReadOnlyTable[*loadbalancer.Frontend],
+		toReadOnlyTable[*loadbalancer.Backend],
 	),
 )
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package loadbalancer
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
 
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -24,7 +23,7 @@ const (
 
 // BackendParams defines the parameters of a backend for insertion into the backends table.
 type BackendParams struct {
-	Address loadbalancer.L3n4Addr
+	Address L3n4Addr
 
 	// PortNames are the optional names for the ports. A frontend can specify which
 	// backends to select by port name.
@@ -50,7 +49,7 @@ type BackendParams struct {
 	Source source.Source
 
 	// State of the backend, e.g. active, quarantined or terminating.
-	State loadbalancer.BackendState
+	State BackendState
 
 	// Unhealthy marks a backend as unhealthy and overrides [State] to mark the backend
 	// as quarantined. We require a separate field for active health checking to merge
@@ -66,7 +65,7 @@ type BackendParams struct {
 // Backend is a composite of the per-service backend instances that share the same
 // IP address and port.
 type Backend struct {
-	Address loadbalancer.L3n4Addr
+	Address L3n4Addr
 
 	// Instances of this backend. A backend is always linked to a specific
 	// service and the instances may call the backend by different name
@@ -80,7 +79,7 @@ type Backend struct {
 }
 
 type BackendInstanceKey struct {
-	ServiceName    loadbalancer.ServiceName
+	ServiceName    ServiceName
 	SourcePriority uint8
 }
 
@@ -94,18 +93,17 @@ func (k BackendInstanceKey) Key() []byte {
 	return buf.Bytes()
 }
 
-type backendWithRevision struct {
-	*BackendParams
-	Revision statedb.Revision
-}
-
-func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendParams {
+func (be *Backend) GetInstance(name ServiceName) *BackendParams {
 	// Return the instance matching the service name with highest priority
 	// (lowest number)
-	for _, inst := range be.instancesOfService(name) {
+	for _, inst := range be.GetInstancesOfService(name) {
 		return &inst
 	}
 	return nil
+}
+
+func (be *Backend) GetInstancesOfService(name ServiceName) iter.Seq2[BackendInstanceKey, BackendParams] {
+	return be.Instances.Prefix(BackendInstanceKey{ServiceName: name, SourcePriority: 0})
 }
 
 func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
@@ -116,7 +114,7 @@ func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
 	return be.GetInstance(serviceName)
 }
 
-func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src source.Source) *BackendParams {
+func (be *Backend) GetInstanceFromSource(name ServiceName, src source.Source) *BackendParams {
 	for k, inst := range be.Instances.Prefix(BackendInstanceKey{ServiceName: name}) {
 		if k.ServiceName == name && inst.Source == src {
 			return &inst
@@ -164,7 +162,7 @@ func showInstances(be *Backend) string {
 	for k, inst := range be.PreferredInstances() {
 		b.WriteString(k.ServiceName.String())
 
-		if inst.State != loadbalancer.BackendStateActive || inst.Unhealthy {
+		if inst.State != BackendStateActive || inst.Unhealthy {
 			b.WriteString(" [")
 			if inst.Unhealthy {
 				b.WriteString("unhealthy")
@@ -193,7 +191,7 @@ func showShadows(be *Backend) string {
 	var (
 		services           []string
 		instances          []string
-		emptyName, svcName loadbalancer.ServiceName
+		emptyName, svcName ServiceName
 	)
 	updateServices := func() {
 		if len(instances) > 0 {
@@ -235,7 +233,7 @@ func (be *Backend) serviceNameKeys() index.KeySet {
 
 func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendParams] {
 	return func(yield func(BackendInstanceKey, BackendParams) bool) {
-		var svcName loadbalancer.ServiceName
+		var svcName ServiceName
 		for k, v := range be.Instances.All() {
 			if k.ServiceName != svcName {
 				svcName = k.ServiceName
@@ -248,36 +246,6 @@ func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendPar
 	}
 }
 
-func (be *Backend) instancesOfService(name loadbalancer.ServiceName) iter.Seq2[BackendInstanceKey, BackendParams] {
-	return be.Instances.Prefix(BackendInstanceKey{name, 0})
-}
-
-func (be *Backend) release(name loadbalancer.ServiceName) (*Backend, bool) {
-	instances := be.Instances
-	for k := range be.instancesOfService(name) {
-		instances = instances.Delete(k)
-	}
-	beCopy := *be
-	beCopy.Instances = instances
-	return &beCopy, beCopy.Instances.Len() == 0
-}
-
-func (be *Backend) releasePerSource(name loadbalancer.ServiceName, source source.Source, clusterID uint32) (*Backend, bool) {
-	var keyToDelete *BackendInstanceKey
-	for k, inst := range be.instancesOfService(name) {
-		if inst.Source == source && inst.ClusterID == clusterID {
-			keyToDelete = &k
-			break
-		}
-	}
-	if keyToDelete == nil {
-		return be, be.Instances.Len() == 0
-	}
-	beCopy := *be
-	beCopy.Instances = beCopy.Instances.Delete(*keyToDelete)
-	return &beCopy, beCopy.Instances.Len() == 0
-}
-
 // Clone returns a shallow clone of the backend.
 func (be *Backend) Clone() *Backend {
 	be2 := *be
@@ -285,22 +253,22 @@ func (be *Backend) Clone() *Backend {
 }
 
 var (
-	backendAddrIndex = statedb.Index[*Backend, loadbalancer.L3n4Addr]{
+	backendAddrIndex = statedb.Index[*Backend, L3n4Addr]{
 		Name: "address",
 		FromObject: func(obj *Backend) index.KeySet {
 			return index.NewKeySet(obj.Address.Bytes())
 		},
-		FromKey:    func(l loadbalancer.L3n4Addr) index.Key { return index.Key(l.Bytes()) },
-		FromString: loadbalancer.L3n4AddrFromString,
+		FromKey:    func(l L3n4Addr) index.Key { return index.Key(l.Bytes()) },
+		FromString: L3n4AddrFromString,
 		Unique:     true,
 	}
 
 	BackendByAddress = backendAddrIndex.Query
 
-	backendServiceIndex = statedb.Index[*Backend, loadbalancer.ServiceName]{
+	backendServiceIndex = statedb.Index[*Backend, ServiceName]{
 		Name:       "service",
 		FromObject: (*Backend).serviceNameKeys,
-		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromKey:    index.Stringer[ServiceName],
 		FromString: index.FromString,
 		Unique:     false,
 	}
@@ -309,9 +277,6 @@ var (
 )
 
 func NewBackendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Backend], error) {
-	if !cfg.EnableExperimentalLB {
-		return nil, nil
-	}
 	tbl, err := statedb.NewTable(
 		BackendTableName,
 		backendAddrIndex,

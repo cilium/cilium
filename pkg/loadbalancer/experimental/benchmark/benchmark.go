@@ -69,9 +69,9 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		bpfMaps := &experimental.BPFLBMaps{
 			Log:    log,
 			Pinned: false,
-			Cfg: experimental.ExternalConfig{
+			Cfg: loadbalancer.ExternalConfig{
 				ZoneMapper: &option.DaemonConfig{},
-				LBMapsConfig: experimental.LBMapsConfig{
+				LBMapsConfig: loadbalancer.LBMapsConfig{
 					MaxSockRevNatMapEntries:  3 * testSize,
 					ServiceMapMaxEntries:     3 * testSize,
 					BackendMapMaxEntries:     3 * testSize,
@@ -449,7 +449,7 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				if fe.Status.Kind != "Done" {
 					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
 				}
-				backends := slices.Collect(statedb.ToSeq(iter.Seq2[experimental.BackendParams, statedb.Revision](fe.Backends)))
+				backends := slices.Collect(statedb.ToSeq(iter.Seq2[loadbalancer.BackendParams, statedb.Revision](fe.Backends)))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
 					if backends[0].Address.AddrCluster != wantAddr {
 						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].Address.AddrCluster, wantAddr))
@@ -519,7 +519,7 @@ func testHive(maps experimental.LBMaps,
 	db **statedb.DB,
 	bo **experimental.BPFOps,
 ) *hive.Hive {
-	extConfig := experimental.ExternalConfig{
+	extConfig := loadbalancer.ExternalConfig{
 		ZoneMapper:        &option.DaemonConfig{},
 		EnableIPv4:        true,
 		EnableIPv6:        true,
@@ -536,14 +536,14 @@ func testHive(maps experimental.LBMaps,
 			client.FakeClientCell,
 
 			cell.Provide(
-				func() experimental.Config {
-					return experimental.Config{
+				func() loadbalancer.Config {
+					return loadbalancer.Config{
 						EnableExperimentalLB: true,
 						RetryBackoffMin:      time.Millisecond,
 						RetryBackoffMax:      time.Millisecond,
 					}
 				},
-				func() experimental.ExternalConfig { return extConfig },
+				func() loadbalancer.ExternalConfig { return extConfig },
 
 				func() reflectors.StreamsOut {
 					return reflectors.StreamsOut{

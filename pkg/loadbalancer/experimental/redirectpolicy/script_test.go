@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/lock"
@@ -72,7 +73,7 @@ func TestScript(t *testing.T) {
 				maglev.Cell,
 				cell.Provide(
 					source.NewSources,
-					func() *experimental.TestConfig { return &experimental.TestConfig{} },
+					func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					func() *option.DaemonConfig {

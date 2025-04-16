@@ -8,7 +8,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,7 +72,7 @@ func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB,
 
 type lrpIsEnabled bool
 
-func newLRPIsEnabled(expConfig experimental.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
+func newLRPIsEnabled(expConfig loadbalancer.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
 	return lrpIsEnabled(
 		expConfig.EnableExperimentalLB && daemonConfig.EnableLocalRedirectPolicy,
 	)

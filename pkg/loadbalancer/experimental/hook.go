@@ -3,7 +3,11 @@
 
 package experimental
 
-import "github.com/cilium/statedb"
+import (
+	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/pkg/loadbalancer"
+)
 
 // ServiceHook is a function invoked when a frontend has been updated. A hook
 // can manipulate the frontend before the changes are seen by other components.
@@ -13,4 +17,4 @@ import "github.com/cilium/statedb"
 //
 // For consistency the hook should only access StateDB tables via the provided
 // read transaction.
-type ServiceHook = func(txn statedb.ReadTxn, svc *Service)
+type ServiceHook = func(txn statedb.ReadTxn, svc *loadbalancer.Service)

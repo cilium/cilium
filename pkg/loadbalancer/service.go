@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package loadbalancer
 
 import (
 	"fmt"
@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -29,7 +28,7 @@ import (
 // on its properties.
 type Service struct {
 	// Name is the fully qualified service name, e.g. (<cluster>/)<namespace>/<name>.
-	Name loadbalancer.ServiceName
+	Name ServiceName
 
 	// Source is the data source from which this service was ingested from.
 	Source source.Source
@@ -46,15 +45,15 @@ type Service struct {
 	Selector map[string]string
 
 	// NatPolicy defines whether we need NAT46/64 translation for backends.
-	NatPolicy loadbalancer.SVCNatPolicy
+	NatPolicy SVCNatPolicy
 
 	// ExtTrafficPolicy controls how backends are selected for North-South traffic.
 	// If set to "Local", only node-local backends are chosen.
-	ExtTrafficPolicy loadbalancer.SVCTrafficPolicy
+	ExtTrafficPolicy SVCTrafficPolicy
 
 	// IntTrafficPolicy controls how backends are selected for East-West traffic.
 	// If set to "Local", only node-local backends are chosen.
-	IntTrafficPolicy loadbalancer.SVCTrafficPolicy
+	IntTrafficPolicy SVCTrafficPolicy
 
 	SessionAffinity        bool
 	SessionAffinityTimeout time.Duration
@@ -100,8 +99,8 @@ const (
 	TrafficDistributionPreferClose = TrafficDistribution("PreferClose")
 )
 
-func (svc *Service) GetLBAlgorithmAnnotation() loadbalancer.SVCLoadBalancingAlgorithm {
-	return loadbalancer.ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
+func (svc *Service) GetLBAlgorithmAnnotation() SVCLoadBalancingAlgorithm {
+	return ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
 func (svc *Service) GetAnnotations() map[string]string {
@@ -198,7 +197,7 @@ func (svc *Service) TableRow() []string {
 		flags = append(flags, "LoopbackHostPort="+strconv.FormatBool(svc.LoopbackHostPort))
 	}
 
-	if alg := svc.GetLBAlgorithmAnnotation(); alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
+	if alg := svc.GetLBAlgorithmAnnotation(); alg != SVCLoadBalancingAlgorithmUndef {
 		flags = append(flags, "ExplicitLBAlgorithm="+alg.String())
 	}
 
@@ -241,12 +240,12 @@ func (svc *Service) showPortNames() string {
 }
 
 var (
-	serviceNameIndex = statedb.Index[*Service, loadbalancer.ServiceName]{
+	serviceNameIndex = statedb.Index[*Service, ServiceName]{
 		Name: "name",
 		FromObject: func(obj *Service) index.KeySet {
 			return index.NewKeySet(index.Stringer(obj.Name))
 		},
-		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromKey:    index.Stringer[ServiceName],
 		FromString: index.FromString,
 		Unique:     true,
 	}
@@ -259,9 +258,6 @@ const (
 )
 
 func NewServicesTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Service], error) {
-	if !cfg.EnableExperimentalLB {
-		return nil, nil
-	}
 	tbl, err := statedb.NewTable(
 		ServiceTableName,
 		serviceNameIndex,

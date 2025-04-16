@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/lock"
@@ -93,8 +94,8 @@ func TestScript(t *testing.T) {
 						KubeProxyReplacement: option.KubeProxyReplacementTrue,
 					}
 				},
-				func() *experimental.TestConfig {
-					return &experimental.TestConfig{}
+				func() *loadbalancer.TestConfig {
+					return &loadbalancer.TestConfig{}
 				},
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
