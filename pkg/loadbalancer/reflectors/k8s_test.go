@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package reflectors
 
 import (
 	"log/slog"
@@ -13,10 +13,11 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 )
 
 var (
-	benchmarkExternalConfig = ExternalConfig{
+	benchmarkExternalConfig = experimental.ExternalConfig{
 		EnableIPv4:                      true,
 		EnableIPv6:                      true,
 		ExternalClusterIP:               true,
@@ -30,7 +31,7 @@ var (
 )
 
 func BenchmarkConvertService(b *testing.B) {
-	obj, err := testutils.DecodeFile("benchmark/testdata/service.yaml")
+	obj, err := testutils.DecodeFile("../experimental/benchmark/testdata/service.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +44,7 @@ func BenchmarkConvertService(b *testing.B) {
 }
 
 func BenchmarkParseEndpointSlice(b *testing.B) {
-	obj, err := testutils.DecodeFile("benchmark/testdata/endpointslice.yaml")
+	obj, err := testutils.DecodeFile("../experimental/benchmark/testdata/endpointslice.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +58,7 @@ func BenchmarkParseEndpointSlice(b *testing.B) {
 }
 
 func BenchmarkConvertEndpoints(b *testing.B) {
-	obj, err := testutils.DecodeFile("benchmark/testdata/endpointslice.yaml")
+	obj, err := testutils.DecodeFile("../experimental/benchmark/testdata/endpointslice.yaml")
 	if err != nil {
 		panic(err)
 	}

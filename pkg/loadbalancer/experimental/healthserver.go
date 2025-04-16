@@ -78,7 +78,7 @@ func registerHealthServer(params healthServerParams) {
 	}
 
 	if params.TestConfig != nil {
-		addr := chooseHealthServerLoopbackAddressForTesting()
+		addr := ChooseHealthServerLoopbackAddressForTesting()
 		addrCluster := cmtypes.AddrClusterFrom(addr, 0)
 		s.healthServerAddr = &addrCluster
 	}
@@ -86,7 +86,7 @@ func registerHealthServer(params healthServerParams) {
 	params.Jobs.Add(job.OneShot("control-loop", s.controlLoop))
 }
 
-func chooseHealthServerLoopbackAddressForTesting() netip.Addr {
+func ChooseHealthServerLoopbackAddressForTesting() netip.Addr {
 	// Choose a loopback IP address that's tied to the process ID.
 	// This makes it possible to stress test the health server in parallel
 	// as each process gets its own address.

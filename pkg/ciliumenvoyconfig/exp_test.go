@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -74,6 +75,7 @@ func TestScript(t *testing.T) {
 			cell.Config(cecConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
 			experimental.Cell,
+			reflectors.Cell,
 			maglev.Cell,
 			cell.Provide(
 				tables.NewNodeAddressTable,
