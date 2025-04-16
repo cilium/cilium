@@ -21,10 +21,6 @@ var Cell = cell.Module(
 	cell.Config(loadbalancer.DefaultConfig),
 	cell.Provide(loadbalancer.NewExternalConfig),
 
-	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
-	// (when non-zero) and responds with the number of healthy backends.
-	healthServerCell,
-
 	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
 	// implementation is enabled.
 	cell.Provide(newAdapters),
