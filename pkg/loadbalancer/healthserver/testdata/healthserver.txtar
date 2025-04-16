@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --enable-health-check-nodeport --lb-test-fault-probability=0.0
+#! --enable-experimental-lb --enable-health-check-nodeport
 
 # Add a node address.
 db/insert node-addresses addrv4.yaml
@@ -106,26 +106,26 @@ devicename: test
 
 -- health_no_service.table --
 Module                      Component                         Level   Message                    Error
+loadbalancer-healthserver   job-control-loop                  OK      0 health servers running
+loadbalancer-reconciler     job-reconcile                     OK      OK, 0 object(s)
+loadbalancer-reconciler     job-refresh                       OK      Next refresh in 30m0s
+loadbalancer-reconciler     job-start-reconciler              Stopped Started
 loadbalancer-reflectors     job-reflect-pods                  OK      Running
 loadbalancer-reflectors     job-reflect-services-endpoints    OK      Running
-loadbalancer.healthserver   job-control-loop                  OK      0 health servers running
-loadbalancer                job-node-addr-reconciler          OK      Running
-loadbalancer                job-zone-watcher                  OK      Running
-loadbalancer.reconciler     job-reconcile                     OK      OK, 0 object(s)
-loadbalancer.reconciler     job-refresh                       OK      Next refresh in 30m0s
-loadbalancer.reconciler     job-start-reconciler              Stopped Started
+loadbalancer-writer         job-node-addr-reconciler          OK      Running
+loadbalancer-writer         job-zone-watcher                  OK      Running
 
 -- health_with_service.table --
 Module                      Component                         Level   Message                    Error
+loadbalancer-healthserver   job-control-loop                  OK      1 health servers running
+loadbalancer-healthserver   job-listener-40000                OK      Running
+loadbalancer-reconciler     job-reconcile                     OK      OK, 4 object(s)
+loadbalancer-reconciler     job-refresh                       OK      Next refresh in 30m0s
+loadbalancer-reconciler     job-start-reconciler              Stopped Started
 loadbalancer-reflectors     job-reflect-pods                  OK      Running
 loadbalancer-reflectors     job-reflect-services-endpoints    OK      Running
-loadbalancer.healthserver   job-control-loop                  OK      1 health servers running
-loadbalancer.healthserver   job-listener-40000                OK      Running
-loadbalancer                job-node-addr-reconciler          OK      Running
-loadbalancer                job-zone-watcher                  OK      Running
-loadbalancer.reconciler     job-reconcile                     OK      OK, 4 object(s)
-loadbalancer.reconciler     job-refresh                       OK      Next refresh in 30m0s
-loadbalancer.reconciler     job-start-reconciler              Stopped Started
+loadbalancer-writer         job-node-addr-reconciler          OK      Running
+loadbalancer-writer         job-zone-watcher                  OK      Running
 
 -- services.table --
 Name                   Source   PortNames  TrafficPolicy   Flags

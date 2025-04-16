@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package tests
+package healthserver_test
 
 import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
-	"strconv"
+	"net/http"
+	"os"
+	"slices"
 	"strings"
 	"testing"
 
-	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
@@ -24,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -82,10 +85,7 @@ func TestScript(t *testing.T) {
 				reconciler.Cell,
 				healthserver.Cell,
 
-				cell.Config(loadbalancer.TestConfig{
-					// By default 10% of the time the LBMap operations fail
-					TestFaultProbability: 0.1,
-				}),
+				cell.Config(loadbalancer.TestConfig{}),
 				maglev.Cell,
 				node.LocalNodeStoreCell,
 				cell.Provide(
@@ -106,9 +106,6 @@ func TestScript(t *testing.T) {
 							ExternalClusterIP:               cfg.ExternalClusterIP,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
-					},
-					func(ops *reconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
-						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
 					},
 				),
 
@@ -133,104 +130,50 @@ func TestScript(t *testing.T) {
 			cmds, err := h.ScriptCommands(log)
 			require.NoError(t, err, "ScriptCommands")
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
+			cmds["http/get"] = httpGetCmd
 
 			return &script.Engine{
 				Cmds:             cmds,
 				RetryInterval:    20 * time.Millisecond,
 				MaxRetryInterval: 500 * time.Millisecond,
 			}
-		},
-		[]string{
-			/* empty environment */
+		}, []string{
+			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(healthserver.ChooseHealthServerLoopbackAddressForTesting(), 0)),
 		}, "testdata/*.txtar")
 }
 
-type testCommands struct {
-	w   *writer.Writer
-	lns *node.LocalNodeStore
-	ops *reconciler.BPFOps
-}
-
-func (tc testCommands) cmds() map[string]script.Cmd {
-	return map[string]script.Cmd{
-		"test/update-backend-health": tc.updateHealth(),
-		"test/bpfops-reset":          tc.opsReset(),
-		"test/bpfops-summary":        tc.opsSummary(),
-		"test/set-node-labels":       tc.setNodeLabels(),
-	}
-}
-
-func (tc testCommands) updateHealth() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "Update backend healthyness",
-			Args:    "service-name backend-addr healthy",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) != 3 {
-				return nil, fmt.Errorf("%w: expected service name, backend address and health", script.ErrUsage)
-			}
-			ns, name, _ := strings.Cut(args[0], "/")
-			svc := loadbalancer.ServiceName{Namespace: ns, Name: name}
-
-			var beAddr loadbalancer.L3n4Addr
-			if err := beAddr.ParseFromString(args[1]); err != nil {
-				return nil, err
-			}
-
-			healthy, err := strconv.ParseBool(args[2])
-			if err != nil {
-				return nil, err
-			}
-
-			txn := tc.w.WriteTxn()
-			defer txn.Commit()
-
-			_, err = tc.w.UpdateBackendHealth(txn, svc, beAddr, healthy)
+var httpGetCmd = script.Command(
+	script.CmdUsage{
+		Summary: "HTTP get the given url into the given file",
+		Args:    "url file",
+	},
+	func(s *script.State, args ...string) (script.WaitFunc, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("expected url and file")
+		}
+		resp, err := http.Get(args[0])
+		if err != nil {
 			return nil, err
-		})
-}
+		}
+		defer resp.Body.Close()
 
-func (tc testCommands) opsReset() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "Reset and restart BPF ops",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			return nil, tc.ops.ResetAndRestore()
-		})
-}
+		f, err := os.OpenFile(s.Path(args[1]), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
 
-func (tc testCommands) opsSummary() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "Write out summary of BPFOps state",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			return func(s *script.State) (stdout string, stderr string, err error) {
-				stdout = tc.ops.StateSummary()
-				return
-			}, nil
-		})
-}
+		fmt.Fprintf(f, "%s\n", resp.Status)
 
-func (tc testCommands) setNodeLabels() script.Cmd {
-	return script.Command(
-		script.CmdUsage{Summary: "Set local node labels", Args: "key=value..."},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			labels := map[string]string{}
-			for _, arg := range args {
-				key, value, found := strings.Cut(arg, "=")
-				if !found {
-					return nil, fmt.Errorf("bad key=value: %q", arg)
-				}
-				labels[key] = value
+		for _, k := range slices.Sorted(maps.Keys(resp.Header)) {
+			h := resp.Header[k]
+			if k == "Date" {
+				h = []string{"<omitted>"}
 			}
-			tc.lns.Update(func(n *node.LocalNode) {
-				n.Labels = labels
-				s.Logf("Labels set to %v\n", labels)
-			})
-			return nil, nil
-		})
-
-}
+			fmt.Fprintf(f, "%s=%s\n", k, strings.Join(h, ", "))
+		}
+		fmt.Fprintln(f, "---")
+		_, err = io.Copy(f, resp.Body)
+		return nil, err
+	},
+)
