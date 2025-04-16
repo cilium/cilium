@@ -12,14 +12,14 @@
 set -ux
 go test -c || exit 1
 
-inotifywait -e close_write -m . testdata |
+inotifywait -e close_write -m .. testdata |
 while read -r directory events filename; do
   case "$directory" in
-    ./) 
-      go test -c && ./experimental.test -test.v -test.failfast
+    ../) 
+      go test -c && ./tests.test -test.v -test.failfast
       ;;
     testdata/) 
-      ./experimental.test -test.run TestScript/$filename -test.v 
+      ./tests.test -test.run TestScript/$filename -test.v 
       ;;
   esac
 done
