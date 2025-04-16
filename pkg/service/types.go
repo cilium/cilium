@@ -29,16 +29,16 @@ type ServiceManager interface {
 	GetCurrentTs() time.Time
 
 	// GetDeepCopyServices returns a deep-copy of all installed services.
-	GetDeepCopyServices() []*lb.SVC
+	GetDeepCopyServices() []*lb.LegacySVC
 
 	// GetServiceIDs returns a list of IDs of all installed services.
 	GetServiceIDs() []lb.ServiceID
 
 	// GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
-	GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool)
+	GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.LegacySVC, bool)
 
 	// GetDeepCopyServiceByID returns a deep-copy of a service identified with the given ID.
-	GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool)
+	GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LegacySVC, bool)
 
 	// GetLastUpdatedTs retrieves the last updated timestamp.
 	GetLastUpdatedTs() time.Time
@@ -79,7 +79,7 @@ type ServiceManager interface {
 	UpdateBackendsState(backends []*lb.LegacyBackend) ([]lb.L3n4Addr, error)
 
 	// UpsertService inserts or updates the given service.
-	UpsertService(*lb.SVC) (bool, lb.ID, error)
+	UpsertService(*lb.LegacySVC) (bool, lb.ID, error)
 
 	// TerminateUDPConnectionsToBackend terminates UDP connections to the passed
 	// backend with address when socket-LB is enabled.
