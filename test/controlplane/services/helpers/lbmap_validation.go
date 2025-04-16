@@ -90,7 +90,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 		newBackendIds[be.ID] = i
 	}
 
-	services := make([]*lb.SVC, 0, len(lbmap.ServiceByID))
+	services := make([]*lb.LegacySVC, 0, len(lbmap.ServiceByID))
 	for _, svc := range lbmap.ServiceByID {
 		services = append(services, svc)
 	}

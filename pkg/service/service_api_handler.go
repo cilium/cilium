@@ -152,7 +152,7 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 		svcCluster = params.Config.Flags.Cluster
 	}
 
-	p := &loadbalancer.SVC{
+	p := &loadbalancer.LegacySVC{
 		Name:                loadbalancer.ServiceName{Name: svcName, Namespace: svcNamespace, Cluster: svcCluster},
 		Type:                svcType,
 		Frontend:            frontend,
