@@ -13,7 +13,7 @@ import (
 
 type HealthChecker interface {
 	SetCallback(cb HealthCheckCallbackFunc)
-	UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName, svcType lb.SVCType, svcAnnotations map[string]string, backends []*lb.Backend)
+	UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName, svcType lb.SVCType, svcAnnotations map[string]string, backends []*lb.LegacyBackend)
 	DeleteService(svcAddr lb.L3n4Addr, name lb.ServiceName)
 }
 
@@ -40,7 +40,7 @@ type HealthUpdateSvcInfo struct {
 	Name           lb.ServiceName
 	Addr           lb.L3n4Addr
 	SvcType        lb.SVCType
-	ActiveBackends []lb.Backend
+	ActiveBackends []lb.LegacyBackend
 }
 
 type HealthUpdateCallback func(svcInfo HealthUpdateSvcInfo)

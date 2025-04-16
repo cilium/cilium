@@ -103,7 +103,7 @@ func (s *Service) notifyHealthCheckUpdateSubscribers(svcAddr lb.L3n4Addr) {
 
 func (s *Service) notifyHealthCheckUpdateSubscribersServiceDelete(svc *svcInfo) {
 	s.logger.Debug("Notify health update subscribers about deleted service (0 active backends)", logfields.Service, svc.svcName)
-	svc.backends = []*lb.Backend{} // reset backends
+	svc.backends = []*lb.LegacyBackend{} // reset backends
 	for _, subscriber := range s.healthCheckSubscribers {
 		if subscriber.Ctx.Err() == nil {
 			subscriber.Callback(s.healthUpdateFromSvcInfo(svc))
@@ -112,7 +112,7 @@ func (s *Service) notifyHealthCheckUpdateSubscribersServiceDelete(svc *svcInfo) 
 }
 
 func (s *Service) healthUpdateFromSvcInfo(info *svcInfo) HealthUpdateSvcInfo {
-	activeBes := make([]lb.Backend, 0, len(info.backends))
+	activeBes := make([]lb.LegacyBackend, 0, len(info.backends))
 	for _, backend := range info.backends {
 		if backend == nil {
 			// https://github.com/cilium/cilium/pull/23446

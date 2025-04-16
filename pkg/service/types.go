@@ -76,7 +76,7 @@ type ServiceManager interface {
 	// UpdateBackendsState updates all the service(s) with the updated state of
 	// the given backends, and returns the updated services.
 	// It also persists the updated backend states to the BPF maps.
-	UpdateBackendsState(backends []*lb.Backend) ([]lb.L3n4Addr, error)
+	UpdateBackendsState(backends []*lb.LegacyBackend) ([]lb.L3n4Addr, error)
 
 	// UpsertService inserts or updates the given service.
 	UpsertService(*lb.SVC) (bool, lb.ID, error)

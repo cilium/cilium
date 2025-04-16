@@ -16,8 +16,10 @@ import (
 // Preferred indicates if this backend is preferred to be load balanced.
 type Preferred bool
 
-// Backend represents load balancer backend.
-type Backend struct {
+// LegacyBackend represents load balancer backend.
+//
+// Deprecated: Superceded by [Backend] from the new load-balancer implementation.
+type LegacyBackend struct {
 	// FEPortName is the frontend port name. This is used to filter backends sending to EDS.
 	FEPortName string
 	// ID of the backend
@@ -36,12 +38,12 @@ type Backend struct {
 	Preferred Preferred
 }
 
-func (b *Backend) String() string {
+func (b *LegacyBackend) String() string {
 	state, _ := b.State.String()
 	return "[" + b.L3n4Addr.String() + "," + "State:" + state + "]"
 }
 
-func (b *Backend) GetBackendModel() *models.BackendAddress {
+func (b *LegacyBackend) GetBackendModel() *models.BackendAddress {
 	if b == nil {
 		return nil
 	}
@@ -60,17 +62,21 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 }
 
-// NewBackend creates the Backend struct instance from given params.
+// NewLegacyBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16) *Backend {
+//
+// Deprecated: Superceded by new load-balancer implementation.
+func NewLegacyBackend(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16) *LegacyBackend {
 	return NewBackendWithState(id, protocol, addrCluster, portNumber, 0, BackendStateActive)
 }
 
 // NewBackendWithState creates the Backend struct instance from given params.
+//
+// Deprecated: Superceded by new load-balancer implementation.
 func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, zone uint8,
-	state BackendState) *Backend {
+	state BackendState) *LegacyBackend {
 	lbport := NewL4Addr(protocol, portNumber)
-	b := Backend{
+	b := LegacyBackend{
 		ID:       id,
 		L3n4Addr: L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport},
 		State:    state,
@@ -81,7 +87,8 @@ func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.Addr
 	return &b
 }
 
-func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
+// Deprecated: Superceded by new load-balancer implementation.
+func NewLegacyBackendFromBackendModel(base *models.BackendAddress) (*LegacyBackend, error) {
 	if base.IP == nil {
 		return nil, fmt.Errorf("missing IP address")
 	}
@@ -96,7 +103,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
 	}
 
-	b := &Backend{
+	b := &LegacyBackend{
 		NodeName:  base.NodeName,
 		ZoneID:    option.Config.GetZoneID(base.Zone),
 		L3n4Addr:  L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr},
@@ -131,7 +138,7 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 // SVC is a structure for storing service details.
 type SVC struct {
 	Frontend                  L3n4AddrID        // SVC frontend addr and an allocated ID
-	Backends                  []*Backend        // List of service backends
+	Backends                  []*LegacyBackend  // List of service backends
 	Type                      SVCType           // Service type
 	ForwardingMode            SVCForwardingMode // Service mode (DSR vs SNAT)
 	ExtTrafficPolicy          SVCTrafficPolicy  // Service external traffic policy
