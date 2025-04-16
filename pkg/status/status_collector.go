@@ -1186,28 +1186,3 @@ func (d *statusCollector) getProbes() []Probe {
 		},
 	}
 }
-
-func (d *statusCollector) startStatusCollector() {
-	d.statusParams.Logger.Debug("Starting probes")
-	d.statusCollector.StartProbes(d.getProbes())
-	d.statusParams.Logger.Debug("Successfully started probes")
-
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), d.statusCollector.config.StatusCollectorProbeCheckTimeout)
-		defer cancel()
-
-		probeCheckHealth := d.statusParams.Health.NewScope("probe-check")
-
-		// Report health whether all probes have been executed at least once.
-		if err := d.statusCollector.WaitForFirstRun(ctx); err != nil {
-			probeCheckHealth.Degraded("Not all probes successfully executed at least once", err)
-			d.statusParams.Logger.Debug("Not all probes successfully executed at least once")
-			return
-		}
-
-		d.allProbesInitialized = true
-
-		probeCheckHealth.OK("All probes executed at least once")
-		d.statusParams.Logger.Debug("All probes executed at least once")
-	}()
-}
