@@ -10,6 +10,7 @@ Deploy the First Ingress
 You'll find the example Ingress definition in ``basic-ingress.yaml``.
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/basic-ingress.yaml
+    :language: yaml
 
 .. parsed-literal::
 
