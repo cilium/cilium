@@ -4,9 +4,12 @@
 package status
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
@@ -59,8 +62,8 @@ type statusParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
 	Logger    *slog.Logger
-	Health    cell.Health
 
 	Config       Config
 	DaemonConfig *option.DaemonConfig
@@ -112,11 +115,30 @@ func newStatusCollector(params statusParams) StatusCollector {
 		statusCollector: newCollector(params.Logger, params.Config),
 	}
 
+	params.JobGroup.Add(job.OneShot("probes", func(ctx context.Context, health cell.Health) error {
+		params.Logger.Debug("Starting probes")
+		collector.statusCollector.StartProbes(collector.getProbes())
+		defer collector.statusCollector.Close()
+		params.Logger.Debug("Successfully started probes")
+
+		waitCtx, cancelWait := context.WithTimeout(ctx, params.Config.StatusCollectorProbeCheckTimeout)
+		defer cancelWait()
+
+		// Report health whether all probes have been executed at least once.
+		if err := collector.statusCollector.WaitForFirstRun(waitCtx); err != nil {
+			params.Logger.Debug("Not all probes successfully executed at least once")
+			return fmt.Errorf("not all probes successfully executed at least once: %w", err)
+		}
+
+		collector.allProbesInitialized = true
+
+		params.Logger.Debug("All probes executed at least once")
+
+		<-ctx.Done()
+		return nil
+	}))
+
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			collector.startStatusCollector()
-			return nil
-		},
 		OnStop: func(_ cell.HookContext) error {
 			// If the KVstore state is not OK, print help for user.
 			if collector.statusResponse.Kvstore != nil &&
@@ -131,9 +153,7 @@ func newStatusCollector(params statusParams) StatusCollector {
 					logfields.Status, collector.statusResponse.Kvstore.Msg,
 					logfields.HelpMessage, helpMsg,
 				)
-
 			}
-			collector.statusCollector.Close()
 			return nil
 		},
 	})
