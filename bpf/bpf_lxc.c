@@ -20,7 +20,6 @@
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/config.h"
-#include "lib/maps.h"
 #include "lib/arp.h"
 #include "lib/edt.h"
 #include "lib/ipv6.h"

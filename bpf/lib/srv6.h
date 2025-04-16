@@ -5,8 +5,7 @@
 
 #include "lib/common.h"
 #include "lib/identity.h"
-
-#include "maps.h"
+#include "lib/tailcall.h"
 
 #ifdef ENABLE_SRV6
 struct {
