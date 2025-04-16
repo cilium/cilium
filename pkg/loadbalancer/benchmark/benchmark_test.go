@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental/benchmark"
+	"github.com/cilium/cilium/pkg/loadbalancer/benchmark"
 )
 
 // TestBenchmark validates that RunBenchmark() compiles and works, but only
