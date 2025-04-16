@@ -42,7 +42,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	if (CONFIG(secctx_from_ipcache)) {
 		src = (union v6addr *)&ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info && info->sec_identity)
+		if (info)
 			srcid = info->sec_identity;
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -136,7 +136,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 
 	if (CONFIG(secctx_from_ipcache)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info && info->sec_identity)
+		if (info)
 			srcid = info->sec_identity;
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
