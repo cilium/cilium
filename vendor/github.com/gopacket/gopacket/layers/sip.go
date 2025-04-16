@@ -250,6 +250,7 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	var line []byte
 	var err error
 	var offset int
+	var eoh = false // track End Of Headers
 
 	// Iterate on all lines of the SIP Headers
 	// and stop when we reach the SDP (aka when the new line
@@ -277,6 +278,10 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 		// Empty line, we hit Body
 		if len(line) == 0 {
+			if countLines == 0 {
+				return fmt.Errorf("invalid first SIP line, empty")
+			}
+			eoh = true
 			break
 		}
 
@@ -296,6 +301,9 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		}
 
 		countLines++
+	}
+	if !eoh {
+		df.SetTruncated()
 	}
 	s.setBaseLayer(data, offset, df)
 
