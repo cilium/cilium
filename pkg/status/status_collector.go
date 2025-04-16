@@ -120,7 +120,7 @@ func (d *statusCollector) getK8sStatus() *models.K8sStatus {
 	return k8sStatus
 }
 
-func (d *statusCollector) getMasqueradingStatus() (*models.Masquerading, error) {
+func (d *statusCollector) getMasqueradingStatus(ctx context.Context) (*models.Masquerading, error) {
 	s := &models.Masquerading{
 		Enabled: d.statusParams.DaemonConfig.MasqueradingEnabled(),
 		EnabledProtocols: &models.MasqueradingEnabledProtocols{
@@ -133,7 +133,7 @@ func (d *statusCollector) getMasqueradingStatus() (*models.Masquerading, error) 
 		return s, nil
 	}
 
-	localNode, err := d.statusParams.NodeLocalStore.Get(context.TODO())
+	localNode, err := d.statusParams.NodeLocalStore.Get(ctx)
 	if err != nil {
 		return s, err
 	}
@@ -274,7 +274,7 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 	}
 }
 
-func (d *statusCollector) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
+func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *models.KubeProxyReplacement {
 	var mode string
 	switch d.statusParams.DaemonConfig.KubeProxyReplacement {
 	case option.KubeProxyReplacementTrue:
@@ -384,7 +384,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus() *models.KubeProxyRepla
 	}
 
 	var directRoutingDevice string
-	drd, _ := d.statusParams.DirectRoutingDev.Get(context.TODO(), d.statusParams.DB.ReadTxn())
+	drd, _ := d.statusParams.DirectRoutingDev.Get(ctx, d.statusParams.DB.ReadTxn())
 	if drd != nil {
 		directRoutingDevice = drd.Name
 	}
@@ -917,7 +917,7 @@ func (d *statusCollector) getProbes() []Probe {
 		{
 			Name: "kube-proxy-replacement",
 			Probe: func(ctx context.Context) (any, error) {
-				return d.getKubeProxyReplacementStatus(), nil
+				return d.getKubeProxyReplacementStatus(ctx), nil
 			},
 			OnStatusUpdate: func(status Status) {
 				d.statusCollectMutex.Lock()
@@ -972,7 +972,7 @@ func (d *statusCollector) getProbes() []Probe {
 		{
 			Name: "masquerading",
 			Probe: func(ctx context.Context) (any, error) {
-				return d.getMasqueradingStatus()
+				return d.getMasqueradingStatus(ctx)
 			},
 			OnStatusUpdate: func(status Status) {
 				d.statusCollectMutex.Lock()
@@ -985,23 +985,202 @@ func (d *statusCollector) getProbes() []Probe {
 				}
 			},
 		},
+		{
+			Name: "bigtcp-v6",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getIPV6BigTCPStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.IPV6BigTCP); ok {
+						d.statusResponse.IPV6BigTCP = s
+					}
+				}
+			},
+		},
+		{
+			Name: "bigtcp-v4",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getIPV4BigTCPStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.IPV4BigTCP); ok {
+						d.statusResponse.IPV4BigTCP = s
+					}
+				}
+			},
+		},
+		{
+			Name: "bandwidth-manager",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getBandwidthManagerStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.BandwidthManager); ok {
+						d.statusResponse.BandwidthManager = s
+					}
+				}
+			},
+		},
+		{
+			Name: "host-firewall",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getHostFirewallStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.HostFirewall); ok {
+						d.statusResponse.HostFirewall = s
+					}
+				}
+			},
+		},
+		{
+			Name: "routing",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getRoutingStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.Routing); ok {
+						d.statusResponse.Routing = s
+					}
+				}
+			},
+		},
+		{
+			Name: "clock-source",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getClockSourceStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.ClockSource); ok {
+						d.statusResponse.ClockSource = s
+					}
+				}
+			},
+		},
+		{
+			Name: "bpf-maps",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getBPFMapStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.BPFMapStatus); ok {
+						d.statusResponse.BpfMaps = s
+					}
+				}
+			},
+		},
+		{
+			Name: "cni-chaining",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getCNIChainingStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.CNIChainingStatus); ok {
+						d.statusResponse.CniChaining = s
+					}
+				}
+			},
+		},
+		{
+			Name: "identity-range",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getIdentityRange(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.IdentityRange); ok {
+						d.statusResponse.IdentityRange = s
+					}
+				}
+			},
+		},
+		{
+			Name: "SRv6",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getSRv6Status(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.Srv6); ok {
+						d.statusResponse.Srv6 = s
+					}
+				}
+			},
+		},
+		{
+			Name: "attach-mode",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getAttachModeStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(models.AttachMode); ok {
+						d.statusResponse.AttachMode = s
+					}
+				}
+			},
+		},
+		{
+			Name: "datapath-mode",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getDatapathModeStatus(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(models.DatapathMode); ok {
+						d.statusResponse.DatapathMode = s
+					}
+				}
+			},
+		},
 	}
 }
 
 func (d *statusCollector) startStatusCollector(ctx context.Context) error {
-	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
-	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
-	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
-	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
-	d.statusResponse.Routing = d.getRoutingStatus()
-	d.statusResponse.ClockSource = d.getClockSourceStatus()
-	d.statusResponse.BpfMaps = d.getBPFMapStatus()
-	d.statusResponse.CniChaining = d.getCNIChainingStatus()
-	d.statusResponse.IdentityRange = d.getIdentityRange()
-	d.statusResponse.Srv6 = d.getSRv6Status()
-	d.statusResponse.AttachMode = d.getAttachModeStatus()
-	d.statusResponse.DatapathMode = d.getDatapathModeStatus()
-
 	d.statusCollector.StartProbes(d.getProbes())
 
 	// Block until all probes have been executed at least once, to make sure that
