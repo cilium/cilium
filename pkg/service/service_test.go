@@ -273,7 +273,7 @@ func TestUpsertAndDeleteServiceNat64(t *testing.T) {
 
 func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 	// Should create a new v4 service with two v6 backends
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends3,
 		Type:                  lb.SVCTypeNodePort,
@@ -315,7 +315,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 
 func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 	// Should create a new v6 service with two v4 backends
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:              frontend3,
 		Backends:              backends1,
 		Type:                  lb.SVCTypeNodePort,
@@ -357,7 +357,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 
 func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	// Should create a new service with two backends and session affinity
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends1,
 		Type:                      lb.SVCTypeNodePort,
@@ -427,7 +427,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	require.NoError(t, err)
 	cidr2, err := cidr.ParseCIDR("192.168.1.0/24")
 	require.NoError(t, err)
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:                  frontend2,
 		Backends:                  backends1,
 		Type:                      lb.SVCTypeLoadBalancer,
@@ -455,7 +455,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	require.NoError(t, err)
 	cidr1, err = cidr.ParseCIDR("fd00::/8")
 	require.NoError(t, err)
-	p3 := &lb.SVC{
+	p3 := &lb.LegacySVC{
 		Frontend:                  frontend3,
 		Backends:                  backends3,
 		Type:                      lb.SVCTypeLoadBalancer,
@@ -528,7 +528,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	cidr2, err = cidr.ParseCIDR("192.168.1.0/24")
 	require.NoError(t, err)
 
-	p4 := &lb.SVC{
+	p4 := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends1,
 		Type:                      lb.SVCTypeLoadBalancer,
@@ -550,7 +550,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 func TestRestoreServices(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends1,
 		Type:                  lb.SVCTypeNodePort,
@@ -565,7 +565,7 @@ func TestRestoreServices(t *testing.T) {
 	require.NoError(t, err)
 	cidr2, err := cidr.ParseCIDR("192.168.1.0/24")
 	require.NoError(t, err)
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:                  frontend2,
 		Backends:                  backends2,
 		Type:                      lb.SVCTypeLoadBalancer,
@@ -633,7 +633,7 @@ func TestRestoreServices(t *testing.T) {
 func TestSyncWithK8sFinished(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends1,
 		Type:                      lb.SVCTypeNodePort,
@@ -646,7 +646,7 @@ func TestSyncWithK8sFinished(t *testing.T) {
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	require.NoError(t, err)
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              frontend2,
 		Backends:              backends2,
 		Type:                  lb.SVCTypeClusterIP,
@@ -715,13 +715,13 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	backendAddrs := []string{"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5"}
 	finalBackendAddrs := []string{"10.0.0.2", "10.0.0.3", "10.0.0.5"}
 
-	service := func(ns, name, frontend string, backends ...string) *lb.SVC {
+	service := func(ns, name, frontend string, backends ...string) *lb.LegacySVC {
 		var bes []*lb.LegacyBackend
 		for _, backend := range backends {
 			bes = append(bes, lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster(backend), 8080))
 		}
 
-		return &lb.SVC{
+		return &lb.LegacySVC{
 			Frontend:         *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster(frontend), 80, lb.ScopeExternal, 0),
 			Backends:         bes,
 			Type:             lb.SVCTypeClusterIP,
@@ -869,7 +869,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	allBackends := []*lb.LegacyBackend{localBackend1, localBackend2, localTerminatingBackend3, remoteBackend1, remoteBackend2, remoteBackend3}
 
 	// Insert svc1 as type LoadBalancer with some local backends
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              loadBalancerIP,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeLoadBalancer,
@@ -890,7 +890,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	require.Equal(t, len(localActiveBackends), m.svcHealth.ServiceByPort(32001).LocalEndpoints)
 
 	// Insert the ClusterIP frontend of svc1
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              clusterIP,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -999,7 +999,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	allBackends := []*lb.LegacyBackend{localBackend1}
 
 	// Insert svc1 as type LoadBalancer with some local backends
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              loadBalancerIP,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeLoadBalancer,
@@ -1074,7 +1074,7 @@ func TestHealthCheckNodePortDisabled(t *testing.T) {
 		m.svc.healthServer = healthServer
 	}()
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:            frontend1,
 		Backends:            backends1,
 		Type:                lb.SVCTypeNodePort,
@@ -1111,7 +1111,7 @@ func TestGetServiceNameByAddr(t *testing.T) {
 	name := "svc1"
 	namespace := "ns1"
 	hcport := uint16(3)
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:              *fe,
 		Backends:              backends1,
 		Type:                  lb.SVCTypeNodePort,
@@ -1153,7 +1153,7 @@ func TestLocalRedirectLocalBackendSelection(t *testing.T) {
 	allBackends = append(allBackends, remoteBackends...)
 
 	// Create a service entry of type Local Redirect.
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeLocalRedirect,
@@ -1201,7 +1201,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1241,7 +1241,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, created)
 
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              frontend2,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeNodePort,
@@ -1279,7 +1279,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	backends := append(backends4, backends1...)
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
 		Type:                      lb.SVCTypeNodePort,
@@ -1342,7 +1342,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	backends := backends1 // There are 2 backends
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
 		Type:                      lb.SVCTypeNodePort,
@@ -1428,7 +1428,7 @@ func TestUpsertServiceWithExternalClusterIP(t *testing.T) {
 	}
 	backends[0].State = lb.BackendStateActive
 	backends[1].State = lb.BackendStateActive
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1457,7 +1457,7 @@ func TestUpsertServiceWithOutExternalClusterIP(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends1,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1486,7 +1486,7 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	backends := append(backends4, backends1...)
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
 		Type:                      lb.SVCTypeNodePort,
@@ -1560,7 +1560,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1655,7 +1655,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1716,7 +1716,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// Adding a matching frontend gets proxy port
 
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              frontend1_8080,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1789,7 +1789,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1859,7 +1859,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	}
 	backends[0].State = lb.BackendStateActive
 	backends[1].State = lb.BackendStateActive
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1867,7 +1867,7 @@ func TestUpdateBackendsState(t *testing.T) {
 		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 		ProxyDelegation:       lb.SVCProxyDelegationNone,
 	}
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              frontend2,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -1955,7 +1955,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	backends[1].State = lb.BackendStateActive
 	backends[2].State = lb.BackendStateActive
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
 		SessionAffinity:           true,
@@ -2018,7 +2018,7 @@ func TestUpsertServiceWithZeroWeightBackends(t *testing.T) {
 	backends[1].State = lb.BackendStateMaintenance
 	backends[2].Weight = 1
 
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
 		Type:                      lb.SVCTypeNodePort,
@@ -2089,7 +2089,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 	hash1 := backends[1].L3n4Addr.Hash()
 	hash2 := backends[2].L3n4Addr.Hash()
 
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
 		Type:                      lb.SVCTypeNodePort,
@@ -2104,7 +2104,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 			Namespace: "ns1",
 		},
 	}
-	r := &lb.SVC{
+	r := &lb.LegacySVC{
 		Frontend:                  frontend2,
 		Backends:                  backends,
 		Type:                      lb.SVCTypeNodePort,
@@ -2148,7 +2148,7 @@ func TestSyncNodePortFrontends(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
 	// Add a IPv4 surrogate frontend
-	surrogate := &lb.SVC{
+	surrogate := &lb.LegacySVC{
 		Frontend:              surrogateFE,
 		Backends:              backends1,
 		Type:                  lb.SVCTypeNodePort,
@@ -2157,7 +2157,7 @@ func TestSyncNodePortFrontends(t *testing.T) {
 	}
 	_, surrID, err := m.svc.UpsertService(surrogate)
 	require.NoError(t, err)
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends1,
 		Type:                  lb.SVCTypeNodePort,
@@ -2192,7 +2192,7 @@ func TestSyncNodePortFrontends(t *testing.T) {
 	require.True(t, found)
 
 	// Add an IPv6 surrogate
-	surrogate = &lb.SVC{
+	surrogate = &lb.LegacySVC{
 		Frontend:              surrogateFEv6,
 		Backends:              backends3,
 		Type:                  lb.SVCTypeNodePort,
@@ -2231,7 +2231,7 @@ func TestTrafficPolicy(t *testing.T) {
 	allBackends = append(allBackends, localBackends...)
 	allBackends = append(allBackends, remoteBackends...)
 
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              internalIP,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeLoadBalancer,
@@ -2245,7 +2245,7 @@ func TestTrafficPolicy(t *testing.T) {
 	require.True(t, created)
 	require.NoError(t, err)
 
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              externalIP,
 		Backends:              allBackends,
 		Type:                  lb.SVCTypeLoadBalancer,
@@ -2303,7 +2303,7 @@ func TestDeleteServiceWithTerminatingBackends(t *testing.T) {
 
 	backends := backends5
 	backends[0].State = lb.BackendStateTerminating
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
@@ -2335,7 +2335,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -2409,7 +2409,7 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 	s2 := testsockets.MockSocket{
 		SockID: id2, Family: syscall.AF_INET, Protocol: unix.IPPROTO_UDP,
 	}
-	svc := &lb.SVC{
+	svc := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
@@ -2429,7 +2429,7 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 	require.True(t, created)
 
 	// Delete one of the backends.
-	svc = &lb.SVC{
+	svc = &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              []*lb.LegacyBackend{backends[1]},
 		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
@@ -2463,7 +2463,7 @@ func (r *FakeBackendSyncer) ProxyName() string {
 	return "Fake"
 }
 
-func (r *FakeBackendSyncer) Sync(svc *lb.SVC) error {
+func (r *FakeBackendSyncer) Sync(svc *lb.LegacySVC) error {
 	r.nrOfBackends = len(svc.Backends)
 	r.nrOfSyncs++
 
@@ -2504,7 +2504,7 @@ func TestHealthCheckCB(t *testing.T) {
 	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -2542,7 +2542,7 @@ func TestHealthCheckInitialSync(t *testing.T) {
 	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -2577,7 +2577,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	// Add two services with common backend.
-	p1 := &lb.SVC{
+	p1 := &lb.LegacySVC{
 		Frontend:              frontend1,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -2585,7 +2585,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 		ProxyDelegation:       lb.SVCProxyDelegationNone,
 	}
-	p2 := &lb.SVC{
+	p2 := &lb.LegacySVC{
 		Frontend:              frontend2,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,
@@ -2694,7 +2694,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	}
 	backends[0].State = lb.BackendStateQuarantined
 	frontendFoo := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.11"), 80, lb.ScopeExternal, 0)
-	p1 = &lb.SVC{
+	p1 = &lb.LegacySVC{
 		Frontend:              frontendFoo,
 		Backends:              backends,
 		Type:                  lb.SVCTypeClusterIP,

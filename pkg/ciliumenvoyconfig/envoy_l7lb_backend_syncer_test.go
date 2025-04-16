@@ -19,7 +19,7 @@ import (
 
 func Test_filterServiceBackends(t *testing.T) {
 	t.Run("filter by port number", func(t *testing.T) {
-		svc := &loadbalancer.SVC{
+		svc := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					L4Addr: loadbalancer.L4Addr{
@@ -62,7 +62,7 @@ func Test_filterServiceBackends(t *testing.T) {
 	})
 
 	t.Run("filter by port named", func(t *testing.T) {
-		svc := &loadbalancer.SVC{
+		svc := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					L4Addr: loadbalancer.L4Addr{
@@ -121,7 +121,7 @@ func Test_filterServiceBackends(t *testing.T) {
 	})
 
 	t.Run("filter with preferred backend", func(t *testing.T) {
-		svc := &loadbalancer.SVC{
+		svc := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					L4Addr: loadbalancer.L4Addr{

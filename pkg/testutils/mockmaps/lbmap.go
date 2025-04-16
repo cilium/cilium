@@ -20,7 +20,7 @@ import (
 type LBMockMap struct {
 	lock.Mutex
 	BackendByID            map[lb.BackendID]*lb.LegacyBackend
-	ServiceByID            map[uint16]*lb.SVC
+	ServiceByID            map[uint16]*lb.LegacySVC
 	AffinityMatch          datapathTypes.BackendIDByServiceIDSet
 	SourceRanges           datapathTypes.SourceRangeSetByServiceID
 	DummyMaglevTable       map[uint16]int // svcID => backends count
@@ -32,7 +32,7 @@ type LBMockMap struct {
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
 		BackendByID:            map[lb.BackendID]*lb.LegacyBackend{},
-		ServiceByID:            map[uint16]*lb.SVC{},
+		ServiceByID:            map[uint16]*lb.LegacySVC{},
 		AffinityMatch:          datapathTypes.BackendIDByServiceIDSet{},
 		SourceRanges:           datapathTypes.SourceRangeSetByServiceID{},
 		DummyMaglevTable:       map[uint16]int{},
@@ -71,7 +71,7 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 			return err
 		}
 		frontend := lb.NewL3n4AddrID(u8p.String(), cmtypes.MustAddrClusterFromIP(p.IP), p.Port, p.Scope, lb.ID(p.ID))
-		svc = &lb.SVC{Frontend: *frontend}
+		svc = &lb.LegacySVC{Frontend: *frontend}
 	} else {
 		if p.PrevBackendsCount != len(svc.Backends) {
 			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevBackendsCount, len(svc.Backends))
@@ -176,10 +176,10 @@ func (m *LBMockMap) DeleteBackendByID(id lb.BackendID) error {
 	return nil
 }
 
-func (m *LBMockMap) DumpServiceMaps() ([]*lb.SVC, []error) {
+func (m *LBMockMap) DumpServiceMaps() ([]*lb.LegacySVC, []error) {
 	m.Lock()
 	defer m.Unlock()
-	list := make([]*lb.SVC, 0, len(m.ServiceByID))
+	list := make([]*lb.LegacySVC, 0, len(m.ServiceByID))
 	for _, svc := range m.ServiceByID {
 		list = append(list, svc)
 	}
