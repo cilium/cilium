@@ -6,6 +6,7 @@ package check
 import (
 	"errors"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
@@ -61,14 +62,29 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 
 		if ct.params.LogCodeOwners {
 			scenarios := t.Scenarios()
-			properties := make([]junit.Property, 0, len(scenarios)*2)
+			owners := make(map[string]struct{})
 			for _, s := range scenarios {
-				owners := ct.GetOwners(s)
+				for _, o := range ct.GetOwners(s) {
+					owners[o] = struct{}{}
+				}
+			}
+			properties := make([]junit.Property, 0, len(owners))
+			for o := range owners {
 				properties = append(properties, junit.Property{
 					Name:  "owner",
-					Value: strings.Join(owners, ", "),
+					Value: o,
 				})
 			}
+			slices.SortFunc(properties,
+				func(a, b junit.Property) int {
+					if a.Value < b.Value {
+						return -1
+					}
+					if a.Value > b.Value {
+						return 1
+					}
+					return 0
+				})
 			test.Properties = &junit.Properties{Properties: properties}
 		}
 
