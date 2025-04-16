@@ -110,12 +110,12 @@ func (svc *svcInfo) isL7LBService() bool {
 	return svc.l7LBProxyPort != 0
 }
 
-func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
+func (svc *svcInfo) deepCopyToLBSVC() *lb.LegacySVC {
 	backends := make([]*lb.LegacyBackend, len(svc.backends))
 	for i, backend := range svc.backends {
 		backends[i] = backend.DeepCopy()
 	}
-	return &lb.SVC{
+	return &lb.LegacySVC{
 		Frontend:              *svc.frontend.DeepCopy(),
 		Backends:              backends,
 		Type:                  svc.svcType,
@@ -537,7 +537,7 @@ type BackendSyncer interface {
 
 	// Sync triggers the actual synchronization and passes the information
 	// about the service that should be synchronized.
-	Sync(svc *lb.SVC) error
+	Sync(svc *lb.LegacySVC) error
 }
 
 func (s *Service) GetLastUpdatedTs() time.Time {
@@ -724,7 +724,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 // UpsertService inserts or updates the given service.
 //
 // The first return value is true if the service hasn't existed before.
-func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
+func (s *Service) UpsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
 	return s.upsertService(params)
@@ -745,7 +745,7 @@ func (s *Service) reUpsertServicesByName(name, namespace string) error {
 	return nil
 }
 
-func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
+func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 	empty := L7LBResourceName{}
 
 	// Set L7 LB for this service if registered.
@@ -1036,7 +1036,7 @@ func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCol
 		},
 	}
 	// Create a new service with the healthcheck frontend and healthcheck backend
-	healthCheckSvc := &lb.SVC{
+	healthCheckSvc := &lb.LegacySVC{
 		Name:                  healthCheckSvcName,
 		Type:                  svc.svcType,
 		ForwardingMode:        svc.svcForwardingMode,
@@ -1243,7 +1243,7 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 // the given ID.
 //
 // If a service cannot be found, returns false.
-func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
+func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LegacySVC, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -1256,11 +1256,11 @@ func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
 }
 
 // GetDeepCopyServices returns a deep-copy of all installed services.
-func (s *Service) GetDeepCopyServices() []*lb.SVC {
+func (s *Service) GetDeepCopyServices() []*lb.LegacySVC {
 	s.RLock()
 	defer s.RUnlock()
 
-	svcs := make([]*lb.SVC, 0, len(s.svcByHash))
+	svcs := make([]*lb.LegacySVC, 0, len(s.svcByHash))
 	for _, svc := range s.svcByHash {
 		svcs = append(svcs, svc.deepCopyToLBSVC())
 	}
@@ -1282,7 +1282,7 @@ func (s *Service) GetServiceIDs() []lb.ServiceID {
 }
 
 // GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
-func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool) {
+func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.LegacySVC, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -1467,7 +1467,7 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 	return stale, nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
+func (s *Service) createSVCInfoIfNotExist(p *lb.LegacySVC) (*svcInfo, bool, bool,
 	[]*cidr.CIDR, error,
 ) {
 	prevSessionAffinity := false

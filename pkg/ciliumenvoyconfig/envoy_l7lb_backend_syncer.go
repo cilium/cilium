@@ -46,7 +46,7 @@ func newEnvoyServiceBackendSyncer(logger *slog.Logger, envoyXdsServer envoy.XDSS
 	}
 }
 
-func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
+func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.LegacySVC) error {
 	r.l7lbSvcsMutex.RLock()
 	l7lbInfo, exists := r.l7lbSvcs[svc.Name]
 	if !exists {
@@ -188,7 +188,7 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 
 // filterServiceBackends returns the list of backends based on given front end ports.
 // The returned map will have key as port name/number, and value as list of respective backends.
-func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string][]*loadbalancer.LegacyBackend {
+func filterServiceBackends(svc *loadbalancer.LegacySVC, onlyPorts []string) map[string][]*loadbalancer.LegacyBackend {
 	preferredBackends := filterPreferredBackends(svc.Backends)
 
 	if len(onlyPorts) == 0 {

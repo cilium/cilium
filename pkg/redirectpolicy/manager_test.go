@@ -91,7 +91,7 @@ func setupManagerSuite(tb testing.TB) *ManagerSuite {
 }
 
 type fakeSvcManager struct {
-	upsertEvents            chan *lb.SVC
+	upsertEvents            chan *lb.LegacySVC
 	destroyConnectionEvents chan lb.L3n4Addr
 }
 
@@ -99,7 +99,7 @@ func (f *fakeSvcManager) DeleteService(lb.L3n4Addr) (bool, error) {
 	return true, nil
 }
 
-func (f *fakeSvcManager) UpsertService(s *lb.SVC) (bool, lb.ID, error) {
+func (f *fakeSvcManager) UpsertService(s *lb.LegacySVC) (bool, lb.ID, error) {
 	if f.upsertEvents != nil {
 		f.upsertEvents <- s
 	}
@@ -816,7 +816,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 
 	// Sequence of events: Pods -> RedirectPolicy -> Endpoint
 	sMgr := &fakeSvcManager{}
-	sMgr.upsertEvents = make(chan *lb.SVC)
+	sMgr.upsertEvents = make(chan *lb.LegacySVC)
 	m.svc = sMgr
 	lbEvents := make(chan skipLBParams)
 	pc := configAddrType
@@ -884,7 +884,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 
 	// Sequence of events: Pod -> Endpoint -> RedirectPolicy
 	sMgr = &fakeSvcManager{}
-	sMgr.upsertEvents = make(chan *lb.SVC)
+	sMgr.upsertEvents = make(chan *lb.LegacySVC)
 	m.svc = sMgr
 	pod = pod1.DeepCopy()
 	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}
@@ -945,7 +945,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 
 	// Sequence of events: RedirectPolicy -> Pod -> Endpoint
 	sMgr = &fakeSvcManager{}
-	sMgr.upsertEvents = make(chan *lb.SVC)
+	sMgr.upsertEvents = make(chan *lb.LegacySVC)
 	m.svc = sMgr
 	pod = pod1.DeepCopy()
 	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}

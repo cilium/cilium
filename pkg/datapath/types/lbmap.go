@@ -23,7 +23,7 @@ type LBMap interface {
 	AddAffinityMatch(uint16, loadbalancer.BackendID) error
 	DeleteAffinityMatch(uint16, loadbalancer.BackendID) error
 	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
-	DumpServiceMaps() ([]*loadbalancer.SVC, []error)
+	DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error)
 	DumpBackendMaps() ([]*loadbalancer.LegacyBackend, error)
 	DumpAffinityMatches() (BackendIDByServiceIDSet, error)
 	DumpSourceRanges(bool) (SourceRangeSetByServiceID, error)

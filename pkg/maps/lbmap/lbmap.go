@@ -437,7 +437,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 }
 
 // DumpServiceMaps dumps the services from the BPF maps.
-func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
+func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error) {
 	newSVCMap := svcMap{}
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
@@ -540,7 +540,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 	}
 
-	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
+	newSVCList := make([]*loadbalancer.LegacySVC, 0, len(newSVCMap))
 	for hash := range newSVCMap {
 		svc := newSVCMap[hash]
 		key := svc.Frontend.String()
@@ -726,16 +726,16 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	return nil
 }
 
-type svcMap map[string]loadbalancer.SVC
+type svcMap map[string]loadbalancer.LegacySVC
 
 // addFE adds the give 'fe' to the svcMap without any backends. If it does not
 // yet exist, an entry is created. Otherwise, the existing entry is left
 // unchanged.
-func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.SVC {
+func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.LegacySVC {
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
-		lbsvc = loadbalancer.SVC{Frontend: *fe}
+		lbsvc = loadbalancer.LegacySVC{Frontend: *fe}
 		svcs[hash] = lbsvc
 	}
 	return &lbsvc
@@ -747,7 +747,7 @@ func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.SVC {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.LegacyBackend, beIndex int) *loadbalancer.SVC {
+func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.LegacyBackend, beIndex int) *loadbalancer.LegacySVC {
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
@@ -759,7 +759,7 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Legacy
 			bes = make([]*loadbalancer.LegacyBackend, beIndex)
 			bes[beIndex-1] = be
 		}
-		lbsvc = loadbalancer.SVC{
+		lbsvc = loadbalancer.LegacySVC{
 			Frontend: *fe,
 			Backends: bes,
 		}

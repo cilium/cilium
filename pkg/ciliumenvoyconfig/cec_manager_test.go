@@ -260,7 +260,7 @@ func Test_convertToLBService(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []*loadbalancer.SVC
+		want []*loadbalancer.LegacySVC
 	}{
 		{
 			name: "headless with one port and one address",
@@ -295,7 +295,7 @@ func Test_convertToLBService(t *testing.T) {
 					},
 				},
 			},
-			want: []*loadbalancer.SVC{
+			want: []*loadbalancer.LegacySVC{
 				{
 					Name: loadbalancer.ServiceName{
 						Name:      "headless-service",
@@ -364,7 +364,7 @@ func Test_convertToLBService(t *testing.T) {
 					},
 				},
 			},
-			want: []*loadbalancer.SVC{
+			want: []*loadbalancer.LegacySVC{
 				{
 					Name: loadbalancer.ServiceName{
 						Name:      "headless-service",
@@ -444,7 +444,7 @@ func Test_convertToLBService(t *testing.T) {
 					},
 				},
 			},
-			want: []*loadbalancer.SVC{
+			want: []*loadbalancer.LegacySVC{
 				{
 					Name: loadbalancer.ServiceName{
 						Name:      "headless-service",

@@ -76,8 +76,8 @@ type policyManager interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
-	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
-	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
+	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.LegacySVC, bool)
+	UpsertService(*loadbalancer.LegacySVC) (bool, loadbalancer.ID, error)
 }
 
 type redirectPolicyManager interface {

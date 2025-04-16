@@ -135,8 +135,11 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
 }
 
-// SVC is a structure for storing service details.
-type SVC struct {
+// LegacySVC is a structure for storing service details.
+//
+// Deprecated: Superceded by the new load-balancer implementation. New type
+// with similar purpose is [Frontend].
+type LegacySVC struct {
 	Frontend                  L3n4AddrID        // SVC frontend addr and an allocated ID
 	Backends                  []*LegacyBackend  // List of service backends
 	Type                      SVCType           // Service type
@@ -157,7 +160,7 @@ type SVC struct {
 	Annotations               map[string]string
 }
 
-func (s *SVC) GetModel() *models.Service {
+func (s *LegacySVC) GetModel() *models.Service {
 	var natPolicy string
 	type backendPlacement struct {
 		pos int

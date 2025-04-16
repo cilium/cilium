@@ -383,19 +383,19 @@ func (s *serviceManagerAdapter) GetCurrentTs() time.Time {
 }
 
 // GetDeepCopyServiceByFrontend implements service.ServiceManager.
-func (s *serviceManagerAdapter) GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool) {
+func (s *serviceManagerAdapter) GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.LegacySVC, bool) {
 	// Used by pod watcher, which will be replaced when new implementation is enabled.
 	return nil, false
 }
 
 // GetDeepCopyServiceByID implements service.ServiceManager.
-func (s *serviceManagerAdapter) GetDeepCopyServiceByID(id loadbalancer.ServiceID) (*loadbalancer.SVC, bool) {
+func (s *serviceManagerAdapter) GetDeepCopyServiceByID(id loadbalancer.ServiceID) (*loadbalancer.LegacySVC, bool) {
 	// Used by REST API
 	return nil, false
 }
 
 // GetDeepCopyServices implements service.ServiceManager.
-func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC) {
+func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.LegacySVC) {
 	// Used by REST API.
 	txn := s.db.ReadTxn()
 	for fe := range s.frontends.All(txn) {
@@ -434,7 +434,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 			svcType = loadbalancer.SVCTypeLocalRedirect
 		}
 
-		svcModel := &loadbalancer.SVC{
+		svcModel := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: fe.Address,
 				ID:       loadbalancer.ID(fe.ID),
@@ -525,7 +525,7 @@ func (s *serviceManagerAdapter) UpdateBackendsState(backends []*loadbalancer.Leg
 }
 
 // UpsertService implements service.ServiceManager.
-func (s *serviceManagerAdapter) UpsertService(svc *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
+func (s *serviceManagerAdapter) UpsertService(svc *loadbalancer.LegacySVC) (bool, loadbalancer.ID, error) {
 	// Used by pod watcher, LRP and REST API
 	s.log.Debug("serviceManagerAdapter: Ignoring UpsertService", logfields.Name, svc.Name)
 	return true, 0, nil
