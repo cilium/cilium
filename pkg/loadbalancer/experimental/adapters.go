@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -46,7 +47,7 @@ type adapterParams struct {
 	Backends     statedb.Table[*loadbalancer.Backend]
 	Frontends    statedb.Table[*loadbalancer.Frontend]
 	Ops          *BPFOps
-	Writer       *Writer
+	Writer       *writer.Writer
 	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 }
 
@@ -88,11 +89,11 @@ func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManager
 	// delay pruning until ClusterMesh has catched up. This happens via
 	// (*Daemon).initRestore in daemon/cmd/state.go. Once ClusterMesh has switched
 	// to using the Writer directly this can be removed.
-	var initDone func(WriteTxn)
+	var initDone func(writer.WriteTxn)
 	if p.TestConfig == nil {
 		initDone = p.Writer.RegisterInitializer("adapters")
 	} else {
-		initDone = func(WriteTxn) {}
+		initDone = func(writer.WriteTxn) {}
 	}
 	sma = &serviceManagerAdapter{
 		log:          p.Log,
@@ -111,7 +112,7 @@ type serviceCacheAdapter struct {
 	db            *statedb.DB
 	services      statedb.Table[*loadbalancer.Service]
 	backends      statedb.Table[*loadbalancer.Backend]
-	writer        *Writer
+	writer        *writer.Writer
 	notifications stream.Observable[k8s.ServiceNotification]
 	emit          func(k8s.ServiceNotification)
 	complete      func(error)
@@ -346,9 +347,9 @@ type serviceManagerAdapter struct {
 	db           *statedb.DB
 	services     statedb.Table[*loadbalancer.Service]
 	frontends    statedb.Table[*loadbalancer.Frontend]
-	writer       *Writer
+	writer       *writer.Writer
 
-	initDone func(WriteTxn)
+	initDone func(writer.WriteTxn)
 }
 
 // DeleteService implements service.ServiceManager.

@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -21,9 +20,6 @@ var Cell = cell.Module(
 
 	cell.Config(loadbalancer.DefaultConfig),
 	cell.Provide(loadbalancer.NewExternalConfig),
-
-	// Provides [Writer] API and the load-balancing tables.
-	TablesCell,
 
 	// ReconcilerCell reconciles the load-balancing state with the BPF maps.
 	ReconcilerCell,
@@ -38,13 +34,6 @@ var Cell = cell.Module(
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
 
-	// Register a background job to re-reconcile NodePort and HostPort frontends when
-	// the node addresses change.
-	cell.Invoke(registerNodePortAddressReconciler),
-
-	// Register a background job to watch for node zone label changes.
-	cell.Invoke(registerNodeZoneWatcher),
-
 	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
 	// implementation is enabled.
 	cell.Provide(newAdapters),
@@ -53,36 +42,6 @@ var Cell = cell.Module(
 	// Provide [HaveNetNSCookieSupport] to probe for netns cookie support.
 	cell.Provide(NetnsCookieSupportFunc),
 )
-
-// TablesCell provides the [Writer] API for configuring load-balancing and the
-// Table[*Service], Table[*Frontend] and Table[*Backend] for read-only access
-// to load-balancing state.
-var TablesCell = cell.Group(
-	// Provide the RWTable[Service] and RWTable[Backend] privately to this
-	// module so that the tables are only modified via the Services API.
-	cell.ProvidePrivate(
-		loadbalancer.NewServicesTable,
-		loadbalancer.NewFrontendsTable,
-		loadbalancer.NewBackendsTable,
-	),
-
-	cell.Provide(
-		// Provide the [Writer] API for modifying the tables.
-		NewWriter,
-
-		// Provide direct read-only access to the tables.
-		toReadOnlyTable[*loadbalancer.Service],
-		toReadOnlyTable[*loadbalancer.Frontend],
-		toReadOnlyTable[*loadbalancer.Backend],
-	),
-)
-
-func toReadOnlyTable[T any](tbl statedb.RWTable[T]) statedb.Table[T] {
-	if tbl == nil {
-		return nil
-	}
-	return tbl
-}
 
 type HaveNetNSCookieSupport func() bool
 

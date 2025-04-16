@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -32,7 +33,7 @@ type lbmapsParams struct {
 	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 	MaglevConfig maglev.Config
 	ExtConfig    loadbalancer.ExternalConfig
-	Writer       *Writer
+	Writer       *writer.Writer
 }
 
 func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
