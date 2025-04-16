@@ -106,26 +106,26 @@ devicename: test
 
 -- health_no_service.table --
 Module                      Component                         Level   Message                    Error
+loadbalancer-reflectors     job-reflect-pods                  OK      Running
+loadbalancer-reflectors     job-reflect-services-endpoints    OK      Running
 loadbalancer.healthserver   job-control-loop                  OK      0 health servers running
 loadbalancer                job-node-addr-reconciler          OK      Running
 loadbalancer                job-zone-watcher                  OK      Running
 loadbalancer.reconciler     job-reconcile                     OK      OK, 0 object(s)
 loadbalancer.reconciler     job-refresh                       OK      Next refresh in 30m0s
 loadbalancer.reconciler     job-start-reconciler              Stopped Started
-loadbalancer.reflector      job-reflect-pods                  OK      Running
-loadbalancer.reflector      job-reflect-services-endpoints    OK      Running
 
 -- health_with_service.table --
 Module                      Component                         Level   Message                    Error
+loadbalancer-reflectors     job-reflect-pods                  OK      Running
+loadbalancer-reflectors     job-reflect-services-endpoints    OK      Running
 loadbalancer.healthserver   job-control-loop                  OK      1 health servers running
-loadbalancer.healthserver   job-listener-$HEALTHPORT1                OK      Running
+loadbalancer.healthserver   job-listener-40000                OK      Running
 loadbalancer                job-node-addr-reconciler          OK      Running
 loadbalancer                job-zone-watcher                  OK      Running
 loadbalancer.reconciler     job-reconcile                     OK      OK, 4 object(s)
 loadbalancer.reconciler     job-refresh                       OK      Next refresh in 30m0s
 loadbalancer.reconciler     job-start-reconciler              Stopped Started
-loadbalancer.reflector      job-reflect-pods                  OK      Running
-loadbalancer.reflector      job-reflect-services-endpoints    OK      Running
 
 -- services.table --
 Name                   Source   PortNames  TrafficPolicy   Flags

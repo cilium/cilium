@@ -4,13 +4,14 @@
 package experimental
 
 import (
+	"errors"
+	"sync"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
+	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/netns"
 )
 
 var Cell = cell.Module(
@@ -18,18 +19,10 @@ var Cell = cell.Module(
 	"Experimental load-balancing control-plane",
 
 	cell.Config(DefaultConfig),
-	cell.ProvidePrivate(newExternalConfig),
+	cell.Provide(newExternalConfig),
 
 	// Provides [Writer] API and the load-balancing tables.
 	TablesCell,
-
-	// Reflects Kubernetes services and endpoints to the load-balancing tables
-	// using the [Writer].
-	ReflectorCell,
-
-	// Bridge Resource[XYZ] to Observable[Event[XYZ]]. Makes it easier to
-	// test [ReflectorCell].
-	cell.ProvidePrivate(resourcesToStreams),
 
 	// ReconcilerCell reconciles the load-balancing state with the BPF maps.
 	ReconcilerCell,
@@ -55,6 +48,9 @@ var Cell = cell.Module(
 	// implementation is enabled.
 	cell.Provide(newAdapters),
 	cell.DecorateAll(decorateAdapters),
+
+	// Provide [HaveNetNSCookieSupport] to probe for netns cookie support.
+	cell.Provide(NetnsCookieSupportFunc),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
@@ -90,23 +86,11 @@ func toReadOnlyTable[T any](tbl statedb.RWTable[T]) statedb.Table[T] {
 	return tbl
 }
 
-type resourceIn struct {
-	cell.In
-	ServicesResource  resource.Resource[*slim_corev1.Service]
-	EndpointsResource resource.Resource[*k8s.Endpoints]
-}
+type HaveNetNSCookieSupport func() bool
 
-type StreamsOut struct {
-	cell.Out
-	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
-}
-
-// resourcesToStreams extracts the stream.Observable from resource.Resource.
-// This makes the reflector easier to test as its API surface is reduced.
-func resourcesToStreams(in resourceIn) StreamsOut {
-	return StreamsOut{
-		ServicesStream:  in.ServicesResource,
-		EndpointsStream: in.EndpointsResource,
-	}
+func NetnsCookieSupportFunc() HaveNetNSCookieSupport {
+	return sync.OnceValue(func() bool {
+		_, err := netns.GetNetNSCookie()
+		return !errors.Is(err, unix.ENOPROTOOPT)
+	})
 }
