@@ -21,15 +21,6 @@ var Cell = cell.Module(
 	cell.Config(loadbalancer.DefaultConfig),
 	cell.Provide(loadbalancer.NewExternalConfig),
 
-	// ReconcilerCell reconciles the load-balancing state with the BPF maps.
-	ReconcilerCell,
-
-	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
-	cell.ProvidePrivate(newLBMaps),
-
-	// Provide the 'lb/' script commands for debugging and testing.
-	cell.Provide(scriptCommands),
-
 	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
