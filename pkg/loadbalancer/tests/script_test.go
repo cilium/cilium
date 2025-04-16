@@ -30,11 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	"github.com/cilium/cilium/pkg/loadbalancer/healthserver"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
-	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
+	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -75,12 +72,8 @@ func TestScript(t *testing.T) {
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
-				experimental.Cell,
-				reflectors.Cell,
-				writer.Cell,
-				lbmaps.Cell,
-				reconciler.Cell,
-				healthserver.Cell,
+
+				lbcell.Cell,
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
@@ -107,7 +100,7 @@ func TestScript(t *testing.T) {
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
-					func(ops *reconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
+					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
 					},
 				),
@@ -148,7 +141,7 @@ func TestScript(t *testing.T) {
 type testCommands struct {
 	w   *writer.Writer
 	lns *node.LocalNodeStore
-	ops *reconciler.BPFOps
+	ops *lbreconciler.BPFOps
 }
 
 func (tc testCommands) cmds() map[string]script.Cmd {
