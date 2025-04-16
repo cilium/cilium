@@ -29,7 +29,6 @@
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
-#include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
