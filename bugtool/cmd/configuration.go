@@ -122,6 +122,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		// tc
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
+		"find /sys/fs/bpf -ls",
 	}
 
 	// LB and CT map for debugging services; using bpftool for a reliable dump
