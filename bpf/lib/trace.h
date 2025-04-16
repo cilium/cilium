@@ -106,12 +106,12 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_STACK:
 	case TRACE_FROM_OVERLAY:
 	case TRACE_FROM_NETWORK:
-		if ((flags & CLS_FLAG_ENCRYPTED) == 0)
-			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-					REASON_PLAINTEXT, line, file);
-		else
+		if ((flags & CLS_FLAG_IPSEC) || (flags & CLS_FLAG_WIREGUARD))
 			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 					REASON_DECRYPT, line, file);
+		else
+			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+					REASON_PLAINTEXT, line, file);
 		break;
 	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
 	 * separately in ipv*_local_delivery() where we can bump an egress

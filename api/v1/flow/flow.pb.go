@@ -2410,7 +2410,7 @@ type IP struct {
 	SourceXlated string    `protobuf:"bytes,5,opt,name=source_xlated,json=sourceXlated,proto3" json:"source_xlated,omitempty"`
 	Destination  string    `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
 	IpVersion    IPVersion `protobuf:"varint,3,opt,name=ipVersion,proto3,enum=flow.IPVersion" json:"ipVersion,omitempty"`
-	// This field indicates whether the TraceNotifyFlagIsEncrypted is set or not.
+	// This field indicates whether TraceNotifyFlagIsIPSec or TraceNotifyFlagIsWireguard is set or not.
 	Encrypted     bool `protobuf:"varint,4,opt,name=encrypted,proto3" json:"encrypted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

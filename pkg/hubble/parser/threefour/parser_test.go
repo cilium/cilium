@@ -1877,7 +1877,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 				Source:   localEP,
 				ObsPoint: monitorAPI.TraceFromLxc,
 				Reason:   monitor.TraceReasonUnknown,
-				Flags:    monitor.TraceNotifyFlagIsEncrypted,
+				Flags:    monitor.TraceNotifyFlagIsIPSec,
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{

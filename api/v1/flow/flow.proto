@@ -296,7 +296,7 @@ message IP {
     string source_xlated = 5;
     string destination = 2;
     IPVersion ipVersion = 3;
-    // This field indicates whether the TraceNotifyFlagIsEncrypted is set or not.
+    // This field indicates whether TraceNotifyFlagIsIPSec or TraceNotifyFlagIsWireguard is set or not.
     bool encrypted = 4;
 }
 

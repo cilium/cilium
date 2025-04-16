@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium.
 /// Prevent passing 0 as a value for monitor to send_trace_notify() when
-/// flag is CLS_FLAG_ENCRYPTED, because encrypted packets cannot be
+/// flag is CLS_FLAG_{IPSEC,WIREGUARD}, because encrypted packets cannot be
 /// aggregated due to a lack of connection tracking information.
 // Confidence: Medium
 // Comments:
@@ -20,11 +20,17 @@ expression m != 0;
 position p;
 @@
 
+(
 send_trace_notify_flags@f(e1, e2, e3, e4, e5, e6, e7,
 - m@p,
 + 0,
-  CLS_FLAG_ENCRYPTED);
-
+  CLS_FLAG_IPSEC);
+|
+send_trace_notify_flags@f(e1, e2, e3, e4, e5, e6, e7,
+- m@p,
++ 0,
+  CLS_FLAG_WIREGUARD);
+)
 
 @script:python@
 p << pass_monitor.p;
@@ -32,7 +38,7 @@ f << pass_monitor.f;
 m << pass_monitor.m;
 @@
 
-print("* file %s: %s() has non-zero value as monitor argument for CLS_FLAG_ENCRYPTED on line %s, zero instead" % (p[0].file, f, p[0].line))
+print("* file %s: %s() has non-zero value as monitor argument for `CLS_FLAG_IPSEC/CLS_IPSEC_WIREGUARD` on line %s, zero instead" % (p[0].file, f, p[0].line))
 cnt += 1
 
 
@@ -46,7 +52,14 @@ position p;
   struct trace_ctx tc = {
 -   .monitor = m@p,
 +   .monitor = 0,
-    .flags = CLS_FLAG_ENCRYPTED,
+    .flags = CLS_FLAG_IPSEC,
+    ...
+  };
+|
+  struct trace_ctx tc = {
+-   .monitor = m@p,
++   .monitor = 0,
+    .flags = CLS_FLAG_WIREGUARD,
     ...
   };
 |
@@ -54,25 +67,49 @@ position p;
   ... when != return ...;
 - tc.monitor = m@p;
 + tc.monitor = 0;
-  tc.flags = CLS_FLAG_ENCRYPTED;
+  tc.flags = CLS_FLAG_IPSEC;
 |
   struct trace_ctx tc = ...;
   ... when != return ...;
 - tc.monitor = m@p;
 + tc.monitor = 0;
-  tc.flags |= CLS_FLAG_ENCRYPTED;
+  tc.flags = CLS_FLAG_WIREGUARD;
+|
+  struct trace_ctx tc = ...;
+  ... when != return ...;
+- tc.monitor = m@p;
++ tc.monitor = 0;
+  tc.flags |= CLS_FLAG_IPSEC;
+|
+  struct trace_ctx tc = ...;
+  ... when != return ...;
+- tc.monitor = m@p;
++ tc.monitor = 0;
+  tc.flags |= CLS_FLAG_WIREGUARD;
 |
   struct trace_ctx *tc;
   ... when != return ...;
 - tc->monitor = m@p;
 + tc->monitor = 0;
-  tc->flags = CLS_FLAG_ENCRYPTED;
+  tc->flags = CLS_FLAG_IPSEC;
 |
   struct trace_ctx *tc;
   ... when != return ...;
 - tc->monitor = m@p;
 + tc->monitor = 0;
-  tc->flags |= CLS_FLAG_ENCRYPTED;
+  tc->flags = CLS_FLAG_WIREGUARD;
+|
+  struct trace_ctx *tc;
+  ... when != return ...;
+- tc->monitor = m@p;
++ tc->monitor = 0;
+  tc->flags |= CLS_FLAG_IPSEC;
+|
+  struct trace_ctx *tc;
+  ... when != return ...;
+- tc->monitor = m@p;
++ tc->monitor = 0;
+  tc->flags |= CLS_FLAG_WIREGUARD;
 )
 
 
@@ -82,7 +119,7 @@ tc << declare_ctx.tc;
 m << declare_ctx.m;
 @@
 
-print("* file %s: '%s' gets 'CLS_FLAG_ENCRYPTED' as trace flags and '%s' as monitor on line %s, use zero for monitor instead" % (p[0].file, tc, m, p[0].line))
+print("* file %s: '%s' gets 'CLS_FLAG_IPSEC/CLS_FLAG_WIREGUARD' as trace flags and '%s' as monitor on line %s, use zero for monitor instead" % (p[0].file, tc, m, p[0].line))
 cnt += 1
 
 
