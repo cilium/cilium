@@ -23,6 +23,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/cilium/ebpf"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mackerelio/go-osstat/memory"
@@ -3631,6 +3632,7 @@ func (c *DaemonConfig) SetMapElementSizes(
 }
 
 func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory uint64, dynamicSizeRatio float64) {
+	possibleCPUs := 1
 	// Heuristic:
 	// Distribute relative to map default entries among the different maps.
 	// Cap each map size by the maximum. Map size provided by the user will
@@ -3655,13 +3657,34 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 		SockRevNATMapEntriesDefault*c.SizeofSockRevElement
 	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
 
+	// In case of distributed LRU, we need to round up to the number of possible CPUs
+	// since this is also what the kernel does internally, see htab_map_alloc()'s:
+	//
+	//   htab->map.max_entries = roundup(attr->max_entries,
+	//				     num_possible_cpus());
+	//
+	// Thus, if we would not round up from agent side, then Cilium would constantly
+	// try to replace maps due to property mismatch!
+	if c.BPFDistributedLRU {
+		cpus, err := ebpf.PossibleCPU()
+		if err != nil {
+			log.Fatal("Failed to get number of possible CPUs needed for the distributed LRU")
+		}
+		possibleCPUs = cpus
+	}
+	roundUp := func(x, multiple int) int {
+		return int(((x + (multiple - 1)) / multiple) * multiple)
+	}
+	roundDown := func(x, multiple int) int {
+		return int(x - (x % multiple))
+	}
 	getEntries := func(entriesDefault, min, max int) int {
 		entries := (entriesDefault * memoryAvailableForMaps) / totalMapMemoryDefault
+		entries = roundUp(entries, possibleCPUs)
 		if entries < min {
-			entries = min
+			entries = roundUp(min, possibleCPUs)
 		} else if entries > max {
-			log.Debugf("clamped from %d to %d", entries, max)
-			entries = max
+			entries = roundDown(max, possibleCPUs)
 		}
 		return entries
 	}
