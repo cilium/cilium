@@ -3623,6 +3623,8 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 		}
 		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
 		c.BPFMapsDynamicSizeRatio = dynamicSizeRatio
+	} else if c.BPFDistributedLRU {
+		return fmt.Errorf("distributed LRU is only valid with a specified dynamic map size ratio")
 	} else if dynamicSizeRatio < 0.0 {
 		return fmt.Errorf("specified dynamic map size ratio %f must be > 0.0", dynamicSizeRatio)
 	} else if dynamicSizeRatio > 1.0 {
