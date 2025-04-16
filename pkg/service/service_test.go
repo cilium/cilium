@@ -165,7 +165,7 @@ var (
 	frontend2      = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
 	frontend3      = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
 
-	backends1, backends2, backends3, backends4, backends5, backends6 []*lb.Backend
+	backends1, backends2, backends3, backends4, backends5, backends6 []*lb.LegacyBackend
 )
 
 func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
@@ -196,27 +196,27 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 	option.Config.EnableInternalTrafficPolicy = true
 
 	m.ipv6 = option.Config.EnableIPv6
-	backends1 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
+	backends1 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
 	}
-	backends2 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080),
+	backends2 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080),
 	}
-	backends3 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("fd00::2"), 8080),
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("fd00::3"), 8080),
+	backends3 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("fd00::2"), 8080),
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("fd00::3"), 8080),
 	}
-	backends4 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080),
+	backends4 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080),
 	}
-	backends5 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080),
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.6"), 8080),
+	backends5 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080),
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.6"), 8080),
 	}
-	backends6 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.7"), 8080),
+	backends6 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.7"), 8080),
 	}
 
 	tb.Cleanup(func() {
@@ -716,9 +716,9 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	finalBackendAddrs := []string{"10.0.0.2", "10.0.0.3", "10.0.0.5"}
 
 	service := func(ns, name, frontend string, backends ...string) *lb.SVC {
-		var bes []*lb.Backend
+		var bes []*lb.LegacyBackend
 		for _, backend := range backends {
-			bes = append(bes, lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster(backend), 8080))
+			bes = append(bes, lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster(backend), 8080))
 		}
 
 		return &lb.SVC{
@@ -731,7 +731,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 		}
 	}
 
-	toBackendAddrs := func(backends []*lb.Backend) (addrs []string) {
+	toBackendAddrs := func(backends []*lb.LegacyBackend) (addrs []string) {
 		for _, be := range backends {
 			addrs = append(addrs, be.L3n4Addr.AddrCluster.Addr().String())
 		}
@@ -849,24 +849,24 @@ func TestHealthCheckNodePort(t *testing.T) {
 	clusterIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("10.20.30.40"), 80, lb.ScopeExternal, 0)
 
 	// Create two node-local backends
-	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
-	localBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080)
-	localTerminatingBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
+	localBackend1 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
+	localBackend2 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080)
+	localTerminatingBackend3 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
 	localBackend1.NodeName = nodeTypes.GetName()
 	localBackend2.NodeName = nodeTypes.GetName()
 	localTerminatingBackend3.NodeName = nodeTypes.GetName()
-	localActiveBackends := []*lb.Backend{localBackend1, localBackend2}
+	localActiveBackends := []*lb.LegacyBackend{localBackend1, localBackend2}
 
 	// Create three remote backends
-	remoteBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
-	remoteBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080)
-	remoteBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080)
+	remoteBackend1 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
+	remoteBackend2 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080)
+	remoteBackend3 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080)
 	remoteBackend1.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend2.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend3.NodeName = "not-" + nodeTypes.GetName()
-	remoteBackends := []*lb.Backend{remoteBackend1, remoteBackend2, remoteBackend3}
+	remoteBackends := []*lb.LegacyBackend{remoteBackend1, remoteBackend2, remoteBackend3}
 
-	allBackends := []*lb.Backend{localBackend1, localBackend2, localTerminatingBackend3, remoteBackend1, remoteBackend2, remoteBackend3}
+	allBackends := []*lb.LegacyBackend{localBackend1, localBackend2, localTerminatingBackend3, remoteBackend1, remoteBackend2, remoteBackend3}
 
 	// Insert svc1 as type LoadBalancer with some local backends
 	p1 := &lb.SVC{
@@ -993,10 +993,10 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 
 	loadBalancerIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
 
-	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
+	localBackend1 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
 	localBackend1.NodeName = nodeTypes.GetName()
 
-	allBackends := []*lb.Backend{localBackend1}
+	allBackends := []*lb.LegacyBackend{localBackend1}
 
 	// Insert svc1 as type LoadBalancer with some local backends
 	p1 := &lb.SVC{
@@ -1141,14 +1141,14 @@ func TestLocalRedirectLocalBackendSelection(t *testing.T) {
 	// Create a node-local backend.
 	localBackend := backends1[0]
 	localBackend.NodeName = nodeTypes.GetName()
-	localBackends := []*lb.Backend{localBackend}
+	localBackends := []*lb.LegacyBackend{localBackend}
 	// Create two remote backends.
-	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	remoteBackends := make([]*lb.LegacyBackend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends := make([]*lb.LegacyBackend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -1190,14 +1190,14 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	// Create a node-local backend.
 	localBackend := backends1[0]
 	localBackend.NodeName = nodeTypes.GetName()
-	localBackends := []*lb.Backend{localBackend}
+	localBackends := []*lb.LegacyBackend{localBackend}
 	// Create two remote backends.
-	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	remoteBackends := make([]*lb.LegacyBackend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends := make([]*lb.LegacyBackend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -1321,7 +1321,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 	require.Equal(t, len(backends1), m.lbmap.DummyMaglevTable[uint16(id1)])
 
 	// Delete terminating backends.
-	p.Backends = []*lb.Backend{}
+	p.Backends = []*lb.LegacyBackend{}
 
 	created, id1, err = m.svc.UpsertService(p)
 
@@ -1401,7 +1401,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	// Delete terminating backends.
-	p.Backends = []*lb.Backend{}
+	p.Backends = []*lb.LegacyBackend{}
 
 	created, id1, err = m.svc.UpsertService(p)
 
@@ -1422,7 +1422,7 @@ func TestUpsertServiceWithExternalClusterIP(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	option.Config.ExternalClusterIP = true
-	backends := make([]*lb.Backend, 0, len(backends1))
+	backends := make([]*lb.LegacyBackend, 0, len(backends1))
 	for _, b := range backends1 {
 		backends = append(backends, b.DeepCopy())
 	}
@@ -1551,12 +1551,12 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	localBackend := backends1[0]
 	localBackend.NodeName = nodeTypes.GetName()
 	// Create two remote backends.
-	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	remoteBackends := make([]*lb.LegacyBackend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends := make([]*lb.LegacyBackend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -1646,12 +1646,12 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	localBackend := backends1[0]
 	localBackend.NodeName = nodeTypes.GetName()
 	// Create two remote backends.
-	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	remoteBackends := make([]*lb.LegacyBackend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends := make([]*lb.LegacyBackend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -1780,12 +1780,12 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 	localBackend := backends1[0]
 	localBackend.NodeName = nodeTypes.GetName()
 	// Create two remote backends.
-	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	remoteBackends := make([]*lb.LegacyBackend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends := make([]*lb.LegacyBackend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -1853,7 +1853,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 func TestUpdateBackendsState(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	backends := make([]*lb.Backend, 0, len(backends1))
+	backends := make([]*lb.LegacyBackend, 0, len(backends1))
 	for _, b := range backends1 {
 		backends = append(backends, b.DeepCopy())
 	}
@@ -1897,7 +1897,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[2].State)
 
 	// Update the state for one of the backends.
-	updated := []*lb.Backend{backends[0]}
+	updated := []*lb.LegacyBackend{backends[0]}
 	updated[0].State = lb.BackendStateQuarantined
 
 	svcs, err := m.svc.UpdateBackendsState(updated)
@@ -1919,7 +1919,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[2].State)
 
 	// Update the state again.
-	updated = []*lb.Backend{backends[0]}
+	updated = []*lb.LegacyBackend{backends[0]}
 	updated[0].State = lb.BackendStateActive
 
 	svcs, err = m.svc.UpdateBackendsState(updated)
@@ -1947,7 +1947,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	bs := append(backends1, backends4...)
-	backends := make([]*lb.Backend, 0, len(bs))
+	backends := make([]*lb.LegacyBackend, 0, len(bs))
 	for _, b := range bs {
 		backends = append(backends, b.DeepCopy())
 	}
@@ -1975,7 +1975,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	require.Len(t, m.svc.backendByHash, len(backends))
 
 	// Update backend states.
-	var updates []*lb.Backend
+	var updates []*lb.LegacyBackend
 	backends[0].State = lb.BackendStateQuarantined
 	backends[1].State = lb.BackendStateMaintenance
 	updates = append(updates, backends[0], backends[1])
@@ -2078,7 +2078,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	be := append(backends1, backends4...)
-	backends := make([]*lb.Backend, 0, len(be))
+	backends := make([]*lb.LegacyBackend, 0, len(be))
 	for _, b := range be {
 		backends = append(backends, b.DeepCopy())
 	}
@@ -2213,21 +2213,21 @@ func TestTrafficPolicy(t *testing.T) {
 	internalIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeInternal, 0)
 	externalIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
 
-	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
-	localBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080)
+	localBackend1 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
+	localBackend2 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080)
 	localBackend1.NodeName = nodeTypes.GetName()
 	localBackend2.NodeName = nodeTypes.GetName()
-	localBackends := []*lb.Backend{localBackend1, localBackend2}
+	localBackends := []*lb.LegacyBackend{localBackend1, localBackend2}
 
-	remoteBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
-	remoteBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080)
-	remoteBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080)
+	remoteBackend1 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
+	remoteBackend2 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080)
+	remoteBackend3 := lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080)
 	remoteBackend1.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend2.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend3.NodeName = "not-" + nodeTypes.GetName()
-	remoteBackends := []*lb.Backend{remoteBackend1, remoteBackend2, remoteBackend3}
+	remoteBackends := []*lb.LegacyBackend{remoteBackend1, remoteBackend2, remoteBackend3}
 
-	allBackends := make([]*lb.Backend, 0, len(remoteBackends)+len(remoteBackends))
+	allBackends := make([]*lb.LegacyBackend, 0, len(remoteBackends)+len(remoteBackends))
 	allBackends = append(allBackends, localBackends...)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -2332,7 +2332,7 @@ func TestDeleteServiceWithTerminatingBackends(t *testing.T) {
 func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	backends := make([]*lb.Backend, len(backends1))
+	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	p1 := &lb.SVC{
@@ -2385,9 +2385,9 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
 	option.Config.EnableSocketLB = true
-	backends := []*lb.Backend{
-		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
-		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
+	backends := []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
+		lb.NewLegacyBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
 	}
 	cookie1 := [2]uint32{1234, 0}
 	cookie2 := [2]uint32{1235, 0}
@@ -2431,7 +2431,7 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 	// Delete one of the backends.
 	svc = &lb.SVC{
 		Frontend:              frontend1,
-		Backends:              []*lb.Backend{backends[1]},
+		Backends:              []*lb.LegacyBackend{backends[1]},
 		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 		ProxyDelegation:       lb.SVCProxyDelegationNone,
@@ -2501,7 +2501,7 @@ func (f *FakeMonitorAgent) State() *models.MonitorStatus {
 func TestHealthCheckCB(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	backends := make([]*lb.Backend, len(backends1))
+	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	p1 := &lb.SVC{
@@ -2539,7 +2539,7 @@ func TestHealthCheckCB(t *testing.T) {
 func TestHealthCheckInitialSync(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	backends := make([]*lb.Backend, len(backends1))
+	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	p1 := &lb.SVC{
@@ -2573,7 +2573,7 @@ func TestHealthCheckInitialSync(t *testing.T) {
 func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
-	backends := make([]*lb.Backend, len(backends1))
+	backends := make([]*lb.LegacyBackend, len(backends1))
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	// Add two services with common backend.
@@ -2688,9 +2688,9 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 
 	// Test HealthCheckCBSvcEvent.
 	// Add a service with a quarantined backend.
-	backends = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.20"), 8080),
-		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.21"), 8080),
+	backends = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.20"), 8080),
+		lb.NewLegacyBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.21"), 8080),
 	}
 	backends[0].State = lb.BackendStateQuarantined
 	frontendFoo := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.11"), 80, lb.ScopeExternal, 0)

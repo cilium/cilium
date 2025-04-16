@@ -399,12 +399,12 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 	// Used by REST API.
 	txn := s.db.ReadTxn()
 	for fe := range s.frontends.All(txn) {
-		bes := []*loadbalancer.Backend{}
+		bes := []*loadbalancer.LegacyBackend{}
 		svc := fe.service
 		for be := range fe.Backends {
 			// Get the instance of the referenced service. This may be different from fe.ServiceName
 			// if it is being redirected.
-			beModel := &loadbalancer.Backend{
+			beModel := &loadbalancer.LegacyBackend{
 				FEPortName: "",
 				ID:         0,
 				Weight:     be.Weight,
@@ -518,7 +518,7 @@ func (s *serviceManagerAdapter) TerminateUDPConnectionsToBackend(l3n4Addr *loadb
 }
 
 // UpdateBackendsState implements service.ServiceManager.
-func (s *serviceManagerAdapter) UpdateBackendsState(backends []*loadbalancer.Backend) ([]loadbalancer.L3n4Addr, error) {
+func (s *serviceManagerAdapter) UpdateBackendsState(backends []*loadbalancer.LegacyBackend) ([]loadbalancer.L3n4Addr, error) {
 	// Used by REST API.
 	s.log.Debug("serviceManagerAdapter: Ignoring UpdateBackendsState")
 	return nil, nil

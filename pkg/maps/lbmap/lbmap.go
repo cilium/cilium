@@ -71,7 +71,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	slot := 1
 
 	// start off with #backends = 0 for updateMasterService()
-	backends := make(map[string]*loadbalancer.Backend)
+	backends := make(map[string]*loadbalancer.LegacyBackend)
 	if backendsOk {
 		backends = p.ActiveBackends
 		if len(p.PreferredBackends) > 0 {
@@ -175,7 +175,7 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.LegacyBackend, ipv6 bool) error {
 	if len(backends) == 0 {
 		deleteMaglevTable(ipv6, svcID)
 		return nil
@@ -254,7 +254,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 
 // AddBackend adds a backend into a BPF map. ipv6 indicates if the backend needs
 // to be added in the v4 or v6 backend map.
-func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(b *loadbalancer.LegacyBackend, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -273,7 +273,7 @@ func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 // UpdateBackendWithState updates the state for the given backend.
 //
 // This function should only be called to update backend's state.
-func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
+func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.LegacyBackend) error {
 	var (
 		backend Backend
 		err     error
@@ -555,9 +555,9 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 }
 
 // DumpBackendMaps dumps the backend entries from the BPF maps.
-func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
+func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.LegacyBackend, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
-	lbBackends := []*loadbalancer.Backend{}
+	lbBackends := []*loadbalancer.LegacyBackend{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		// No need to deep copy the key because we are using the ID which
@@ -659,7 +659,7 @@ func deleteServiceLocked(key ServiceKey) error {
 	return err
 }
 
-func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
+func getBackend(backend *loadbalancer.LegacyBackend, ipv6 bool) (Backend, error) {
 	var (
 		lbBackend Backend
 		err       error
@@ -747,16 +747,16 @@ func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.SVC {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backend, beIndex int) *loadbalancer.SVC {
+func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.LegacyBackend, beIndex int) *loadbalancer.SVC {
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
-		var bes []*loadbalancer.Backend
+		var bes []*loadbalancer.LegacyBackend
 		if beIndex == 0 {
-			bes = make([]*loadbalancer.Backend, 1)
+			bes = make([]*loadbalancer.LegacyBackend, 1)
 			bes[0] = be
 		} else {
-			bes = make([]*loadbalancer.Backend, beIndex)
+			bes = make([]*loadbalancer.LegacyBackend, beIndex)
 			bes[beIndex-1] = be
 		}
 		lbsvc = loadbalancer.SVC{
@@ -764,9 +764,9 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 			Backends: bes,
 		}
 	} else {
-		var bes []*loadbalancer.Backend
+		var bes []*loadbalancer.LegacyBackend
 		if len(lbsvc.Backends) < beIndex {
-			bes = make([]*loadbalancer.Backend, beIndex)
+			bes = make([]*loadbalancer.LegacyBackend, beIndex)
 			copy(bes, lbsvc.Backends)
 			lbsvc.Backends = bes
 		}

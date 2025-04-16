@@ -7,7 +7,7 @@ import "github.com/cilium/cilium/pkg/loadbalancer"
 
 // Compare slices of backends to see if they are deeply equal.
 // The comparison is agnostic of the order in which the slices are provided.
-func DeepEqualBackends(backends1 []*loadbalancer.Backend, backends2 []*loadbalancer.Backend) bool {
+func DeepEqualBackends(backends1 []*loadbalancer.LegacyBackend, backends2 []*loadbalancer.LegacyBackend) bool {
 	if len(backends1) != len(backends2) {
 		return false
 	}

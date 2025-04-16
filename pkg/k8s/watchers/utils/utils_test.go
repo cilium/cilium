@@ -12,7 +12,7 @@ import (
 
 func TestDeepEqualBackends(t *testing.T) {
 	type args struct {
-		backends1, backends2 []*loadbalancer.Backend
+		backends1, backends2 []*loadbalancer.LegacyBackend
 	}
 	testCases := []struct {
 		name string
@@ -22,7 +22,7 @@ func TestDeepEqualBackends(t *testing.T) {
 		{
 			name: "backends not equal",
 			args: args{
-				backends1: []*loadbalancer.Backend{
+				backends1: []*loadbalancer.LegacyBackend{
 					{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
@@ -42,7 +42,7 @@ func TestDeepEqualBackends(t *testing.T) {
 						},
 					},
 				},
-				backends2: []*loadbalancer.Backend{
+				backends2: []*loadbalancer.LegacyBackend{
 					{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
@@ -68,7 +68,7 @@ func TestDeepEqualBackends(t *testing.T) {
 		{
 			name: "backend slice lengths not equal",
 			args: args{
-				backends1: []*loadbalancer.Backend{
+				backends1: []*loadbalancer.LegacyBackend{
 					{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
@@ -88,7 +88,7 @@ func TestDeepEqualBackends(t *testing.T) {
 						},
 					},
 				},
-				backends2: []*loadbalancer.Backend{
+				backends2: []*loadbalancer.LegacyBackend{
 					{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
@@ -105,7 +105,7 @@ func TestDeepEqualBackends(t *testing.T) {
 		{
 			name: "backends equal",
 			args: args{
-				backends1: []*loadbalancer.Backend{
+				backends1: []*loadbalancer.LegacyBackend{
 					{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
@@ -125,7 +125,7 @@ func TestDeepEqualBackends(t *testing.T) {
 						},
 					},
 				},
-				backends2: []*loadbalancer.Backend{
+				backends2: []*loadbalancer.LegacyBackend{
 					{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),

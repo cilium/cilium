@@ -78,7 +78,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	// Since the order in which backends and services (and their ids)
 	// are allocated is non-deterministic, we sort the backends and services
 	// by address, and use the new ordering to allocate deterministic ids.
-	backends := make([]*lb.Backend, 0, len(lbmap.BackendByID))
+	backends := make([]*lb.LegacyBackend, 0, len(lbmap.BackendByID))
 	for _, be := range lbmap.BackendByID {
 		backends = append(backends, be)
 	}
@@ -150,7 +150,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	tw.Write(w)
 }
 
-func showBackendIDs(idMap map[lb.BackendID]int, bes []*lb.Backend) string {
+func showBackendIDs(idMap map[lb.BackendID]int, bes []*lb.LegacyBackend) string {
 	var ids []int
 	for _, be := range bes {
 		ids = append(ids, idMap[be.ID])
