@@ -27,7 +27,7 @@ func Test_filterServiceBackends(t *testing.T) {
 					},
 				},
 			},
-			Backends: []*loadbalancer.Backend{
+			Backends: []*loadbalancer.LegacyBackend{
 				{
 					FEPortName: "http",
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -70,7 +70,7 @@ func Test_filterServiceBackends(t *testing.T) {
 					},
 				},
 			},
-			Backends: []*loadbalancer.Backend{
+			Backends: []*loadbalancer.LegacyBackend{
 				{
 					FEPortName: "http",
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -129,7 +129,7 @@ func Test_filterServiceBackends(t *testing.T) {
 					},
 				},
 			},
-			Backends: []*loadbalancer.Backend{
+			Backends: []*loadbalancer.LegacyBackend{
 				{
 					FEPortName: "http",
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -213,7 +213,7 @@ func TestGetEndpointsForLBBackends(t *testing.T) {
 		Name:      "test-name",
 		Cluster:   "test-cluster",
 	}
-	backends := map[string][]*loadbalancer.Backend{
+	backends := map[string][]*loadbalancer.LegacyBackend{
 		"12000": {
 			{
 				L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.AddrClusterFrom(testAddr, 0), 12000, 3),

@@ -588,11 +588,11 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				continue
 			}
 
-			var bes4 []*loadbalancer.Backend
-			var bes6 []*loadbalancer.Backend
+			var bes4 []*loadbalancer.LegacyBackend
+			var bes6 []*loadbalancer.LegacyBackend
 
 			for _, podIP := range podIPs {
-				be := loadbalancer.Backend{
+				be := loadbalancer.LegacyBackend{
 					L3n4Addr: loadbalancer.L3n4Addr{
 						AddrCluster: cmtypes.MustParseAddrCluster(podIP),
 						L4Addr: loadbalancer.L4Addr{

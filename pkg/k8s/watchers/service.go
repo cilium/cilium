@@ -305,14 +305,14 @@ func genCartesianProduct(
 	feFamilyIPv6 := ip.IsIPv6(fe)
 
 	for fePortName, fePort := range ports {
-		var besValues []*loadbalancer.Backend
+		var besValues []*loadbalancer.LegacyBackend
 		for addrCluster, backend := range bes.Backends {
 			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == addrCluster.Is6() {
 				backendState := loadbalancer.BackendStateActive
 				if backend.Terminating {
 					backendState = loadbalancer.BackendStateTerminating
 				}
-				besValues = append(besValues, &loadbalancer.Backend{
+				besValues = append(besValues, &loadbalancer.LegacyBackend{
 					FEPortName: string(fePortName),
 					NodeName:   backend.NodeName,
 					ZoneID:     option.Config.GetZoneID(backend.Zone),
