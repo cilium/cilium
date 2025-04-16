@@ -120,11 +120,16 @@ func (n *noErrorsInLogs) FilePath() string {
 	// In case log did not contain the path,
 	// we return the path of the test file.
 	return n.ScenarioBase.FilePath()
-
 }
 
 func (n *noErrorsInLogs) Name() string {
-	return "no-errors-in-logs"
+	result := "no-errors-in-logs"
+	extractedPath := extractPackageFromLog(n.mostCommonFailureLog)
+	if extractedPath != "" {
+		result = result + ":" + extractedPath
+	}
+
+	return result
 }
 
 type podID struct{ Cluster, Namespace, Name string }
@@ -353,6 +358,15 @@ func extractPathFromLog(log string) string {
 	// on the local host.
 	result := strings.TrimPrefix(source, repoDir+string(filepath.Separator))
 	return strings.TrimPrefix(result, "/go/src/github.com/cilium/cilium/")
+}
+
+func extractPackageFromLog(log string) string {
+	result := extractPathFromLog(log)
+	if result == "" {
+		return ""
+	}
+	result, _ = filepath.Split(result)
+	return filepath.Clean(result)
 }
 
 func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action) {
