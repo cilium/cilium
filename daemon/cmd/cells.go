@@ -52,9 +52,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	redirectpolicy_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental/redirectpolicy"
 	loadbalancer_maps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	loadbalancer_reconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
+	loadbalancer_redirectpolicy "github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	loadbalancer_reflectors "github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	loadbalancer_writer "github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -224,8 +224,8 @@ var (
 		loadbalancer_reconciler.Cell,
 		loadbalancer_maps.Cell,
 
-		// Experimental control-plane implementation for local redirect policies.
-		redirectpolicy_experimental.Cell,
+		// Control-plane implementation for local redirect policies.
+		loadbalancer_redirectpolicy.Cell,
 
 		// Service is a datapath service handler. Its main responsibility is to reflect
 		// service-related changes into BPF maps used by datapath BPF programs.
