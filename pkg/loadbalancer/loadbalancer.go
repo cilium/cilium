@@ -150,6 +150,7 @@ const (
 	serviceFlagFwdModeDSR      = 1 << 15
 )
 
+// +k8s:deepcopy-gen=true
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
@@ -471,6 +472,7 @@ type ServiceID uint16
 
 // ServiceName represents the fully-qualified reference to the service by name,
 // including both the namespace and name of the service (and optionally the cluster).
+// +k8s:deepcopy-gen=true
 type ServiceName struct {
 	Namespace string
 	Name      string
@@ -645,6 +647,7 @@ func NewL4TypeFromNumber(proto uint8) L4Type {
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
 // the Port number.
 //
+// +k8s:deepcopy-gen=true
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type L4Addr struct {
@@ -688,6 +691,7 @@ func (l *L4Addr) String() string {
 //
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
+// +k8s:deepcopy-gen=true
 type L3n4Addr struct {
 	AddrCluster cmtypes.AddrCluster
 	L4Addr
@@ -1000,6 +1004,7 @@ func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
 // KVStore.
 //
+// +k8s:deepcopy-gen=true
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type L3n4AddrID struct {

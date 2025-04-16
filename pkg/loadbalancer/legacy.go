@@ -19,6 +19,7 @@ type Preferred bool
 // LegacyBackend represents load balancer backend.
 //
 // Deprecated: Superceded by [Backend] from the new load-balancer implementation.
+// +k8s:deepcopy-gen=true
 type LegacyBackend struct {
 	// FEPortName is the frontend port name. This is used to filter backends sending to EDS.
 	FEPortName string
@@ -139,6 +140,7 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 //
 // Deprecated: Superceded by the new load-balancer implementation. New type
 // with similar purpose is [Frontend].
+// +k8s:deepcopy-gen=true
 type LegacySVC struct {
 	Frontend                  L3n4AddrID        // SVC frontend addr and an allocated ID
 	Backends                  []*LegacyBackend  // List of service backends
