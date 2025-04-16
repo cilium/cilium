@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package reflectors
 
 import (
 	"bytes"
@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,9 +37,9 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -69,10 +68,7 @@ var ReflectorCell = cell.Module(
 	"reflector",
 	"Reflects load-balancing state from Kubernetes",
 
-	cell.Invoke(registerK8sReflector),
-
-	// Provide the 'HaveNetNSCookieSupport' function
-	cell.Provide(netnsCookieSupportFunc),
+	cell.Invoke(RegisterK8sReflector),
 )
 
 type reflectorParams struct {
@@ -85,10 +81,10 @@ type reflectorParams struct {
 	ServicesResource       stream.Observable[resource.Event[*slim_corev1.Service]]
 	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
 	Pods                   statedb.Table[daemonK8s.LocalPod]
-	Writer                 *Writer
-	ExtConfig              ExternalConfig
-	HaveNetNSCookieSupport HaveNetNSCookieSupport
-	TestConfig             *TestConfig `optional:"true"`
+	Writer                 *experimental.Writer
+	ExtConfig              experimental.ExternalConfig
+	HaveNetNSCookieSupport experimental.HaveNetNSCookieSupport
+	TestConfig             *experimental.TestConfig `optional:"true"`
 }
 
 func (p reflectorParams) waitTime() time.Duration {
@@ -99,7 +95,7 @@ func (p reflectorParams) waitTime() time.Duration {
 	return reflectorWaitTime
 }
 
-func registerK8sReflector(p reflectorParams) {
+func RegisterK8sReflector(p reflectorParams) {
 	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
 		return
 	}
@@ -116,7 +112,7 @@ func registerK8sReflector(p reflectorParams) {
 	)
 }
 
-func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(WriteTxn)) error {
+func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(experimental.WriteTxn)) error {
 	// Wait for pod table to be populated before proceeding.
 	health.OK("Waiting for pods to be initialized")
 	_, podsInitialized := p.Pods.Initialized(p.DB.ReadTxn())
@@ -133,7 +129,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 
 	rh := newReflectorHealth(health, p.Log)
 
-	processBuffer := func(txn WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
+	processBuffer := func(txn experimental.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
 		for _, change := range buf {
 			obj := change.Object.Pod
 			podName := obj.Namespace + "/" + obj.Name
@@ -195,10 +191,10 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 	return nil
 }
 
-func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(WriteTxn)) error {
+func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(experimental.WriteTxn)) error {
 	rh := newReflectorHealth(health, p.Log)
 
-	processServiceEvent := func(txn WriteTxn, kind resource.EventKind, obj *slim_corev1.Service) {
+	processServiceEvent := func(txn experimental.WriteTxn, kind resource.EventKind, obj *slim_corev1.Service) {
 		switch kind {
 		case resource.Sync:
 			initServices(txn)
@@ -210,7 +206,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			}
 
 			// Sort the frontends by address
-			slices.SortStableFunc(fes, func(a, b FrontendParams) int {
+			slices.SortStableFunc(fes, func(a, b experimental.FrontendParams) int {
 				return bytes.Compare(a.Address.Bytes(), b.Address.Bytes())
 			})
 
@@ -230,7 +226,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	}
 
 	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
-	processEndpointsEvent := func(txn WriteTxn, kind resource.EventKind, obj *k8s.Endpoints) {
+	processEndpointsEvent := func(txn experimental.WriteTxn, kind resource.EventKind, obj *k8s.Endpoints) {
 		switch kind {
 		case resource.Sync:
 			initEndpoints(txn)
@@ -398,9 +394,9 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
+func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim_corev1.Service) (s *experimental.Service, fes []experimental.FrontendParams) {
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
-	s = &Service{
+	s = &experimental.Service{
 		Name:                name,
 		Source:              source.Kubernetes,
 		Labels:              labels.Map2Labels(svc.Labels, string(source.Kubernetes)),
@@ -464,7 +460,7 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 	}
 
 	if s.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal && isTopologyAware(svc) {
-		s.TrafficDistribution = TrafficDistributionPreferClose
+		s.TrafficDistribution = experimental.TrafficDistributionPreferClose
 	}
 
 	// A service that is annotated as headless has no frontends, even if the service spec contains
@@ -497,7 +493,7 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 				if p == nil {
 					continue
 				}
-				fe := FrontendParams{
+				fe := experimental.FrontendParams{
 					Type:        loadbalancer.SVCTypeClusterIP,
 					PortName:    loadbalancer.FEPortName(port.Name),
 					ServiceName: name,
@@ -530,7 +526,7 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 							continue
 						}
 
-						fe := FrontendParams{
+						fe := experimental.FrontendParams{
 							Type:        loadbalancer.SVCTypeNodePort,
 							PortName:    loadbalancer.FEPortName(port.Name),
 							ServiceName: name,
@@ -575,7 +571,7 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 
 				for _, scope := range scopes {
 					for _, port := range svc.Spec.Ports {
-						fe := FrontendParams{
+						fe := experimental.FrontendParams{
 							Type:        loadbalancer.SVCTypeLoadBalancer,
 							PortName:    loadbalancer.FEPortName(port.Name),
 							ServiceName: name,
@@ -607,7 +603,7 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 			}
 
 			for _, port := range svc.Spec.Ports {
-				fe := FrontendParams{
+				fe := experimental.FrontendParams{
 					Type:        loadbalancer.SVCTypeExternalIPs,
 					PortName:    loadbalancer.FEPortName(port.Name),
 					ServiceName: name,
@@ -662,7 +658,7 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
+func convertEndpoints(cfg experimental.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []experimental.BackendParams) {
 	name = loadbalancer.ServiceName{
 		Name:      ep.ServiceID.Name,
 		Namespace: ep.ServiceID.Namespace,
@@ -705,7 +701,7 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 		if entry.backend.Terminating {
 			state = loadbalancer.BackendStateTerminating
 		}
-		be := BackendParams{
+		be := experimental.BackendParams{
 			Address:   l3n4Addr,
 			NodeName:  entry.backend.NodeName,
 			PortNames: entry.portNames,
@@ -730,7 +726,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig, log *slog.Logger, wtxn WriteTxn, writer *Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig experimental.ExternalConfig, log *slog.Logger, wtxn experimental.WriteTxn, writer *experimental.Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
@@ -767,7 +763,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 			var ipv4, ipv6 bool
 
 			// Construct the backends from the pod IPs and container ports.
-			var bes []BackendParams
+			var bes []experimental.BackendParams
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
@@ -780,7 +776,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 				ipv4 = ipv4 || addr.Is4()
 				ipv6 = ipv6 || addr.Is6()
 
-				bep := BackendParams{
+				bep := experimental.BackendParams{
 					Address: loadbalancer.L3n4Addr{
 						AddrCluster: addr,
 						L4Addr: loadbalancer.L4Addr{
@@ -830,11 +826,11 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 				}
 			}
 
-			fes := make([]FrontendParams, 0, len(feIPs))
+			fes := make([]experimental.FrontendParams, 0, len(feIPs))
 
 			for _, feIP := range feIPs {
 				addr := cmtypes.MustAddrClusterFromIP(feIP)
-				fe := FrontendParams{
+				fe := experimental.FrontendParams{
 					Type:        loadbalancer.SVCTypeHostPort,
 					ServiceName: serviceName,
 					Address: loadbalancer.L3n4Addr{
@@ -850,7 +846,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 				fes = append(fes, fe)
 			}
 
-			svc := &Service{
+			svc := &experimental.Service{
 				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 				Name:             serviceName,
@@ -872,7 +868,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 
 	// Find and remove orphaned HostPort services, frontends and backends
 	// if 'HostPort' has changed or has been unset.
-	for svc := range writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
+	for svc := range writer.Services().Prefix(wtxn, experimental.ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
 		}
@@ -891,9 +887,9 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 	return nil
 }
 
-func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
+func deleteHostPort(params reflectorParams, wtxn experimental.WriteTxn, pod *slim_corev1.Pod) error {
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
-	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
+	for svc := range params.Writer.Services().Prefix(wtxn, experimental.ServiceByName(serviceNamePrefix)) {
 		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
 		if err != nil {
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
@@ -904,15 +900,6 @@ func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 		}
 	}
 	return nil
-}
-
-type HaveNetNSCookieSupport func() bool
-
-func netnsCookieSupportFunc() HaveNetNSCookieSupport {
-	return sync.OnceValue(func() bool {
-		_, err := netns.GetNetNSCookie()
-		return !errors.Is(err, unix.ENOPROTOOPT)
-	})
 }
 
 func toObjectObservable[T runtime.Object](src stream.Observable[resource.Event[T]]) stream.Observable[resource.Event[runtime.Object]] {
