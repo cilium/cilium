@@ -25,7 +25,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -1121,14 +1120,18 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
-	// tunnel map entries must exist
 	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
+		// node routes for ip4Alloc1 range should have been installed
+		foundRoutes, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
+		require.Len(t, foundRoutes, 1)
 	}
+
 	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
+		// node routes for ip6Alloc1 range should have been installed
+		foundRoutes, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
+		require.Len(t, foundRoutes, 1)
 	}
 
 	// Simulate agent restart with address families disables
@@ -1141,11 +1144,19 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
-	// tunnel map entries should have been removed
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
+	if s.enableIPv4 {
+		// node routes for ip4Alloc1 range should be gone
+		foundRoutes, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoutes)
+	}
+
+	if s.enableIPv6 {
+		// node routes for ip6Alloc1 range should be gone
+		foundRoutes, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoutes)
+	}
 
 	// Simulate agent restart with address families enabled again
 	nodeConfig.EnableIPv4 = true
@@ -1157,14 +1168,18 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
-	// tunnel map entries must exist
 	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
+		// node routes for ip4Alloc1 range should have been installed
+		foundRoutes, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
+		require.Len(t, foundRoutes, 1)
 	}
+
 	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
+		// node routes for ip6Alloc1 range should have been installed
+		foundRoutes, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
+		require.Len(t, foundRoutes, 1)
 	}
 
 	err = linuxNodeHandler.NodeDelete(nodev1)
