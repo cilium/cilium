@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -46,7 +47,7 @@ type adapterParams struct {
 	Services     statedb.Table[*loadbalancer.Service]
 	Backends     statedb.Table[*loadbalancer.Backend]
 	Frontends    statedb.Table[*loadbalancer.Frontend]
-	Ops          *BPFOps
+	Ops          *lbreconciler.BPFOps
 	Writer       *writer.Writer
 	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 }

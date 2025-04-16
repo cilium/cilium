@@ -44,9 +44,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
-	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	lbexperimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
+	lbreflectors "github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	lbwriter "github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -74,12 +76,16 @@ func TestScript(t *testing.T) {
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
+			maglev.Cell,
 			cell.Config(cecConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
-			experimental.Cell,
-			reflectors.Cell,
-			writer.Cell,
-			maglev.Cell,
+
+			lbexperimental.Cell,
+			lbreflectors.Cell,
+			lbwriter.Cell,
+			lbreconciler.Cell,
+			lbmaps.Cell,
+
 			cell.Provide(
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,

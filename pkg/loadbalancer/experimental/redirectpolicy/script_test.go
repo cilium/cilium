@@ -30,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -67,9 +69,13 @@ func TestScript(t *testing.T) {
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
+
 				experimental.Cell,
 				reflectors.Cell,
 				writer.Cell,
+				reconciler.Cell,
+				lbmaps.Cell,
+
 				Cell,
 				node.LocalNodeStoreCell,
 				maglev.Cell,
