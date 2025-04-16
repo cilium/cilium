@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -25,6 +24,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/prometheus/procfs"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/crypto/hkdf"
 
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -221,26 +221,26 @@ func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 }
 
 // computeNodeIPsecKey computes per-node-pair IPsec keys from the global,
-// pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
-// the global key, source node IP, destination node IP appended together.
-func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, srcBootID, dstBootID []byte) []byte {
-	inputLen := len(globalKey) + len(srcNodeIP) + len(dstNodeIP) + len(srcBootID) + len(dstBootID)
-	input := make([]byte, 0, inputLen)
-	input = append(input, globalKey...)
-	input = append(input, srcNodeIP...)
-	input = append(input, dstNodeIP...)
-	input = append(input, srcBootID[:36]...)
-	input = append(input, dstBootID[:36]...)
+// pre-shared key. The per-node-pair keys are computed using HKDF.
+// The ctx argument represents the type of algorithm between aead, auth,
+// and crypt. It is used to ensure different keys are used for auth and crypt,
+// even if the user provided the same global key for both.
+// No salt is generated here because we need the derived keys to be the same on
+// both ends of the tunnels.
+func computeNodeIPsecKey(ctx, globalKey, srcNodeIP, dstNodeIP, srcBootID, dstBootID []byte) []byte {
+	infoLen := len(srcNodeIP) + len(dstNodeIP) + len(srcBootID) + len(dstBootID)
+	info := make([]byte, 0, infoLen)
+	info = append(info, srcNodeIP...)
+	info = append(info, dstNodeIP...)
+	info = append(info, srcBootID[:36]...)
+	info = append(info, dstBootID[:36]...)
 
-	var hash []byte
-	if len(globalKey) <= 32 {
-		h := sha256.Sum256(input)
-		hash = h[:]
-	} else {
-		h := sha512.Sum512(input)
-		hash = h[:]
+	hkdf := hkdf.New(sha256.New, globalKey, nil, info)
+	key := make([]byte, len(globalKey))
+	if _, err := io.ReadFull(hkdf, key); err != nil {
+		return nil
 	}
-	return hash[:len(globalKey)]
+	return key
 }
 
 // canonicalIP returns a canonical IPv4 address (4 bytes)
@@ -264,20 +264,35 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	dstNodeIP = canonicalIP(dstNodeIP)
 
 	if globalKey.Aead != nil {
+		derivedKey := computeNodeIPsecKey([]byte("aead"), globalKey.Aead.Key, srcNodeIP, dstNodeIP,
+			[]byte(srcBootID), []byte(dstBootID))
+		if derivedKey == nil {
+			return nil
+		}
 		nodeKey.Aead = &netlink.XfrmStateAlgo{
 			Name:   globalKey.Aead.Name,
-			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
+			Key:    derivedKey,
 			ICVLen: globalKey.Aead.ICVLen,
 		}
 	} else {
+		derivedKey := computeNodeIPsecKey([]byte("auth"), globalKey.Auth.Key, srcNodeIP, dstNodeIP,
+			[]byte(srcBootID), []byte(dstBootID))
+		if derivedKey == nil {
+			return nil
+		}
 		nodeKey.Auth = &netlink.XfrmStateAlgo{
 			Name: globalKey.Auth.Name,
-			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
+			Key:  derivedKey,
 		}
 
+		derivedKey = computeNodeIPsecKey([]byte("crypt"), globalKey.Crypt.Key, srcNodeIP, dstNodeIP,
+			[]byte(srcBootID), []byte(dstBootID))
+		if derivedKey == nil {
+			return nil
+		}
 		nodeKey.Crypt = &netlink.XfrmStateAlgo{
 			Name: globalKey.Crypt.Name,
-			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
+			Key:  derivedKey,
 		}
 	}
 
