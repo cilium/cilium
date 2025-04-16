@@ -236,7 +236,7 @@ func updateService(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse backend address %q: %s", backend, err)
 		}
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.L4Type(strings.ToUpper(proto)), cmtypes.MustAddrClusterFromIP(ip), uint16(port))
+		be := loadbalancer.NewLegacyBackend(0, loadbalancer.L4Type(strings.ToUpper(proto)), cmtypes.MustAddrClusterFromIP(ip), uint16(port))
 
 		if !skipFrontendCheck && fa.Port == 0 && port != 0 {
 			Fatalf("L4 backend found (%s:%d) with L3 frontend", ip, port)

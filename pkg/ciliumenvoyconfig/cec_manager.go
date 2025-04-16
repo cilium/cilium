@@ -324,7 +324,7 @@ func convertToLBService(svc *slim_corev1.Service, ep *k8s.Endpoints) []*loadbala
 
 		for addrCluster, be := range ep.Backends {
 			if l4Addr := be.Ports[string(fePortName)]; l4Addr != nil {
-				s.Backends = append(s.Backends, &loadbalancer.Backend{
+				s.Backends = append(s.Backends, &loadbalancer.LegacyBackend{
 					FEPortName: string(fePortName),
 					L3n4Addr:   *loadbalancer.NewL3n4Addr(l4Addr.Protocol, addrCluster, l4Addr.Port, 0),
 				})

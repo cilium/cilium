@@ -309,7 +309,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "http",
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -378,7 +378,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "http",
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -458,7 +458,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "http",
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -484,7 +484,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "https",
 							L3n4Addr: loadbalancer.L3n4Addr{
