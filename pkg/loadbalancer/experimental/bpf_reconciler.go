@@ -200,10 +200,10 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 }
 
 func (ops *BPFOps) start(cell.HookContext) (err error) {
-	return ops.resetAndRestore()
+	return ops.ResetAndRestore()
 }
 
-func (ops *BPFOps) resetAndRestore() (err error) {
+func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
 	ops.restoredServiceIDs = sets.New[loadbalancer.ID]()
 	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
@@ -1260,9 +1260,9 @@ func (ops *BPFOps) sortedBackends(fe *Frontend) []backendWithRevision {
 	return bes
 }
 
-// stateSummary returns a multi-line summary of the internal state.
+// StateSummary returns a multi-line summary of the internal state.
 // Used in tests.
-func (ops *BPFOps) stateSummary() string {
+func (ops *BPFOps) StateSummary() string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.entities))

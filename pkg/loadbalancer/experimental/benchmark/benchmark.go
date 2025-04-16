@@ -34,6 +34,7 @@ import (
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
@@ -544,8 +545,8 @@ func testHive(maps experimental.LBMaps,
 				},
 				func() experimental.ExternalConfig { return extConfig },
 
-				func() experimental.StreamsOut {
-					return experimental.StreamsOut{
+				func() reflectors.StreamsOut {
+					return reflectors.StreamsOut{
 						ServicesStream:  stream.FromChannel(services),
 						EndpointsStream: stream.FromChannel(endpoints),
 					}
@@ -576,10 +577,12 @@ func testHive(maps experimental.LBMaps,
 
 			// Reflects Kubernetes services and endpoints to the load-balancing tables
 			// using the [Writer].
-			experimental.ReflectorCell,
+			cell.Invoke(reflectors.RegisterK8sReflector),
 
 			// Reconcile tables to BPF maps
 			experimental.ReconcilerCell,
+
+			cell.Provide(experimental.NetnsCookieSupportFunc),
 
 			cell.Provide(
 				tables.NewNodeAddressTable,

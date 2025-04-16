@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package experimental_test
 
 import (
 	"context"
@@ -35,6 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
@@ -74,19 +76,21 @@ func TestScript(t *testing.T) {
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
-				Cell,
-				cell.Config(TestConfig{
+				experimental.Cell,
+				reflectors.Cell,
+
+				cell.Config(experimental.TestConfig{
 					// By default 10% of the time the LBMap operations fail
 					TestFaultProbability: 0.1,
 				}),
 				maglev.Cell,
 				node.LocalNodeStoreCell,
 				cell.Provide(
-					func(cfg TestConfig) *TestConfig { return &cfg },
+					func(cfg experimental.TestConfig) *experimental.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					source.NewSources,
-					func(cfg TestConfig) *option.DaemonConfig {
+					func(cfg experimental.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
 							EnableIPv4:                      true,
 							EnableIPv6:                      true,
@@ -100,7 +104,7 @@ func TestScript(t *testing.T) {
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
-					func(ops *BPFOps, lns *node.LocalNodeStore, w *Writer) uhive.ScriptCmdsOut {
+					func(ops *experimental.BPFOps, lns *node.LocalNodeStore, w *experimental.Writer) uhive.ScriptCmdsOut {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
 					},
 				),
@@ -134,7 +138,7 @@ func TestScript(t *testing.T) {
 				MaxRetryInterval: 500 * time.Millisecond,
 			}
 		}, []string{
-			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddressForTesting(), 0)),
+			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(experimental.ChooseHealthServerLoopbackAddressForTesting(), 0)),
 		}, "testdata/*.txtar")
 }
 
@@ -175,9 +179,9 @@ var httpGetCmd = script.Command(
 )
 
 type testCommands struct {
-	w   *Writer
+	w   *experimental.Writer
 	lns *node.LocalNodeStore
-	ops *BPFOps
+	ops *experimental.BPFOps
 }
 
 func (tc testCommands) cmds() map[string]script.Cmd {
@@ -226,7 +230,7 @@ func (tc testCommands) opsReset() script.Cmd {
 			Summary: "Reset and restart BPF ops",
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			return nil, tc.ops.resetAndRestore()
+			return nil, tc.ops.ResetAndRestore()
 		})
 }
 
@@ -237,7 +241,7 @@ func (tc testCommands) opsSummary() script.Cmd {
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			return func(s *script.State) (stdout string, stderr string, err error) {
-				stdout = tc.ops.stateSummary()
+				stdout = tc.ops.StateSummary()
 				return
 			}, nil
 		})
