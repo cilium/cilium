@@ -73,6 +73,8 @@ State of load-balancing can be inspected via `cilium-dbg shell`:
   > lb/maps-dump
 ```
 
+You can also explore this in the standalone "repl". See `repl/main.go`.
+
 ## Testing
 
 The new architecture makes it easier to write integration tests due to the decoupling. An
