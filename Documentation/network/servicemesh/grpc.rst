@@ -36,6 +36,7 @@ Deploy GRPC Ingress
 You'll find the example Ingress definition in ``examples/kubernetes/servicemesh/grpc-ingress.yaml``.
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/grpc-ingress.yaml
+     :language: yaml
 
 .. parsed-literal::
 

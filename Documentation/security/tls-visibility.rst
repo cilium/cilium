@@ -391,6 +391,7 @@ The following Cilium network policy indicates that Cilium should perform HTTP-aw
 of communication between the ``mediabot`` pod to ``httpbin.org``.
 
 .. literalinclude:: ../../examples/kubernetes-tls-inspection/l7-visibility-tls.yaml
+   :language: yaml
 
 Let's take a closer look at the policy:
 

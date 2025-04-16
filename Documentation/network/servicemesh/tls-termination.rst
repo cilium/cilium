@@ -14,6 +14,7 @@ This example builds on the HTTP and gRPC ingress examples, adding TLS
 termination.
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/tls-ingress.yaml
+     :language: yaml
 
 .. include:: tls-cert.rst
 

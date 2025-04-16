@@ -134,6 +134,7 @@ The agent uses Fsnotify to track updates to the configuration file, so the origi
 The example below shows how to configure the agent via :term:`ConfigMap` and to verify it:
 
 .. literalinclude:: ../../../examples/kubernetes-ip-masq-agent/rfc1918.yaml
+     :language: yaml
 
 .. parsed-literal::
 

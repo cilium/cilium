@@ -15,6 +15,7 @@ termination for two HTTP routes. For simplicity, the second route to ``productpa
 is omitted.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/basic-https.yaml
+     :language: yaml
 
 .. include:: ../tls-cert.rst
 

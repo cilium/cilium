@@ -78,6 +78,7 @@ done as follows:
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/init.yaml
+           :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/init.json
@@ -95,6 +96,7 @@ queries from initializing endpoints may be done as follows:
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/from_init.yaml
+           :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/from_init.json

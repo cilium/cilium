@@ -148,6 +148,7 @@ In the policy file below, you will see the following rules for controlling the i
 * ``fromEndpoints`` with labels ``app:empire`` only ``HTTP`` ``GET`` is allowed on paths matching regex ``^/spaceship_diagnostics/_search/??.*$`` and ``^/troop_logs/search/??.*$``
 
 .. literalinclude:: ../../examples/kubernetes-es/es-sw-policy.yaml
+     :language: yaml
 
 Apply this Elasticsearch-aware network security policy using ``kubectl``:
 

@@ -36,6 +36,7 @@ Review the Ingress
 Here is the Ingress used:
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/ingress-path-types-ingress.yaml
+     :language: yaml
 
 You can see here that there are five matches, one for each of our deployments.
 
