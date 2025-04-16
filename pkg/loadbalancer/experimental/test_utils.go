@@ -300,8 +300,8 @@ func FastCheckTables(db *statedb.DB, writer *Writer, expectedFrontends int, last
 		return false, 0
 	}
 	var rev uint64
-	var fe *Frontend
-	for fe, rev = range writer.Frontends().LowerBound(txn, statedb.ByRevision[*Frontend](lastPendingRevision)) {
+	var fe *loadbalancer.Frontend
+	for fe, rev = range writer.Frontends().LowerBound(txn, statedb.ByRevision[*loadbalancer.Frontend](lastPendingRevision)) {
 		if fe.Status.Kind != reconciler.StatusKindDone {
 			return false, rev
 		}

@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -59,7 +58,7 @@ func cecListerWatchers(cs client.Clientset) (out struct {
 // CiliumClusterwideEnvoyConfig.
 func registerCECK8sReflector(
 	dcfg *option.DaemonConfig,
-	ecfg experimental.Config,
+	ecfg loadbalancer.Config,
 	p *cecResourceParser,
 	crdSync promise.Promise[synced.CRDSync],
 	nodeLabels *nodeLabels,

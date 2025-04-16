@@ -45,11 +45,11 @@ type healthServerParams struct {
 	Jobs          job.Group
 	Log           *slog.Logger
 	DB            *statedb.DB
-	Config        Config
-	TestConfig    *TestConfig `optional:"true"`
-	ExtConfig     ExternalConfig
-	Frontends     statedb.Table[*Frontend]
-	Backends      statedb.Table[*Backend]
+	Config        lb.Config
+	TestConfig    *lb.TestConfig `optional:"true"`
+	ExtConfig     lb.ExternalConfig
+	Frontends     statedb.Table[*lb.Frontend]
+	Backends      statedb.Table[*lb.Backend]
 	Writer        *Writer
 	NodeAddresses statedb.Table[tables.NodeAddress]
 }
@@ -136,7 +136,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 				continue
 			}
 
-			svc := fe.service
+			svc := fe.Service
 			name := svc.Name
 			port := svc.HealthCheckNodePort
 
@@ -178,13 +178,13 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 					wtxn := s.params.Writer.WriteTxn()
 					s.params.Writer.UpsertServiceAndFrontends(
 						wtxn,
-						&Service{
+						&lb.Service{
 							Name:             healthServiceName,
 							Source:           source.Local,
 							ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
 							IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
 						},
-						FrontendParams{
+						lb.FrontendParams{
 							Address: lb.L3n4Addr{
 								AddrCluster: fe.Address.AddrCluster,
 								L4Addr: lb.L4Addr{
@@ -219,7 +219,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 						wtxn,
 						healthServiceName,
 						source.Local,
-						BackendParams{
+						lb.BackendParams{
 							Address: lb.L3n4Addr{
 								AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
 								L4Addr: lb.L4Addr{
@@ -252,7 +252,7 @@ func (s *healthServer) cleanupListeners(ctx context.Context) {
 	}
 }
 
-func (s *healthServer) addListener(svc *Service, port uint16) {
+func (s *healthServer) addListener(svc *lb.Service, port uint16) {
 	if srv, exists := s.serverByPort[port]; exists {
 		s.params.Log.Warn("HealthServer: Listener already exists",
 			logfields.Port, port,
@@ -318,9 +318,9 @@ type httpHealthServer struct {
 
 	nodeName string
 	name     lb.ServiceName
-	svc      *Service
+	svc      *lb.Service
 	db       *statedb.DB
-	backends statedb.Table[*Backend]
+	backends statedb.Table[*lb.Backend]
 }
 
 func (h *httpHealthServer) getLocalEndpointCount() int {
@@ -334,7 +334,7 @@ func (h *httpHealthServer) getLocalEndpointCount() int {
 
 	// Gather the backends for the service.
 	activeCount := 0
-	for be := range h.backends.List(txn, BackendByServiceName(h.name)) {
+	for be := range h.backends.List(txn, lb.BackendByServiceName(h.name)) {
 		inst := be.GetInstance(h.name)
 		if inst.NodeName != "" && inst.NodeName != h.nodeName {
 			// Skip non-local backends.

@@ -47,7 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -155,9 +155,8 @@ type Daemon struct {
 	lrpManager   *redirectpolicy.Manager
 	maglevConfig maglev.Config
 
-	explbConfig experimental.Config
-
 	statusCollector status.StatusCollector
+	lbConfig        loadbalancer.Config
 }
 
 func (d *Daemon) init() error {
@@ -359,7 +358,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		orchestrator:      params.Orchestrator,
 		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
-		explbConfig:       params.ExpLBConfig,
+		lbConfig:          params.LBConfig,
 		ciliumHealth:      params.CiliumHealth,
 		statusCollector:   params.StatusCollector,
 	}

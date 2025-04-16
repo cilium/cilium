@@ -42,11 +42,11 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 		addrCluster, _ := types.AddrClusterFromIP(addr1[:])
 		p.Writer.UpsertServiceAndFrontends(
 			wtxn,
-			&Service{
+			&loadbalancer.Service{
 				Name:   name,
 				Source: source.Kubernetes,
 			},
-			FrontendParams{
+			loadbalancer.FrontendParams{
 				Address:     *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "foo",
@@ -67,11 +67,11 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 			addrCluster, _ := types.AddrClusterFromIP(addr1[:])
 			p.Writer.UpsertServiceAndFrontends(
 				wtxn,
-				&Service{
+				&loadbalancer.Service{
 					Name:   name,
 					Source: source.Kubernetes,
 				},
-				FrontendParams{
+				loadbalancer.FrontendParams{
 					Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 					Type:     loadbalancer.SVCTypeClusterIP,
 					PortName: "",
@@ -96,11 +96,11 @@ func BenchmarkInsertBackend(b *testing.B) {
 
 	p.Writer.UpsertServiceAndFrontends(
 		wtxn,
-		&Service{
+		&loadbalancer.Service{
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		FrontendParams{
+		loadbalancer.FrontendParams{
 			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
@@ -120,7 +120,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				source.Kubernetes,
-				BackendParams{
+				loadbalancer.BackendParams{
 					Address: beAddr,
 					State:   loadbalancer.BackendStateActive,
 				},
@@ -145,11 +145,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 
 	p.Writer.UpsertServiceAndFrontends(
 		wtxn,
-		&Service{
+		&loadbalancer.Service{
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		FrontendParams{
+		loadbalancer.FrontendParams{
 			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
@@ -161,7 +161,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		source.Kubernetes,
-		BackendParams{
+		loadbalancer.BackendParams{
 			Address: beAddr,
 			State:   loadbalancer.BackendStateActive,
 		},
@@ -174,7 +174,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			source.Kubernetes,
-			BackendParams{
+			loadbalancer.BackendParams{
 				Address: beAddr,
 				State:   loadbalancer.BackendStateActive,
 			},
@@ -197,11 +197,11 @@ func BenchmarkReplaceService(b *testing.B) {
 
 	p.Writer.UpsertServiceAndFrontends(
 		wtxn,
-		&Service{
+		&loadbalancer.Service{
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		FrontendParams{
+		loadbalancer.FrontendParams{
 			Address:  l3n4Addr,
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
@@ -215,11 +215,11 @@ func BenchmarkReplaceService(b *testing.B) {
 	for b.Loop() {
 		p.Writer.UpsertServiceAndFrontends(
 			wtxn,
-			&Service{
+			&loadbalancer.Service{
 				Name:   name,
 				Source: source.Kubernetes,
 			},
-			FrontendParams{
+			loadbalancer.FrontendParams{
 				Address:     l3n4Addr,
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "",
