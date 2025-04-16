@@ -2,7 +2,7 @@
 set -eux
 [ ! -f $HOME/go/bin/stress ] && go install golang.org/x/tools/cmd/stress@latest
 
-DIRS="tests experimental/redirectpolicy"
+DIRS="tests experimental/redirectpolicy reconciler"
 
 for dir in $DIRS; do
   pushd $dir

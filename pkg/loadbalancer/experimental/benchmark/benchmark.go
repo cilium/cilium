@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/cilium/stream"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
@@ -34,6 +35,8 @@ import (
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -66,9 +69,9 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: loglevel}))
 
-	var maps experimental.LBMaps
+	var maps lbmaps.LBMaps
 	if testutils.IsPrivileged() {
-		bpfMaps := &experimental.BPFLBMaps{
+		bpfMaps := &lbmaps.BPFLBMaps{
 			Log:    log,
 			Pinned: false,
 			Cfg: loadbalancer.ExternalConfig{
@@ -97,7 +100,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		bpfMaps.Start(context.TODO())
 		maps = bpfMaps
 	} else {
-		maps = experimental.NewFakeLBMaps()
+		maps = lbmaps.NewFakeLBMaps()
 	}
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1000)
@@ -114,7 +117,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	var (
 		writer *writer.Writer
 		db     *statedb.DB
-		bo     *experimental.BPFOps
+		bo     *lbreconciler.BPFOps
 	)
 	h := testHive(maps, services, endpoints, &writer, &db, &bo)
 
@@ -151,7 +154,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		nextRevision := statedb.Revision(0)
 		reconciled := false
 		for waitStart := time.Now(); time.Now().Sub(waitStart) < 10*time.Second; time.Sleep(10 * time.Millisecond) {
-			reconciled, nextRevision = experimental.FastCheckTables(db, writer, testSize, nextRevision)
+			reconciled, nextRevision = fastCheckTables(db, writer, testSize, nextRevision)
 			if reconciled {
 				break
 			}
@@ -192,14 +195,14 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		// Tables and maps should now be empty.
 		cleanedUp := false
 		for waitStart := time.Now(); time.Now().Sub(waitStart) < 10*time.Second; time.Sleep(10 * time.Millisecond) {
-			cleanedUp = experimental.FastCheckEmptyTablesAndState(db, writer, bo)
+			cleanedUp = fastCheckEmptyTablesAndState(db, writer, bo)
 			cleanedUp = cleanedUp && bo.LBMaps.IsEmpty()
 			if cleanedUp {
 				break
 			}
 		}
 		if !cleanedUp {
-			dump := experimental.DumpLBMaps(bo.LBMaps, false, nil)
+			dump := lbmaps.DumpLBMaps(bo.LBMaps, false, nil)
 			panic(fmt.Sprintf("Expected BPF maps to be empty, instead they contain %d entries:\n%s", len(dump), strings.Join(dump, "\n")))
 		}
 		fmt.Println("ok.")
@@ -514,12 +517,12 @@ var (
 	}
 )
 
-func testHive(maps experimental.LBMaps,
+func testHive(maps lbmaps.LBMaps,
 	services chan resource.Event[*slim_corev1.Service],
 	endpoints chan resource.Event[*k8s.Endpoints],
 	writerPtr **writer.Writer,
 	db **statedb.DB,
-	bo **experimental.BPFOps,
+	bo **lbreconciler.BPFOps,
 ) *hive.Hive {
 	extConfig := loadbalancer.ExternalConfig{
 		ZoneMapper:        &option.DaemonConfig{},
@@ -555,8 +558,8 @@ func testHive(maps experimental.LBMaps,
 					}
 				},
 
-				func(lc cell.Lifecycle) experimental.LBMaps {
-					if rm, ok := maps.(*experimental.BPFLBMaps); ok {
+				func(lc cell.Lifecycle) lbmaps.LBMaps {
+					if rm, ok := maps.(*lbmaps.BPFLBMaps); ok {
 						lc.Append(rm)
 					}
 					return maps
@@ -570,7 +573,7 @@ func testHive(maps experimental.LBMaps,
 
 			daemonk8s.PodTableCell,
 
-			cell.Invoke(func(db_ *statedb.DB, w *writer.Writer, bo_ *experimental.BPFOps) {
+			cell.Invoke(func(db_ *statedb.DB, w *writer.Writer, bo_ *lbreconciler.BPFOps) {
 				*db = db_
 				*writerPtr = w
 				*bo = bo_
@@ -584,7 +587,7 @@ func testHive(maps experimental.LBMaps,
 			cell.Invoke(reflectors.RegisterK8sReflector),
 
 			// Reconcile tables to BPF maps
-			experimental.ReconcilerCell,
+			lbreconciler.Cell,
 
 			cell.Provide(experimental.NetnsCookieSupportFunc),
 
@@ -622,4 +625,27 @@ func testHive(maps experimental.LBMaps,
 			}),
 		),
 	)
+}
+
+func fastCheckTables(db *statedb.DB, writer *writer.Writer, expectedFrontends int, lastPendingRevision statedb.Revision) (reconciled bool, nextRevision statedb.Revision) {
+	txn := db.ReadTxn()
+	if writer.Frontends().NumObjects(txn) < expectedFrontends {
+		return false, 0
+	}
+	var rev uint64
+	var fe *loadbalancer.Frontend
+	for fe, rev = range writer.Frontends().LowerBound(txn, statedb.ByRevision[*loadbalancer.Frontend](lastPendingRevision)) {
+		if fe.Status.Kind != reconciler.StatusKindDone {
+			return false, rev
+		}
+	}
+	return true, rev // Here, it is the last reconciled revision rather than the first non-reconciled revision.
+}
+
+func fastCheckEmptyTablesAndState(db *statedb.DB, writer *writer.Writer, bo *lbreconciler.BPFOps) bool {
+	txn := db.ReadTxn()
+	if writer.Frontends().NumObjects(txn) > 0 || writer.Backends().NumObjects(txn) > 0 || writer.Services().NumObjects(txn) > 0 {
+		return false
+	}
+	return bo.StateIsEmpty()
 }

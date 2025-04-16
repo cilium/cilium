@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package reconciler
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -33,21 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
-)
-
-// ReconcilerCell reconciles the load-balancing state with the BPF maps.
-var ReconcilerCell = cell.Module(
-	"reconciler",
-	"Reconciles load-balancing state with BPF maps",
-
-	cell.Provide(
-		newBPFOps,
-		newBPFReconciler,
-	),
-	cell.Invoke(
-		// Force the registration even if none uses Reconciler[*loadbalancer.Frontend].
-		func(reconciler.Reconciler[*loadbalancer.Frontend]) {},
-	),
 )
 
 const (
@@ -127,7 +113,7 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 }
 
 type BPFOps struct {
-	LBMaps LBMaps
+	LBMaps maps.LBMaps
 	log    *slog.Logger
 	cfg    loadbalancer.ExternalConfig
 	maglev *maglev.Maglev
@@ -183,7 +169,7 @@ type bpfOpsParams struct {
 	Log           *slog.Logger
 	Cfg           loadbalancer.Config
 	ExtCfg        loadbalancer.ExternalConfig
-	LBMaps        LBMaps
+	LBMaps        maps.LBMaps
 	Maglev        *maglev.Maglev
 	DB            *statedb.DB
 	NodeAddresses statedb.Table[tables.NodeAddress]
@@ -1269,6 +1255,14 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 		}
 	})
 	return bes
+}
+
+func (ops *BPFOps) StateIsEmpty() bool {
+	return len(ops.backendReferences) == 0 &&
+		len(ops.backendStates) == 0 &&
+		len(ops.nodePortAddrByPort) == 0 &&
+		len(ops.serviceIDAlloc.entities) == 0 &&
+		len(ops.backendIDAlloc.entities) == 0
 }
 
 // StateSummary returns a multi-line summary of the internal state.

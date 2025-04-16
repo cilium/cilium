@@ -36,6 +36,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -80,6 +82,8 @@ func TestScript(t *testing.T) {
 				experimental.Cell,
 				reflectors.Cell,
 				writer.Cell,
+				lbmaps.Cell,
+				reconciler.Cell,
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
@@ -106,7 +110,7 @@ func TestScript(t *testing.T) {
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
-					func(ops *experimental.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
+					func(ops *reconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
 					},
 				),
@@ -183,7 +187,7 @@ var httpGetCmd = script.Command(
 type testCommands struct {
 	w   *writer.Writer
 	lns *node.LocalNodeStore
-	ops *experimental.BPFOps
+	ops *reconciler.BPFOps
 }
 
 func (tc testCommands) cmds() map[string]script.Cmd {
