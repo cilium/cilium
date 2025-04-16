@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package writer
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 
 	"k8s.io/utils/ptr"
@@ -48,7 +49,8 @@ func fixture(t testing.TB, hooks ...ServiceHook) (p testParams) {
 	}
 	h := hive.New(
 		cell.Config(loadbalancer.DefaultConfig),
-		TablesCell,
+		node.LocalNodeStoreCell,
+		Cell,
 		cell.Provide(
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,

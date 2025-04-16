@@ -24,6 +24,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -52,7 +53,7 @@ type lrpControllerParams struct {
 	LRPs               statedb.Table[*LocalRedirectPolicy]
 	Pods               statedb.Table[daemonk8s.LocalPod]
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
-	Writer             *experimental.Writer
+	Writer             *writer.Writer
 	NetNSCookieSupport experimental.HaveNetNSCookieSupport
 	Metrics            controllerMetrics
 }
@@ -78,7 +79,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	orphans := sets.New[k8s.ServiceID]()
 
 	// Functions to clean up the state from the redirect policy when it is removed.
-	cleanupFuncs := map[k8s.ServiceID]func(experimental.WriteTxn){}
+	cleanupFuncs := map[k8s.ServiceID]func(writer.WriteTxn){}
 
 	// Amount of time to wait before reprocessing. This reduces the overhead around
 	// the WriteTxn and the WatchSet and avoids processing intermediate states of
@@ -167,7 +168,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (c *lrpController) processRedirectPolicy(wtxn experimental.WriteTxn, lrpID k8s.ServiceID) (*statedb.WatchSet, func(experimental.WriteTxn)) {
+func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.ServiceID) (*statedb.WatchSet, func(writer.WriteTxn)) {
 	lrp, _, watch, found := c.p.LRPs.GetWatch(wtxn, lrpIDIndex.Query(lrpID))
 	if !found {
 		return nil, nil
@@ -187,7 +188,7 @@ func (c *lrpController) processRedirectPolicy(wtxn experimental.WriteTxn, lrpID 
 	ws := statedb.NewWatchSet()
 	ws.Add(watch)
 
-	cleanup := func(wtxn experimental.WriteTxn) {
+	cleanup := func(wtxn writer.WriteTxn) {
 		// Unset the redirect on all frontends.
 		if lrp.LRPType == lrpConfigTypeSvc {
 			targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
@@ -310,7 +311,7 @@ func (c *lrpController) processRedirectPolicy(wtxn experimental.WriteTxn, lrpID 
 	return ws, cleanup
 }
 
-func (c *lrpController) updateRedirectBackends(wtxn experimental.WriteTxn, ws *statedb.WatchSet, lrp *LocalRedirectPolicy, pods []podInfo) {
+func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb.WatchSet, lrp *LocalRedirectPolicy, pods []podInfo) {
 	portNameMatches := func(portName string) bool {
 		for bePortName := range lrp.BackendPortsByPortName {
 			if string(bePortName) == strings.ToLower(portName) {
@@ -429,7 +430,7 @@ func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.F
 	return true
 }
 
-func (c *lrpController) updateSkipLB(wtxn experimental.WriteTxn, ws *statedb.WatchSet, lrp *LocalRedirectPolicy, pods []podInfo) {
+func (c *lrpController) updateSkipLB(wtxn writer.WriteTxn, ws *statedb.WatchSet, lrp *LocalRedirectPolicy, pods []podInfo) {
 	// Update the desired skiplb state. The Table[desiredSkipLB] holds all local endpoints filled in
 	// from EndpointManager. We may see the endpoint first and thus have the netns cookie and can
 	// reconcile immediately, or we may see LRP & pod first and thus have to wait for the EndpointManager

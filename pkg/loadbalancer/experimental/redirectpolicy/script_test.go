@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -68,6 +69,7 @@ func TestScript(t *testing.T) {
 				daemonk8s.TablesCell,
 				experimental.Cell,
 				reflectors.Cell,
+				writer.Cell,
 				Cell,
 				node.LocalNodeStoreCell,
 				maglev.Cell,

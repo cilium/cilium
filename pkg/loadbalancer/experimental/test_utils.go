@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
@@ -294,7 +295,7 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 	return
 }
 
-func FastCheckTables(db *statedb.DB, writer *Writer, expectedFrontends int, lastPendingRevision statedb.Revision) (reconciled bool, nextRevision statedb.Revision) {
+func FastCheckTables(db *statedb.DB, writer *writer.Writer, expectedFrontends int, lastPendingRevision statedb.Revision) (reconciled bool, nextRevision statedb.Revision) {
 	txn := db.ReadTxn()
 	if writer.Frontends().NumObjects(txn) < expectedFrontends {
 		return false, 0
@@ -309,7 +310,7 @@ func FastCheckTables(db *statedb.DB, writer *Writer, expectedFrontends int, last
 	return true, rev // Here, it is the last reconciled revision rather than the first non-reconciled revision.
 }
 
-func FastCheckEmptyTablesAndState(db *statedb.DB, writer *Writer, bo *BPFOps) bool {
+func FastCheckEmptyTablesAndState(db *statedb.DB, writer *writer.Writer, bo *BPFOps) bool {
 	txn := db.ReadTxn()
 	if writer.Frontends().NumObjects(txn) > 0 || writer.Backends().NumObjects(txn) > 0 || writer.Services().NumObjects(txn) > 0 {
 		return false

@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -23,7 +23,7 @@ type envoyOps struct {
 	log           *slog.Logger
 	xds           resourceMutator
 	policyTrigger policyTrigger
-	writer        *experimental.Writer
+	writer        *writer.Writer
 	portAllocator PortAllocator
 }
 
@@ -137,7 +137,7 @@ func registerEnvoyReconciler(
 	xds resourceMutator,
 	pt policyTrigger,
 	params reconciler.Params,
-	writer *experimental.Writer,
+	writer *writer.Writer,
 	envoyResources statedb.RWTable[*EnvoyResource],
 	portAllocator PortAllocator,
 ) error {

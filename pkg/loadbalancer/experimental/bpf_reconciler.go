@@ -26,6 +26,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -61,7 +62,7 @@ const (
 	initGracePeriod = 10 * time.Second
 )
 
-func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.RWTable[*loadbalancer.Frontend], w *Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
+func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
 	if !w.IsEnabled() {
 		return nil, nil
 	}
@@ -77,7 +78,7 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 
 	r, err := reconciler.Register(
 		p,
-		fes,
+		fes.(statedb.RWTable[*loadbalancer.Frontend]),
 
 		(*loadbalancer.Frontend).Clone,
 		func(fe *loadbalancer.Frontend, s reconciler.Status) *loadbalancer.Frontend {

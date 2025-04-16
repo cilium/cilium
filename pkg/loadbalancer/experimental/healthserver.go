@@ -21,6 +21,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
@@ -50,7 +51,7 @@ type healthServerParams struct {
 	ExtConfig     lb.ExternalConfig
 	Frontends     statedb.Table[*lb.Frontend]
 	Backends      statedb.Table[*lb.Backend]
-	Writer        *Writer
+	Writer        *writer.Writer
 	NodeAddresses statedb.Table[tables.NodeAddress]
 }
 

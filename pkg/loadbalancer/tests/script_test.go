@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
@@ -78,6 +79,7 @@ func TestScript(t *testing.T) {
 				daemonk8s.TablesCell,
 				experimental.Cell,
 				reflectors.Cell,
+				writer.Cell,
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
@@ -104,7 +106,7 @@ func TestScript(t *testing.T) {
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
-					func(ops *experimental.BPFOps, lns *node.LocalNodeStore, w *experimental.Writer) uhive.ScriptCmdsOut {
+					func(ops *experimental.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
 					},
 				),
@@ -179,7 +181,7 @@ var httpGetCmd = script.Command(
 )
 
 type testCommands struct {
-	w   *experimental.Writer
+	w   *writer.Writer
 	lns *node.LocalNodeStore
 	ops *experimental.BPFOps
 }
