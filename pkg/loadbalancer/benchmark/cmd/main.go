@@ -10,7 +10,7 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental/benchmark"
+	"github.com/cilium/cilium/pkg/loadbalancer/benchmark"
 )
 
 // Test size is the number of services. For each service, there is a single endpointslice with a single endpoint with a single port.
