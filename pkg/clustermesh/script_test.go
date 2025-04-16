@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -115,8 +116,8 @@ func TestScript(t *testing.T) {
 				func() store.Factory {
 					return storeFactory
 				},
-				func() *experimental.TestConfig {
-					return &experimental.TestConfig{}
+				func() *loadbalancer.TestConfig {
+					return &loadbalancer.TestConfig{}
 				},
 				clustermesh.NewClusterMeshMetricsNoop,
 				func() clustermesh.RemoteIdentityWatcher {

@@ -40,20 +40,20 @@ type adapterParams struct {
 	JobGroup     job.Group
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
-	Config       Config
+	Config       loadbalancer.Config
 	DB           *statedb.DB
-	Services     statedb.Table[*Service]
-	Backends     statedb.Table[*Backend]
-	Frontends    statedb.Table[*Frontend]
+	Services     statedb.Table[*loadbalancer.Service]
+	Backends     statedb.Table[*loadbalancer.Backend]
+	Frontends    statedb.Table[*loadbalancer.Frontend]
 	Ops          *BPFOps
 	Writer       *Writer
-	TestConfig   *TestConfig `optional:"true"`
+	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 }
 
 type decorateParams struct {
 	cell.In
 
-	Config Config
+	Config loadbalancer.Config
 	SCA    *serviceCacheAdapter
 	SC     k8s.ServiceCache `optional:"true"`
 	SMA    *serviceManagerAdapter
@@ -109,8 +109,8 @@ func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManager
 type serviceCacheAdapter struct {
 	log           *slog.Logger
 	db            *statedb.DB
-	services      statedb.Table[*Service]
-	backends      statedb.Table[*Backend]
+	services      statedb.Table[*loadbalancer.Service]
+	backends      statedb.Table[*loadbalancer.Backend]
 	writer        *Writer
 	notifications stream.Observable[k8s.ServiceNotification]
 	emit          func(k8s.ServiceNotification)
@@ -190,7 +190,7 @@ func (s *serviceCacheAdapter) UpdateService(k8sSvc *v1.Service, swg *lock.Stoppa
 	return k8s.ServiceID{}
 }
 
-func newMinimalService(svc *Service) *k8s.MinimalService {
+func newMinimalService(svc *loadbalancer.Service) *k8s.MinimalService {
 	return &k8s.MinimalService{
 		Labels:      svc.Labels.K8sStringMap(),
 		Annotations: svc.Annotations,
@@ -198,7 +198,7 @@ func newMinimalService(svc *Service) *k8s.MinimalService {
 	}
 }
 
-func newMinimalEndpoints(svcName loadbalancer.ServiceName, backends iter.Seq[*Backend]) *k8s.MinimalEndpoints {
+func newMinimalEndpoints(svcName loadbalancer.ServiceName, backends iter.Seq[*loadbalancer.Backend]) *k8s.MinimalEndpoints {
 	eps := &k8s.MinimalEndpoints{
 		Backends: map[cmtypes.AddrCluster]store.PortConfiguration{},
 	}
@@ -228,7 +228,7 @@ func (s *serviceCacheAdapter) ForEachService(yield func(svcID k8s.ServiceID, svc
 	txn := s.db.ReadTxn()
 
 	for svc := range s.services.All(txn) {
-		backends := statedb.ToSeq(s.backends.List(txn, BackendByServiceName(svc.Name)))
+		backends := statedb.ToSeq(s.backends.List(txn, loadbalancer.BackendByServiceName(svc.Name)))
 		if !yield(
 			k8s.ServiceID{
 				Cluster:   svc.Name.Cluster,
@@ -292,7 +292,7 @@ func (s *serviceCacheAdapter) feedNotifications(ctx context.Context, _ cell.Heal
 		for name := range changed {
 			// Look up the service and the previous notification we sent for it.
 			n, stateFound := state[name]
-			svc, _, found := s.services.Get(txn, ServiceByName(name))
+			svc, _, found := s.services.Get(txn, loadbalancer.ServiceByName(name))
 
 			// If no previously sent notification is found then no need to emit anything
 			// for the deletion.
@@ -315,7 +315,7 @@ func (s *serviceCacheAdapter) feedNotifications(ctx context.Context, _ cell.Heal
 				n.OldService = n.Service
 				n.OldEndpoints = n.Endpoints
 				n.Service = newMinimalService(svc)
-				backends := statedb.ToSeq(s.backends.List(txn, BackendByServiceName(name)))
+				backends := statedb.ToSeq(s.backends.List(txn, loadbalancer.BackendByServiceName(name)))
 				n.Endpoints = newMinimalEndpoints(name, backends)
 			} else {
 				n.Action = k8s.DeleteService
@@ -344,8 +344,8 @@ type serviceManagerAdapter struct {
 	log          *slog.Logger
 	daemonConfig *option.DaemonConfig
 	db           *statedb.DB
-	services     statedb.Table[*Service]
-	frontends    statedb.Table[*Frontend]
+	services     statedb.Table[*loadbalancer.Service]
+	frontends    statedb.Table[*loadbalancer.Frontend]
 	writer       *Writer
 
 	initDone func(WriteTxn)
@@ -400,7 +400,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.Lega
 	txn := s.db.ReadTxn()
 	for fe := range s.frontends.All(txn) {
 		bes := []*loadbalancer.LegacyBackend{}
-		svc := fe.service
+		svc := fe.Service
 		for be := range fe.Backends {
 			// Get the instance of the referenced service. This may be different from fe.ServiceName
 			// if it is being redirected.
@@ -441,7 +441,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.Lega
 			},
 			Type:        svcType,
 			Name:        fe.ServiceName,
-			Annotations: fe.service.Annotations,
+			Annotations: fe.Service.Annotations,
 			Backends:    bes,
 
 			ForwardingMode:            "", // FIXME (not implemented)
@@ -551,11 +551,11 @@ func (s *serviceManagerAdapter) GetServiceNameByAddr(addr loadbalancer.L3n4Addr)
 
 	txn := s.db.ReadTxn()
 
-	fe, _, found := s.frontends.Get(txn, FrontendByAddress(addr))
+	fe, _, found := s.frontends.Get(txn, loadbalancer.FrontendByAddress(addr))
 	if !found {
 		return "", "", false
 	}
-	return fe.service.Name.Namespace, fe.service.Name.Name, true
+	return fe.Service.Name.Namespace, fe.Service.Name.Name, true
 }
 
 var _ service.ServiceManager = &serviceManagerAdapter{}

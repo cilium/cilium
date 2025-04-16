@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental_test
+package loadbalancer_test
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 // customFuncs tweaks the generated structs to restrict them to values
@@ -93,13 +93,13 @@ func tableRowJSONFuzzer[T statedb.TableWritable](f *testing.F) {
 }
 
 func FuzzJSONService(f *testing.F) {
-	tableRowJSONFuzzer[*experimental.Service](f)
+	tableRowJSONFuzzer[*loadbalancer.Service](f)
 }
 
 func FuzzJSONFrontend(f *testing.F) {
-	tableRowJSONFuzzer[*experimental.Frontend](f)
+	tableRowJSONFuzzer[*loadbalancer.Frontend](f)
 }
 
 func FuzzJSONBackend(f *testing.F) {
-	tableRowJSONFuzzer[*experimental.Backend](f)
+	tableRowJSONFuzzer[*loadbalancer.Backend](f)
 }

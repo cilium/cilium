@@ -13,11 +13,11 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 var (
-	benchmarkExternalConfig = experimental.ExternalConfig{
+	benchmarkExternalConfig = loadbalancer.ExternalConfig{
 		EnableIPv4:                      true,
 		EnableIPv6:                      true,
 		ExternalClusterIP:               true,

@@ -20,7 +20,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -182,10 +181,10 @@ type EnvoyResource struct {
 
 	// Redirects are the proxy redirects to set. Redirection of services is performed after
 	// the resources have been reconciled to Envoy.
-	Redirects part.Map[loadbalancer.ServiceName, *experimental.ProxyRedirect]
+	Redirects part.Map[loadbalancer.ServiceName, *loadbalancer.ProxyRedirect]
 
 	// ReconciledRedirects are the redirects that were successfully set.
-	ReconciledRedirects part.Map[loadbalancer.ServiceName, *experimental.ProxyRedirect]
+	ReconciledRedirects part.Map[loadbalancer.ServiceName, *loadbalancer.ProxyRedirect]
 
 	ReferencedServices part.Set[loadbalancer.ServiceName]
 

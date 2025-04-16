@@ -82,9 +82,9 @@ type reflectorParams struct {
 	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
 	Pods                   statedb.Table[daemonK8s.LocalPod]
 	Writer                 *experimental.Writer
-	ExtConfig              experimental.ExternalConfig
+	ExtConfig              loadbalancer.ExternalConfig
 	HaveNetNSCookieSupport experimental.HaveNetNSCookieSupport
-	TestConfig             *experimental.TestConfig `optional:"true"`
+	TestConfig             *loadbalancer.TestConfig `optional:"true"`
 }
 
 func (p reflectorParams) waitTime() time.Duration {
@@ -206,7 +206,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			}
 
 			// Sort the frontends by address
-			slices.SortStableFunc(fes, func(a, b experimental.FrontendParams) int {
+			slices.SortStableFunc(fes, func(a, b loadbalancer.FrontendParams) int {
 				return bytes.Compare(a.Address.Bytes(), b.Address.Bytes())
 			})
 
@@ -394,9 +394,9 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim_corev1.Service) (s *experimental.Service, fes []experimental.FrontendParams) {
+func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim_corev1.Service) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
-	s = &experimental.Service{
+	s = &loadbalancer.Service{
 		Name:                name,
 		Source:              source.Kubernetes,
 		Labels:              labels.Map2Labels(svc.Labels, string(source.Kubernetes)),
@@ -460,7 +460,7 @@ func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim
 	}
 
 	if s.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal && isTopologyAware(svc) {
-		s.TrafficDistribution = experimental.TrafficDistributionPreferClose
+		s.TrafficDistribution = loadbalancer.TrafficDistributionPreferClose
 	}
 
 	// A service that is annotated as headless has no frontends, even if the service spec contains
@@ -493,7 +493,7 @@ func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim
 				if p == nil {
 					continue
 				}
-				fe := experimental.FrontendParams{
+				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeClusterIP,
 					PortName:    loadbalancer.FEPortName(port.Name),
 					ServiceName: name,
@@ -526,7 +526,7 @@ func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim
 							continue
 						}
 
-						fe := experimental.FrontendParams{
+						fe := loadbalancer.FrontendParams{
 							Type:        loadbalancer.SVCTypeNodePort,
 							PortName:    loadbalancer.FEPortName(port.Name),
 							ServiceName: name,
@@ -571,7 +571,7 @@ func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim
 
 				for _, scope := range scopes {
 					for _, port := range svc.Spec.Ports {
-						fe := experimental.FrontendParams{
+						fe := loadbalancer.FrontendParams{
 							Type:        loadbalancer.SVCTypeLoadBalancer,
 							PortName:    loadbalancer.FEPortName(port.Name),
 							ServiceName: name,
@@ -603,7 +603,7 @@ func convertService(cfg experimental.ExternalConfig, log *slog.Logger, svc *slim
 			}
 
 			for _, port := range svc.Spec.Ports {
-				fe := experimental.FrontendParams{
+				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeExternalIPs,
 					PortName:    loadbalancer.FEPortName(port.Name),
 					ServiceName: name,
@@ -658,7 +658,7 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(cfg experimental.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []experimental.BackendParams) {
+func convertEndpoints(cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []loadbalancer.BackendParams) {
 	name = loadbalancer.ServiceName{
 		Name:      ep.ServiceID.Name,
 		Namespace: ep.ServiceID.Namespace,
@@ -701,7 +701,7 @@ func convertEndpoints(cfg experimental.ExternalConfig, ep *k8s.Endpoints) (name 
 		if entry.backend.Terminating {
 			state = loadbalancer.BackendStateTerminating
 		}
-		be := experimental.BackendParams{
+		be := loadbalancer.BackendParams{
 			Address:   l3n4Addr,
 			NodeName:  entry.backend.NodeName,
 			PortNames: entry.portNames,
@@ -726,7 +726,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig experimental.ExternalConfig, log *slog.Logger, wtxn experimental.WriteTxn, writer *experimental.Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn experimental.WriteTxn, writer *experimental.Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
@@ -763,7 +763,7 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig e
 			var ipv4, ipv6 bool
 
 			// Construct the backends from the pod IPs and container ports.
-			var bes []experimental.BackendParams
+			var bes []loadbalancer.BackendParams
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
@@ -776,7 +776,7 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig e
 				ipv4 = ipv4 || addr.Is4()
 				ipv6 = ipv6 || addr.Is6()
 
-				bep := experimental.BackendParams{
+				bep := loadbalancer.BackendParams{
 					Address: loadbalancer.L3n4Addr{
 						AddrCluster: addr,
 						L4Addr: loadbalancer.L4Addr{
@@ -826,11 +826,11 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig e
 				}
 			}
 
-			fes := make([]experimental.FrontendParams, 0, len(feIPs))
+			fes := make([]loadbalancer.FrontendParams, 0, len(feIPs))
 
 			for _, feIP := range feIPs {
 				addr := cmtypes.MustAddrClusterFromIP(feIP)
-				fe := experimental.FrontendParams{
+				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeHostPort,
 					ServiceName: serviceName,
 					Address: loadbalancer.L3n4Addr{
@@ -846,7 +846,7 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig e
 				fes = append(fes, fe)
 			}
 
-			svc := &experimental.Service{
+			svc := &loadbalancer.Service{
 				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 				Name:             serviceName,
@@ -868,7 +868,7 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig e
 
 	// Find and remove orphaned HostPort services, frontends and backends
 	// if 'HostPort' has changed or has been unset.
-	for svc := range writer.Services().Prefix(wtxn, experimental.ServiceByName(serviceNamePrefix)) {
+	for svc := range writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
 		}
@@ -889,7 +889,7 @@ func upsertHostPort(netnsCookie experimental.HaveNetNSCookieSupport, extConfig e
 
 func deleteHostPort(params reflectorParams, wtxn experimental.WriteTxn, pod *slim_corev1.Pod) error {
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
-	for svc := range params.Writer.Services().Prefix(wtxn, experimental.ServiceByName(serviceNamePrefix)) {
+	for svc := range params.Writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
 		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
 		if err != nil {
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)

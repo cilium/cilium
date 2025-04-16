@@ -22,13 +22,13 @@ import (
 type nodePortAddressReconcilerParams struct {
 	cell.In
 
-	Config   Config
+	Config   loadbalancer.Config
 	JobGroup job.Group
 	Log      *slog.Logger
 
 	DB            *statedb.DB
 	NodeAddresses statedb.Table[tables.NodeAddress]
-	Frontends     statedb.Table[*Frontend]
+	Frontends     statedb.Table[*loadbalancer.Frontend]
 }
 
 func registerNodePortAddressReconciler(p nodePortAddressReconcilerParams) {
@@ -40,7 +40,7 @@ func registerNodePortAddressReconciler(p nodePortAddressReconcilerParams) {
 		log:       p.Log,
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
-		frontends: p.Frontends.(statedb.RWTable[*Frontend]),
+		frontends: p.Frontends.(statedb.RWTable[*loadbalancer.Frontend]),
 	}
 
 	p.JobGroup.Add(job.OneShot("node-addr-reconciler", r.nodePortAddressReconcilerLoop))
@@ -50,7 +50,7 @@ type nodePortAddrReconciler struct {
 	log       *slog.Logger
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
-	frontends statedb.RWTable[*Frontend]
+	frontends statedb.RWTable[*loadbalancer.Frontend]
 }
 
 func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Context, health cell.Health) error {
@@ -72,7 +72,7 @@ func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Conte
 
 			fe = fe.Clone()
 			// Set status to Pending, so that BPFOps reconciler gets invoked to update Frontend(s)' addrs accordingly
-			fe.setStatus(reconciler.StatusPending())
+			fe.Status = reconciler.StatusPending()
 			_, _, err := r.frontends.Insert(wtxn, fe)
 			if err != nil {
 				// Should not happen, but let's log it anyway

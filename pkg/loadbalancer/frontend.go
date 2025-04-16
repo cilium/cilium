@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package loadbalancer
 
 import (
 	"encoding/json"
@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -24,21 +23,21 @@ import (
 // can be manipulated and which are internally managed by [Writer].
 type FrontendParams struct {
 	// Frontend address and port
-	Address loadbalancer.L3n4Addr
+	Address L3n4Addr
 
 	// Service type (e.g. ClusterIP, NodePort, ...)
-	Type loadbalancer.SVCType
+	Type SVCType
 
 	// Name of the associated service
-	ServiceName loadbalancer.ServiceName
+	ServiceName ServiceName
 
 	// PortName if set will select only backends with matching
 	// port name.
-	PortName loadbalancer.FEPortName
+	PortName FEPortName
 
 	// ServicePort is the associated "ClusterIP" port of this frontend.
 	// Same as [Address.L4Addr.Port] except when [Type] NodePort or
-	// LoadBalancer. This is used to match frontends with the [Ports] of
+	//  This is used to match frontends with the [Ports] of
 	// [Service.ProxyRedirect].
 	ServicePort uint16
 }
@@ -53,57 +52,41 @@ type Frontend struct {
 	Status reconciler.Status
 
 	// Backends associated with the frontend.
-	Backends backendsSeq2
+	Backends BackendsSeq2
 
 	// ID is the identifier allocated to this frontend. Used as the key
 	// in the services BPF map. This field is populated by the reconciler
 	// and is initially set to zero. It can be considered valid only when
 	// [Status] is set to done.
-	ID loadbalancer.ServiceID
+	ID ServiceID
 
 	// RedirectTo if set selects the backends from this service name instead
 	// of that of [FrontendParams.ServiceName]. This is used to implement the
 	// local redirect policies where traffic going to a specific service/frontend
 	// is redirected to a local pod instead.
-	RedirectTo *loadbalancer.ServiceName
+	RedirectTo *ServiceName
 
-	// service associated with the frontend. If service is updated
+	// Service associated with the frontend. If service is updated
 	// this pointer to the service will update as well and the
 	// frontend is marked for reconciliation.
-	//
-	// Private as it is managed by [Writer] and does not need to
-	// be JSON serialized.
-	service *Service
+	Service *Service `json:"-" yaml:"-"`
 }
 
-// backendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
+// BackendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
 // marshalable.
-type backendsSeq2 iter.Seq2[BackendParams, statedb.Revision]
+type BackendsSeq2 iter.Seq2[BackendParams, statedb.Revision]
 
-func (s backendsSeq2) MarshalJSON() ([]byte, error) {
+func (s BackendsSeq2) MarshalJSON() ([]byte, error) {
 	return json.Marshal(slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](s))))
 }
 
-func (s backendsSeq2) MarshalYAML() (any, error) {
+func (s BackendsSeq2) MarshalYAML() (any, error) {
 	return slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](s))), nil
-}
-
-func (fe *Frontend) Service() *Service {
-	return fe.service
 }
 
 func (fe *Frontend) Clone() *Frontend {
 	fe2 := *fe
 	return &fe2
-}
-
-func (fe *Frontend) setStatus(status reconciler.Status) *Frontend {
-	fe.Status = status
-	return fe
-}
-
-func (fe *Frontend) getStatus() reconciler.Status {
-	return fe.Status
 }
 
 func (fe *Frontend) TableHeader() []string {
@@ -140,7 +123,7 @@ func (fe *Frontend) TableRow() []string {
 
 // showBackends returns the backends associated with a frontend in form
 // "1.2.3.4:80, [2001::1]:443"
-func showBackends(bes backendsSeq2) string {
+func showBackends(bes BackendsSeq2) string {
 	const maxToShow = 5
 	count := 0
 	var b strings.Builder
@@ -161,26 +144,26 @@ func showBackends(bes backendsSeq2) string {
 }
 
 var (
-	frontendAddressIndex = statedb.Index[*Frontend, loadbalancer.L3n4Addr]{
+	frontendAddressIndex = statedb.Index[*Frontend, L3n4Addr]{
 		Name: "address",
 		FromObject: func(fe *Frontend) index.KeySet {
 			return index.NewKeySet(fe.Address.Bytes())
 		},
-		FromKey: func(l loadbalancer.L3n4Addr) index.Key {
+		FromKey: func(l L3n4Addr) index.Key {
 			return index.Key(l.Bytes())
 		},
-		FromString: loadbalancer.L3n4AddrFromString,
+		FromString: L3n4AddrFromString,
 		Unique:     true,
 	}
 
 	FrontendByAddress = frontendAddressIndex.Query
 
-	frontendServiceIndex = statedb.Index[*Frontend, loadbalancer.ServiceName]{
+	frontendServiceIndex = statedb.Index[*Frontend, ServiceName]{
 		Name: "service",
 		FromObject: func(fe *Frontend) index.KeySet {
 			return index.NewKeySet(index.Stringer(fe.ServiceName))
 		},
-		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromKey:    index.Stringer[ServiceName],
 		FromString: index.FromString,
 		Unique:     false,
 	}
@@ -193,9 +176,6 @@ const (
 )
 
 func NewFrontendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Frontend], error) {
-	if !cfg.EnableExperimentalLB {
-		return nil, nil
-	}
 	tbl, err := statedb.NewTable(
 		FrontendTableName,
 		frontendAddressIndex,

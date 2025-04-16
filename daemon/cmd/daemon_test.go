@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -115,8 +115,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },
 			k8sSynced.RejectedCRDSyncPromise,
-			func() *experimental.TestConfig {
-				return &experimental.TestConfig{}
+			func() *loadbalancer.TestConfig {
+				return &loadbalancer.TestConfig{}
 			},
 		),
 		fakeDatapath.Cell,

@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/stream"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -26,7 +27,7 @@ func registerNodeZoneWatcher(jg job.Group, p zoneWatcherParams) {
 type zoneWatcherParams struct {
 	cell.In
 
-	Config         Config
+	Config         loadbalancer.Config
 	Writer         *Writer
 	LocalNodeStore *node.LocalNodeStore
 }

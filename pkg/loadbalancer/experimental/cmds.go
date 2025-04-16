@@ -12,15 +12,17 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb/reconciler"
+
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type scriptCommandsParams struct {
 	cell.In
 
-	Config     Config
-	TestConfig *TestConfig `optional:"true"`
+	Config     loadbalancer.Config
+	TestConfig *loadbalancer.TestConfig `optional:"true"`
 	LBMaps     LBMaps
-	Reconciler reconciler.Reconciler[*Frontend]
+	Reconciler reconciler.Reconciler[*loadbalancer.Frontend]
 }
 
 func scriptCommands(p scriptCommandsParams) hive.ScriptCmdsOut {

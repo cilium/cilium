@@ -42,7 +42,7 @@ type testCase struct {
 	name string
 
 	// frontend and the associated service + backends.
-	frontend Frontend
+	frontend loadbalancer.Frontend
 
 	delete bool
 
@@ -54,7 +54,7 @@ type testCase struct {
 
 var testServiceName = loadbalancer.ServiceName{Name: "test", Namespace: "test"}
 
-var baseService = Service{
+var baseService = loadbalancer.Service{
 	Name:                   testServiceName,
 	Source:                 source.Kubernetes,
 	Labels:                 nil,
@@ -67,25 +67,25 @@ var baseService = Service{
 	LoopbackHostPort:       false,
 }
 
-var baseFrontend = Frontend{
-	FrontendParams: FrontendParams{
+var baseFrontend = loadbalancer.Frontend{
+	FrontendParams: loadbalancer.FrontendParams{
 		ServiceName: testServiceName,
 		PortName:    "", // Ignored, backends already resolved.
 	},
-	Backends: func(yield func(BackendParams, statedb.Revision) bool) {},
+	Backends: func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {},
 	Status:   reconciler.StatusPending(),
 }
 
-var emptyInstances = func() part.Map[BackendInstanceKey, BackendParams] {
-	part.RegisterKeyType(BackendInstanceKey.Key)
-	return part.Map[BackendInstanceKey, BackendParams]{}
+var emptyInstances = func() part.Map[loadbalancer.BackendInstanceKey, loadbalancer.BackendParams] {
+	part.RegisterKeyType(loadbalancer.BackendInstanceKey.Key)
+	return part.Map[loadbalancer.BackendInstanceKey, loadbalancer.BackendParams]{}
 }()
 
 var baseBackend = newTestBackend(backend1, loadbalancer.BackendStateActive)
 var nextBackendRevision = statedb.Revision(1)
 
-func concatBe(bes backendsSeq2, be BackendParams, rev statedb.Revision) backendsSeq2 {
-	return func(yield func(BackendParams, statedb.Revision) bool) {
+func concatBe(bes loadbalancer.BackendsSeq2, be loadbalancer.BackendParams, rev statedb.Revision) loadbalancer.BackendsSeq2 {
+	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
 		if !yield(be, rev) {
 			return
 		}
@@ -93,12 +93,12 @@ func concatBe(bes backendsSeq2, be BackendParams, rev statedb.Revision) backends
 	}
 }
 
-func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState) Backend {
-	return Backend{
+func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState) loadbalancer.Backend {
+	return loadbalancer.Backend{
 		Address: addr,
 		Instances: emptyInstances.Set(
-			BackendInstanceKey{testServiceName, 0},
-			BackendParams{
+			loadbalancer.BackendInstanceKey{ServiceName: testServiceName, SourcePriority: 0},
+			loadbalancer.BackendParams{
 				Address:   addr,
 				NodeName:  "",
 				PortNames: nil,
@@ -110,11 +110,11 @@ func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState)
 }
 
 // newTestCase creates a testCase from a function that manipulates the base service and frontends.
-func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []Backend), maps []MapDump, maglev []MapDump) testCase {
+func newTestCase(name string, mod func(*loadbalancer.Service, *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend), maps []MapDump, maglev []MapDump) testCase {
 	svc := baseService
 	fe := baseFrontend
 	delete, bes := mod(&svc, &fe)
-	fe.service = &svc
+	fe.Service = &svc
 	for _, be := range bes {
 		fe.Backends = concatBe(fe.Backends, *be.GetInstance(svc.Name), nextBackendRevision)
 		nextBackendRevision++
@@ -128,8 +128,8 @@ func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []
 	}
 }
 
-func deleteFrontend(addr loadbalancer.L3n4Addr, typ loadbalancer.SVCType) func(*Service, *Frontend) (bool, []Backend) {
-	return func(svc *Service, fe *Frontend) (bool, []Backend) {
+func deleteFrontend(addr loadbalancer.L3n4Addr, typ loadbalancer.SVCType) func(*loadbalancer.Service, *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+	return func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
 		fe.Type = typ
 		fe.Address = addr
 		return true, nil
@@ -141,7 +141,7 @@ func deleteFrontend(addr loadbalancer.L3n4Addr, typ loadbalancer.SVCType) func(*
 var clusterIPTestCases = []testCase{
 	newTestCase(
 		"ClusterIP_no_backends",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			return false, nil
@@ -155,10 +155,10 @@ var clusterIPTestCases = []testCase{
 
 	newTestCase(
 		"ClusterIP_1_backend",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			return false, []Backend{baseBackend}
+			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]MapDump{
 			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -171,13 +171,13 @@ var clusterIPTestCases = []testCase{
 
 	newTestCase(
 		"ClusterIP_2_backends",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			be1, be2 :=
 				newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
-			return false, []Backend{be1, be2}
+			return false, []loadbalancer.Backend{be1, be2}
 		},
 		[]MapDump{
 			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -192,7 +192,7 @@ var clusterIPTestCases = []testCase{
 
 	newTestCase(
 		"ClusterIP_delete_backends",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			return false, nil
@@ -207,7 +207,7 @@ var clusterIPTestCases = []testCase{
 	// Test that adding another frontend allocates new IDs correctly.
 	newTestCase(
 		"ClusterIP_extra_frontend",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = extraFrontend
 			return false, nil
@@ -234,7 +234,7 @@ var clusterIPTestCases = []testCase{
 	// Adding the same frontend again won't reuse the ID as it should have been released.
 	newTestCase(
 		"ClusterIP_extra_frontend_again",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = extraFrontend
 			return false, nil
@@ -269,13 +269,13 @@ var clusterIPTestCases = []testCase{
 var quarantineTestCases = []testCase{
 	newTestCase(
 		"Quarantine_2_active_backends",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			be1, be2 :=
 				newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
-			return false, []Backend{be1, be2}
+			return false, []loadbalancer.Backend{be1, be2}
 		},
 		[]MapDump{
 			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -290,13 +290,13 @@ var quarantineTestCases = []testCase{
 
 	newTestCase(
 		"Quarantine_1_active_1_quarantined",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			be1, be2 :=
 				newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
-			return false, []Backend{be1, be2}
+			return false, []loadbalancer.Backend{be1, be2}
 		},
 		[]MapDump{
 			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=quarantined",
@@ -325,13 +325,13 @@ var nodePortTestCases = []testCase{
 		// address. From this additional services map entries are created
 		// for each node IP address.
 
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			be1, be2 :=
 				newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
-			return false, []Backend{be1, be2}
+			return false, []loadbalancer.Backend{be1, be2}
 		},
 
 		[]MapDump{
@@ -365,10 +365,10 @@ var hostPortTestCases = []testCase{
 	newTestCase(
 		"HostPort_zero",
 
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = HostPort
 			fe.Address = zeroAddr
-			return false, []Backend{baseBackend}
+			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]MapDump{
 			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -395,10 +395,10 @@ var hostPortTestCases = []testCase{
 	newTestCase(
 		"HostPort_fixed",
 
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = HostPort
 			fe.Address = autoAddr
-			return false, []Backend{baseBackend}
+			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]MapDump{
 			"BE: ID=2 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -423,7 +423,7 @@ var proxyTestCases = []testCase{
 	newTestCase(
 		"L7Proxy",
 
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 
@@ -431,10 +431,10 @@ var proxyTestCases = []testCase{
 			// from how the backend ID is normally stored (host byte-order). Hence to make this
 			// work on both little and big-endian machine's the port is set to a value that's the
 			// same in both byte orders.
-			svc.ProxyRedirect = &ProxyRedirect{
+			svc.ProxyRedirect = &loadbalancer.ProxyRedirect{
 				ProxyPort: 0x0a0a, // 2570
 			}
-			return false, []Backend{baseBackend}
+			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]MapDump{
 			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -461,11 +461,11 @@ var extraFrontendInternal = func() loadbalancer.L3n4Addr {
 var miscFlagsTestCases = []testCase{
 	newTestCase(
 		"MiscFlags_Nat46x64",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			svc.NatPolicy = loadbalancer.SVCNatPolicyNat46
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -476,11 +476,11 @@ var miscFlagsTestCases = []testCase{
 
 	newTestCase(
 		"MiscFlags_Ext_Cluster",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			svc.ExtTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -491,11 +491,11 @@ var miscFlagsTestCases = []testCase{
 
 	newTestCase(
 		"MiscFlags_Int_Cluster",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 			svc.IntTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -506,13 +506,13 @@ var miscFlagsTestCases = []testCase{
 
 	newTestCase(
 		"MiscFlags_Both_Cluster",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
 
 			svc.IntTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -530,12 +530,12 @@ var miscFlagsTestCases = []testCase{
 
 	newTestCase(
 		"MiscFlags_ScopeInternal",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = HostPort
 			fe.Address = extraFrontendInternal
 			fe.Address.Scope = loadbalancer.ScopeInternal
 
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=2 ADDR=10.0.0.2:80",
@@ -546,7 +546,7 @@ var miscFlagsTestCases = []testCase{
 
 	newTestCase(
 		"MiscFlags_TwoTrafficPolicyScopes",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = HostPort
 			fe.Address = extraFrontendInternal
 			fe.Address.Scope = loadbalancer.ScopeInternal
@@ -554,7 +554,7 @@ var miscFlagsTestCases = []testCase{
 			svc.ExtTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 			svc.IntTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=2 ADDR=10.0.0.2:80",
@@ -579,10 +579,10 @@ var loadBalancerTestCases = []testCase{
 	// Is this reasonable approach?
 	newTestCase(
 		"LoadBalancer",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = LoadBalancer
 			fe.Address = autoAddr
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -602,10 +602,10 @@ var loadBalancerTestCases = []testCase{
 var externalIPTestCases = []testCase{
 	newTestCase(
 		"ExternalIPs",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ExternalIPs
 			fe.Address = autoAddr
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -626,11 +626,11 @@ var localRedirectTestCases = []testCase{
 	// If a frontend has a redirect set to another service it will have the "LocalRedirect" flag.
 	newTestCase(
 		"LocalRedirect",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.RedirectTo = &loadbalancer.ServiceName{Name: "foo", Namespace: "bar"}
 			fe.Address = autoAddr
-			return false, []Backend{}
+			return false, []loadbalancer.Backend{}
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
@@ -650,7 +650,7 @@ var localRedirectTestCases = []testCase{
 var sessionAffinityTestCases = []testCase{
 	newTestCase(
 		"SessionAffinity",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
@@ -658,7 +658,7 @@ var sessionAffinityTestCases = []testCase{
 			be1, be2 :=
 				newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
-			return false, []Backend{be1, be2}
+			return false, []loadbalancer.Backend{be1, be2}
 		},
 
 		[]MapDump{
@@ -684,7 +684,7 @@ var sessionAffinityTestCases = []testCase{
 
 	newTestCase(
 		"SessionAffinity_quarantine",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
@@ -692,7 +692,7 @@ var sessionAffinityTestCases = []testCase{
 			be1, be2 :=
 				newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
-			return false, []Backend{be1, be2}
+			return false, []loadbalancer.Backend{be1, be2}
 		},
 
 		[]MapDump{
@@ -715,7 +715,7 @@ var sessionAffinityTestCases = []testCase{
 	),
 	newTestCase(
 		"SessionAffinity_cleanup_1",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			// Even if SessionAffinity was turned off the affinity map should be cleaned.
@@ -728,11 +728,11 @@ var sessionAffinityTestCases = []testCase{
 
 	newTestCase(
 		"SessionAffinity_add_to_disable",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
-			return false, []Backend{baseBackend}
+			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]MapDump{
 			"AFF: ID=3 BEID=3",
@@ -753,11 +753,11 @@ var sessionAffinityTestCases = []testCase{
 	// Disable session affinity to verify that the affinity match maps are cleaned up.
 	newTestCase(
 		"SessionAffinity_disable",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			svc.SessionAffinity = false
-			return false, []Backend{baseBackend}
+			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]MapDump{
 			"BE: ID=3 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -775,7 +775,7 @@ var sessionAffinityTestCases = []testCase{
 
 	newTestCase(
 		"SessionAffinity_cleanup_2",
-		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
 			// Flip SessionAffinity on again to verify that it doesn't affect the deletion
@@ -811,14 +811,14 @@ var perServiceAlgorithmCases = []setWithAlgo{
 		testCaseSet: []testCase{
 			newTestCase(
 				"NodePort_1_backend_explicitMaglev",
-				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+				func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 					fe.Type = NodePort
 					fe.Address = zeroAddr
 					if svc.Annotations == nil {
 						svc.Annotations = make(map[string]string)
 					}
 					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgMaglev
-					return false, []Backend{baseBackend}
+					return false, []loadbalancer.Backend{baseBackend}
 				},
 				[]MapDump{
 					"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -846,10 +846,10 @@ var perServiceAlgorithmCases = []setWithAlgo{
 		testCaseSet: []testCase{
 			newTestCase(
 				"NodePort_1_backend_noExplicitMaglev",
-				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+				func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 					fe.Type = NodePort
 					fe.Address = zeroAddr
-					return false, []Backend{baseBackend}
+					return false, []loadbalancer.Backend{baseBackend}
 				},
 				[]MapDump{
 					"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -875,14 +875,14 @@ var perServiceAlgorithmCases = []setWithAlgo{
 		testCaseSet: []testCase{
 			newTestCase(
 				"NodePort_1_backend_explicitRandom",
-				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+				func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 					fe.Type = NodePort
 					fe.Address = zeroAddr
 					if svc.Annotations == nil {
 						svc.Annotations = make(map[string]string)
 					}
 					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgRandom
-					return false, []Backend{baseBackend}
+					return false, []loadbalancer.Backend{baseBackend}
 				},
 				[]MapDump{
 					"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -908,10 +908,10 @@ var perServiceAlgorithmCases = []setWithAlgo{
 		testCaseSet: []testCase{
 			newTestCase(
 				"NodePort_1_backend_noExplicitRandom",
-				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+				func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 					fe.Type = NodePort
 					fe.Address = zeroAddr
-					return false, []Backend{baseBackend}
+					return false, []loadbalancer.Backend{baseBackend}
 				},
 				[]MapDump{
 					"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
@@ -949,9 +949,9 @@ func TestBPFOps(t *testing.T) {
 	require.NoError(t, err, "maglev.New")
 
 	// Enable features.
-	extCfg := ExternalConfig{
+	extCfg := loadbalancer.ExternalConfig{
 		ZoneMapper: &option.DaemonConfig{},
-		LBMapsConfig: LBMapsConfig{
+		LBMapsConfig: loadbalancer.LBMapsConfig{
 			MaxSockRevNatMapEntries:  1000,
 			ServiceMapMaxEntries:     1000,
 			BackendMapMaxEntries:     1000,
@@ -979,7 +979,7 @@ func TestBPFOps(t *testing.T) {
 		lbmaps = NewFakeLBMaps()
 	}
 
-	cfg := DefaultConfig
+	cfg := loadbalancer.DefaultConfig
 	cfg.EnableExperimentalLB = true
 
 	// Insert node addrs used for NodePort/HostPort
@@ -1036,7 +1036,7 @@ func TestBPFOps(t *testing.T) {
 					ops.Prune(
 						context.TODO(),
 						nil, // ReadTxn (unused)
-						nil, // Iterator[*Frontend] (unused)
+						nil, // Iterator[*loadbalancer.Frontend] (unused)
 					),
 					"Prune")
 

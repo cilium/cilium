@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type lbmapsParams struct {
@@ -30,9 +29,9 @@ type lbmapsParams struct {
 
 	Log          *slog.Logger
 	Lifecycle    cell.Lifecycle
-	TestConfig   *TestConfig `optional:"true"`
+	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 	MaglevConfig maglev.Config
-	ExtConfig    ExternalConfig
+	ExtConfig    loadbalancer.ExternalConfig
 	Writer       *Writer
 }
 
@@ -64,47 +63,6 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
 	return bpf.NewMapOut(LBMaps(r))
-}
-
-// LBMapsConfig specifies the configuration for the load-balancing BPF
-// maps.
-type LBMapsConfig struct {
-	MaxSockRevNatMapEntries                                         int
-	ServiceMapMaxEntries, BackendMapMaxEntries, RevNatMapMaxEntries int
-	AffinityMapMaxEntries                                           int
-	SourceRangeMapMaxEntries                                        int
-	MaglevMapMaxEntries                                             int
-}
-
-// newLBMapsConfig creates the config from the DaemonConfig. When we
-// move to the new implementation this should be replaced with a cell.Config.
-func newLBMapsConfig(dcfg *option.DaemonConfig) (cfg LBMapsConfig) {
-	cfg.MaxSockRevNatMapEntries = dcfg.SockRevNatEntries
-	cfg.ServiceMapMaxEntries = dcfg.LBMapEntries
-	cfg.BackendMapMaxEntries = dcfg.LBMapEntries
-	cfg.RevNatMapMaxEntries = dcfg.LBMapEntries
-	cfg.AffinityMapMaxEntries = dcfg.LBMapEntries
-	cfg.SourceRangeMapMaxEntries = dcfg.LBMapEntries
-	cfg.MaglevMapMaxEntries = dcfg.LBMapEntries
-	if dcfg.LBServiceMapEntries > 0 {
-		cfg.ServiceMapMaxEntries = dcfg.LBServiceMapEntries
-	}
-	if dcfg.LBBackendMapEntries > 0 {
-		cfg.BackendMapMaxEntries = dcfg.LBBackendMapEntries
-	}
-	if dcfg.LBRevNatEntries > 0 {
-		cfg.RevNatMapMaxEntries = dcfg.LBRevNatEntries
-	}
-	if dcfg.LBAffinityMapEntries > 0 {
-		cfg.AffinityMapMaxEntries = dcfg.LBAffinityMapEntries
-	}
-	if dcfg.LBSourceRangeMapEntries > 0 {
-		cfg.SourceRangeMapMaxEntries = dcfg.LBSourceRangeMapEntries
-	}
-	if dcfg.LBMaglevMapEntries > 0 {
-		cfg.MaglevMapMaxEntries = dcfg.LBMaglevMapEntries
-	}
-	return
 }
 
 type serviceMaps interface {
@@ -162,7 +120,7 @@ type BPFLBMaps struct {
 	Pinned bool
 
 	Log       *slog.Logger
-	Cfg       ExternalConfig
+	Cfg       loadbalancer.ExternalConfig
 	MaglevCfg maglev.Config
 
 	service4Map, service6Map         *ebpf.Map
