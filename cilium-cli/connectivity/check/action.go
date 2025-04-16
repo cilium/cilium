@@ -112,10 +112,10 @@ func (a *Action) String() string {
 	sn := a.test.scenarioName(a.scenario)
 	p := a.Peers()
 	if p != "" {
-		return fmt.Sprintf("%s/%s: %s", sn, a.name, p)
+		return fmt.Sprintf("%s:%s: %s", sn, a.name, p)
 	}
 
-	return fmt.Sprintf("%s/%s", sn, a.name)
+	return fmt.Sprintf("%s:%s", sn, a.name)
 }
 
 // Peers returns the name and addr:port of the peers involved in the Action.
