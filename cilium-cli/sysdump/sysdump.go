@@ -2456,15 +2456,16 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 }
 
 func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string) error {
-	hubbleFlowsTimeout := strconv.FormatInt(int64(c.Options.HubbleFlowsTimeout/time.Second), 10)
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
 			if err := c.WithFileSink(fmt.Sprintf(hubbleFlowsFileName, p.Name), func(stdout io.Writer) error {
 				return c.WithFileSink(fmt.Sprintf(hubbleObserveFileName, p.Name), func(stderr io.Writer) error {
-					return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, []string{
-						"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
-						fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
+					cctx, cancel := context.WithTimeout(ctx, c.Options.HubbleFlowsTimeout)
+					defer cancel()
+
+					return c.Client.ExecInPodWithWriters(cctx, nil, p.Namespace, p.Name, containerName, []string{
+						"hubble", "observe", "--last", strconv.FormatInt(c.Options.HubbleFlowsCount, 10), "--debug", "-o", "jsonpb",
 					}, stdout, stderr)
 
 				})
