@@ -105,9 +105,6 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 		       __u8 encrypt_key, __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
-	if (!tunnel_endpoint)
-		return DROP_NO_TUNNEL_ENDPOINT;
-
 	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
 					      encrypt_key, seclabel, dstid,
 					      trace);
