@@ -840,7 +840,8 @@ func (c *Client) createDialer(url *url.URL) (httpstream.Dialer, error) {
 		return nil, fmt.Errorf("Error while creating k8s dialer: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
 	}
 
-	dialerFallback := portforward.NewFallbackDialer(dialerWebsocket, dialerSPDY, func(err error) bool {
+	// Default to the SPDY connection
+	dialerFallback := portforward.NewFallbackDialer(dialerSPDY, dialerWebsocket, func(err error) bool {
 		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
 	})
 	return dialerFallback, nil
