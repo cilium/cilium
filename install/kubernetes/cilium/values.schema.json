@@ -2834,6 +2834,9 @@
                     "cert": {
                       "type": "string"
                     },
+                    "commonName": {
+                      "type": "string"
+                    },
                     "existingSecret": {
                       "type": "string"
                     },
@@ -3231,8 +3234,19 @@
                     "cert": {
                       "type": "string"
                     },
+                    "commonName": {
+                      "type": "string"
+                    },
                     "existingSecret": {
                       "type": "string"
+                    },
+                    "extraDnsNames": {
+                      "items": {},
+                      "type": "array"
+                    },
+                    "extraIpAddresses": {
+                      "items": {},
+                      "type": "array"
                     },
                     "key": {
                       "type": "string"
@@ -3243,6 +3257,9 @@
                 "server": {
                   "properties": {
                     "cert": {
+                      "type": "string"
+                    },
+                    "commonName": {
                       "type": "string"
                     },
                     "enabled": {
@@ -3341,6 +3358,9 @@
             "server": {
               "properties": {
                 "cert": {
+                  "type": "string"
+                },
+                "commonName": {
                   "type": "string"
                 },
                 "existingSecret": {
@@ -3637,8 +3657,19 @@
                     "cert": {
                       "type": "string"
                     },
+                    "commonName": {
+                      "type": "string"
+                    },
                     "existingSecret": {
                       "type": "string"
+                    },
+                    "extraDnsNames": {
+                      "items": {},
+                      "type": "array"
+                    },
+                    "extraIpAddresses": {
+                      "items": {},
+                      "type": "array"
                     },
                     "key": {
                       "type": "string"

@@ -1739,7 +1739,7 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","commonName":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -1806,6 +1806,10 @@
      - ``nil``
    * - :spelling:ignore:`hubble.metrics.tls.server.cert`
      - base64 encoded PEM values for the Hubble metrics server certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.metrics.tls.server.commonName`
+     - DNS name to build the certificate for
      - string
      - ``""``
    * - :spelling:ignore:`hubble.metrics.tls.server.existingSecret`
@@ -2043,19 +2047,31 @@
    * - :spelling:ignore:`hubble.relay.tls`
      - TLS configuration for Hubble Relay
      - object
-     - ``{"client":{"cert":"","existingSecret":"","key":""},"server":{"cert":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}}``
+     - ``{"client":{"cert":"","commonName":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""},"server":{"cert":"","commonName":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}}``
    * - :spelling:ignore:`hubble.relay.tls.client`
      - The hubble-relay client certificate and private key. This keypair is presented to Hubble server instances for mTLS authentication and is required when hubble.tls.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
      - object
-     - ``{"cert":"","existingSecret":"","key":""}``
+     - ``{"cert":"","commonName":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
    * - :spelling:ignore:`hubble.relay.tls.client.cert`
      - base64 encoded PEM values for the Hubble relay client certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.client.commonName`
+     - DNS name to build the certificate for
      - string
      - ``""``
    * - :spelling:ignore:`hubble.relay.tls.client.existingSecret`
      - Name of the Secret containing the certificate and key for the Hubble metrics server. If specified, cert and key are ignored.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.client.extraDnsNames`
+     - extra DNS names added to certificate when its auto gen
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.relay.tls.client.extraIpAddresses`
+     - extra IP addresses added to certificate when its auto gen
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.relay.tls.client.key`
      - base64 encoded PEM values for the Hubble relay client key (deprecated). Use existingSecret instead.
      - string
@@ -2063,9 +2079,13 @@
    * - :spelling:ignore:`hubble.relay.tls.server`
      - The hubble-relay server certificate and private key
      - object
-     - ``{"cert":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}``
+     - ``{"cert":"","commonName":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}``
    * - :spelling:ignore:`hubble.relay.tls.server.cert`
      - base64 encoded PEM values for the Hubble relay server certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.server.commonName`
+     - DNS name to build the certificate for
      - string
      - ``""``
    * - :spelling:ignore:`hubble.relay.tls.server.existingSecret`
@@ -2107,7 +2127,7 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","commonName":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
@@ -2139,9 +2159,13 @@
    * - :spelling:ignore:`hubble.tls.server`
      - The Hubble server certificate and private key
      - object
-     - ``{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+     - ``{"cert":"","commonName":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
    * - :spelling:ignore:`hubble.tls.server.cert`
      - base64 encoded PEM values for the Hubble server certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.tls.server.commonName`
+     - DNS name to build the certificate for
      - string
      - ``""``
    * - :spelling:ignore:`hubble.tls.server.existingSecret`
@@ -2316,10 +2340,22 @@
      - base64 encoded PEM values for the Hubble UI client certificate (deprecated). Use existingSecret instead.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.ui.tls.client.commonName`
+     - DNS name to build the certificate for
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.ui.tls.client.existingSecret`
      - Name of the Secret containing the client certificate and key for Hubble UI If specified, cert and key are ignored.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.ui.tls.client.extraDnsNames`
+     - extra DNS names added to certificate when its auto gen
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.ui.tls.client.extraIpAddresses`
+     - extra IP addresses added to certificate when its auto gen
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.ui.tls.client.key`
      - base64 encoded PEM values for the Hubble UI client key (deprecated). Use existingSecret instead.
      - string
