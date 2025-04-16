@@ -139,6 +139,35 @@ func TestExtractPathFromLog(t *testing.T) {
 	}
 }
 
+func TestExtractPackageFromLog(t *testing.T) {
+	_, thisPath, _, _ := runtime.Caller(0)
+	repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
+	for _, tt := range []struct {
+		testCaseName string
+		logLine      string
+		wantResult   string
+	}{
+		{
+			testCaseName: "Test extracting path from log for Docker build",
+			logLine:      `time=2025-04-08T15:50:26Z level=error source=/go/src/github.com/cilium/cilium/pkg/datapath/linux/node.go:189 msg="Updating tunnel map entry" module=agent.datapath ipAddr=172.18.0.3 allocCIDR=fd00:10:244::/64`,
+			wantResult:   "pkg/datapath/linux",
+		},
+		{
+			testCaseName: "Test extracting path from log for local build",
+			logLine:      `time=2025-04-08T15:50:26Z level=error source=` + repoDir + `/pkg/datapath/linux/node.go:189 msg="Updating tunnel map entry"`,
+			wantResult:   "pkg/datapath/linux",
+		},
+		{
+			testCaseName: "Returns empty string if no file is found",
+			logLine:      `time=2025-04-08T15:50:26Z level=error msg="Updating tunnel map entry" module=agent.datapath ipAddr=172.18.0.3 allocCIDR=fd00:10:244::/64`,
+			wantResult:   "",
+		},
+	} {
+		result := extractPackageFromLog(tt.logLine)
+		assert.Equal(t, tt.wantResult, result, "Test case %q failed", tt.testCaseName)
+	}
+}
+
 func TestComputeExpectedDropReasons(t *testing.T) {
 	defaultReasons := []string{"reason0", "reason1"}
 	tests := []struct {
