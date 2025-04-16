@@ -53,6 +53,8 @@ import (
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	redirectpolicy_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental/redirectpolicy"
+	loadbalancer_maps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	loadbalancer_reconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	loadbalancer_reflectors "github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	loadbalancer_writer "github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -219,6 +221,8 @@ var (
 		loadbalancer_experimental.Cell,
 		loadbalancer_reflectors.Cell,
 		loadbalancer_writer.Cell,
+		loadbalancer_reconciler.Cell,
+		loadbalancer_maps.Cell,
 
 		// Experimental control-plane implementation for local redirect policies.
 		redirectpolicy_experimental.Cell,

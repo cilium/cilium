@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package maps
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
-	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
@@ -22,7 +21,6 @@ type scriptCommandsParams struct {
 	Config     loadbalancer.Config
 	TestConfig *loadbalancer.TestConfig `optional:"true"`
 	LBMaps     LBMaps
-	Reconciler reconciler.Reconciler[*loadbalancer.Frontend]
 }
 
 func scriptCommands(p scriptCommandsParams) hive.ScriptCmdsOut {
@@ -31,13 +29,6 @@ func scriptCommands(p scriptCommandsParams) hive.ScriptCmdsOut {
 	}
 
 	cmds := map[string]script.Cmd{
-		"lb/prune": script.Command(
-			script.CmdUsage{Summary: "Trigger pruning of load-balancing BPF maps"},
-			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				p.Reconciler.Prune()
-				return nil, nil
-			},
-		),
 		"lb/maps-dump": lbmapDumpCommand(p.LBMaps),
 	}
 	if p.TestConfig != nil {
