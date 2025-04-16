@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental
+package healthserver
 
 import (
 	"context"
@@ -29,14 +29,15 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// healthServerCell implements the support for the HealthCheckNodePort field.
+// Cell implements the support for the HealthCheckNodePort field.
 // For each service that has HealthCheckNodePort set to a non-zero value it
 // starts an HTTP server on that port and responds with the number of active
 // node-local backends. This allows external load-balancers to avoid directing
 // traffic to services that have no available backends.
-var healthServerCell = cell.Module(
-	"healthserver",
+var Cell = cell.Module(
+	"loadbalancer-healthserver",
 	"Serves service health status to external load-balancers",
+
 	cell.Invoke(registerHealthServer),
 )
 
