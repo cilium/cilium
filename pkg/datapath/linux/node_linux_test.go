@@ -300,7 +300,7 @@ func TestAll(t *testing.T) {
 			})
 			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestAgentRestartOptionChanges(t)
+				s.TestNodeValidationDirectRouting(t)
 			})
 		})
 	}
