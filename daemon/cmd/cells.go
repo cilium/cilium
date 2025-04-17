@@ -128,11 +128,6 @@ var (
 		// Cilium API handlers
 		cell.Provide(ciliumAPIHandlers),
 
-		// Processes endpoint deletions that occurred while the agent was down.
-		// This starts before the API server as ciliumAPIHandlers() depends on
-		// the 'deletionQueue' provided by this cell.
-		deletionQueueCell,
-
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,

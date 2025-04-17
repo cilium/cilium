@@ -25,6 +25,16 @@ var Cell = cell.Module(
 
 	// EndpointCreationManager keeps track of all currently ongoing endpoint creations
 	cell.Provide(newEndpointCreationManager),
+
+	// Processes endpoint deletions that occurred while the agent was down.
+	// This starts before the API server as endpoint api handlers depends on
+	// the 'DeletionQueue' provided by this cell.
+	cell.Provide(newDeletionQueue),
+
+	// unlockAfterAPIServer registers a start hook that runs after API server
+	// has started and the deletion queue has been drained to unlock the
+	// delete queue and thus allow CNI plugin to proceed.
+	cell.Invoke(unlockAfterAPIServer),
 )
 
 type endpointAPIManagerParams struct {

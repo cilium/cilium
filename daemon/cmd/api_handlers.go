@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -71,7 +72,7 @@ func wrapAPIHandler[Params any](dp promise.Promise[*Daemon], handler func(d *Dae
 // This is meant to be a temporary measure until handlers have been moved out from *Daemon
 // to daemon/restapi or feature-specific packages. At that point the dependency on *deletionQueue
 // should be moved to the cell in daemon/restapi.
-func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ *deletionQueue) (out handlersOut) {
+func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ *endpointapi.DeletionQueue) (out handlersOut) {
 	// /endpoint/
 	out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
 	out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
