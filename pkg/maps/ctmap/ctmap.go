@@ -378,7 +378,7 @@ func newMap(mapName string, m mapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(GCEvent)) error {
+func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(GCEvent), logResults bool) error {
 	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
@@ -402,7 +402,7 @@ func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
+func doGC6(m *Map, filter GCFilter, next func(GCEvent), logResults bool) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -423,7 +423,7 @@ func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 		}
 	}
 
-	stats := statStartGc(m)
+	stats := statStartGc(m, logResults)
 	defer stats.finish()
 
 	if natMap != nil {
@@ -450,7 +450,7 @@ func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6Global, entry, natMap, next)
+				err := purgeCtEntry6(m, currentKey6Global, entry, natMap, next, logResults)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -470,7 +470,7 @@ func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6, entry, natMap, next)
+				err := purgeCtEntry6(m, currentKey6, entry, natMap, next, logResults)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
 				} else {
@@ -516,7 +516,7 @@ func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
-func doGC4(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
+func doGC4(m *Map, filter GCFilter, next func(GCEvent), logResults bool) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -537,7 +537,7 @@ func doGC4(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 		}
 	}
 
-	stats := statStartGc(m)
+	stats := statStartGc(m, logResults)
 	defer stats.finish()
 
 	if natMap != nil {
@@ -637,12 +637,12 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter, next4 func(GCEvent), next6 func(GCEvent)) (int, error) {
+func doGC(m *Map, filter GCFilter, next4 func(GCEvent), next6 func(GCEvent), logResults bool) (int, error) {
 	if m.mapType.isIPv6() {
-		stats := doGC6(m, filter, next6)
+		stats := doGC6(m, filter, next6, logResults)
 		return int(stats.deleted), stats.dumpError
 	} else if m.mapType.isIPv4() {
-		stats := doGC4(m, filter, next4)
+		stats := doGC4(m, filter, next4, logResults)
 		return int(stats.deleted), stats.dumpError
 	}
 	log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
@@ -657,7 +657,7 @@ func GC(m *Map, filter GCFilter, next4 func(GCEvent), next6 func(GCEvent)) (int,
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter, next4, next6)
+	return doGC(m, filter, next4, next6, false)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -768,7 +768,7 @@ func (m *Map) Flush(next4 func(GCEvent), next6 func(GCEvent)) int {
 	d, _ := doGC(m, GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	}, next4, next6)
+	}, next4, next6, false)
 
 	return d
 }
