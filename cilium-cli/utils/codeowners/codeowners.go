@@ -22,6 +22,8 @@ type Scenario interface {
 	FilePath() string
 }
 
+var ErrNoOwners = fmt.Errorf("no owners defined")
+
 type Ruleset struct {
 	codeowners.Ruleset
 
@@ -78,7 +80,10 @@ func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
 	rules := make(map[Scenario]*codeowners.Rule)
 	for _, scenario := range scenarios {
 		rule, err := r.Match(scenario.FilePath())
-		if err != nil || rule == nil || rule.Owners == nil {
+		if err == nil && (rule == nil || rule.Owners == nil) {
+			err = ErrNoOwners
+		}
+		if err != nil {
 			return nil, fmt.Errorf("matching scenario %q (%s): %w", scenario.Name(), scenario.FilePath(), err)
 		}
 		rules[scenario] = rule
@@ -96,7 +101,10 @@ func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
 	}
 	if ghWorkflow != "" {
 		workflowRule, err := r.Match(ghWorkflow)
-		if err == nil || workflowRule == nil || workflowRule.Owners == nil {
+		if err == nil && (workflowRule == nil || workflowRule.Owners == nil) {
+			err = ErrNoOwners
+		}
+		if err != nil {
 			return nil, fmt.Errorf("matching workflow %s: %w", ghWorkflow, err)
 		}
 		workflowOwners = workflowRule.Owners
