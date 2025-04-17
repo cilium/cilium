@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -927,6 +928,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 		NeighMapSize      int
 		SockRevNatMapSize int
 	}
+	cpus, _ := ebpf.PossibleCPU()
+	roundUp := func(x, multiple int) int {
+		return int(((x + (multiple - 1)) / multiple) * multiple)
+	}
 	tests := []struct {
 		name        string
 		totalMemory uint64
@@ -1111,6 +1116,21 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				vp.Set(CTMapEntriesGlobalAnyName, 262144)
 			},
 		},
+		{
+			name:        "dynamic size NAT size with distributed LRU",
+			totalMemory: 3 * GiB,
+			ratio:       0.051,
+			want: sizes{
+				CTMapSizeTCP:      roundUp(580503, cpus),
+				CTMapSizeAny:      roundUp(290251, cpus),
+				NATMapSize:        roundUp(580503, cpus),
+				NeighMapSize:      roundUp(580503, cpus),
+				SockRevNatMapSize: roundUp(290251, cpus),
+			},
+			preTestRun: func(vp *viper.Viper) {
+				vp.Set(BPFDistributedLRU, true)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1126,6 +1146,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NATMapEntriesGlobal:   vp.GetInt(NATMapEntriesGlobalName),
 				NeighMapEntriesGlobal: vp.GetInt(NeighMapEntriesGlobalName),
 				SockRevNatEntries:     vp.GetInt(SockRevNatEntriesName),
+				BPFDistributedLRU:     vp.GetBool(BPFDistributedLRU),
 			}
 
 			// cannot set these from the Sizeof* consts from
