@@ -72,7 +72,7 @@ func (r *Ruleset) WithExcludedOwners(excludedOwners []string) *Ruleset {
 	return r
 }
 
-func (r *Ruleset) WorkflowOwners() ([]string, error) {
+func (r *Ruleset) WorkflowOwners(includeWorkflowName bool) ([]string, error) {
 	var ghWorkflow string
 	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
 	ghWorkflowRef := os.Getenv("GITHUB_WORKFLOW_REF")
@@ -99,14 +99,18 @@ func (r *Ruleset) WorkflowOwners() ([]string, error) {
 			if _, ok := r.exclude[owner]; ok {
 				continue
 			}
-			owners = append(owners, owner)
+			if includeWorkflowName {
+				owners = append(owners, fmt.Sprintf("%s (%s)", owner, ghWorkflow))
+			} else {
+				owners = append(owners, owner)
+			}
 		}
 	}
 
 	return owners, nil
 }
 
-func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
+func (r *Ruleset) Owners(includeTestCase bool, scenarios ...Scenario) ([]string, error) {
 	if r == nil {
 		return nil, nil
 	}
@@ -130,7 +134,11 @@ func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
 			if _, ok := r.exclude[owner]; ok {
 				continue
 			}
-			owners = append(owners, fmt.Sprintf("%s (%s)", owner, scenario.Name()))
+			if includeTestCase {
+				owners = append(owners, fmt.Sprintf("%s (%s)", owner, scenario.Name()))
+			} else {
+				owners = append(owners, owner)
+			}
 		}
 	}
 	return owners, nil

@@ -54,7 +54,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 	}
 	if ct.params.LogCodeOwners {
 		props := j.testSuite.Properties.Properties
-		if workflowOwners, err := ct.CodeOwners.WorkflowOwners(); err == nil {
+		if workflowOwners, err := ct.CodeOwners.WorkflowOwners(false); err == nil {
 			for _, o := range workflowOwners {
 				props = append(props, junit.Property{Name: "owner", Value: o})
 			}
@@ -75,7 +75,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			scenarios := t.Scenarios()
 			owners := make(map[string]struct{})
 			for _, s := range scenarios {
-				codeOwners, err := ct.CodeOwners.Owners(s)
+				codeOwners, err := ct.CodeOwners.Owners(false, s)
 				if err != nil {
 					ct.Logf("Failed to find CODEOWNERS for junit test case: %s", err)
 				}
