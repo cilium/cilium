@@ -632,9 +632,10 @@ Makefile* @cilium/build
 /pkg/tuple @cilium/sig-datapath
 /pkg/types/ @cilium/sig-datapath
 /pkg/u8proto/ @cilium/sig-agent
-/pkg/wireguard @cilium/wireguard
+/pkg/util/ @cilium/sig-datapath
 /pkg/version/ @cilium/sig-agent
 /pkg/versioncheck/ @cilium/sig-agent
+/pkg/wireguard @cilium/wireguard
 /pkg/xds/ @cilium/envoy
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
