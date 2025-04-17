@@ -6,9 +6,21 @@ package codeowners
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/hmarr/codeowners"
 )
+
+var ghWorkflowRegexp = regexp.MustCompile("^(?:.+?)/(?:.+?)/(.+?)@.*$")
+
+// Scenario represents a piece of logic in the testsuite with a
+// corresponding filepath that indicates ownership (via CODEOWNERS).
+// It is used to inform developers who they may consult in the event that a
+// test fails without a clear indication why.
+type Scenario interface {
+	Name() string
+	FilePath() string
+}
 
 type Ruleset struct {
 	codeowners.Ruleset
@@ -56,4 +68,56 @@ func (r *Ruleset) WithExcludedOwners(excludedOwners []string) *Ruleset {
 	}
 	r.exclude = excluded
 	return r
+}
+
+func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
+	if r == nil {
+		return nil, nil
+	}
+
+	rules := make(map[Scenario]*codeowners.Rule)
+	for _, scenario := range scenarios {
+		rule, err := r.Match(scenario.FilePath())
+		if err != nil || rule == nil || rule.Owners == nil {
+			return nil, fmt.Errorf("matching scenario %q (%s): %w", scenario.Name(), scenario.FilePath(), err)
+		}
+		rules[scenario] = rule
+	}
+
+	var workflowOwners []codeowners.Owner
+	var ghWorkflow string
+	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
+	ghWorkflowRef := os.Getenv("GITHUB_WORKFLOW_REF")
+	matches := ghWorkflowRegexp.FindStringSubmatch(ghWorkflowRef)
+	// here matches should either be nil (no match) or a slice with two values:
+	// the full match and the capture.
+	if len(matches) == 2 {
+		ghWorkflow = matches[1]
+	}
+	if ghWorkflow != "" {
+		workflowRule, err := r.Match(ghWorkflow)
+		if err == nil || workflowRule == nil || workflowRule.Owners == nil {
+			return nil, fmt.Errorf("matching workflow %s: %w", ghWorkflow, err)
+		}
+		workflowOwners = workflowRule.Owners
+	}
+
+	var owners []string
+	for scenario, rule := range rules {
+		for _, o := range rule.Owners {
+			owner := o.String()
+			if _, ok := r.exclude[owner]; ok {
+				continue
+			}
+			owners = append(owners, fmt.Sprintf("%s (%s)", owner, scenario.Name()))
+		}
+		for _, o := range workflowOwners {
+			owner := o.String()
+			if _, ok := r.exclude[owner]; ok {
+				continue
+			}
+			owners = append(owners, fmt.Sprintf("%s (%s)", owner, ghWorkflow))
+		}
+	}
+	return owners, nil
 }

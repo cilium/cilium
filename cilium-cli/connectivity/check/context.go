@@ -542,7 +542,7 @@ func (ct *ConnectivityTest) report() error {
 			}
 		}
 		if len(failed) > 0 && failedActions == 0 {
-			allScenarios := make([]ownedScenario, 0, len(failed))
+			allScenarios := make([]codeowners.Scenario, 0, len(failed))
 			for _, t := range failed {
 				for scenario := range t.scenarios {
 					allScenarios = append(allScenarios, scenario)
@@ -551,7 +551,7 @@ func (ct *ConnectivityTest) report() error {
 			if len(allScenarios) == 0 {
 				// Test failure was triggered not by a specific action
 				// failing, but some other infrastructure code.
-				allScenarios = []ownedScenario{defaultTestOwners}
+				allScenarios = []codeowners.Scenario{defaultTestOwners}
 			}
 			ct.LogOwners(allScenarios...)
 		}
