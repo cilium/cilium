@@ -66,6 +66,17 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
+	return nil
+}
+
+// MarshalJSON returns a JSON representation of the byte array.
+func (n EndpointSelector) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.LabelSelector)
+}
+
+func (n *EndpointSelector) ReplaceByExtendedKey() {
 	if n.MatchLabels != nil {
 		ml := map[string]string{}
 		for k, v := range n.MatchLabels {
@@ -81,35 +92,6 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		}
 		n.MatchExpressions = newMatchExpr
 	}
-	n.requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.cachedLabelSelectorString = n.LabelSelector.String()
-	return nil
-}
-
-// MarshalJSON returns a JSON representation of the byte array.
-func (n EndpointSelector) MarshalJSON() ([]byte, error) {
-	ls := slim_metav1.LabelSelector{}
-
-	if n.LabelSelector == nil {
-		return json.Marshal(ls)
-	}
-
-	if n.MatchLabels != nil {
-		newLabels := map[string]string{}
-		for k, v := range n.MatchLabels {
-			newLabels[labels.GetCiliumKeyFrom(k)] = v
-		}
-		ls.MatchLabels = newLabels
-	}
-	if n.MatchExpressions != nil {
-		newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
-		for i, v := range n.MatchExpressions {
-			v.Key = labels.GetCiliumKeyFrom(v.Key)
-			newMatchExpr[i] = v
-		}
-		ls.MatchExpressions = newMatchExpr
-	}
-	return json.Marshal(ls)
 }
 
 // HasKeyPrefix checks if the endpoint selector contains the given key prefix in
@@ -246,7 +228,7 @@ var (
 )
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
-// where it the given srcPrefix will be encoded in the label's keys.
+// where is the given srcPrefix will be encoded in the label's keys.
 func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelector) EndpointSelector {
 	var (
 		matchLabels      map[string]string
