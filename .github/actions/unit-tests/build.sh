@@ -15,6 +15,6 @@ make clean
 # Run with default verbosity here since this builds all Go code by running
 # 'go vet' and all integration tests. At least one line of output is generated
 # after each Go package is built and tested.
-make integration-tests LOG_CODEOWNERS=1
+make integration-tests LOG_CODEOWNERS=1 JUNIT_PATH="$JUNIT_PATH"
 
 exit 0
