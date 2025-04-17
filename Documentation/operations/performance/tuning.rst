@@ -724,10 +724,14 @@ sizing which can be done via ``bpf.mapDynamicSizeRatio``:
 
 Note that ``bpf.distributedLRU.enabled`` is off by default in Cilium for
 legacy reasons given enabling this setting on-the-fly is disruptive for
-in-flight traffic since the BPF maps have to be recreated. It is recommended
-to use the per-node configuration to gradually phase in this setting for
-new nodes joining the cluster. Alternatively, upon initial cluster creation
-it is recommended to consider enablement.
+in-flight traffic since the BPF maps have to be recreated.
+
+It is recommended to use the per-node configuration to gradually phase in
+this setting for new nodes joining the cluster. Alternatively, upon initial
+cluster creation it is recommended to consider enablement.
+
+Also, ``bpf.distributedLRU.enabled`` is currently only supported in combination
+with ``bpf.mapDynamicSizeRatio`` as opposed to statically sized map configuration.
 
 eBPF Map Sizing
 ===============
