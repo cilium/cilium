@@ -113,7 +113,7 @@ func (s defaultScenario) Name() string {
 }
 
 func (ct *ConnectivityTest) LogOwners(scenarios ...codeowners.Scenario) {
-	owners, err := ct.CodeOwners.Owners(scenarios...)
+	owners, err := ct.CodeOwners.Owners(true, scenarios...)
 	if err != nil {
 		ct.Logf("Failed to find CODEOWNERS for test scenario: %s", err)
 	}
@@ -126,7 +126,7 @@ func (ct *ConnectivityTest) LogOwners(scenarios ...codeowners.Scenario) {
 		ct.Log("        - " + o)
 	}
 
-	workflowOwners, err := ct.CodeOwners.WorkflowOwners()
+	workflowOwners, err := ct.CodeOwners.WorkflowOwners(true)
 	if err != nil {
 		ct.Logf("Failed to find CODEOWNERS for github workflow: %s", err)
 	}
