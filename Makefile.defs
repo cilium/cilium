@@ -102,7 +102,12 @@ ifneq ($(V),0)
 	GOTEST_FORMATTER_FLAGS += -follow
 endif
 ifneq ($(LOG_CODEOWNERS),)
+ifneq ($(shell command -v go-junit-report),)
+	JUNIT_PATH ?= junit_results.xml
+	GOTEST_FORMATTER = tee >(go-junit-report -parser gojson -code-owners=$(CODEOWNERS_PATH) -code-owners-prefix github.com/cilium/cilium/ >"$(JUNIT_PATH)") >($(GO) run ./tools/testowners --code-owners=$(CODEOWNERS_PATH)) >(tparse $(GOTEST_FORMATTER_FLAGS)) >/dev/null
+else
 	GOTEST_FORMATTER = tee >($(GO) run ./tools/testowners --code-owners=$(CODEOWNERS_PATH)) >(tparse $(GOTEST_FORMATTER_FLAGS)) >/dev/null
+endif
 else
 	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
 endif
