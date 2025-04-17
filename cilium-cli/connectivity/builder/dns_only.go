@@ -17,8 +17,8 @@ func (t dnsOnly) build(ct *check.ConnectivityTest, templates map[string]string) 
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithScenarios(
-			tests.PodToPod(),   // connects to other Pods directly, no DNS
-			tests.PodToWorld(), // resolves set domain-name defaults to one.one.one.one
+			tests.PodToPod(), // connects to other Pods directly, no DNS
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable), // resolves set domain-name defaults to one.one.one.one
 		).
 		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDropCurlTimeout, check.ResultNone

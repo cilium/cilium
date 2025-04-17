@@ -36,7 +36,7 @@ func toEntitiesWorldTest(ct *check.ConnectivityTest, portRanges bool) {
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	newTest(testName, ct).
 		WithCiliumPolicy(policyYAML).
-		WithScenarios(tests.PodToWorld(tests.WithRetryDestPort(80))).
+		WithScenarios(tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80))).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 80 {
 				return check.ResultOK, check.ResultNone

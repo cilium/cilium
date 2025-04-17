@@ -19,8 +19,8 @@ func (t allIngressDenyFromOutside) build(ct *check.ConnectivityTest, _ map[strin
 		WithIPRoutesFromOutsideToPodCIDRs().
 		WithScenarios(tests.FromCIDRToPod()).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
-				a.Destination().Address(features.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
+			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIPv4)) == ct.Params().ExternalOtherIPv4 ||
+				a.Destination().Address(features.GetIPFamily(ct.Params().ExternalIPv4)) == ct.Params().ExternalIPv4 {
 				return check.ResultOK, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDefaultDenyIngressDrop

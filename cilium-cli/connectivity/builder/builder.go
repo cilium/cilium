@@ -5,6 +5,7 @@ package builder
 
 import (
 	_ "embed"
+	"fmt"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/builder/manifests/template"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -32,6 +33,9 @@ var (
 
 	//go:embed manifests/client-egress-to-fqdns.yaml
 	clientEgressToFQDNsPolicyYAML string
+
+	//go:embed manifests/client-egress-to-fqdns-and-http-get.yaml
+	clientEgressToFQDNsAndHTTPGetPolicyYAML string
 
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
@@ -274,6 +278,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		outsideToIngressService{},
 		dnsOnly{},
 		toFqdns{},
+		toFqdnsWithProxy{},
 		podToControlplaneHost{},
 		podToK8sOnControlplane{},
 		podToControlplaneHostCidr{},
@@ -316,6 +321,7 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 		"clientEgressL7HTTPPolicyPortRangeYAML":              clientEgressL7HTTPPolicyPortRangeYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML":              clientEgressL7HTTPNamedPortPolicyYAML,
 		"clientEgressToFQDNsPolicyYAML":                      clientEgressToFQDNsPolicyYAML,
+		"clientEgressToFQDNsAndHTTPGetPolicyYAML":            clientEgressToFQDNsAndHTTPGetPolicyYAML,
 		"clientEgressTLSSNIPolicyYAML":                       clientEgressTLSSNIPolicyYAML,
 		"clientEgressTLSSNIWildcardPolicyYAML":               clientEgressTLSSNIWildcardPolicyYAML,
 		"clientEgressTLSSNIDoubleWildcardPolicyYAML":         clientEgressTLSSNIDoubleWildcardPolicyYAML,
@@ -347,7 +353,7 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 			ClusterName: clusterName,
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to render template %s: %w", key, err)
 		}
 		renderedTemplates[key] = val
 	}
