@@ -429,7 +429,7 @@ int egressgw_snat1_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -540,7 +540,7 @@ int egressgw_tuple_collision1_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -582,7 +582,7 @@ int egressgw_tuple_collision2_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP3_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -666,9 +666,9 @@ int egressgw_skip_excluded_cidr_snat_setup_v6(struct __ctx_buff *ctx)
 	union v6addr client_ip = CLIENT_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6, 0);
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_EXCLUDED_CIDR,
-				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -752,7 +752,7 @@ int egressgw_fib_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP2_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip);
+				     &egress_ip, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
