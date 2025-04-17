@@ -158,12 +158,12 @@ func (d *Daemon) processQueuedDeleteEntryLocked(file string) error {
 			WithError(err).
 			WithField(logfields.EndpointID, epID).
 			Debug("Falling back on legacy deletion queue format")
-		_, _ = d.DeleteEndpoint(epID) // this will log errors elsewhere
+		_, _ = d.endpointAPIManager.DeleteEndpoint(epID) // this will log errors elsewhere
 		return nil
 	}
 
 	// As with DeleteEndpoint, errors are logged elsewhere
-	_, _ = d.deleteEndpointByContainerID(req.ContainerID)
+	_, _ = d.endpointAPIManager.DeleteEndpointByContainerID(req.ContainerID)
 
 	return nil
 }

@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 
-	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1478,7 +1477,7 @@ type daemonParams struct {
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
-	EndpointCreations   endpointapi.EndpointCreationManager
+	EndpointAPIManager  endpointapi.EndpointAPIManager
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1486,7 +1485,6 @@ type daemonParams struct {
 	Policy              policy.PolicyRepository
 	IPCache             *ipcache.IPCache
 	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
-	CNIConfigManager    cni.CNIConfigManager
 	CiliumHealth        health.CiliumHealthManager
 	ClusterMesh         *clustermesh.ClusterMesh
 	MonitorAgent        monitorAgent.Agent
