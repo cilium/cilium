@@ -66,7 +66,11 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			scenarios := t.Scenarios()
 			owners := make(map[string]struct{})
 			for _, s := range scenarios {
-				for _, o := range ct.GetOwners(s) {
+				codeOwners, err := ct.CodeOwners.Owners(s)
+				if err != nil {
+					ct.Logf("Failed to find CODEOWNERS for junit test case: %s", err)
+				}
+				for _, o := range codeOwners {
 					owners[o] = struct{}{}
 				}
 			}
