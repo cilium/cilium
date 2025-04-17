@@ -12,6 +12,8 @@ import (
 
 type Ruleset struct {
 	codeowners.Ruleset
+
+	exclude map[string]struct{}
 }
 
 func Load(paths []string) (*Ruleset, error) {
@@ -45,4 +47,13 @@ func Load(paths []string) (*Ruleset, error) {
 	return &Ruleset{
 		Ruleset: allOwners,
 	}, nil
+}
+
+func (r *Ruleset) WithExcludedOwners(excludedOwners []string) *Ruleset {
+	excluded := make(map[string]struct{})
+	for _, o := range excludedOwners {
+		excluded[o] = struct{}{}
+	}
+	r.exclude = excluded
+	return r
 }
