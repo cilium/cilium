@@ -1534,7 +1534,7 @@ type daemonParams struct {
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
-	EndpointCreations   endpointapi.EndpointCreationManager
+	EndpointAPIManager  endpointapi.EndpointAPIManager
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator

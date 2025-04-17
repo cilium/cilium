@@ -123,8 +123,9 @@ type Daemon struct {
 
 	policyMapFactory policymap.Factory
 
-	endpointCreator endpointcreator.EndpointCreator
-	endpointManager endpointmanager.EndpointManager
+	endpointCreator    endpointcreator.EndpointCreator
+	endpointManager    endpointmanager.EndpointManager
+	endpointAPIManager endpointapi.EndpointAPIManager
 
 	endpointRestoreComplete       chan struct{}
 	endpointInitialPolicyComplete chan struct{}
@@ -143,10 +144,6 @@ type Daemon struct {
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	ciliumHealth health.CiliumHealthManager
-
-	// endpointCreations is a map of all currently ongoing endpoint
-	// creation events
-	endpointCreations endpointapi.EndpointCreationManager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -344,54 +341,54 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	})
 
 	d := Daemon{
-		ctx:               ctx,
-		logger:            params.Logger,
-		clientset:         params.Clientset,
-		db:                params.DB,
-		mtuConfig:         params.MTU,
-		directRoutingDev:  params.DirectRoutingDevice,
-		nodeAddressing:    params.NodeAddressing,
-		routes:            params.Routes,
-		devices:           params.Devices,
-		nodeAddrs:         params.NodeAddrs,
-		nodeDiscovery:     params.NodeDiscovery,
-		nodeLocalStore:    params.LocalNodeStore,
-		endpointCreations: params.EndpointCreations,
-		apiLimiterSet:     params.APILimiterSet,
-		controllers:       controller.NewManager(),
-		jobGroup:          params.JobGroup,
+		ctx:              ctx,
+		logger:           params.Logger,
+		clientset:        params.Clientset,
+		db:               params.DB,
+		mtuConfig:        params.MTU,
+		directRoutingDev: params.DirectRoutingDevice,
+		nodeAddressing:   params.NodeAddressing,
+		routes:           params.Routes,
+		devices:          params.Devices,
+		nodeAddrs:        params.NodeAddrs,
+		nodeDiscovery:    params.NodeDiscovery,
+		nodeLocalStore:   params.LocalNodeStore,
+		apiLimiterSet:    params.APILimiterSet,
+		controllers:      controller.NewManager(),
+		jobGroup:         params.JobGroup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
-		identityAllocator: params.IdentityAllocator,
-		ipcache:           params.IPCache,
-		policy:            params.Policy,
-		idmgr:             params.IdentityManager,
-		cniConfigManager:  params.CNIConfigManager,
-		clusterInfo:       params.ClusterInfo,
-		clustermesh:       params.ClusterMesh,
-		monitorAgent:      params.MonitorAgent,
-		svc:               params.ServiceManager,
-		l7Proxy:           params.L7Proxy,
-		authManager:       params.AuthManager,
-		settings:          params.Settings,
-		bigTCPConfig:      params.BigTCPConfig,
-		tunnelConfig:      params.TunnelConfig,
-		bwManager:         params.BandwidthManager,
-		policyMapFactory:  params.PolicyMapFactory,
-		endpointCreator:   params.EndpointCreator,
-		endpointManager:   params.EndpointManager,
-		endpointMetadata:  params.EndpointMetadata,
-		k8sWatcher:        params.K8sWatcher,
-		k8sSvcCache:       params.K8sSvcCache,
-		ipam:              params.IPAM,
-		wireguardAgent:    params.WGAgent,
-		orchestrator:      params.Orchestrator,
-		hubble:            params.Hubble,
-		lrpManager:        params.LRPManager,
-		maglevConfig:      params.MaglevConfig,
-		explbConfig:       params.ExpLBConfig,
-		ciliumHealth:      params.CiliumHealth,
+		identityAllocator:  params.IdentityAllocator,
+		ipcache:            params.IPCache,
+		policy:             params.Policy,
+		idmgr:              params.IdentityManager,
+		cniConfigManager:   params.CNIConfigManager,
+		clusterInfo:        params.ClusterInfo,
+		clustermesh:        params.ClusterMesh,
+		monitorAgent:       params.MonitorAgent,
+		svc:                params.ServiceManager,
+		l7Proxy:            params.L7Proxy,
+		authManager:        params.AuthManager,
+		settings:           params.Settings,
+		bigTCPConfig:       params.BigTCPConfig,
+		tunnelConfig:       params.TunnelConfig,
+		bwManager:          params.BandwidthManager,
+		policyMapFactory:   params.PolicyMapFactory,
+		endpointCreator:    params.EndpointCreator,
+		endpointManager:    params.EndpointManager,
+		endpointMetadata:   params.EndpointMetadata,
+		endpointAPIManager: params.EndpointAPIManager,
+		k8sWatcher:         params.K8sWatcher,
+		k8sSvcCache:        params.K8sSvcCache,
+		ipam:               params.IPAM,
+		wireguardAgent:     params.WGAgent,
+		orchestrator:       params.Orchestrator,
+		hubble:             params.Hubble,
+		lrpManager:         params.LRPManager,
+		maglevConfig:       params.MaglevConfig,
+		explbConfig:        params.ExpLBConfig,
+		ciliumHealth:       params.CiliumHealth,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
