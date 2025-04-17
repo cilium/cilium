@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -63,7 +62,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
@@ -106,9 +104,8 @@ type Daemon struct {
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
 
-	endpointCreator    endpointcreator.EndpointCreator
-	endpointManager    endpointmanager.EndpointManager
-	endpointAPIManager endpointapi.EndpointAPIManager
+	endpointCreator endpointcreator.EndpointCreator
+	endpointManager endpointmanager.EndpointManager
 
 	endpointRestoreComplete       chan struct{}
 	endpointInitialPolicyComplete chan struct{}
@@ -127,8 +124,6 @@ type Daemon struct {
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	ciliumHealth health.CiliumHealthManager
-
-	apiLimiterSet *rate.APILimiterSet
 
 	// CIDRs for which identities were restored during bootstrap
 	restoredCIDRs map[netip.Prefix]identity.NumericIdentity
@@ -325,35 +320,33 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		nodeAddrs:        params.NodeAddrs,
 		nodeDiscovery:    params.NodeDiscovery,
 		nodeLocalStore:   params.LocalNodeStore,
-		apiLimiterSet:    params.APILimiterSet,
 		controllers:      controller.NewManager(),
 		jobGroup:         params.JobGroup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
-		identityAllocator:  params.IdentityAllocator,
-		ipcache:            params.IPCache,
-		policy:             params.Policy,
-		idmgr:              params.IdentityManager,
-		clustermesh:        params.ClusterMesh,
-		monitorAgent:       params.MonitorAgent,
-		svc:                params.ServiceManager,
-		settings:           params.Settings,
-		bwManager:          params.BandwidthManager,
-		endpointCreator:    params.EndpointCreator,
-		endpointManager:    params.EndpointManager,
-		endpointMetadata:   params.EndpointMetadata,
-		endpointAPIManager: params.EndpointAPIManager,
-		k8sWatcher:         params.K8sWatcher,
-		k8sSvcCache:        params.K8sSvcCache,
-		ipam:               params.IPAM,
-		wireguardAgent:     params.WGAgent,
-		orchestrator:       params.Orchestrator,
-		lrpManager:         params.LRPManager,
-		maglevConfig:       params.MaglevConfig,
-		lbConfig:           params.LBConfig,
-		ciliumHealth:       params.CiliumHealth,
-		statusCollector:    params.StatusCollector,
+		identityAllocator: params.IdentityAllocator,
+		ipcache:           params.IPCache,
+		policy:            params.Policy,
+		idmgr:             params.IdentityManager,
+		clustermesh:       params.ClusterMesh,
+		monitorAgent:      params.MonitorAgent,
+		svc:               params.ServiceManager,
+		settings:          params.Settings,
+		bwManager:         params.BandwidthManager,
+		endpointCreator:   params.EndpointCreator,
+		endpointManager:   params.EndpointManager,
+		endpointMetadata:  params.EndpointMetadata,
+		k8sWatcher:        params.K8sWatcher,
+		k8sSvcCache:       params.K8sSvcCache,
+		ipam:              params.IPAM,
+		wireguardAgent:    params.WGAgent,
+		orchestrator:      params.Orchestrator,
+		lrpManager:        params.LRPManager,
+		maglevConfig:      params.MaglevConfig,
+		lbConfig:          params.LBConfig,
+		ciliumHealth:      params.CiliumHealth,
+		statusCollector:   params.StatusCollector,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
