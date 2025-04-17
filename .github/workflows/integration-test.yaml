@@ -77,6 +77,10 @@ jobs:
 
   integration-test:
     name: Integration Test
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job, so we have
+      # to repeated it here.
+      job_name: "Integration Test (${{matrix.arch}})"
     strategy:
       fail-fast: false
       matrix:
@@ -166,6 +170,7 @@ jobs:
         timeout-minutes: 15
         run: |
           go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
 
       - name: Run integration tests
         timeout-minutes: 60
@@ -173,7 +178,49 @@ jobs:
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
           export CFLAGS="-Werror"
-          make integration-tests LOG_CODEOWNERS=1
+          make integration-tests LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml"
+
+      - name: Fetch JUnits
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits [junit]
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-junits-${{ env.job_name }}
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-24.04
+    needs: integration-test
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Merge JUnits
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
     if: ${{ always() }}
