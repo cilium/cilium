@@ -75,6 +75,8 @@ type lbipamCellParams struct {
 
 	Config       lbipamConfig
 	SharedConfig SharedConfig
+
+	TestCounters *testCounters `optional:"true"`
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
@@ -105,6 +107,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		jobGroup:     params.JobGroup,
 		config:       params.Config,
 		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == DefaultLBClassLBIPAM,
+		testCounters: params.TestCounters,
 	})
 
 	lbIPAM.jobGroup.Add(
