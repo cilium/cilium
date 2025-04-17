@@ -317,7 +317,7 @@ func newMap(mapName string, m mapType) *Map {
 
 // doGCForFamily iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 bool) gcStats {
+func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 bool, logResults bool) gcStats {
 	family := nat.IPv4
 	if ipv6 {
 		family = nat.IPv6
@@ -343,7 +343,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		}
 	}
 
-	stats := statStartGc(m)
+	stats := statStartGc(m, logResults)
 	defer stats.finish()
 
 	if natMap != nil {
@@ -499,8 +499,8 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
-	stats := doGCForFamily(m, filter, next4, next6, m.mapType.isIPv6())
+func doGC(m *Map, filter GCFilter, next4, next6 func(GCEvent), logResults bool) (int, error) {
+	stats := doGCForFamily(m, filter, next4, next6, m.mapType.isIPv6(), logResults)
 	return int(stats.deleted), stats.dumpError
 }
 
@@ -512,7 +512,7 @@ func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter, next4, next6)
+	return doGC(m, filter, next4, next6, false)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -615,7 +615,7 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 	d, _ := doGC(m, GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	}, next4, next6)
+	}, next4, next6, false)
 
 	return d
 }
