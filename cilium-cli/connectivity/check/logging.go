@@ -116,6 +116,14 @@ func (ct *ConnectivityTest) LogOwners(scenarios ...codeowners.Scenario) {
 	for _, o := range owners {
 		ct.Log("        - " + o)
 	}
+
+	workflowOwners, err := ct.CodeOwners.WorkflowOwners()
+	if err != nil {
+		ct.Logf("Failed to find CODEOWNERS for github workflow: %s", err)
+	}
+	for _, o := range workflowOwners {
+		ct.Log("        - " + o)
+	}
 }
 
 // Logf logs a formatted message.
