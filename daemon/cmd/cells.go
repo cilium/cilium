@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
@@ -194,6 +195,9 @@ var (
 
 		// Provides the EndpointMetadataFetcher that provides k8s metadata for endpoints.
 		endpointmetadata.Cell,
+
+		// Provides the Endpoint REST API
+		endpointapi.Cell,
 
 		// Register the startup procedure to remove stale CiliumEndpoints referencing pods no longer
 		// managed by Cilium.

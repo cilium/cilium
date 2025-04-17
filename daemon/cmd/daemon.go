@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -129,7 +130,7 @@ type Daemon struct {
 
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
-	endpointCreations *endpointCreationManager
+	endpointCreations endpointapi.EndpointCreationManager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -331,7 +332,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
 		nodeLocalStore:    params.LocalNodeStore,
-		endpointCreations: newEndpointCreationManager(params.Clientset),
+		endpointCreations: params.EndpointCreations,
 		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
 		jobGroup:          params.JobGroup,
@@ -428,7 +429,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
-	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
 	d.k8sWatcher.RunK8sServiceHandler()
 
