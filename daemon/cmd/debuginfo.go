@@ -33,9 +33,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 	status := d.statusCollector.GetStatus(false, true)
 	dr.CiliumStatus = &status
 
-	var p endpoint.GetEndpointParams
-
-	dr.EndpointList = d.getEndpointList(p)
+	dr.EndpointList = d.endpointManager.GetEndpointList(endpoint.GetEndpointParams{})
 	dr.Policy = d.policy.GetRulesList()
 	dr.Subsystem = debug.CollectSubsystemStatus()
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())

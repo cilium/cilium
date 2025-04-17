@@ -11,6 +11,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/api/v1/models"
+	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -68,6 +70,9 @@ type EndpointsLookup interface {
 
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
+
+	// GetEndpointList returns a slice of all endpoint models.
+	GetEndpointList(params endpointapi.GetEndpointParams) []*models.Endpoint
 
 	// EndpointExists returns whether the endpoint with id exists.
 	EndpointExists(id uint16) bool
