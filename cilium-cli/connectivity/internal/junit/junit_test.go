@@ -6,13 +6,14 @@ package junit
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 var suitesText = `<?xml version="1.0" encoding="UTF-8"?>
   <testsuites tests="3" disabled="1" errors="0" failures="1" time="14.7">
-      <testsuite name="testSuite" id="0" package="test" tests="3" errors="0" failures="1" skipped="1" time="14.7" timestamp="2023-05-08T11:24:14">
+      <testsuite name="testSuite" id="0" package="test" tests="3" errors="0" failures="1" skipped="1" time="14.7" timestamp="2006-01-02T15:04:05Z07:00">
           <testcase name="test1" classname="test" status="passed" time="7.7"></testcase>
           <testcase name="test2" classname="test" status="skipped" time="0">
               <skipped message="test2 skipped"></skipped>
@@ -36,7 +37,7 @@ var suites = TestSuites{
 			Skipped:   1,
 			Failures:  1,
 			Time:      14.7,
-			Timestamp: "2023-05-08T11:24:14",
+			Timestamp: time.RFC3339,
 			TestCases: []*TestCase{
 				{Name: "test1", Classname: "test", Status: "passed", Time: 7.7},
 				{Name: "test2", Classname: "test", Status: "skipped", Time: 0,
