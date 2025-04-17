@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -232,7 +234,14 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	}
 	type buffer struct {
 		replaceItems []any
-		entries      map[string]entry
+		entries      *container.InsertOrderedMap[string, entry]
+	}
+	var bufferPool = sync.Pool{
+		New: func() any {
+			return &buffer{
+				entries: container.NewInsertOrderedMap[string, entry](),
+			}
+		},
 	}
 	bufferSize := r.BufferSize
 	waitTime := r.BufferWaitTime
@@ -286,17 +295,13 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 
 		// Buffer the events into a map, coalescing them by key.
 		func(buf *buffer, ev CacheStoreEvent) *buffer {
-			switch {
-			case ev.Kind == CacheStoreEventReplace:
-				return &buffer{
-					replaceItems: ev.Obj.([]any),
-					entries:      make(map[string]entry, bufferSize), // Forget prior entries
-				}
-			case buf == nil:
-				buf = &buffer{
-					replaceItems: nil,
-					entries:      make(map[string]entry, bufferSize),
-				}
+			if buf == nil {
+				buf = bufferPool.Get().(*buffer)
+			}
+			if ev.Kind == CacheStoreEventReplace {
+				buf.replaceItems = ev.Obj.([]any)
+				buf.entries.Clear()
+				return buf
 			}
 
 			var entry entry
@@ -315,7 +320,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			} else {
 				key = entry.name
 			}
-			buf.entries[key] = entry
+			buf.entries.Insert(key, entry)
 			return buf
 		},
 	)
@@ -356,7 +361,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			r.initDone(txn)
 		}
 
-		for _, entry := range buf.entries {
+		for entry := range buf.entries.Values() {
 			for _, obj := range transformMany(txn, entry.obj) {
 				if !entry.deleted {
 					if _, _, err := table.Modify(txn, obj, merge); err != nil {
@@ -376,6 +381,10 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 
 		numTotal := table.NumObjects(txn)
 		txn.Commit()
+
+		buf.replaceItems = nil
+		buf.entries.Clear()
+		bufferPool.Put(buf)
 
 		health.OK(fmt.Sprintf("%d upserted, %d deleted, %d total objects", numUpserted, numDeleted, numTotal))
 	}
