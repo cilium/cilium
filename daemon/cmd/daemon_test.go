@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/server"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
@@ -118,6 +119,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() *experimental.TestConfig {
 				return &experimental.TestConfig{}
 			},
+			func() *server.Server { return nil },
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
