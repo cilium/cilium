@@ -129,6 +129,9 @@ var Cell = cell.Module(
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
 
+	// Synchronizes load-balancing backends with the neighbor table.
+	linuxdatapath.BackendNeighborSyncCell,
+
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,
 
