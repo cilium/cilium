@@ -276,7 +276,7 @@ var (
 	BackendByServiceName = backendServiceIndex.Query
 )
 
-func NewBackendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Backend], error) {
+func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
 	tbl, err := statedb.NewTable(
 		BackendTableName,
 		backendAddrIndex,
