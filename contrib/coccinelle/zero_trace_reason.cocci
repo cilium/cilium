@@ -30,10 +30,10 @@ position p;
 + TRACE_REASON_UNKNOWN,
   e8);
 |
-  update_trace_metrics@f(e1, e2,
-- 0@p
-+ TRACE_REASON_UNKNOWN
-  );
+  \(send_trace_notify_flags@f\)(e1, e2, e3, e4, e5, e6,
+- 0@p,
++ TRACE_REASON_UNKNOWN,
+  e7, e8);
 )
 
 

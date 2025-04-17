@@ -36,6 +36,7 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = ctx_to_netdev_classifiers(ctx),
 	};
 
 	if (magic == MARK_MAGIC_IDENTITY)
@@ -49,15 +50,15 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 
 	ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, true, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_sec_identity, ret, ext_err,
+						  METRIC_EGRESS, trace.flags);
 
 out:
 #endif /* ENABLE_NODEPORT */
 
-	send_trace_notify(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-			  trace.reason, trace.monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
+				TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				trace.reason, trace.monitor, trace.flags);
 
 	return TC_ACT_OK;
 }

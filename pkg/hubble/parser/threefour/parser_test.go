@@ -111,8 +111,8 @@ func TestL34Decode(t *testing.T) {
 		1, 0, 0, 0, // source labels
 		0, 0, 0, 0, // destination labels
 		0, 0, // destination ID
-		0x81,       // "established" trace reason with the encrypt bit set
-		0,          // flags
+		0x01,       // "established" trace reason
+		0x04,       // flags encrypted
 		0, 0, 0, 0, // ifindex
 		246, 141, 178, 45, 33, 217, 246, 141, 178,
 		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
@@ -821,16 +821,6 @@ func TestDecodeTraceReason(t *testing.T) {
 			}
 			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
 			assert.Equal(t, tc.want, f.GetTraceReason())
-			assert.False(t, f.GetIP().GetEncrypted())
-		})
-		t.Run(tc.name+" encrypted", func(t *testing.T) {
-			tn := monitor.TraceNotifyV0{
-				Type:   byte(monitorAPI.MessageTypeTrace),
-				Reason: tc.reason | monitor.TraceReasonEncryptMask,
-			}
-			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
-			assert.Equal(t, tc.want, f.GetTraceReason())
-			assert.True(t, f.GetIP().GetEncrypted())
 		})
 	}
 }
@@ -1006,17 +996,6 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
-	// TRACE_FROM_LXC unknown (encrypted)
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
-	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
-
 	// TRACE_TO_STACK Encrypt Overlay
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
@@ -1126,16 +1105,6 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.Nil(t, f.GetIsReply())
 	assert.False(t, f.GetReply())
 
-	// TRACE_FROM_LXC encrypted
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.False(t, f.GetReply())
-
 	// TRACE_TO_STACK srv6-decap
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
@@ -1147,34 +1116,12 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.Nil(t, f.GetIsReply())
 	assert.False(t, f.GetReply())
 
-	// TRACE_TO_STACK srv6-decap (encrypted)
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Decap | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, remoteIP, localIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.False(t, f.GetReply())
-
 	// TRACE_TO_STACK srv6-encap
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
 		ObsPoint: monitorAPI.TraceToStack,
 		Reason:   monitor.TraceReasonSRv6Encap,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.False(t, f.GetReply())
-
-	// TRACE_TO_STACK srv6-encap (encrypted)
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Encap | monitor.TraceReasonEncryptMask,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1924,46 +1871,13 @@ func TestDecode_TraceNotify(t *testing.T) {
 			},
 		},
 		{
-			name: "v0_from_lxc_encrypted",
-			event: monitor.TraceNotifyV0{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown,
-			},
-			ipTuple: egressTuple,
-			want: &flowpb.Flow{
-				EventType: &flowpb.CiliumEventType{
-					SubType: 5,
-				},
-				Source:                &flowpb.Endpoint{ID: 1234},
-				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
-			},
-		},
-		{
-			name: "v0_unknown_encrypted",
-			event: monitor.TraceNotifyV0{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown,
-			},
-			ipTuple: egressTuple,
-			want: &flowpb.Flow{
-				EventType: &flowpb.CiliumEventType{
-					SubType: 5,
-				},
-				Source:                &flowpb.Endpoint{ID: 1234},
-				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
-			},
-		},
-		{
 			name: "v0_from_lxc_unknown_encrypted",
 			event: monitor.TraceNotifyV0{
 				Type:     byte(monitorAPI.MessageTypeTrace),
 				Source:   localEP,
 				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+				Reason:   monitor.TraceReasonUnknown,
+				Flags:    monitor.TraceNotifyFlagIsIPSec,
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{

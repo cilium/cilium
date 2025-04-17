@@ -32,6 +32,14 @@ const (
 	DropNotifyFlagIsIPv6 uint8 = 1 << iota
 	// DropNotifyFlagIsL3Device is set in DropNotify.Flags when it refers to a L3 device.
 	DropNotifyFlagIsL3Device
+	// DropNotifyFlagIsIPSec is set in DropNotify.Flags when it refers to an encrypted IPSec packet.
+	DropNotifyFlagIsIPSec
+	// DropNotifyFlagIsWireguard is set in DropNotify.Flags when it refers to an encrypted Wireguard packet.
+	DropNotifyFlagIsWireguard
+	// DropNotifyFlagIsVXLAN is set in DropNotify.Flags when it refers to an overlay VXLAN packet.
+	DropNotifyFlagIsVXLAN
+	// DropNotifyFlagIsGeneve is set in DropNotify.Flags when it refers to an overlay Geneve packet.
+	DropNotifyFlagIsGeneve
 )
 
 var (
@@ -107,6 +115,31 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	}
 
 	return nil
+}
+
+// IsIPSec returns true if the trace refers to an encrypted IPSec packet.
+func (n *DropNotify) IsIPSec() bool {
+	return n.Flags&DropNotifyFlagIsIPSec != 0
+}
+
+// IsWireguard returns true if the trace refers to an encrypted Wireguard packet.
+func (n *DropNotify) IsWireguard() bool {
+	return n.Flags&DropNotifyFlagIsWireguard != 0
+}
+
+// IsGeneve returns true if the trace refers to an overlay Geneve packet.
+func (n *DropNotify) IsGeneve() bool {
+	return n.Flags&DropNotifyFlagIsGeneve != 0
+}
+
+// IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
+func (n *DropNotify) IsVXLAN() bool {
+	return n.Flags&DropNotifyFlagIsVXLAN != 0
+}
+
+// IsEncrypted returns true if the trace refers to an encrypted network packet.
+func (n *DropNotify) IsEncrypted() bool {
+	return n.IsIPSec() || n.IsWireguard()
 }
 
 // IsL3Device returns true if the trace comes from an L3 device.

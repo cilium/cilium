@@ -34,6 +34,18 @@ const (
 	// TraceNotifyFlagIsL3Device is set in TraceNotify.Flags when the
 	// notification refers to a L3 device.
 	TraceNotifyFlagIsL3Device
+	// TraceNotifyFlagIsIPSec is set in TraceNotify.Flags when the
+	// notification refers to an encrypted IPSec packet.
+	TraceNotifyFlagIsIPSec
+	// TraceNotifyFlagIsWireguard is set in TraceNotify.Flags when the
+	// notification refers to an encrypted Wireguard packet.
+	TraceNotifyFlagIsWireguard
+	// TraceNotifyFlagIsVXLAN is set in TraceNotify.Flags when the
+	// notification refers to an overlay VXLAN packet.
+	TraceNotifyFlagIsVXLAN
+	// TraceNotifyFlagIsGeneve is set in TraceNotify.Flags when the
+	// notification refers to an overlay Geneve packet.
+	TraceNotifyFlagIsGeneve
 )
 
 const (
@@ -87,16 +99,28 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 	return nil
 }
 
-// IsEncrypted returns true when the notification has the encrypt flag set,
+// IsWireguard returns true when the notification has the encrypt Wireguard flag set,
+// false otherwise.
+func (n *TraceNotifyV0) IsWireguard() bool {
+	return n.Flags&TraceNotifyFlagIsWireguard != 0
+}
+
+// IsIPSec returns true when the notification has the encrypt IPSec flag set,
+// false otherwise.
+func (n *TraceNotifyV0) IsIPSec() bool {
+	return n.Flags&TraceNotifyFlagIsIPSec != 0
+}
+
+// IsEncrypted returns true when either IsIPSec() or IsWireguard() is true,
 // false otherwise.
 func (n *TraceNotifyV0) IsEncrypted() bool {
-	return (n.Reason & TraceReasonEncryptMask) != 0
+	return n.IsIPSec() || n.IsWireguard()
 }
 
 // TraceReason returns the trace reason for this notification, see the
 // TraceReason* constants.
 func (n *TraceNotifyV0) TraceReason() uint8 {
-	return n.Reason & ^TraceReasonEncryptMask
+	return n.Reason
 }
 
 // TraceReasonIsKnown returns false when the trace reason is unknown, true
@@ -176,8 +200,6 @@ const (
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
 	TraceReasonEncryptOverlay
-	// TraceReasonEncryptMask is the bit used to indicate encryption or not.
-	TraceReasonEncryptMask = uint8(0x80)
 )
 
 /* keep in sync with api/v1/flow/flow.proto */
@@ -275,6 +297,16 @@ func (n *TraceNotify) traceSummary() string {
 	default:
 		return "unknown trace"
 	}
+}
+
+// IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
+func (n *TraceNotify) IsVXLAN() bool {
+	return n.Flags&TraceNotifyFlagIsVXLAN != 0
+}
+
+// IsGeneve returns true if the trace refers to an overlay Geneve packet.
+func (n *TraceNotify) IsGeneve() bool {
+	return n.Flags&TraceNotifyFlagIsGeneve != 0
 }
 
 // IsL3Device returns true if the trace comes from an L3 device.

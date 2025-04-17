@@ -999,8 +999,9 @@ static __always_inline int
 do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 {
 	struct trace_ctx trace = {
-		.reason = TRACE_REASON_ENCRYPTED,
+		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = CLS_FLAG_IPSEC,
 	};
 	struct remote_endpoint_info *ep = NULL;
 	void *data, *data_end;
@@ -1084,13 +1085,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = 0,
 	};
 	__u32 __maybe_unused ipcache_srcid = 0;
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	int __maybe_unused hdrlen = 0;
-	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
@@ -1128,25 +1128,19 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
-# ifdef ENABLE_WIREGUARD
-		if (!from_host) {
-			next_proto = ip6->nexthdr;
-			hdrlen = ipv6_hdrlen(ctx, &next_proto);
-			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
-# endif /* ENABLE_WIREGUARD */
+		if (!from_host)
+			trace.flags = ctx_from_netdev_classifiers6(ctx, ip6);
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
 					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity,
+					ret, ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1172,17 +1166,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
-#ifdef ENABLE_WIREGUARD
-		if (!from_host) {
-			next_proto = ip4->protocol;
-			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
-#endif /* ENABLE_WIREGUARD */
+		if (!from_host)
+			trace.flags = ctx_from_netdev_classifiers4(ctx, ip4);
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
 							  CILIUM_CALL_IPV4_FROM_NETDEV,
@@ -1193,8 +1182,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity,
+					ret, ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
@@ -1352,9 +1341,9 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_ENCRYPT) {
 		ret = CTX_ACT_OK;
 
-		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_flags(ctx, TRACE_FROM_STACK, identity,
+					UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					TRACE_REASON_UNKNOWN, 0, CLS_FLAG_IPSEC);
 
 # ifdef TUNNEL_MODE
 		ret = do_netdev_encrypt_encap(ctx, proto, identity);
@@ -1381,6 +1370,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = ctx_to_netdev_classifiers(ctx),
 	};
 	__be16 __maybe_unused proto = 0;
 	__u32 vlan_id;
@@ -1389,7 +1379,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
+	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_is_wireguard(ctx))
 		src_sec_identity = HOST_ID;
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
@@ -1649,14 +1639,12 @@ skip_egress_gateway:
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
 	 */
-	if (!ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_is_wireguard(ctx)) {
 		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
@@ -1674,7 +1662,7 @@ skip_egress_gateway:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_wireguard(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
@@ -1691,9 +1679,9 @@ exit:
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  THIS_INTERFACE_IFINDEX, trace.reason, trace.monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
+				TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 
