@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
 )
@@ -47,7 +48,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 
 	// Timestamp of the TestSuite is the first test's start time
 	if j.testSuite.Timestamp == "" {
-		j.testSuite.Timestamp = ct.tests[0].startTime.Format("2006-01-02T15:04:05")
+		j.testSuite.Timestamp = ct.tests[0].startTime.Format(time.RFC3339)
 	}
 	for _, t := range ct.tests {
 		test := &junit.TestCase{
