@@ -282,7 +282,7 @@ func (s NodeportService) Address(family features.IPFamily) string {
 					return address.Address
 				}
 			case features.IPFamilyV6:
-				if parsedAddress.To16() != nil {
+				if parsedAddress.To16() != nil && parsedAddress.To4() == nil {
 					return address.Address
 				}
 			}
