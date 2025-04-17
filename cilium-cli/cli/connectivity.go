@@ -104,6 +104,8 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("❗ Failed to load code owners: %w", err)
 			}
+
+			owners = owners.WithExcludedOwners(params.ExcludeCodeOwners)
 		}
 
 		logger := check.NewConcurrentLogger(params.Writer)
