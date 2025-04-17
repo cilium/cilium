@@ -10,7 +10,7 @@
 Egress Gateway
 **************
 
-The egress gateway feature routes all IPv4 connections originating from pods and
+The egress gateway feature routes all IPv4 and IPv6 connections originating from pods and
 destined to specific cluster-external CIDRs through particular nodes, from now
 on called "gateway nodes".
 
@@ -80,7 +80,7 @@ by an egress gateway policy must be in the same cluster as the selected pods.
 Egress gateway is not compatible with the CiliumEndpointSlice feature
 (see :gh-issue:`24833` for details).
 
-Egress gateway is not supported for IPv6 traffic.
+Egress gateway is supported for both IPv4 and IPv6 traffic.
 
 Enable egress gateway
 =====================
@@ -258,7 +258,7 @@ There are 3 different ways this can be achieved:
            testLabel: testVal
        interface: ethX
 
-   In this case the first IPv4 address assigned to the ``ethX`` interface will be used.
+   In this case the first IP address (IPv4 or IPv6 depending on the destination CIDR) assigned to the ``ethX`` interface will be used.
 
 2. By explicitly specifying the egress IP:
 
@@ -268,14 +268,25 @@ There are 3 different ways this can be achieved:
        nodeSelector:
          matchLabels:
            testLabel: testVal
-       egressIP: a.b.c.d
+       egressIP: a.b.c.d  # IPv4 example
+
+   For IPv6, you can specify an IPv6 address:
+
+   .. code-block:: yaml
+
+     egressGateway:
+       nodeSelector:
+         matchLabels:
+           testLabel: testVal
+       egressIP: 2001:db8::1  # IPv6 example
 
    .. warning::
 
      The egress IP must be assigned to a network device on the node.
 
 3. By omitting both ``egressIP`` and ``interface`` properties, which will make
-   the agent use the first IPv4 assigned to the interface for the default route.
+   the agent use the first IP address (IPv4 or IPv6 depending on the destination CIDR)
+   assigned to the interface for the default route.
 
    .. code-block:: yaml
 
@@ -342,10 +353,13 @@ the specification above:
 
       # Specify the IP address used to SNAT traffic matched by the policy.
       # It must exist as an IP associated with a network interface on the instance.
-      egressIP: 10.168.60.100
+      egressIP: 10.168.60.100  # IPv4 example
+      # For IPv6 destinations, you can specify an IPv6 address:
+      # egressIP: 2001:db8::1
 
       # Alternatively it's possible to specify the interface to be used for egress traffic.
-      # In this case the first IPv4 assigned to that interface will be used as egress IP.
+      # In this case the first IP address (IPv4 or IPv6 depending on the destination CIDR)
+      # assigned to that interface will be used as egress IP.
       # interface: enp0s8
 
 Creating the ``CiliumEgressGatewayPolicy`` resource above would cause all

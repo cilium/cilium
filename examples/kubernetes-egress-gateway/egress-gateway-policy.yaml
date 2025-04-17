@@ -15,7 +15,9 @@ spec:
     #  matchLabels:
     #    ns: default
   destinationCIDRs:
-  - 192.168.60.13/32
+  - 192.168.60.13/32  # IPv4 example
+  # For IPv6 destinations, you can specify an IPv6 CIDR:
+  # - 2001:db8::/64  # IPv6 example
   egressGateway:
     nodeSelector:
       matchLabels:
@@ -23,14 +25,17 @@ spec:
         # this policy
         egress-node: true
     # IP used to masquerade traffic leaving the cluster
-    egressIP: "192.168.60.100"
+    egressIP: "192.168.60.100"  # IPv4 example
+    # For IPv6 destinations, you can specify an IPv6 address:
+    # egressIP: "2001:db8::1"  # IPv6 example
+    #
     # Alternatively it is possible to:
     #
     # a) specify which interface should be used to masquerade traffic.
-    # In this case the first IPv4 assigned to said interface will be used as
-    # egressIP
+    # In this case the first IP address (IPv4 or IPv6 depending on the destination CIDR)
+    # assigned to said interface will be used as egressIP
     # interface: eth1
     #
     # b) omit both egressIP and interface.
-    # In this case the first IPv4 assigned to the interface with the default
-    # route will be used as egressIP
+    # In this case the first IP address (IPv4 or IPv6 depending on the destination CIDR)
+    # assigned to the interface with the default route will be used as egressIP
