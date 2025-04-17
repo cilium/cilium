@@ -114,7 +114,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		// which the endpoint manager will begin processing the events off the
 		// queue.
 		ep.InitEventQueue()
-		ep.RunRestoredMetadataResolver(d.fetchK8sMetadataForEndpoint)
+		ep.RunRestoredMetadataResolver(d.endpointMetadataFetcher.FetchK8sMetadataForEndpoint)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
@@ -206,8 +206,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		return
 	}
 
-	emf := &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
-	d.endpointMetadataFetcher = emf
+	d.endpointMetadataFetcher = NewEndpointMetadataFetcher(d.k8sWatcher)
 
 	log.Info("Restoring endpoints...")
 
@@ -321,7 +320,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		for _, ep := range state.restored {
 			if ep.IsHost() {
 				log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
-				if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.fetchK8sMetadataForEndpoint); err != nil {
+				if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadataFetcher.FetchK8sMetadataForEndpoint); err != nil {
 					log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating restored host endpoint")
 					epRegenerated <- false
 				} else {
@@ -339,7 +338,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		}
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.fetchK8sMetadataForEndpoint); err != nil {
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadataFetcher.FetchK8sMetadataForEndpoint); err != nil {
 				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return
