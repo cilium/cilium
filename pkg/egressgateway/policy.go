@@ -159,6 +159,8 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	var err error
 
 	gwc.localNodeConfiguredAsGateway = false
+	gwc.egressIP4 = EgressIPNotFoundIPv4
+	gwc.egressIP6 = EgressIPNotFoundIPv6
 
 	switch {
 	case gc.iface != "":
@@ -167,14 +169,12 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		gwc.ifaceName = gc.iface
 		gwc.egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
-			gwc.egressIP4 = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 
 		if gc.v6needed {
 			gwc.egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gc.iface)
 			if err != nil {
-				gwc.egressIP6 = EgressIPNotFoundIPv6
 				return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 			}
 		}
@@ -193,21 +193,18 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		// interface with the IPv4 default route
 		iface, err := route.NodeDeviceWithDefaultRoute(logger, true, false)
 		if err != nil {
-			gwc.egressIP4 = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to find interface with IPv4 default route: %w", err)
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
 		gwc.egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
-			gwc.egressIP4 = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 
 		if gc.v6needed {
 			iface, err := route.NodeDeviceWithDefaultRoute(logger, false, true)
 			if err != nil {
-				gwc.egressIP6 = EgressIPNotFoundIPv6
 				return fmt.Errorf("failed to find interface with IPv6 default route: %w", err)
 			}
 
@@ -218,7 +215,6 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 			gwc.ifaceName = iface.Attrs().Name
 			gwc.egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gwc.ifaceName)
 			if err != nil {
-				gwc.egressIP6 = EgressIPNotFoundIPv6
 				return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
 			}
 		}
