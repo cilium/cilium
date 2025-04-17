@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/util"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -3674,19 +3675,13 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 		}
 		possibleCPUs = cpus
 	}
-	roundUp := func(x, multiple int) int {
-		return int(((x + (multiple - 1)) / multiple) * multiple)
-	}
-	roundDown := func(x, multiple int) int {
-		return int(x - (x % multiple))
-	}
 	getEntries := func(entriesDefault, min, max int) int {
 		entries := (entriesDefault * memoryAvailableForMaps) / totalMapMemoryDefault
-		entries = roundUp(entries, possibleCPUs)
+		entries = util.RoundUp(entries, possibleCPUs)
 		if entries < min {
-			entries = roundUp(min, possibleCPUs)
+			entries = util.RoundUp(min, possibleCPUs)
 		} else if entries > max {
-			entries = roundDown(max, possibleCPUs)
+			entries = util.RoundDown(max, possibleCPUs)
 		}
 		return entries
 	}
