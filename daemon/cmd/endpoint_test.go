@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +22,7 @@ import (
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -28,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -236,7 +239,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 				if uid == "" {
 					return nil
 				}
-				return podStoreOutdatedErr
+				return endpointmetadata.PodStoreOutdatedErr
 			},
 			retries: 20,
 		},
@@ -270,7 +273,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%s (epUID: %s)", tt.name, epUID), func(t *testing.T) {
 				k8sPodFetcher := &fetcher{fn: tt.fetcher}
-				daemon := Daemon{endpointMetadataFetcher: NewEndpointMetadataFetcher(k8sPodFetcher)}
+				daemon := Daemon{endpointMetadata: endpointmetadata.NewEndpointMetadataFetcher(hivetest.Logger(t), &option.DaemonConfig{}, k8sPodFetcher)}
 				ep := endpoint.Endpoint{K8sPodName: "foo", K8sNamespace: "bar", K8sUID: epUID}
 
 				pod, meta, err := daemon.handleOutdatedPodInformer(context.Background(), &ep)
