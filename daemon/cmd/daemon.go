@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/health"
@@ -118,8 +119,7 @@ type Daemon struct {
 	k8sWatcher  *watchers.K8sWatcher
 	k8sSvcCache k8s.ServiceCache
 
-	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
-	endpointMetadataFetcher EndpointMetadataFetcher
+	endpointMetadata endpointmetadata.EndpointMetadataFetcher
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
@@ -332,6 +332,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bwManager:         params.BandwidthManager,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
+		endpointMetadata:  params.EndpointMetadata,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
