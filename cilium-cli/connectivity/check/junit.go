@@ -4,6 +4,7 @@
 package check
 
 import (
+	"cmp"
 	"errors"
 	"os"
 	"slices"
@@ -77,13 +78,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			}
 			slices.SortFunc(properties,
 				func(a, b junit.Property) int {
-					if a.Value < b.Value {
-						return -1
-					}
-					if a.Value > b.Value {
-						return 1
-					}
-					return 0
+					return cmp.Compare(a.Value, b.Value)
 				})
 			test.Properties = &junit.Properties{Properties: properties}
 		}
