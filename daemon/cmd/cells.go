@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -190,6 +191,9 @@ var (
 
 		// EndpointCreator helps creating endpoints
 		endpointcreator.Cell,
+
+		// Provides the EndpointMetadataFetcher that provides k8s metadata for endpoints.
+		endpointmetadata.Cell,
 
 		// Register the startup procedure to remove stale CiliumEndpoints referencing pods no longer
 		// managed by Cilium.
