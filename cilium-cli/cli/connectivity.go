@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hmarr/codeowners"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -22,7 +21,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
-	owners_util "github.com/cilium/cilium/cilium-cli/utils/codeowners"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -97,11 +96,11 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		var owners codeowners.Ruleset
+		var owners *codeowners.Ruleset
 		if params.LogCodeOwners {
 			var err error
 
-			owners, err = owners_util.Load(params.CodeOwners)
+			owners, err = codeowners.Load(params.CodeOwners)
 			if err != nil {
 				return fmt.Errorf("❗ Failed to load code owners: %w", err)
 			}
@@ -314,7 +313,7 @@ func newConnectivityTests(
 	params check.Parameters,
 	hooks api.Hooks,
 	logger *check.ConcurrentLogger,
-	owners codeowners.Ruleset,
+	owners *codeowners.Ruleset,
 ) ([]*check.ConnectivityTest, error) {
 	if params.TestConcurrency < 1 {
 		fmt.Printf("--test-concurrency parameter value is invalid [%d], using 1 instead\n", params.TestConcurrency)

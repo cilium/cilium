@@ -10,18 +10,22 @@ import (
 	"github.com/hmarr/codeowners"
 )
 
-type Ruleset codeowners.Ruleset
+type Ruleset struct {
+	codeowners.Ruleset
+}
 
-func Load(paths []string) (codeowners.Ruleset, error) {
+func Load(paths []string) (*Ruleset, error) {
+	var (
+		allOwners codeowners.Ruleset
+		err       error
+	)
+
 	if len(paths) == 0 {
-		owners, err := codeowners.LoadFileFromStandardLocation()
+		allOwners, err = codeowners.LoadFileFromStandardLocation()
 		if err != nil {
 			return nil, fmt.Errorf("while loading: %w", err)
 		}
-		return owners, nil
 	}
-
-	var allOwners codeowners.Ruleset
 
 	for _, f := range paths {
 		coFile, err := os.Open(f)
@@ -38,5 +42,7 @@ func Load(paths []string) (codeowners.Ruleset, error) {
 		allOwners = append(allOwners, owners...)
 	}
 
-	return allOwners, nil
+	return &Ruleset{
+		Ruleset: allOwners,
+	}, nil
 }

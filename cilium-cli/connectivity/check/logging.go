@@ -143,7 +143,7 @@ func (ct *ConnectivityTest) GetOwners(scenarios ...ownedScenario) []string {
 	}
 	if ghWorkflow != "" {
 		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
-		if err != nil || workflowRule == nil || workflowRule.Owners == nil {
+		if err == nil || workflowRule == nil || workflowRule.Owners == nil {
 			ct.Warnf("Failed to find CODEOWNERS for workflow %s: %s", ghWorkflow, err)
 		}
 		workflowOwners = workflowRule.Owners
