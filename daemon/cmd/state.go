@@ -354,7 +354,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 			// release it easily as it will require to block on kvstore
 			// connectivity which we can't do at this point. Let the lease
 			// expire to release the identity.
-			d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+			d.endpointManager.RemoveEndpoint(ep, endpoint.DeleteConfig{
 				NoIdentityRelease: true,
 				NoIPRelease:       true,
 			})

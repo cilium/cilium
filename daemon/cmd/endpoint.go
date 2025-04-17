@@ -189,7 +189,7 @@ func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int
 }
 
 func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+	d.endpointManager.RemoveEndpoint(ep, endpoint.DeleteConfig{
 		// The IP has been provided by the caller and must be released
 		// by the caller
 		NoIPRelease: true,
@@ -720,7 +720,14 @@ func (d *Daemon) deleteEndpointRelease(ep *endpoint.Endpoint, noIPRelease bool) 
 	d.endpointCreations.CancelCreateRequest(ep)
 
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+	// Set the endpoint into disconnecting state and remove
+	// it from Cilium, releasing all resources associated with it such as its
+	// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
+	// L7 policy configuration, directories and controllers.
+	//
+	// Specific users such as the cilium-health EP may choose not to release the IP
+	// when deleting the endpoint. Most users should pass true for releaseIP.
+	errs := d.endpointManager.RemoveEndpoint(ep, endpoint.DeleteConfig{
 		NoIPRelease: noIPRelease,
 	})
 	for _, err := range errs {
@@ -732,17 +739,6 @@ func (d *Daemon) deleteEndpointRelease(ep *endpoint.Endpoint, noIPRelease bool) 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	// If the IP is managed by an external IPAM, it does not need to be released
 	return d.deleteEndpointRelease(ep, ep.DatapathConfiguration.ExternalIpam)
-}
-
-// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
-// it from Cilium, releasing all resources associated with it such as its
-// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
-// L7 policy configuration, directories and controllers.
-//
-// Specific users such as the cilium-health EP may choose not to release the IP
-// when deleting the endpoint. Most users should pass true for releaseIP.
-func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return d.endpointManager.RemoveEndpoint(ep, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
