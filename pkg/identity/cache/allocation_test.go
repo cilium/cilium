@@ -632,9 +632,11 @@ func testAllocateLocally(t *testing.T, testConfig testConfig) {
 
 	cidrLbls := labels.NewLabelsFromSortedList("cidr:1.2.3.4/32")
 	podLbls := labels.NewLabelsFromSortedList("k8s:foo=bar")
+	ingressLbls := labels.NewLabelsFromSortedList("reserved:ingress;k8s:foo=bar")
 
 	assert.False(t, needsGlobalIdentity(cidrLbls))
 	assert.True(t, needsGlobalIdentity(podLbls))
+	assert.False(t, needsGlobalIdentity(ingressLbls))
 
 	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
 	assert.NoError(t, err)
@@ -645,6 +647,12 @@ func testAllocateLocally(t *testing.T, testConfig testConfig) {
 	id, _, err = mgr.AllocateLocalIdentity(podLbls, false, 0)
 	assert.ErrorIs(t, err, ErrNonLocalIdentity)
 	assert.Nil(t, id)
+
+	id, _, err = mgr.AllocateLocalIdentity(ingressLbls, false, 0)
+	assert.NoError(t, err)
+	assert.True(t, allocated)
+	assert.Equal(t, identity.IdentityScopeLocal, id.ID.Scope())
+	assert.Equal(t, identity.IdentityScopeLocal+1, id.ID)
 }
 
 func TestCheckpointRestore(t *testing.T) {

@@ -202,6 +202,13 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 		return IdentityScopeRemoteNode
 	}
 
+	// The ingress label is for L7 LB with cilium proxy, which is running on
+	// every node. So it's not necessary to be global identity, but local
+	// identity instead.
+	if lbls.HasIngressLabel() {
+		return IdentityScopeLocal
+	}
+
 	for _, label := range lbls {
 		switch label.Source {
 		case labels.LabelSourceCIDR, labels.LabelSourceFQDN, labels.LabelSourceReserved, labels.LabelSourceCIDRGroup:
