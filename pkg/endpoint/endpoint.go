@@ -1741,7 +1741,6 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 func (e *Endpoint) metadataResolver(ctx context.Context,
 	restoredEndpoint, blocking bool,
 	baseLabels labels.Labels,
-	bwm datapath.BandwidthManager,
 	resolveMetadata MetadataResolverCB,
 ) (regenTriggered bool, err error) {
 	if !e.K8sNamespaceAndPodNameIsSet() {
@@ -1789,7 +1788,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		value, _ := annotation.Get(pod, annotation.NoTrack, annotation.NoTrackAlias)
 		return value
 	}())
-	e.UpdateBandwidthPolicy(bwm,
+	e.UpdateBandwidthPolicy(
 		pod.Annotations[bandwidth.EgressBandwidth],
 		pod.Annotations[bandwidth.IngressBandwidth],
 		pod.Annotations[bandwidth.Priority],
@@ -1844,7 +1843,7 @@ type MetadataResolverCB func(ns, podName, uid string) (pod *slim_corev1.Pod, k8s
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
+func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
 	var regenTriggeredCh chan bool
 	callerBlocked := false
 	if blocking {
@@ -1859,7 +1858,7 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 			RunInterval: 0,
 			Group:       resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				regenTriggered, err := e.metadataResolver(ctx, restoredEndpoint, blocking, baseLabels, bwm, resolveMetadata)
+				regenTriggered, err := e.metadataResolver(ctx, restoredEndpoint, blocking, baseLabels, resolveMetadata)
 
 				// Check if the caller is still blocked.
 				// It might already have been unblocked in a previous run, where resolving metadata
@@ -1903,8 +1902,8 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunRestoredMetadataResolver(bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) {
-	e.RunMetadataResolver(true, false, nil, bwm, resolveMetadata)
+func (e *Endpoint) RunRestoredMetadataResolver(resolveMetadata MetadataResolverCB) {
+	e.RunMetadataResolver(true, false, nil, resolveMetadata)
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.

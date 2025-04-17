@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -193,7 +192,7 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 // * regenerates the endpoint
 // Returns an error if any operation fails while trying to perform the above
 // operations.
-func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm dptypes.BandwidthManager, resolveMetadata MetadataResolverCB) error {
+func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, resolveMetadata MetadataResolverCB) error {
 	if err := e.restoreHostIfindex(); err != nil {
 		return err
 	}
@@ -205,7 +204,7 @@ func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm dptypes.
 	// Now that we have restored the endpoints' identity, run the metadata
 	// resolver so that we can fetch the latest labels from the pod for this
 	// endpoint.
-	e.RunRestoredMetadataResolver(bwm, resolveMetadata)
+	e.RunRestoredMetadataResolver(resolveMetadata)
 
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 

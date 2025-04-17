@@ -792,13 +792,13 @@ func TestMetadataResolver(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%s (restored=%t)", tt.name, restored), func(t *testing.T) {
 				model := newTestEndpointModel(100, StateWaitingForIdentity)
-				ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
+				ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, &fakeTypes.BandwidthManager{}, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
 					testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 				require.NoError(t, err)
 
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
 
-				_, err = ep.metadataResolver(t.Context(), restored, true, labels.Labels{}, &fakeTypes.BandwidthManager{}, tt.resolveMetadata)
+				_, err = ep.metadataResolver(t.Context(), restored, true, labels.Labels{}, tt.resolveMetadata)
 				tt.assert(t, err)
 			})
 		}

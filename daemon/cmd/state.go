@@ -113,7 +113,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		// which the endpoint manager will begin processing the events off the
 		// queue.
 		ep.InitEventQueue()
-		ep.RunRestoredMetadataResolver(d.bwManager, d.fetchK8sMetadataForEndpoint)
+		ep.RunRestoredMetadataResolver(d.fetchK8sMetadataForEndpoint)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
@@ -308,7 +308,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	for _, ep := range state.restored {
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.bwManager, d.fetchK8sMetadataForEndpoint); err != nil {
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.fetchK8sMetadataForEndpoint); err != nil {
 				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return
