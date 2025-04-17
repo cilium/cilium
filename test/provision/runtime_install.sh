@@ -29,6 +29,13 @@ rm /run/systemd/resolve/stub-resolv.conf || true
 echo "nameserver 1.1.1.1" > /etc/resolv.conf
 cat /etc/resolv.conf
 
+mkdir -p /etc/docker
+cat <<EOF > /etc/docker/daemon.json
+{
+    "bip": "192.168.0.1/24"
+}
+EOF
+
 # Restarting docker to use correct nameserver
 service docker restart
 
