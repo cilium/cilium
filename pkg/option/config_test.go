@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/util"
 )
 
 func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
@@ -929,9 +930,6 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 		SockRevNatMapSize int
 	}
 	cpus, _ := ebpf.PossibleCPU()
-	roundUp := func(x, multiple int) int {
-		return int(((x + (multiple - 1)) / multiple) * multiple)
-	}
 	tests := []struct {
 		name        string
 		totalMemory uint64
@@ -1121,11 +1119,11 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 3 * GiB,
 			ratio:       0.051,
 			want: sizes{
-				CTMapSizeTCP:      roundUp(580503, cpus),
-				CTMapSizeAny:      roundUp(290251, cpus),
-				NATMapSize:        roundUp(580503, cpus),
-				NeighMapSize:      roundUp(580503, cpus),
-				SockRevNatMapSize: roundUp(290251, cpus),
+				CTMapSizeTCP:      util.RoundUp(580503, cpus),
+				CTMapSizeAny:      util.RoundUp(290251, cpus),
+				NATMapSize:        util.RoundUp(580503, cpus),
+				NeighMapSize:      util.RoundUp(580503, cpus),
+				SockRevNatMapSize: util.RoundUp(290251, cpus),
 			},
 			preTestRun: func(vp *viper.Viper) {
 				vp.Set(BPFDistributedLRU, true)

@@ -249,3 +249,5 @@
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/client @cilium/api
 /pkg/hubble/metrics @cilium/hubble-metrics
+/pkg/util/ @cilium/sig-datapath
+/pkg/wireguard @cilium/wireguard
