@@ -72,6 +72,40 @@ func (r *Ruleset) WithExcludedOwners(excludedOwners []string) *Ruleset {
 	return r
 }
 
+func (r *Ruleset) WorkflowOwners() ([]string, error) {
+	var ghWorkflow string
+	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
+	ghWorkflowRef := os.Getenv("GITHUB_WORKFLOW_REF")
+	matches := ghWorkflowRegexp.FindStringSubmatch(ghWorkflowRef)
+	// here matches should either be nil (no match) or a slice with two values:
+	// the full match and the capture.
+	if len(matches) == 2 {
+		ghWorkflow = matches[1]
+	}
+
+	var owners []string
+	if ghWorkflow != "" {
+		workflowRule, err := r.Match(ghWorkflow)
+		if err == nil && (workflowRule == nil || workflowRule.Owners == nil) {
+			err = ErrNoOwners
+		}
+		if err != nil {
+			return nil, fmt.Errorf("matching workflow %s: %w", ghWorkflow, err)
+		}
+
+		owners = make([]string, 0, len(workflowRule.Owners))
+		for _, o := range workflowRule.Owners {
+			owner := o.String()
+			if _, ok := r.exclude[owner]; ok {
+				continue
+			}
+			owners = append(owners, owner)
+		}
+	}
+
+	return owners, nil
+}
+
 func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
 	if r == nil {
 		return nil, nil
@@ -89,27 +123,6 @@ func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
 		rules[scenario] = rule
 	}
 
-	var workflowOwners []codeowners.Owner
-	var ghWorkflow string
-	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
-	ghWorkflowRef := os.Getenv("GITHUB_WORKFLOW_REF")
-	matches := ghWorkflowRegexp.FindStringSubmatch(ghWorkflowRef)
-	// here matches should either be nil (no match) or a slice with two values:
-	// the full match and the capture.
-	if len(matches) == 2 {
-		ghWorkflow = matches[1]
-	}
-	if ghWorkflow != "" {
-		workflowRule, err := r.Match(ghWorkflow)
-		if err == nil && (workflowRule == nil || workflowRule.Owners == nil) {
-			err = ErrNoOwners
-		}
-		if err != nil {
-			return nil, fmt.Errorf("matching workflow %s: %w", ghWorkflow, err)
-		}
-		workflowOwners = workflowRule.Owners
-	}
-
 	var owners []string
 	for scenario, rule := range rules {
 		for _, o := range rule.Owners {
@@ -118,13 +131,6 @@ func (r *Ruleset) Owners(scenarios ...Scenario) ([]string, error) {
 				continue
 			}
 			owners = append(owners, fmt.Sprintf("%s (%s)", owner, scenario.Name()))
-		}
-		for _, o := range workflowOwners {
-			owner := o.String()
-			if _, ok := r.exclude[owner]; ok {
-				continue
-			}
-			owners = append(owners, fmt.Sprintf("%s (%s)", owner, ghWorkflow))
 		}
 	}
 	return owners, nil
