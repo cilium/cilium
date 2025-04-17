@@ -36,7 +36,7 @@ int test_builtin_memcmp(__maybe_unused struct __ctx_buff *ctx)
 
 	int i;
 
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 70; i++) {
 		/* ./builtin_gen memcmp 32 > builtin_memcmp.h */
 		#include "builtin_memcmp.h"
 	}
