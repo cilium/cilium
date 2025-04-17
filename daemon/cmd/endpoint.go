@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -183,13 +182,34 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 	}
 }
 
-// fetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
-// endpoint metadata. It implements endpoint.MetadataResolverCB.
-// The returned pod is deepcopied which means the its fields can be written
-// into. Returns an error If a uid is given, and the uid of the retrieved
-// pod does not match it.
-func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
-	p, err := d.endpointMetadataFetcher.FetchPod(nsName, podName)
+type EndpointMetadataFetcher interface {
+	// FetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
+	// endpoint metadata.
+	// The returned pod is deepcopied which means the its fields can be written
+	// into. Returns an error If a uid is given, and the uid of the retrieved
+	// pod does not match it.
+	FetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
+
+	FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error)
+}
+
+type cachedEndpointMetadataFetcher struct {
+	k8sPodMetadataFetcher k8sPodMetadataFetcher
+}
+
+func NewEndpointMetadataFetcher(k8sPodMetadataFetcher k8sPodMetadataFetcher) EndpointMetadataFetcher {
+	return &cachedEndpointMetadataFetcher{
+		k8sPodMetadataFetcher: k8sPodMetadataFetcher,
+	}
+}
+
+type k8sPodMetadataFetcher interface {
+	GetCachedNamespace(nsName string) (*slim_corev1.Namespace, error)
+	GetCachedPod(nsName, podName string) (*slim_corev1.Pod, error)
+}
+
+func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+	p, err := cemf.k8sPodMetadataFetcher.GetCachedPod(nsName, podName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -198,12 +218,12 @@ func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim
 		return nil, nil, podStoreOutdatedErr
 	}
 
-	metadata, err := d.fetchK8sMetadataForEndpointFromPod(p)
+	metadata, err := cemf.FetchK8sMetadataForEndpointFromPod(p)
 	return p, metadata, err
 }
 
-func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
-	ns, err := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
+func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
+	ns, err := cemf.fetchNamespace(p.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -218,11 +238,7 @@ func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoi
 	}, nil
 }
 
-type cachedEndpointMetadataFetcher struct {
-	k8sWatcher *watchers.K8sWatcher
-}
-
-func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
+func (cemf *cachedEndpointMetadataFetcher) fetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
 	// If network policies are disabled, labels are not needed, the namespace
 	// watcher is not running, and a namespace containing only the name is returned.
 	if !option.NetworkPolicyEnabled(option.Config) {
@@ -232,11 +248,7 @@ func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_
 			},
 		}, nil
 	}
-	return cemf.k8sWatcher.GetCachedNamespace(nsName)
-}
-
-func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
-	return cemf.k8sWatcher.GetCachedPod(nsName, podName)
+	return cemf.k8sPodMetadataFetcher.GetCachedNamespace(nsName)
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -487,7 +499,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 				pod = newPod
 				// Clear the error so the code can proceed below, if the metadata
 				// retrieval succeeds correctly.
-				k8sMetadata, err = d.fetchK8sMetadataForEndpointFromPod(pod)
+				k8sMetadata, err = d.endpointMetadataFetcher.FetchK8sMetadataForEndpointFromPod(pod)
 			}
 		}
 
@@ -552,7 +564,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// in the endpoint manager. Thus, we will fetch the labels again
 		// and update the endpoint with these labels.
 		// Wait for the regeneration to be triggered before continuing.
-		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.fetchK8sMetadataForEndpoint)
+		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.endpointMetadataFetcher.FetchK8sMetadataForEndpoint)
 	} else {
 		regenTriggered = ep.UpdateLabels(ctx, labels.LabelSourceAny, identityLbls, infoLabels, true)
 	}
@@ -621,7 +633,7 @@ func (d *Daemon) handleOutdatedPodInformer(
 	// Average attempt is every 100ms.
 	err = resiliency.Retry(ctx, handleOutdatedPodInformerRetryPeriod, 20, func(_ context.Context, _ int) (bool, error) {
 		var err2 error
-		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
+		pod, k8sMetadata, err2 = d.endpointMetadataFetcher.FetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
 		if ep.K8sUID == "" {
 			// If the CNI did not set the UID, then don't retry and just exit
 			// out of the loop to proceed as normal.
