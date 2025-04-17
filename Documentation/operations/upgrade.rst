@@ -290,6 +290,13 @@ communicating via the proxy must reconnect to re-establish connections.
 
 .. _1.17_upgrade_notes:
 
+
+1.17.4 Upgrade Notes
+--------------------
+
+* The check for connectivity to the Kubernetes apiserver has been removed from the cilium-agent liveness probe.
+  This can be turned back on by setting the helm option ``livenessProbe.requireK8sConnectivity`` to ``true``.
+
 1.17 Upgrade Notes
 ------------------
 
@@ -354,7 +361,6 @@ communicating via the proxy must reconnect to re-establish connections.
     and ``tls.secretSync.enabled: true``
   * The defaults for **upgraded** clusters (where ``upgradeCompatibility`` is ``v1.16``) do not enable 
     SDS. They are: ``tls.readSecretsOnlyFromSecretsNamespace: true`` and ``tls.secretSync.enabled: false``
-
 
 Removed Options
 ~~~~~~~~~~~~~~~
