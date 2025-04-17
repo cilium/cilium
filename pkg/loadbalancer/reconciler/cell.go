@@ -28,4 +28,7 @@ var Cell = cell.Module(
 
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
+
+	// Terminate sockets connected to backends that have been removed.
+	SocketTerminationCell,
 )

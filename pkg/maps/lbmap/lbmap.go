@@ -798,6 +798,11 @@ func Init(params InitParams) {
 
 // ExistsSockRevNat checks if the passed entry exists in the sock rev nat map.
 func (*LBBPFMap) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
+	return ExistsSockRevNat(cookie, addr, port)
+}
+
+// ExistsSockRevNat checks if the passed entry exists in the sock rev nat map.
+func ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
 	if addr.To4() != nil {
 		key := NewSockRevNat4Key(cookie, addr, port)
 		if _, err := key.Map().Lookup(key); err == nil {

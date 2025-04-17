@@ -66,29 +66,35 @@ type ExternalConfig struct {
 	LBMapsConfig
 	ZoneMapper
 
-	EnableIPv4, EnableIPv6          bool
-	ExternalClusterIP               bool
-	EnableHealthCheckNodePort       bool
-	KubeProxyReplacement            bool
-	NodePortMin, NodePortMax        uint16
-	NodePortAlg                     string
-	LoadBalancerAlgorithmAnnotation bool
+	EnableIPv4, EnableIPv6                 bool
+	ExternalClusterIP                      bool
+	EnableHealthCheckNodePort              bool
+	KubeProxyReplacement                   bool
+	NodePortMin, NodePortMax               uint16
+	NodePortAlg                            string
+	LoadBalancerAlgorithmAnnotation        bool
+	BPFSocketLBHostnsOnly                  bool
+	EnableSocketLB                         bool
+	EnableSocketLBPodConnectionTermination bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
 func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		LBMapsConfig:                    newLBMapsConfig(cfg),
-		ZoneMapper:                      cfg,
-		EnableIPv4:                      cfg.EnableIPv4,
-		EnableIPv6:                      cfg.EnableIPv6,
-		ExternalClusterIP:               cfg.ExternalClusterIP,
-		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
-		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
-		NodePortMin:                     uint16(cfg.NodePortMin),
-		NodePortMax:                     uint16(cfg.NodePortMax),
-		NodePortAlg:                     cfg.NodePortAlg,
-		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
+		LBMapsConfig:                           newLBMapsConfig(cfg),
+		ZoneMapper:                             cfg,
+		EnableIPv4:                             cfg.EnableIPv4,
+		EnableIPv6:                             cfg.EnableIPv6,
+		ExternalClusterIP:                      cfg.ExternalClusterIP,
+		KubeProxyReplacement:                   cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		EnableHealthCheckNodePort:              cfg.EnableHealthCheckNodePort,
+		NodePortMin:                            uint16(cfg.NodePortMin),
+		NodePortMax:                            uint16(cfg.NodePortMax),
+		NodePortAlg:                            cfg.NodePortAlg,
+		LoadBalancerAlgorithmAnnotation:        cfg.LoadBalancerAlgorithmAnnotation,
+		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
+		EnableSocketLB:                         cfg.EnableSocketLB,
+		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 	}
 }
 
@@ -102,10 +108,15 @@ type LBMapsConfig struct {
 	MaglevMapMaxEntries                                             int
 }
 
+const defaultMaxSockRevNatEntries = 256 * 1024
+
 // newLBMapsConfig creates the config from the DaemonConfig. When we
 // move to the new implementation this should be replaced with a cell.Config.
 func newLBMapsConfig(dcfg *option.DaemonConfig) (cfg LBMapsConfig) {
 	cfg.MaxSockRevNatMapEntries = dcfg.SockRevNatEntries
+	if cfg.MaxSockRevNatMapEntries == 0 {
+		cfg.MaxSockRevNatMapEntries = defaultMaxSockRevNatEntries
+	}
 	cfg.ServiceMapMaxEntries = dcfg.LBMapEntries
 	cfg.BackendMapMaxEntries = dcfg.LBMapEntries
 	cfg.RevNatMapMaxEntries = dcfg.LBMapEntries
