@@ -195,11 +195,11 @@ type fetcher struct {
 	runs uint
 }
 
-func (f *fetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
+func (f *fetcher) GetCachedNamespace(nsName string) (*slim_corev1.Namespace, error) {
 	return &slim_corev1.Namespace{ObjectMeta: slim_metav1.ObjectMeta{Name: nsName}}, nil
 }
 
-func (f *fetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
+func (f *fetcher) GetCachedPod(nsName, podName string) (*slim_corev1.Pod, error) {
 	defer func() { f.runs++ }()
 	return f.fn(f.runs, nsName, podName)
 }
@@ -270,8 +270,8 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 	for _, epUID := range []string{"", "uid"} {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%s (epUID: %s)", tt.name, epUID), func(t *testing.T) {
-				fetcher := fetcher{fn: tt.fetcher}
-				daemon := Daemon{endpointMetadataFetcher: &fetcher}
+				k8sPodFetcher := &fetcher{fn: tt.fetcher}
+				daemon := Daemon{endpointMetadataFetcher: NewEndpointMetadataFetcher(k8sPodFetcher)}
 				ep := endpoint.Endpoint{K8sPodName: "foo", K8sNamespace: "bar", K8sUID: epUID}
 
 				pod, meta, err := daemon.handleOutdatedPodInformer(context.Background(), &ep)
@@ -285,7 +285,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 				if tt.retries > 0 && epUID != "" {
 					retries = tt.retries
 				}
-				assert.Equal(t, retries, fetcher.runs, "Incorrect number of retries")
+				assert.Equal(t, retries, k8sPodFetcher.runs, "Incorrect number of retries")
 			})
 		}
 	}
