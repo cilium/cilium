@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -57,9 +58,10 @@ type DaemonSuite struct {
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
 
-	PolicyImporter policycell.PolicyImporter
-	envoyXdsServer envoy.XDSServer
-	dnsProxy       defaultdns.Proxy
+	PolicyImporter     policycell.PolicyImporter
+	envoyXdsServer     envoy.XDSServer
+	dnsProxy           defaultdns.Proxy
+	endpointAPIManager endpointapi.EndpointAPIManager
 }
 
 func setupTestDirectories() string {
@@ -141,6 +143,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		}),
 		cell.Invoke(func(dnsProxy defaultdns.Proxy) {
 			ds.dnsProxy = dnsProxy
+		}),
+		cell.Invoke(func(endpointAPIManager endpointapi.EndpointAPIManager) {
+			ds.endpointAPIManager = endpointAPIManager
 		}),
 	)
 
