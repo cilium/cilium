@@ -20,6 +20,7 @@
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
+#include "trace_helpers.h"
 
 #define NOTIFY_DROP_VER 2
 
