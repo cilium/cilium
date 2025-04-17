@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -198,7 +197,6 @@ func (ev *EndpointNoTrackEvent) Handle(res chan any) {
 // EndpointPolicyBandwidthEvent contains all fields necessary to update
 // the Pod's bandwidth policy.
 type EndpointPolicyBandwidthEvent struct {
-	bwm              datapath.BandwidthManager
 	ep               *Endpoint
 	bandwidthEgress  string
 	bandwidthIngress string
@@ -209,7 +207,7 @@ type EndpointPolicyBandwidthEvent struct {
 func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 	var bps, ingressBps, prio uint64
 
-	if !ev.bwm.Enabled() {
+	if !ev.ep.bandwidthManager.Enabled() {
 		res <- &EndpointRegenerationResult{
 			err: nil,
 		}
@@ -265,9 +263,9 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 	}
 
 	if bwmUpdateNeeded {
-		ev.bwm.UpdateBandwidthLimit(e.ID, bps, uint32(prio))
+		ev.ep.bandwidthManager.UpdateBandwidthLimit(e.ID, bps, uint32(prio))
 	} else {
-		ev.bwm.DeleteBandwidthLimit(e.ID)
+		ev.ep.bandwidthManager.DeleteBandwidthLimit(e.ID)
 	}
 	if err != nil {
 		res <- &EndpointRegenerationResult{
@@ -296,7 +294,7 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 			}
 			return
 		}
-		ev.bwm.UpdateIngressBandwidthLimit(e.ID, ingressBps)
+		ev.ep.bandwidthManager.UpdateIngressBandwidthLimit(e.ID, ingressBps)
 
 		bpsOld = "inf"
 		bpsNew = "inf"
@@ -311,7 +309,7 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 
 		e.ingressBps = ingressBps
 	} else {
-		ev.bwm.DeleteIngressBandwidthLimit(e.ID)
+		ev.ep.bandwidthManager.DeleteIngressBandwidthLimit(e.ID)
 	}
 
 	res <- &EndpointRegenerationResult{

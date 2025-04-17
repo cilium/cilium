@@ -550,7 +550,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// in the endpoint manager. Thus, we will fetch the labels again
 		// and update the endpoint with these labels.
 		// Wait for the regeneration to be triggered before continuing.
-		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.bwManager, d.fetchK8sMetadataForEndpoint)
+		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.fetchK8sMetadataForEndpoint)
 	} else {
 		regenTriggered = ep.UpdateLabels(ctx, labels.LabelSourceAny, identityLbls, infoLabels, true)
 	}

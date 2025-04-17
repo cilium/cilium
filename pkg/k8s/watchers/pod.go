@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -90,7 +89,6 @@ type k8sPodWatcherParams struct {
 	Pods              statedb.Table[agentK8s.LocalPod]
 	NodeAddrs         statedb.Table[datapathTables.NodeAddress]
 	LRPManager        *redirectpolicy.Manager
-	BandwidthManager  datapath.BandwidthManager
 	CGroupManager     cgroup.CGroupManager
 }
 
@@ -107,7 +105,6 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		redirectPolicyManager: params.LRPManager,
 		ipcache:               params.IPCache,
 		cgroupManager:         params.CGroupManager,
-		bandwidthManager:      params.BandwidthManager,
 		resources:             params.Resources,
 		db:                    params.DB,
 		pods:                  params.Pods,
@@ -136,7 +133,6 @@ type K8sPodWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	ipcache               ipcacheManager
 	cgroupManager         cgroupManager
-	bandwidthManager      datapath.BandwidthManager
 	resources             agentK8s.Resources
 	db                    *statedb.DB
 	pods                  statedb.Table[agentK8s.LocalPod]
@@ -410,8 +406,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 
 		if annotationsChanged {
 			if annoChangedBandwidth {
-				podEP.UpdateBandwidthPolicy(k.bandwidthManager,
-					newK8sPod.Annotations[bandwidth.EgressBandwidth],
+				podEP.UpdateBandwidthPolicy(newK8sPod.Annotations[bandwidth.EgressBandwidth],
 					newK8sPod.Annotations[bandwidth.IngressBandwidth],
 					newK8sPod.Annotations[bandwidth.Priority])
 			}
