@@ -132,7 +132,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/create-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
