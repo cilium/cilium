@@ -449,7 +449,7 @@ func (suite *ConformanceTestSuite) Run(t *testing.T, tests []ConformanceTest) er
 
 		// TODO(wstcliyu): need a better long term solution for test isolation
 		// https://github.com/kubernetes-sigs/gateway-api/issues/3233
-		if res != testSkipped && res != testNotSupported && sleepForTestIsolation {
+		if res != testSkipped && res != testNotSupported && sleepForTestIsolation && suite.TimeoutConfig.TestIsolation > 0 {
 			tlog.Logf(t, "Sleeping %v for test isolation", suite.TimeoutConfig.TestIsolation)
 			time.Sleep(suite.TimeoutConfig.TestIsolation)
 		}

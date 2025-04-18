@@ -315,6 +315,7 @@ type ListenerNamespaces struct {
 	//
 	// +optional
 	// +kubebuilder:default=None
+	// +kubebuilder:validation:Enum=All;Selector;Same;None
 	From *FromNamespaces `json:"from,omitempty"`
 
 	// Selector must be specified when From is set to "Selector". In that case,
@@ -669,8 +670,6 @@ type AllowedRoutes struct {
 
 // FromNamespaces specifies namespace from which Routes/ListenerSets may be attached to a
 // Gateway.
-//
-// +kubebuilder:validation:Enum=All;Selector;Same;None
 type FromNamespaces string
 
 const (
@@ -700,6 +699,7 @@ type RouteNamespaces struct {
 	//
 	// +optional
 	// +kubebuilder:default=Same
+	// +kubebuilder:validation:Enum=All;Selector;Same
 	From *FromNamespaces `json:"from,omitempty"`
 
 	// Selector must be specified when From is set to "Selector". In that case,
