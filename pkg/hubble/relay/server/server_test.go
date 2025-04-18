@@ -106,7 +106,7 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 	m := s.GetEventsChannel()
 
 	for i := range numFlows {
-		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		src := getRandomEndpoint()
 		dst := getRandomEndpoint()
 		srcMAC, _ := net.ParseMAC(fake.MAC())
