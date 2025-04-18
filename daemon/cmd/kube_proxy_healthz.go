@@ -14,13 +14,9 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-// DaemonInterface to help with testing.
-type DaemonInterface interface {
-	getStatus(bool, bool) models.StatusResponse
-}
 
 // ServiceInterface to help with testing.
 type ServiceInterface interface {
@@ -29,8 +25,8 @@ type ServiceInterface interface {
 }
 
 type kubeproxyHealthzHandler struct {
-	d   DaemonInterface
-	svc ServiceInterface
+	statusCollector status.StatusCollector
+	svc             ServiceInterface
 }
 
 // startKubeProxyHealthzHTTPService registers a handler function for the kube-proxy /healthz
@@ -47,7 +43,7 @@ func (d *Daemon) startKubeProxyHealthzHTTPService(addr string) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/healthz", kubeproxyHealthzHandler{d: d, svc: d.svc})
+	mux.Handle("/healthz", kubeproxyHealthzHandler{statusCollector: d.statusCollector, svc: d.svc})
 
 	srv := &http.Server{
 		Addr:    addr,
@@ -76,10 +72,10 @@ func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	statusCode := http.StatusOK
 	currentTs := h.svc.GetCurrentTs()
-	var lastUpdateTs = currentTs
+	lastUpdateTs := currentTs
 	// We piggy back here on Cilium daemon health. If Cilium is healthy, we can
 	// reasonably assume that the node networking is ready.
-	sr := h.d.getStatus(true, true)
+	sr := h.statusCollector.GetStatus(true, true)
 	if isUnhealthy(&sr) {
 		statusCode = http.StatusServiceUnavailable
 		lastUpdateTs = h.svc.GetLastUpdatedTs()

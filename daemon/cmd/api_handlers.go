@@ -22,7 +22,6 @@ type handlersOut struct {
 	cell.Out
 
 	DaemonGetDebuginfoHandler daemon.GetDebuginfoHandler
-	DaemonGetHealthzHandler   daemon.GetHealthzHandler
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -76,9 +75,6 @@ func wrapAPIHandler[Params any](dp promise.Promise[*Daemon], handler func(d *Dae
 // to daemon/restapi or feature-specific packages. At that point the dependency on *deletionQueue
 // should be moved to the cell in daemon/restapi.
 func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ *deletionQueue) (out handlersOut) {
-	// /healthz/
-	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
-
 	// /endpoint/
 	out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
 	out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)

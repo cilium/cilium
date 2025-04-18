@@ -53,7 +53,7 @@ const (
 	// StateDirRights are the default access rights of the state directory
 	StateDirRights = 0770
 
-	//StateDir is the default path for the state directory relative to RuntimePath
+	// StateDir is the default path for the state directory relative to RuntimePath
 	StateDir = "state"
 
 	// TemplatesDir is the default path for the compiled template objects relative to StateDir
@@ -135,7 +135,7 @@ const (
 
 	// FQDNProxyResponseMaxDelay The maximum time the DNS proxy holds an allowed
 	// DNS response before sending it along. Responses are sent as soon as the
-	//datapath is updated with the new IP information.
+	// datapath is updated with the new IP information.
 	FQDNProxyResponseMaxDelay = 100 * time.Millisecond
 
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
@@ -180,17 +180,6 @@ const (
 	// MaxInternalTimerDelay does not enforce a maximum on timer values in
 	// the agent by default.
 	MaxInternalTimerDelay = 0 * time.Second
-
-	// StatusCollectorInterval is the interval between a probe invocations
-	StatusCollectorInterval = 5 * time.Second
-
-	// StatusCollectorWarningThreshold is the duration after which a probe
-	// is declared as stale
-	StatusCollectorWarningThreshold = 15 * time.Second
-
-	// StatusCollectorFailureThreshold is the duration after which a probe
-	// is considered failed
-	StatusCollectorFailureThreshold = 1 * time.Minute
 
 	// SessionAffinityTimeoutMaxFallback defines the maximum number of seconds
 	// for the session affinity timeout. See also lb{4,6}_affinity_timeout().
