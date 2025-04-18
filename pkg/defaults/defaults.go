@@ -593,6 +593,9 @@ const (
 
 	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = 0.5
+
+	// TracePayloadLen is the default length of payload to capture when tracing.
+	TracePayloadLen = 128
 )
 
 var (
