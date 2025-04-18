@@ -163,3 +163,16 @@ ctx_to_netdev_classifiers(struct __ctx_buff *ctx)
 #else
 #define ctx_to_netdev_classifiers(ctx) NULL_CLASSIFIERS
 #endif /* CLASSIFIERS_TO_NETDEV */
+
+#if defined(HAVE_ENCAP) && (defined(CLASSIFIERS_TO_NETDEV) || defined(CLASSIFIERS_FROM_NETDEV))
+static __always_inline __u64
+ctx_default_monitor_from_classifiers(cls_t flags)
+{
+	if  (flags & (CLS_FLAG_VXLAN | CLS_FLAG_GENEVE))
+		return CONFIG(trace_payload_len_overlay);
+
+	return CONFIG(trace_payload_len);
+}
+#else
+#define ctx_default_monitor_from_classifiers(flags) CONFIG(trace_payload_len)
+#endif
