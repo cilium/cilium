@@ -18,6 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
+	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/auth"
@@ -38,7 +39,6 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/health"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -100,6 +100,7 @@ type Daemon struct {
 	statusCollector    *status.Collector
 
 	monitorAgent monitoragent.Agent
+	ciliumHealth *health.CiliumHealth
 
 	directRoutingDev datapathTables.DirectRoutingDevice
 	routes           statedb.Table[*datapathTables.Route]
@@ -110,6 +111,8 @@ type Daemon struct {
 	clustermesh *clustermesh.ClusterMesh
 
 	mtuConfig mtu.MTU
+
+	loader datapath.Loader
 
 	nodeAddressing datapath.NodeAddressing
 
@@ -141,8 +144,6 @@ type Daemon struct {
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
-
-	ciliumHealth health.CiliumHealthManager
 
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
@@ -350,6 +351,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		db:                params.DB,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
+		loader:            params.Loader,
 		nodeAddressing:    params.NodeAddressing,
 		routes:            params.Routes,
 		devices:           params.Devices,
@@ -390,7 +392,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		explbConfig:       params.ExpLBConfig,
-		ciliumHealth:      params.CiliumHealth,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
