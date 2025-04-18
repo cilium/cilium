@@ -42,7 +42,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.1.0/24 \
             --availability-zone ${AWS_REGION}a \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_1}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_1},{Key=kubernetes.io/role/elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text 
         )
@@ -51,7 +51,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.2.0/24 \
             --availability-zone ${AWS_REGION}b \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_2}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_2},{Key=kubernetes.io/role/elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text 
         )
@@ -61,7 +61,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.3.0/24 \
             --availability-zone ${AWS_REGION}a \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_1}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_1},{Key=kubernetes.io/role/internal-elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text 
         )
@@ -70,7 +70,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.4.0/24 \
             --availability-zone ${AWS_REGION}b \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_2}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_2},{Key=kubernetes.io/role/internal-elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text
         )
