@@ -37,6 +37,8 @@ var (
 
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+
+	falseValue = false
 )
 
 type testData struct {
@@ -180,12 +182,13 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
-	isDeny   bool
-	ns       string
-	sc       *SelectorCache
-	fromFile bool
-
-	logger *slog.Logger
+	isDeny             bool
+	ns                 string
+	sc                 *SelectorCache
+	fromFile           bool
+	defaultDenyIngress bool
+	defaultDenyEgress  bool
+	logger             *slog.Logger
 }
 
 func (p *testPolicyContextType) GetNamespace() string {
@@ -218,6 +221,14 @@ func (p *testPolicyContextType) SetDeny(isDeny bool) bool {
 
 func (p *testPolicyContextType) IsDeny() bool {
 	return p.isDeny
+}
+
+func (p *testPolicyContextType) DefaultDenyIngress() bool {
+	return p.defaultDenyIngress
+}
+
+func (p *testPolicyContextType) DefaultDenyEgress() bool {
+	return p.defaultDenyEgress
 }
 
 func (p *testPolicyContextType) GetLogger() *slog.Logger {
@@ -264,6 +275,11 @@ func init() {
 // | 11  | "id=a", "id=c"  |  80/TCP  |      *, *       | Allow at L4 for two distinct labels (disjoint set)   |
 // | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
 // | 13  |      -, -       |  80/TCP  |      *, *       | Deny all with an empty ToEndpoints slice             |
+// | 14  |      *, *       |  53/UDP  |  "example.com"  | DNS L7 rules with default-allow adds wildcard        |
+// | 15  |      *, *       |  80/TCP  |     "GET /"     | HTTP L7 rules with default-allow adds empty rule     |
+// | 16  |      *, *       | 9092/TCP |     "topic"     | Kafka L7 rules with default-allow adds empty topic   |
+// | 17  |   "id=a", *     |  53/UDP  |  "example.com"  | DNS L7 + L3 filter with default-allow adds wildcard  |
+// | 18  |      *, *       |  80/TCP  | "GET /", deny   | Default-allow doesn't add wildcard to deny rules     |
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
@@ -1988,6 +2004,485 @@ func TestEgressEmptyToEndpoints(t *testing.T) {
 
 	expected := NewL4PolicyMap()
 	td.policyMapEquals(t, nil, expected, &rule)
+}
+
+// Case 14: Test that DNS L7 rules in default-allow mode add a wildcard
+func TestDNSWildcardInDefaultAllow(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
+
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		// Set EnableDefaultDeny.Egress to false to ensure default-allow mode
+		EnableDefaultDeny: api.DefaultDenyConfig{Egress: &falseValue},
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "53", Protocol: api.ProtoUDP},
+					},
+					Rules: &api.L7Rules{
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"53/UDP": {
+			Port:     53,
+			Protocol: api.ProtoUDP,
+			U8Proto:  17,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}, {
+							// Wildcard rule should be added
+							MatchPattern: "*",
+						}},
+					},
+					L7Parser: ParserTypeDNS,
+					Priority: ListenerPriorityDNS,
+				},
+			},
+			Ingress:    false,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+		// L3 wildcard rule is also added
+		"0/ANY": {
+			Port:     0,
+			Protocol: api.ProtoAny,
+			U8Proto:  0,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+			Ingress:    false,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+	})
+
+	td.policyMapEquals(t, nil, expected, &rule)
+}
+
+// Case 15: Test that HTTP L7 rules in default-allow mode add an empty rule
+func TestHTTPWildcardInDefaultAllow(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
+
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		// Set EnableDefaultDeny.Ingress to false to ensure default-allow mode
+		EnableDefaultDeny: api.DefaultDenyConfig{Ingress: &falseValue},
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{
+							Path:   "/api",
+							Method: "GET",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"80/TCP": {
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{
+							Path:   "/api",
+							Method: "GET",
+						}, {
+							// Empty HTTP rule should be added
+						}},
+					},
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
+				},
+			},
+			Ingress:    true,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+		// L3 wildcard rule is also added
+		"0/ANY": {
+			Port:     0,
+			Protocol: api.ProtoAny,
+			U8Proto:  0,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+			Ingress:    true,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+	})
+
+	td.policyMapEquals(t, expected, nil, &rule)
+}
+
+// Case 16: Test that Kafka L7 rules in default-allow mode add an empty topic rule
+func TestKafkaWildcardInDefaultAllow(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
+
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		// Set EnableDefaultDeny.Ingress to false to ensure default-allow mode
+		EnableDefaultDeny: api.DefaultDenyConfig{Ingress: &falseValue},
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{{
+							Topic: "important-topic",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"9092/TCP": {
+			Port:     9092,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						Kafka: []kafka.PortRule{{
+							Topic: "important-topic",
+						}, {
+							// Empty topic rule should be added
+							Topic: "",
+						}},
+					},
+					L7Parser: ParserTypeKafka,
+					Priority: ListenerPriorityKafka,
+				},
+			},
+			Ingress:    true,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+		// L3 wildcard rule is also added
+		"0/ANY": {
+			Port:     0,
+			Protocol: api.ProtoAny,
+			U8Proto:  0,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+			Ingress:    true,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+	})
+
+	td.policyMapEquals(t, expected, nil, &rule)
+}
+
+// Case 17: Test that DNS L7 rules with L3 filtering in default-allow mode add a wildcard
+func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
+
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		// Set EnableDefaultDeny.Egress to false to ensure default-allow mode
+		EnableDefaultDeny: api.DefaultDenyConfig{Egress: &falseValue},
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					// Specific L3 endpoint selection
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "53", Protocol: api.ProtoUDP},
+					},
+					Rules: &api.L7Rules{
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"53/UDP": {
+			Port:     53,
+			Protocol: api.ProtoUDP,
+			U8Proto:  17,
+			PerSelectorPolicies: L7DataMap{
+				td.cachedSelectorB: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}, {
+							// Wildcard rule should be added
+							MatchPattern: "*",
+						}},
+					},
+					L7Parser: ParserTypeDNS,
+					Priority: ListenerPriorityDNS,
+				},
+			},
+			Ingress:    false,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorB: {nil}}),
+		},
+		// L3 wildcard rule is also added
+		"0/ANY": {
+			Port:     0,
+			Protocol: api.ProtoAny,
+			U8Proto:  0,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+			Ingress:    false,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+	})
+
+	td.policyMapEquals(t, nil, expected, &rule)
+}
+
+// Case 18: Test that deny rules in default-allow mode don't add wildcards
+func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
+
+	// Set policy as a deny rule
+	origIsDeny := td.testPolicyContext.isDeny
+	td.testPolicyContext.isDeny = true
+	defer func() {
+		td.testPolicyContext.isDeny = origIsDeny
+	}()
+
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{
+							Path:   "/api",
+							Method: "GET",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"80/TCP": {
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{
+							Path:   "/api",
+							Method: "GET",
+							// No wildcard rule should be added
+						}},
+					},
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
+				},
+			},
+			Ingress:    true,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		},
+	})
+
+	td.policyMapEquals(t, expected, nil, &rule)
+}
+
+// TestDefaultAllowL7Rules tests that when EnableDefaultDeny=false, L7 wildcard rules of various
+// types are added and don't accidentally block other traffic of the same type.
+func TestDefaultAllowL7Rules(t *testing.T) {
+	testCases := []struct {
+		name           string
+		l7Rules        *api.L7Rules
+		l7Parser       L7ParserType
+		port           string
+		proto          api.L4Proto
+		verifyWildcard func(t *testing.T, policy *PerSelectorPolicy)
+	}{
+		{
+			name: "DNS rules with default-allow",
+			l7Rules: &api.L7Rules{
+				DNS: []api.PortRuleDNS{{
+					MatchPattern: "example.com",
+				}},
+			},
+			l7Parser: ParserTypeDNS,
+			port:     "53",
+			proto:    api.ProtoUDP,
+			verifyWildcard: func(t *testing.T, policy *PerSelectorPolicy) {
+				found := false
+				for _, dnsRule := range policy.L7Rules.DNS {
+					if dnsRule.MatchPattern == "*" {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "DNS wildcard rule should be added in default-allow mode")
+			},
+		},
+		{
+			name: "HTTP rules with default-allow",
+			l7Rules: &api.L7Rules{
+				HTTP: []api.PortRuleHTTP{{
+					Path:   "/api",
+					Method: "GET",
+				}},
+			},
+			l7Parser: ParserTypeHTTP,
+			port:     "80",
+			proto:    api.ProtoTCP,
+			verifyWildcard: func(t *testing.T, policy *PerSelectorPolicy) {
+				found := false
+				for _, httpRule := range policy.L7Rules.HTTP {
+					if httpRule.Path == "" && httpRule.Method == "" && httpRule.Host == "" &&
+						len(httpRule.Headers) == 0 && len(httpRule.HeaderMatches) == 0 {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "HTTP wildcard rule should be added in default-allow mode")
+			},
+		},
+		{
+			name: "Kafka rules with default-allow",
+			l7Rules: &api.L7Rules{
+				Kafka: []kafka.PortRule{{
+					Topic: "important-topic",
+				}},
+			},
+			l7Parser: ParserTypeKafka,
+			port:     "9092",
+			proto:    api.ProtoTCP,
+			verifyWildcard: func(t *testing.T, policy *PerSelectorPolicy) {
+				found := false
+				for _, kafkaRule := range policy.L7Rules.Kafka {
+					if kafkaRule.Topic == "" {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "Kafka wildcard rule should be added in default-allow mode")
+			},
+		},
+		{
+			name: "Custom L7 rules with default-allow",
+			l7Rules: &api.L7Rules{
+				L7Proto: "envoy.filter.protocol.dubbo",
+				L7: []api.PortRuleL7{{
+					"method": "Login",
+				}},
+			},
+			l7Parser: "envoy.filter.protocol.dubbo",
+			port:     "8080",
+			proto:    api.ProtoTCP,
+			verifyWildcard: func(t *testing.T, policy *PerSelectorPolicy) {
+				found := false
+				for _, l7Rule := range policy.L7Rules.L7 {
+					if len(l7Rule) == 0 {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "Custom L7 wildcard rule should be added in default-allow mode")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			td := newTestData(logger)
+
+			ctx := &testPolicyContextType{
+				logger:            logger,
+				sc:                td.sc,
+				defaultDenyEgress: false, // EnableDefaultDeny=false
+			}
+
+			egressRule := &api.PortRule{
+				Ports: []api.PortProtocol{{
+					Port:     tc.port,
+					Protocol: tc.proto,
+				}},
+				Rules: tc.l7Rules,
+			}
+
+			portProto := api.PortProtocol{
+				Port:     tc.port,
+				Protocol: tc.proto,
+			}
+
+			toEndpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
+
+			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto,
+				EmptyStringLabels, nil)
+
+			require.NoError(t, err)
+			require.NotNil(t, l4Filter)
+
+			anyPerSelectorPolicy := false
+			for _, policy := range l4Filter.PerSelectorPolicies {
+				if policy != nil {
+					anyPerSelectorPolicy = true
+					require.Equal(t, tc.l7Parser, policy.L7Parser, "L7Parser should match")
+					tc.verifyWildcard(t, policy)
+				}
+			}
+			require.True(t, anyPerSelectorPolicy, "Should have at least one PerSelectorPolicy")
+		})
+	}
 }
 
 type fakeCertificateManager struct{}
