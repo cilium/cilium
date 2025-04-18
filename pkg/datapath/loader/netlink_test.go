@@ -236,6 +236,43 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 	})
 
+	t.Run("VxlanConflictWithExternallyManagedDevice", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+
+		ns.Do(func() error {
+			externallyMangedVxlan := &netlink.Vxlan{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: "extManagedVxlan",
+				},
+				Port: int(defaults.TunnelPortVXLAN),
+			}
+			err := netlink.LinkAdd(externallyMangedVxlan)
+			require.NoError(t, err)
+
+			err = netlink.LinkSetUp(externallyMangedVxlan)
+			require.NoError(t, err)
+
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			require.Error(t, err)
+
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 12345, 0, 0, mtu)
+			require.NoError(t, err)
+
+			link, err := netlink.LinkByName(defaults.VxlanDevice)
+			require.NoError(t, err)
+
+			vxlan, ok := link.(*netlink.Vxlan)
+			require.True(t, ok)
+			require.True(t, vxlan.FlowBased)
+			require.Equal(t, 12345, vxlan.Port)
+
+			err = netlink.LinkDel(link)
+			require.NoError(t, err)
+
+			return nil
+		})
+	})
+
 	t.Run("VxlanModifyMTU", func(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
