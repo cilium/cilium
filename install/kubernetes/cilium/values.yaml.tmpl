@@ -112,7 +112,7 @@ k8sClientRateLimit:
   # -- Configure the client side rate limit for the Cilium Operator
   operator:
     # @schema
-    # type: [null, integer]
+    # typek: [null, integer]
     # @schema
     # -- (int) The sustained request rate in requests per second.
     # @default -- 100
@@ -1422,7 +1422,7 @@ hubble:
       #
       #   --set hubble.redact.enabled="true"
       #   --set hubble.redact.kafka.apiKey="true"
-      apiKey: false
+      apiKey: true
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
