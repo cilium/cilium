@@ -554,9 +554,9 @@ func netnsCookieSupported(logger *slog.Logger) bool {
 	return _netnsCookieSupported
 }
 
-func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, logger *slog.Logger) []loadbalancer.SVC {
+func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, logger *slog.Logger) []loadbalancer.LegacySVC {
 	var (
-		svcs       []loadbalancer.SVC
+		svcs       []loadbalancer.LegacySVC
 		containers []slim_corev1.Container
 	)
 	containers = append(containers, pod.Spec.InitContainers...)
@@ -588,11 +588,11 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				continue
 			}
 
-			var bes4 []*loadbalancer.Backend
-			var bes6 []*loadbalancer.Backend
+			var bes4 []*loadbalancer.LegacyBackend
+			var bes6 []*loadbalancer.LegacyBackend
 
 			for _, podIP := range podIPs {
-				be := loadbalancer.Backend{
+				be := loadbalancer.LegacyBackend{
 					L3n4Addr: loadbalancer.L3n4Addr{
 						AddrCluster: cmtypes.MustParseAddrCluster(podIP),
 						L4Addr: loadbalancer.L4Addr{
@@ -656,7 +656,7 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				if addr.Is4() {
 					if option.Config.EnableIPv4 && len(bes4) > 0 {
 						svcs = append(svcs,
-							loadbalancer.SVC{
+							loadbalancer.LegacySVC{
 								Frontend:         fe,
 								Backends:         bes4,
 								Type:             loadbalancer.SVCTypeHostPort,
@@ -668,7 +668,7 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				} else {
 					if option.Config.EnableIPv6 && len(bes6) > 0 {
 						svcs = append(svcs,
-							loadbalancer.SVC{
+							loadbalancer.LegacySVC{
 								Frontend:         fe,
 								Backends:         bes6,
 								Type:             loadbalancer.SVCTypeHostPort,
@@ -737,7 +737,7 @@ func (k *K8sPodWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, o
 	}
 
 	for _, dpSvc := range svcs {
-		p := &loadbalancer.SVC{
+		p := &loadbalancer.LegacySVC{
 			Frontend:            dpSvc.Frontend,
 			Backends:            dpSvc.Backends,
 			Type:                dpSvc.Type,

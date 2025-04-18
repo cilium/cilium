@@ -77,9 +77,9 @@ type healthServer interface {
 type svcInfo struct {
 	hash     string
 	frontend lb.L3n4AddrID
-	backends []*lb.Backend
+	backends []*lb.LegacyBackend
 	// Hashed `backends`; pointing to the same objects.
-	backendByHash map[string]*lb.Backend
+	backendByHash map[string]*lb.LegacyBackend
 
 	svcType                   lb.SVCType
 	svcForwardingMode         lb.SVCForwardingMode
@@ -110,12 +110,12 @@ func (svc *svcInfo) isL7LBService() bool {
 	return svc.l7LBProxyPort != 0
 }
 
-func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
-	backends := make([]*lb.Backend, len(svc.backends))
+func (svc *svcInfo) deepCopyToLBSVC() *lb.LegacySVC {
+	backends := make([]*lb.LegacyBackend, len(svc.backends))
 	for i, backend := range svc.backends {
 		backends[i] = backend.DeepCopy()
 	}
-	return &lb.SVC{
+	return &lb.LegacySVC{
 		Frontend:              *svc.frontend.DeepCopy(),
 		Backends:              backends,
 		Type:                  svc.svcType,
@@ -283,7 +283,7 @@ type Service struct {
 	backendRefCount counter.Counter[string]
 	// only used to keep track of the existing hash->ID mapping,
 	// not for loadbalancing decisions.
-	backendByHash map[string]*lb.Backend
+	backendByHash map[string]*lb.LegacyBackend
 
 	healthServer healthServer
 	monitorAgent monitorAgent.Agent
@@ -319,7 +319,7 @@ func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap data
 		svcByHash:                map[string]*svcInfo{},
 		svcByID:                  map[lb.ID]*svcInfo{},
 		backendRefCount:          counter.Counter[string]{},
-		backendByHash:            map[string]*lb.Backend{},
+		backendByHash:            map[string]*lb.LegacyBackend{},
 		monitorAgent:             monitorAgent,
 		healthServer:             localHealthServer,
 		healthCheckChan:          make(chan any),
@@ -537,7 +537,7 @@ type BackendSyncer interface {
 
 	// Sync triggers the actual synchronization and passes the information
 	// about the service that should be synchronized.
-	Sync(svc *lb.SVC) error
+	Sync(svc *lb.LegacySVC) error
 }
 
 func (s *Service) GetLastUpdatedTs() time.Time {
@@ -724,7 +724,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 // UpsertService inserts or updates the given service.
 //
 // The first return value is true if the service hasn't existed before.
-func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
+func (s *Service) UpsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
 	return s.upsertService(params)
@@ -745,7 +745,7 @@ func (s *Service) reUpsertServicesByName(name, namespace string) error {
 	return nil
 }
 
-func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
+func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 	empty := L7LBResourceName{}
 
 	// Set L7 LB for this service if registered.
@@ -849,7 +849,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	filterBackends := svc.filterBackends(params.Frontend)
 	prevBackendCount := len(svc.backends)
 
-	backendsCopy := []*lb.Backend{}
+	backendsCopy := []*lb.LegacyBackend{}
 	for _, b := range params.Backends {
 		// Local redirect services or services with externalTrafficPolicy=Local
 		// may only use node-local backends for external scope. We implement
@@ -1028,7 +1028,7 @@ func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCol
 
 	clusterAddr := cmtypes.AddrClusterFrom(ip, option.Config.ClusterID)
 
-	healthCheckBackends := []*lb.Backend{
+	healthCheckBackends := []*lb.LegacyBackend{
 		{
 			L3n4Addr: *lb.NewL3n4Addr(lb.TCP, clusterAddr, svc.svcHealthCheckNodePort, lb.ScopeInternal),
 			State:    lb.BackendStateActive,
@@ -1036,7 +1036,7 @@ func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCol
 		},
 	}
 	// Create a new service with the healthcheck frontend and healthcheck backend
-	healthCheckSvc := &lb.SVC{
+	healthCheckSvc := &lb.LegacySVC{
 		Name:                  healthCheckSvcName,
 		Type:                  svc.svcType,
 		ForwardingMode:        svc.svcForwardingMode,
@@ -1069,7 +1069,7 @@ func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCol
 // It also persists the updated backend states to the BPF maps. Backend state
 // transitions are validated before processing. In case of duplicated
 // backends in the list, the state will be updated to the last duplicate entry.
-func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, backends []*lb.Backend, updateBackendMap bool) ([]lb.L3n4Addr, error) {
+func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, backends []*lb.LegacyBackend, updateBackendMap bool) ([]lb.L3n4Addr, error) {
 	if len(backends) == 0 {
 		return nil, nil
 	}
@@ -1087,7 +1087,7 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 
 	var (
 		errs            error
-		updatedBackends []*lb.Backend
+		updatedBackends []*lb.LegacyBackend
 	)
 	updateSvcs := make(map[lb.ID]*datapathTypes.UpsertServiceParams)
 	svcAddrs := make([]lb.L3n4Addr, 0)
@@ -1197,11 +1197,11 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 	return svcAddrs, errs
 }
 
-func (s *Service) UpdateBackendsState(backends []*lb.Backend) ([]lb.L3n4Addr, error) {
+func (s *Service) UpdateBackendsState(backends []*lb.LegacyBackend) ([]lb.L3n4Addr, error) {
 	return s.UpdateBackendsStateMultiple(s.svcByID, backends, true)
 }
 
-func (s *Service) UpdateBackendStateServiceOnly(svc lb.L3n4Addr, backend *lb.Backend) ([]lb.L3n4Addr, error) {
+func (s *Service) UpdateBackendStateServiceOnly(svc lb.L3n4Addr, backend *lb.LegacyBackend) ([]lb.L3n4Addr, error) {
 	svcMap := make(map[lb.ID]*svcInfo)
 	s.Lock()
 	info, found := s.svcByHash[svc.Hash()]
@@ -1212,7 +1212,7 @@ func (s *Service) UpdateBackendStateServiceOnly(svc lb.L3n4Addr, backend *lb.Bac
 	}
 	svcMap[info.GetID()] = info
 	s.Unlock()
-	return s.UpdateBackendsStateMultiple(svcMap, []*lb.Backend{backend}, false)
+	return s.UpdateBackendsStateMultiple(svcMap, []*lb.LegacyBackend{backend}, false)
 }
 
 // DeleteServiceByID removes a service identified by the given ID.
@@ -1243,7 +1243,7 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 // the given ID.
 //
 // If a service cannot be found, returns false.
-func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
+func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LegacySVC, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -1256,11 +1256,11 @@ func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
 }
 
 // GetDeepCopyServices returns a deep-copy of all installed services.
-func (s *Service) GetDeepCopyServices() []*lb.SVC {
+func (s *Service) GetDeepCopyServices() []*lb.LegacySVC {
 	s.RLock()
 	defer s.RUnlock()
 
-	svcs := make([]*lb.SVC, 0, len(s.svcByHash))
+	svcs := make([]*lb.LegacySVC, 0, len(s.svcByHash))
 	for _, svc := range s.svcByHash {
 		svcs = append(svcs, svc.deepCopyToLBSVC())
 	}
@@ -1282,7 +1282,7 @@ func (s *Service) GetServiceIDs() []lb.ServiceID {
 }
 
 // GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
-func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool) {
+func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.LegacySVC, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -1467,7 +1467,7 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 	return stale, nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
+func (s *Service) createSVCInfoIfNotExist(p *lb.LegacySVC) (*svcInfo, bool, bool,
 	[]*cidr.CIDR, error,
 ) {
 	prevSessionAffinity := false
@@ -1516,7 +1516,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc = &svcInfo{
 			hash:          hash,
 			frontend:      p.Frontend,
-			backendByHash: map[string]*lb.Backend{},
+			backendByHash: map[string]*lb.LegacyBackend{},
 
 			svcType:           p.Type,
 			svcForwardingMode: p.ForwardingMode,
@@ -1635,7 +1635,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 }
 
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal bool,
-	prevBackendCount int, newBackends []*lb.Backend, obsoleteBackends []*lb.Backend,
+	prevBackendCount int, newBackends []*lb.LegacyBackend, obsoleteBackends []*lb.LegacyBackend,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
 	obsoleteSVCBackendIDs []lb.BackendID, scopedLog *slog.Logger,
 	debugLogsEnabled bool,
@@ -1943,7 +1943,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 			hash:                svc.Frontend.Hash(),
 			frontend:            svc.Frontend,
 			backends:            svc.Backends,
-			backendByHash:       map[string]*lb.Backend{},
+			backendByHash:       map[string]*lb.LegacyBackend{},
 			svcType:             svc.Type,
 			svcForwardingMode:   svc.ForwardingMode,
 			svcExtTrafficPolicy: svc.ExtTrafficPolicy,
@@ -1988,7 +1988,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 		ipv6 := newSVC.frontend.IsIPv6() || (svc.NatPolicy == lb.SVCNatPolicyNat46)
 		recreated := s.lbmap.IsMaglevLookupTableRecreated(ipv6)
 		if newSVC.useMaglev() && recreated {
-			backends := make(map[string]*lb.Backend, len(newSVC.backends))
+			backends := make(map[string]*lb.LegacyBackend, len(newSVC.backends))
 			for _, b := range newSVC.backends {
 				// DumpServiceMaps() can return services with some empty (nil) backends.
 				if b == nil {
@@ -2093,12 +2093,12 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	return nil
 }
 
-func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend) (
-	[]*lb.Backend, []*lb.Backend, []lb.BackendID, error,
+func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.LegacyBackend) (
+	[]*lb.LegacyBackend, []*lb.LegacyBackend, []lb.BackendID, error,
 ) {
-	obsoleteBackends := []*lb.Backend{}       // not used by any svc
+	obsoleteBackends := []*lb.LegacyBackend{} // not used by any svc
 	obsoleteSVCBackendIDs := []lb.BackendID{} // removed from the svc, but might be used by other svc
-	newBackends := []*lb.Backend{}            // previously not used by any svc
+	newBackends := []*lb.LegacyBackend{}      // previously not used by any svc
 	backendSet := map[string]struct{}{}
 
 	for i, backend := range backends {
@@ -2180,9 +2180,9 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 	return newBackends, obsoleteBackends, obsoleteSVCBackendIDs, nil
 }
 
-func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) ([]lb.BackendID, []*lb.Backend) {
+func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) ([]lb.BackendID, []*lb.LegacyBackend) {
 	obsoleteBackendIDs := []lb.BackendID{}
-	obsoleteBackends := []*lb.Backend{}
+	obsoleteBackends := []*lb.LegacyBackend{}
 
 	for hash, backend := range svc.backendByHash {
 		if s.backendRefCount.Delete(hash) {
@@ -2199,7 +2199,7 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) ([]lb.BackendID, [
 // This avoids constructing large events when service has lots of backends and churn.
 const maxBackendsInMonitorNotifyEvent = 20
 
-func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.Backend,
+func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.LegacyBackend,
 	svcType lb.SVCType, svcExtTrafficPolicy, svcIntTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string,
 ) {
 	id := uint32(frontend.ID)
@@ -2257,11 +2257,11 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 // segregateBackends returns the list of active, preferred and nonActive backends to be
 // added to the lbmaps. If there are no active backends,
 // segregateBackends will return all terminating backends as active.
-func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb.Backend,
-	activeBackends map[string]*lb.Backend, nonActiveBackends []lb.BackendID,
+func segregateBackends(backends []*lb.LegacyBackend) (preferredBackends map[string]*lb.LegacyBackend,
+	activeBackends map[string]*lb.LegacyBackend, nonActiveBackends []lb.BackendID,
 ) {
-	preferredBackends = make(map[string]*lb.Backend)
-	activeBackends = make(map[string]*lb.Backend, len(backends))
+	preferredBackends = make(map[string]*lb.LegacyBackend)
+	activeBackends = make(map[string]*lb.LegacyBackend, len(backends))
 
 	for _, b := range backends {
 		// Separate active from non-active backends so that they won't be selected
@@ -2379,7 +2379,7 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 	return nil
 }
 
-func backendToNode(b *lb.Backend) *nodeTypes.Node {
+func backendToNode(b *lb.LegacyBackend) *nodeTypes.Node {
 	return &nodeTypes.Node{
 		Name: fmt.Sprintf("backend-%s", b.L3n4Addr.AddrCluster.AsNetIP()),
 		IPAddresses: []nodeTypes.Address{{
@@ -2389,7 +2389,7 @@ func backendToNode(b *lb.Backend) *nodeTypes.Node {
 	}
 }
 
-func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.Backend) {
+func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.LegacyBackend) {
 	if s.backendDiscovery == nil {
 		return
 	}
@@ -2399,7 +2399,7 @@ func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.Backend)
 	s.deleteBackendNeighbors(oldBackends)
 }
 
-func (s *Service) deleteBackendNeighbors(obsoleteBackends []*lb.Backend) {
+func (s *Service) deleteBackendNeighbors(obsoleteBackends []*lb.LegacyBackend) {
 	if s.backendDiscovery == nil {
 		return
 	}

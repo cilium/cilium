@@ -19,8 +19,8 @@ import (
 
 type LBMockMap struct {
 	lock.Mutex
-	BackendByID            map[lb.BackendID]*lb.Backend
-	ServiceByID            map[uint16]*lb.SVC
+	BackendByID            map[lb.BackendID]*lb.LegacyBackend
+	ServiceByID            map[uint16]*lb.LegacySVC
 	AffinityMatch          datapathTypes.BackendIDByServiceIDSet
 	SourceRanges           datapathTypes.SourceRangeSetByServiceID
 	DummyMaglevTable       map[uint16]int // svcID => backends count
@@ -31,8 +31,8 @@ type LBMockMap struct {
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
-		BackendByID:            map[lb.BackendID]*lb.Backend{},
-		ServiceByID:            map[uint16]*lb.SVC{},
+		BackendByID:            map[lb.BackendID]*lb.LegacyBackend{},
+		ServiceByID:            map[uint16]*lb.LegacySVC{},
 		AffinityMatch:          datapathTypes.BackendIDByServiceIDSet{},
 		SourceRanges:           datapathTypes.SourceRangeSetByServiceID{},
 		DummyMaglevTable:       map[uint16]int{},
@@ -47,7 +47,7 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	defer m.Unlock()
 
 	backendIDs := p.GetOrderedBackends()
-	backendsList := make([]*lb.Backend, 0, len(backendIDs))
+	backendsList := make([]*lb.LegacyBackend, 0, len(backendIDs))
 	for _, backendID := range backendIDs {
 		b, found := m.BackendByID[backendID]
 		if !found {
@@ -71,7 +71,7 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 			return err
 		}
 		frontend := lb.NewL3n4AddrID(u8p.String(), cmtypes.MustAddrClusterFromIP(p.IP), p.Port, p.Scope, lb.ID(p.ID))
-		svc = &lb.SVC{Frontend: *frontend}
+		svc = &lb.LegacySVC{Frontend: *frontend}
 	} else {
 		if p.PrevBackendsCount != len(svc.Backends) {
 			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevBackendsCount, len(svc.Backends))
@@ -89,7 +89,7 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]*lb.Backend, ipv6 bool) error {
+func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]*lb.LegacyBackend, ipv6 bool) error {
 	// Dummy table does not support weights, only store
 	// active counter right now.
 	active := 0
@@ -102,7 +102,7 @@ func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]*l
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*lb.Backend, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*lb.LegacyBackend, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.upsertMaglevLookupTable(svcID, backends, ipv6)
@@ -129,7 +129,7 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(b *lb.Backend, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(b *lb.LegacyBackend, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()
 	id := b.ID
@@ -147,7 +147,7 @@ func (m *LBMockMap) AddBackend(b *lb.Backend, ipv6 bool) error {
 	return nil
 }
 
-func (m *LBMockMap) UpdateBackendWithState(b *lb.Backend) error {
+func (m *LBMockMap) UpdateBackendWithState(b *lb.LegacyBackend) error {
 	m.Lock()
 	defer m.Unlock()
 	id := b.ID
@@ -176,20 +176,20 @@ func (m *LBMockMap) DeleteBackendByID(id lb.BackendID) error {
 	return nil
 }
 
-func (m *LBMockMap) DumpServiceMaps() ([]*lb.SVC, []error) {
+func (m *LBMockMap) DumpServiceMaps() ([]*lb.LegacySVC, []error) {
 	m.Lock()
 	defer m.Unlock()
-	list := make([]*lb.SVC, 0, len(m.ServiceByID))
+	list := make([]*lb.LegacySVC, 0, len(m.ServiceByID))
 	for _, svc := range m.ServiceByID {
 		list = append(list, svc)
 	}
 	return list, nil
 }
 
-func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
+func (m *LBMockMap) DumpBackendMaps() ([]*lb.LegacyBackend, error) {
 	m.Lock()
 	defer m.Unlock()
-	list := make([]*lb.Backend, 0, len(m.BackendByID))
+	list := make([]*lb.LegacyBackend, 0, len(m.BackendByID))
 	for _, backend := range m.BackendByID {
 		list = append(list, backend)
 	}

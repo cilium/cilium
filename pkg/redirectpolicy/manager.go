@@ -43,7 +43,7 @@ var (
 
 type svcManager interface {
 	DeleteService(frontend lb.L3n4Addr) (bool, error)
-	UpsertService(*lb.SVC) (bool, lb.ID, error)
+	UpsertService(*lb.LegacySVC) (bool, lb.ID, error)
 	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error
 }
 
@@ -794,14 +794,14 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		L3n4Addr: *frontendMapping.feAddr,
 		ID:       lb.ID(0),
 	}
-	backendAddrs := make([]*lb.Backend, 0, len(frontendMapping.podBackends))
+	backendAddrs := make([]*lb.LegacyBackend, 0, len(frontendMapping.podBackends))
 	for _, be := range frontendMapping.podBackends {
-		backendAddrs = append(backendAddrs, &lb.Backend{
+		backendAddrs = append(backendAddrs, &lb.LegacyBackend{
 			NodeName: nodeTypes.GetName(),
 			L3n4Addr: be.L3n4Addr,
 		})
 	}
-	p := &lb.SVC{
+	p := &lb.LegacySVC{
 		Name: lb.ServiceName{
 			Name:      config.id.Name + localRedirectSvcStr,
 			Namespace: config.id.Namespace,

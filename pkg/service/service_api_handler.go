@@ -76,9 +76,9 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 		if !params.Config.UpdateServices {
 			return api.Error(serviceapi.PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
 		}
-		backends := []*loadbalancer.Backend{}
+		backends := []*loadbalancer.LegacyBackend{}
 		for _, v := range params.Config.BackendAddresses {
-			b, err := loadbalancer.NewBackendFromBackendModel(v)
+			b, err := loadbalancer.NewLegacyBackendFromBackendModel(v)
 			if err != nil {
 				return api.Error(serviceapi.PutServiceIDInvalidBackendCode, err)
 			}
@@ -102,9 +102,9 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 		L3n4Addr: *f,
 		ID:       loadbalancer.ID(params.Config.ID),
 	}
-	backends := []*loadbalancer.Backend{}
+	backends := []*loadbalancer.LegacyBackend{}
 	for _, v := range params.Config.BackendAddresses {
-		b, err := loadbalancer.NewBackendFromBackendModel(v)
+		b, err := loadbalancer.NewLegacyBackendFromBackendModel(v)
 		if err != nil {
 			return api.Error(serviceapi.PutServiceIDInvalidBackendCode, err)
 		}
@@ -152,7 +152,7 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 		svcCluster = params.Config.Flags.Cluster
 	}
 
-	p := &loadbalancer.SVC{
+	p := &loadbalancer.LegacySVC{
 		Name:                loadbalancer.ServiceName{Name: svcName, Namespace: svcNamespace, Cluster: svcCluster},
 		Type:                svcType,
 		Frontend:            frontend,

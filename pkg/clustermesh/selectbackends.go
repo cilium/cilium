@@ -10,13 +10,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 // injectSelectBackends overrides the load-balancing backend selection algorithm to implement
 // support for the ServiceAffinity and IncludeExternal annotations.
-func injectSelectBackends(cm *ClusterMesh, expCfg experimental.Config, w *experimental.Writer) {
+func injectSelectBackends(cm *ClusterMesh, expCfg loadbalancer.Config, w *writer.Writer) {
 	if cm == nil || !expCfg.EnableExperimentalLB {
 		// ClusterMesh disabled, do not change the backend selection.
 		return
@@ -25,10 +25,10 @@ func injectSelectBackends(cm *ClusterMesh, expCfg experimental.Config, w *experi
 }
 
 type ClusterMeshSelectBackends struct {
-	w *experimental.Writer
+	w *writer.Writer
 }
 
-func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[experimental.BackendParams, statedb.Revision], svc *experimental.Service, optionalFrontend *experimental.Frontend) iter.Seq2[experimental.BackendParams, statedb.Revision] {
+func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
 	defaultBackends := sb.w.DefaultSelectBackends(bes, svc, optionalFrontend)
 	affinity := annotation.GetAnnotationServiceAffinity(svc)
 
@@ -74,7 +74,7 @@ func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[experimental.Ba
 		}
 	}
 
-	return func(yield func(experimental.BackendParams, statedb.Revision) bool) {
+	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
 		for be, rev := range defaultBackends {
 			if be.Source == source.ClusterMesh {
 				if !useRemote {

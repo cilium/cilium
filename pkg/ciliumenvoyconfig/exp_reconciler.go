@@ -13,7 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -22,7 +23,7 @@ type envoyOps struct {
 	log           *slog.Logger
 	xds           resourceMutator
 	policyTrigger policyTrigger
-	writer        *experimental.Writer
+	writer        *writer.Writer
 	portAllocator PortAllocator
 }
 
@@ -33,7 +34,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, res *EnvoyRe
 		wtxn := ops.writer.WriteTxn()
 		defer wtxn.Abort()
 		for name := range res.ReconciledRedirects.All() {
-			svc, _, found := ops.writer.Services().Get(wtxn, experimental.ServiceByName(name))
+			svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
 			if found {
 				svc = svc.Clone()
 				svc.ProxyRedirect = nil
@@ -103,7 +104,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *Envoy
 			wtxn := ops.writer.WriteTxn()
 			orphanRedirects := res.ReconciledRedirects
 			for name, redirect := range res.Redirects.All() {
-				svc, _, found := ops.writer.Services().Get(wtxn, experimental.ServiceByName(name))
+				svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
 				if found && !svc.ProxyRedirect.Equal(redirect) {
 					svc = svc.Clone()
 					svc.ProxyRedirect = redirect
@@ -113,7 +114,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *Envoy
 			}
 			for name := range orphanRedirects.All() {
 				if _, found := res.Redirects.Get(name); !found {
-					svc, _, found := ops.writer.Services().Get(wtxn, experimental.ServiceByName(name))
+					svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
 					if found {
 						svc = svc.Clone()
 						svc.ProxyRedirect = nil
@@ -136,7 +137,7 @@ func registerEnvoyReconciler(
 	xds resourceMutator,
 	pt policyTrigger,
 	params reconciler.Params,
-	writer *experimental.Writer,
+	writer *writer.Writer,
 	envoyResources statedb.RWTable[*EnvoyResource],
 	portAllocator PortAllocator,
 ) error {

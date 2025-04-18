@@ -51,8 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
-	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	redirectpolicy_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental/redirectpolicy"
+	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -213,10 +212,7 @@ var (
 		maglev.Cell,
 
 		// Experimental control-plane for configuring service load-balancing.
-		loadbalancer_experimental.Cell,
-
-		// Experimental control-plane implementation for local redirect policies.
-		redirectpolicy_experimental.Cell,
+		loadbalancer_cell.Cell,
 
 		// Service is a datapath service handler. Its main responsibility is to reflect
 		// service-related changes into BPF maps used by datapath BPF programs.

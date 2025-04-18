@@ -11,7 +11,7 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -33,7 +33,7 @@ type lrpManagerParams struct {
 	Pods           statedb.Table[agentK8s.LocalPod]
 	Ep             endpointmanager.EndpointManager
 	MetricsManager LRPMetrics
-	ExpConfig      experimental.Config
+	ExpConfig      loadbalancer.Config
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
