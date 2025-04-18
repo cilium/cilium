@@ -52,6 +52,15 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 	if j.testSuite.Timestamp == "" {
 		j.testSuite.Timestamp = ct.tests[0].startTime.Format(time.RFC3339)
 	}
+	if ct.params.LogCodeOwners {
+		props := j.testSuite.Properties.Properties
+		if workflowOwners, err := ct.CodeOwners.WorkflowOwners(false); err == nil {
+			for _, o := range workflowOwners {
+				props = append(props, junit.Property{Name: "owner", Value: o})
+			}
+		}
+		j.testSuite.Properties.Properties = props
+	}
 	for _, t := range ct.tests {
 		test := &junit.TestCase{
 			Name:      t.Name(),
@@ -66,7 +75,11 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			scenarios := t.Scenarios()
 			owners := make(map[string]struct{})
 			for _, s := range scenarios {
-				for _, o := range ct.GetOwners(s) {
+				codeOwners, err := ct.CodeOwners.Owners(false, s)
+				if err != nil {
+					ct.Logf("Failed to find CODEOWNERS for junit test case: %s", err)
+				}
+				for _, o := range codeOwners {
 					owners[o] = struct{}{}
 				}
 			}

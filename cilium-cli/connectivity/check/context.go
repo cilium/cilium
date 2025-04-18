@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/hmarr/codeowners"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,7 +52,7 @@ type ConnectivityTest struct {
 	// Features contains the features enabled on the running Cilium cluster
 	Features features.Set
 
-	CodeOwners codeowners.Ruleset
+	CodeOwners *codeowners.Ruleset
 
 	// ClusterName is the identifier of the local cluster.
 	ClusterName string
@@ -210,7 +210,7 @@ func NewConnectivityTest(
 	p Parameters,
 	sysdumpHooks sysdump.Hooks,
 	logger *ConcurrentLogger,
-	owners codeowners.Ruleset,
+	owners *codeowners.Ruleset,
 ) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
@@ -542,7 +542,7 @@ func (ct *ConnectivityTest) report() error {
 			}
 		}
 		if len(failed) > 0 && failedActions == 0 {
-			allScenarios := make([]ownedScenario, 0, len(failed))
+			allScenarios := make([]codeowners.Scenario, 0, len(failed))
 			for _, t := range failed {
 				for scenario := range t.scenarios {
 					allScenarios = append(allScenarios, scenario)
@@ -551,7 +551,7 @@ func (ct *ConnectivityTest) report() error {
 			if len(allScenarios) == 0 {
 				// Test failure was triggered not by a specific action
 				// failing, but some other infrastructure code.
-				allScenarios = []ownedScenario{defaultTestOwners}
+				allScenarios = []codeowners.Scenario{defaultTestOwners}
 			}
 			ct.LogOwners(allScenarios...)
 		}
