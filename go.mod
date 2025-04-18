@@ -132,7 +132,7 @@ require (
 	k8s.io/kubectl v0.32.3
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.20.4
-	sigs.k8s.io/gateway-api v1.3.0-rc.1.0.20250403230238-850b4085e30c
+	sigs.k8s.io/gateway-api v1.3.0-rc.2
 	sigs.k8s.io/mcs-api v0.1.1-0.20250224121229-6c631f4730d0
 	sigs.k8s.io/mcs-api/controllers v0.0.0-20250224121229-6c631f4730d0
 	sigs.k8s.io/yaml v1.4.0
@@ -239,7 +239,7 @@ require (
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/packet v1.1.2 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
-	github.com/miekg/dns v1.1.64 // indirect
+	github.com/miekg/dns v1.1.65 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -307,11 +307,11 @@ require (
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	oras.land/oras-go v1.2.5 // indirect
-	sigs.k8s.io/controller-tools v0.17.2 // indirect
+	sigs.k8s.io/controller-tools v0.17.3 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/kustomize/api v0.18.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.18.1 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
 // Using private fork of controller-tools. See commit msg for more context
