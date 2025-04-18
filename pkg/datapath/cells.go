@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps"
@@ -78,7 +78,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newWireguardAgent),
 
-	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev) types.LBMap {
+	cell.Provide(func(expConfig loadbalancer.Config, maglev *maglev.Maglev) types.LBMap {
 		if expConfig.EnableExperimentalLB {
 			// The experimental control-plane comes with its own LBMap implementation.
 			return nil
@@ -128,6 +128,9 @@ var Cell = cell.Module(
 
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
+
+	// Synchronizes load-balancing backends with the neighbor table.
+	linuxdatapath.BackendNeighborSyncCell,
 
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,

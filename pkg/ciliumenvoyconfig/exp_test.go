@@ -43,7 +43,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -71,10 +72,12 @@ func TestScript(t *testing.T) {
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
+			maglev.Cell,
 			cell.Config(cecConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
-			experimental.Cell,
-			maglev.Cell,
+
+			lbcell.Cell,
+
 			cell.Provide(
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
@@ -91,8 +94,8 @@ func TestScript(t *testing.T) {
 						KubeProxyReplacement: option.KubeProxyReplacementTrue,
 					}
 				},
-				func() *experimental.TestConfig {
-					return &experimental.TestConfig{}
+				func() *loadbalancer.TestConfig {
+					return &loadbalancer.TestConfig{}
 				},
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),

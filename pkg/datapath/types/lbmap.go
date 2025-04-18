@@ -14,17 +14,17 @@ import (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]*loadbalancer.Backend, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]*loadbalancer.LegacyBackend, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(loadbalancer.L3n4AddrID, int, bool, loadbalancer.SVCNatPolicy) error
-	AddBackend(*loadbalancer.Backend, bool) error
-	UpdateBackendWithState(*loadbalancer.Backend) error
+	AddBackend(*loadbalancer.LegacyBackend, bool) error
+	UpdateBackendWithState(*loadbalancer.LegacyBackend) error
 	DeleteBackendByID(loadbalancer.BackendID) error
 	AddAffinityMatch(uint16, loadbalancer.BackendID) error
 	DeleteAffinityMatch(uint16, loadbalancer.BackendID) error
 	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
-	DumpServiceMaps() ([]*loadbalancer.SVC, []error)
-	DumpBackendMaps() ([]*loadbalancer.Backend, error)
+	DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error)
+	DumpBackendMaps() ([]*loadbalancer.LegacyBackend, error)
 	DumpAffinityMatches() (BackendIDByServiceIDSet, error)
 	DumpSourceRanges(bool) (SourceRangeSetByServiceID, error)
 	ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool
@@ -38,8 +38,8 @@ type UpsertServiceParams struct {
 
 	// PreferredBackends is a subset of ActiveBackends
 	// Note: this is only used in clustermesh with service affinity annotation.
-	PreferredBackends         map[string]*loadbalancer.Backend
-	ActiveBackends            map[string]*loadbalancer.Backend
+	PreferredBackends         map[string]*loadbalancer.LegacyBackend
+	ActiveBackends            map[string]*loadbalancer.LegacyBackend
 	NonActiveBackends         []loadbalancer.BackendID
 	PrevBackendsCount         int
 	IPv6                      bool

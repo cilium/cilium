@@ -68,7 +68,7 @@ func validateExternalTrafficPolicyLocal(test *suite.ControlPlaneTest) error {
 	defer test.FakeLbMap.Unlock()
 
 	// Collect all echo-local services with internal ("local") scope.
-	localServices := []*lb.SVC{}
+	localServices := []*lb.LegacySVC{}
 	for _, svc := range test.FakeLbMap.ServiceByID {
 		if svc.Name.Name == "echo-local" && svc.Frontend.Scope == lb.ScopeInternal {
 			localServices = append(localServices, svc)

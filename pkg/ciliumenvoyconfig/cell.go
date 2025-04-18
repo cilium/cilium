@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -66,7 +66,7 @@ type reconcilerParams struct {
 	K8sAPIGroups      *synced.APIGroups
 
 	Config    cecConfig
-	ExpConfig experimental.Config
+	ExpConfig loadbalancer.Config
 	Manager   ciliumEnvoyConfigManager
 
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]

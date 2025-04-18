@@ -34,7 +34,7 @@ func NewLBMapAssert(lbmap *mockmaps.LBMockMap) LBMapAssert {
 //
 // Linear in time, but should be OK for tests with few 10s of services
 // and backends.
-func (a LBMapAssert) FindServiceWithBackend(name string, svcType lb.SVCType, l3 SVCL3Type, l4 lb.L4Type, port uint16) *lb.SVC {
+func (a LBMapAssert) FindServiceWithBackend(name string, svcType lb.SVCType, l3 SVCL3Type, l4 lb.L4Type, port uint16) *lb.LegacySVC {
 	for _, svc := range a.lbmap.ServiceByID {
 		svcL3Type := SVCIPv4
 		if svc.Frontend.IsIPv6() {

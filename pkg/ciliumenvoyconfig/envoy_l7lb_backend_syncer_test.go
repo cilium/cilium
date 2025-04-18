@@ -19,7 +19,7 @@ import (
 
 func Test_filterServiceBackends(t *testing.T) {
 	t.Run("filter by port number", func(t *testing.T) {
-		svc := &loadbalancer.SVC{
+		svc := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					L4Addr: loadbalancer.L4Addr{
@@ -27,7 +27,7 @@ func Test_filterServiceBackends(t *testing.T) {
 					},
 				},
 			},
-			Backends: []*loadbalancer.Backend{
+			Backends: []*loadbalancer.LegacyBackend{
 				{
 					FEPortName: "http",
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -62,7 +62,7 @@ func Test_filterServiceBackends(t *testing.T) {
 	})
 
 	t.Run("filter by port named", func(t *testing.T) {
-		svc := &loadbalancer.SVC{
+		svc := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					L4Addr: loadbalancer.L4Addr{
@@ -70,7 +70,7 @@ func Test_filterServiceBackends(t *testing.T) {
 					},
 				},
 			},
-			Backends: []*loadbalancer.Backend{
+			Backends: []*loadbalancer.LegacyBackend{
 				{
 					FEPortName: "http",
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -121,7 +121,7 @@ func Test_filterServiceBackends(t *testing.T) {
 	})
 
 	t.Run("filter with preferred backend", func(t *testing.T) {
-		svc := &loadbalancer.SVC{
+		svc := &loadbalancer.LegacySVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					L4Addr: loadbalancer.L4Addr{
@@ -129,7 +129,7 @@ func Test_filterServiceBackends(t *testing.T) {
 					},
 				},
 			},
-			Backends: []*loadbalancer.Backend{
+			Backends: []*loadbalancer.LegacyBackend{
 				{
 					FEPortName: "http",
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -213,7 +213,7 @@ func TestGetEndpointsForLBBackends(t *testing.T) {
 		Name:      "test-name",
 		Cluster:   "test-cluster",
 	}
-	backends := map[string][]*loadbalancer.Backend{
+	backends := map[string][]*loadbalancer.LegacyBackend{
 		"12000": {
 			{
 				L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.AddrClusterFrom(testAddr, 0), 12000, 3),

@@ -46,7 +46,7 @@ func newEnvoyServiceBackendSyncer(logger *slog.Logger, envoyXdsServer envoy.XDSS
 	}
 }
 
-func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
+func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.LegacySVC) error {
 	r.l7lbSvcsMutex.RLock()
 	l7lbInfo, exists := r.l7lbSvcs[svc.Name]
 	if !exists {
@@ -118,7 +118,7 @@ func (r *envoyServiceBackendSyncer) DeregisterServiceUsageInCEC(svcName loadbala
 	return false
 }
 
-func (r *envoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error {
+func (r *envoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.LegacyBackend) error {
 	var resources envoy.Resources
 
 	resources.Endpoints = getEndpointsForLBBackends(serviceName, backendMap)
@@ -128,7 +128,7 @@ func (r *envoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalance
 	return r.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resources)
 }
 
-func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) []*envoy_config_endpoint.ClusterLoadAssignment {
+func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.LegacyBackend) []*envoy_config_endpoint.ClusterLoadAssignment {
 	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
 	for port, bes := range backendMap {
@@ -188,16 +188,16 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 
 // filterServiceBackends returns the list of backends based on given front end ports.
 // The returned map will have key as port name/number, and value as list of respective backends.
-func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string][]*loadbalancer.Backend {
+func filterServiceBackends(svc *loadbalancer.LegacySVC, onlyPorts []string) map[string][]*loadbalancer.LegacyBackend {
 	preferredBackends := filterPreferredBackends(svc.Backends)
 
 	if len(onlyPorts) == 0 {
-		return map[string][]*loadbalancer.Backend{
+		return map[string][]*loadbalancer.LegacyBackend{
 			"*": preferredBackends,
 		}
 	}
 
-	res := map[string][]*loadbalancer.Backend{}
+	res := map[string][]*loadbalancer.LegacyBackend{}
 	for _, port := range onlyPorts {
 		// check for port number
 		if port == strconv.Itoa(int(svc.Frontend.Port)) {
@@ -218,8 +218,8 @@ func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string
 
 // filterPreferredBackends returns the slice of backends which are preferred for the given service.
 // If there is no preferred backend, it returns the slice of all backends.
-func filterPreferredBackends(backends []*loadbalancer.Backend) []*loadbalancer.Backend {
-	var res []*loadbalancer.Backend
+func filterPreferredBackends(backends []*loadbalancer.LegacyBackend) []*loadbalancer.LegacyBackend {
+	var res []*loadbalancer.LegacyBackend
 	for _, backend := range backends {
 		if backend.Preferred {
 			res = append(res, backend)
