@@ -11,6 +11,7 @@ External Lock-down Policy
 By default, all the external traffic is allowed. Let's apply a `CiliumNetworkPolicy` to lock down external traffic.
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/policy/external-lockdown.yaml
+     :language: yaml
 
 .. parsed-literal::
 
@@ -56,6 +57,7 @@ Another common use case is to allow only a specific set of IP addresses to acces
 the below policy
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/policy/allow-ingress-cidr.yaml
+     :language: yaml
 
 .. parsed-literal::
 

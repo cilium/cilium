@@ -25,6 +25,7 @@ Deploy the Cilium Gateway with customized parameters
 In this example, we will deploy a Cilium Gateway with ``NodePort`` service instead of the default ``LoadBalancer`` type.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/gateway-with-parameters.yaml
+     :language: yaml
 
 Apply the configuration:
 
@@ -56,3 +57,4 @@ The full list of supported parameters can be found in the ``CiliumGatewayClassCo
     in Slack.
 
 .. literalinclude:: ../../../../examples/crds/v2alpha1/ciliumgatewayclassconfigs.yaml
+     :language: yaml

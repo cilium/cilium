@@ -56,6 +56,7 @@ namespace.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.json
@@ -90,6 +91,7 @@ for a fully functional example including pods deployed to different namespaces.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.json
@@ -125,6 +127,7 @@ namespace.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/kubedns-policy.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/kubedns-policy.json
@@ -165,6 +168,7 @@ that achieves a logical OR between the keys and its values.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.yaml
+          :language: yaml
 
      .. group-tab:: JSON
 
@@ -183,6 +187,7 @@ The following example shows a logical AND using a single ``matchExpression``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/match-expressions/and-statement.yaml
+          :language: yaml
 
      .. group-tab:: JSON
 
@@ -232,6 +237,7 @@ resources.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
@@ -253,10 +259,12 @@ policies to a particular cluster.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+          :language: yaml
 
 Note the ``io.kubernetes.pod.namespace: default`` in the policy
 rule. It makes sure the policy applies to ``rebel-base`` in the
@@ -274,10 +282,12 @@ combined with an ``Exists`` operator.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-any-namespace-policy.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-any-namespace-policy.yaml
+          :language: yaml
 
 Clusterwide Policies
 ~~~~~~~~~~~~~~~~~~~~
@@ -296,10 +306,12 @@ namespace to pods matching the labels ``name=leia`` in any namespace.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
+          :language: yaml
 
 Allow All Cilium Managed Endpoints To Communicate With Kube-dns
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -313,10 +325,12 @@ with kube-dns on port 53/UDP in the ``kube-system`` namespace.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
+          :language: yaml
 
 .. _health_endpoint: 
 
@@ -332,7 +346,9 @@ cluster connectivity health.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/health.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/health.yaml
+          :language: yaml

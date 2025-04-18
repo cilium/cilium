@@ -79,6 +79,7 @@ the label ``role=backend``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3.json
@@ -100,6 +101,7 @@ all ingress traffic to an endpoint may be done as follows:
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
@@ -134,6 +136,7 @@ the label ``role=frontend``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.json
@@ -157,6 +160,7 @@ following rule allows all egress traffic from endpoints with the label
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.json
@@ -187,6 +191,7 @@ egress.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.json
@@ -243,6 +248,7 @@ be only accessible if the source endpoint also has the label ``env=prod``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/requires/requires.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/requires/requires.json
@@ -263,6 +269,7 @@ accessible from endpoints that have both labels ``env=prod`` and
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.json
@@ -308,6 +315,7 @@ namespace ``another-namespace``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/service/service.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/service/service.json
@@ -391,6 +399,7 @@ Allow all endpoints with the label ``env=dev`` to access the kube-apiserver.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.json
@@ -416,6 +425,7 @@ serving the particular endpoint.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/host.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/host.json
@@ -438,6 +448,7 @@ in the cluster that Cilium is running on.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/nodes.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
@@ -458,6 +469,7 @@ endpoints that have the label ``role=public``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/world.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/world.json
@@ -496,6 +508,7 @@ traffic **only** from control plane (labeled
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.json
@@ -576,6 +589,7 @@ but not CIDR prefix ``10.96.0.0/12``
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
@@ -684,6 +698,7 @@ Example
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
@@ -766,6 +781,7 @@ only be able to emit packets using TCP on port 80, to any layer 3 destination:
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/l4.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/l4.json
@@ -786,6 +802,7 @@ only be able to emit packets using TCP on ports 80-444, to any layer 3 destinati
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/l4_port_range.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
@@ -814,6 +831,7 @@ endpoints with the label ``role=frontend`` will not be able to communicate with
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.json
@@ -839,6 +857,7 @@ ports other than port 80.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.json
@@ -1097,6 +1116,7 @@ be rejected. Requests on ports other than port 80 will be dropped.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.json
@@ -1120,6 +1140,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/http/http.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/http/http.json
@@ -1204,6 +1225,7 @@ Allow producing to topic empire-announce using Role
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.json
@@ -1221,6 +1243,7 @@ Allow producing to topic empire-announce using apiKeys
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.json
@@ -1284,6 +1307,7 @@ allowed but connections to the returned IPs are not, as there is no L3
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns.json
@@ -1341,6 +1365,7 @@ DNS Proxy
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
@@ -1435,10 +1460,12 @@ as this policy is allowing traffic from everywhere except from "world".
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
+          :language: yaml
 
 Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
@@ -1519,10 +1546,12 @@ the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
+          :language: yaml
 
 To reuse this policy, replace the ``port:`` values with ports used in your
 environment.

@@ -108,6 +108,7 @@ It allows communications from outside the cluster only for TCP/22 and for ICMP
 allowed.
 
 .. literalinclude:: ../../examples/policies/host/demo-host-policy.yaml
+     :language: yaml
 
 To apply this policy, run:
 

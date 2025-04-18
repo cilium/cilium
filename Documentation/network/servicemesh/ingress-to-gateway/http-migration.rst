@@ -24,6 +24,7 @@ Review Ingress Configuration
 You can find the example Ingress definition in ``basic-ingress.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/servicemesh/basic-ingress.yaml
+   :language: yaml
 
 This example listens for traffic on port 80, routes requests for the path ``/details`` to the ``details`` service,
 and ``/`` to the ``productpage`` service.
@@ -181,6 +182,7 @@ Review Equivalent Gateway Configuration
 You can find the equivalent final Gateway and HTTPRoute definition in ``http-migration.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/http-migration.yaml
+   :language: yaml
 
 The preceding example creates a Gateway named ``cilium-gateway`` that listens on port 80 for HTTP traffic.
 Two routes are defined, one for ``/details`` to the ``details`` service, and

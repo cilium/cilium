@@ -142,6 +142,7 @@ port and protocol fields specified in the CiliumLocalRedirectPolicy custom
 resources that will be created in the next step.
 
 .. literalinclude:: ../../../examples/kubernetes-local-redirect/backend-pod.yaml
+   :language: yaml
 
 .. parsed-literal::
 
@@ -192,6 +193,7 @@ Create a custom resource of type CiliumLocalRedirectPolicy with ``addressMatcher
 configuration.
 
 .. literalinclude:: ../../../examples/kubernetes-local-redirect/lrp-addrmatcher.yaml
+   :language: yaml
 
 .. parsed-literal::
 
@@ -282,6 +284,7 @@ policy is used to select the backend pods where traffic is redirected to.
 Deploy the Kubernetes service for which traffic needs to be redirected.
 
 .. literalinclude:: ../../../examples/kubernetes-local-redirect/k8s-svc.yaml
+   :language: yaml
 
 .. parsed-literal::
 
@@ -308,6 +311,7 @@ Create a custom resource of type CiliumLocalRedirectPolicy with ``serviceMatcher
 configuration.
 
 .. literalinclude:: ../../../examples/kubernetes-local-redirect/lrp-svcmatcher.yaml
+   :language: yaml
 
 .. parsed-literal::
 

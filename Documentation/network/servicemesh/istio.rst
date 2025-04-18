@@ -279,6 +279,7 @@ Istio's mTLS-based HTTPs connections:
 To solve the problem and allow Cilium to manage L7 policy, you must disable Istio's mTLS authentication by configuring a new policy:
 
 .. literalinclude:: ../../../examples/kubernetes-istio/authn.yaml
+     :language: yaml
 
 You must apply this policy to the same namespace where you implement the HTTP-based network policy:
 

@@ -20,6 +20,7 @@ Review Ingress Configuration
 You can find the example Ingress definition in ``tls-ingress.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/servicemesh/tls-ingress.yaml
+   :language: yaml
 
 This example:
 
@@ -155,6 +156,7 @@ Review Equivalent Gateway Configuration
 You can find the equivalent final Gateway and HTTPRoute definition in ``tls-migration.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/tls-migration.yaml
+   :language: yaml
 
 Deploy the resources and verify that HTTPS requests are routed successfully to the services.
 For more information, consult the Gateway API :ref:`gs_gateway_https`.
