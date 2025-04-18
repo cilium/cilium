@@ -9,8 +9,11 @@
 #include "bpf/ctx/skb.h"
 #include "pktgen.h"
 
-#include "node_config.h"
+#include "bpf/config/node.h"
 #include "lib/classifiers.h"
+
+ASSIGN_CONFIG(__u64, trace_payload_len, 128ULL);
+ASSIGN_CONFIG(__u64, trace_payload_len_overlay, 192ULL);
 
 static __always_inline void
 adjust_l2(struct __ctx_buff *ctx __maybe_unused)
@@ -78,6 +81,7 @@ int ctx_base_classifiers_check(struct __ctx_buff *ctx)
 	cls_t flags = ctx_base_classifiers(ctx);
 	cls_t flags4 = ctx_base_classifiers4(ctx);
 	cls_t flags6 = ctx_base_classifiers6(ctx);
+	__u32 monitor = ctx_default_monitor_from_classifiers(flags);
 
 	bool expected_l3 = is_defined(IS_BPF_WIREGUARD);
 
@@ -88,6 +92,8 @@ int ctx_base_classifiers_check(struct __ctx_buff *ctx)
 	assert((flags6 & ~CLS_FLAG_IPV6) == flags);
 
 	assert(!!(flags & CLS_FLAG_L3_DEV) == expected_l3);
+
+	assert(monitor == CONFIG(trace_payload_len));
 
 	test_finish();
 }
@@ -108,6 +114,7 @@ int ctx_from_netdev_classifiers4_check(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	cls_t flags;
+	__u32 monitor;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
 
@@ -116,6 +123,10 @@ int ctx_from_netdev_classifiers4_check(struct __ctx_buff *ctx)
 	assert(!!(flags & CLS_FLAG_WIREGUARD));
 
 	assert(!!(flags & CLS_FLAG_VXLAN));
+
+	monitor = ctx_default_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len_overlay));
 
 	test_finish();
 }
@@ -136,6 +147,7 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	cls_t flags;
+	__u32 monitor;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip6));
 
@@ -146,6 +158,10 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 	assert(!!(flags & CLS_FLAG_IPV6));
 
 	assert(!!(flags & CLS_FLAG_VXLAN));
+
+	monitor = ctx_default_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len_overlay));
 
 	test_finish();
 }
@@ -164,6 +180,7 @@ int ctx_to_netdev_classifiers_check(struct __ctx_buff *ctx)
 	adjust_l2(ctx);
 
 	cls_t flags;
+	__u32 monitor;
 
 	ctx->mark = MARK_MAGIC_WG_ENCRYPTED;
 
@@ -171,11 +188,19 @@ int ctx_to_netdev_classifiers_check(struct __ctx_buff *ctx)
 
 	assert(!!(flags & CLS_FLAG_WIREGUARD));
 
+	monitor = ctx_default_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len));
+
 	ctx->mark = MARK_MAGIC_OVERLAY;
 
 	flags = ctx_to_netdev_classifiers(ctx);
 
 	assert(!!(flags & CLS_FLAG_VXLAN));
+
+	monitor = ctx_default_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len_overlay));
 
 	test_finish();
 }
