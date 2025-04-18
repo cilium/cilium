@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/netip"
@@ -19,7 +18,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
-	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -126,108 +124,6 @@ func TestWriteNetdevConfig(t *testing.T) {
 	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
 	})
-}
-
-func createMainLink(name string, t *testing.T) *netlink.Dummy {
-	link := &netlink.Dummy{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: name,
-		},
-	}
-	err := netlink.LinkAdd(link)
-	require.NoError(t, err)
-
-	return link
-}
-
-func createVlanLink(vlanId int, mainLink *netlink.Dummy, t *testing.T) *netlink.Vlan {
-	link := &netlink.Vlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:        fmt.Sprintf("%s.%d", mainLink.Name, vlanId),
-			ParentIndex: mainLink.Index,
-		},
-		VlanProtocol: netlink.VLAN_PROTOCOL_8021Q,
-		VlanId:       vlanId,
-	}
-	err := netlink.LinkAdd(link)
-	require.NoError(t, err)
-
-	return link
-}
-
-func TestVLANBypassConfig(t *testing.T) {
-	setupConfigSuite(t)
-
-	var devs []*tables.Device
-
-	main1 := createMainLink("dummy0", t)
-	devs = append(devs, &tables.Device{Name: main1.Name, Index: main1.Index})
-	defer func() {
-		netlink.LinkDel(main1)
-	}()
-
-	// Define set of vlans which we want to allow.
-	allow := map[int]bool{
-		4000: true,
-		4001: true,
-		4003: true,
-	}
-
-	for i := 4000; i < 4003; i++ {
-		vlan := createVlanLink(i, main1, t)
-		if allow[i] {
-			devs = append(devs, &tables.Device{Index: vlan.Index, Name: vlan.Name})
-		}
-		defer func() {
-			netlink.LinkDel(vlan)
-		}()
-	}
-
-	main2 := createMainLink("dummy1", t)
-	devs = append(devs, &tables.Device{Name: main2.Name, Index: main2.Index})
-	defer func() {
-		netlink.LinkDel(main2)
-	}()
-
-	for i := 4003; i < 4006; i++ {
-		vlan := createVlanLink(i, main2, t)
-		if allow[i] {
-			devs = append(devs, &tables.Device{Index: vlan.Index, Name: vlan.Name})
-		}
-		defer func() {
-			netlink.LinkDel(vlan)
-		}()
-	}
-
-	option.Config.VLANBPFBypass = []int{4004}
-	m, err := vlanFilterMacros(devs)
-	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf(`switch (ifindex) { \
-case %d: \
-switch (vlan_id) { \
-case 4000: \
-case 4001: \
-return true; \
-} \
-break; \
-case %d: \
-switch (vlan_id) { \
-case 4003: \
-case 4004: \
-return true; \
-} \
-break; \
-} \
-return false;`, main1.Index, main2.Index), m)
-
-	option.Config.VLANBPFBypass = []int{4002, 4004, 4005}
-	_, err = vlanFilterMacros(devs)
-	require.Error(t, err)
-
-	option.Config.VLANBPFBypass = []int{0}
-	m, err = vlanFilterMacros(devs)
-	require.NoError(t, err)
-	require.Equal(t, "return true", m)
 }
 
 func TestWriteNodeConfigExtraDefines(t *testing.T) {

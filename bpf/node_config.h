@@ -216,25 +216,6 @@
 # define VTEP_MASK 0xffffff
 #endif
 
-#define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
-case 116: \
-switch (vlan_id) { \
-case 4000: \
-case 4001: \
-return true; \
-} \
-break; \
-case 117: \
-switch (vlan_id) { \
-case 4003: \
-case 4004: \
-case 4005: \
-return true; \
-} \
-break; \
-} \
-return false;
-
 #define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
 #define CIDR_IDENTITY_RANGE_END   ((1 << 24) + (1<<16) - 1)
 

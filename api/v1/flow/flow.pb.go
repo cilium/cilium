@@ -558,10 +558,11 @@ const (
 	DropReason_SOCKET_ASSIGN_FAILED                                  DropReason = 179
 	DropReason_PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL          DropReason = 180
 	DropReason_POLICY_DENY                                           DropReason = 181
-	DropReason_VLAN_FILTERED                                         DropReason = 182
-	DropReason_INVALID_VNI                                           DropReason = 183
-	DropReason_INVALID_TC_BUFFER                                     DropReason = 184
-	DropReason_NO_SID                                                DropReason = 185
+	// Deprecated: Marked as deprecated in flow/flow.proto.
+	DropReason_VLAN_FILTERED     DropReason = 182
+	DropReason_INVALID_VNI       DropReason = 183
+	DropReason_INVALID_TC_BUFFER DropReason = 184
+	DropReason_NO_SID            DropReason = 185
 	// Deprecated: Marked as deprecated in flow/flow.proto.
 	DropReason_MISSING_SRV6_STATE                 DropReason = 186
 	DropReason_NAT46                              DropReason = 187
@@ -5255,7 +5256,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xc5\x11\n" +
+	"TRANSLATED\x10\a*\xc9\x11\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -5309,8 +5310,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x14SOCKET_LOOKUP_FAILED\x10\xb2\x01\x12\x19\n" +
 	"\x14SOCKET_ASSIGN_FAILED\x10\xb3\x01\x121\n" +
 	",PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL\x10\xb4\x01\x12\x10\n" +
-	"\vPOLICY_DENY\x10\xb5\x01\x12\x12\n" +
-	"\rVLAN_FILTERED\x10\xb6\x01\x12\x10\n" +
+	"\vPOLICY_DENY\x10\xb5\x01\x12\x16\n" +
+	"\rVLAN_FILTERED\x10\xb6\x01\x1a\x02\b\x01\x12\x10\n" +
 	"\vINVALID_VNI\x10\xb7\x01\x12\x16\n" +
 	"\x11INVALID_TC_BUFFER\x10\xb8\x01\x12\v\n" +
 	"\x06NO_SID\x10\xb9\x01\x12\x1b\n" +

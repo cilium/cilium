@@ -212,3 +212,7 @@
 {{- if and (eq .Values.ipam.mode "multi-pool") (not .Values.endpointRoutes.enabled) }}
   {{- fail "Multi-pool mode requires enable-endpoint-routes" }}
 {{- end }}
+
+{{- if hasKey .Values.bpf "vlanBypass" }}
+  {{- fail "VLAN filtering and its associated bpf.vlanBypass flag has been removed. Please configure your own L2 VLAN filtering if needed." }}
+{{- end }}

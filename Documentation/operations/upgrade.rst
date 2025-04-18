@@ -338,6 +338,8 @@ Deprecated Options
   feature is enabled by default.
 * The custom calls feature (``--enable-custom-calls``) has been deprecated, and will
   be removed in Cilium 1.19.
+* The VLAN filter feature and its related bypass flags (``--vlan-bpf-bypass``
+  and Helm ``--set bpf.vlanBypass="{3,4}"``) have been removed.
 
 Helm Options
 ~~~~~~~~~~~~
