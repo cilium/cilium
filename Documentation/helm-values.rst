@@ -259,9 +259,13 @@
    * - :spelling:ignore:`bandwidthManager`
      - Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
      - object
-     - ``{"bbr":false,"enabled":false}``
+     - ``{"bbr":false,"bbrHostNamespaceOnly":false,"enabled":false}``
    * - :spelling:ignore:`bandwidthManager.bbr`
      - Activate BBR TCP congestion control for Pods
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bandwidthManager.bbrHostNamespaceOnly`
+     - Activate BBR TCP congestion control for Pods in the host namespace only.
      - bool
      - ``false``
    * - :spelling:ignore:`bandwidthManager.enabled`
