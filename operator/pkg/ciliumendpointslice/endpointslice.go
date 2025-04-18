@@ -13,10 +13,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/k8s"
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -62,16 +61,26 @@ func (c *Controller) initializeQueue() {
 		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
 }
 
-func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
-	if cep.Status.Networking == nil || cep.Status.Identity == nil || cep.GetName() == "" || cep.Namespace == "" {
+func (c *Controller) onPodUpdate(pod *slim_corev1.Pod) {
+	if pod.GetName() == "" || pod.Namespace == "" {
 		return
 	}
-	touchedCESs := c.manager.UpdateCEPMapping(k8s.ConvertCEPToCoreCEP(cep), cep.Namespace)
+
+	if pod.Spec.HostNetwork {
+		return
+	}
+
+	_, err := GetPodEndpointNetworking(pod, c.logger)
+	if err != nil {
+		return
+	}
+
+	touchedCESs := c.manager.UpdatePodMapping(pod, pod.Namespace)
 	c.enqueueCESReconciliation(touchedCESs)
 }
 
-func (c *Controller) onEndpointDelete(cep *cilium_api_v2.CiliumEndpoint) {
-	touchedCES := c.manager.RemoveCEPMapping(k8s.ConvertCEPToCoreCEP(cep), cep.Namespace)
+func (c *Controller) onPodDelete(pod *slim_corev1.Pod) {
+	touchedCES := c.manager.RemovePodMapping(pod, pod.Namespace)
 	c.enqueueCESReconciliation([]CESKey{touchedCES})
 }
 
@@ -132,8 +141,8 @@ func (c *Controller) getAndResetCESProcessingDelay(ces CESKey) float64 {
 
 // start the worker thread, reconciles the modified CESs with api-server
 func (c *Controller) Start(ctx cell.HookContext) error {
-	// Processing CES/CEP events:
-	// CES or CEP event is retrieved and checked whether it is from a priority namespace
+	// Processing CES/Pod events:
+	// CES or Pod event is retrieved and checked whether it is from a priority namespace
 	// Event is added to the fast queue if the namespace was priority and to the standard queue otherwise
 
 	// Processing queues:
@@ -151,7 +160,7 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 
 	c.manager = newCESManager(c.maxCEPsInCES, c.logger)
 
-	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
+	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.pods, c.ciliumEndpointSlice, c.ciliumNodes, c.namespace, c.ciliumIdentity, c.metrics)
 
 	c.initializeQueue()
 
@@ -166,7 +175,7 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	)
 	// Start the work pools processing CEP events only after syncing CES in local cache.
 	c.wp = workerpool.New(3)
-	c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
+	c.wp.Submit("cilium-pods-updater", c.runCiliumPodsUpdater)
 	c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
 	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
 
@@ -189,15 +198,15 @@ func (c *Controller) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
-	for event := range c.ciliumEndpoint.Events(ctx) {
+func (c *Controller) runCiliumPodsUpdater(ctx context.Context) error {
+	for event := range c.pods.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Endpoint event", logfields.CEPName, event.Key.String())
-			c.onEndpointUpdate(event.Object)
+			c.logger.Debug("Got Upsert Pod event", logfields.K8sPodName, event.Key.String())
+			c.onPodUpdate(event.Object)
 		case resource.Delete:
-			c.logger.Debug("Got Delete Endpoint event", logfields.CEPName, event.Key.String())
-			c.onEndpointDelete(event.Object)
+			c.logger.Debug("Got Delete Pod event", logfields.K8sPodName, event.Key.String())
+			c.onPodDelete(event.Object)
 		}
 		event.Done(nil)
 	}

@@ -6,6 +6,7 @@ package ciliumendpointslice
 import (
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -180,4 +181,8 @@ func NewCEPName(name, ns string) CEPName {
 
 func GetCEPNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) CEPName {
 	return NewCEPName(cep.Name, namespace)
+}
+
+func GetCEPNameFromPod(pod *slim_corev1.Pod, namespace string) CEPName {
+	return NewCEPName(pod.Name, pod.Namespace)
 }
