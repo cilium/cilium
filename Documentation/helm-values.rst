@@ -2439,7 +2439,7 @@
    * - :spelling:ignore:`livenessProbe.requireK8sConnectivity`
      - whether to require k8s connectivity as part of the check.
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
