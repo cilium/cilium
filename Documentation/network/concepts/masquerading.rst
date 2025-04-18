@@ -34,6 +34,17 @@ Setting the routable CIDR
 Setting the masquerading interface
   See :ref:`masq_modes` for configuring the masquerading interfaces.
 
+Masquerade traffic to Remote Nodes
+**********************************
+
+To masquerade traffic to remote nodes in BPF routing mode, use the option ``enable-remote-node-masquerade: "true"``. 
+This option requires ``enable-bpf-masquerade: "true"`` and also either 
+``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and IPv6, respectively.
+
+However, this flag does not provide the optimal behavior because packets directed to the nodes' InternalIP addresses will also be masqueraded. 
+To achieve the optimal behavior, we would need to inform the datapath about the type of IP address each node IP address represents. 
+This could potentially be accomplished by extending the node ID map.
+
 .. _masq_modes:
 
 Implementation Modes
@@ -181,3 +192,14 @@ by default, use interfaces listed in the ``devices`` field as the egress masquer
 when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfaces`` is set, 
 it takes precedence over ``devices`` to choose which network interface should perform masquerading.
 You can set ``egress-masquerade-interfaces`` to match multiple interfaces like this: ``eth+ ens+``.
+
+Masquerade traffic to Remote Nodes
+****************************
+
+To masquerade traffic to remote nodes in BPF routing mode, use the option ``enable-remote-node-masquerade: "true"``. 
+This option requires ``enable-bpf-masquerade: "true"`` and also either 
+``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and IPv6, respectively.
+
+However, this flag does not provide the optimal behavior because packets directed to the nodes' InternalIP addresses will also be masqueraded. 
+To achieve the optimal behavior, we would need to inform the datapath about the type of IP address each node IP address represents. 
+This could potentially be accomplished by extending the node ID map.
