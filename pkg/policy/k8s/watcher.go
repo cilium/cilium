@@ -248,9 +248,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 
 				switch event.Kind {
 				case resource.Upsert:
-					p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2)
 				case resource.Delete:
-					p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2)
 				}
 				event.Done(nil)
 			case event, ok := <-serviceEvents:

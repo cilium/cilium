@@ -31,7 +31,7 @@ const (
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
-	k8sAPIGroupCiliumCIDRGroupV2Alpha1          = "cilium/v2alpha1::CiliumCIDRGroup"
+	k8sAPIGroupCiliumCIDRGroupV2                = "cilium/v2::CiliumCIDRGroup"
 )
 
 // Cell starts the K8s policy watcher. The K8s policy watcher watches all
@@ -155,7 +155,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	}
 
 	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy {
-		p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumCIDRGroupV2Alpha1, func() bool {
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumCIDRGroupV2, func() bool {
 			return p.cidrGroupSynced.Load()
 		})
 	}
