@@ -6,7 +6,6 @@
 #include <bpf/ctx/xdp.h>
 #include <bpf/config/node.h>
 
-#include <lib/maps.h>
 #include <lib/time.h>
 
 static __u64 mock_ktime_get_ns(void)

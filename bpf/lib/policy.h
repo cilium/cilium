@@ -8,7 +8,6 @@
 #include "drop.h"
 #include "dbg.h"
 #include "eps.h"
-#include "maps.h"
 
 /* Global policy stats map */
 struct {

@@ -38,10 +38,10 @@
 #undef ENABLE_HEALTH_CHECK
 
 #include "lib/common.h"
-#include "lib/maps.h"
 #include "lib/eps.h"
 #include "lib/events.h"
 #include "lib/nodeport.h"
+#include "lib/tailcall.h"
 
 #ifdef ENABLE_PREFILTER
 #ifdef CIDR4_FILTER

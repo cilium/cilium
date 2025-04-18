@@ -8,6 +8,23 @@
 #include "l3.h"
 #include "token_bucket.h"
 
+/* Global map to jump into policy enforcement of sending endpoint */
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_PROG_MAP_SIZE);
+} cilium_egresscall_policy __section_maps_btf;
+
+static __always_inline __must_check int
+tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
+{
+	tail_call_dynamic(ctx, &cilium_egresscall_policy, endpoint_id);
+	/* same issue as for the cilium_call_policy calls */
+	return DROP_EP_NOT_READY;
+}
+
 /* Global map to jump into policy enforcement of receiving endpoint */
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);

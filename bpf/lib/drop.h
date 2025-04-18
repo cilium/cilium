@@ -13,13 +13,13 @@
 
 #pragma once
 
-#include "maps.h"
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
+#include "tailcall.h"
 
 #define NOTIFY_DROP_VER 2
 

@@ -4,7 +4,6 @@
 #pragma once
 
 #include "common.h"
-#include "maps.h"
 #include "ipv6.h"
 #include "ipv4.h"
 #include "eth.h"

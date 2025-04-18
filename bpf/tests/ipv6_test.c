@@ -10,7 +10,6 @@
 
 #include "lib/common.h"
 #include "lib/ipv6.h"
-#include "lib/maps.h"
 
 PKTGEN("xdp", "ipv6_without_extension_header")
 int ipv6_without_extension_header_pktgen(struct __ctx_buff *ctx)
