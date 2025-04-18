@@ -113,7 +113,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		// which the endpoint manager will begin processing the events off the
 		// queue.
 		ep.InitEventQueue()
-		ep.RunRestoredMetadataResolver(d.fetchK8sMetadataForEndpoint)
+		ep.RunRestoredMetadataResolver(d.endpointMetadata.FetchK8sMetadataForEndpoint)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
@@ -204,9 +204,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		log.Info("Endpoint restore is disabled, skipping restore step")
 		return
 	}
-
-	emf := &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
-	d.endpointMetadataFetcher = emf
 
 	log.Info("Restoring endpoints...")
 
@@ -308,7 +305,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	for _, ep := range state.restored {
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.fetchK8sMetadataForEndpoint); err != nil {
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
 				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return
@@ -326,7 +323,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 			// release it easily as it will require to block on kvstore
 			// connectivity which we can't do at this point. Let the lease
 			// expire to release the identity.
-			d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+			d.endpointManager.RemoveEndpoint(ep, endpoint.DeleteConfig{
 				NoIdentityRelease: true,
 				NoIPRelease:       true,
 			})

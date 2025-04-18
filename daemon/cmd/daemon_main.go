@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -98,7 +99,6 @@ import (
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
@@ -1531,6 +1531,7 @@ type daemonParams struct {
 	PolicyMapFactory    policymap.Factory
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
+	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1545,7 +1546,6 @@ type daemonParams struct {
 	ServiceManager      service.ServiceManager
 	L7Proxy             *proxy.Proxy
 	DB                  *statedb.DB
-	APILimiterSet       *rate.APILimiterSet
 	AuthManager         *auth.AuthManager
 	Settings            cellSettings
 	Routes              statedb.Table[*datapathTables.Route]

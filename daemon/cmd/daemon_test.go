@@ -17,11 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/server"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -56,9 +58,10 @@ type DaemonSuite struct {
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
 
-	PolicyImporter policycell.PolicyImporter
-	envoyXdsServer envoy.XDSServer
-	dnsProxy       defaultdns.Proxy
+	PolicyImporter     policycell.PolicyImporter
+	envoyXdsServer     envoy.XDSServer
+	dnsProxy           defaultdns.Proxy
+	endpointAPIManager endpointapi.EndpointAPIManager
 }
 
 func setupTestDirectories() string {
@@ -118,6 +121,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() *experimental.TestConfig {
 				return &experimental.TestConfig{}
 			},
+			func() *server.Server { return nil },
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
@@ -137,6 +141,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		}),
 		cell.Invoke(func(dnsProxy defaultdns.Proxy) {
 			ds.dnsProxy = dnsProxy
+		}),
+		cell.Invoke(func(endpointAPIManager endpointapi.EndpointAPIManager) {
+			ds.endpointAPIManager = endpointAPIManager
 		}),
 	)
 

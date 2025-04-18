@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/health"
@@ -48,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -69,7 +69,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
@@ -135,20 +134,13 @@ type Daemon struct {
 	k8sWatcher  *watchers.K8sWatcher
 	k8sSvcCache k8s.ServiceCache
 
-	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
-	endpointMetadataFetcher endpointMetadataFetcher
+	endpointMetadata endpointmetadata.EndpointMetadataFetcher
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	ciliumHealth health.CiliumHealthManager
-
-	// endpointCreations is a map of all currently ongoing endpoint
-	// creation events
-	endpointCreations *endpointCreationManager
-
-	apiLimiterSet *rate.APILimiterSet
 
 	// CIDRs for which identities were restored during bootstrap
 	restoredCIDRs map[netip.Prefix]identity.NumericIdentity
@@ -344,22 +336,20 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	})
 
 	d := Daemon{
-		ctx:               ctx,
-		logger:            params.Logger,
-		clientset:         params.Clientset,
-		db:                params.DB,
-		mtuConfig:         params.MTU,
-		directRoutingDev:  params.DirectRoutingDevice,
-		nodeAddressing:    params.NodeAddressing,
-		routes:            params.Routes,
-		devices:           params.Devices,
-		nodeAddrs:         params.NodeAddrs,
-		nodeDiscovery:     params.NodeDiscovery,
-		nodeLocalStore:    params.LocalNodeStore,
-		endpointCreations: newEndpointCreationManager(params.Clientset),
-		apiLimiterSet:     params.APILimiterSet,
-		controllers:       controller.NewManager(),
-		jobGroup:          params.JobGroup,
+		ctx:              ctx,
+		logger:           params.Logger,
+		clientset:        params.Clientset,
+		db:               params.DB,
+		mtuConfig:        params.MTU,
+		directRoutingDev: params.DirectRoutingDevice,
+		nodeAddressing:   params.NodeAddressing,
+		routes:           params.Routes,
+		devices:          params.Devices,
+		nodeAddrs:        params.NodeAddrs,
+		nodeDiscovery:    params.NodeDiscovery,
+		nodeLocalStore:   params.LocalNodeStore,
+		controllers:      controller.NewManager(),
+		jobGroup:         params.JobGroup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
@@ -381,6 +371,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policyMapFactory:  params.PolicyMapFactory,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
+		endpointMetadata:  params.EndpointMetadata,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
@@ -458,7 +449,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
-	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
 	d.k8sWatcher.RunK8sServiceHandler()
 
@@ -837,9 +827,4 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-type endpointMetadataFetcher interface {
-	FetchNamespace(nsName string) (*slim_corev1.Namespace, error)
-	FetchPod(nsName, podName string) (*slim_corev1.Pod, error)
 }
