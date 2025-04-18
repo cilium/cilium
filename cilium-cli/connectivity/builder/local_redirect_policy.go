@@ -29,12 +29,7 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 
 	lrpTest := newTest("local-redirect-policy", ct).
 		WithCondition(func() bool {
-			if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-				if ct.IsSocketLBFull() || versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
-					return true
-				}
-			}
-			return false
+			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
 		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
