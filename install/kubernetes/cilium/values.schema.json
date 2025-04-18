@@ -3950,6 +3950,9 @@
     },
     "k8s": {
       "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
         "requireIPv4PodCIDR": {
           "type": "boolean"
         },

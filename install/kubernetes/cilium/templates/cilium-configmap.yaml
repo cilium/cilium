@@ -874,6 +874,9 @@ data:
 {{- if .Values.logOptions }}
   log-opt: {{ .Values.logOptions | toJson | quote }}
 {{- end }}
+{{- if hasKey .Values.k8s "enabled" }}
+  enable-k8s: {{ .Values.k8s.enabled | quote }}
+{{- end }}
 {{- if hasKey .Values.k8s "requireIPv4PodCIDR" }}
   k8s-require-ipv4-pod-cidr: {{ .Values.k8s.requireIPv4PodCIDR | quote }}
 {{- end }}
