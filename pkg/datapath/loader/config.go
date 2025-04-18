@@ -17,6 +17,7 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	}
 
 	node.TracePayloadLen = uint64(option.Config.TracePayloadlen)
+	node.TracePayloadLenOverlay = uint64(option.Config.TracePayloadlenOverlay)
 
 	return node
 }

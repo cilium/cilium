@@ -17,5 +17,7 @@
 
 NODE_CONFIG(union v6addr, router_ipv6, "Internal IPv6 router address assigned to the cilium_host interface")
 
-NODE_CONFIG(__u64, trace_payload_len, "Length of payload to capture when tracing")
+NODE_CONFIG(__u64, trace_payload_len, "Length of payload to capture when tracing native packets.")
 #define TRACE_PAYLOAD_LEN CONFIG(trace_payload_len) /* Backwards compatibility */
+
+NODE_CONFIG(__u64, trace_payload_len_overlay, "Length of payload to capture when tracing overlay packets.")

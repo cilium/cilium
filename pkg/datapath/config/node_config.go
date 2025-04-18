@@ -11,11 +11,13 @@ package config
 type Node struct {
 	// Internal IPv6 router address assigned to the cilium_host interface.
 	RouterIPv6 [16]byte `config:"router_ipv6"`
-	// Length of payload to capture when tracing.
+	// Length of payload to capture when tracing native packets.
 	TracePayloadLen uint64 `config:"trace_payload_len"`
+	// Length of payload to capture when tracing overlay packets.
+	TracePayloadLenOverlay uint64 `config:"trace_payload_len_overlay"`
 }
 
 func NewNode() *Node {
 	return &Node{[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0}
+		0x0, 0x0}
 }
