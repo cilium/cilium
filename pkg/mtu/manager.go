@@ -39,6 +39,13 @@ var excludedDevices = []string{
 	defaults.IPIPv6Device,
 }
 
+// Exclude the dummy device type when evaluating the MTU. The dummy device
+// is for the local traffic but the local traffic does not really
+// go through the dummy device.
+var excludedDevicesType = []string{
+	"dummy",
+}
+
 func (m *MTUManager) Updater(ctx context.Context, health cell.Health) error {
 	for {
 		devs, devsChanged := tables.SelectedDevices(m.Devices, m.DB.ReadTxn())
@@ -193,8 +200,8 @@ func (m *MTUManager) consideredDevices(devs []*tables.Device) []*tables.Device {
 		}
 	}
 
-	// Exclude devices which are created/managed by Cilium
+	// Exclude devices which are created/managed by Cilium and dummy devices on the host.
 	return slices.DeleteFunc(devs, func(dev *tables.Device) bool {
-		return slices.Contains(excludedDevices, dev.Name)
+		return slices.Contains(excludedDevices, dev.Name) || slices.Contains(excludedDevicesType, dev.Type)
 	})
 }
