@@ -244,7 +244,7 @@ func TestReconcileCID(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			reconciler, queueOps, _, cleanupFunc := testNewReconciler(t, ctx, false)
 			defer cleanupFunc()
 
@@ -423,7 +423,7 @@ func TestReconcilePod(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			reconciler, queueOps, _, cleanupFunc := testNewReconciler(t, ctx, false)
 			defer cleanupFunc()
 
@@ -514,7 +514,7 @@ func TestReconcileNS(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			reconciler, queueOps, _, cleanupFunc := testNewReconciler(t, ctx, false)
 			defer cleanupFunc()
 
@@ -565,7 +565,7 @@ func TestHandleStoreCIDMatch(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			reconciler, _, _, cleanupFunc := testNewReconciler(t, ctx, false)
 			defer cleanupFunc()
 

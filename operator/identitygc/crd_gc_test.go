@@ -4,7 +4,6 @@
 package identitygc
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -35,12 +34,12 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	err := hive.Start(tlog, context.Background())
+	err := hive.Start(tlog, t.Context())
 	if err != nil {
 		t.Fatalf("unable to start hive for the test: %s", err)
 	}
 
-	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 
 	// Empty store.
 	gotIdentities := usedIdentitiesInCESs(cesStore)
@@ -49,7 +48,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 
 	// 5 IDs in the store.
 	cesA := tu.CreateCESWithIDs("cesA", []int64{1, 2, 3, 4, 5})
-	fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(context.Background(), cesA, meta_v1.CreateOptions{})
+	fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(t.Context(), cesA, meta_v1.CreateOptions{})
 	err = testutils.WaitUntil(isCESPresent("cesA", cesStore), time.Second)
 	if err != nil {
 		t.Fatalf("cesA not present in the store after timeout: %s", err)
@@ -64,7 +63,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 
 	// 10 IDs in the store.
 	cesB := tu.CreateCESWithIDs("cesB", []int64{10, 20, 30, 40, 50})
-	fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(context.Background(), cesB, meta_v1.CreateOptions{})
+	fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(t.Context(), cesB, meta_v1.CreateOptions{})
 	err = testutils.WaitUntil(isCESPresent("cesB", cesStore), time.Second)
 	if err != nil {
 		t.Fatalf("cesB not present in the store after timeout: %s", err)
@@ -77,7 +76,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 	gotIdentities = usedIdentitiesInCESs(cesStore)
 	assertEqualIDs(t, wantIdentities, gotIdentities)
 
-	err = hive.Stop(tlog, context.Background())
+	err = hive.Stop(tlog, t.Context())
 	if err != nil {
 		t.Fatalf("unable to stop hive for the test: %s", err)
 	}

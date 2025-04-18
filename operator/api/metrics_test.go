@@ -4,7 +4,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -61,7 +60,7 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -84,7 +83,7 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 		t.Fatalf("no metrics expected, found %v", metrics)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
@@ -140,7 +139,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 	hive.Viper().Set(operatorMetrics.OperatorPrometheusServeAddr, "localhost:0")
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -170,7 +169,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 		t.Fatalf("error while inspecting metric: %s", err)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
