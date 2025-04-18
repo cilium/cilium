@@ -11,7 +11,6 @@
 #include "pktgen.h"
 
 #define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 
@@ -22,8 +21,6 @@ static volatile const __u8 *ep_mac = mac_two;
 static volatile const __u8 *node_mac = mac_one;
 
 #include "bpf_wireguard.c"
-
-ASSIGN_CONFIG(__u32, interface_ifindex, WG_IFINDEX)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
