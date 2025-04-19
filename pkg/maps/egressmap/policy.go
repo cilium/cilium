@@ -101,7 +101,7 @@ func createPolicyMapFromDaemonConfig(in struct {
 		"EGRESS_POLICY_MAP_SIZE": fmt.Sprint(in.EgressGatewayPolicyMapMax),
 	}
 
-	if !in.EnableIPv4EgressGateway {
+	if !in.EnableIPv4EgressGateway && !in.EnableEgressGateway {
 		return
 	}
 

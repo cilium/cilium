@@ -101,11 +101,15 @@ type EgressGateway struct {
 	// redirected to the node matching the NodeSelector field and SNATed
 	// with IP address 192.168.1.100.
 	//
-	// When none of the Interface or EgressIP fields is specified, the
-	// policy will use the first IPv4 assigned to the interface with the
-	// default route.
+	// For IPv6, when set to "2001:db8::1", matching egress traffic will be
+	// redirected to the node matching the NodeSelector field and SNATed
+	// with IPv6 address 2001:db8::1.
 	//
-	// +kubebuilder:validation:Format=ipv4
+	// When none of the Interface or EgressIP fields is specified, the
+	// policy will use the first IP address (IPv4 or IPv6 depending on the destination CIDR)
+	// assigned to the interface with the default route.
+	//
+	// +kubebuilder:validation:Format=ip
 	EgressIP string `json:"egressIP,omitempty"`
 }
 
