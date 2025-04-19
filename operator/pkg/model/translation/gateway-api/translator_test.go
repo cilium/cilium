@@ -35,6 +35,7 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "basic_http_listener_nodeport"},
 		{name: "basic_http_listener_external_traffic_policy"},
 		{name: "basic_http_listener_load_balancer"},
+		{name: "basic_http_listener_clusterip"},
 		{name: "basic_tls_sni_listener"},
 		{name: "conformance/httproute_simple_same_namespace"},
 		{name: "conformance/httproute_backend_protocol_h_2_c"},
@@ -369,6 +370,70 @@ func Test_getService(t *testing.T) {
 			got := trans.desiredService(nil, tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
+		})
+	}
+}
+
+func Test_toExternalTrafficPolicy(t *testing.T) {
+	tests := []struct {
+		name               string
+		hostNetworkEnabled bool
+		serviceType        string
+		params             *model.Service
+		expected           corev1.ServiceExternalTrafficPolicy
+	}{
+		{
+			name:               "host network enabled",
+			hostNetworkEnabled: true,
+			serviceType:        string(corev1.ServiceTypeLoadBalancer),
+			params:             &model.Service{Type: string(corev1.ServiceTypeLoadBalancer)},
+			expected:           corev1.ServiceExternalTrafficPolicy(""),
+		},
+		{
+			name:               "LoadBalancer service with default policy",
+			hostNetworkEnabled: false,
+			serviceType:        string(corev1.ServiceTypeLoadBalancer),
+			params:             &model.Service{Type: string(corev1.ServiceTypeLoadBalancer)},
+			expected:           corev1.ServiceExternalTrafficPolicyCluster,
+		},
+		{
+			name:               "NodePort service with default policy",
+			hostNetworkEnabled: false,
+			serviceType:        string(corev1.ServiceTypeNodePort),
+			params:             &model.Service{Type: string(corev1.ServiceTypeNodePort)},
+			expected:           corev1.ServiceExternalTrafficPolicyCluster,
+		},
+		{
+			name:               "ClusterIP service should have no policy",
+			hostNetworkEnabled: false,
+			serviceType:        string(corev1.ServiceTypeClusterIP),
+			params:             &model.Service{Type: string(corev1.ServiceTypeClusterIP)},
+			expected:           corev1.ServiceExternalTrafficPolicy(""),
+		},
+		{
+			name:               "LoadBalancer service with explicit policy",
+			hostNetworkEnabled: false,
+			serviceType:        string(corev1.ServiceTypeLoadBalancer),
+			params:             &model.Service{Type: string(corev1.ServiceTypeLoadBalancer), ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyLocal)},
+			expected:           corev1.ServiceExternalTrafficPolicyLocal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			trans := &gatewayAPITranslator{
+				cfg: translation.Config{
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled: tt.hostNetworkEnabled,
+					},
+					ServiceConfig: translation.ServiceConfig{
+						ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+					},
+				},
+			}
+
+			got := trans.toExternalTrafficPolicy(tt.params)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
