@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-blue
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-red
+
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: "65001"
+  bgpInstances:
+  - name: "65001"
+    localASN: 65001
+    peers:
+    - name: "65000"
+      peerASN: 65000
+      autoDiscovery:
+        mode: "DefaultGateway"
+        defaultGateway:
+          addressFamily: ipv6
+      peerConfigRef:
+        name: "cilium-peer"
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: cilium-peer
+spec:
+  authSecretRef: bgp-auth-secret
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 15
+  families:
+    - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: "bgp"
+    - afi: ipv6
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: "bgp"
+
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: bgp-advertisements
+  labels:
+    advertise: bgp
+spec:
+  advertisements:
+    - advertisementType: "PodCIDR"
+      attributes:
+        communities:
+          standard: [ "65000:99" ]
+    - advertisementType: "Service"
+      service:
+        addresses:
+          - ClusterIP
+          - ExternalIP
+          - LoadBalancerIP
+      selector:
+        matchExpressions:
+          - { key: bgp, operator: In, values: [ blue ] }
+      attributes:
+        communities:
+          standard: [ "65000:100" ]
+    - advertisementType: "Service"
+      service:
+        addresses:
+          - ClusterIP
+          - ExternalIP
+          - LoadBalancerIP
+      selector:
+        matchExpressions:
+          - { key: bgp, operator: In, values: [ red ] }
+      attributes:
+        communities:
+          standard: [ "65000:200" ]
