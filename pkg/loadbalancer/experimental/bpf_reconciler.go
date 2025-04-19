@@ -184,7 +184,7 @@ type bpfOpsParams struct {
 }
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
-	if !p.Cfg.EnableExperimentalLB {
+	if !(p.Cfg.EnableExperimentalLB || p.ExtCfg.LoadBalancerAlgorithmAnnotation) {
 		return nil
 	}
 	ops := &BPFOps{
