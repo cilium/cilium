@@ -21,6 +21,7 @@ import (
 const (
 	kindGateway   = "Gateway"
 	kindHTTPRoute = "HTTPRoute"
+	kindGRPCRoute = "GRPCRoute"
 	kindTLSRoute  = "TLSRoute"
 	kindUDPRoute  = "UDPRoute"
 	kindTCPRoute  = "TCPRoute"
@@ -107,6 +108,9 @@ func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
 		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1alpha2.GroupName) &&
 			kind.Kind == kindTLSRoute && routeKind == kindTLSRoute {
 			return true
+		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
+			kind.Kind == kindGRPCRoute && routeKind == kindGRPCRoute {
+			return true
 		}
 	}
 	return false
@@ -133,22 +137,45 @@ func toStringSlice[T ~string](s []T) []string {
 	return res
 }
 
-func getSupportedGroupKind(protocol gatewayv1.ProtocolType) (*gatewayv1.Group, gatewayv1.Kind) {
+func getSupportedRouteKinds(protocol gatewayv1.ProtocolType) []gatewayv1.RouteGroupKind {
 	switch protocol {
+	case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType:
+		return []gatewayv1.RouteGroupKind{
+			{
+				Group: GroupPtr(gatewayv1.GroupName),
+				Kind:  kindHTTPRoute,
+			},
+			{
+				Group: GroupPtr(gatewayv1.GroupName),
+				Kind:  kindGRPCRoute,
+			},
+		}
 	case gatewayv1.TLSProtocolType:
-		return GroupPtr(gatewayv1alpha2.GroupName), kindTLSRoute
-	case gatewayv1.HTTPSProtocolType:
-		return GroupPtr(gatewayv1.GroupName), kindHTTPRoute
-	case gatewayv1.HTTPProtocolType:
-		return GroupPtr(gatewayv1.GroupName), kindHTTPRoute
+		return []gatewayv1.RouteGroupKind{
+			{
+				Group: GroupPtr(gatewayv1alpha2.GroupName),
+				Kind:  kindTLSRoute,
+			},
+		}
 	case gatewayv1.TCPProtocolType:
-		return GroupPtr(gatewayv1alpha2.GroupName), kindTCPRoute
+		return []gatewayv1.RouteGroupKind{
+			{
+				Group: GroupPtr(gatewayv1alpha2.GroupName),
+				Kind:  kindTCPRoute,
+			},
+		}
 	case gatewayv1.UDPProtocolType:
-		return GroupPtr(gatewayv1alpha2.GroupName), kindUDPRoute
+		return []gatewayv1.RouteGroupKind{
+			{
+				Group: GroupPtr(gatewayv1alpha2.GroupName),
+				Kind:  kindUDPRoute,
+			},
+		}
 	default:
-		return GroupPtr("Unknown"), "Unknown"
+		return []gatewayv1.RouteGroupKind{}
 	}
 }
+
 func getGatewayKindForObject(obj metav1.Object) gatewayv1.Kind {
 	switch obj.(type) {
 	case *gatewayv1.HTTPRoute:

@@ -324,6 +324,11 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 	// and also included in the Standard install
 	addToSchema[gatewayv1beta1.GroupVersion] = gatewayv1beta1.AddToScheme
 
+	// Explicitly add GRPCRoute to the scheme
+	if err := gatewayv1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to register GRPCRoute: %w", err)
+	}
+
 	for _, optionalKind := range optionalKinds {
 		// Note that we're using the full GVK as the map key here - this is fine
 		// because the key is just a fmt.Stringer
