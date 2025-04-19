@@ -24,6 +24,8 @@ concurrency:
 
 jobs:
   build_go_caches:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Build Go Caches
     runs-on: ubuntu-24.04
     timeout-minutes: 20

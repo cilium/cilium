@@ -15,6 +15,8 @@ concurrency:
 
 jobs:
   cache-cleaner:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Clean Image Cache
     runs-on: ubuntu-24.04
     permissions:
