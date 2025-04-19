@@ -287,6 +287,25 @@ func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *
 	return filtered
 }
 
+func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener) []gatewayv1.GRPCRoute {
+	var grpcRouteList gatewayv1.GRPCRouteList
+	if err := r.Client.List(ctx, &grpcRouteList); err != nil {
+		return nil
+	}
+
+	var filtered []gatewayv1.GRPCRoute
+	for _, route := range grpcRouteList.Items {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
+			isAllowed(ctx, r.Client, gw, &route, r.logger) &&
+			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
+			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+
 // getGatewayClassConfig returns the CiliumGatewayClassConfig referenced by the GatewayClass.
 // If the GatewayClass does not reference a CiliumGatewayClassConfig, it returns nil.
 func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gatewayv1.GatewayClass) *v2alpha1.CiliumGatewayClassConfig {
@@ -453,45 +472,28 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 	for _, l := range gw.Spec.Listeners {
 		isValid := true
-
-		// SupportedKinds is a required field, so we can't declare it as nil.
-		supportedKinds := []gatewayv1.RouteGroupKind{}
-		invalidRouteKinds := false
-		protoGroup, protoKind := getSupportedGroupKind(l.Protocol)
+		supportedKinds := getSupportedRouteKinds(l.Protocol)
 
 		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) != 0 {
+			allowedKindsMap := make(map[gatewayv1.RouteGroupKind]struct{})
 			for _, k := range l.AllowedRoutes.Kinds {
-				if groupDerefOr(k.Group, gatewayv1.GroupName) == string(*protoGroup) &&
-					k.Kind == protoKind {
-					supportedKinds = append(supportedKinds, k)
-				} else {
-					invalidRouteKinds = true
+				allowedKindsMap[k] = struct{}{}
+			}
+
+			filteredSupportedKinds := []gatewayv1.RouteGroupKind{}
+			for _, sk := range supportedKinds {
+				if _, ok := allowedKindsMap[sk]; ok {
+					filteredSupportedKinds = append(filteredSupportedKinds, sk)
 				}
 			}
-		} else {
-			g, k := getSupportedGroupKind(l.Protocol)
-			supportedKinds = []gatewayv1.RouteGroupKind{
-				{
-					Group: g,
-					Kind:  k,
-				},
+
+			if len(filteredSupportedKinds) == 0 {
+				isValid = false
 			}
+			supportedKinds = filteredSupportedKinds
 		}
+
 		var conds []metav1.Condition
-		if invalidRouteKinds {
-			conds = append(conds, gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"))
-			isValid = false
-		} else {
-			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Programmed"))
-			conds = append(conds, gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"))
-			conds = append(conds, metav1.Condition{
-				Type:               string(gatewayv1.ListenerConditionResolvedRefs),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
-				Message:            "Resolved Refs",
-				LastTransitionTime: metav1.Now(),
-			})
-		}
 
 		if l.TLS != nil {
 			for _, cert := range l.TLS.CertificateRefs {
@@ -534,18 +536,24 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		}
 
 		if !isValid {
-			conds = merge(conds, metav1.Condition{
-				Type:               string(gatewayv1.ListenerConditionProgrammed),
-				Status:             metav1.ConditionFalse,
-				Reason:             string(gatewayv1.ListenerReasonInvalid),
-				Message:            "Invalid CertificateRef",
-				LastTransitionTime: metav1.Now(),
-			})
+			conds = append(conds, gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"))
+		} else {
+			conds = append(conds,
+				gatewayListenerProgrammedCondition(gw, true, "Listener Programmed"),
+				gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"),
+				metav1.Condition{
+					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
+					Message:            "Resolved Refs",
+					LastTransitionTime: metav1.Now(),
+				})
 		}
 
 		var attachedRoutes int32
 		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items)))
 		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items)))
+		attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l)))
 
 		found := false
 		for i := range gw.Status.Listeners {
@@ -567,7 +575,6 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		}
 	}
 
-	// filter listener status to only have active listeners
 	var newListenersStatus []gatewayv1.ListenerStatus
 	for _, ls := range gw.Status.Listeners {
 		for _, l := range gw.Spec.Listeners {
@@ -580,6 +587,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	gw.Status.Listeners = newListenersStatus
 	return nil
 }
+
 
 func validateTLSSecret(ctx context.Context, c client.Client, namespace, name string) error {
 	secret := &corev1.Secret{}
