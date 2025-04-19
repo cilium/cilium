@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	stdtime "time"
 
 	"github.com/cilium/hive/cell"
@@ -106,6 +107,9 @@ type ControllerParams struct {
 	NoErrorRetry bool
 
 	Context context.Context
+
+	// Jitter represents the maximum duration to delay the execution of DoFunc.
+	Jitter time.Duration
 }
 
 // undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this
@@ -309,12 +313,18 @@ func (c *controller) runController() {
 		interval := params.RunInterval
 
 		start := time.Now()
+		jitter := time.Duration(0)
+		if params.Jitter > 0 {
+			jitter = time.Duration(rand.Int64N(int64(params.Jitter)))
+			time.Sleep(jitter)
+		}
+
 		err = params.DoFunc(params.Context)
 		duration := time.Since(start)
 
 		c.mutex.Lock()
 		c.lastDuration = duration
-		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
+		c.getLogger().Debug("Controller func executed", "duration", c.lastDuration, "jitter", jitter)
 
 		if err != nil {
 			if params.Context.Err() != nil {

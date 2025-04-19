@@ -1067,7 +1067,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(labels.LabelSourceAny, addLabels, delLabels); err != nil {
+	if err := ep.ModifyIdentityLabels(labels.LabelSourceAny, addLabels, delLabels, 0); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 
