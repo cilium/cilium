@@ -70,6 +70,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableIPv4EgressGateway)
 	option.BindEnv(vp, option.EnableIPv4EgressGateway)
 
+	flags.Bool(option.EnableEgressGateway, false, "")
+	flags.MarkHidden(option.EnableEgressGateway)
+	option.BindEnv(vp, option.EnableEgressGateway)
+
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "")
 	flags.MarkHidden(option.EnableLocalRedirectPolicy)
 	option.BindEnv(vp, option.EnableLocalRedirectPolicy)
