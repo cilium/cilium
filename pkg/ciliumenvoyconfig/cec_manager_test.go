@@ -260,7 +260,7 @@ func Test_convertToLBService(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []*loadbalancer.SVC
+		want []*loadbalancer.LegacySVC
 	}{
 		{
 			name: "headless with one port and one address",
@@ -295,7 +295,7 @@ func Test_convertToLBService(t *testing.T) {
 					},
 				},
 			},
-			want: []*loadbalancer.SVC{
+			want: []*loadbalancer.LegacySVC{
 				{
 					Name: loadbalancer.ServiceName{
 						Name:      "headless-service",
@@ -309,7 +309,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "http",
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -364,7 +364,7 @@ func Test_convertToLBService(t *testing.T) {
 					},
 				},
 			},
-			want: []*loadbalancer.SVC{
+			want: []*loadbalancer.LegacySVC{
 				{
 					Name: loadbalancer.ServiceName{
 						Name:      "headless-service",
@@ -378,7 +378,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "http",
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -444,7 +444,7 @@ func Test_convertToLBService(t *testing.T) {
 					},
 				},
 			},
-			want: []*loadbalancer.SVC{
+			want: []*loadbalancer.LegacySVC{
 				{
 					Name: loadbalancer.ServiceName{
 						Name:      "headless-service",
@@ -458,7 +458,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "http",
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -484,7 +484,7 @@ func Test_convertToLBService(t *testing.T) {
 							},
 						},
 					},
-					Backends: []*loadbalancer.Backend{
+					Backends: []*loadbalancer.LegacyBackend{
 						{
 							FEPortName: "https",
 							L3n4Addr: loadbalancer.L3n4Addr{

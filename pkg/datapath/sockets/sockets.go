@@ -96,7 +96,6 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 				return
 			}
 			if filter.MatchSocket(sock) {
-				logger.Info("", logfields.Socket, sock)
 				if err := destroySocket(logger, sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++

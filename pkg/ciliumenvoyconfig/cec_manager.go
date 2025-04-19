@@ -290,8 +290,8 @@ func (r *cecManager) getEndpoint(serviceName string, serviceNamespace string) (*
 	return res, nil
 }
 
-func convertToLBService(svc *slim_corev1.Service, ep *k8s.Endpoints) []*loadbalancer.SVC {
-	var res []*loadbalancer.SVC
+func convertToLBService(svc *slim_corev1.Service, ep *k8s.Endpoints) []*loadbalancer.LegacySVC {
+	var res []*loadbalancer.LegacySVC
 	fePorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
 	var sortedPorts []loadbalancer.FEPortName
 
@@ -307,7 +307,7 @@ func convertToLBService(svc *slim_corev1.Service, ep *k8s.Endpoints) []*loadbala
 
 	for _, fePortName := range sortedPorts {
 		fePort := fePorts[fePortName]
-		s := &loadbalancer.SVC{
+		s := &loadbalancer.LegacySVC{
 			Name: loadbalancer.ServiceName{
 				Name:      svc.Name,
 				Namespace: svc.Namespace,
@@ -324,7 +324,7 @@ func convertToLBService(svc *slim_corev1.Service, ep *k8s.Endpoints) []*loadbala
 
 		for addrCluster, be := range ep.Backends {
 			if l4Addr := be.Ports[string(fePortName)]; l4Addr != nil {
-				s.Backends = append(s.Backends, &loadbalancer.Backend{
+				s.Backends = append(s.Backends, &loadbalancer.LegacyBackend{
 					FEPortName: string(fePortName),
 					L3n4Addr:   *loadbalancer.NewL3n4Addr(l4Addr.Protocol, addrCluster, l4Addr.Port, 0),
 				})

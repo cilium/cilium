@@ -24,7 +24,7 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -34,11 +34,11 @@ type cecControllerParams struct {
 
 	DB             *statedb.DB
 	JobGroup       job.Group
-	ExpConfig      experimental.Config
+	ExpConfig      loadbalancer.Config
 	Metrics        experimentalMetrics
 	CECs           statedb.Table[*CEC]
 	EnvoyResources statedb.RWTable[*EnvoyResource]
-	Writer         *experimental.Writer
+	Writer         *writer.Writer
 }
 
 // cecController processes changes to Table[CEC] and populates Table[EnvoyResource]. These
@@ -72,7 +72,7 @@ func registerCECController(params cecControllerParams) {
 	params.JobGroup.Add(job.OneShot("controller", c.processLoop))
 }
 
-func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *experimental.ProxyRedirect {
+func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *loadbalancer.ProxyRedirect {
 	var port uint16
 	if svcl.Listener != "" {
 		// Listener names are qualified after parsing, so qualify the listener reference as well for it to match
@@ -88,7 +88,7 @@ func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *experimental.Pr
 	if port == 0 {
 		return nil
 	}
-	return &experimental.ProxyRedirect{
+	return &loadbalancer.ProxyRedirect{
 		ProxyPort: port,
 		Ports:     svcl.Ports,
 	}
@@ -165,7 +165,7 @@ type cecProcessor struct {
 	watchSets      map[CECName]*statedb.WatchSet
 	orphans        sets.Set[CECName]
 	cecs           statedb.Table[*CEC]
-	writer         *experimental.Writer
+	writer         *writer.Writer
 	envoyResources statedb.RWTable[*EnvoyResource]
 }
 
@@ -222,13 +222,13 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 	ws := statedb.NewWatchSet()
 	ws.Add(watch)
 
-	var redirects part.Map[loadbalancer.ServiceName, *experimental.ProxyRedirect]
+	var redirects part.Map[loadbalancer.ServiceName, *loadbalancer.ProxyRedirect]
 	for _, l := range cec.Spec.Services {
 		redirects = redirects.Set(l.ServiceName(), getProxyRedirect(cec, l))
 
 		// Watch changes for each of the referenced services to make sure we reprocess the CEC
 		// and set the ProxyRedirect in cases where CEC was created before the Service.
-		_, _, watchSvc, _ := c.writer.Services().GetWatch(wtxn, experimental.ServiceByName(l.ServiceName()))
+		_, _, watchSvc, _ := c.writer.Services().GetWatch(wtxn, loadbalancer.ServiceByName(l.ServiceName()))
 		ws.Add(watchSvc)
 	}
 
@@ -305,7 +305,7 @@ type backendProcessor struct {
 	// per service name so we know when it needs to be recomputed.
 	watchSets      map[loadbalancer.ServiceName]*statedb.WatchSet
 	envoyResources statedb.RWTable[*EnvoyResource]
-	writer         *experimental.Writer
+	writer         *writer.Writer
 }
 
 func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) {
@@ -339,7 +339,7 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 		var newEndpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
 		// Look up the referenced service for the port name to port number mappings.
-		svc, _, watchSvc, found := bs.writer.Services().GetWatch(wtxn, experimental.ServiceByName(res.ClusterServiceName()))
+		svc, _, watchSvc, found := bs.writer.Services().GetWatch(wtxn, loadbalancer.ServiceByName(res.ClusterServiceName()))
 		ws.Add(watchSvc)
 		if found {
 			// Look up associated backends and update the load assignments.
@@ -380,10 +380,10 @@ func computeLoadAssignments(
 	serviceName loadbalancer.ServiceName,
 	clusterRefs clusterReferences,
 	portNames map[string]uint16,
-	backends iter.Seq2[experimental.BackendParams, statedb.Revision],
+	backends iter.Seq2[loadbalancer.BackendParams, statedb.Revision],
 ) (assignments []*envoy_config_endpoint.ClusterLoadAssignment) {
 	// Partition backends by port name.
-	backendMap := map[string]map[string]experimental.BackendParams{}
+	backendMap := map[string]map[string]loadbalancer.BackendParams{}
 
 	// Union of all port names from all referencing CECs.
 	ports := sets.New[string]()
@@ -444,7 +444,7 @@ func computeLoadAssignments(
 		for _, portName := range bePortNames {
 			backends := backendMap[portName]
 			if backends == nil {
-				backends = map[string]experimental.BackendParams{}
+				backends = map[string]loadbalancer.BackendParams{}
 				backendMap[portName] = backends
 			}
 			backends[be.Address.String()] = be

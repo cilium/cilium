@@ -27,7 +27,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -109,7 +109,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 	// Disable the experimental LB control-plane. The tests here use the "LBMockMap" which is not used
 	// by the new implementation. Once we switch implementations we can remove the LB related tests from
 	// here as they're already covered by the LB test suite.
-	hive.AddConfigOverride(h.hive, func(c *experimental.Config) {
+	hive.AddConfigOverride(h.hive, func(c *loadbalancer.Config) {
 		c.EnableExperimentalLB = false
 	})
 }

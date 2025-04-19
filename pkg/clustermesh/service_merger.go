@@ -9,7 +9,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
@@ -28,8 +28,8 @@ type serviceMergerParams struct {
 
 	ClusterInfo  cmtypes.ClusterInfo
 	ServiceCache k8s.ServiceCache
-	ExpConfig    experimental.Config
-	Writer       *experimental.Writer
+	ExpConfig    loadbalancer.Config
+	Writer       *writer.Writer
 }
 
 func newServiceMerger(p serviceMergerParams) ServiceMerger {
@@ -41,7 +41,7 @@ func newServiceMerger(p serviceMergerParams) ServiceMerger {
 
 type expServiceMerger struct {
 	clusterInfo cmtypes.ClusterInfo
-	writer      *experimental.Writer
+	writer      *writer.Writer
 }
 
 // MergeExternalServiceDelete implements k8s.ServiceCache.
@@ -79,7 +79,7 @@ func (sm *expServiceMerger) MergeExternalServiceUpdate(service *serviceStore.Clu
 	)
 }
 
-func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []experimental.BackendParams) {
+func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
 	for ipString, portConfig := range service.Backends {
 		addrCluster := cmtypes.MustParseAddrCluster(ipString)
 		for name, l4 := range portConfig {
@@ -87,7 +87,7 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 			if name != "" {
 				portNames = []string{name}
 			}
-			bep := experimental.BackendParams{
+			bep := loadbalancer.BackendParams{
 				Address: loadbalancer.L3n4Addr{
 					AddrCluster: addrCluster,
 					L4Addr:      *l4,

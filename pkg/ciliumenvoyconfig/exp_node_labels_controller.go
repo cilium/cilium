@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -55,7 +55,7 @@ type nodeLabelControllerParams struct {
 	JobGroup job.Group
 	Log      *slog.Logger
 
-	ExpConfig      experimental.Config
+	ExpConfig      loadbalancer.Config
 	LocalNodeStore *node.LocalNodeStore
 	CECs           statedb.RWTable[*CEC]
 }

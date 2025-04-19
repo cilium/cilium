@@ -288,7 +288,7 @@ func genCartesianProduct(
 	svcType loadbalancer.SVCType,
 	ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr,
 	bes *k8s.Endpoints,
-) []loadbalancer.SVC {
+) []loadbalancer.LegacySVC {
 	var svcSize int
 
 	// For externalTrafficPolicy=Local xor internalTrafficPolicy=Local we
@@ -301,18 +301,18 @@ func genCartesianProduct(
 		svcSize = len(ports)
 	}
 
-	svcs := make([]loadbalancer.SVC, 0, svcSize)
+	svcs := make([]loadbalancer.LegacySVC, 0, svcSize)
 	feFamilyIPv6 := ip.IsIPv6(fe)
 
 	for fePortName, fePort := range ports {
-		var besValues []*loadbalancer.Backend
+		var besValues []*loadbalancer.LegacyBackend
 		for addrCluster, backend := range bes.Backends {
 			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == addrCluster.Is6() {
 				backendState := loadbalancer.BackendStateActive
 				if backend.Terminating {
 					backendState = loadbalancer.BackendStateTerminating
 				}
-				besValues = append(besValues, &loadbalancer.Backend{
+				besValues = append(besValues, &loadbalancer.LegacyBackend{
 					FEPortName: string(fePortName),
 					NodeName:   backend.NodeName,
 					ZoneID:     option.Config.GetZoneID(backend.Zone),
@@ -331,7 +331,7 @@ func genCartesianProduct(
 
 		// External scoped entry - when external and internal policies are the same.
 		svcs = append(svcs,
-			loadbalancer.SVC{
+			loadbalancer.LegacySVC{
 				Frontend: loadbalancer.L3n4AddrID{
 					L3n4Addr: loadbalancer.L3n4Addr{
 						AddrCluster: addrCluster,
@@ -350,7 +350,7 @@ func genCartesianProduct(
 		// Internal scoped entry - when only one of traffic policies is Local.
 		if svcSize > len(ports) {
 			svcs = append(svcs,
-				loadbalancer.SVC{
+				loadbalancer.LegacySVC{
 					Frontend: loadbalancer.L3n4AddrID{
 						L3n4Addr: loadbalancer.L3n4Addr{
 							AddrCluster: addrCluster,
@@ -385,8 +385,8 @@ func configureWithSourceRanges(svcType loadbalancer.SVCType) bool {
 }
 
 // datapathSVCs returns all services that should be set in the datapath.
-func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints, checkNodeExposure bool) ([]loadbalancer.SVC, error) {
-	svcs := []loadbalancer.SVC{}
+func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints, checkNodeExposure bool) ([]loadbalancer.LegacySVC, error) {
+	svcs := []loadbalancer.LegacySVC{}
 
 	if checkNodeExposure {
 		if nodeMatches, err := k.checkServiceNodeExposure(svc); err != nil || !nodeMatches {
@@ -495,7 +495,7 @@ func (k *K8sServiceWatcher) checkServiceNodeExposure(svc *k8s.Service) (bool, er
 
 // hashSVCMap returns a mapping of all frontend's hash to the its corresponded
 // value.
-func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
+func hashSVCMap(svcs []loadbalancer.LegacySVC) map[string]loadbalancer.L3n4Addr {
 	m := map[string]loadbalancer.L3n4Addr{}
 	for _, svc := range svcs {
 		m[svc.Frontend.L3n4Addr.Hash()] = svc.Frontend.L3n4Addr
@@ -593,7 +593,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 	}
 
 	for _, dpSvc := range svcs {
-		p := &loadbalancer.SVC{
+		p := &loadbalancer.LegacySVC{
 			Frontend:                  dpSvc.Frontend,
 			Backends:                  dpSvc.Backends,
 			Type:                      dpSvc.Type,
@@ -627,7 +627,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 
 // updateK8sAPIServiceMappings updates service to endpoints mapping.
 // This is currently used for supporting high availability for kubeapi-server.
-func (k *K8sServiceWatcher) updateK8sAPIServiceMappings(svc *loadbalancer.SVC) {
+func (k *K8sServiceWatcher) updateK8sAPIServiceMappings(svc *loadbalancer.LegacySVC) {
 	if svc.Name.Name != "kubernetes" || svc.Name.Namespace != "default" {
 		return
 	}
