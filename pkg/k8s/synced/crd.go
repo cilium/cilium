@@ -66,7 +66,7 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2alpha1.CCGName))
 	}
 
-	if option.Config.EnableIPv4EgressGateway {
+	if option.Config.EnableIPv4EgressGateway || option.Config.EnableEgressGateway {
 		result = append(result, CRDResourceName(v2.CEGPName))
 	}
 	if option.Config.EnableLocalRedirectPolicy {

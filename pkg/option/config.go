@@ -362,7 +362,10 @@ const (
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
-	// EnableIPv4EgressGateway enables the IPv4 egress gateway
+	// EnableEgressGateway enables the egress gateway (for both IPv4 and IPv6)
+	EnableEgressGateway = "enable-egress-gateway"
+
+	// EnableIPv4EgressGateway enables the IPv4 egress gateway (deprecated, use EnableEgressGateway instead)
 	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
 
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
@@ -1669,6 +1672,7 @@ type DaemonConfig struct {
 
 	EnableBPFClockProbe     bool
 	EnableIPv4EgressGateway bool
+	EnableEgressGateway     bool
 	EnableEnvoyConfig       bool
 	InstallIptRules         bool
 	MonitorAggregation      string
@@ -2939,6 +2943,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBPFClockProbe = vp.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
+	c.EnableEgressGateway = vp.GetBool(EnableEgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
