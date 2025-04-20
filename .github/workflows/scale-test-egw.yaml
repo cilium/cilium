@@ -72,12 +72,12 @@ env:
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.32.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 517.0.0
+  gcloud_version: 518.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 0a0ea6cc5fc936ad64ec964fa84ec6d15f5f4c30
+  egw_utils_ref: f0bb787b8300176c512debb4ee6c8c98f9da0c94
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -604,7 +604,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
