@@ -8,8 +8,8 @@ package ipsec
 import (
 	"bufio"
 	"context"
+	"crypto/hkdf"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -221,31 +221,15 @@ func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 }
 
 // computeNodeIPsecKey computes per-node-pair IPsec keys from the global,
-// pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
-// the global key, source node IP, destination node IP appended together.
+// pre-shared key. The per-node-pair keys are computed using HKDF.
 // The ctx argument represents the type of algorithm between aead, auth,
 // and crypt. It is used to ensure different keys are used for auth and crypt,
 // even if the user provided the same global key for both.
-func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, ctx, srcBootID, dstBootID []byte) []byte {
-	inputLen := len(globalKey) + len(ctx) + len(srcNodeIP) + len(dstNodeIP) + len(srcBootID) +
-		len(dstBootID)
-	input := make([]byte, 0, inputLen)
-	input = append(input, globalKey...)
-	input = append(input, ctx...)
-	input = append(input, srcNodeIP...)
-	input = append(input, dstNodeIP...)
-	input = append(input, srcBootID[:36]...)
-	input = append(input, dstBootID[:36]...)
-
-	var hash []byte
-	if len(globalKey) <= 32 {
-		h := sha256.Sum256(input)
-		hash = h[:]
-	} else {
-		h := sha512.Sum512(input)
-		hash = h[:]
-	}
-	return hash[:len(globalKey)]
+// No salt is generated here because we need the derived keys to be the same on
+// both ends of the tunnels.
+func computeNodeIPsecKey(globalKey []byte, srcNodeIP, dstNodeIP net.IP, ctx, srcBootID, dstBootID string) ([]byte, error) {
+	info := ctx + srcNodeIP.String() + dstNodeIP.String() + srcBootID[:36] + dstBootID[:36]
+	return hkdf.Key(sha256.New, globalKey, nil, info, len(globalKey))
 }
 
 // canonicalIP returns a canonical IPv4 address (4 bytes)
@@ -259,7 +243,7 @@ func canonicalIP(ip net.IP) net.IP {
 
 // deriveNodeIPsecKey builds a per-node-pair ipSecKey object from the global
 // ipSecKey object.
-func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID []byte) *ipSecKey {
+func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID string) (*ipSecKey, error) {
 	nodeKey := &ipSecKey{
 		Spi:   globalKey.Spi,
 		ReqID: globalKey.ReqID,
@@ -269,24 +253,36 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	dstNodeIP = canonicalIP(dstNodeIP)
 
 	if globalKey.Aead != nil {
+		derivedKey, err := computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, "aead", srcBootID, dstBootID)
+		if err != nil {
+			return nil, err
+		}
 		nodeKey.Aead = &netlink.XfrmStateAlgo{
 			Name:   globalKey.Aead.Name,
-			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, []byte("aead"), srcBootID, dstBootID),
+			Key:    derivedKey,
 			ICVLen: globalKey.Aead.ICVLen,
 		}
 	} else {
+		derivedKey, err := computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, "auth", srcBootID, dstBootID)
+		if err != nil {
+			return nil, err
+		}
 		nodeKey.Auth = &netlink.XfrmStateAlgo{
 			Name: globalKey.Auth.Name,
-			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, []byte("auth"), srcBootID, dstBootID),
+			Key:  derivedKey,
 		}
 
+		derivedKey, err = computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, "crypt", srcBootID, dstBootID)
+		if err != nil {
+			return nil, err
+		}
 		nodeKey.Crypt = &netlink.XfrmStateAlgo{
 			Name: globalKey.Crypt.Name,
-			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, []byte("crypt"), srcBootID, dstBootID),
+			Key:  derivedKey,
 		}
 	}
 
-	return nodeKey
+	return nodeKey, nil
 }
 
 // We want one IPsec key per node pair. For a pair of nodes A and B with IP
@@ -304,13 +300,11 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dstBootID stri
 		return nil, fmt.Errorf("global IPsec key missing")
 	}
 
-	srcBootIDBytes := []byte(srcBootID)
-	dstBootIDBytes := []byte(dstBootID)
-	if len(srcBootIDBytes) < 36 || len(dstBootIDBytes) < 36 {
+	if len(srcBootID) < 36 || len(dstBootID) < 36 {
 		return nil, fmt.Errorf("incorrect size for boot ID, should be at least 36 characters long")
 	}
 
-	return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, srcBootIDBytes, dstBootIDBytes), nil
+	return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, srcBootID, dstBootID)
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
