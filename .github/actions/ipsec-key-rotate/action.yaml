@@ -3,63 +3,24 @@ description: Rotates IPsec keys
 inputs:
   key-algo:
     required: true
-    type: string
-    description: "gcm(aes) or cbc(aes)"
-  tunnel:
-    required: true
-    type: string
-    description: "the tunnel mode used, 'disabled' if native routing"
-  nb-nodes:
-    required: true
-    type: string
-    description: "Number of nodes in the cluster or clustermesh"
-  dual-stack:
-    required: true
-    type: boolean
-    description: "Whether both IPV4 and IPv6 are enabled."
-  subnet-encryption:
-    required: true
-    type: boolean
-    description: "True if IPAM mode is ENI or Azure. In those cases, we have two keys on ingress per remote node, per IP family."
+    description: "gcm-aes or hmac-sha256"
 runs:
   using: composite
   steps:
     - name: Rotate IPsec Key
       shell: bash
       run: |
-        KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
-        if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+        echo "Updating IPsec secret"
+        cilium encrypt rotate-key --auth-algo ${{ inputs.key-algo }}
 
-        if [[ "${{ inputs.key-algo }}" == "gcm(aes)" ]]; then
-          key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-        elif [[ "${{ inputs.key-algo }}" == "cbc(aes)" ]]; then
-          key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-        else
-          echo "Invalid key type"; exit 1
-        fi
-        data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ ${key}\"}}"
+        new_key=$(cilium encrypt key-status)
+        echo "New IPsec key: $new_key"
 
-        echo "Updating IPsec secret with $data"
-        kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+        # We have two keys per node, per direction, per IP family.
+        # So a two-nodes IPv4-only cluster will have four keys.
+        exp_nb_keys=$(cilium encrypt status -o json | jq -r '."ipsec-expected-key-count"')
+        echo "Expected IPsec key count: $exp_nb_keys"
 
-        # For each IP family, we have two keys per remote node, per direction.
-        # For subnet-encryption mode (ENI & Azure), we'll have one additional
-        # key on ingress per remote node.
-        # So a three-nodes IPv4-only ENI cluster will have six keys.
-        exp_nb_keys=$((${{ inputs.nb-nodes }} - 1))
-        if [[ "${{ inputs.subnet-encryption }}" == "true" ]]; then
-          ((exp_nb_keys*=3))
-        else
-          ((exp_nb_keys*=2))
-        fi
-        if [[ "${{ inputs.dual-stack }}" == "true" ]]; then
-          ((exp_nb_keys*=2))
-        fi
-        # If running in tunneling mode, then we have twice the amount of states
-        # and keys to handle encrypted overlay traffic.
-        if [[ "${{ inputs.tunnel }}" != "disabled" ]]; then
-          ((exp_nb_keys*=2))
-        fi
         # During the key rotation, the number of keys doubles.
         ((exp_nb_keys*=2))
 
@@ -71,7 +32,7 @@ runs:
             break
           fi
           echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
-          sleep 30s
+          sleep 10s
         done
 
         # After the key rotation is finished and old keys are cleaned up, the number of keys is
@@ -87,5 +48,5 @@ runs:
             break
           fi
           echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
-          sleep 30s
+          sleep 10s
         done
