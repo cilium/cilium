@@ -28,7 +28,7 @@ mk_data(const __u8 *buff) {
 
 	memcpy(&eth->h_source, (__u8 *)mac_one, sizeof(mac_three));
 	memcpy(&eth->h_dest, (__u8 *)mac_one, sizeof(mac_four));
-	eth->h_proto = ETH_P_IP;
+	eth->h_proto = bpf_htons(ETH_P_IP);
 
 	struct iphdr *ipv4 = (struct iphdr *)(buff + sizeof(struct ethhdr));
 
