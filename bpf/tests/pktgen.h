@@ -1172,6 +1172,41 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 	pktgen__udp_csum(builder, i, udp_layer);
 }
 
+static __always_inline
+__le32 sctp_csum(void *data, void *data_end)
+{
+	int sctp_len = data_end - data;
+	__le32 sum = 0;
+	for (int i = 0; i < sctp_len; i++) {
+		sum++;
+	}
+	return sum;
+}
+
+static __always_inline void pktgen__finish_sctp(const struct pktgen *builder, int i)
+{
+	struct sctphdr *sctp_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct sctphdr))
+		return;
+
+	sctp_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)sctp_layer + sizeof(struct sctphdr) >
+		ctx_data_end(builder->ctx))
+		return;
+
+	struct __ctx_buff *ctx = builder->ctx;
+	void *data = ctx_data(ctx);
+	void *data_end = ctx_data_end(ctx);
+
+	sctp_layer->checksum = sctp_csum(data + sizeof(struct ethhdr), data_end);
+}
+
 static __always_inline void pktgen__finish_geneve(const struct pktgen *builder, int i)
 {
 	struct genevehdr *geneve_layer;
@@ -1262,7 +1297,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_SCTP:
-			/* TODO implement checksum calc */
+			pktgen__finish_sctp(builder, i);
 			break;
 
 		case PKT_LAYER_GENEVE:
