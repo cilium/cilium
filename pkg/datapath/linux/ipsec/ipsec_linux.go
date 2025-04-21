@@ -250,19 +250,19 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
 // OUT), and vice versa. And its ESN automatically resets on each node reboot.
-func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string, dir netlink.Dir) *ipSecKey {
+func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string, dir netlink.Dir) (*ipSecKey, error) {
 	globalKey := getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
-		return nil
+		return nil, fmt.Errorf("global IPsec key missing")
 	}
 	if !globalKey.ESN {
-		return globalKey
+		return globalKey, nil
 	}
 
 	if dir == netlink.XFRM_DIR_OUT {
-		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID)
+		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID), nil
 	}
-	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootID, localBootID)
+	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootID, localBootID), nil
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -538,9 +538,9 @@ func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
 }
 
 func ipSecReplaceStateIn(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string, remoteRebooted bool, reqID int) (uint8, error) {
-	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
-	if key == nil {
-		return 0, fmt.Errorf("IPSec key missing")
+	key, err := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
+	if err != nil {
+		return 0, err
 	}
 	key.ReqID = reqID
 	state := ipSecNewState(key)
@@ -571,9 +571,9 @@ func ipSecReplaceStateIn(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint
 }
 
 func ipSecReplaceStateOut(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint16, localBootID, remoteBootID string, remoteRebooted bool, reqID int) (uint8, error) {
-	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_OUT)
-	if key == nil {
-		return 0, fmt.Errorf("IPSec key missing")
+	key, err := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_OUT)
+	if err != nil {
+		return 0, err
 	}
 	key.ReqID = reqID
 	state := ipSecNewState(key)
