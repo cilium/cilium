@@ -28,10 +28,10 @@ func setUpTest(_ testing.TB) *StatusTestSuite {
 	s := &StatusTestSuite{}
 	s.mutex.Lock()
 	s.config = Config{
-		StatusCollectorInterval:         10 * time.Millisecond,
-		StatusCollectorWarningThreshold: 20 * time.Millisecond,
-		StatusCollectorFailureThreshold: 80 * time.Millisecond,
-		StatusCollectorStackdumpPath:    "",
+		Interval:         10 * time.Millisecond,
+		WarningThreshold: 20 * time.Millisecond,
+		FailureThreshold: 80 * time.Millisecond,
+		StackdumpPath:    "",
 	}
 	s.mutex.Unlock()
 
@@ -77,7 +77,7 @@ func TestVariableProbeInterval(t *testing.T) {
 		},
 	}
 
-	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(hivetest.Logger(t), s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -96,13 +96,13 @@ func TestCollectorFailureTimeout(t *testing.T) {
 	p := []Probe{
 		{
 			Probe: func(ctx context.Context) (any, error) {
-				time.Sleep(s.Config().StatusCollectorFailureThreshold * 2)
+				time.Sleep(s.Config().FailureThreshold * 2)
 				return nil, nil
 			},
 			OnStatusUpdate: func(status Status) {
 				if status.StaleWarning && status.Data == nil && status.Err != nil {
 					if strings.Contains(status.Err.Error(),
-						fmt.Sprintf("within %v seconds", s.Config().StatusCollectorFailureThreshold.Seconds())) {
+						fmt.Sprintf("within %v seconds", s.Config().FailureThreshold.Seconds())) {
 
 						ok.Add(1)
 					}
@@ -111,7 +111,7 @@ func TestCollectorFailureTimeout(t *testing.T) {
 		},
 	}
 
-	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(hivetest.Logger(t), s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -149,7 +149,7 @@ func TestCollectorSuccess(t *testing.T) {
 		},
 	}
 
-	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(hivetest.Logger(t), s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -169,7 +169,7 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 		{
 			Probe: func(ctx context.Context) (any, error) {
 				if timeout.Load() == 0 {
-					time.Sleep(2 * s.Config().StatusCollectorFailureThreshold)
+					time.Sleep(2 * s.Config().FailureThreshold)
 				}
 				return nil, nil
 			},
@@ -183,7 +183,7 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 		},
 	}
 
-	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(hivetest.Logger(t), s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -209,7 +209,7 @@ func TestWaitForFirstRun(t *testing.T) {
 		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
 	}
 
-	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(hivetest.Logger(t), s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 

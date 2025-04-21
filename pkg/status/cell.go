@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -34,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/time"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
@@ -44,12 +42,6 @@ var Cell = cell.Module(
 	"status",
 	"Collects and provides Cilium status information",
 
-	cell.Config(Config{
-		StatusCollectorWarningThreshold: 15 * time.Second,
-		StatusCollectorFailureThreshold: 1 * time.Minute,
-		StatusCollectorInterval:         5 * time.Second,
-		StatusCollectorStackdumpPath:    "/run/cilium/state/agent.stack.gz",
-	}),
 	cell.Provide(newStatusCollector),
 	cell.Provide(newStatusAPIHandler),
 	cell.Invoke(func(StatusCollector) {}), // explicit start of statuscollector
@@ -61,7 +53,6 @@ type statusParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 
-	Config       Config
 	DaemonConfig *option.DaemonConfig
 
 	AuthManager      *auth.AuthManager
@@ -88,25 +79,10 @@ type statusParams struct {
 	WireguardAgent   *wireguard.Agent
 }
 
-// Config is the collector configuration
-type Config struct {
-	StatusCollectorWarningThreshold time.Duration
-	StatusCollectorFailureThreshold time.Duration
-	StatusCollectorInterval         time.Duration
-	StatusCollectorStackdumpPath    string
-}
-
-func (r Config) Flags(flags *pflag.FlagSet) {
-	flags.Duration("status-collector-warning-threshold", r.StatusCollectorWarningThreshold, "The duration after which a probe is declared as stale")
-	flags.Duration("status-collector-failure-threshold", r.StatusCollectorFailureThreshold, "The duration after which a probe is considered failed")
-	flags.Duration("status-collector-interval", r.StatusCollectorInterval, "The interval between probe invocations")
-	flags.String("status-collector-stackdump-path", r.StatusCollectorStackdumpPath, "The path where probe stackdumps should be written to")
-}
-
 func newStatusCollector(params statusParams) StatusCollector {
 	collector := &statusCollector{
 		statusParams:    params,
-		statusCollector: newCollector(params.Logger, params.Config),
+		statusCollector: NewCollector(params.Logger, DefaultConfig),
 	}
 
 	params.Lifecycle.Append(cell.Hook{
