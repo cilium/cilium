@@ -1172,12 +1172,17 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 	pktgen__udp_csum(builder, i, udp_layer);
 }
 
+#define MAX_SCTP_PAYLOAD 32
+
 static __always_inline
 __le32 sctp_csum(void *data, void *data_end)
 {
 	int sctp_len = data_end - data;
 	__le32 sum = 0;
 	for (volatile int i = 0; i < sctp_len; i++) {
+		if (i > MAX_SCTP_PAYLOAD) {
+			return 0;
+		}
 		sum++;
 	}
 	return sum;
