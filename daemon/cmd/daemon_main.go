@@ -1797,7 +1797,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
-		if err := d.ciliumHealth.Init(d.ctx, d.healthEndpointRouting); err != nil {
+		if err := d.ciliumHealth.Init(d.ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}

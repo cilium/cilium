@@ -45,7 +45,7 @@ var Cell = cell.Module(
 )
 
 type CiliumHealthManager interface {
-	Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo) error
+	Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo, addCleanerFunc func(newFunc func())) error
 	GetStatus() *models.Status
 }
 
@@ -91,18 +91,10 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		k8sClientSet:    params.K8sClientSet,
 	}
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hookContext cell.HookContext) error {
-			// Make sure to clean up the endpoint namespace when cilium-agent terminates
-			h.cleanupHealthEndpoint()
-			return nil
-		},
-	})
-
 	return h
 }
 
-func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo) error {
+func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo, addCleanerFunc func(newFunc func())) error {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	h.logger.Info("Launching Cilium health daemon")
 	ch, err := h.launchCiliumNodeHealth(h.healthSpec, h.loader.HostDatapathInitialized())
@@ -176,6 +168,9 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 			Context:     ctx,
 		},
 	)
+
+	// Make sure to clean up the endpoint namespace when cilium-agent terminates
+	addCleanerFunc(h.cleanupHealthEndpoint)
 
 	return nil
 }
