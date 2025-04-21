@@ -122,10 +122,7 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
 		log.Debug("Removing existing cilium-health endpoint")
-		errs := d.endpointManager.RemoveEndpoint(ep, endpoint.DeleteConfig{NoIPRelease: true})
-		for _, err := range errs {
-			log.WithError(err).Warn("Ignoring error while deleting Cilium health endpoint")
-		}
+		d.deleteEndpointRelease(ep, true)
 	}
 
 	// The CNI plugin is not invoked for the health endpoint since it was
