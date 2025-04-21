@@ -1177,7 +1177,7 @@ __le32 sctp_csum(void *data, void *data_end)
 {
 	int sctp_len = data_end - data;
 	__le32 sum = 0;
-	for (int i = 0; i < sctp_len; i++) {
+	for (volatile int i = 0; i < sctp_len; i++) {
 		sum++;
 	}
 	return sum;
