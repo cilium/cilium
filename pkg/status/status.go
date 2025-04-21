@@ -24,7 +24,9 @@ const (
 	subsystem = "status"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+)
 
 // Status is passed to a probe when its state changes
 type Status struct {
@@ -91,8 +93,10 @@ var DefaultConfig = Config{
 	StackdumpPath:    "/run/cilium/state/agent.stack.gz",
 }
 
-// NewCollector creates a collector.
-func NewCollector(config Config) *Collector {
+// NewCollector creates a collector and starts the given probes.
+//
+// Each probe runs in a separate goroutine.
+func NewCollector(probes []Probe, config Config) *Collector {
 	c := &Collector{
 		config:         config,
 		stop:           make(chan struct{}),
@@ -113,17 +117,12 @@ func NewCollector(config Config) *Collector {
 		c.config.WarningThreshold = defaults.StatusCollectorWarningThreshold
 	}
 
-	return c
-}
-
-// StartProbes starts the given probes.
-//
-// Each probe runs in a separate goroutine.
-func (c *Collector) StartProbes(probes []Probe) {
 	for i := range probes {
 		c.spawnProbe(&probes[i], c.firstRunSwg.Add())
 	}
 	c.firstRunSwg.Stop()
+
+	return c
 }
 
 // WaitForFirstRun blocks until all probes have been executed at least once, or
