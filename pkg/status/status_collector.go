@@ -48,8 +48,6 @@ type statusCollector struct {
 	statusResponse     models.StatusResponse
 	statusCollector    *Collector
 
-	allProbesInitialized bool
-
 	statusParams statusParams
 }
 
@@ -604,11 +602,6 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 	ciliumVer := fmt.Sprintf("%s (v%s-%s)", ver.Version, ver.Version, ver.Revision)
 
 	switch {
-	case !d.allProbesInitialized:
-		sr.Cilium = &models.Status{
-			State: models.StatusStateWarning,
-			Msg:   "Not all probes executed at least once",
-		}
 	case len(sr.Stale) > 0:
 		msg := "Stale status data"
 		sr.Cilium = &models.Status{
@@ -1187,27 +1180,14 @@ func (d *statusCollector) getProbes() []Probe {
 	}
 }
 
-func (d *statusCollector) startStatusCollector() {
-	d.statusParams.Logger.Debug("Starting probes")
+func (d *statusCollector) startStatusCollector(ctx context.Context) error {
 	d.statusCollector.StartProbes(d.getProbes())
-	d.statusParams.Logger.Debug("Successfully started probes")
 
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), d.statusCollector.config.StatusCollectorProbeCheckTimeout)
-		defer cancel()
+	// Block until all probes have been executed at least once, to make sure that
+	// the status has been fully initialized once we exit from this function.
+	if err := d.statusCollector.WaitForFirstRun(ctx); err != nil {
+		return fmt.Errorf("waiting for first run: %w", err)
+	}
 
-		probeCheckHealth := d.statusParams.Health.NewScope("probe-check")
-
-		// Report health whether all probes have been executed at least once.
-		if err := d.statusCollector.WaitForFirstRun(ctx); err != nil {
-			probeCheckHealth.Degraded("Not all probes successfully executed at least once", err)
-			d.statusParams.Logger.Debug("Not all probes successfully executed at least once")
-			return
-		}
-
-		d.allProbesInitialized = true
-
-		probeCheckHealth.OK("All probes executed at least once")
-		d.statusParams.Logger.Debug("All probes executed at least once")
-	}()
+	return nil
 }

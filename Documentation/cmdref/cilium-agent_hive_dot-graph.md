@@ -187,7 +187,6 @@ cilium-agent hive dot-graph [flags]
       --static-cnp-path string                                    Directory path to watch and load static cilium network policy yaml files.
       --status-collector-failure-threshold duration               The duration after which a probe is considered failed (default 1m0s)
       --status-collector-interval duration                        The interval between probe invocations (default 5s)
-      --status-collector-probe-check-timeout duration             The timeout after which all probes should have finished at least once (default 5m0s)
       --status-collector-stackdump-path string                    The path where probe stackdumps should be written to (default "/run/cilium/state/agent.stack.gz")
       --status-collector-warning-threshold duration               The duration after which a probe is declared as stale (default 15s)
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")

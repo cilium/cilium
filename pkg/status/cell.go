@@ -4,6 +4,7 @@
 package status
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -44,11 +45,10 @@ var Cell = cell.Module(
 	"Collects and provides Cilium status information",
 
 	cell.Config(Config{
-		StatusCollectorWarningThreshold:  15 * time.Second,
-		StatusCollectorFailureThreshold:  1 * time.Minute,
-		StatusCollectorInterval:          5 * time.Second,
-		StatusCollectorProbeCheckTimeout: 5 * time.Minute,
-		StatusCollectorStackdumpPath:     "/run/cilium/state/agent.stack.gz",
+		StatusCollectorWarningThreshold: 15 * time.Second,
+		StatusCollectorFailureThreshold: 1 * time.Minute,
+		StatusCollectorInterval:         5 * time.Second,
+		StatusCollectorStackdumpPath:    "/run/cilium/state/agent.stack.gz",
 	}),
 	cell.Provide(newStatusCollector),
 	cell.Provide(newStatusAPIHandler),
@@ -60,7 +60,6 @@ type statusParams struct {
 
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
-	Health    cell.Health
 
 	Config       Config
 	DaemonConfig *option.DaemonConfig
@@ -91,18 +90,16 @@ type statusParams struct {
 
 // Config is the collector configuration
 type Config struct {
-	StatusCollectorWarningThreshold  time.Duration
-	StatusCollectorFailureThreshold  time.Duration
-	StatusCollectorInterval          time.Duration
-	StatusCollectorProbeCheckTimeout time.Duration
-	StatusCollectorStackdumpPath     string
+	StatusCollectorWarningThreshold time.Duration
+	StatusCollectorFailureThreshold time.Duration
+	StatusCollectorInterval         time.Duration
+	StatusCollectorStackdumpPath    string
 }
 
 func (r Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("status-collector-warning-threshold", r.StatusCollectorWarningThreshold, "The duration after which a probe is declared as stale")
 	flags.Duration("status-collector-failure-threshold", r.StatusCollectorFailureThreshold, "The duration after which a probe is considered failed")
 	flags.Duration("status-collector-interval", r.StatusCollectorInterval, "The interval between probe invocations")
-	flags.Duration("status-collector-probe-check-timeout", r.StatusCollectorProbeCheckTimeout, "The timeout after which all probes should have finished at least once")
 	flags.String("status-collector-stackdump-path", r.StatusCollectorStackdumpPath, "The path where probe stackdumps should be written to")
 }
 
@@ -113,9 +110,8 @@ func newStatusCollector(params statusParams) StatusCollector {
 	}
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			collector.startStatusCollector()
-			return nil
+		OnStart: func(_ cell.HookContext) error {
+			return collector.startStatusCollector(context.Background())
 		},
 		OnStop: func(_ cell.HookContext) error {
 			// If the KVstore state is not OK, print help for user.

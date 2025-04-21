@@ -56,7 +56,7 @@ func (d *Daemon) startAgentHealthHTTPService() {
 			log.WithError(errors.New(sr.Cilium.Msg)).WithFields(logrus.Fields{
 				logfields.State: sr.Cilium.State,
 			},
-			).Info("/healthz returning unhealthy")
+			).Warn("/healthz returning unhealthy")
 			statusCode = http.StatusServiceUnavailable
 		}
 
