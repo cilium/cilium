@@ -80,7 +80,7 @@ type statusParams struct {
 func newStatusCollector(params statusParams) StatusCollector {
 	collector := &statusCollector{
 		statusParams:    params,
-		statusCollector: NewCollector(params.Logger, DefaultConfig),
+		statusCollector: NewCollector(DefaultConfig),
 	}
 
 	params.Lifecycle.Append(cell.Hook{

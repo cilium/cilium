@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -77,7 +76,7 @@ func TestVariableProbeInterval(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -111,7 +110,7 @@ func TestCollectorFailureTimeout(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -149,7 +148,7 @@ func TestCollectorSuccess(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -183,7 +182,7 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
@@ -209,7 +208,7 @@ func TestWaitForFirstRun(t *testing.T) {
 		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
 	}
 
-	collector := NewCollector(hivetest.Logger(t), s.Config())
+	collector := NewCollector(s.Config())
 	collector.StartProbes(p)
 	defer collector.Close()
 
