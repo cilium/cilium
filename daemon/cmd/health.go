@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
+	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
