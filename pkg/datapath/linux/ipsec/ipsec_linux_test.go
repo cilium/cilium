@@ -277,7 +277,7 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
-	require.ErrorContains(t, err, "unable to replace local state: IPSec key missing")
+	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
 func TestUpdateExistingIPSecEndpoint(t *testing.T) {
