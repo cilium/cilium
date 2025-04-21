@@ -293,13 +293,13 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
 // OUT), and vice versa. And its key automatically resets on each node reboot.
-func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dstBootID string) *ipSecKey {
+func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dstBootID string) (*ipSecKey, error) {
 	globalKey := getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
-		return nil
+		return nil, fmt.Errorf("global IPsec key missing")
 	}
 
-	return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, srcBootID, dstBootID)
+	return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, srcBootID, dstBootID), nil
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -512,9 +512,9 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 }
 
 func ipSecReplaceStateIn(log *slog.Logger, params *IPSecParameters) (uint8, error) {
-	key := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.RemoteBootID, params.LocalBootID)
-	if key == nil {
-		return 0, fmt.Errorf("IPSec key missing")
+	key, err := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.RemoteBootID, params.LocalBootID)
+	if err != nil {
+		return 0, err
 	}
 	key.ReqID = params.ReqID
 	state := ipSecNewState(key)
@@ -540,9 +540,9 @@ func ipSecReplaceStateIn(log *slog.Logger, params *IPSecParameters) (uint8, erro
 }
 
 func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, error) {
-	key := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.LocalBootID, params.RemoteBootID)
-	if key == nil {
-		return 0, fmt.Errorf("IPSec key missing")
+	key, err := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.LocalBootID, params.RemoteBootID)
+	if err != nil {
+		return 0, err
 	}
 	key.ReqID = params.ReqID
 	state := ipSecNewState(key)
