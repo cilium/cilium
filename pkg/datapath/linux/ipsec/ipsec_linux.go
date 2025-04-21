@@ -223,10 +223,15 @@ func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 // computeNodeIPsecKey computes per-node-pair IPsec keys from the global,
 // pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
 // the global key, source node IP, destination node IP appended together.
-func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, srcBootID, dstBootID []byte) []byte {
-	inputLen := len(globalKey) + len(srcNodeIP) + len(dstNodeIP) + len(srcBootID) + len(dstBootID)
+// The ctx argument represents the type of algorithm between aead, auth,
+// and crypt. It is used to ensure different keys are used for auth and crypt,
+// even if the user provided the same global key for both.
+func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, ctx, srcBootID, dstBootID []byte) []byte {
+	inputLen := len(globalKey) + len(ctx) + len(srcNodeIP) + len(dstNodeIP) + len(srcBootID) +
+		len(dstBootID)
 	input := make([]byte, 0, inputLen)
 	input = append(input, globalKey...)
+	input = append(input, ctx...)
 	input = append(input, srcNodeIP...)
 	input = append(input, dstNodeIP...)
 	input = append(input, srcBootID[:36]...)
@@ -266,18 +271,18 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	if globalKey.Aead != nil {
 		nodeKey.Aead = &netlink.XfrmStateAlgo{
 			Name:   globalKey.Aead.Name,
-			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
+			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, []byte("aead"), srcBootID, dstBootID),
 			ICVLen: globalKey.Aead.ICVLen,
 		}
 	} else {
 		nodeKey.Auth = &netlink.XfrmStateAlgo{
 			Name: globalKey.Auth.Name,
-			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
+			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, []byte("auth"), srcBootID, dstBootID),
 		}
 
 		nodeKey.Crypt = &netlink.XfrmStateAlgo{
 			Name: globalKey.Crypt.Name,
-			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
+			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, []byte("crypt"), srcBootID, dstBootID),
 		}
 	}
 
