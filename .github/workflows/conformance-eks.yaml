@@ -300,8 +300,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         shell: bash
         run: |
-          KEYID=15
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${KEYID}+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+          cilium encrypt create-key --auth-algo gcm-aes
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -369,11 +368,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/ipsec-key-rotate
         with:
-          key-algo: "gcm(aes)"
-          nb-nodes: 3
-          tunnel: "disabled"
-          dual-stack: false
-          subnet-encryption: true
+          key-algo: "gcm-aes"
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}
