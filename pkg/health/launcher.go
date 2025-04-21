@@ -6,7 +6,6 @@ package health
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 
@@ -30,8 +29,9 @@ type CiliumHealth struct {
 	server *server.Server
 	client *client.Client
 	status *models.Status
-	logger *slog.Logger
 }
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-launcher")
 
 const (
 	serverProbeDeadline  = 10 * time.Second
@@ -39,13 +39,11 @@ const (
 	statusProbeInterval  = 5 * time.Second
 )
 
-// launchCiliumNodeHealth starts the cilium-health server and returns a handle to obtain its status
-func (h *ciliumHealthManager) launchCiliumNodeHealth(spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, error) {
+// Launch starts the cilium-health server and returns a handle to obtain its status
+func Launch(spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, error) {
 	var (
 		err error
-		ch  = &CiliumHealth{
-			logger: h.logger,
-		}
+		ch  = &CiliumHealth{}
 	)
 
 	config := server.Config{
@@ -85,7 +83,7 @@ func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
 				break
 			}
 		}
-		ch.logger.Debug("Cannot establish connection to local cilium instance", logfields.Error, err)
+		log.WithError(err).Debugf("Cannot establish connection to local cilium instance")
 		time.Sleep(connectRetryInterval)
 	}
 
@@ -94,23 +92,22 @@ func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
 	go func() {
 		defer ch.server.Shutdown()
 		if err := ch.server.Serve(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			ch.logger.Error("Failed to serve cilium-health API", logfields.Error, err)
+			log.WithError(err).Error("Failed to serve cilium-health API")
 		}
 	}()
 
 	// When the unix socket is made available, set its permissions.
-	scopedLog := ch.logger.With(logfields.Path, defaults.SockPath)
+	scopedLog := log.WithField(logfields.Path, defaults.SockPath)
 	for {
 		_, err := os.Stat(defaults.SockPath)
 		if err == nil {
 			break
 		}
-		scopedLog.Debug("Cannot find socket", logfields.Error, err)
+		scopedLog.WithError(err).Debugf("Cannot find socket")
 		time.Sleep(1 * time.Second)
 	}
 	if err := api.SetDefaultPermissions(logging.DefaultSlogLogger, defaults.SockPath); err != nil {
-		scopedLog.Error("Cannot set default permissions on socket", logfields.Error, err)
-		return
+		scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 	}
 
 	// Periodically fetch status from cilium-health server

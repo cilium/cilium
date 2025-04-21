@@ -730,9 +730,16 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		{
 			Name: "cilium-health",
 			Probe: func(ctx context.Context) (any, error) {
+				if d.ciliumHealth == nil {
+					return nil, nil
+				}
 				return d.ciliumHealth.GetStatus(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
+				if d.ciliumHealth == nil {
+					return
+				}
+
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 
