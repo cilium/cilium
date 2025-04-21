@@ -31,12 +31,12 @@ func (s *FakeService) GetLastUpdatedTs() time.Time {
 	return s.injectedLastUpdatedTs
 }
 
-// Injected fake status collector
-type FakeStatusCollector struct {
+// Injected fake daemon.
+type FakeDaemon struct {
 	injectedStatusResponse models.StatusResponse
 }
 
-func (d *FakeStatusCollector) GetStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
+func (d *FakeDaemon) getStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
 	return d.injectedStatusResponse
 }
 
@@ -55,8 +55,7 @@ func TestKubeProxyHealth(t *testing.T) {
 }
 
 func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus string,
-	expectedHttpStatus int, testcasepositive bool,
-) {
+	expectedHttpStatus int, testcasepositive bool) {
 	var lastUpdateTs, currentTs, expectedTs time.Time
 	lastUpdateTs = time.Unix(100, 0) // Fake 100 seconds after Unix.
 	currentTs = time.Unix(200, 0)    // Fake 200 seconds after Unix.
@@ -66,14 +65,11 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus 
 	}
 	// Create handler with injected behavior.
 	h := kubeproxyHealthzHandler{
-		statusCollector: &FakeStatusCollector{injectedStatusResponse: models.StatusResponse{
-			Cilium: &models.Status{State: ciliumStatus},
-		}},
+		d: &FakeDaemon{injectedStatusResponse: models.StatusResponse{
+			Cilium: &models.Status{State: ciliumStatus}}},
 		svc: &FakeService{
 			injectedCurrentTs:     currentTs,
-			injectedLastUpdatedTs: lastUpdateTs,
-		},
-	}
+			injectedLastUpdatedTs: lastUpdateTs}}
 
 	// Create a new request.
 	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)

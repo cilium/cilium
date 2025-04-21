@@ -75,7 +75,6 @@ import (
 	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/status"
 )
 
 var (
@@ -339,9 +338,6 @@ var (
 
 		// Cilium health infrastructure (host and endpoint connectivity)
 		health.Cell,
-
-		// Cilium Status Collector
-		status.Cell,
 	)
 )
 
