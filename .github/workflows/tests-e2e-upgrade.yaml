@@ -324,8 +324,7 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           if ${{ matrix.encryption == 'ipsec' }}; then
-            kubectl create -n kube-system secret generic cilium-ipsec-keys \
-                --from-literal=keys="3+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+            cilium encrypt create-key --auth-algo gcm-aes
           fi
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
