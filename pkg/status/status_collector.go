@@ -5,7 +5,6 @@ package status
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -120,7 +119,7 @@ func (d *statusCollector) getK8sStatus() *models.K8sStatus {
 	return k8sStatus
 }
 
-func (d *statusCollector) getMasqueradingStatus() (*models.Masquerading, error) {
+func (d *statusCollector) getMasqueradingStatus() *models.Masquerading {
 	s := &models.Masquerading{
 		Enabled: d.statusParams.DaemonConfig.MasqueradingEnabled(),
 		EnabledProtocols: &models.MasqueradingEnabledProtocols{
@@ -130,42 +129,33 @@ func (d *statusCollector) getMasqueradingStatus() (*models.Masquerading, error) 
 	}
 
 	if !d.statusParams.DaemonConfig.MasqueradingEnabled() {
-		return s, nil
+		return s
 	}
 
 	localNode, err := d.statusParams.NodeLocalStore.Get(context.TODO())
 	if err != nil {
-		return s, err
+		return s
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv4 {
 		// SnatExclusionCidr is the legacy field, continue to provide
 		// it for the time being
-		addr := datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode)
-		if addr == nil {
-			return s, errors.New("no local node v4 CIDR")
-		}
-
-		s.SnatExclusionCidr = addr.String()
-		s.SnatExclusionCidrV4 = addr.String()
+		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode).String()
+		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode).String()
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv6 {
-		addr := datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode)
-		if addr == nil {
-			return s, errors.New("no local node v6 CIDR")
-		}
-		s.SnatExclusionCidrV6 = addr.String()
+		s.SnatExclusionCidrV6 = datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode).String()
 	}
 
 	if d.statusParams.DaemonConfig.EnableBPFMasquerade {
 		s.Mode = models.MasqueradingModeBPF
 		s.IPMasqAgent = d.statusParams.DaemonConfig.EnableIPMasqAgent
-		return s, nil
+		return s
 	}
 
 	s.Mode = models.MasqueradingModeIptables
-	return s, nil
+	return s
 }
 
 func (d *statusCollector) getSRv6Status() *models.Srv6 {
@@ -969,24 +959,9 @@ func (d *statusCollector) startStatusCollector(ctx context.Context) error {
 				}
 			},
 		},
-		{
-			Name: "masquerading",
-			Probe: func(ctx context.Context) (any, error) {
-				return d.getMasqueradingStatus()
-			},
-			OnStatusUpdate: func(status Status) {
-				d.statusCollectMutex.Lock()
-				defer d.statusCollectMutex.Unlock()
-
-				if status.Err == nil {
-					if s, ok := status.Data.(*models.Masquerading); ok {
-						d.statusResponse.Masquerading = s
-					}
-				}
-			},
-		},
 	}
 
+	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
