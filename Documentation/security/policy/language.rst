@@ -41,7 +41,7 @@ can talk to each other. Layer 3 policies can be specified using the following me
 
 .. _Endpoints based:
 
-Endpoints Based
+Endpoints based
 ---------------
 
 Endpoints-based L3 policy is used to establish rules between endpoints inside
@@ -267,7 +267,7 @@ For services backed by pods, use `Endpoints Based` rules on the backend pod
 labels.
 
 This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
+to talk to all endpoints of Kubernetes Service ``myservice`` in kubernetes
 namespace ``default``.
 
 .. only:: html
@@ -310,7 +310,7 @@ same rule. If a rule combines both these statements, the policy is rejected.
 
 .. _Entities based:
 
-Entities Based
+Entities based
 --------------
 
 ``fromEntities`` is used to describe the entities that can access the selected
@@ -617,7 +617,7 @@ IPs to be allowed are selected via:
 
 The example below allows all DNS traffic on port 53 to the DNS service and
 intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
-a DNS application behind a Kubernetes service, the port must match the backend
+a DNS application behind a Kubernetes Service, the port must match the backend
 port. When the application makes a request for my-remote-service.com, Cilium
 learns the IP address and will allow traffic due to the match on the name under
 the ``toFQDNs.matchName`` rule.
