@@ -185,6 +185,11 @@ Users (Alphabetically)
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
 
+    * N: Confluent
+      D: Confluent is a data streaming platform to stream, connect, process, and govern data in real-time.
+      U: Networking, NetworkPolicy
+      L: https://www.confluent.io
+
     * N: CONNY
       D: CONNY is legaltech platform to improve access to justice for individuals
       U: Networking, NetworkPolicy, Services
