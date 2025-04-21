@@ -210,7 +210,7 @@ func canonicalIP(ip net.IP) net.IP {
 
 // deriveNodeIPsecKey builds a per-node-pair ipSecKey object from the global
 // ipSecKey object.
-func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID string) *ipSecKey {
+func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID []byte) *ipSecKey {
 	nodeKey := &ipSecKey{
 		Spi:   globalKey.Spi,
 		ReqID: globalKey.ReqID,
@@ -223,18 +223,18 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	if globalKey.Aead != nil {
 		nodeKey.Aead = &netlink.XfrmStateAlgo{
 			Name:   globalKey.Aead.Name,
-			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
+			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
 			ICVLen: globalKey.Aead.ICVLen,
 		}
 	} else {
 		nodeKey.Auth = &netlink.XfrmStateAlgo{
 			Name: globalKey.Auth.Name,
-			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
+			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
 		}
 
 		nodeKey.Crypt = &netlink.XfrmStateAlgo{
 			Name: globalKey.Crypt.Name,
-			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
+			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
 		}
 	}
 
@@ -259,10 +259,15 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 		return globalKey, nil
 	}
 
-	if dir == netlink.XFRM_DIR_OUT {
-		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID), nil
+	localBootIDBytes := []byte(localBootID)
+	remoteBootIDBytes := []byte(remoteBootID)
+	if len(localBootID) < 36 || len(remoteBootID) < 36 {
+		return nil, fmt.Errorf("incorrect size for boot ID, should be at least 36 characters long")
 	}
-	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootID, localBootID), nil
+	if dir == netlink.XFRM_DIR_OUT {
+		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootIDBytes, remoteBootIDBytes), nil
+	}
+	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootIDBytes, localBootIDBytes), nil
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
