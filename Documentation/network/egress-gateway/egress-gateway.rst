@@ -80,7 +80,7 @@ by an egress gateway policy must be in the same cluster as the selected pods.
 Egress gateway is not compatible with the CiliumEndpointSlice feature
 (see :gh-issue:`24833` for details).
 
-Egress gateway is not supported for IPv6 traffic.
+Egress gateway now supports IPv6 traffic when using the ``--enable-egress-gateway`` flag. The legacy ``--enable-ipv4-egress-gateway`` flag only supports IPv4 traffic.
 
 Enable egress gateway
 =====================
@@ -104,7 +104,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
         .. code-block:: yaml
 
             enable-bpf-masquerade: true
-            enable-ipv4-egress-gateway: true
+            enable-egress-gateway: true
             kube-proxy-replacement: true
 
 Rollout both the agent pods and the operator pods to make the changes effective:
@@ -330,8 +330,10 @@ the specification above:
           node.kubernetes.io/name: node1 # only traffic from this node will be SNATed
     # Specify which destination CIDR(s) this policy applies to.
     # Multiple CIDRs can be specified.
+    # Both IPv4 and IPv6 CIDRs are supported.
     destinationCIDRs:
     - "0.0.0.0/0"
+    # - "2001:db8::/64"  # Example IPv6 CIDR
 
     # Configure the gateway node.
     egressGateway:
@@ -342,10 +344,13 @@ the specification above:
 
       # Specify the IP address used to SNAT traffic matched by the policy.
       # It must exist as an IP associated with a network interface on the instance.
+      # Both IPv4 and IPv6 addresses are supported.
       egressIP: 10.168.60.100
+      # egressIP: 2001:db8::1  # Example IPv6 address
 
       # Alternatively it's possible to specify the interface to be used for egress traffic.
-      # In this case the first IPv4 assigned to that interface will be used as egress IP.
+      # In this case the first IP address (IPv4 or IPv6 depending on the destination CIDR)
+      # assigned to that interface will be used as egress IP.
       # interface: enp0s8
 
 Creating the ``CiliumEgressGatewayPolicy`` resource above would cause all

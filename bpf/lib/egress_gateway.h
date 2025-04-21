@@ -268,7 +268,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 }
 
 #ifdef ENABLE_IPV6
-#ifdef ENABLE_EGRESS_GATEWAY
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_IPV4_EGRESS_GATEWAY)
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key6);
@@ -295,7 +295,7 @@ static __always_inline int
 egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *rtuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_IPV4_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry6 *egress_gw_policy;
 	union v6addr saddr, daddr;
 
@@ -318,7 +318,7 @@ egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *rtuple __maybe_unused,
 	return CTX_ACT_REDIRECT;
 #else
 	return CTX_ACT_OK;
-#endif /* ENABLE_EGRESS_GATEWAY */
+#endif /* ENABLE_EGRESS_GATEWAY || ENABLE_IPV4_EGRESS_GATEWAY */
 }
 
 static __always_inline
@@ -327,7 +327,7 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 			      union v6addr *snat_addr __maybe_unused,
 			      __u32 *egress_ifindex __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_IPV4_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry6 *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip6_egress_gw_policy(saddr, daddr);
@@ -346,13 +346,13 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 	return true;
 #else
 	return false;
-#endif /* ENABLE_EGRESS_GATEWAY */
+#endif /* ENABLE_EGRESS_GATEWAY || ENABLE_IPV4_EGRESS_GATEWAY */
 }
 
 static __always_inline
 bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_IPV4_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry6 *egress_policy;
 
 	egress_policy = lookup_ip6_egress_gw_policy((union v6addr *)&ip6->daddr,
@@ -367,7 +367,7 @@ bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 	return true;
 #else
 	return false;
-#endif /* ENABLE_EGRESS_GATEWAY */
+#endif /* ENABLE_EGRESS_GATEWAY || ENABLE_IPV4_EGRESS_GATEWAY */
 }
 
 static __always_inline int

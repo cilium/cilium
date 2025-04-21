@@ -1,0 +1,28 @@
+.. _release_notes_v1_16:
+
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    https://docs.cilium.io
+
+===============
+Cilium 1.16.0
+===============
+
+.. _release_highlights_1_16:
+
+Highlights
+==========
+
+* **IPv6 Support for Egress Gateway**
+
+  * Added support for IPv6 in the Egress Gateway feature
+  * New ``--enable-egress-gateway`` flag that enables egress gateway for both IPv4 and IPv6
+  * The existing ``--enable-ipv4-egress-gateway`` flag is now deprecated
+  * Updated documentation to include IPv6 examples
+
+Deprecations
+===========
+
+* The ``--enable-ipv4-egress-gateway`` flag is deprecated in favor of the new ``--enable-egress-gateway`` flag.

@@ -358,7 +358,7 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[EgressGateway] = Status{
-		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
+		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true" || cm.Data["enable-egress-gateway"] == "true",
 	}
 
 	fs[CIDRMatchNodes] = Status{

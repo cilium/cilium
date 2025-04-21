@@ -10,6 +10,8 @@ spec:
         kind: # set by the check package in WithCiliumEgressGatewayPolicy()
   destinationCIDRs:
   - 0.0.0.0/0
+  # IPv6 example (commented out by default)
+  # - 2001:db8::/64
   excludedCIDRs: # set by the check package in WithCiliumEgressGatewayPolicy()
   egressGateway:
     nodeSelector:

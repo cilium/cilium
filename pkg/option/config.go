@@ -364,8 +364,11 @@ const (
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
-	// EnableIPv4EgressGateway enables the IPv4 egress gateway
+	// EnableIPv4EgressGateway enables the IPv4 egress gateway (deprecated, use EnableEgressGateway instead)
 	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
+
+	// EnableEgressGateway enables the egress gateway for both IPv4 and IPv6
+	EnableEgressGateway = "enable-egress-gateway"
 
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
@@ -1671,6 +1674,7 @@ type DaemonConfig struct {
 
 	EnableBPFClockProbe     bool
 	EnableIPv4EgressGateway bool
+	EnableEgressGateway     bool
 	EnableEnvoyConfig       bool
 	InstallIptRules         bool
 	MonitorAggregation      string

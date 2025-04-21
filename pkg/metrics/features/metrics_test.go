@@ -902,21 +902,36 @@ func TestUpdateBGP(t *testing.T) {
 	}
 }
 
-func TestUpdateIPv4EgressGateway(t *testing.T) {
+func TestUpdateEgressGateway(t *testing.T) {
 	tests := []struct {
-		name      string
-		enableEGW bool
-		expected  float64
+		name                    string
+		enableEGW               bool
+		enableIPv4EgressGateway bool
+		expected                float64
 	}{
 		{
-			name:      "Enable EGW",
-			enableEGW: true,
-			expected:  1,
+			name:                    "Enable EGW with new flag",
+			enableEGW:               true,
+			enableIPv4EgressGateway: false,
+			expected:                1,
 		},
 		{
-			name:      "Disable EGW",
-			enableEGW: false,
-			expected:  0,
+			name:                    "Enable EGW with deprecated flag",
+			enableEGW:               false,
+			enableIPv4EgressGateway: true,
+			expected:                1,
+		},
+		{
+			name:                    "Enable EGW with both flags",
+			enableEGW:               true,
+			enableIPv4EgressGateway: true,
+			expected:                1,
+		},
+		{
+			name:                    "Disable EGW",
+			enableEGW:               false,
+			enableIPv4EgressGateway: false,
+			expected:                0,
 		},
 	}
 
@@ -931,7 +946,8 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 				NodePortMode:            defaultNodePortModes[0],
 				NodePortAlg:             defaultNodePortModeAlgorithms[0],
 				NodePortAcceleration:    defaultNodePortModeAccelerations[0],
-				EnableIPv4EgressGateway: tt.enableEGW,
+				EnableEgressGateway:     tt.enableEGW,
+				EnableIPv4EgressGateway: tt.enableIPv4EgressGateway,
 			}
 
 			params := mockFeaturesParams{
@@ -942,7 +958,7 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 
 			counterValue := metrics.ACLBEgressGatewayEnabled.Get()
 
-			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEGW, counterValue)
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t/%t, got %.f", tt.expected, tt.enableEGW, tt.enableIPv4EgressGateway, counterValue)
 		})
 	}
 }

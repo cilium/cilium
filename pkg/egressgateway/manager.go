@@ -46,14 +46,21 @@ var (
 	// GatewayNotFoundIPv4 is a special IP value used as gatewayIP in the BPF policy
 	// map to indicate no gateway was found for the given policy
 	GatewayNotFoundIPv4 = netip.IPv4Unspecified()
+
+	// GatewayNotFoundIPv6 is a special IP value used as gatewayIP in the BPF policy
+	// map to indicate no gateway was found for the given policy
+	GatewayNotFoundIPv6 = netip.IPv6Unspecified()
 	// ExcludedCIDRIPv4 is a special IP value used as gatewayIP in the BPF policy map
 	// to indicate the entry is for an excluded CIDR and should skip egress gateway
 	ExcludedCIDRIPv4 = netip.MustParseAddr("0.0.0.1")
+
+	// ExcludedCIDRIPv6 is a special IP value used as gatewayIP in the BPF policy map
+	// to indicate the entry is for an excluded CIDR and should skip egress gateway
+	ExcludedCIDRIPv6 = netip.MustParseAddr("::1")
 	// EgressIPNotFoundIPv4 is a special IP value used as egressIP in the BPF policy map
 	// to indicate no egressIP was found for the given policy
 	EgressIPNotFoundIPv4 = netip.IPv4Unspecified()
 
-	// IPv6 special values
 	// EgressIPNotFoundIPv6 is a special IP value used as egressIP in the BPF policy map
 	// to indicate no egressIP was found for the given policy
 	EgressIPNotFoundIPv6 = netip.IPv6Unspecified()
@@ -185,8 +192,8 @@ func NewEgressGatewayManager(p Params) (out struct {
 }, err error) {
 	dcfg := p.DaemonConfig
 
-	// TODO: deprecate --enable-ipv4-egress-gateway, create new --enable-egress-gateway
-	if !dcfg.EnableIPv4EgressGateway {
+	// Check if either the new flag or the deprecated flag is enabled
+	if !dcfg.EnableEgressGateway && !dcfg.EnableIPv4EgressGateway {
 		return out, nil
 	}
 
@@ -198,10 +205,19 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
-	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
-	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
-	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
-		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	// Check if BPF masquerade is enabled
+	if !dcfg.EnableBPFMasquerade {
+		return out, fmt.Errorf("egress gateway requires --%s=\"true\"", option.EnableBPFMasquerade)
+	}
+
+	// Check if IPv4 masquerade is enabled when IPv4 is enabled
+	if dcfg.EnableIPv4 && !dcfg.EnableIPv4Masquerade {
+		return out, fmt.Errorf("IPv4 egress gateway requires --%s=\"true\"", option.EnableIPv4Masquerade)
+	}
+
+	// Check if IPv6 masquerade is enabled when IPv6 is enabled and the new flag is used
+	if dcfg.EnableIPv6 && dcfg.EnableEgressGateway && !dcfg.EnableIPv6Masquerade {
+		return out, fmt.Errorf("IPv6 egress gateway requires --%s=\"true\"", option.EnableIPv6Masquerade)
 	}
 
 	out.Manager, err = newEgressGatewayManager(p)
@@ -695,7 +711,7 @@ func (manager *Manager) updateEgressRules6() {
 
 		gatewayIP := gwc.gatewayIP
 		if excludedCIDR {
-			gatewayIP = ExcludedCIDRIPv4
+			gatewayIP = ExcludedCIDRIPv6
 		}
 
 		if policyPresent && policyVal.Match(gwc.egressIP6, gatewayIP) {
