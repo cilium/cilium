@@ -30,7 +30,7 @@ can talk to each other. Layer 3 policies can be specified using the following me
   the cluster.
 
 * `Node based`: This is an extension of ``remote-node`` entity. Optionally nodes
-   can have unique identity that can be used to allow/block access only from specific ones.
+  can have unique identity that can be used to allow/block access only from specific ones.
 
 * `CIDR based`: This is used to describe the relationship to or from external
   services if the remote peer is not an endpoint. This requires to hardcode either
@@ -44,7 +44,7 @@ can talk to each other. Layer 3 policies can be specified using the following me
 
 .. _Endpoints based:
 
-Endpoints Based
+Endpoints based
 ---------------
 
 Endpoints-based L3 policy is used to establish rules between endpoints inside
@@ -298,7 +298,7 @@ as an :ref:`endpoint selector <endpoints based>` within the policy.
 
 
 This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
+to talk to all endpoints of Kubernetes Service ``myservice`` in kubernetes
 namespace ``default`` as well as all services with label ``env=staging`` in
 namespace ``another-namespace``.
 
@@ -319,7 +319,7 @@ namespace ``another-namespace``.
 
 .. _Entities based:
 
-Entities Based
+Entities based
 --------------
 
 ``fromEntities`` is used to describe the entities that can access the selected
@@ -670,7 +670,7 @@ IPs to be allowed are selected via:
 
 The example below allows all DNS traffic on port 53 to the DNS service and
 intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
-a DNS application behind a Kubernetes service, the port must match the backend
+a DNS application behind a Kubernetes Service, the port must match the backend
 port. When the application makes a request for my-remote-service.com, Cilium
 learns the IP address and will allow traffic due to the match on the name under
 the ``toFQDNs.matchName`` rule.
