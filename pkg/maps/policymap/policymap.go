@@ -481,7 +481,7 @@ func parseEndpointID(mapPath string) (uint16, error) {
 func newPolicyMap(id uint16, maxEntries int, stats *StatsMap) (*PolicyMap, error) {
 	path := bpf.LocalMapPath(MapName, id)
 	mapType := ebpf.LPMTrie
-	flags := bpf.GetPreAllocateMapFlags(mapType)
+	flags := bpf.GetMapMemoryFlags(mapType)
 
 	return &PolicyMap{
 		Map: bpf.NewMap(

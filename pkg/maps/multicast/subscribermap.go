@@ -387,7 +387,7 @@ func (v *SubscriberV4Val) ToSubsciberV4() (*SubscriberV4, error) {
 }
 
 func newSubscriberV4InnerMapSpec() *ebpf.MapSpec {
-	flags := bpf.GetPreAllocateMapFlags(ebpf.Hash)
+	flags := bpf.GetMapMemoryFlags(ebpf.Hash)
 	return &ebpf.MapSpec{
 		Name:       "cilium_mcast_subscriber_v4_inner",
 		Type:       ebpf.Hash,
