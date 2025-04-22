@@ -213,7 +213,6 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
@@ -235,7 +234,6 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
