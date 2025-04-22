@@ -12,7 +12,6 @@
 #include "lib/drop.h"
 #include "lib/eps.h"
 #include "lib/ipv4.h"
-#include "lib/vxlan.h"
 #include "lib/node.h"
 #include "lib/identity.h"
 
@@ -354,87 +353,6 @@ overlay_encrypt:
 		return DROP_INVALID;
 	return ret;
 }
-
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
-/* Sets the encryption mark on an overlay (VXLAN) packet and redirects the
- * packet to the ingress side of it's associated ifindex.
- *
- * The recirculated overlay packet will then be subjected to XFRM hooks in the
- * output routing path, since the original src/dst of the overlay packet routes
- * off-host.
- *
- * This function is useful when you want to encrypt overlay traffic and use the
- * underlay to deliver encrypted overlay traffic to the remote node.
- * For this to work the IPSec control plane must install XFRM policies and
- * states which set the tunnel source and destination to the underlay address of
- * the destination node.
- *
- * If the redirect to the ingress side of ctx->ingress is successful
- * CTX_ACT_REDIRECT is returned, otherwise an error code is returned.
- *
- * Be aware that the redirected-to interface needs to have the following
- * sysctl enabled for this to work correctly (per-device is fine)
- *   - net.ipv4.conf.default.rp_filter = 0
- *   - net.ipv4.conf.default.accept_local = 1
- */
-static __always_inline int
-encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
-{
-	struct iphdr *ip4, *inner_ipv4 = NULL;
-	struct endpoint_info *ep_info = NULL;
-	void *data, *data_end;
-	__u8 dst_mac = 0;
-	__u32 l4_off;
-	int ret = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
-	ret = vxlan_get_inner_ipv4(data, data_end, l4_off, &inner_ipv4);
-	if (!ret)
-		return DROP_INVALID;
-
-	ep_info = __lookup_ip4_endpoint(inner_ipv4->saddr);
-	if (!ep_info)
-		return DROP_INVALID;
-
-	/*
-	 * this is a vxlan packet so ip4->daddr is the tunnel endpoint
-	 */
-	ret = set_ipsec_encrypt(ctx, 0, ip4->daddr, ep_info->sec_id, false,
-				true);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	/*
-	 * source mac is our current egress interface, lets copy it to dmac
-	 * so redirecting to ingress side of the same interface doesn't fail.
-	 */
-	if (eth_load_saddr(ctx, &dst_mac, 0) != 0)
-		return DROP_INVALID;
-	if (eth_store_daddr(ctx, &dst_mac, 0) != 0)
-		return DROP_WRITE_ERROR;
-
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	/* right now, the VNI of this packet is ENCRYPTED_OVERLAY_ID, we need
-	 * to rewrite this VNI to the source's sec id before we transmit it
-	 */
-	if (!vxlan_rewrite_vni(ctx, data, data_end, l4_off, ep_info->sec_id))
-		return DROP_INVALID;
-
-	/* redirect to ingress side of ifindex so the packet has xfrm applied */
-	ret = ctx_redirect(ctx, ctx->ifindex, BPF_F_INGRESS);
-	if (ret != CTX_ACT_REDIRECT)
-		return DROP_INVALID;
-
-	return ret;
-}
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
-
 #else
 static __always_inline int
 do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
