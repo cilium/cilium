@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -265,6 +266,7 @@ type Manager struct {
 
 	cfg       Config
 	sharedCfg SharedConfig
+	tunnelCfg tunnel.Config
 
 	argsInit  *lock.StoppableWaitGroup
 	startDone lock.DoneFunc
@@ -305,6 +307,8 @@ type params struct {
 	JobGroup job.Group
 	DB       *statedb.DB
 	Devices  statedb.Table[*tables.Device]
+
+	TunnelCfg tunnel.Config
 }
 
 func newIptablesManager(p params) datapath.IptablesManager {
@@ -313,6 +317,7 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		sysctl:    p.Sysctl,
 		cfg:       p.Cfg,
 		sharedCfg: p.SharedCfg,
+		tunnelCfg: p.TunnelCfg,
 		argsInit:  lock.NewStoppableWaitGroup(),
 		reconcilerParams: reconcilerParams{
 			clock:          clock.RealClock{},
@@ -586,8 +591,10 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 	return prog.runProg(rule)
 }
 
-func (m *Manager) installVxlanNoTrackRules(ip4tables, ip6tables runnable) error {
-	if !m.sharedCfg.TunnelingEnabled {
+func (m *Manager) installTunnelNoTrackRules(ip4tables, ip6tables runnable) error {
+	port := m.tunnelCfg.Port()
+
+	if !m.sharedCfg.TunnelingEnabled || port == 0 {
 		return nil
 	}
 
@@ -595,16 +602,16 @@ func (m *Manager) installVxlanNoTrackRules(ip4tables, ip6tables runnable) error 
 		"-t", "raw",
 		"-A", ciliumPreRawChain,
 		"-p", "udp",
-		"--dport", strconv.Itoa(int(defaults.TunnelPortVXLAN)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for VXLAN traffic",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
 		"-j", "CT", "--notrack",
 	}
 	output := []string{
 		"-t", "raw",
 		"-A", ciliumOutputRawChain,
 		"-p", "udp",
-		"--dport", strconv.Itoa(int(defaults.TunnelPortVXLAN)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for VXLAN traffic",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
 		"-j", "CT", "--notrack",
 	}
 
@@ -1570,8 +1577,8 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if err := m.installVxlanNoTrackRules(ip4tables, ip6tables); err != nil {
-		return fmt.Errorf("cannot install VXLAN no track rules: %w", err)
+	if err := m.installTunnelNoTrackRules(ip4tables, ip6tables); err != nil {
+		return fmt.Errorf("cannot install tunnel no track rules: %w", err)
 	}
 
 	if err := m.installStaticProxyRules(); err != nil {
