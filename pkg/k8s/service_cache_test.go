@@ -937,7 +937,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 	createEndpoints := func(clusters ...string) externalEndpoints {
 		eeps := newExternalEndpoints()
 		for i, cluster := range clusters {
-			eps := newEndpoints()
+			eps := NewEndpoints()
 			eps.Backends[cmtypes.MustParseAddrCluster(fmt.Sprintf("1.1.1.%d", i))] = &Backend{}
 			eeps.endpoints[cluster] = eps
 		}
