@@ -26,14 +26,14 @@ var (
 	podCIDR       = "10.0.0.0/24"
 	podCIDRPrefix = netip.MustParsePrefix(podCIDR)
 
-	lbPool = &v2alpha1api.CiliumLoadBalancerIPPool{
+	lbPool = &v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"label1": "value1",
 			},
 		},
-		Spec: v2alpha1api.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []v2alpha1api.CiliumLoadBalancerIPPoolIPBlock{
+		Spec: v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []v2.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "192.168.0.0/24",
 				},
@@ -41,14 +41,14 @@ var (
 		},
 	}
 
-	lbPoolUpdated = &v2alpha1api.CiliumLoadBalancerIPPool{
+	lbPoolUpdated = &v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"label1": "value1",
 			},
 		},
-		Spec: v2alpha1api.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []v2alpha1api.CiliumLoadBalancerIPPoolIPBlock{
+		Spec: v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []v2.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "10.100.99.0/24", // UPDATED
 				},
@@ -170,7 +170,7 @@ var (
 
 type routePolicyTestInputs struct {
 	podCIDRs         []string
-	LBPools          []*v2alpha1api.CiliumLoadBalancerIPPool
+	LBPools          []*v2.CiliumLoadBalancerIPPool
 	NodePools        []ipamTypes.IPAMPoolAllocation
 	PodPools         []*v2alpha1api.CiliumPodIPPool
 	neighbors        []v2alpha1api.CiliumBGPNeighbor
@@ -190,7 +190,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				podCIDRs: []string{
 					podCIDR,
 				},
-				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
+				LBPools: []*v2.CiliumLoadBalancerIPPool{
 					lbPool,
 				},
 				PodPools: []*v2alpha1api.CiliumPodIPPool{
@@ -302,7 +302,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 		{
 			name: "update policy - lb pool change",
 			initial: &routePolicyTestInputs{
-				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
+				LBPools: []*v2.CiliumLoadBalancerIPPool{
 					lbPool,
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
@@ -340,7 +340,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 			},
 			updated: &routePolicyTestInputs{
-				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
+				LBPools: []*v2.CiliumLoadBalancerIPPool{
 					lbPoolUpdated, // UPDATED - modified CIDR
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
@@ -602,7 +602,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				Neighbors:     tt.initial.neighbors,
 			}
 
-			lbStore := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]()
+			lbStore := store.NewMockBGPCPResourceStore[*v2.CiliumLoadBalancerIPPool]()
 			for _, obj := range tt.initial.LBPools {
 				lbStore.Upsert(obj)
 			}

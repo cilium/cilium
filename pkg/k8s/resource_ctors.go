@@ -167,15 +167,15 @@ func NamespaceResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*met
 	return resource.New[*slim_corev1.Namespace](lc, lw, resource.WithMetric("Namespace")), nil
 }
 
-func LBIPPoolsResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
+func LBIPPoolsResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](params.ClientSet.CiliumV2alpha1().CiliumLoadBalancerIPPools()),
+		utils.ListerWatcherFromTyped(params.ClientSet.CiliumV2().CiliumLoadBalancerIPPools()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](params.Lifecycle, lw, resource.WithMetric("CiliumLoadBalancerIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](params.Lifecycle, lw, resource.WithMetric("CiliumLoadBalancerIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
 func CiliumIdentityResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {

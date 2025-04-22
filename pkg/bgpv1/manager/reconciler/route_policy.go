@@ -41,7 +41,7 @@ type RoutePolicyReconcilerOut struct {
 
 type RoutePolicyReconciler struct {
 	logger       *slog.Logger
-	lbPoolStore  store.BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]
+	lbPoolStore  store.BGPCPResourceStore[*v2api.CiliumLoadBalancerIPPool]
 	podPoolStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
 }
 
@@ -50,7 +50,7 @@ type RoutePolicyReconcilerMetadata map[string]*types.RoutePolicy
 
 func NewRoutePolicyReconciler(
 	logger *slog.Logger,
-	lbStore store.BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
+	lbStore store.BGPCPResourceStore[*v2api.CiliumLoadBalancerIPPool],
 	podStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool],
 ) RoutePolicyReconcilerOut {
 	return RoutePolicyReconcilerOut{
