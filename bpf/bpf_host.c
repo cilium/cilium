@@ -249,7 +249,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct remote_endpoint_info *info = NULL;
 	struct endpoint_info *ep;
 	int ret __maybe_unused;
-	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
 
@@ -360,19 +359,12 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	dst = (union v6addr *) &ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
 
-#ifdef ENABLE_IPSEC
-	/* See IPv4 comment. */
-	if (from_proxy && info)
-		encrypt_key = get_min_encrypt_key(info->key);
-#endif
-
 #ifdef TUNNEL_MODE
 	if (info && info->flag_skip_tunnel)
 		goto skip_tunnel;
 
 	if (info && info->flag_has_tunnel_ep) {
-		return encap_and_redirect_with_nodeid(ctx, info, encrypt_key,
-						      secctx,
+		return encap_and_redirect_with_nodeid(ctx, info, secctx,
 						      info->sec_identity,
 						      &trace);
 	}
@@ -683,7 +675,6 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct remote_endpoint_info *info;
 	struct endpoint_info *ep;
 	int ret __maybe_unused;
-	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
 
@@ -816,19 +807,12 @@ skip_vtep:
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
-#ifdef ENABLE_IPSEC
-	/* We encrypt host to remote pod packets only if they are from proxy. */
-	if (from_proxy && info)
-		encrypt_key = get_min_encrypt_key(info->key);
-#endif
-
 #ifdef TUNNEL_MODE
 	if (info && info->flag_skip_tunnel)
 		goto skip_tunnel;
 
 	if (info && info->flag_has_tunnel_ep) {
-		return encap_and_redirect_with_nodeid(ctx, info, encrypt_key,
-						      secctx,
+		return encap_and_redirect_with_nodeid(ctx, info, secctx,
 						      info->sec_identity,
 						      &trace);
 	}
@@ -1019,7 +1003,7 @@ do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 
 	ctx->mark = 0;
 
-	return encap_and_redirect_with_nodeid(ctx, ep, 0, src_id, 0, &trace);
+	return encap_and_redirect_with_nodeid(ctx, ep, src_id, 0, &trace);
 }
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 

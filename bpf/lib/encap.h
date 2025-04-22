@@ -8,10 +8,6 @@
 #include "hash.h"
 #include "trace.h"
 
-#if __ctx_is == __ctx_skb
-#include "encrypt.h"
-#endif /* __ctx_is == __ctx_skb */
-
 #ifdef HAVE_ENCAP
 static __always_inline int
 __encap_with_nodeid4(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -89,15 +85,12 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
-/* encap_and_redirect_with_nodeid returns CTX_ACT_OK after ctx meta-data is
- * set. Caller should pass the ctx to the stack at this point. Otherwise
- * returns CTX_ACT_REDIRECT on successful redirect to tunnel device.
- * On error returns a DROP_* reason.
+/* encap_and_redirect_with_nodeid returns CTX_ACT_REDIRECT on successful
+ * redirect to tunnel device. On error returns a DROP_* reason.
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 			       struct remote_endpoint_info *info,
-			       __u8 encrypt_key __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
@@ -106,23 +99,14 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 }
 
 #if defined(TUNNEL_MODE)
-/* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
- * so that it can be passed to the IP stack. Without IPSec the packet is
- * typically redirected to the output tunnel device and ctx will not be seen by
- * the IP stack.
- *
- * Returns CTX_ACT_OK when ctx needs to be handed to IP stack (eg. for IPSec
- * handling), a DROP_* reason on error, and finally on successful redirect returns
- * CTX_ACT_REDIRECT.
+/* encap_and_redirect_lxc returns CTX_ACT_REDIRECT on successful redirect, and
+ * a DROP_* reason on error.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx,
-		       struct remote_endpoint_info *info, __u8 encrypt_key,
-		       __u32 seclabel, __u32 dstid,
-		       const struct trace_ctx *trace)
+encap_and_redirect_lxc(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
+		       __u32 seclabel, __u32 dstid, const struct trace_ctx *trace)
 {
-	return encap_and_redirect_with_nodeid(ctx, info, encrypt_key, seclabel,
-					      dstid, trace);
+	return encap_and_redirect_with_nodeid(ctx, info, seclabel, dstid, trace);
 }
 #endif /* TUNNEL_MODE */
 

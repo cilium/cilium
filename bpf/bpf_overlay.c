@@ -29,6 +29,7 @@
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
+#include "lib/encrypt.h"
 #include "lib/eps.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
