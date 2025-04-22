@@ -4094,49 +4094,6 @@ CILIUM_SERVICES:
 	return validateCiliumSvcLB(*ciliumService, ciliumLB)
 }
 
-// CiliumServiceAdd adds the given service on a 'pod' running Cilium
-func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, protocol string, frontend string, backends []string, svcType, trafficPolicy string) error {
-	protocol = strings.ToLower(protocol)
-	if protocol == "" || protocol == "any" || protocol == "none" {
-		protocol = "tcp"
-	}
-	var opts []string
-	switch strings.ToLower(svcType) {
-	case "nodeport":
-		opts = append(opts, "--k8s-node-port")
-	case "externalip":
-		opts = append(opts, "--k8s-external")
-	case "localredirect":
-		opts = append(opts, "--local-redirect")
-	case "clusterip":
-		// this is the default
-	default:
-		return fmt.Errorf("invalid service type: %q", svcType)
-	}
-
-	trafficPolicy = strings.Title(strings.ToLower(trafficPolicy))
-	switch trafficPolicy {
-	case "Cluster", "Local":
-		opts = append(opts, "--k8s-ext-traffic-policy "+trafficPolicy)
-	default:
-		return fmt.Errorf("invalid traffic policy: %q", svcType)
-	}
-
-	optsStr := strings.Join(opts, " ")
-	backendsStr := strings.Join(backends, ",")
-	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
-	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium-dbg service update --id %d --protocol %q --frontend %q --backends %q %s",
-		id, protocol, frontend, backendsStr, optsStr)).GetErr("cilium-dbg service update")
-}
-
-// CiliumServiceDel deletes the service with 'id' on a 'pod' running Cilium
-func (kub *Kubectl) CiliumServiceDel(pod string, id int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
-	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium-dbg service delete %d", id)).GetErr("cilium-dbg service delete")
-}
-
 // ciliumServicePreFlightCheck checks that k8s service is plumbed correctly
 func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 	ginkgoext.By("Performing Cilium service preflight check")
