@@ -13,8 +13,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define ENABLE_HOST_ROUTING
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_IP_2		v4_ext_two

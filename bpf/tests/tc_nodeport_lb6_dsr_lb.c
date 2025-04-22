@@ -12,8 +12,6 @@
 #define ENABLE_DSR
 #define DSR_ENCAP_GENEVE	3
 
-#define DISABLE_LOOPBACK_LB
-
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
