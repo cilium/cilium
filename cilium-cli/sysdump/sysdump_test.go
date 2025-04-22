@@ -410,10 +410,6 @@ func (c *fakeClient) ListCiliumBGPNodeConfigOverrides(ctx context.Context, opts 
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumLoadBalancerIPPools(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
-	panic("implement me")
-}
-
 func (c *fakeClient) ListCiliumNodeConfigs(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error) {
 	panic("implement me")
 }

@@ -1030,10 +1030,6 @@ func (c *Client) GetRunningCiliumVersion(ciliumHelmReleaseName string) (string, 
 	return release.Chart.Metadata.Version, nil
 }
 
-func (c *Client) ListCiliumLoadBalancerIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
-	return c.CiliumClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools().List(ctx, opts)
-}
-
 func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).List(ctx, opts)
 }
