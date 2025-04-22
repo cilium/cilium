@@ -57,6 +57,10 @@ type CiliumEnvoyConfigNamespaceListerExpansion interface{}
 // CiliumIdentityLister.
 type CiliumIdentityListerExpansion interface{}
 
+// CiliumLoadBalancerIPPoolListerExpansion allows custom methods to be added to
+// CiliumLoadBalancerIPPoolLister.
+type CiliumLoadBalancerIPPoolListerExpansion interface{}
+
 // CiliumLocalRedirectPolicyListerExpansion allows custom methods to be added to
 // CiliumLocalRedirectPolicyLister.
 type CiliumLocalRedirectPolicyListerExpansion interface{}
