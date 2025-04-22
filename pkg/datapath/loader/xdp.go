@@ -106,9 +106,6 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMo
 func xdpCompileArgs(extraCArgs []string) ([]string, error) {
 	args := []string{}
 	copy(args, extraCArgs)
-	if option.Config.EnableNodePort {
-		args = append(args, "-DDISABLE_LOOPBACK_LB")
-	}
 
 	return args, nil
 }

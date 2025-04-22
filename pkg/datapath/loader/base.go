@@ -281,9 +281,6 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 
 	// gather compile options for bpf_overlay.c
 	opts := []string{}
-	if option.Config.EnableNodePort {
-		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
-	}
 
 	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
