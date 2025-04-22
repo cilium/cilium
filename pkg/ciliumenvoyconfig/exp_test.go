@@ -73,7 +73,7 @@ func TestScript(t *testing.T) {
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			maglev.Cell,
-			cell.Config(cecConfig{}),
+			cell.Config(CECConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
 
 			lbcell.Cell,

@@ -19,7 +19,7 @@ import (
 )
 
 type envoyOps struct {
-	config        cecConfig
+	config        CECConfig
 	log           *slog.Logger
 	xds           resourceMutator
 	policyTrigger policyTrigger
@@ -133,7 +133,7 @@ var _ reconciler.Operations[*EnvoyResource] = &envoyOps{}
 
 func registerEnvoyReconciler(
 	log *slog.Logger,
-	config cecConfig,
+	config CECConfig,
 	xds resourceMutator,
 	pt policyTrigger,
 	params reconciler.Params,
