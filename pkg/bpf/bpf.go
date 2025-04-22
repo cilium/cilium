@@ -38,9 +38,9 @@ func DisableMapPreAllocation() {
 	atomic.StoreUint32(&preAllocateMapSetting, BPF_F_NO_PREALLOC)
 }
 
-// GetPreAllocateMapFlags returns the map flags for map which use conditional
-// pre-allocation.
-func GetPreAllocateMapFlags(t ebpf.MapType) uint32 {
+// GetMapMemoryFlags returns relevant map memory allocation flags which
+// the user requested.
+func GetMapMemoryFlags(t ebpf.MapType) uint32 {
 	switch t {
 	// LPM Tries don't support preallocation.
 	case ebpf.LPMTrie:
