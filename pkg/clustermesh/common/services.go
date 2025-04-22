@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 type GlobalService struct {

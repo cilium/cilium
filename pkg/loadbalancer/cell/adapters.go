@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
-	"github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/time"
 )
 

@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/source"
 )
 

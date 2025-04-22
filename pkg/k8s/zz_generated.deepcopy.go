@@ -13,7 +13,7 @@ import (
 
 	cidr "github.com/cilium/cilium/pkg/cidr"
 	loadbalancer "github.com/cilium/cilium/pkg/loadbalancer"
-	store "github.com/cilium/cilium/pkg/service/store"
+	store "github.com/cilium/cilium/pkg/clustermesh/store"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

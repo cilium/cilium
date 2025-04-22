@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics/metric"
-	"github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 const (

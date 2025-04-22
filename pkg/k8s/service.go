@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {

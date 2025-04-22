@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 var (

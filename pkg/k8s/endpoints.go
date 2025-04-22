@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
