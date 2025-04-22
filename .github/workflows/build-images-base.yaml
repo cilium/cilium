@@ -40,26 +40,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  has-credentials:
-    name: Check for Quay secrets
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
-    timeout-minutes: 2
-    outputs:
-      present: ${{ steps.secrets.outputs.present }}
-    steps:
-      - name: Check for secrets
-        id: secrets
-        env:
-          has_credentials: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 && secrets.QUAY_BASE_RELEASE_PASSWORD_202411 && 1 }}
-        if: ${{ env.has_credentials }}
-        run:
-          echo 'present=1' >> "$GITHUB_OUTPUT"
-
   build-and-push:
-    needs: has-credentials
     # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is pull_request_target
-    if: ${{ needs.has-credentials.outputs.present && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
+    if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 45
     environment: ${{ inputs.environment || 'release-base-images' }}
@@ -334,13 +317,7 @@ jobs:
           git diff HEAD^
           git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref
 
-  image-digests:
-    name: Display Digests
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
-    needs: build-and-push
-    steps:
-      - name: Downloading Image Digests
+      - name: Prepare for Image Digests
         shell: bash
         run: |
           mkdir -p image-digest/
