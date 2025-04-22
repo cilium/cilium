@@ -63,6 +63,10 @@ func (c *FakeCiliumV2) CiliumIdentities() v2.CiliumIdentityInterface {
 	return newFakeCiliumIdentities(c)
 }
 
+func (c *FakeCiliumV2) CiliumLoadBalancerIPPools() v2.CiliumLoadBalancerIPPoolInterface {
+	return newFakeCiliumLoadBalancerIPPools(c)
+}
+
 func (c *FakeCiliumV2) CiliumLocalRedirectPolicies(namespace string) v2.CiliumLocalRedirectPolicyInterface {
 	return newFakeCiliumLocalRedirectPolicies(c, namespace)
 }
