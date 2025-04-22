@@ -668,7 +668,8 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(vp, option.EnableIPMasqAgent)
 
-	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4 (deprecated, use enable-egress-gateway instead)")
+	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
+	flags.MarkDeprecated(option.EnableIPv4EgressGateway, "use --" + option.EnableEgressGateway + " instead")
 	option.BindEnv(vp, option.EnableIPv4EgressGateway)
 
 	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway for both IPv4 and IPv6")

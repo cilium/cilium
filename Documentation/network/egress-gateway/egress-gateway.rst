@@ -330,10 +330,8 @@ the specification above:
           node.kubernetes.io/name: node1 # only traffic from this node will be SNATed
     # Specify which destination CIDR(s) this policy applies to.
     # Multiple CIDRs can be specified.
-    # Both IPv4 and IPv6 CIDRs are supported.
     destinationCIDRs:
     - "0.0.0.0/0"
-    # - "2001:db8::/64"  # Example IPv6 CIDR
 
     # Configure the gateway node.
     egressGateway:
@@ -344,9 +342,7 @@ the specification above:
 
       # Specify the IP address used to SNAT traffic matched by the policy.
       # It must exist as an IP associated with a network interface on the instance.
-      # Both IPv4 and IPv6 addresses are supported.
       egressIP: 10.168.60.100
-      # egressIP: 2001:db8::1  # Example IPv6 address
 
       # Alternatively it's possible to specify the interface to be used for egress traffic.
       # In this case the first IP address (IPv4 or IPv6 depending on the destination CIDR)

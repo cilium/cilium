@@ -24,13 +24,3 @@ spec:
         egress-node: true
     # IP used to masquerade traffic leaving the cluster
     egressIP: "192.168.60.100"
-    # Alternatively it is possible to:
-    #
-    # a) specify which interface should be used to masquerade traffic.
-    # In this case the first IPv4 assigned to said interface will be used as
-    # egressIP
-    # interface: eth1
-    #
-    # b) omit both egressIP and interface.
-    # In this case the first IPv4 assigned to the interface with the default
-    # route will be used as egressIP
