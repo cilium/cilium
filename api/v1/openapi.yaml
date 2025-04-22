@@ -2699,6 +2699,9 @@ definitions:
       ipLocalReservedPorts:
         description: Comma-separated list of IP ports should be reserved in the workload network namespace
         type: string
+      enableBBRHostNamespaceOnly:
+        description: True if BBR is enabled only in the host network namespace
+        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string

@@ -184,9 +184,13 @@ func (m *manager) probe() error {
 		}
 	}
 
+	if !m.params.Config.EnableBBR && m.params.Config.EnableBBRHostnsOnly {
+		return fmt.Errorf("cannot enable --%s without enabling --%s", types.EnableBBRHostnsOnlyFlag, types.EnableBBRFlag)
+	}
+
 	// Going via host stack will orphan skb->sk, so we do need BPF host
 	// routing for it to work properly.
-	if m.params.Config.EnableBBR && m.params.DaemonConfig.EnableHostLegacyRouting {
+	if m.params.Config.EnableBBR && m.params.DaemonConfig.EnableHostLegacyRouting && !m.params.Config.EnableBBRHostnsOnly {
 		return fmt.Errorf("BPF bandwidth manager's BBR setup requires BPF host routing.")
 	}
 

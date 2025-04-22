@@ -21,6 +21,23 @@ Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
 in that case, given that the raw traffic can be observed on the node anyway.
 
+v1.18 Encrypted Overlay
+=========================
+Prior to v1.18, IPsec encryption was performed before tunnel encapsulation.
+From Cilium v1.18 and forward, Cilium's IPsec encryption datapath will send
+traffic for overlay encapsulation prior to IPsec encryption when tunnel mode is
+enabled.
+
+With this change, the security identities used for policy enforcement are
+encrypted on the wire. This is a security benefit.
+
+A disruption-less upgrade from v1.17 to v1.18 can only be achieved by fully
+patching v1.17 to its latest version. Migration specific code was added to
+newer v1.17 releases to support a disruption-less upgrade to v1.18.
+
+Once patched to the newest v1.17 stable release, a normal upgrade to v1.18 can
+be performed.
+
 Generate & Import the PSK
 =========================
 
@@ -225,7 +242,7 @@ payload and then the decrypted inner packet (pod-to-pod). This occurs as, once a
 is decrypted, it is recirculated back to the same interface for further processing.
 Therefore, depending on the ``tcpdump`` filter applied, the capture might differ, but this
 **does not** indicate that encryption is not functioning correctly. In particular, to observe:
-    
+
 1. Only the encrypted packet: use the filter ``esp``.
 2. Only the decrypted packet: use a specific filter for the protocol used by the pods (such as ``icmp`` for ping).
 3. Both encrypted and decrypted packets: use no filter or combine the filters for both (such as ``esp or icmp``).
