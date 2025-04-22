@@ -17,9 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	operator_k8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -56,9 +58,9 @@ func TestConflictResolution(t *testing.T) {
 	// Phase 2, resolving the conflict
 
 	// Remove the conflicting range
-	poolB.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolB.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
-			Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR("FF::0/48"),
+			Cidr: cilium_api_v2.IPv4orIPv6CIDR("FF::0/48"),
 		},
 	}
 	fixture.UpsertPool(t, poolB)
@@ -82,7 +84,7 @@ func TestPoolInternalConflict(t *testing.T) {
 		t.Fatal("Pool A should be conflicting")
 	}
 
-	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.10.0/24",
 		},
@@ -1311,7 +1313,7 @@ func TestChangeServiceType(t *testing.T) {
 // TestAllowFirstLastIPs tests that first and last IPs are assigned when we set .spec.allowFirstLastIPs to yes.
 func TestAllowFirstLastIPs(t *testing.T) {
 	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
-	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
+	pool.Spec.AllowFirstLastIPs = cilium_api_v2.AllowFirstLastIPYes
 	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, pool)
 
@@ -1356,7 +1358,7 @@ func TestAllowFirstLastIPs(t *testing.T) {
 func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Add pool which does not allow first and last IPs
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
-	poolA.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPNo
+	poolA.Spec.AllowFirstLastIPs = cilium_api_v2.AllowFirstLastIPNo
 	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
@@ -1401,7 +1403,7 @@ func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Then update the pool and confirm that the service got the first IP.
 
 	poolA = fixture.GetPool("pool-a")
-	poolA.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
+	poolA.Spec.AllowFirstLastIPs = cilium_api_v2.AllowFirstLastIPYes
 	fixture.UpsertPool(t, poolA)
 
 	svcA = fixture.GetSvc("default", "service-a")
@@ -1695,7 +1697,7 @@ func TestAddRange(t *testing.T) {
 	}
 
 	poolA = fixture.GetPool("pool-a")
-	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	fixture.UpsertPool(t, poolA)
@@ -1857,7 +1859,7 @@ func TestRangeDelete(t *testing.T) {
 
 	poolA = fixture.GetPool("pool-a")
 	// Add a new CIDR, this should not have any effect on the existing service.
-	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	fixture.UpsertPool(t, poolA)
@@ -1874,7 +1876,7 @@ func TestRangeDelete(t *testing.T) {
 
 	poolA = fixture.GetPool("pool-a")
 	// Remove the existing range, this should trigger the re-allocation of the existing service
-	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.20.0/24",
 		},
@@ -2398,7 +2400,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
 			k8s.ServiceResource,
-			k8s.LBIPPoolsResource,
+			operator_k8s.LBIPPoolsResource,
 		),
 
 		// Expose cells for testing
@@ -2420,7 +2422,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 
 	// Create a service which shouldn't be processed
 	fakeK8s := fakeClientset.SlimFakeClientset.CoreV1()
-	fakePools := fakeClientset.CiliumFakeClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools()
+	fakePools := fakeClientset.CiliumFakeClientset.CiliumV2().CiliumLoadBalancerIPPools()
 	_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name: "service-a",
@@ -2441,12 +2443,12 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 	}, 3*time.Second, 100*time.Millisecond)
 
 	// Create a pool, this should wake up LBIPAM
-	_, err = fakePools.Create(t.Context(), &cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
+	_, err = fakePools.Create(t.Context(), &cilium_api_v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "pool-a",
 		},
-		Spec: cilium_api_v2alpha1.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+		Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "10.0.0.0/24",
 				},

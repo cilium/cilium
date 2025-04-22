@@ -118,3 +118,14 @@ func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.Li
 		),
 		nil
 }
+
+func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumLoadBalancerIPPools()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](lc, lw, resource.WithMetric("CiliumLoadBalancerIPPool")), nil
+}
