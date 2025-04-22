@@ -1324,7 +1324,7 @@ func Test_AdvertisedPathAttributes(t *testing.T) {
 				if step.op == "add" {
 					err = ciliumTracker.Add(&lbPoolObj)
 				} else {
-					err = ciliumTracker.Update(v2alpha1.SchemeGroupVersion.WithResource("ciliumloadbalancerippool"), &lbPoolObj, "")
+					err = ciliumTracker.Update(v2.SchemeGroupVersion.WithResource("ciliumloadbalancerippool"), &lbPoolObj, "")
 				}
 				require.NoError(t, err, step.description)
 			}
