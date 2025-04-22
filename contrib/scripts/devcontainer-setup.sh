@@ -6,7 +6,7 @@ set -e
 
 ### User Setting
 
-KUBERNETES_VERSION=v1.32
+KUBERNETES_VERSION=v1.33
 KIND_VERSION=v0.25.0
 CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
 CLI_ARCH=amd64
