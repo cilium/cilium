@@ -4,6 +4,14 @@
 #pragma once
 
 #include "lib/common.h"
+#include "lib/l4.h"
+#include "lib/ipv4.h"
+#include "lib/ipv6.h"
+
+/* Wireguard-encrypted packets are observed from from-netdev */
+#if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
+# define CLASSIFIERS_FROM_NETDEV
+#endif
 
 /* Layer 3 packets are observed from the WireGuard device cilium_wg0 */
 #if defined(IS_BPF_WIREGUARD)
@@ -43,3 +51,56 @@ ctx_device_classifiers(const struct __ctx_buff *ctx __maybe_unused)
 #define ctx_device_classifiers4(ctx) ((cls_flags_t)0)
 #define ctx_device_classifiers6(ctx) ((cls_flags_t)CLS_FLAG_IPV6)
 #endif /* CLASSIFIERS_DEVICE */
+
+#ifdef CLASSIFIERS_FROM_NETDEV
+/* Compute from_netdev classifiers upon receiving an ingress network packet:
+ * - CLS_FLAG_WIREGUARD, in case of a WireGuard packet (l4 WG_PORT)
+ */
+static __always_inline cls_flags_t
+ctx_from_netdev_classifiers(struct __ctx_buff *ctx, int l4_off, __u8 protocol)
+{
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} l4;
+
+	if (protocol != IPPROTO_UDP)
+		goto out;
+
+	if (l4_load_ports(ctx, l4_off + UDP_SPORT_OFF, &l4.sport) < 0)
+		goto out;
+
+#if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
+	if (l4.sport == bpf_htons(WG_PORT) || l4.dport == bpf_htons(WG_PORT))
+		return CLS_FLAG_WIREGUARD;
+#endif
+
+out:
+	return 0;
+}
+
+static __always_inline cls_flags_t
+ctx_from_netdev_classifiers4(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	__u8 next_proto = ip4->protocol;
+	int hdrlen = ipv4_hdrlen(ip4);
+
+	return ctx_from_netdev_classifiers(ctx, ETH_HLEN + hdrlen, next_proto);
+}
+
+static __always_inline cls_flags_t
+ctx_from_netdev_classifiers6(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
+{
+	__u8 next_proto = ip6->nexthdr;
+	int hdrlen = ipv6_hdrlen(ctx, &next_proto);
+
+	if (likely(hdrlen <= 0))
+		return CLS_FLAG_IPV6;
+
+	return CLS_FLAG_IPV6 | ctx_from_netdev_classifiers(ctx, ETH_HLEN + hdrlen, next_proto);
+}
+#else
+#define ctx_from_netdev_classifiers(ctx, l4_off, protocol) ((cls_flags_t)0)
+#define ctx_from_netdev_classifiers4(ctx, ip4)             ((cls_flags_t)0)
+#define ctx_from_netdev_classifiers6(ctx, ip6)             ((cls_flags_t)CLS_FLAG_IPV6)
+#endif /* CLASSIFIERS_FROM_NETDEV */
