@@ -4,11 +4,11 @@
 package egressgateway
 
 import (
+	"log/slog"
 	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"log/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
