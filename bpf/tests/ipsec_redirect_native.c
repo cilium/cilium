@@ -12,21 +12,14 @@ PKTGEN("tc", "ipsec_redirect")
 int ipsec_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)SOURCE_MAC, (__u8 *)DST_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)SOURCE_MAC, (__u8 *)DST_MAC,
+				      SOURCE_IP, DST_IP);
 	if (!l3)
 		return TEST_ERROR;
-	l3->saddr = SOURCE_IP;
-	l3->daddr = DST_IP;
 
 	pktgen__finish(&builder);
 	return 0;
