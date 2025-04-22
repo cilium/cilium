@@ -27,5 +27,5 @@ cilium-dbg service get <service id> [flags]
 
 ### SEE ALSO
 
-* [cilium-dbg service](cilium-dbg_service.md)	 - Manage services & loadbalancers
+* [cilium-dbg service](cilium-dbg_service.md)	 - List services & loadbalancers
 
