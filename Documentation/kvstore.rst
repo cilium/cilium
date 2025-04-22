@@ -52,7 +52,7 @@ Key                                                           Value
 ``cilium/state/services/v1/<cluster>/<namespace>/<service>``  serviceStore.ClusterService_
 ============================================================= ====================
 
-.. _serviceStore.ClusterService: https://pkg.go.dev/github.com/cilium/cilium/pkg/service/store#ClusterService
+.. _serviceStore.ClusterService: https://pkg.go.dev/github.com/cilium/cilium/pkg/clustermesh/store#ClusterService
 
 Identities
 ----------
