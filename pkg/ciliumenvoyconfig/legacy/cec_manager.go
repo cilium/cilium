@@ -49,7 +49,7 @@ type cecManager struct {
 	services  resource.Resource[*slim_corev1.Service]
 	endpoints resource.Resource[*k8s.Endpoints]
 
-	metricsManager ciliumenvoyconfig.CECMetrics
+	metricsManager ciliumenvoyconfig.FeatureMetrics
 }
 
 func newCiliumEnvoyConfigManager(logger *slog.Logger,
@@ -62,7 +62,7 @@ func newCiliumEnvoyConfigManager(logger *slog.Logger,
 	maxConcurrentRetries uint32,
 	services resource.Resource[*slim_corev1.Service],
 	endpoints resource.Resource[*k8s.Endpoints],
-	metricsManager ciliumenvoyconfig.CECMetrics,
+	metricsManager ciliumenvoyconfig.FeatureMetrics,
 ) *cecManager {
 	return &cecManager{
 		logger:               logger,

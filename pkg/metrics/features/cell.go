@@ -53,7 +53,7 @@ var Cell = cell.Module(
 		func(m Metrics) k8s.SVCMetrics {
 			return m
 		},
-		func(m Metrics) ciliumenvoyconfig.CECMetrics {
+		func(m Metrics) ciliumenvoyconfig.FeatureMetrics {
 			return m
 		},
 		func(m Metrics) k8s2.CNPMetrics {
