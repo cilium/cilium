@@ -53,7 +53,7 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == CTX_ACT_REDIRECT);
 
 	/* assert we set the correct mark */
-	assert(ctx->mark == TARGET_MARK);
+	assert(ctx->mark == ipsec_encode_encryption_mark(TARGET_SPI, DST_NODE_ID));
 
 	/* the original source layer 2 address should be the destination for
 	 * hairpin redirect
