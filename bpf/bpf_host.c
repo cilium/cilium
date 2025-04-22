@@ -1053,7 +1053,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
-		.flags = 0,
+		.flags = from_host ? ctx_classify_by_pkt_mark(ctx) : 0,
 	};
 	__u32 __maybe_unused ipcache_srcid = 0;
 	void __maybe_unused *data, *data_end;
@@ -1329,7 +1329,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
-		.flags = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	__be16 __maybe_unused proto = 0;
 	__u32 vlan_id;
@@ -1594,8 +1594,6 @@ skip_egress_gateway:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.flags = CLS_FLAG_WIREGUARD;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
@@ -1653,7 +1651,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
-		.flags = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	int ret = CTX_ACT_OK;
 	bool traced = false;
@@ -1801,7 +1799,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
-		.flags = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);
@@ -1830,7 +1828,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
-		.flags = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);

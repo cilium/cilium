@@ -343,7 +343,7 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
-		.flags = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 
 	if (magic == MARK_MAGIC_IDENTITY)

@@ -95,6 +95,30 @@ int ctx_classify_by_eth_hlen_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
+PKTGEN("tc", "ctx_classify_by_pkt_mark")
+static __always_inline int
+ctx_classify_by_pkt_mark_pktgen(struct __ctx_buff *ctx) {
+	return pktgen(ctx, true, bpf_htons(WG_PORT), tcp_src_two);
+}
+
+CHECK("tc", "ctx_classify_by_pkt_mark")
+int ctx_classify_by_pkt_mark_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	adjust_l2(ctx);
+
+	cls_flags_t flags;
+
+	ctx->mark = MARK_MAGIC_WG_ENCRYPTED;
+
+	flags = ctx_classify_by_pkt_mark(ctx);
+
+	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
+
+	test_finish();
+}
+
 PKTGEN("tc", "ctx_classify_by_pkt_hdr4")
 static __always_inline int
 ctx_classify_by_pkt_hdr4_pktgen(struct __ctx_buff *ctx) {

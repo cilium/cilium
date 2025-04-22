@@ -17,6 +17,7 @@
  */
 # if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
 # define ENABLE_PKT_HDR_CLASSIFIERS 1
+# define ENABLE_PKT_MARK_CLASSIFIERS 1
 # endif
 #endif
 
@@ -68,6 +69,20 @@ ctx_classify_by_eth_hlen6(const struct __ctx_buff *ctx __maybe_unused)
 #ifdef ENABLE_ETH_HDR_CLASSIFIERS
 	return ctx_classify_by_eth_hlen(ctx) | CLS_FLAG_IPV6;
 #endif /* ENABLE_ETH_HDR_CLASSIFIERS */
+
+	return 0;
+}
+
+/* Compute classifiers by looking at the packet mark:
+ * - CLS_FLAG_WIREGUARD: MARK_MAGIC_WG_ENCRYPTED set;
+ */
+static __always_inline cls_flags_t
+ctx_classify_by_pkt_mark(struct __ctx_buff *ctx __maybe_unused)
+{
+#ifdef ENABLE_PKT_MARK_CLASSIFIERS
+	if (is_defined(IS_BPF_HOST) && ctx_is_wireguard(ctx))
+		return CLS_FLAG_WIREGUARD;
+#endif /* ENABLE_PKT_MARK_CLASSIFIERS*/
 
 	return 0;
 }
