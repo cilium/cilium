@@ -169,7 +169,9 @@ jobs:
       - name: Prepare environment
         timeout-minutes: 15
         run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
           go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
 
       - name: Run integration tests
