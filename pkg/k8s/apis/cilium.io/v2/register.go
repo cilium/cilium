@@ -165,6 +165,17 @@ const (
 	BGPNCOPluralName     = "ciliumbgpnodeconfigoverrides"
 	BGPNCOKindDefinition = "CiliumBGPNodeConfigOverride"
 	BGPNCOName           = BGPNCOPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Load Balancer IP Pool (IPPool)
+
+	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
+	PoolPluralName = "ciliumloadbalancerippools"
+
+	// PoolKindDefinition is the kind name of Cilium Peering Policy
+	PoolKindDefinition = "CiliumLoadBalancerIPPool"
+
+	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
+	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -240,6 +251,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPNodeConfigList{},
 		&CiliumBGPNodeConfigOverride{},
 		&CiliumBGPNodeConfigOverrideList{},
+		&CiliumLoadBalancerIPPool{},
+		&CiliumLoadBalancerIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
