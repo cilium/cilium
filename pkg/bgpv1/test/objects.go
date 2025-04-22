@@ -147,8 +147,8 @@ type lbPoolConfig struct {
 }
 
 // newLBPoolObj creates CiliumLoadBalancerIPPool object based on lbSrvConfig
-func newLBPoolObj(conf lbPoolConfig) v2alpha1.CiliumLoadBalancerIPPool {
-	obj := v2alpha1.CiliumLoadBalancerIPPool{
+func newLBPoolObj(conf lbPoolConfig) v2.CiliumLoadBalancerIPPool {
+	obj := v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              conf.name,
 			UID:               uid,
@@ -160,7 +160,7 @@ func newLBPoolObj(conf lbPoolConfig) v2alpha1.CiliumLoadBalancerIPPool {
 		obj.Labels = conf.labels
 	}
 	for _, cidr := range conf.cidrs {
-		obj.Spec.Blocks = append(obj.Spec.Blocks, v2alpha1.CiliumLoadBalancerIPPoolIPBlock{Cidr: v2alpha1.IPv4orIPv6CIDR(cidr)})
+		obj.Spec.Blocks = append(obj.Spec.Blocks, v2.CiliumLoadBalancerIPPoolIPBlock{Cidr: v2.IPv4orIPv6CIDR(cidr)})
 	}
 	return obj
 }
