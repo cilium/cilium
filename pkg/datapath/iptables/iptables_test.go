@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -795,27 +797,28 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 	}
 }
 
-func TestVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
+func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, protocol tunnel.EncapProtocol, port int) {
 	mockManager := &Manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
 			EnableIPv6:       true,
 			TunnelingEnabled: true,
 		},
+		tunnelCfg: tunnel.NewTestConfig(protocol),
 	}
 
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
-	expected := "-t raw -A %s -p udp --dport 8472 -m comment --comment cilium: NOTRACK for VXLAN traffic -j CT --notrack"
+	expected := "-t raw -A %s -p udp --dport %d -m comment --comment cilium: NOTRACK for tunnel traffic -j CT --notrack"
 
 	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "CILIUM_PRE_raw")},
-		{args: fmt.Sprintf(expected, "CILIUM_OUTPUT_raw")},
+		{args: fmt.Sprintf(expected, "CILIUM_PRE_raw", port)},
+		{args: fmt.Sprintf(expected, "CILIUM_OUTPUT_raw", port)},
 	}
 	mockIp6tables.expectations = mockIp4tables.expectations
 
-	if err := mockManager.installVxlanNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
 		t.Error(err)
 	}
 
@@ -827,13 +830,22 @@ func TestVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
 	}
 }
 
-func TestVxlanNoTrackRulesTunnelingDisabled(t *testing.T) {
+func TestTunnelVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
+	testTunnelNoTrackRulesTunnelingEnabled(t, tunnel.VXLAN, 8472)
+}
+
+func TestTunnelGeneveNoTrackRulesTunnelingEnabled(t *testing.T) {
+	testTunnelNoTrackRulesTunnelingEnabled(t, tunnel.Geneve, 6081)
+}
+
+func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
 	mockManager := &Manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
 			EnableIPv6:       true,
 			TunnelingEnabled: false,
 		},
+		tunnelCfg: tunnel.NewTestConfig(tunnel.Disabled),
 	}
 
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
@@ -842,7 +854,7 @@ func TestVxlanNoTrackRulesTunnelingDisabled(t *testing.T) {
 	// With tunneling disabled, we don't expect any `iptables` or `ip6tables`
 	// rules to be added, so leave `mockIp6tables.expectations` empty.
 
-	if err := mockManager.installVxlanNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
 		t.Error(err)
 	}
 
