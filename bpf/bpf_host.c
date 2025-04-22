@@ -1338,7 +1338,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
+	if (magic == MARK_MAGIC_HOST || ctx_is_overlay(ctx) || ctx_is_wireguard(ctx))
 		src_sec_identity = HOST_ID;
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
@@ -1588,7 +1588,7 @@ skip_egress_gateway:
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
 	 */
-	if (!ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_is_wireguard(ctx)) {
 		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
@@ -1613,7 +1613,7 @@ skip_egress_gateway:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_wireguard(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
