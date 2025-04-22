@@ -29,6 +29,7 @@
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
+#include "lib/eps.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
@@ -47,7 +48,6 @@
 #include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
-#include "lib/eps.h"
 #endif /* ENABLE_VTEP */
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK

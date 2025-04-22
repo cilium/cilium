@@ -6,6 +6,7 @@
 #include <bpf/config/node.h>
 
 #include "lib/common.h"
+#include "lib/eps.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"

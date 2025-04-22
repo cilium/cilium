@@ -13,6 +13,7 @@
 #if defined(ENABLE_HOST_FIREWALL)
 
 #include "auth.h"
+#include "eps.h"
 #include "policy.h"
 #include "proxy.h"
 #include "trace.h"
