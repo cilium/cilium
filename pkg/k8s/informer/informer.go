@@ -83,7 +83,6 @@ func NewInformerWithStore(
 		ListerWatcher:    lw,
 		ObjectType:       objType,
 		FullResyncPeriod: resyncPeriod,
-		RetryOnError:     false,
 
 		Process: func(obj any, isInInitialList bool) error {
 			// from oldest to newest

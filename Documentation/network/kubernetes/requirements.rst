@@ -18,10 +18,10 @@ with this Cilium version. Older Kubernetes versions not listed here do not have
 Cilium support. Newer Kubernetes versions, while not listed, will depend on the
 backward compatibility offered by Kubernetes.
 
-* 1.29
 * 1.30
 * 1.31
 * 1.32
+* 1.33
 
 Additionally, Cilium runs e2e tests against various cloud providers' managed
 Kubernetes offerings using multiple Kubernetes versions. See the following links
