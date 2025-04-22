@@ -229,6 +229,10 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		ip.Encrypted = tn.IsEncrypted()
 	}
 
+	if dn != nil && ip != nil {
+		ip.Encrypted = dn.IsEncrypted()
+	}
+
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
 	datapathContext := common.DatapathContext{
 		SrcIP:                 srcIP,

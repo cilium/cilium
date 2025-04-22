@@ -21,6 +21,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = 0,
 	};
 	enum trace_point obs_point_to = TRACE_TO_STACK;
 	enum trace_point obs_point_from = TRACE_FROM_NETWORK;
@@ -54,25 +55,25 @@ int cil_from_network(struct __ctx_buff *ctx)
  * 3. Non-ESP packets coming from stack re-inserted by xfrm (plain
  *    and marked with MARK_MAGIC_DECRYPT, IPSec mode only)
  *
- * 1. will be traced with TRACE_REASON_ENCRYPTED, because
+ * 1. will be traced with CLS_FLAG_IPSEC, because
  * do_decrypt marks them with MARK_MAGIC_DECRYPT.
  *
- * 2. will be traced without TRACE_REASON_ENCRYPTED, because
+ * 2. will be traced without CLS_FLAG_IPSEC, because
  * do_decrypt does't touch to mark.
  *
- * 3. will be traced without TRACE_REASON_ENCRYPTED, because
+ * 3. will be traced without CLS_FLAG_IPSEC, because
  * do_decrypt clears the mark.
  *
  * Note that 1. contains the ESP packets someone else generated.
  * In that case, we trace it as "encrypted", but it doesn't mean
  * "encrypted by Cilium".
  *
- * We won't use TRACE_REASON_ENCRYPTED even if the packets are ESP,
+ * We won't use CLS_FLAG_IPSEC even if the packets are ESP,
  * because it doesn't matter for the non-IPSec mode.
  */
 #ifdef ENABLE_IPSEC
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
-		trace.reason = TRACE_REASON_ENCRYPTED;
+		trace.flags = CLS_FLAG_IPSEC;
 
 	/* Only possible redirect in here is the one in the do_decrypt
 	 * which redirects to cilium_host.
@@ -82,13 +83,13 @@ int cil_from_network(struct __ctx_buff *ctx)
 #endif
 
 out:
-	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+	send_trace_notify_flags(ctx, obs_point_from, UNKNOWN_ID,
+				UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ingress_ifindex,
+				trace.reason, trace.monitor, trace.flags);
 
-	send_trace_notify(ctx, obs_point_to, UNKNOWN_ID, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+	send_trace_notify_flags(ctx, obs_point_to, UNKNOWN_ID,
+				UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ingress_ifindex,
+				trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
