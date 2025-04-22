@@ -8,7 +8,6 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/envoy"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
@@ -76,8 +75,8 @@ func newExperimentalMetrics() experimentalMetrics {
 }
 
 type CECMetrics interface {
-	AddCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
-	DelCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
-	AddCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
-	DelCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
+	AddCEC()
+	DelCEC()
+	AddCCEC()
+	DelCCEC()
 }

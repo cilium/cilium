@@ -106,6 +106,9 @@ func TestScript(t *testing.T) {
 					cell.Provide(
 						newCECResourceParser,
 						func(log *slog.Logger) PortAllocator { return staticPortAllocator{log} },
+						func() CECMetrics {
+							return mockFeatureMetrics{}
+						},
 					),
 					node.LocalNodeStoreCell,
 					cell.Invoke(func(lns_ *node.LocalNodeStore) { lns = lns_ }),
@@ -499,3 +502,24 @@ func (s staticPortAllocator) ReleaseProxyPort(name string) error {
 }
 
 var _ PortAllocator = staticPortAllocator{}
+
+type mockFeatureMetrics struct {
+}
+
+// AddCCEC implements CECMetrics.
+func (m mockFeatureMetrics) AddCCEC() {
+}
+
+// AddCEC implements CECMetrics.
+func (m mockFeatureMetrics) AddCEC() {
+}
+
+// DelCCEC implements CECMetrics.
+func (m mockFeatureMetrics) DelCCEC() {
+}
+
+// DelCEC implements CECMetrics.
+func (m mockFeatureMetrics) DelCEC() {
+}
+
+var _ CECMetrics = mockFeatureMetrics{}
