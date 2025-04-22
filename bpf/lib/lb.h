@@ -998,6 +998,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
+	union v6addr saddr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
@@ -1007,6 +1008,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 #endif
+
+	ipv6_addr_copy(&saddr, &tuple->saddr);
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -1103,9 +1106,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 #endif
 
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
-	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-	    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
-		return CTX_ACT_OK;
+	if (ipv6_addr_equals(&saddr, &backend->address)) {
+		if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+		    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+			return CTX_ACT_OK;
+	}
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE */
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
