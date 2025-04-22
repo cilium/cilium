@@ -33,6 +33,7 @@ struct {
 	__type(value, struct ipv4_frag_l4ports);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv4_frag_datagrams __section_maps_btf;
 #endif
 
