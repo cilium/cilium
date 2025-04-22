@@ -74,7 +74,6 @@ type apiParams struct {
 	PolicyDeletePolicyHandler            policy.DeletePolicyHandler
 	PrefilterDeletePrefilterHandler      prefilter.DeletePrefilterHandler
 	RecorderDeleteRecorderIDHandler      recorder.DeleteRecorderIDHandler
-	ServiceDeleteServiceIDHandler        service.DeleteServiceIDHandler
 	BgpGetBgpPeersHandler                bgp.GetBgpPeersHandler
 	BgpGetBgpRoutePoliciesHandler        bgp.GetBgpRoutePoliciesHandler
 	BgpGetBgpRoutesHandler               bgp.GetBgpRoutesHandler
@@ -119,7 +118,6 @@ type apiParams struct {
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
 	PolicyPutPolicyHandler               policy.PutPolicyHandler
 	RecorderPutRecorderIDHandler         recorder.PutRecorderIDHandler
-	ServicePutServiceIDHandler           service.PutServiceIDHandler
 }
 
 func newAPI(p apiParams) *restapi.CiliumAPIAPI {
@@ -134,7 +132,6 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.PolicyDeletePolicyHandler = p.PolicyDeletePolicyHandler
 	api.PrefilterDeletePrefilterHandler = p.PrefilterDeletePrefilterHandler
 	api.RecorderDeleteRecorderIDHandler = p.RecorderDeleteRecorderIDHandler
-	api.ServiceDeleteServiceIDHandler = p.ServiceDeleteServiceIDHandler
 	api.BgpGetBgpPeersHandler = p.BgpGetBgpPeersHandler
 	api.BgpGetBgpRoutePoliciesHandler = p.BgpGetBgpRoutePoliciesHandler
 	api.BgpGetBgpRoutesHandler = p.BgpGetBgpRoutesHandler
@@ -179,7 +176,6 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.EndpointPutEndpointIDHandler = p.EndpointPutEndpointIDHandler
 	api.PolicyPutPolicyHandler = p.PolicyPutPolicyHandler
 	api.RecorderPutRecorderIDHandler = p.RecorderPutRecorderIDHandler
-	api.ServicePutServiceIDHandler = p.ServicePutServiceIDHandler
 
 	// Inject custom middleware if provided by Hive
 	if p.Middleware != nil {

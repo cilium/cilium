@@ -2,7 +2,7 @@
 
 ## cilium-dbg service
 
-Manage services & loadbalancers
+List services & loadbalancers
 
 ### Options
 
@@ -23,8 +23,6 @@ Manage services & loadbalancers
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg service delete](cilium-dbg_service_delete.md)	 - Delete a service
 * [cilium-dbg service get](cilium-dbg_service_get.md)	 - Display service information
 * [cilium-dbg service list](cilium-dbg_service_list.md)	 - List services
-* [cilium-dbg service update](cilium-dbg_service_update.md)	 - Update a service
 

@@ -47,7 +47,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters
 * [cilium-dbg preflight](cilium-dbg_preflight.md)	 - Cilium upgrade helper
 * [cilium-dbg recorder](cilium-dbg_recorder.md)	 - Introspect or mangle pcap recorder
-* [cilium-dbg service](cilium-dbg_service.md)	 - Manage services & loadbalancers
+* [cilium-dbg service](cilium-dbg_service.md)	 - List services & loadbalancers
 * [cilium-dbg shell](cilium-dbg_shell.md)	 - Connect to the Cilium shell
 * [cilium-dbg statedb](cilium-dbg_statedb.md)	 - Inspect StateDB (deprecated)
 * [cilium-dbg status](cilium-dbg_status.md)	 - Display status of daemon

@@ -75,9 +75,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		RecorderDeleteRecorderIDHandler: recorder.DeleteRecorderIDHandlerFunc(func(params recorder.DeleteRecorderIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation recorder.DeleteRecorderID has not yet been implemented")
 		}),
-		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.DeleteServiceID has not yet been implemented")
-		}),
 		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
 			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
 		}),
@@ -210,9 +207,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		RecorderPutRecorderIDHandler: recorder.PutRecorderIDHandlerFunc(func(params recorder.PutRecorderIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation recorder.PutRecorderID has not yet been implemented")
 		}),
-		ServicePutServiceIDHandler: service.PutServiceIDHandlerFunc(func(params service.PutServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.PutServiceID has not yet been implemented")
-		}),
 	}
 }
 
@@ -263,8 +257,6 @@ type CiliumAPIAPI struct {
 	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
 	// RecorderDeleteRecorderIDHandler sets the operation handler for the delete recorder ID operation
 	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
-	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
-	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
 	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
 	// BgpGetBgpRoutePoliciesHandler sets the operation handler for the get bgp route policies operation
@@ -353,8 +345,6 @@ type CiliumAPIAPI struct {
 	PolicyPutPolicyHandler policy.PutPolicyHandler
 	// RecorderPutRecorderIDHandler sets the operation handler for the put recorder ID operation
 	RecorderPutRecorderIDHandler recorder.PutRecorderIDHandler
-	// ServicePutServiceIDHandler sets the operation handler for the put service ID operation
-	ServicePutServiceIDHandler service.PutServiceIDHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -452,9 +442,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.RecorderDeleteRecorderIDHandler == nil {
 		unregistered = append(unregistered, "recorder.DeleteRecorderIDHandler")
-	}
-	if o.ServiceDeleteServiceIDHandler == nil {
-		unregistered = append(unregistered, "service.DeleteServiceIDHandler")
 	}
 	if o.BgpGetBgpPeersHandler == nil {
 		unregistered = append(unregistered, "bgp.GetBgpPeersHandler")
@@ -588,9 +575,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.RecorderPutRecorderIDHandler == nil {
 		unregistered = append(unregistered, "recorder.PutRecorderIDHandler")
 	}
-	if o.ServicePutServiceIDHandler == nil {
-		unregistered = append(unregistered, "service.PutServiceIDHandler")
-	}
 
 	if len(unregistered) > 0 {
 		return fmt.Errorf("missing registration: %s", strings.Join(unregistered, ", "))
@@ -707,10 +691,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/recorder/{id}"] = recorder.NewDeleteRecorderID(o.context, o.RecorderDeleteRecorderIDHandler)
-	if o.handlers["DELETE"] == nil {
-		o.handlers["DELETE"] = make(map[string]http.Handler)
-	}
-	o.handlers["DELETE"]["/service/{id}"] = service.NewDeleteServiceID(o.context, o.ServiceDeleteServiceIDHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
@@ -887,10 +867,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
 	o.handlers["PUT"]["/recorder/{id}"] = recorder.NewPutRecorderID(o.context, o.RecorderPutRecorderIDHandler)
-	if o.handlers["PUT"] == nil {
-		o.handlers["PUT"] = make(map[string]http.Handler)
-	}
-	o.handlers["PUT"]["/service/{id}"] = service.NewPutServiceID(o.context, o.ServicePutServiceIDHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP
