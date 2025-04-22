@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -36,7 +35,6 @@ var Cell = cell.Module(
 	cell.Invoke(registerCECK8sReconciler),
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
-	cell.ProvidePrivate(newPortAllocator),
 )
 
 type reconcilerParams struct {
@@ -135,14 +133,10 @@ type managerParams struct {
 	Services  resource.Resource[*slim_corev1.Service]
 	Endpoints resource.Resource[*k8s.Endpoints]
 
-	MetricsManager ciliumenvoyconfig.CECMetrics
+	MetricsManager ciliumenvoyconfig.FeatureMetrics
 }
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
 	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer,
 		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.EnvoyConfig.ProxyMaxConcurrentRetries, params.Services, params.Endpoints, params.MetricsManager)
-}
-
-func newPortAllocator(proxy *proxy.Proxy) ciliumenvoyconfig.PortAllocator {
-	return proxy
 }

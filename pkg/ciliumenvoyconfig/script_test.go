@@ -106,15 +106,15 @@ func TestScript(t *testing.T) {
 					cell.Provide(
 						newCECResourceParser,
 						func(log *slog.Logger) PortAllocator { return staticPortAllocator{log} },
-						func() CECMetrics {
+						func() FeatureMetrics {
 							return mockFeatureMetrics{}
 						},
 					),
 					node.LocalNodeStoreCell,
 					cell.Invoke(func(lns_ *node.LocalNodeStore) { lns = lns_ }),
 				),
-				experimentalTableCells,
-				experimentalControllerCells,
+				tableCells,
+				controllerCells,
 
 				cell.ProvidePrivate(
 					func() promise.Promise[synced.CRDSync] {
@@ -522,4 +522,4 @@ func (m mockFeatureMetrics) DelCCEC() {
 func (m mockFeatureMetrics) DelCEC() {
 }
 
-var _ CECMetrics = mockFeatureMetrics{}
+var _ FeatureMetrics = mockFeatureMetrics{}
