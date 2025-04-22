@@ -151,9 +151,9 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_flags(ctx, TRACE_TO_STACK, *identity,
+					UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					TRACE_REASON_UNKNOWN, 0, CLS_FLAG_IPSEC);
 
 		return CTX_ACT_OK;
 	}
@@ -462,9 +462,9 @@ skip_vtep:
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_flags(ctx, TRACE_TO_STACK, *identity,
+					UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					TRACE_REASON_UNKNOWN, 0, CLS_FLAG_IPSEC);
 
 		return CTX_ACT_OK;
 	}
@@ -657,15 +657,15 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  * 3. Non-ESP packets coming from stack re-inserted by xfrm (plain
  *    and marked with MARK_MAGIC_DECRYPT. Only in IPSec mode.)
  *
- * 1. will be traced with TRACE_REASON_ENCRYPTED
- * 2. will be traced without TRACE_REASON_ENCRYPTED
- * 3. will be traced without TRACE_REASON_ENCRYPTED
+ * 1. will be traced with CLS_FLAG_IPSEC
+ * 2. will be traced without CLS_FLAG_IPSEC
+ * 3. will be traced without CLS_FLAG_IPSEC
  *
  * Note that 1. contains the ESP packets someone else generated.
  * In that case, we trace it as "encrypted", but it doesn't mean
  * "encrypted by Cilium".
  *
- * When IPSec is disabled, we won't use TRACE_REASON_ENCRYPTED even
+ * When IPSec is disabled, we won't use CLS_FLAG_IPSEC even
  * if the packets are ESP, because it doesn't matter for the
  * non-IPSec mode.
  */
@@ -709,9 +709,9 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_flags(ctx, TRACE_FROM_OVERLAY, src_sec_identity,
+					UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					TRACE_REASON_UNKNOWN, 0, CLS_FLAG_IPSEC);
 	else
 #endif
 	{

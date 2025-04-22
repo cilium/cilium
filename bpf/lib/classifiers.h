@@ -13,8 +13,10 @@
 typedef __u8 cls_flags_t;
 
 enum {
-	CLS_FLAG_IPV6	= (1 << 0),
-	CLS_FLAG_L3_DEV = (1 << 1),
+	CLS_FLAG_IPV6	   = (1 << 0),
+	CLS_FLAG_L3_DEV    = (1 << 1),
+	CLS_FLAG_IPSEC     = (1 << 2),
+	CLS_FLAG_WIREGUARD = (1 << 3),
 };
 
 #define EMPTY_CLASSIFIERS ((cls_flags_t)0)

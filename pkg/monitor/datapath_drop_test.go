@@ -33,7 +33,7 @@ func TestDecodeDropNotify(t *testing.T) {
 		File:     0x20,
 		ExtError: 0x21,
 		Ifindex:  0x22_23_24_25,
-		Flags:    DropNotifyFlagIsIPv6 | DropNotifyFlagIsL3Device,
+		Flags:    0x0f,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
@@ -59,6 +59,8 @@ func TestDecodeDropNotify(t *testing.T) {
 	require.Equal(t, input.Flags, output.Flags)
 	require.True(t, output.IsL3Device())
 	require.True(t, output.IsIPv6())
+	require.True(t, output.IsIPSec())
+	require.True(t, output.IsWireguard())
 }
 
 func TestDecodeDropNotifyErrors(t *testing.T) {

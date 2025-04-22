@@ -34,11 +34,6 @@ position p;
 - 0@p,
 + TRACE_REASON_UNKNOWN,
   e7, e8);
-|
-  update_trace_metrics@f(e1, e2,
-- 0@p
-+ TRACE_REASON_UNKNOWN
-  );
 )
 
 
