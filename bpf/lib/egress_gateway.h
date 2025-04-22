@@ -8,6 +8,7 @@
 #include "lib/overloadable.h"
 
 #include "encap.h"
+#include "eps.h"
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
