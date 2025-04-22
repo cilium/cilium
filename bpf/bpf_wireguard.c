@@ -284,6 +284,8 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		identity = resolve_srcid_ipv6(ctx, ip6);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
+		trace.flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
+
 		send_trace_notify_flags(ctx, TRACE_FROM_CRYPTO, identity, UNKNOWN_ID,
 					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
 					trace.reason, trace.monitor, trace.flags);
@@ -301,6 +303,8 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 
 		identity = resolve_srcid_ipv4(ctx, ip4);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
+
+		trace.flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
 
 		send_trace_notify_flags(ctx, TRACE_FROM_CRYPTO, identity, UNKNOWN_ID,
 					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,

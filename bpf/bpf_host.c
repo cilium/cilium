@@ -1059,8 +1059,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	int __maybe_unused hdrlen = 0;
-	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
@@ -1099,15 +1097,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
-# ifdef ENABLE_WIREGUARD
-		if (!from_host) {
-			next_proto = ip6->nexthdr;
-			hdrlen = ipv6_hdrlen(ctx, &next_proto);
-			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.flags = CLS_FLAG_WIREGUARD;
-		}
-# endif /* ENABLE_WIREGUARD */
+		if (!from_host)
+			trace.flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
 
 		send_trace_notify_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
 					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
@@ -1144,14 +1135,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
-#ifdef ENABLE_WIREGUARD
-		if (!from_host) {
-			next_proto = ip4->protocol;
-			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.flags = CLS_FLAG_WIREGUARD;
-		}
-#endif /* ENABLE_WIREGUARD */
+		if (!from_host)
+			trace.flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
 
 		send_trace_notify_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
 					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
