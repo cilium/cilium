@@ -37,7 +37,7 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	 */
 
 	/* fill in nodemap entry */
-	node_v4_add_entry(DST_IP, DST_NODE_ID, TARGET_SPI);
+	node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
 
 	/* fill encrypt map with node's current SPI 3 */
 	struct encrypt_config cfg = {
@@ -46,13 +46,7 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
 
 	ipcache_v4_add_entry(SOURCE_IP, 0, SOURCE_IDENTITY, 0, BAD_SPI);
-	/* this IPcache fill is not a representation of how things work during
-	 * Cilium runtime, a IPCache entry would not point to itself as its
-	 * tunnel_endpoint, this just makes the test a bit simpler.
-	 * The tunnel_endpoint is used in the IPsec hook under test below to
-	 * find the associated NodeID for an egress packet
-	 */
-	ipcache_v4_add_entry(DST_IP, 0, 0xAC, DST_IP, TARGET_SPI);
+	ipcache_v4_add_entry(DST_IP, 0, 0xAC, DST_NODE_IP, TARGET_SPI);
 
 	ret = ipsec_maybe_redirect_to_encrypt(ctx, bpf_htons(ETH_P_IP),
 					      SOURCE_IDENTITY);
