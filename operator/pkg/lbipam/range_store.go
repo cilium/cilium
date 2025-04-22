@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/pkg/ipalloc"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 type rangesStore struct {
@@ -108,7 +108,7 @@ type LBRange struct {
 	originPool string
 }
 
-func NewLBRange(from, to netip.Addr, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) (*LBRange, error) {
+func NewLBRange(from, to netip.Addr, pool *cilium_api_v2.CiliumLoadBalancerIPPool) (*LBRange, error) {
 	alloc, err := ipalloc.NewHashAllocator[[]*ServiceView](from, to, 0)
 	if err != nil {
 		return nil, fmt.Errorf("new cidr range: %w", err)
