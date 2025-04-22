@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 // meshPodInformer uses the ClusterServices to create fake pods based on each backends.
