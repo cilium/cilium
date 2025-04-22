@@ -9,8 +9,8 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/metrics"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type fakeUpstream struct {
