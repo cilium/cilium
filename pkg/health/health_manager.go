@@ -33,7 +33,7 @@ import (
 
 const (
 	controllerInterval    = 60 * time.Second
-	successfulPingTimeout = 3 * time.Minute
+	successfulPingTimeout = 5 * time.Minute
 )
 
 // Cell provides the Cilium health infrastructure that is responsible for
