@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ciliumenvoyconfig
+package legacy
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -29,17 +30,13 @@ import (
 // Cell provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 // and L7 loadbalancing.
 var Cell = cell.Module(
-	"ciliumenvoyconfig",
-	"CiliumEnvoyConfig",
+	"ciliumenvoyconfig-legacy",
+	"Legacy CiliumEnvoyConfig handling",
 
-	cell.Config(CECConfig{}),
 	cell.Invoke(registerCECK8sReconciler),
 	cell.ProvidePrivate(newCECManager),
-	cell.ProvidePrivate(newCECResourceParser),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
 	cell.ProvidePrivate(newPortAllocator),
-
-	experimentalCell,
 )
 
 type reconcilerParams struct {
@@ -53,7 +50,7 @@ type reconcilerParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	Config    CECConfig
+	Config    ciliumenvoyconfig.CECConfig
 	ExpConfig loadbalancer.Config
 	Manager   ciliumEnvoyConfigManager
 
@@ -120,19 +117,12 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	}
 }
 
-type CECMetrics interface {
-	AddCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
-	DelCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
-	AddCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
-	DelCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
-}
-
 type managerParams struct {
 	cell.In
 
 	Logger *slog.Logger
 
-	Config      CECConfig
+	Config      ciliumenvoyconfig.CECConfig
 	EnvoyConfig envoy.ProxyConfig
 
 	PolicyUpdater  *policy.Updater
@@ -140,12 +130,12 @@ type managerParams struct {
 
 	XdsServer      envoy.XDSServer
 	BackendSyncer  *envoyServiceBackendSyncer
-	ResourceParser *CECResourceParser
+	ResourceParser *ciliumenvoyconfig.CECResourceParser
 
 	Services  resource.Resource[*slim_corev1.Service]
 	Endpoints resource.Resource[*k8s.Endpoints]
 
-	MetricsManager CECMetrics
+	MetricsManager ciliumenvoyconfig.CECMetrics
 }
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
@@ -153,6 +143,6 @@ func newCECManager(params managerParams) ciliumEnvoyConfigManager {
 		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.EnvoyConfig.ProxyMaxConcurrentRetries, params.Services, params.Endpoints, params.MetricsManager)
 }
 
-func newPortAllocator(proxy *proxy.Proxy) PortAllocator {
+func newPortAllocator(proxy *proxy.Proxy) ciliumenvoyconfig.PortAllocator {
 	return proxy
 }
