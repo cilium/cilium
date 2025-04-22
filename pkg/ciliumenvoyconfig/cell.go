@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -25,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
@@ -34,7 +32,7 @@ var Cell = cell.Module(
 	"ciliumenvoyconfig",
 	"CiliumEnvoyConfig",
 
-	cell.Config(cecConfig{}),
+	cell.Config(CECConfig{}),
 	cell.Invoke(registerCECK8sReconciler),
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
@@ -43,16 +41,6 @@ var Cell = cell.Module(
 
 	experimentalCell,
 )
-
-type cecConfig struct {
-	EnvoyConfigRetryInterval time.Duration
-	EnvoyConfigTimeout       time.Duration
-}
-
-func (r cecConfig) Flags(flags *pflag.FlagSet) {
-	flags.Duration("envoy-config-retry-interval", 15*time.Second, "Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.")
-	flags.Duration("envoy-config-timeout", 2*time.Minute, "Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources")
-}
 
 type reconcilerParams struct {
 	cell.In
@@ -65,7 +53,7 @@ type reconcilerParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	Config    cecConfig
+	Config    CECConfig
 	ExpConfig loadbalancer.Config
 	Manager   ciliumEnvoyConfigManager
 
@@ -144,7 +132,7 @@ type managerParams struct {
 
 	Logger *slog.Logger
 
-	Config      cecConfig
+	Config      CECConfig
 	EnvoyConfig envoy.ProxyConfig
 
 	PolicyUpdater  *policy.Updater

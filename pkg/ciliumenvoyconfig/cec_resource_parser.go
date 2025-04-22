@@ -74,7 +74,7 @@ type parserParams struct {
 	PortAllocator  PortAllocator
 	LocalNodeStore *node.LocalNodeStore
 
-	CecConfig   cecConfig
+	CecConfig   CECConfig
 	EnvoyConfig envoy.ProxyConfig
 }
 
