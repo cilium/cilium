@@ -663,58 +663,6 @@ paths:
             "$ref": "#/definitions/Service"
         '404':
           description: Service not found
-    put:
-      summary: Create or update service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      - "$ref": "#/parameters/service-config"
-      responses:
-        '200':
-          description: Updated
-        '201':
-          description: Created
-        '403':
-          description: Forbidden
-        '460':
-          description: Invalid frontend in service configuration
-          x-go-name: InvalidFrontend
-          schema:
-            "$ref": "#/definitions/Error"
-        '461':
-          description: Invalid backend in service configuration
-          x-go-name: InvalidBackend
-          schema:
-            "$ref": "#/definitions/Error"
-        '500':
-          description: Error while creating service
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-        '501':
-          description: Error while updating backend states
-          x-go-name: UpdateBackendFailure
-          schema:
-            "$ref": "#/definitions/Error"
-    delete:
-      summary: Delete a service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      responses:
-        '200':
-          description: Success
-        '403':
-          description: Forbidden
-        '404':
-          description: Service not found
-        '500':
-          description: Service deletion failed
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
 
   "/recorder":
     get:

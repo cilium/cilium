@@ -77,11 +77,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation prefilter.DeletePrefilter has not yet been implemented")
 		})
 	}
-	if api.ServiceDeleteServiceIDHandler == nil {
-		api.ServiceDeleteServiceIDHandler = service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.DeleteServiceID has not yet been implemented")
-		})
-	}
 	if api.DaemonGetClusterNodesHandler == nil {
 		api.DaemonGetClusterNodesHandler = daemon.GetClusterNodesHandlerFunc(func(params daemon.GetClusterNodesParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetClusterNodes has not yet been implemented")
@@ -245,11 +240,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	if api.PolicyPutPolicyHandler == nil {
 		api.PolicyPutPolicyHandler = policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
-		})
-	}
-	if api.ServicePutServiceIDHandler == nil {
-		api.ServicePutServiceIDHandler = service.PutServiceIDHandlerFunc(func(params service.PutServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.PutServiceID has not yet been implemented")
 		})
 	}
 
