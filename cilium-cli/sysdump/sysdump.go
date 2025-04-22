@@ -828,20 +828,6 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting Cilium LoadBalancer IP Pools",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumLoadBalancerIPPools(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
-				}
-				if err := c.WriteYAML(ciliumLoadBalancerIPPoolsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
-				}
-				return nil
-			},
-		},
-		{
 			Description: "Collecting Cilium Pod IP Pools",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -1451,6 +1437,7 @@ func (c *Collector) Run() error {
 			},
 		},
 	}
+	ciliumTasks = append(ciliumTasks, collectCiliumV2OrV2Alpha1Resource(c, "ciliumloadbalancerippools", "Cilium LoadBalancer IP Pools"))
 
 	if c.Options.HubbleFlowsCount > 0 {
 		ciliumTasks = append(ciliumTasks, Task{
