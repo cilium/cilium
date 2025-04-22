@@ -122,7 +122,7 @@ func TestWaitForCacheSyncWithTimeout(t *testing.T) {
 					})
 				}
 
-				err := r.WaitForCacheSyncWithTimeout(test.timeout, test.resourceNames...)
+				err := r.WaitForCacheSyncWithTimeout(t.Context(), test.timeout, test.resourceNames...)
 				if test.expectErr == nil {
 					assert.NoError(err)
 				} else {
