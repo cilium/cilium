@@ -504,10 +504,10 @@ func (m *Map) openOrCreate(pin bool) error {
 		return err
 	}
 
-	m.spec.Flags |= GetPreAllocateMapFlags(m.spec.Type)
+	m.spec.Flags |= GetMapMemoryFlags(m.spec.Type)
 
 	if m.spec.InnerMap != nil {
-		m.spec.InnerMap.Flags |= GetPreAllocateMapFlags(m.spec.InnerMap.Type)
+		m.spec.InnerMap.Flags |= GetMapMemoryFlags(m.spec.InnerMap.Type)
 	}
 
 	if pin {
@@ -1437,7 +1437,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 //
 // Returns true if the map was upgraded.
 func (m *Map) CheckAndUpgrade(desired *Map) bool {
-	flags := desired.Flags() | GetPreAllocateMapFlags(desired.Type())
+	flags := desired.Flags() | GetMapMemoryFlags(desired.Type())
 
 	return objCheck(
 		m.m,

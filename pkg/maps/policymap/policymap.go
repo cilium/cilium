@@ -467,7 +467,8 @@ func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
 
 func newMap(path string) *PolicyMap {
 	mapType := ebpf.LPMTrie
-	flags := bpf.GetPreAllocateMapFlags(mapType)
+	flags := bpf.GetMapMemoryFlags(mapType)
+
 	return &PolicyMap{
 		Map: bpf.NewMap(
 			path,
