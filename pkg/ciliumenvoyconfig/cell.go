@@ -10,13 +10,12 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
+	"github.com/cilium/cilium/pkg/proxy"
 )
 
 var (
-	// experimentalCell implements handling of the Cilium(Clusterwide)EnvoyConfig handling
-	// and backend synchronization towards Envoy against the experimental load-balancing
-	// control-plane (pkg/loadbalancer/experimental). It is dormant unless 'enable-experimental-lb'
-	// is set, in which case the other implementation is disabled and this is enabled.
+	// Cell implements handling of the Cilium(Clusterwide)EnvoyConfig handling
+	// and backend synchronization towards Envoy.
 	Cell = cell.Module(
 		"ciliumenvoycnofig",
 		"CiliumEnvoyConfig handling",
@@ -30,18 +29,21 @@ var (
 			func(xds envoy.XDSServer) resourceMutator { return xds },
 		),
 
-		cell.Provide(newCECResourceParser),
+		cell.Provide(
+			newCECResourceParser,
+			newPortAllocator,
+		),
 
-		experimentalTableCells,
-		experimentalControllerCells,
+		tableCells,
+		controllerCells,
 	)
 
-	experimentalControllerCells = cell.Group(
+	controllerCells = cell.Group(
 		cell.Invoke(registerCECController),
-		metrics.Metric(newExperimentalMetrics),
+		metrics.Metric(newMetrics),
 	)
 
-	experimentalTableCells = cell.Group(
+	tableCells = cell.Group(
 		cell.ProvidePrivate(
 			NewCECTable,
 			statedb.RWTable[*CEC].ToTable,
@@ -56,12 +58,16 @@ var (
 	)
 )
 
-type experimentalMetrics struct {
+func newPortAllocator(proxy *proxy.Proxy) PortAllocator {
+	return proxy
+}
+
+type Metrics struct {
 	ControllerDuration metric.Histogram
 }
 
-func newExperimentalMetrics() experimentalMetrics {
-	return experimentalMetrics{
+func newMetrics() Metrics {
+	return Metrics{
 		ControllerDuration: metric.NewHistogram(metric.HistogramOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: "ciliumenvoyconfig",
@@ -74,7 +80,7 @@ func newExperimentalMetrics() experimentalMetrics {
 	}
 }
 
-type CECMetrics interface {
+type FeatureMetrics interface {
 	AddCEC()
 	DelCEC()
 	AddCCEC()

@@ -35,11 +35,11 @@ type cecControllerParams struct {
 	DB             *statedb.DB
 	JobGroup       job.Group
 	ExpConfig      loadbalancer.Config
-	Metrics        experimentalMetrics
+	Metrics        Metrics
 	CECs           statedb.Table[*CEC]
 	EnvoyResources statedb.RWTable[*EnvoyResource]
 	Writer         *writer.Writer
-	FeatureMetrics CECMetrics
+	FeatureMetrics FeatureMetrics
 }
 
 // cecController processes changes to Table[CEC] and populates Table[EnvoyResource]. These
@@ -169,7 +169,7 @@ type cecProcessor struct {
 	cecs           statedb.Table[*CEC]
 	writer         *writer.Writer
 	envoyResources statedb.RWTable[*EnvoyResource]
-	featureMetrics CECMetrics
+	featureMetrics FeatureMetrics
 }
 
 func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) {
