@@ -1153,6 +1153,9 @@ func initEnv(vp *viper.Viper) {
 	if option.Config.PreAllocateMaps {
 		bpf.EnableMapPreAllocation()
 	}
+	if option.Config.BPFDistributedLRU {
+		bpf.EnableMapDistributedLRU()
+	}
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Path + ".RunDir": option.Config.RunDir,
