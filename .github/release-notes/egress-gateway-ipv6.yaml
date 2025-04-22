@@ -1,0 +1,5 @@
+---
+feature-area: Egress Gateway
+release-note: |
+  Add IPv6 support for egress IP in CiliumEgressGatewayPolicy resources.
+  Previously, only IPv4 addresses were supported as egress IPs.

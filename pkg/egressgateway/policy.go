@@ -305,6 +305,9 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		policyGwc.egressIP = addr
 	}
 
+	hasIPv4Cidrs := false
+	hasIPv6Cidrs := false
+
 	for _, cidrString := range destinationCIDRs {
 		cidr, err := netip.ParsePrefix(string(cidrString))
 		if err != nil {
@@ -313,6 +316,19 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		dstCidrList = append(dstCidrList, cidr)
 		if cidr.Addr().Is6() {
 			policyGwc.v6needed = true
+			hasIPv6Cidrs = true
+		} else {
+			hasIPv4Cidrs = true
+		}
+	}
+
+	// Validate that the egress IP family matches the destination CIDR families
+	if policyGwc.egressIP.IsValid() {
+		if policyGwc.egressIP.Is4() && hasIPv6Cidrs && !hasIPv4Cidrs {
+			return nil, fmt.Errorf("IPv4 egress IP %s cannot be used with only IPv6 destination CIDRs", policyGwc.egressIP)
+		}
+		if policyGwc.egressIP.Is6() && hasIPv4Cidrs && !hasIPv6Cidrs {
+			return nil, fmt.Errorf("IPv6 egress IP %s cannot be used with only IPv4 destination CIDRs", policyGwc.egressIP)
 		}
 	}
 
