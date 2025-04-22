@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 // remoteCluster implements the clustermesh business logic on top of

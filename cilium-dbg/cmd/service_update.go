@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 var (
