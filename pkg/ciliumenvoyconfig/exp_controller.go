@@ -39,6 +39,7 @@ type cecControllerParams struct {
 	CECs           statedb.Table[*CEC]
 	EnvoyResources statedb.RWTable[*EnvoyResource]
 	Writer         *writer.Writer
+	FeatureMetrics CECMetrics
 }
 
 // cecController processes changes to Table[CEC] and populates Table[EnvoyResource]. These
@@ -107,6 +108,7 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 		cecs:           c.CECs,
 		writer:         c.Writer,
 		envoyResources: c.EnvoyResources,
+		featureMetrics: c.FeatureMetrics,
 	}
 
 	for {
@@ -167,6 +169,7 @@ type cecProcessor struct {
 	cecs           statedb.Table[*CEC]
 	writer         *writer.Writer
 	envoyResources statedb.RWTable[*EnvoyResource]
+	featureMetrics CECMetrics
 }
 
 func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) {
@@ -197,6 +200,12 @@ func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan str
 
 	// Remove orphaned envoy resources.
 	for orphan := range c.orphans {
+		if orphan.Namespace == "" {
+			c.featureMetrics.DelCCEC()
+		} else {
+			c.featureMetrics.DelCEC()
+		}
+
 		old, found, _ := c.envoyResources.Delete(wtxn, &EnvoyResource{
 			Name: EnvoyResourceName{Origin: EnvoyResourceOriginCEC, Namespace: orphan.Namespace, Name: orphan.Name},
 		})
@@ -270,6 +279,13 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 			if !new.ReferencedServices.Has(svcName) {
 				c.removeClusterReference(wtxn, cec.Name, svcName)
 			}
+		}
+	} else {
+		// First time we're processing this CEC, increment the feature metrics.
+		if cecName.Namespace == "" {
+			c.featureMetrics.AddCCEC()
+		} else {
+			c.featureMetrics.AddCEC()
 		}
 	}
 	c.envoyResources.Insert(wtxn, new)

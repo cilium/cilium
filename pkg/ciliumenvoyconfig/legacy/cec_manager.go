@@ -81,9 +81,9 @@ func newCiliumEnvoyConfigManager(logger *slog.Logger,
 
 func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	if cecObjectMeta.GetNamespace() == "" {
-		r.metricsManager.AddCCEC(cecSpec)
+		r.metricsManager.AddCCEC()
 	} else {
-		r.metricsManager.AddCEC(cecSpec)
+		r.metricsManager.AddCEC()
 	}
 	resources, err := r.resourceParser.ParseResources(
 		cecObjectMeta.GetNamespace(),
@@ -341,14 +341,14 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 	newCECObjectMeta metav1.ObjectMeta, newCECSpec *ciliumv2.CiliumEnvoyConfigSpec,
 ) error {
 	if oldCECObjectMeta.GetNamespace() == "" {
-		r.metricsManager.DelCCEC(oldCECSpec)
+		r.metricsManager.DelCCEC()
 	} else {
-		r.metricsManager.DelCEC(oldCECSpec)
+		r.metricsManager.DelCEC()
 	}
 	if newCECObjectMeta.GetNamespace() == "" {
-		r.metricsManager.AddCCEC(newCECSpec)
+		r.metricsManager.AddCCEC()
 	} else {
-		r.metricsManager.AddCEC(newCECSpec)
+		r.metricsManager.AddCEC()
 	}
 	oldResources, err := r.resourceParser.ParseResources(
 		oldCECObjectMeta.GetNamespace(),
@@ -462,9 +462,9 @@ func (r *cecManager) removeK8sServiceRedirects(resourceName service.L7LBResource
 
 func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	if cecObjectMeta.GetNamespace() == "" {
-		r.metricsManager.DelCCEC(cecSpec)
+		r.metricsManager.DelCCEC()
 	} else {
-		r.metricsManager.DelCEC(cecSpec)
+		r.metricsManager.DelCEC()
 	}
 	resources, err := r.resourceParser.ParseResources(
 		cecObjectMeta.GetNamespace(),
