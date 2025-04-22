@@ -197,7 +197,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->backend_id = (__u32)entry->backend_id;
 		state->syn = syn;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 		state->loopback = entry->lb_loopback;
 #endif
 		state->node_port = entry->node_port;
@@ -966,7 +966,7 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 	if (dir == CT_SERVICE) {
 		entry->backend_id = state->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 		entry->lb_loopback = state->loopback;
 #endif
 		entry->node_port = state->node_port;
@@ -1099,7 +1099,7 @@ err_ct_fill_up:
 	return DROP_CT_CREATE_FAILED;
 }
 
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 {

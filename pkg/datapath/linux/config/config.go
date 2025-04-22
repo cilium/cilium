@@ -950,9 +950,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 	if e.IsHost() {
 		// Only used to differentiate between host endpoint template and other templates.
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
-		if option.Config.EnableNodePort {
-			fmt.Fprintf(fw, "#define DISABLE_LOOPBACK_LB 1\n")
-		}
 	}
 
 	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(hostEndpointID))
