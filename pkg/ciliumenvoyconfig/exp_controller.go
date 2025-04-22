@@ -376,6 +376,8 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 	}
 }
 
+const anyPort = "*"
+
 func computeLoadAssignments(
 	serviceName loadbalancer.ServiceName,
 	clusterRefs clusterReferences,

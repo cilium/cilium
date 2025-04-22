@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ciliumenvoyconfig
+package legacy
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -40,7 +41,7 @@ type cecManager struct {
 
 	xdsServer      envoy.XDSServer
 	backendSyncer  *envoyServiceBackendSyncer
-	resourceParser *CECResourceParser
+	resourceParser *ciliumenvoyconfig.CECResourceParser
 
 	envoyConfigTimeout   time.Duration
 	maxConcurrentRetries uint32
@@ -48,7 +49,7 @@ type cecManager struct {
 	services  resource.Resource[*slim_corev1.Service]
 	endpoints resource.Resource[*k8s.Endpoints]
 
-	metricsManager CECMetrics
+	metricsManager ciliumenvoyconfig.CECMetrics
 }
 
 func newCiliumEnvoyConfigManager(logger *slog.Logger,
@@ -56,12 +57,12 @@ func newCiliumEnvoyConfigManager(logger *slog.Logger,
 	serviceManager service.ServiceManager,
 	xdsServer envoy.XDSServer,
 	backendSyncer *envoyServiceBackendSyncer,
-	resourceParser *CECResourceParser,
+	resourceParser *ciliumenvoyconfig.CECResourceParser,
 	envoyConfigTimeout time.Duration,
 	maxConcurrentRetries uint32,
 	services resource.Resource[*slim_corev1.Service],
 	endpoints resource.Resource[*k8s.Endpoints],
-	metricsManager CECMetrics,
+	metricsManager ciliumenvoyconfig.CECMetrics,
 ) *cecManager {
 	return &cecManager{
 		logger:               logger,
@@ -90,7 +91,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
 		len(cecSpec.Services) > 0,
-		UseOriginalSourceAddress(&cecObjectMeta),
+		ciliumenvoyconfig.UseOriginalSourceAddress(&cecObjectMeta),
 		true,
 	)
 	if err != nil {
@@ -354,8 +355,8 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		oldCECObjectMeta.GetName(),
 		oldCECSpec.Resources,
 		len(oldCECSpec.Services) > 0,
-		InjectCiliumEnvoyFilters(&oldCECObjectMeta, oldCECSpec),
-		UseOriginalSourceAddress(&oldCECObjectMeta),
+		ciliumenvoyconfig.InjectCiliumEnvoyFilters(&oldCECObjectMeta, oldCECSpec),
+		ciliumenvoyconfig.UseOriginalSourceAddress(&oldCECObjectMeta),
 		false,
 	)
 	if err != nil {
@@ -366,8 +367,8 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		newCECObjectMeta.GetName(),
 		newCECSpec.Resources,
 		len(newCECSpec.Services) > 0,
-		InjectCiliumEnvoyFilters(&newCECObjectMeta, newCECSpec),
-		UseOriginalSourceAddress(&newCECObjectMeta),
+		ciliumenvoyconfig.InjectCiliumEnvoyFilters(&newCECObjectMeta, newCECSpec),
+		ciliumenvoyconfig.UseOriginalSourceAddress(&newCECObjectMeta),
 		true,
 	)
 	if err != nil {
@@ -470,8 +471,8 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
-		InjectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
-		UseOriginalSourceAddress(&cecObjectMeta),
+		ciliumenvoyconfig.InjectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
+		ciliumenvoyconfig.UseOriginalSourceAddress(&cecObjectMeta),
 		false,
 	)
 	if err != nil {
