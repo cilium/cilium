@@ -37,4 +37,8 @@ type EndpointUpdater interface {
 	// desired policy, if any.
 	// Must be called with Endpoint's read lock taken.
 	GetPolicyVersionHandle() *versioned.VersionHandle
+
+	// GetListenerProxyPort returns the proxy port for the given listener reference.
+	// Returns zero if the proxy port does not exist (yet).
+	GetListenerProxyPort(listener string) uint16
 }
