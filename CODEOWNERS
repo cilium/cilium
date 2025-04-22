@@ -612,7 +612,6 @@ Makefile* @cilium/build
 /pkg/rate/ @cilium/sig-agent
 /pkg/rate/metrics @cilium/metrics
 /pkg/recorder @cilium/sig-datapath
-/pkg/redirectpolicy @cilium/sig-lb
 /pkg/resiliency @cilium/sig-agent
 /pkg/revert/ @cilium/sig-agent
 /pkg/safeio @cilium/sig-agent
