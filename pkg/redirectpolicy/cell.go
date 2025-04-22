@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 // Cell provides access to the Local Redirect Policy Manager.

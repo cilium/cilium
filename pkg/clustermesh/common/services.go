@@ -9,11 +9,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
-	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 )
 
 type GlobalService struct {
