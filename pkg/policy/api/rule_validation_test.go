@@ -1462,10 +1462,10 @@ func TestSanitizeDefaultDeny(t *testing.T) {
 	}
 }
 
-// TestRuleSanitizeReplaceExtendedKey verifies that the Sanitize function correctly
-// normalizes label keys by replacing the first occurrence of ':' with '.'.
+// TestSanitizeLabelKeySpecialCharacters verifies that the Sanitize function correctly.
+// Label keys with ':' are invalid.
 // This ensures compatibility with Kubernetes's label key format expectations.
-func TestSanitizeReplaceExtendedKey(t *testing.T) {
+func TestSanitizeLabelKeySpecialCharacters(t *testing.T) {
 	tests := []struct {
 		name      string
 		before    Rule
@@ -1473,7 +1473,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name: "Valid Cilium label key with single ':' separator and source 'k8s'",
+			name: "Invalid label key with single ':' separator and source 'k8s'",
 			before: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{"k8s:io.cilium.namespace": "backend"},
@@ -1486,22 +1486,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 					}},
 				}},
 			},
-			want: Rule{
-				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
-					MatchLabels: map[string]string{"k8s.io.cilium.namespace": "backend"},
-				}},
-				Egress: []EgressRule{{
-					EgressCommonRule: EgressCommonRule{
-						aggregatedSelectors: make(EndpointSelectorSlice, 0),
-					},
-					ToPorts: []PortRule{{
-						Ports: []PortProtocol{
-							{Port: "443", Protocol: ProtoTCP},
-						},
-					}},
-				}},
-			},
-			wantError: false,
+			wantError: true,
 		},
 		{
 			name: "Invalid label key with multiple ':' separators and source 'k8s'",
@@ -1520,7 +1505,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name: "Label key without ':' separator",
+			name: "Valid label key without ':' separator",
 			before: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{"io.cilium.namespace": "backend"},
@@ -1535,7 +1520,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 			},
 			want: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
-					MatchLabels: map[string]string{"any.io.cilium.namespace": "backend"},
+					MatchLabels: map[string]string{"io.cilium.namespace": "backend"},
 				}},
 				Egress: []EgressRule{{
 					EgressCommonRule: EgressCommonRule{
@@ -1551,7 +1536,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "Label key with ':' at the end",
+			name: "Valid label key with ':' at the end",
 			before: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{"k8s:": "backend"},
@@ -1567,7 +1552,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name: "MatchExpressions valid Cilium label key with single ':' separator and source 'k8s'",
+			name: "Invalid MatchExpressions Cilium label key with single ':' separator and source 'k8s'",
 			before: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
@@ -1607,10 +1592,10 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 					}},
 				}},
 			},
-			wantError: false,
+			wantError: true,
 		},
 		{
-			name: "MatchExpressions invalid label key with multiple ':' separators and source 'k8s'",
+			name: "Invalid MatchExpressions label key with multiple ':' separators and source 'k8s'",
 			before: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
@@ -1655,7 +1640,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "any.io.cilium.namespace",
+							Key:      "io.cilium.namespace",
 							Values:   []string{"backend"},
 							Operator: slim_metav1.LabelSelectorOpIn,
 						},
@@ -1675,7 +1660,7 @@ func TestSanitizeReplaceExtendedKey(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "MatchExpressions label key with ':' at the end",
+			name: "Invalid MatchExpressions label key with ':' at the end",
 			before: Rule{
 				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{

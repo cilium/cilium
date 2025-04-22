@@ -66,7 +66,6 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	n.ParseCiliumExtendedKey()
 	return nil
 }
 
@@ -86,9 +85,6 @@ func (n *EndpointSelector) ParseCiliumExtendedKey() {
 		}
 		n.MatchExpressions = newMatchExpr
 	}
-
-	n.requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
 // MarshalJSON returns a JSON representation of the byte array.
