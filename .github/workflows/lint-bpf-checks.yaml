@@ -111,6 +111,10 @@ jobs:
     needs: [check_changes]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: BPF unit/integration Tests
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job, so we have
+      # to repeated it here.
+      job_name: "bpf_tests"
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -120,4 +124,27 @@ jobs:
           fetch-depth: 0
       - name: Run BPF tests
         run: |
-          make run_bpf_tests || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+          make run_bpf_tests \
+              LOG_CODEOWNERS=1 \
+              JUNIT_PATH="../../test/${{ env.job_name }}.xml" \
+          || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+      - name: Fetch JUnits
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+      - name: Upload JUnits [junit]
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+      - name: Publish Test Results As GitHub Summary
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
