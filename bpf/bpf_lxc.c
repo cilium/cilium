@@ -1487,6 +1487,11 @@ int cil_from_container(struct __ctx_buff *ctx)
 	 */
 	ctx->queue_mapping = 0;
 
+#ifdef IP_TRACING_OPTION_TYPE
+	if (IP_TRACING_OPTION_TYPE > 0)
+		check_and_store_ip_trace_id(ctx, IP_TRACING_OPTION_TYPE);
+#endif
+
 	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
