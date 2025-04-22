@@ -381,7 +381,9 @@ jobs:
             # install the same Go toolchain version as current HEAD.
             go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
+            # renovate: datasource=github-releases depName=mfridman/tparse
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
+            # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
             go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
             make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged GO=go${{ env.go-version }}
 

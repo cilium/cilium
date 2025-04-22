@@ -202,6 +202,7 @@ jobs:
       - name: Install tparse
         timeout-minutes: 15
         run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
 
       - name: Install Gateway API CRDs
