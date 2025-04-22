@@ -121,15 +121,15 @@ require (
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.3
-	k8s.io/api v0.32.3
-	k8s.io/apiextensions-apiserver v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/cli-runtime v0.32.3
-	k8s.io/client-go v0.32.3
-	k8s.io/component-base v0.32.3
-	k8s.io/endpointslice v0.32.3
+	k8s.io/api v0.33.0-rc.1
+	k8s.io/apiextensions-apiserver v0.33.0-rc.1
+	k8s.io/apimachinery v0.33.0-rc.1
+	k8s.io/cli-runtime v0.33.0-rc.1
+	k8s.io/client-go v0.33.0-rc.1
+	k8s.io/component-base v0.33.0-rc.1
+	k8s.io/endpointslice v0.33.0-rc.1
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.32.3
+	k8s.io/kubectl v0.33.0-rc.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.0-rc.2
@@ -207,12 +207,11 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/licenseclassifier/v2 v2.0.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -286,7 +285,7 @@ require (
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.22.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
@@ -302,15 +301,16 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/apiserver v0.32.3 // indirect
-	k8s.io/code-generator v0.32.3 // indirect
-	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
-	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
+	k8s.io/apiserver v0.33.0-rc.1 // indirect
+	k8s.io/code-generator v0.33.0-rc.1 // indirect
+	k8s.io/gengo/v2 v2.0.0-20250207200755-1244d31929d7 // indirect
+	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/controller-tools v0.17.3 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
-	sigs.k8s.io/kustomize/api v0.18.0 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.18.1 // indirect
+	sigs.k8s.io/kustomize/api v0.19.0 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.19.0 // indirect
+	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
@@ -327,5 +327,6 @@ tool (
 	k8s.io/code-generator/cmd/client-gen
 	k8s.io/code-generator/cmd/go-to-protobuf
 	k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo
+	k8s.io/code-generator/cmd/validation-gen
 	sigs.k8s.io/controller-tools/cmd/controller-gen
 )
