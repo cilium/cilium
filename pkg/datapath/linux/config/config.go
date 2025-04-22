@@ -139,12 +139,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
-	if option.Config.BPFDistributedLRU {
-		cDefinesMap["LRU_MEM_FLAVOR"] = "BPF_F_NO_COMMON_LRU"
-	} else {
-		cDefinesMap["LRU_MEM_FLAVOR"] = "0"
-	}
-
 	if option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking {
 		cDefinesMap["ENABLE_IPV6_FRAGMENTS"] = "1"
 		cDefinesMap["CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
@@ -214,6 +208,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.PreAllocateMaps {
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
+	}
+	if option.Config.BPFDistributedLRU {
+		cDefinesMap["NO_COMMON_MEM_MAPS"] = "1"
 	}
 
 	cDefinesMap["EVENTS_MAP_RATE_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultRateLimit)
