@@ -20,8 +20,6 @@
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
 
-#define DISABLE_LOOPBACK_LB
-
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 

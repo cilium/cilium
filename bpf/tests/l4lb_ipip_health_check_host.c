@@ -15,8 +15,6 @@
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 #define ENABLE_HEALTH_CHECK	1
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
 

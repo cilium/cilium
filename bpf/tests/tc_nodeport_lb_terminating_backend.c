@@ -6,8 +6,6 @@
 #define ENABLE_NODEPORT		1
 #define ENABLE_HOST_ROUTING	1
 
-#define DISABLE_LOOPBACK_LB	1
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 

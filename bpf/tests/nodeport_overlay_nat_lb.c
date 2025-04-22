@@ -14,8 +14,6 @@
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_SEC_IDENTITY	112233

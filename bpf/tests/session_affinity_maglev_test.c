@@ -15,8 +15,6 @@
 #define TEST_REVNAT		       1
 #define LB_MAGLEV_EXTERNAL
 
-#define DISABLE_LOOPBACK_LB
-
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 

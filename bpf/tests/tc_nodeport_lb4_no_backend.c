@@ -12,8 +12,6 @@
 #define SERVICE_NO_BACKEND_RESPONSE
 #define ENABLE_MASQUERADE_IPV4		1
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
