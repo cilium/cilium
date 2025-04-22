@@ -16,6 +16,8 @@
 
 #define EVENT_SOURCE LXC_ID
 
+#define USE_LOOPBACK_LB		1
+
 #include "lib/auth.h"
 #include "lib/tailcall.h"
 #include "lib/common.h"
@@ -1940,7 +1942,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-#if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
+#if defined(ENABLE_PER_PACKET_LB)
 		/* When an endpoint connects to itself via service clusterIP, we need
 		 * to skip the policy enforcement. If we didn't, the user would have to
 		 * define policy rules to allow pods to talk to themselves. We still
@@ -1958,7 +1960,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 		if (unlikely(ct_state->loopback))
 			break;
-#endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
+#endif /* ENABLE_PER_PACKET_LB */
 
 		verdict = policy_can_ingress4(ctx, &cilium_policy_v2, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,

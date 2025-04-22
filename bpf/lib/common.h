@@ -1074,7 +1074,7 @@ struct lb_affinity_match {
 
 struct ct_state {
 	__u16 rev_nat_index;
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	__u16 loopback:1,
 #else
 	__u16 loopback_disabled:1,
