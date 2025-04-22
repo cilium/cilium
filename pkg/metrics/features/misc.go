@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 )
 
 func (m Metrics) AddLRPConfig(_ *redirectpolicy.LRPConfig) {

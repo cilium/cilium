@@ -16,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
 type k8sCiliumLRPWatcherParams struct {
