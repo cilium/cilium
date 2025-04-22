@@ -59,7 +59,7 @@ func cecListerWatchers(cs client.Clientset) (out struct {
 func registerCECK8sReflector(
 	dcfg *option.DaemonConfig,
 	ecfg loadbalancer.Config,
-	p *cecResourceParser,
+	p *CECResourceParser,
 	crdSync promise.Promise[synced.CRDSync],
 	nodeLabels *nodeLabels,
 	log *slog.Logger,
@@ -104,13 +104,13 @@ func registerCECK8sReflector(
 			selectsLocalNode = selector.Matches(labels.Set(nodeLabels.Load()))
 		}
 
-		resources, err := p.parseResources(
+		resources, err := p.ParseResources(
 			objMeta.GetNamespace(),
 			objMeta.GetName(),
 			spec.Resources,
 			len(spec.Services) > 0,
-			injectCiliumEnvoyFilters(objMeta, spec),
-			useOriginalSourceAddress(objMeta),
+			InjectCiliumEnvoyFilters(objMeta, spec),
+			UseOriginalSourceAddress(objMeta),
 			true,
 		)
 		if err != nil {

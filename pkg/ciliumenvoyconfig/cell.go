@@ -152,7 +152,7 @@ type managerParams struct {
 
 	XdsServer      envoy.XDSServer
 	BackendSyncer  *envoyServiceBackendSyncer
-	ResourceParser *cecResourceParser
+	ResourceParser *CECResourceParser
 
 	Services  resource.Resource[*slim_corev1.Service]
 	Endpoints resource.Resource[*k8s.Endpoints]

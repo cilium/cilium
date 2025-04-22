@@ -9,11 +9,9 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
-	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -42,7 +40,7 @@ type cecManager struct {
 
 	xdsServer      envoy.XDSServer
 	backendSyncer  *envoyServiceBackendSyncer
-	resourceParser *cecResourceParser
+	resourceParser *CECResourceParser
 
 	envoyConfigTimeout   time.Duration
 	maxConcurrentRetries uint32
@@ -58,7 +56,7 @@ func newCiliumEnvoyConfigManager(logger *slog.Logger,
 	serviceManager service.ServiceManager,
 	xdsServer envoy.XDSServer,
 	backendSyncer *envoyServiceBackendSyncer,
-	resourceParser *cecResourceParser,
+	resourceParser *CECResourceParser,
 	envoyConfigTimeout time.Duration,
 	maxConcurrentRetries uint32,
 	services resource.Resource[*slim_corev1.Service],
@@ -86,13 +84,13 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 	} else {
 		r.metricsManager.AddCEC(cecSpec)
 	}
-	resources, err := r.resourceParser.parseResources(
+	resources, err := r.resourceParser.ParseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
 		len(cecSpec.Services) > 0,
-		useOriginalSourceAddress(&cecObjectMeta),
+		UseOriginalSourceAddress(&cecObjectMeta),
 		true,
 	)
 	if err != nil {
@@ -351,25 +349,25 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 	} else {
 		r.metricsManager.AddCEC(newCECSpec)
 	}
-	oldResources, err := r.resourceParser.parseResources(
+	oldResources, err := r.resourceParser.ParseResources(
 		oldCECObjectMeta.GetNamespace(),
 		oldCECObjectMeta.GetName(),
 		oldCECSpec.Resources,
 		len(oldCECSpec.Services) > 0,
-		injectCiliumEnvoyFilters(&oldCECObjectMeta, oldCECSpec),
-		useOriginalSourceAddress(&oldCECObjectMeta),
+		InjectCiliumEnvoyFilters(&oldCECObjectMeta, oldCECSpec),
+		UseOriginalSourceAddress(&oldCECObjectMeta),
 		false,
 	)
 	if err != nil {
 		return fmt.Errorf("malformed old Envoy Config: %w", err)
 	}
-	newResources, err := r.resourceParser.parseResources(
+	newResources, err := r.resourceParser.ParseResources(
 		newCECObjectMeta.GetNamespace(),
 		newCECObjectMeta.GetName(),
 		newCECSpec.Resources,
 		len(newCECSpec.Services) > 0,
-		injectCiliumEnvoyFilters(&newCECObjectMeta, newCECSpec),
-		useOriginalSourceAddress(&newCECObjectMeta),
+		InjectCiliumEnvoyFilters(&newCECObjectMeta, newCECSpec),
+		UseOriginalSourceAddress(&newCECObjectMeta),
 		true,
 	)
 	if err != nil {
@@ -467,13 +465,13 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 	} else {
 		r.metricsManager.DelCEC(cecSpec)
 	}
-	resources, err := r.resourceParser.parseResources(
+	resources, err := r.resourceParser.ParseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
-		injectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
-		useOriginalSourceAddress(&cecObjectMeta),
+		InjectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
+		UseOriginalSourceAddress(&cecObjectMeta),
 		false,
 	)
 	if err != nil {
@@ -577,39 +575,4 @@ func getServiceName(resourceName service.L7LBResourceName, name, namespace strin
 		}
 	}
 	return loadbalancer.ServiceName{Name: name, Namespace: namespace}
-}
-
-// useOriginalSourceAddress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress.
-// This can be an explicit label or the presence of an OwnerReference of Kind "Ingress" or "Gateway".
-func useOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
-	for _, owner := range meta.OwnerReferences {
-		if owner.Kind == "Ingress" || owner.Kind == "Gateway" {
-			return false
-		}
-	}
-
-	if meta.GetLabels() != nil {
-		if v, ok := meta.GetLabels()[k8s.UseOriginalSourceAddressLabel]; ok {
-			if boolValue, err := strconv.ParseBool(v); err == nil {
-				return boolValue
-			}
-		}
-	}
-
-	return true
-}
-
-// injectCiliumEnvoyFilters returns true if the given object indicates that Cilium Envoy Network- and L7 filters
-// should be added to all non-internal Listeners.
-// This can be an explicit annotation or the implicit presence of a L7LB service via the Services property.
-func injectCiliumEnvoyFilters(meta *metav1.ObjectMeta, spec *ciliumv2.CiliumEnvoyConfigSpec) bool {
-	if meta.GetAnnotations() != nil {
-		if v, ok := meta.GetAnnotations()[annotation.CECInjectCiliumFilters]; ok {
-			if boolValue, err := strconv.ParseBool(v); err == nil {
-				return boolValue
-			}
-		}
-	}
-
-	return len(spec.Services) > 0
 }
