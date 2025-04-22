@@ -60,6 +60,7 @@ type ciliumHealthManager struct {
 	endpointManager endpointmanager.EndpointManager
 	k8sClientSet    k8sClient.Clientset
 
+	ctrlMgr      *controller.Manager
 	ciliumHealth *CiliumHealth
 }
 
@@ -128,7 +129,8 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 	var client *Client
 	var lastSuccessfulPing time.Time
 
-	controller.NewManager().UpdateController(
+	h.ctrlMgr = controller.NewManager()
+	h.ctrlMgr.UpdateController(
 		defaults.HealthEPName,
 		controller.ControllerParams{
 			Group: controller.NewGroup("cilium-health"),
@@ -138,7 +140,10 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 				if client != nil {
 					err = client.PingEndpoint()
 					if err == nil {
+						h.logger.Debug("Successfully pinged health endpoint")
 						lastSuccessfulPing = time.Now()
+					} else {
+						h.logger.Debug("Failed to ping health endpoint", logfields.Error, err)
 					}
 				}
 
@@ -146,6 +151,7 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 				// lastSuccessfulPing time, which is also true for a non-existent
 				// client
 				if time.Since(lastSuccessfulPing) > successfulPingTimeout {
+					h.logger.Debug("Restart health endpoint after timeout")
 					h.cleanupHealthEndpoint()
 
 					client, err = h.launchAsEndpoint(ctx, h.endpointCreator, h.endpointManager, h.mtuConfig, h.bigTCPConfig, routingInfo, h.sysctl)
@@ -154,13 +160,15 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 						// is launched to give it time to come up before
 						// killing it again
 						lastSuccessfulPing = time.Now()
+						h.logger.Debug("Successfully launched health endpoint")
+					} else {
+						h.logger.Debug("Failed to launch health endpoint", logfields.Error, err)
 					}
 				}
 				return err
 			},
 			StopFunc: func(ctx context.Context) error {
 				h.logger.Info("Stopping health endpoint")
-				err := client.PingEndpoint()
 				h.cleanupHealthEndpoint()
 				return err
 			},
@@ -170,7 +178,7 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 	)
 
 	// Make sure to clean up the endpoint namespace when cilium-agent terminates
-	addCleanerFunc(h.cleanupHealthEndpoint)
+	addCleanerFunc(h.ctrlMgr.RemoveAllAndWait)
 
 	return nil
 }
