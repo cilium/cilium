@@ -51,6 +51,7 @@ struct {
 		__type(key, struct ipv6_ct_tuple);
 		__type(value, struct ct_entry);
 		__uint(max_entries, CT_MAP_SIZE_TCP);
+		__uint(map_flags, LRU_MEM_FLAVOR);
 	});
 } PER_CLUSTER_CT_TCP6 __section_maps_btf;
 
@@ -65,6 +66,7 @@ struct {
 		__type(key, struct ipv6_ct_tuple);
 		__type(value, struct ct_entry);
 		__uint(max_entries, CT_MAP_SIZE_ANY);
+		__uint(map_flags, LRU_MEM_FLAVOR);
 	});
 } PER_CLUSTER_CT_ANY6 __section_maps_btf;
 #endif
@@ -129,6 +131,7 @@ struct per_cluster_ct_map4_inner_map {
 		__type(key, struct ipv4_ct_tuple);
 		__type(value, struct ct_entry);
 		__uint(max_entries, CT_MAP_SIZE_TCP);
+		__uint(map_flags, LRU_MEM_FLAVOR);
 #ifndef BPF_TEST
 };
 #else
