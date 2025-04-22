@@ -52,7 +52,6 @@
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
-#include "lib/vxlan.h"
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
 
