@@ -17,6 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
+// +kubebuilder:validation:Format=cidr
+type IPv4orIPv6CIDR string
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false

@@ -32,12 +32,12 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
                 ciliumbgpadvertisements \
                 ciliumbgpnodeconfigs \
                 ciliumbgpnodeconfigoverrides \
-                ciliumcidrgroups"
+                ciliumcidrgroups \
+                ciliumloadbalancerippools"
 
 # Set CRDS_CILIUM_V2ALPHA1 with the list of CRDs for v2alpha1
 CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
                       ciliumbgppeeringpolicies \
-                      ciliumloadbalancerippools \
                       ciliuml2announcementpolicies \
                       ciliumpodippools \
                       ciliumgatewayclassconfigs"
