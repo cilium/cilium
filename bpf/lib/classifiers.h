@@ -13,6 +13,11 @@
 # define CLASSIFIERS_FROM_NETDEV
 #endif
 
+/* Wireguard-encrypted packets are observed from to-netdev */
+#if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
+# define CLASSIFIERS_TO_NETDEV
+#endif
+
 /* Layer 3 packets are observed from the WireGuard device cilium_wg0 */
 #if defined(IS_BPF_WIREGUARD)
 # define CLASSIFIERS_DEVICE
@@ -104,3 +109,21 @@ ctx_from_netdev_classifiers6(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
 #define ctx_from_netdev_classifiers4(ctx, ip4)             ((cls_flags_t)0)
 #define ctx_from_netdev_classifiers6(ctx, ip6)             ((cls_flags_t)CLS_FLAG_IPV6)
 #endif /* CLASSIFIERS_FROM_NETDEV */
+
+#ifdef CLASSIFIERS_TO_NETDEV
+/* Compute to_netdev classifiers upon processing an egress network packet:
+ * - CLS_FLAG_WIREGUARD, in case of a WireGuard packet (MARK_MAGIC_WG_ENCRYPTED)
+ */
+static __always_inline cls_flags_t
+ctx_to_netdev_classifiers(struct __ctx_buff *ctx)
+{
+#if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
+	if (ctx_is_wireguard(ctx))
+		return CLS_FLAG_WIREGUARD;
+#endif
+
+	return 0;
+}
+#else
+#define ctx_to_netdev_classifiers(ctx) ((cls_flags_t)0)
+#endif /* CLASSIFIERS_TO_NETDEV */

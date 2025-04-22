@@ -148,3 +148,27 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+PKTGEN("tc", "ctx_to_netdev_classifiers")
+static __always_inline int
+ctx_to_netdev_classifiers_pktgen(struct __ctx_buff *ctx) {
+	return pktgen(ctx, true, bpf_htons(WG_PORT), tcp_src_two);
+}
+
+CHECK("tc", "ctx_to_netdev_classifiers")
+int ctx_to_netdev_classifiers_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	adjust_l2(ctx);
+
+	cls_flags_t flags;
+
+	ctx->mark = MARK_MAGIC_WG_ENCRYPTED;
+
+	flags = ctx_to_netdev_classifiers(ctx);
+
+	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
+
+	test_finish();
+}

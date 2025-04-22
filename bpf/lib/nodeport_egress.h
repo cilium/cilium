@@ -268,7 +268,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
-		.flags = 0,
+		.flags = ctx_to_netdev_classifiers(ctx),
 	};
 	int ret;
 	__s8 ext_err = 0;
@@ -590,7 +590,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
-		.flags = 0,
+		.flags = ctx_to_netdev_classifiers(ctx),
 	};
 	int ret;
 	__s8 ext_err = 0;
