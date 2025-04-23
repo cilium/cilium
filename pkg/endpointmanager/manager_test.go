@@ -916,10 +916,10 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 }
 
 func TestMissingNodeLabelsUpdate(t *testing.T) {
-	// Initialize label filter config.
-	labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
-	s := setupEndpointManagerSuite(t)
 	logger := hivetest.Logger(t)
+	// Initialize label filter config.
+	labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
+	s := setupEndpointManagerSuite(t)
 	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	hostEPID := uint16(17)
 
@@ -953,10 +953,10 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 }
 
 func TestUpdateHostEndpointLabels(t *testing.T) {
-	// Initialize label filter config.
-	labelsfilter.ParseLabelPrefixCfg([]string{"k8s:!ignore1", "k8s:!ignore2"}, nil, "")
-	s := setupEndpointManagerSuite(t)
 	logger := hivetest.Logger(t)
+	// Initialize label filter config.
+	labelsfilter.ParseLabelPrefixCfg(logger, []string{"k8s:!ignore1", "k8s:!ignore2"}, nil, "")
+	s := setupEndpointManagerSuite(t)
 	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	hostEPID := uint16(17)
 	type args struct {
