@@ -12,11 +12,11 @@ import (
 )
 
 // HasServiceImportSupport return if the ServiceImport CRD is supported.
-// This checks if the MCS API group is registered in the client scheme
+// This checks if the MCS API group ServiceImport CRD is registered in the client scheme
 // and it is expected that it is registered only if the ServiceImport
 // CRD has been installed prior to the client setup.
 func HasServiceImportSupport(scheme *runtime.Scheme) bool {
-	return scheme.IsGroupRegistered(mcsapiv1alpha1.GroupVersion.Group)
+	return scheme.Recognizes(mcsapiv1alpha1.SchemeGroupVersion.WithKind("ServiceImport"))
 }
 
 func GetServiceName(svcImport *mcsapiv1alpha1.ServiceImport) (string, error) {
