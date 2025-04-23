@@ -179,7 +179,7 @@ jobs:
           # Needed so that Cilium can allocate LoadBalancer service IPs
           # needed for the tests
           kubectl apply -f - <<EOF
-          apiVersion: "cilium.io/v2alpha1"
+          apiVersion: "cilium.io/v2"
           kind: CiliumLoadBalancerIPPool
           metadata:
             name: "test-lb-pool"

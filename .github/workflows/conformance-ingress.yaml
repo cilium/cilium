@@ -242,7 +242,7 @@ jobs:
           echo "LB_CIDR: $LB_CIDR"
           echo "Deploying LB-IPAM Pool..."
           cat << EOF > pool.yaml
-          apiVersion: "cilium.io/v2alpha1"
+          apiVersion: "cilium.io/v2"
           kind: CiliumLoadBalancerIPPool
           metadata:
             name: "pool"
