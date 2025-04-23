@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/netip"
 	"reflect"
 	"slices"
 	"strconv"
@@ -584,7 +585,7 @@ func (n *nodeStore) addAllocator(allocator *crdAllocator) {
 }
 
 // allocate checks if a particular IP can be allocated or return an error
-func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
+func (n *nodeStore) allocate(ip netip.Addr) (*ipamTypes.AllocationIP, error) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -596,11 +597,12 @@ func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
 		return nil, fmt.Errorf("No IPs available")
 	}
 
-	if n.isIPInReleaseHandshake(ip.String()) {
+	ipStr := ip.String()
+	if n.isIPInReleaseHandshake(ipStr) {
 		return nil, fmt.Errorf("IP not available, marked or ready for release")
 	}
 
-	ipInfo, ok := n.ownNode.Spec.IPAM.Pool[ip.String()]
+	ipInfo, ok := n.ownNode.Spec.IPAM.Pool[ipStr]
 	if !ok {
 		return nil, NewIPNotAvailableInPoolError(ip)
 	}
@@ -750,7 +752,7 @@ func deriveGatewayIP(logger *slog.Logger, cidr string, index int) string {
 	return gw.String()
 }
 
-func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
+func (a *crdAllocator) buildAllocationResult(ip netip.Addr, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
 	result = &AllocationResult{IP: ip}
 
 	a.store.mutex.RLock()
@@ -836,7 +838,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 // allocate it if it is available. If the IP is unavailable or already
 // allocated, an error is returned. The custom resource will be updated to
 // reflect the newly allocated IP.
-func (a *crdAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (a *crdAllocator) Allocate(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -865,7 +867,7 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string, pool Pool) (*Allocation
 // custom resource and allocate it if it is available. If the IP is
 // unavailable or already allocated, an error is returned. The custom resource
 // will not be updated.
-func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateWithoutSyncUpstream(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -891,7 +893,7 @@ func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool
 // Release will release the specified IP or return an error if the IP has not
 // been allocated before. The custom resource will be updated to reflect the
 // released IP.
-func (a *crdAllocator) Release(ip net.IP, pool Pool) error {
+func (a *crdAllocator) Release(ip netip.Addr, pool Pool) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -907,7 +909,7 @@ func (a *crdAllocator) Release(ip net.IP, pool Pool) error {
 }
 
 // markAllocated marks a particular IP as allocated
-func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ipamTypes.AllocationIP) {
+func (a *crdAllocator) markAllocated(ip netip.Addr, owner string, ipInfo ipamTypes.AllocationIP) {
 	ipInfo.Owner = owner
 	a.allocated[ip.String()] = ipInfo
 }
@@ -959,17 +961,20 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) 
 }
 
 // Dump provides a status report and lists all allocated IP addresses
-func (a *crdAllocator) Dump() (map[Pool]map[string]string, string) {
+func (a *crdAllocator) Dump() (map[Pool]map[netip.Addr]string, string) {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
-	allocs := make(map[string]string, len(a.allocated))
+	allocs := make(map[netip.Addr]string, len(a.allocated))
 	for ip := range a.allocated {
-		allocs[ip] = ""
+		addr, err := netip.ParseAddr(ip)
+		if err == nil {
+			allocs[addr] = ""
+		}
 	}
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.store.totalPoolSize(a.family))
-	return map[Pool]map[string]string{PoolDefault(): allocs}, status
+	return map[Pool]map[netip.Addr]string{PoolDefault(): allocs}, status
 }
 
 func (a *crdAllocator) Capacity() uint64 {
@@ -987,18 +992,18 @@ func (a *crdAllocator) RestoreFinished() {
 
 // NewIPNotAvailableInPoolError returns an error resprenting the given IP not
 // being available in the IPAM pool.
-func NewIPNotAvailableInPoolError(ip net.IP) error {
+func NewIPNotAvailableInPoolError(ip netip.Addr) error {
 	return &ErrIPNotAvailableInPool{ip: ip}
 }
 
 // ErrIPNotAvailableInPool represents an error when an IP is not available in
 // the pool.
 type ErrIPNotAvailableInPool struct {
-	ip net.IP
+	ip netip.Addr
 }
 
 func (e *ErrIPNotAvailableInPool) Error() string {
-	return fmt.Sprintf("IP %s is not available", e.ip.String())
+	return fmt.Sprintf("IP %s is not available", e.ip)
 }
 
 // Is provides this error type with the logic for use with errors.Is.
@@ -1013,5 +1018,5 @@ func (e *ErrIPNotAvailableInPool) Is(target error) bool {
 	if t == nil {
 		return false
 	}
-	return t.ip.Equal(e.ip)
+	return t.ip == e.ip
 }

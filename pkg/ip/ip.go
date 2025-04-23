@@ -25,7 +25,7 @@ const (
 // The first and the last (base and broadcast) IPs are excluded.
 //
 // Returns 0 if the input CIDR cannot be parsed.
-func CountIPsInCIDR(ipnet *net.IPNet) *big.Int {
+func CountIPsInCIDR(prefix netip.Prefix) *big.Int {
 	subnet, size := ipnet.Mask.Size()
 	if subnet == size {
 		return big.NewInt(0)

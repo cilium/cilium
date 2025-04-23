@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
+	"net/netip"
 	"slices"
 	"sort"
 	"strconv"
@@ -45,7 +45,7 @@ const (
 type ErrPoolNotReadyYet struct {
 	poolName Pool
 	family   Family
-	ip       net.IP
+	ip       netip.Addr
 }
 
 func (e *ErrPoolNotReadyYet) Error() string {
@@ -603,11 +603,11 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAM
 	}
 }
 
-func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
+func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[netip.Addr]string, status string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	allocated = map[Pool]map[string]string{}
+	allocated = map[Pool]map[netip.Addr]string{}
 	for poolName, pool := range m.pools {
 		var p *podCIDRPool
 		switch family {
@@ -682,7 +682,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
-func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
+func (m *multiPoolManager) allocateIP(ip netip.Addr, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -708,7 +708,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
-func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, upstreamSync bool) error {
+func (m *multiPoolManager) releaseIP(ip netip.Addr, poolName Pool, family Family, upstreamSync bool) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -736,15 +736,15 @@ type multiPoolAllocator struct {
 	family  Family
 }
 
-func (c *multiPoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (c *multiPoolAllocator) Allocate(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	return c.manager.allocateIP(ip, owner, pool, c.family, true)
 }
 
-func (c *multiPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (c *multiPoolAllocator) AllocateWithoutSyncUpstream(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	return c.manager.allocateIP(ip, owner, pool, c.family, false)
 }
 
-func (c *multiPoolAllocator) Release(ip net.IP, pool Pool) error {
+func (c *multiPoolAllocator) Release(ip netip.Addr, pool Pool) error {
 	return c.manager.releaseIP(ip, pool, c.family, true)
 }
 
@@ -756,7 +756,7 @@ func (c *multiPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool 
 	return c.manager.allocateNext(owner, pool, c.family, false)
 }
 
-func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
+func (c *multiPoolAllocator) Dump() (map[Pool]map[netip.Addr]string, string) {
 	return c.manager.dump(c.family)
 }
 

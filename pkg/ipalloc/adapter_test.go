@@ -4,44 +4,38 @@
 package ipalloc
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIPRangeToIPNet(t *testing.T) {
-	assert.Equal(t, net.IPNet{
-		IP:   net.ParseIP("192.168.1.0"),
-		Mask: net.IPv4Mask(255, 255, 255, 0),
-	}, ipRangeToIPNet(
-		net.ParseIP("192.168.1.0"),
-		net.ParseIP("192.168.1.255"),
-	))
+	assert.Equal(t,
+		netip.MustParsePrefix("192.168.1.0/24"),
+		ipRangeToPrefix(
+			netip.MustParseAddr("192.168.1.0"),
+			netip.MustParseAddr("192.168.1.255"),
+		))
 
-	assert.Equal(t, net.IPNet{
-		IP:   net.ParseIP("192.168.1.0"),
-		Mask: net.IPv4Mask(255, 255, 255, 128),
-	}, ipRangeToIPNet(
-		net.ParseIP("192.168.1.0"),
-		net.ParseIP("192.168.1.127"),
-	))
+	assert.Equal(t,
+		netip.MustParsePrefix("192.168.1.0/25"),
+		ipRangeToPrefix(
+			netip.MustParseAddr("192.168.1.0"),
+			netip.MustParseAddr("192.168.1.127"),
+		))
 
-	assert.Equal(t, net.IPNet{
-		IP:   net.ParseIP("192.168.1.128"),
-		Mask: net.IPv4Mask(255, 255, 255, 128),
-	}, ipRangeToIPNet(
-		net.ParseIP("192.168.1.128"),
-		net.ParseIP("192.168.1.255"),
-	))
+	assert.Equal(t,
+		netip.MustParsePrefix("192.168.1.128/25"),
+		ipRangeToPrefix(
+			netip.MustParseAddr("192.168.1.128"),
+			netip.MustParseAddr("192.168.1.255"),
+		))
 
-	// While technically incorrect, its the best guess since start and stop only
-	// share 192.168.1 as prefix so the closest CIDR is 192.168.1.0/24
-	assert.Equal(t, net.IPNet{
-		IP:   net.ParseIP("192.168.1.100"),
-		Mask: net.IPv4Mask(255, 255, 255, 0),
-	}, ipRangeToIPNet(
-		net.ParseIP("192.168.1.100"),
-		net.ParseIP("192.168.1.200"),
-	))
+	assert.Equal(t,
+		netip.Prefix{},
+		ipRangeToPrefix(
+			netip.MustParseAddr("192.168.1.100"),
+			netip.MustParseAddr("192.168.1.200"),
+		))
 }

@@ -7,20 +7,21 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 )
 
 type hostScopeAllocator struct {
-	allocCIDR *net.IPNet
+	allocCIDR netip.Prefix
 	allocator *ipallocator.Range
 }
 
-func newHostScopeAllocator(n *net.IPNet) Allocator {
+func newHostScopeAllocator(prefix netip.Prefix) Allocator {
 	return &hostScopeAllocator{
-		allocCIDR: n,
-		allocator: ipallocator.NewCIDRRange(n),
+		allocCIDR: prefix,
+		allocator: ipallocator.NewCIDRRange(prefix),
 	}
 }
 
@@ -63,9 +64,9 @@ func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string, pool 
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {
+func (h *hostScopeAllocator) Dump() (map[Pool]map[netip.Addr]string, string) {
 	var origIP *big.Int
-	alloc := map[string]string{}
+	alloc := map[netip.Addr]string{}
 	_, data, err := h.allocator.Snapshot()
 	if err != nil {
 		return nil, "Unable to get a snapshot of the allocator"
@@ -78,15 +79,17 @@ func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {
 	bits := big.NewInt(0).SetBytes(data)
 	for i := range bits.BitLen() {
 		if bits.Bit(i) != 0 {
-			ip := net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String()
-			alloc[ip] = ""
+			ip, ok := netip.AddrFromSlice(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes())
+			if ok {
+				alloc[ip] = ""
+			}
 		}
 	}
 
 	maxIPs := ip.CountIPsInCIDR(h.allocCIDR)
 	status := fmt.Sprintf("%d/%s allocated from %s", len(alloc), maxIPs.String(), h.allocCIDR.String())
 
-	return map[Pool]map[string]string{PoolDefault(): alloc}, status
+	return map[Pool]map[netip.Addr]string{PoolDefault(): alloc}, status
 }
 
 func (h *hostScopeAllocator) Capacity() uint64 {

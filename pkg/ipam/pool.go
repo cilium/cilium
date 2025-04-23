@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -37,16 +38,16 @@ type podCIDRPool struct {
 	logger       *slog.Logger
 	mutex        lock.Mutex
 	ipAllocators []*ipallocator.Range
-	released     map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
-	removed      map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
+	released     map[netip.Prefix]struct{}
+	removed      map[netip.Prefix]struct{}
 }
 
 // newPodCIDRPool creates a new pod CIDR pool.
 func newPodCIDRPool(logger *slog.Logger) *podCIDRPool {
 	return &podCIDRPool{
 		logger:   logger,
-		released: map[string]struct{}{},
-		removed:  map[string]struct{}{},
+		released: map[netip.Prefix]struct{}{},
+		removed:  map[netip.Prefix]struct{}{},
 	}
 }
 
@@ -85,13 +86,13 @@ func (p *podCIDRPool) allocateNext() (net.IP, error) {
 	return nil, errors.New("all pod CIDR ranges are exhausted")
 }
 
-func (p *podCIDRPool) release(ip net.IP) {
+func (p *podCIDRPool) release(ip netip.Addr) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		if cidrNet.Contains(ip) {
+		prefix := ipAllocator.Prefix()
+		if prefix.Contains(ip) {
 			ipAllocator.Release(ip)
 			return
 		}
@@ -141,21 +142,21 @@ func (p *podCIDRPool) inUsePodCIDRsLocked() []types.IPAMPodCIDR {
 	return podCIDRs
 }
 
-func (p *podCIDRPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, numPodCIDRs int, err error) {
+func (p *podCIDRPool) dump() (ipToOwner map[netip.Addr]string, usedIPs, freeIPs, numPodCIDRs int, err error) {
 	// TODO(gandro): Use the Snapshot interface to avoid locking during dump
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	ipToOwner = map[string]string{}
+	ipToOwner = map[netip.Addr]string{}
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
+		cidrNet := ipAllocator.Prefix()
 		cidrStr := cidrNet.String()
 		usedIPs += ipAllocator.Used()
 		if _, removed := p.removed[cidrStr]; !removed {
 			freeIPs += ipAllocator.Free()
 		}
-		ipAllocator.ForEach(func(ip net.IP) {
-			ipToOwner[ip.String()] = ""
+		ipAllocator.ForEach(func(ip netip.Addr) {
+			ipToOwner[ip] = ""
 		})
 	}
 	numPodCIDRs = len(p.ipAllocators)
@@ -225,27 +226,27 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	}
 
 	// Parse the pod CIDRs, ignoring invalid CIDRs, and de-duplicating them.
-	cidrNets := make([]*net.IPNet, 0, len(podCIDRs))
-	cidrStrSet := make(map[string]struct{}, len(podCIDRs))
+	prefixNets := make([]netip.Prefix, 0, len(podCIDRs))
+	prefixSet := make(map[netip.Prefix]struct{}, len(podCIDRs))
 	for _, podCIDR := range podCIDRs {
-		_, cidr, err := net.ParseCIDR(podCIDR)
+		prefix, err := netip.ParsePrefix(podCIDR)
 		if err != nil {
 			p.logger.Error(
 				"ignoring invalid pod CIDR",
 				logfields.Error, err,
-				logfields.CIDR, podCIDRs,
+				logfields.CIDR, podCIDR,
 			)
 			continue
 		}
-		if _, ok := cidrStrSet[cidr.String()]; ok {
+		if _, ok := prefixSet[prefix]; ok {
 			p.logger.Error(
 				"ignoring duplicate pod CIDR",
-				logfields.CIDR, podCIDRs,
+				logfields.CIDR, podCIDR,
 			)
 			continue
 		}
-		cidrNets = append(cidrNets, cidr)
-		cidrStrSet[cidr.String()] = struct{}{}
+		prefixNets = append(prefixNets, prefix)
+		prefixSet[prefix] = struct{}{}
 	}
 
 	// Forget any released pod CIDRs no longer present in the CRD.

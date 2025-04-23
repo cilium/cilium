@@ -6,7 +6,7 @@ package ipam
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/google/uuid"
@@ -40,28 +40,28 @@ func (ipam *IPAM) determineIPAMPool(owner string, family Family) (Pool, error) {
 }
 
 // AllocateIP allocates a IP address.
-func (ipam *IPAM) AllocateIP(ip net.IP, owner string, pool Pool) error {
+func (ipam *IPAM) AllocateIP(ip netip.Addr, owner string, pool Pool) error {
 	needSyncUpstream := true
 	_, err := ipam.allocateIP(ip, owner, pool, needSyncUpstream)
 	return err
 }
 
 // AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
-func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	needSyncUpstream := false
 	return ipam.allocateIP(ip, owner, pool, needSyncUpstream)
 }
 
 // AllocateIPString is identical to AllocateIP but takes a string
 func (ipam *IPAM) AllocateIPString(ipAddr, owner string, pool Pool) error {
-	ip := net.ParseIP(ipAddr)
-	if ip == nil {
-		return fmt.Errorf("Invalid IP address: %s", ipAddr)
+	ip, err := netip.ParseAddr(ipAddr)
+	if err != nil {
+		return err
 	}
 	return ipam.AllocateIP(ip, owner, pool)
 }
 
-func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstream bool) (result *AllocationResult, err error) {
+func (ipam *IPAM) allocateIP(ip netip.Addr, owner string, pool Pool, needSyncUpstream bool) (result *AllocationResult, err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
@@ -75,7 +75,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 	}
 
 	family := IPv4
-	if ip.To4() != nil {
+	if ip.Is4() {
 		if ipam.IPv4Allocator == nil {
 			err = ErrIPv4Disabled
 			return
@@ -266,13 +266,13 @@ func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, pool Pool, ti
 	return
 }
 
-func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
+func (ipam *IPAM) releaseIPLocked(ip netip.Addr, pool Pool) error {
 	if pool == "" {
 		return fmt.Errorf("no IPAM pool provided for IP release of %s", ip)
 	}
 
 	family := IPv4
-	if ip.To4() != nil {
+	if ip.Is4() {
 		if ipam.IPv4Allocator == nil {
 			return ErrIPv4Disabled
 		}
@@ -296,7 +296,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		logfields.Owner, owner,
 	)
 
-	key := ipPoolKey{ip: ip.String(), pool: pool}
+	key := ipPoolKey{ip: ip, pool: pool}
 	if t, ok := ipam.expirationTimers[key]; ok {
 		close(t.stop)
 		delete(ipam.expirationTimers, key)
@@ -309,16 +309,16 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 // ReleaseIP release a IP address. The pool argument must not be empty, it
 // must be set to the pool name returned by the `Allocate*` functions when
 // the IP was allocated.
-func (ipam *IPAM) ReleaseIP(ip net.IP, pool Pool) error {
+func (ipam *IPAM) ReleaseIP(ip netip.Addr, pool Pool) error {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 	return ipam.releaseIPLocked(ip, pool)
 }
 
 // Dump dumps the list of allocated IP addresses
-func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, status string) {
+func (ipam *IPAM) Dump() (allocv4, allocv6 map[string]string, status string) {
 	var st4, st6 string
-	var allocPerPool4, allocPerPool6 map[Pool]map[string]string
+	var allocPerPool4, allocPerPool6 map[Pool]map[netip.Addr]string
 
 	allocv4 = make(map[string]string)
 	allocv6 = make(map[string]string)
@@ -337,7 +337,7 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 					ipPrefix = string(pool) + "/"
 				}
 				// If owner is not available, report IP but leave owner empty
-				allocv4[ipPrefix+ip] = owner
+				allocv4[ipPrefix+ip.String()] = owner
 			}
 		}
 	}
@@ -353,7 +353,7 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 					ipPrefix = string(pool) + "/"
 				}
 				// If owner is not available, report IP but leave owner empty
-				allocv6[ipPrefix+ip] = owner
+				allocv6[ipPrefix+ip.String()] = owner
 			}
 		}
 	}
@@ -376,11 +376,11 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 // by an external entity and that external entity can disappear. Therefore such
 // users should register an expiration timer before returning the IP and then
 // stop the expiration timer when the IP has been used.
-func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Duration) (string, error) {
+func (ipam *IPAM) StartExpirationTimer(ip netip.Addr, pool Pool, timeout time.Duration) (string, error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := ipPoolKey{ip: ip.String(), pool: pool}
+	key := ipPoolKey{ip: ip, pool: pool}
 	if _, ok := ipam.expirationTimers[key]; ok {
 		return "", fmt.Errorf("expiration timer already registered")
 	}
@@ -392,7 +392,7 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 		stop: stop,
 	}
 
-	go func(key ipPoolKey, ip net.IP, pool Pool, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
+	go func(key ipPoolKey, ip netip.Addr, pool Pool, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
 		timer := time.NewTimerWithoutMaxDelay(timeout)
 		select {
 		case <-stop:
@@ -441,11 +441,11 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 // The UUID returned by the symmetric StartExpirationTimer must be provided.
 // The expiration timer will only be removed if the UUIDs match. Releasing an
 // IP will also stop the expiration timer.
-func (ipam *IPAM) StopExpirationTimer(ip net.IP, pool Pool, allocationUUID string) error {
+func (ipam *IPAM) StopExpirationTimer(ip netip.Addr, pool Pool, allocationUUID string) error {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := ipPoolKey{ip: ip.String(), pool: pool}
+	key := ipPoolKey{ip: ip, pool: pool}
 	t, ok := ipam.expirationTimers[key]
 	if !ok {
 		return fmt.Errorf("no expiration timer registered")

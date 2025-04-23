@@ -336,11 +336,7 @@ func setupRouteToVtepCidr() error {
 		return fmt.Errorf("failed to list routes: %w", err)
 	}
 	for _, rt := range routes {
-		rtCIDR, err := cidr.ParseCIDR(rt.Dst.String())
-		if err != nil {
-			return fmt.Errorf("Invalid VTEP Route CIDR: %w", err)
-		}
-		routeCidrs = append(routeCidrs, rtCIDR)
+		routeCidrs = append(routeCidrs, &cidr.CIDR{IPNet: rt.Dst})
 	}
 
 	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, option.Config.VtepCIDRs)

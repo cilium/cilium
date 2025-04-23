@@ -5,7 +5,7 @@ package ipam
 
 import (
 	"log/slog"
-	"net"
+	"net/netip"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -23,7 +23,7 @@ import (
 // AllocationResult is the result of an allocation
 type AllocationResult struct {
 	// IP is the allocated IP
-	IP net.IP
+	IP netip.Addr
 
 	// IPPoolName is the IPAM pool from which the above IP was allocated from
 	IPPoolName Pool
@@ -57,14 +57,14 @@ type AllocationResult struct {
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
-	Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error)
+	Allocate(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error)
 
 	// AllocateWithoutSyncUpstream allocates a specific IP without syncing
 	// upstream or fails
-	AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error)
+	AllocateWithoutSyncUpstream(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error)
 
 	// Release releases a previously allocated IP or fails
-	Release(ip net.IP, pool Pool) error
+	Release(ip netip.Addr, pool Pool) error
 
 	// AllocateNext allocates the next available IP or fails if no more IPs
 	// are available
@@ -77,7 +77,7 @@ type Allocator interface {
 	// Dump returns a map of all allocated IPs per pool with the IP represented as key in the
 	// map. Dump must also provide a status one-liner to represent the overall status, e.g.
 	// number of IPs allocated and overall health information if available.
-	Dump() (map[Pool]map[string]string, string)
+	Dump() (map[Pool]map[netip.Addr]string, string)
 
 	// Capacity returns the total IPAM allocator capacity (not the current
 	// available).
@@ -101,7 +101,7 @@ type IPAM struct {
 	metadata Metadata
 
 	// owner maps an IP to the owner per pool.
-	owner map[Pool]map[string]string
+	owner map[Pool]map[netip.Addr]string
 
 	// expirationTimers is a map of all expiration timers. Each entry
 	// represents a IP allocation which is protected by an expiration
@@ -164,7 +164,7 @@ func (p Pool) String() string {
 }
 
 type ipPoolKey struct {
-	ip   string
+	ip   netip.Addr
 	pool Pool
 }
 
