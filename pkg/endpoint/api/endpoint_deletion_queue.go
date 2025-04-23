@@ -28,6 +28,7 @@ type DeletionQueue struct {
 	lf                     *lockfile.Lockfile
 	endpointRestorePromise promise.Promise[endpointstate.Restorer]
 	endpointAPIManager     EndpointAPIManager
+	processed              chan struct{}
 }
 
 func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error {
@@ -40,10 +41,15 @@ func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error 
 		return fmt.Errorf("unable to get exclusive lock: %w", err)
 	}
 
+	// unlock lock file also in case of errors
+	defer func() { dq.processed <- struct{}{} }()
+
 	if err := dq.processQueuedDeletes(ctx); err != nil {
 		dq.logger.Error("deletionQueue: processQueuedDeletes failed", logfields.Error, err)
 		return fmt.Errorf("processing queue failed: %w", err)
 	}
+
+	dq.logger.Debug("deletionQueue: successfully finished processing queue")
 
 	return nil
 }
@@ -62,6 +68,7 @@ func newDeletionQueue(params deletionQueueParams) *DeletionQueue {
 		logger:                 params.Logger,
 		endpointRestorePromise: params.Restorer,
 		endpointAPIManager:     params.EndpointAPIManager,
+		processed:              make(chan struct{}),
 	}
 
 	params.JobGroup.Add(job.OneShot("cni-deletion-queue", dq.Process))
@@ -156,6 +163,14 @@ func (dq *DeletionQueue) processQueuedDeletes(ctx context.Context) error {
 // delete queue and thus allow CNI plugin to proceed.
 func unlockAfterAPIServer(jobGroup job.Group, _ *server.Server, dq *DeletionQueue) {
 	jobGroup.Add(job.OneShot("unlock-lockfile", func(ctx context.Context, health cell.Health) error {
+		// Explicitly wait until deletion queue finished processing or job context is cancelled
+		select {
+		case <-ctx.Done():
+			// continue and unlock
+		case <-dq.processed:
+			// continue and unlock
+		}
+
 		if dq.lf != nil {
 			unlockErr := dq.lf.Unlock()
 			closeErr := dq.lf.Close()
