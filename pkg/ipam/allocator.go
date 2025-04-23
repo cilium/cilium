@@ -296,7 +296,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		logfields.Owner, owner,
 	)
 
-	key := timerKey{ip: ip.String(), pool: pool}
+	key := ipPoolKey{ip: ip.String(), pool: pool}
 	if t, ok := ipam.expirationTimers[key]; ok {
 		close(t.stop)
 		delete(ipam.expirationTimers, key)
@@ -380,7 +380,7 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := timerKey{ip: ip.String(), pool: pool}
+	key := ipPoolKey{ip: ip.String(), pool: pool}
 	if _, ok := ipam.expirationTimers[key]; ok {
 		return "", fmt.Errorf("expiration timer already registered")
 	}
@@ -392,7 +392,7 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 		stop: stop,
 	}
 
-	go func(key timerKey, ip net.IP, pool Pool, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
+	go func(key ipPoolKey, ip net.IP, pool Pool, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
 		timer := time.NewTimerWithoutMaxDelay(timeout)
 		select {
 		case <-stop:
@@ -445,7 +445,7 @@ func (ipam *IPAM) StopExpirationTimer(ip net.IP, pool Pool, allocationUUID strin
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := timerKey{ip: ip.String(), pool: pool}
+	key := ipPoolKey{ip: ip.String(), pool: pool}
 	t, ok := ipam.expirationTimers[key]
 	if !ok {
 		return fmt.Errorf("no expiration timer registered")

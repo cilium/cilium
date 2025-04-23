@@ -72,7 +72,7 @@ func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option
 		nodeAddressing:   nodeAddressing,
 		config:           c,
 		owner:            map[Pool]map[string]string{},
-		expirationTimers: map[timerKey]expirationTimer{},
+		expirationTimers: map[ipPoolKey]expirationTimer{},
 		excludedIPs:      map[string]string{},
 
 		k8sEventReg:    k8sEventReg,
