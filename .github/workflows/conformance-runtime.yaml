@@ -24,6 +24,9 @@ on:
       - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 3/8 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
