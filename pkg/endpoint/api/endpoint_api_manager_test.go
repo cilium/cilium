@@ -90,7 +90,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%s (epUID: %s)", tt.name, epUID), func(t *testing.T) {
 				k8sPodFetcher := &fetcher{fn: tt.fetcher}
-				apiManager := endpointAPIManager{endpointMetadata: endpointmetadata.NewEndpointMetadataFetcher(hivetest.Logger(t), &option.DaemonConfig{}, k8sPodFetcher)}
+				apiManager := endpointAPIManager{logger: hivetest.Logger(t), endpointMetadata: endpointmetadata.NewEndpointMetadataFetcher(hivetest.Logger(t), &option.DaemonConfig{}, k8sPodFetcher)}
 				ep := endpoint.Endpoint{K8sPodName: "foo", K8sNamespace: "bar", K8sUID: epUID}
 
 				pod, meta, err := apiManager.handleOutdatedPodInformer(t.Context(), &ep)
