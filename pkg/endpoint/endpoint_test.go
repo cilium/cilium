@@ -52,15 +52,16 @@ type EndpointSuite struct {
 
 func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	testutils.IntegrationTest(tb)
+	logger := hivetest.Logger(tb)
 
 	s := &EndpointSuite{
 		orchestrator: &fakeTypes.FakeOrchestrator{},
-		repo:         policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		repo:         policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
 		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{}),
 	}
 
 	// GetConfig the default labels prefix filter
-	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}

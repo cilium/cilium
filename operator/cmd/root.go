@@ -738,7 +738,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() {
-		if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
+		if err := labelsfilter.ParseLabelPrefixCfg(legacy.logger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
 			log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 		}
 	}
