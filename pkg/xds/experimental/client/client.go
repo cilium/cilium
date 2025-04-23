@@ -158,6 +158,7 @@ func (c *XDSClient[ReqT, RespT]) Run(ctx context.Context, node *corepb.Node, con
 		logfields.UserAgent, c.node.UserAgentName,
 	)
 	backoff := backoff.Exponential{
+		Logger:     c.log,
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
 		ResetAfter: c.opts.RetryBackoff.Reset,
@@ -256,6 +257,7 @@ func (c *XDSClient[ReqT, RespT]) fetchResponses(ctx context.Context, errCh chan 
 	defer close(errCh)
 	log := c.log.With(logfields.Hint, "fetch-responses")
 	backoff := backoff.Exponential{
+		Logger:     c.log,
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
 		ResetAfter: c.opts.RetryBackoff.Reset,
@@ -305,6 +307,7 @@ func (c *XDSClient[ReqT, RespT]) loop(ctx context.Context, errCh chan error, tra
 	defer close(errCh)
 	log := c.log.With(logfields.Hint, "loop")
 	backoff := backoff.Exponential{
+		Logger:     c.log,
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
 		ResetAfter: c.opts.RetryBackoff.Reset,
