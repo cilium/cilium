@@ -4,6 +4,8 @@
 package api
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -17,9 +19,11 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 )
 
+const endpointAPIModuleID = "endpoint-api"
+
 // Cell provides the Endpoint API.
 var Cell = cell.Module(
-	"endpoint-api",
+	endpointAPIModuleID,
 	"Provides Endpoint API",
 
 	// Endpoint API handlers
@@ -45,6 +49,8 @@ var Cell = cell.Module(
 type endpointAPIManagerParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	EndpointManager   endpointmanager.EndpointManager
 	EndpointCreator   endpointcreator.EndpointCreator
 	EndpointCreations EndpointCreationManager
@@ -58,6 +64,7 @@ type endpointAPIManagerParams struct {
 
 func newEndpointAPIManager(params endpointAPIManagerParams) EndpointAPIManager {
 	return &endpointAPIManager{
+		logger:            params.Logger,
 		endpointManager:   params.EndpointManager,
 		endpointCreator:   params.EndpointCreator,
 		endpointCreations: params.EndpointCreations,
@@ -72,6 +79,7 @@ func newEndpointAPIManager(params endpointAPIManagerParams) EndpointAPIManager {
 type endpointAPIHandlerParams struct {
 	cell.In
 
+	Logger        *slog.Logger
 	APILimiterSet *rate.APILimiterSet
 
 	EndpointManager    endpointmanager.EndpointManager
@@ -103,54 +111,66 @@ type endpointAPIHandlerOut struct {
 func newEndpointAPIHandler(params endpointAPIHandlerParams) endpointAPIHandlerOut {
 	return endpointAPIHandlerOut{
 		EndpointDeleteEndpointHandler: &EndpointDeleteEndpointHandler{
+			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointManager:    params.EndpointManager,
 			endpointAPIManager: params.EndpointAPIManager,
 		},
 		EndpointDeleteEndpointIDHandler: &EndpointDeleteEndpointIDHandler{
+			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointManager:    params.EndpointManager,
 			endpointAPIManager: params.EndpointAPIManager,
 		},
 		EndpointGetEndpointHandler: &EndpointGetEndpointHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 		},
 		EndpointGetEndpointIDConfigHandler: &EndpointGetEndpointIDConfigHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 		},
 		EndpointGetEndpointIDHandler: &EndpointGetEndpointIDHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 		},
 		EndpointGetEndpointIDHealthzHandler: &EndpointGetEndpointIDHealthzHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 		},
 		EndpointGetEndpointIDLabelsHandler: &EndpointGetEndpointIDLabelsHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 		},
 		EndpointGetEndpointIDLogHandler: &EndpointGetEndpointIDLogHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 		},
 		EndpointPatchEndpointIDConfigHandler: &EndpointPatchEndpointIDConfigHandler{
+			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointAPIManager: params.EndpointAPIManager,
 		},
 		EndpointPatchEndpointIDHandler: &EndpointPatchEndpointIDHandler{
+			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 			endpointCreator: params.EndpointCreator,
 		},
 		EndpointPatchEndpointIDLabelsHandler: &EndpointPatchEndpointIDLabelsHandler{
+			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointManager:    params.EndpointManager,
 			endpointAPIManager: params.EndpointAPIManager,
 		},
 		EndpointPutEndpointIDHandler: &EndpointPutEndpointIDHandler{
+			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointAPIManager: params.EndpointAPIManager,
 		},
