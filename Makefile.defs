@@ -96,7 +96,6 @@ CODEOWNERS_PATH ?= CODEOWNERS
 # as the latter is too verbose for most of the test suite.
 GOTEST_FORMATTER ?= cat
 ifneq ($(shell command -v tparse),)
-	GOTEST_COVER_OPTS += -json
 	GOTEST_FORMATTER_FLAGS :=
 ifneq ($(V),0)
 	GOTEST_FORMATTER_FLAGS += -follow
@@ -123,6 +122,9 @@ endif
 else
 	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
 endif
+endif
+ifneq ($(GOTEST_FORMATTER),cat)
+	GO_TEST_FLAGS += -json
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
