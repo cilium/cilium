@@ -305,7 +305,6 @@ func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *
 	return filtered
 }
 
-
 // getGatewayClassConfig returns the CiliumGatewayClassConfig referenced by the GatewayClass.
 // If the GatewayClass does not reference a CiliumGatewayClassConfig, it returns nil.
 func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gatewayv1.GatewayClass) *v2alpha1.CiliumGatewayClassConfig {
@@ -472,25 +471,27 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 	for _, l := range gw.Spec.Listeners {
 		isValid := true
-		supportedKinds := getSupportedRouteKinds(l.Protocol)
 
-		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) != 0 {
+		// SupportedKinds is a required field, so we can't declare it as nil.
+		supportedKinds := []gatewayv1.RouteGroupKind{}
+
+		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
 			allowedKindsMap := make(map[gatewayv1.RouteGroupKind]struct{})
 			for _, k := range l.AllowedRoutes.Kinds {
 				allowedKindsMap[k] = struct{}{}
 			}
 
-			filteredSupportedKinds := []gatewayv1.RouteGroupKind{}
-			for _, sk := range supportedKinds {
-				if _, ok := allowedKindsMap[sk]; ok {
-					filteredSupportedKinds = append(filteredSupportedKinds, sk)
+			for _, kind := range getSupportedRouteKinds(l.Protocol) {
+				if _, ok := allowedKindsMap[kind]; ok {
+					supportedKinds = append(supportedKinds, kind)
 				}
 			}
 
-			if len(filteredSupportedKinds) == 0 {
+			if len(supportedKinds) == 0 {
 				isValid = false
 			}
-			supportedKinds = filteredSupportedKinds
+		} else {
+			supportedKinds = getSupportedRouteKinds(l.Protocol)
 		}
 
 		var conds []metav1.Condition
@@ -587,7 +588,6 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	gw.Status.Listeners = newListenersStatus
 	return nil
 }
-
 
 func validateTLSSecret(ctx context.Context, c client.Client, namespace, name string) error {
 	secret := &corev1.Secret{}
