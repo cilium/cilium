@@ -266,7 +266,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 // mtuReconciler is a job that reconciles changes to the MTU to the WireGuard interface.
 // If an error is encountered, the job will retry with exponential backoff.
 func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
-	retryTimer := backoff.Exponential{Min: 100 * time.Millisecond, Max: 1 * time.Minute}
+	retryTimer := backoff.Exponential{Logger: a.logger, Min: 100 * time.Millisecond, Max: 1 * time.Minute}
 	retry := false
 	for {
 		mtuRoute, _, watch, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))

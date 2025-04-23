@@ -50,6 +50,7 @@ type Status struct {
 // manage peers and a connection to every peer's gRPC API.
 func NewPeerManager(registry prometheus.Registerer, options ...Option) (*PeerManager, error) {
 	opts := defaultOptions
+	opts.backoff = defaultBackoff(opts.log)
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %w", err)
