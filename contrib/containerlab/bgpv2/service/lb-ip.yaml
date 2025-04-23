@@ -1,5 +1,5 @@
 ---
-apiVersion: "cilium.io/v2alpha1"
+apiVersion: "cilium.io/v2"
 kind: CiliumLoadBalancerIPPool
 metadata:
   name: "ip-pool-blue"
@@ -14,7 +14,7 @@ spec:
       - {key: bgp, operator: In, values: [blue]}
 
 ---
-apiVersion: "cilium.io/v2alpha1"
+apiVersion: "cilium.io/v2"
 kind: CiliumLoadBalancerIPPool
 metadata:
   name: "ip-pool-red"
