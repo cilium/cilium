@@ -62,7 +62,7 @@ env:
   test_name: scale-100
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 518.0.0
+  gcloud_version: 519.0.0
 
 jobs:
   echo-inputs:
