@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"path"
 	"strconv"
 	"strings"
 	"testing"
@@ -110,6 +111,14 @@ func TestScript(t *testing.T) {
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")
+
+			// Expand $WORK in args. Used by testdata/file.txtar.
+			// This works by creating a new temporary directory for this test (e.g. /tmp/<tempdir/002)
+			// and replacing the directory with /001 which is the temp directory that scripttest created.
+			tempDir := path.Join(path.Dir(t.TempDir()), "001")
+			for i := range args {
+				args[i] = strings.ReplaceAll(args[i], "$WORK", tempDir)
+			}
 
 			// Parse the shebang arguments in the script.
 			require.NoError(t, flags.Parse(args), "flags.Parse")
