@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type DisplayFormat bool
@@ -50,14 +49,12 @@ var (
 		IPv4 *gopacket.DecodingLayerParser
 		IPv6 *gopacket.DecodingLayerParser
 	}
-
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor")
 )
 
 // getParser must be called with dissectLock held
 func initParser() {
 	if cache == nil {
-		log.Info("Initializing dissection cache...")
+		logging.DefaultSlogLogger.Info("Initializing dissection cache...")
 
 		cache = &parserCache{
 			decoded: []gopacket.LayerType{},
