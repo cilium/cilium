@@ -5,10 +5,9 @@ package manager
 
 import (
 	"fmt"
-	"io"
+	"log/slog"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -122,8 +121,7 @@ var (
 )
 
 func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events chan podEventStatus) CGroupManager {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.DiscardHandler)
 
 	// Unbuffered channel tests to detect any issues on the caller side.
 	tcm := newManager(logger, cg, pMock, 0)
