@@ -336,7 +336,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.24",
+      "allowedVersions": "<1.25",
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
