@@ -339,10 +339,12 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 				Values: []string{"*"},
 			},
 		},
-		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(enisListFromInstances) > 0 {
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
+	} else {
+		// MaxResults is incompatible with NetworkInterfaceIds
+		ENIAttrs.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
 	}
 
 	var result []ec2_types.NetworkInterface
