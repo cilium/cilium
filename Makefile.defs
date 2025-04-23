@@ -80,6 +80,7 @@ SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(RO
 # as non-immediate variables
 GO_BUILD_FLAGS ?=
 GO_TEST_FLAGS ?=
+GO_TEST_OUT ?= /dev/null
 GO_CLEAN_FLAGS ?=
 GO_BUILD_LDFLAGS ?=
 # go build/test -tags values
@@ -111,13 +112,13 @@ ifneq ($(shell command -v go-junit-report),)
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
 		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
-		>/dev/null
+		>$(GO_TEST_OUT)
 else
 	GOTEST_FORMATTER = tee \
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
 		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
-		>/dev/null
+		>$(GO_TEST_OUT)
 endif
 else
 	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
