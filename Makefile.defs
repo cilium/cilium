@@ -108,17 +108,19 @@ ifneq ($(shell command -v go-junit-report),)
 		>(go-junit-report -parser gojson \
 			-code-owners=$(CODEOWNERS_PATH) \
 			-code-owners-prefix github.com/cilium/cilium/ \
-			>"$(JUNIT_PATH)") \
+			-out "$(JUNIT_PATH)") \
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
 		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
-		>$(GO_TEST_OUT)
+		>$(GO_TEST_OUT) \
+		| cat
 else
 	GOTEST_FORMATTER = tee \
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
 		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
-		>$(GO_TEST_OUT)
+		>$(GO_TEST_OUT) \
+		| cat
 endif
 else
 	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
