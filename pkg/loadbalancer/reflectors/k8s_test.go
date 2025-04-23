@@ -26,7 +26,7 @@ var (
 )
 
 func BenchmarkConvertService(b *testing.B) {
-	obj, err := testutils.DecodeFile("../experimental/benchmark/testdata/service.yaml")
+	obj, err := testutils.DecodeFile("../benchmark/testdata/service.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -39,7 +39,7 @@ func BenchmarkConvertService(b *testing.B) {
 }
 
 func BenchmarkParseEndpointSlice(b *testing.B) {
-	obj, err := testutils.DecodeFile("../experimental/benchmark/testdata/endpointslice.yaml")
+	obj, err := testutils.DecodeFile("../benchmark/testdata/endpointslice.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +53,7 @@ func BenchmarkParseEndpointSlice(b *testing.B) {
 }
 
 func BenchmarkConvertEndpoints(b *testing.B) {
-	obj, err := testutils.DecodeFile("../experimental/benchmark/testdata/endpointslice.yaml")
+	obj, err := testutils.DecodeFile("../benchmark/testdata/endpointslice.yaml")
 	if err != nil {
 		panic(err)
 	}
