@@ -14,8 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-const endpointAPISubsys = "endpoint-api"
-
 type endpointCreationRequest struct {
 	// cancel is the cancellation function that can be called to cancel
 	// this endpoint create request
@@ -68,11 +66,11 @@ func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel
 	defer m.mutex.Unlock()
 
 	if req, ok := m.requests[cepName]; ok {
-		ep.Logger(endpointAPISubsys).Warn("Cancelling obsolete endpoint creating due to new create for same cep name")
+		ep.Logger(endpointAPIModuleID).Warn("Cancelling obsolete endpoint creating due to new create for same cep name")
 		req.cancel()
 	}
 
-	ep.Logger(endpointAPISubsys).Debug("New create request")
+	ep.Logger(endpointAPIModuleID).Debug("New create request")
 	m.requests[cepName] = &endpointCreationRequest{
 		cancel:   cancel,
 		endpoint: ep,
@@ -92,7 +90,7 @@ func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
 
 	if req, ok := m.requests[cepName]; ok {
 		if req.endpoint == ep {
-			ep.Logger(endpointAPISubsys).Debug("End of create request")
+			ep.Logger(endpointAPIModuleID).Debug("End of create request")
 			delete(m.requests, cepName)
 			return true
 		}
@@ -103,7 +101,7 @@ func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
 
 func (m *endpointCreationManager) CancelCreateRequest(ep *endpoint.Endpoint) {
 	if m.EndCreateRequest(ep) {
-		ep.Logger(endpointAPISubsys).Warn("Cancelled endpoint create request due to receiving endpoint delete request")
+		ep.Logger(endpointAPIModuleID).Warn("Cancelled endpoint create request due to receiving endpoint delete request")
 	}
 }
 

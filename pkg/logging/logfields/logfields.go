@@ -44,6 +44,12 @@ const (
 	// EndpointID is the numeric endpoint identifier
 	EndpointID = "endpointID"
 
+	// EndpointAddressing is the endpoint addressing
+	EndpointAddressing = "addressing"
+
+	// EndpointAddressing defines whether to build an endpoint synchronously or not
+	EndpointSyncBuild = "sync-build"
+
 	// EndpointState is the current endpoint state
 	EndpointState = "endpointState"
 
@@ -477,6 +483,9 @@ const (
 
 	// DatapathMode is the datapath mode name
 	DatapathMode = "datapathMode"
+
+	// DatapathConfiguration is the datapath configuration
+	DatapathConfiguration = "datapathConfiguration"
 
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
