@@ -393,6 +393,13 @@ jobs:
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
+      - name: Check for unexpected packet drops during connectivity tests
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}
+          tests: 'no-unexpected-packet-drops'
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
@@ -462,6 +469,14 @@ jobs:
           job-name: cilium-downgrade-${{ matrix.name }}
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+
+      - name: Check for unexpected packet drops during connectivity tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}
+          tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
