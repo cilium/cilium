@@ -90,7 +90,7 @@ GO_TAGS_FLAGS += osusergo
 # RACE is specified.
 GOTEST_COVER_OPTS =
 
-CODEOWNERS_PATH ?= CODEOWNERS
+CODEOWNERS_PATH ?= $(ROOT_DIR)/CODEOWNERS
 
 # By default, just print go test output immediately to the terminal. If tparse
 # is installed, use it to format the output. Use -progress instead of -follow,
