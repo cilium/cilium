@@ -5,11 +5,13 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/server"
@@ -23,46 +25,43 @@ import (
 type DeletionQueue struct {
 	lf                     *lockfile.Lockfile
 	endpointRestorePromise promise.Promise[endpointstate.Restorer]
-	wg                     sync.WaitGroup
 	endpointAPIManager     EndpointAPIManager
 }
 
-func (dq *DeletionQueue) Start(cell.HookContext) error {
-	dq.wg.Add(1)
-	go func() {
-		defer dq.wg.Done()
-
-		// hook context cancels when the start hooks have run, use context.Background()
-		// as we may be running after that.
-		_, err := dq.endpointRestorePromise.Await(context.Background())
-		if err != nil {
-			log.WithError(err).Error("deletionQueue: Daemon promise failed")
-			return
-		}
-
-		if err := dq.lock(context.Background()); err != nil {
-			return
-		}
-
-		err = dq.processQueuedDeletes(context.TODO())
-		if err != nil {
-			log.WithError(err).Error("deletionQueue: processQueuedDeletes failed")
-		}
-	}()
-	return nil
-}
-
-func (dq *DeletionQueue) Stop(cell.HookContext) error {
-	dq.wg.Wait()
-	return nil
-}
-
-func newDeletionQueue(lc cell.Lifecycle, p promise.Promise[endpointstate.Restorer], endpointAPIManager EndpointAPIManager) *DeletionQueue {
-	dq := &DeletionQueue{
-		endpointRestorePromise: p,
-		endpointAPIManager:     endpointAPIManager,
+func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error {
+	if _, err := dq.endpointRestorePromise.Await(ctx); err != nil {
+		log.WithError(err).Error("deletionQueue: restorer promise failed")
+		return fmt.Errorf("restorer promise failed: %w", err)
 	}
-	lc.Append(dq)
+
+	if err := dq.lock(ctx); err != nil {
+		return fmt.Errorf("unable to get exclusive lock: %w", err)
+	}
+
+	if err := dq.processQueuedDeletes(ctx); err != nil {
+		log.WithError(err).Error("deletionQueue: processQueuedDeletes failed")
+		return fmt.Errorf("processing queue failed: %w", err)
+	}
+
+	return nil
+}
+
+type deletionQueueParams struct {
+	cell.In
+
+	JobGroup           job.Group
+	Restorer           promise.Promise[endpointstate.Restorer]
+	EndpointAPIManager EndpointAPIManager
+}
+
+func newDeletionQueue(params deletionQueueParams) *DeletionQueue {
+	dq := &DeletionQueue{
+		endpointRestorePromise: params.Restorer,
+		endpointAPIManager:     params.EndpointAPIManager,
+	}
+
+	params.JobGroup.Add(job.OneShot("cni-deletion-queue", dq.Process))
+
 	return dq
 }
 
@@ -110,6 +109,13 @@ func (dq *DeletionQueue) processQueuedDeletes(ctx context.Context) error {
 	log.Infof("Processing %d queued deletion requests", len(files))
 
 	for _, file := range files {
+		select {
+		case <-ctx.Done():
+			// stop processing on context cancellation
+			return nil
+		default:
+		}
+
 		err = dq.processQueuedDeleteEntryLocked(file)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Path, file).Error("Failed to read queued CNI deletion entry. Endpoint will not be deleted.")
@@ -126,16 +132,19 @@ func (dq *DeletionQueue) processQueuedDeletes(ctx context.Context) error {
 // unlockAfterAPIServer registers a start hook that runs after API server
 // has started and the deletion queue has been drained to unlock the
 // delete queue and thus allow CNI plugin to proceed.
-func unlockAfterAPIServer(lc cell.Lifecycle, _ *server.Server, dq *DeletionQueue) {
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			if dq.lf != nil {
-				dq.lf.Unlock()
-				dq.lf.Close()
+func unlockAfterAPIServer(jobGroup job.Group, _ *server.Server, dq *DeletionQueue) {
+	jobGroup.Add(job.OneShot("unlock-lockfile", func(ctx context.Context, health cell.Health) error {
+		if dq.lf != nil {
+			unlockErr := dq.lf.Unlock()
+			closeErr := dq.lf.Close()
+
+			if unlockErr != nil || closeErr != nil {
+				return fmt.Errorf("failed to unlock deletion queue lock file: %w", errors.Join(unlockErr, closeErr))
 			}
-			return nil
-		},
-	})
+		}
+
+		return nil
+	}))
 }
 
 // processQueuedDeleteEntry processes the contents of the deletion queue entry
