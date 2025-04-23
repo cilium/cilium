@@ -1253,9 +1253,6 @@ const (
 	// replacement features (might panic).
 	KubeProxyReplacementFalse = "false"
 
-	// KubeProxyReplacement healthz server bind address
-	KubeProxyReplacementHealthzBindAddr = "kube-proxy-replacement-healthz-bind-address"
-
 	// PprofAddressAgent is the default value for pprof in the agent
 	PprofAddressAgent = "localhost"
 
@@ -1945,9 +1942,6 @@ type DaemonConfig struct {
 
 	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
 	CgroupPathMKE string
-
-	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
-	KubeProxyReplacementHealthzBindAddr string
 
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs bool
@@ -3302,7 +3296,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		// Default to the same value as IPAMDefaultIPPool
 		c.IPAMMultiPoolPreAllocation = map[string]string{c.IPAMDefaultIPPool: "8"}
 	}
-	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)

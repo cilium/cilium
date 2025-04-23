@@ -13,6 +13,7 @@ import (
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/daemon/healthz"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
@@ -149,6 +150,9 @@ var (
 		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
 		// packages.
 		defaultdns.Cell,
+
+		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
+		healthz.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure

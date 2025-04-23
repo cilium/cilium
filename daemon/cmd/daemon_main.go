@@ -522,9 +522,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		option.KubeProxyReplacementFalse, option.KubeProxyReplacementTrue))
 	option.BindEnv(vp, option.KubeProxyReplacement)
 
-	flags.String(option.KubeProxyReplacementHealthzBindAddr, defaults.KubeProxyReplacementHealthzBindAddr, "The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.")
-	option.BindEnv(vp, option.KubeProxyReplacementHealthzBindAddr)
-
 	flags.Bool(option.EnableHostPort, false, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
 	option.BindEnv(vp, option.EnableHostPort)
 
@@ -1805,13 +1802,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}
 	bootstrapStats.healthCheck.End(true)
-
-	d.startAgentHealthHTTPService()
-	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
-		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
-			d.startKubeProxyHealthzHTTPService(option.Config.KubeProxyReplacementHealthzBindAddr)
-		}
-	}
 
 	if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
 		log.WithError(err).Warn("Failed to send agent start monitor message")
