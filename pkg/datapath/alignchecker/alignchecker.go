@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
@@ -121,8 +120,6 @@ func init() {
 		"srv6_vrf_key6":           {srv6map.VRFKey6{}},
 		"srv6_policy_key4":        {srv6map.PolicyKey4{}},
 		"srv6_policy_key6":        {srv6map.PolicyKey6{}},
-		"tunnel_key":              {tunnel.TunnelKey{}},
-		"tunnel_value":            {tunnel.TunnelValue{}},
 		"vtep_key":                {vtep.Key{}},
 		"vtep_value":              {vtep.VtepEndpointInfo{}},
 		"auth_key":                {authmap.AuthKey{}},
