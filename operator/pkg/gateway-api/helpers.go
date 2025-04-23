@@ -48,13 +48,6 @@ func ObjectNamePtr(name string) *gatewayv1.ObjectName {
 	return &objectName
 }
 
-func groupDerefOr(group *gatewayv1.Group, defaultGroup string) string {
-	if group != nil && *group != "" {
-		return string(*group)
-	}
-	return defaultGroup
-}
-
 // isAllowed returns true if the provided Route is allowed to attach to given gateway
 func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, route metav1.Object, logger *slog.Logger) bool {
 	for _, listener := range gw.Spec.Listeners {
@@ -172,7 +165,7 @@ func getSupportedRouteKinds(protocol gatewayv1.ProtocolType) []gatewayv1.RouteGr
 			},
 		}
 	default:
-		return []gatewayv1.RouteGroupKind{}
+		return nil
 	}
 }
 
