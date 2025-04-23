@@ -18,14 +18,18 @@ var defaultOptions = options{
 	peerServiceAddress: defaults.PeerTarget,
 	peerClientBuilder:  peerTypes.LocalClientBuilder{},
 	clientConnBuilder:  GRPCClientConnBuilder{},
-	backoff: &backoff.Exponential{
-		Min:    time.Second,
-		Max:    time.Minute,
-		Factor: 2.0,
-	},
 	connCheckInterval:  2 * time.Minute,
 	connStatusInterval: 5 * time.Second,
 	retryTimeout:       defaults.RetryTimeout,
+}
+
+func defaultBackoff(logger *slog.Logger) *backoff.Exponential {
+	return &backoff.Exponential{
+		Logger: logger,
+		Min:    time.Second,
+		Max:    time.Minute,
+		Factor: 2.0,
+	}
 }
 
 // Option customizes the configuration of the Manager.

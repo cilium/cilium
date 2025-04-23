@@ -57,6 +57,7 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 	// Use exponential backoff for retries. Keep small minimum time for fast tests,
 	// but backoff with aggressive factor.
 	backoff := backoff.Exponential{
+		Logger: sr.Logger,
 		Min:    10 * time.Millisecond,
 		Max:    30 * time.Second,
 		Factor: 8,
