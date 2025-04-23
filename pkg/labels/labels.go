@@ -12,9 +12,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/container/cache"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -328,7 +327,10 @@ func NewLabel(key string, value string, source string) Label {
 	if l.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key)
 		if err != nil {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
+				logfields.Error, err,
+				logfields.Key, l.Key,
+			)
 		} else {
 			l.cidr = &c
 		}
@@ -481,7 +483,10 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		if err == nil {
 			l.cidr = &c
 		} else {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
+				logfields.Error, err,
+				logfields.Key, l.Key,
+			)
 		}
 	}
 
@@ -810,11 +815,15 @@ func parseLabel(str string, delim byte) (lbl Label) {
 
 	if lbl.Source == LabelSourceCIDR {
 		if lbl.Value != "" {
-			logrus.WithField(logfields.Label, lbl.String()).Error("Invalid CIDR label: labels with source cidr cannot have values.")
+			logging.DefaultSlogLogger.Error("Invalid CIDR label: labels with source cidr cannot have values.",
+				logfields.Label, lbl,
+			)
 		}
 		c, err := LabelToPrefix(lbl.Key)
 		if err != nil {
-			logrus.WithField(logfields.Label, str).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
+				logfields.Label, lbl,
+			)
 		} else {
 			lbl.cidr = &c
 		}
