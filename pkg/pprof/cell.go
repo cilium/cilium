@@ -5,14 +5,16 @@ package pprof
 
 import (
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -58,7 +60,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Uint16(PprofPort, def.PprofPort, "Port that pprof listens on")
 }
 
-func newServer(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) Server {
+func newServer(lc cell.Lifecycle, log *slog.Logger, cfg Config) Server {
 	if !cfg.Pprof {
 		return nil
 	}
@@ -74,7 +76,7 @@ func newServer(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) Server {
 }
 
 type server struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	address string
 	port    uint16
@@ -90,10 +92,10 @@ func (s *server) Start(ctx cell.HookContext) error {
 	}
 	s.listener = listener
 
-	s.logger = s.logger.WithFields(logrus.Fields{
-		"ip":   s.listener.Addr().(*net.TCPAddr).IP,
-		"port": s.listener.Addr().(*net.TCPAddr).Port,
-	})
+	s.logger = s.logger.With(
+		logfields.IPAddr, s.listener.Addr().(*net.TCPAddr).IP,
+		logfields.Port, s.listener.Addr().(*net.TCPAddr).Port,
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -107,7 +109,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 	}
 	go func() {
 		if err := s.httpSrv.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
-			s.logger.WithError(err).Error("server stopped unexpectedly")
+			s.logger.Error("server stopped unexpectedly", logfields.Error, err)
 		}
 	}()
 	s.logger.Info("Started pprof server")
