@@ -7,11 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -33,17 +33,12 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-const daemonSubsys = "endpoint-api"
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, daemonSubsys)
 
 type EndpointAPIManager interface {
 	CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error)
@@ -54,6 +49,8 @@ type EndpointAPIManager interface {
 }
 
 type endpointAPIManager struct {
+	logger *slog.Logger
+
 	endpointManager   endpointmanager.EndpointManager
 	endpointCreator   endpointcreator.EndpointCreator
 	endpointCreations EndpointCreationManager
@@ -68,7 +65,7 @@ type endpointAPIManager struct {
 var _ EndpointAPIManager = &endpointAPIManager{}
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	ep.Logger(daemonSubsys).Warn("Creation of endpoint failed due to invalid data", logfields.Error, err)
+	ep.Logger(endpointAPIModuleID).Warn("Creation of endpoint failed due to invalid data", logfields.Error, err)
 	if ep != nil {
 		ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
 	}
@@ -81,7 +78,7 @@ func (m *endpointAPIManager) errorDuringCreation(ep *endpoint.Endpoint, err erro
 		// by the caller
 		NoIPRelease: true,
 	})
-	ep.Logger(daemonSubsys).Warn("Creation of endpoint failed", logfields.Error, err)
+	ep.Logger(endpointAPIModuleID).Warn("Creation of endpoint failed", logfields.Error, err)
 	return nil, PutEndpointIDFailedCode, err
 }
 
@@ -120,17 +117,17 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
 
-	log.WithFields(logrus.Fields{
-		"addressing":                 epTemplate.Addressing,
-		logfields.ContainerID:        epTemplate.ContainerID,
-		logfields.ContainerInterface: epTemplate.ContainerInterfaceName,
-		"datapathConfiguration":      epTemplate.DatapathConfiguration,
-		logfields.Interface:          epTemplate.InterfaceName,
-		logfields.K8sPodName:         epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-		logfields.K8sUID:             epTemplate.K8sUID,
-		logfields.Labels:             epTemplate.Labels,
-		"sync-build":                 epTemplate.SyncBuildEndpoint,
-	}).Info("Create endpoint request")
+	m.logger.Info("Create endpoint request",
+		logfields.EndpointAddressing, epTemplate.Addressing,
+		logfields.ContainerID, epTemplate.ContainerID,
+		logfields.ContainerInterface, epTemplate.ContainerInterfaceName,
+		logfields.DatapathConfiguration, epTemplate.DatapathConfiguration,
+		logfields.Interface, epTemplate.InterfaceName,
+		logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
+		logfields.K8sUID, epTemplate.K8sUID,
+		logfields.Labels, epTemplate.Labels,
+		logfields.EndpointSyncBuild, epTemplate.SyncBuildEndpoint,
+	)
 
 	// We don't need to create the endpoint with the labels. This might cause
 	// the endpoint regeneration to not be triggered further down, with the
@@ -203,10 +200,10 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 	if ep.K8sNamespaceAndPodNameIsSet() && m.clientset.IsEnabled() {
 		pod, k8sMetadata, err := m.handleOutdatedPodInformer(ctx, ep)
 		if errors.Is(err, endpointmetadata.PodStoreOutdatedErr) {
-			log.WithFields(logrus.Fields{
-				logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
-				logfields.K8sUID:     ep.K8sUID,
-			}).Warn("Timeout occurred waiting for Pod store, fetching latest Pod via the apiserver.")
+			m.logger.Warn("Timeout occurred waiting for Pod store, fetching latest Pod via the apiserver.",
+				logfields.K8sPodName, ep.K8sNamespace+"/"+ep.K8sPodName,
+				logfields.K8sUID, ep.K8sUID,
+			)
 
 			// Fetch the latest instance of the pod because
 			// fetchK8sMetadataForEndpoint() returned a stale pod from the
@@ -237,27 +234,29 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
 			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok && !m.bandwidthManager.Enabled() {
-				log.WithFields(logrus.Fields{
-					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(pod.Annotations),
-				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
-					bandwidth.IngressBandwidth)
+				m.logger.Warn("Endpoint has bandwidth annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
+					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
+					logfields.Annotation, bandwidth.IngressBandwidth,
+					logfields.Annotations, logfields.Repr(pod.Annotations),
+				)
 			}
 			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !m.bandwidthManager.Enabled() {
-				log.WithFields(logrus.Fields{
-					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(pod.Annotations),
-				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
-					bandwidth.EgressBandwidth)
+				m.logger.Warn("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
+					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
+					logfields.Annotation, bandwidth.EgressBandwidth,
+					logfields.Annotations, logfields.Repr(pod.Annotations),
+				)
 			}
 			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
-				m, err := mac.ParseMAC(hwAddr)
+				mac, err := mac.ParseMAC(hwAddr)
 				if err != nil {
-					log.WithField(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName).
-						WithError(err).Error("Unable to parse MAC address")
+					m.logger.Error("Unable to parse MAC address",
+						logfields.Error, err,
+						logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
+					)
 					return invalidDataError(ep, err)
 				}
-				ep.SetMac(m)
+				ep.SetMac(mac)
 			}
 		}
 	}
@@ -365,10 +364,10 @@ func (m *endpointAPIManager) handleOutdatedPodInformer(ctx context.Context, ep *
 
 		if errors.Is(err2, endpointmetadata.PodStoreOutdatedErr) {
 			once.Do(func() {
-				log.WithFields(logrus.Fields{
-					logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
-					logfields.K8sUID:     ep.K8sUID,
-				}).Warn("Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.")
+				m.logger.Warn("Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.",
+					logfields.K8sPodName, ep.K8sNamespace+"/"+ep.K8sPodName,
+					logfields.K8sUID, ep.K8sUID,
+				)
 			})
 
 			return false, nil
@@ -387,7 +386,7 @@ func (m *endpointAPIManager) deleteEndpointRelease(ep *endpoint.Endpoint, noIPRe
 	// Cancel any ongoing endpoint creation
 	m.endpointCreations.CancelCreateRequest(ep)
 
-	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+	scopedLog := m.logger.With(logfields.EndpointID, ep.ID)
 	// Set the endpoint into disconnecting state and remove
 	// it from Cilium, releasing all resources associated with it such as its
 	// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
@@ -399,7 +398,7 @@ func (m *endpointAPIManager) deleteEndpointRelease(ep *endpoint.Endpoint, noIPRe
 		NoIPRelease: noIPRelease,
 	})
 	for _, err := range errs {
-		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
+		scopedLog.Warn("Ignoring error while deleting endpoint", logfields.Error, err)
 	}
 	return len(errs)
 }
@@ -420,20 +419,20 @@ func (m *endpointAPIManager) DeleteEndpoint(id string) (int, error) {
 		msg := "Delete endpoint request"
 		switch containerID := ep.GetShortContainerID(); containerID {
 		case "":
-			log.WithFields(logrus.Fields{
-				logfields.IPv4:         ep.GetIPv4Address(),
-				logfields.IPv6:         ep.GetIPv6Address(),
-				logfields.EndpointID:   ep.ID,
-				logfields.K8sPodName:   ep.GetK8sPodName(),
-				logfields.K8sNamespace: ep.GetK8sNamespace(),
-			}).Info(msg)
+			m.logger.Info(msg,
+				logfields.IPv4, ep.GetIPv4Address(),
+				logfields.IPv6, ep.GetIPv6Address(),
+				logfields.EndpointID, ep.ID,
+				logfields.K8sPodName, ep.GetK8sPodName(),
+				logfields.K8sNamespace, ep.GetK8sNamespace(),
+			)
 		default:
-			log.WithFields(logrus.Fields{
-				logfields.ContainerID:  containerID,
-				logfields.EndpointID:   ep.ID,
-				logfields.K8sPodName:   ep.GetK8sPodName(),
-				logfields.K8sNamespace: ep.GetK8sNamespace(),
-			}).Info(msg)
+			m.logger.Info(msg,
+				logfields.ContainerID, containerID,
+				logfields.EndpointID, ep.ID,
+				logfields.K8sPodName, ep.GetK8sPodName(),
+				logfields.K8sNamespace, ep.GetK8sNamespace(),
+			)
 		}
 		return m.deleteEndpoint(ep), nil
 	}
@@ -450,15 +449,15 @@ func (m *endpointAPIManager) DeleteEndpointByContainerID(containerID string) (nE
 	}
 
 	for _, ep := range eps {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ContainerID:  containerID,
-			logfields.EndpointID:   ep.ID,
-			logfields.K8sPodName:   ep.GetK8sPodName(),
-			logfields.K8sNamespace: ep.GetK8sNamespace(),
-		})
+		scopedLog := m.logger.With(
+			logfields.ContainerID, containerID,
+			logfields.EndpointID, ep.ID,
+			logfields.K8sPodName, ep.GetK8sPodName(),
+			logfields.K8sNamespace, ep.GetK8sNamespace(),
+		)
 
 		if err = endpoint.APICanModify(ep); err != nil {
-			scopedLog.WithError(err).Warn("Skipped endpoint in batch delete request")
+			scopedLog.Warn("Skipped endpoint in batch delete request", logfields.Error, err)
 			nErrors++
 			continue
 		}
