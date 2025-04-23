@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -25,7 +26,7 @@ func TestFilterLabels(t *testing.T) {
 		"io.cilium.k8s.policy.serviceaccount": labels.NewLabel("io.cilium.k8s.policy.serviceaccount", "luke", labels.LabelSourceContainer),
 	}
 
-	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
+	err := ParseLabelPrefixCfg(hivetest.Logger(t), []string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
 	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -73,6 +74,7 @@ func TestFilterLabels(t *testing.T) {
 }
 
 func TestDefaultFilterLabels(t *testing.T) {
+	logger := hivetest.Logger(t)
 	wanted := labels.Labels{
 		"app.kubernetes.io":                   labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
 		"id.lizards.k8s":                      labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
@@ -86,7 +88,7 @@ func TestDefaultFilterLabels(t *testing.T) {
 		"io.cilium.k8s.policy.serviceaccount": labels.NewLabel("io.cilium.k8s.policy.serviceaccount", "luke", labels.LabelSourceContainer),
 	}
 
-	err := ParseLabelPrefixCfg([]string{}, []string{}, "")
+	err := ParseLabelPrefixCfg(logger, []string{}, []string{}, "")
 	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -126,6 +128,7 @@ func TestDefaultFilterLabels(t *testing.T) {
 }
 
 func TestFilterLabelsDocExample(t *testing.T) {
+	logger := hivetest.Logger(t)
 	wanted := labels.Labels{
 
 		"io.cilium.k8s.namespace.labels":      labels.NewLabel("io.cilium.k8s.namespace.labels", "foo", labels.LabelSourceK8s),
@@ -140,7 +143,7 @@ func TestFilterLabelsDocExample(t *testing.T) {
 		"io.cilium.k8s.policy.serviceaccount": labels.NewLabel("io.cilium.k8s.policy.serviceaccount", "luke", labels.LabelSourceK8s),
 	}
 
-	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:kind$", "k8s:other$"}, []string{}, "")
+	err := ParseLabelPrefixCfg(logger, []string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:kind$", "k8s:other$"}, []string{}, "")
 	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{

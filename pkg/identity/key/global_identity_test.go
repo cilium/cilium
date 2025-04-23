@@ -6,12 +6,15 @@ package key
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 )
 
 func TestGetCIDKeyFromLabels(t *testing.T) {
-	labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	logger := hivetest.Logger(t)
+	labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 
 	tests := []struct {
 		name     string

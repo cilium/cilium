@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -207,7 +208,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 	defer func(current time.Duration) { handleOutdatedPodInformerRetryPeriod = current }(handleOutdatedPodInformerRetryPeriod)
 	handleOutdatedPodInformerRetryPeriod = 1 * time.Millisecond
 
-	require.NoError(t, labelsfilter.ParseLabelPrefixCfg(nil, nil, ""))
+	require.NoError(t, labelsfilter.ParseLabelPrefixCfg(hivetest.Logger(t), nil, nil, ""))
 
 	notFoundErr := k8sErrors.NewNotFound(schema.GroupResource{Group: "core", Resource: "pod"}, "foo")
 

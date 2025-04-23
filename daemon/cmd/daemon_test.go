@@ -96,7 +96,9 @@ func TestMain(m *testing.M) {
 func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	testutils.IntegrationTest(tb)
 
-	ds := &DaemonSuite{}
+	ds := &DaemonSuite{
+		log: hivetest.Logger(tb),
+	}
 	ctx := context.Background()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
@@ -148,7 +150,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	option.Config.RunDir = testRunDir
 	option.Config.StateDir = testRunDir
 
-	ds.log = hivetest.Logger(tb)
 	err := ds.hive.Start(ds.log, ctx)
 	require.NoError(tb, err)
 
@@ -200,7 +201,7 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	// GetConfig the default labels prefix filter
-	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(ds.log, nil, nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}
