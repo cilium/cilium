@@ -1663,4 +1663,6 @@ const (
 	MaxEntries = "maxEntries"
 
 	Flags = "flags"
+
+	ExitCode = "exitCode"
 )
