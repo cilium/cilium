@@ -224,36 +224,6 @@ struct endpoint_key {
 	__u16 cluster_id;
 } __packed;
 
-struct tunnel_key {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 pad;
-	__u16 cluster_id;
-} __packed;
-
-struct tunnel_value {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 key;
-	__u16 pad;
-} __packed;
-
 #define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
 #define ENDPOINT_F_ATHOSTNS		2 /* Endpoint located at the host networking namespace */
 #define ENDPOINT_MASK_HOST_DELIVERY	(ENDPOINT_F_HOST | ENDPOINT_F_ATHOSTNS)

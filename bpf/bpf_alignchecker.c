@@ -80,8 +80,6 @@ add_type(struct srv6_vrf_key6);
 add_type(struct srv6_policy_key4);
 add_type(struct srv6_policy_key6);
 add_type(struct trace_sock_notify);
-add_type(struct tunnel_key);
-add_type(struct tunnel_value);
 add_type(struct auth_key);
 add_type(struct auth_info);
 add_type(struct encrypt_config);
