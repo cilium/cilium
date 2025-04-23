@@ -55,7 +55,7 @@ Installation
 
         .. parsed-literal::
 
-            $ helm upgrade cilium |CHART_RELEASE| \\
+            $ helm install cilium |CHART_RELEASE| \\
                 --namespace kube-system \\
                 --reuse-values \\
                 --set kubeProxyReplacement=true \\
