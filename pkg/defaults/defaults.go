@@ -473,9 +473,6 @@ const (
 	// API groups using Discovery API.
 	K8sEnableLeasesFallbackDiscovery = false
 
-	// KubeProxyReplacementHealthzBindAddr is the default kubeproxyReplacement healthz server bind addr
-	KubeProxyReplacementHealthzBindAddr = ""
-
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false
 
