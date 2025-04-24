@@ -37,7 +37,7 @@ A basic IP Pools with both an IPv4 and IPv6 range looks like this:
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -93,7 +93,7 @@ The pool will allocate to any service if no service selector is specified.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -104,7 +104,7 @@ The pool will allocate to any service if no service selector is specified.
         matchExpressions:
           - {key: color, operator: In, values: [blue, cyan]}
     ---
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "red-pool"
@@ -129,7 +129,7 @@ For example:
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -193,7 +193,7 @@ an administrator to slowly drain pool or reserve a pool for future use.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -251,7 +251,7 @@ Or human readable output like so
     Namespace:    
     Labels:       <none>
     Annotations:  <none>
-    API Version:  cilium.io/v2alpha1
+    API Version:  cilium.io/v2
     Kind:         CiliumLoadBalancerIPPool
     #[...]
     Status:

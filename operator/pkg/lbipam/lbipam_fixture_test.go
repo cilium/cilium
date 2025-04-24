@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -35,10 +36,10 @@ const (
 )
 
 type fakeIPPoolClient struct {
-	resources map[resource.Key]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool
+	resources map[resource.Key]*cilium_api_v2.CiliumLoadBalancerIPPool
 }
 
-func (fic *fakeIPPoolClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *cilium_api_v2alpha1.CiliumLoadBalancerIPPool, err error) {
+func (fic *fakeIPPoolClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *cilium_api_v2.CiliumLoadBalancerIPPool, err error) {
 	existing, found := fic.resources[resource.Key{Name: name}]
 	if !found {
 		return nil, fmt.Errorf("No IP pool found with name %q", name)
@@ -54,7 +55,7 @@ func (fic *fakeIPPoolClient) Patch(ctx context.Context, name string, pt types.Pa
 	value := reflect.ValueOf(existing)
 	value.Elem().Set(reflect.New(value.Type().Elem()).Elem())
 
-	var obj cilium_api_v2alpha1.CiliumLoadBalancerIPPool
+	var obj cilium_api_v2.CiliumLoadBalancerIPPool
 
 	switch pt {
 	case types.JSONPatchType:
@@ -166,14 +167,14 @@ type newFixture struct {
 	svcClient  *fakeSvcClientGetter
 }
 
-func (nf *newFixture) GetPool(name string) *cilium_api_v2alpha1.CiliumLoadBalancerIPPool {
+func (nf *newFixture) GetPool(name string) *cilium_api_v2.CiliumLoadBalancerIPPool {
 	return nf.poolClient.resources[resource.Key{Name: name}]
 }
 
-func (nf *newFixture) UpsertPool(t *testing.T, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) {
+func (nf *newFixture) UpsertPool(t *testing.T, pool *cilium_api_v2.CiliumLoadBalancerIPPool) {
 	key := resource.Key{Name: pool.Name}
 	nf.poolClient.resources[key] = pool
-	nf.lbipam.handlePoolEvent(t.Context(), resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]{
+	nf.lbipam.handlePoolEvent(t.Context(), resource.Event[*cilium_api_v2.CiliumLoadBalancerIPPool]{
 		Kind:   resource.Upsert,
 		Key:    key,
 		Object: pool,
@@ -185,10 +186,10 @@ func (nf *newFixture) UpsertPool(t *testing.T, pool *cilium_api_v2alpha1.CiliumL
 	})
 }
 
-func (nf *newFixture) DeletePool(t *testing.T, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) {
+func (nf *newFixture) DeletePool(t *testing.T, pool *cilium_api_v2.CiliumLoadBalancerIPPool) {
 	key := resource.Key{Name: pool.Name}
 	delete(nf.poolClient.resources, key)
-	nf.lbipam.handlePoolEvent(t.Context(), resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]{
+	nf.lbipam.handlePoolEvent(t.Context(), resource.Event[*cilium_api_v2.CiliumLoadBalancerIPPool]{
 		Kind:   resource.Delete,
 		Key:    key,
 		Object: pool,
@@ -239,7 +240,7 @@ func mkTestFixture(t *testing.T, ipv4Enabled, ipv6Enabled bool) newFixture {
 	log := hivetest.Logger(t)
 
 	poolClient := &fakeIPPoolClient{
-		resources: make(map[resource.Key]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool),
+		resources: make(map[resource.Key]*cilium_api_v2.CiliumLoadBalancerIPPool),
 	}
 	svcClient := &fakeSvcClientGetter{
 		resources: make(map[resource.Key]*slim_core_v1.Service),
@@ -267,21 +268,21 @@ func mkTestFixture(t *testing.T, ipv4Enabled, ipv6Enabled bool) newFixture {
 }
 
 // mkPool is a constructor function to assist in the creation of new pool objects.
-func mkPool(uid types.UID, name string, cidrs []string) *cilium_api_v2alpha1.CiliumLoadBalancerIPPool {
-	var blocks []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock
+func mkPool(uid types.UID, name string, cidrs []string) *cilium_api_v2.CiliumLoadBalancerIPPool {
+	var blocks []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock
 	for _, cidr := range cidrs {
-		blocks = append(blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
-			Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR(cidr),
+		blocks = append(blocks, cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
+			Cidr: cilium_api_v2.IPv4orIPv6CIDR(cidr),
 		})
 	}
 
-	return &cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
+	return &cilium_api_v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              name,
 			UID:               uid,
 			CreationTimestamp: metav1.Date(2022, 10, 16, 12, 00, 00, 0, time.UTC),
 		},
-		Spec: cilium_api_v2alpha1.CiliumLoadBalancerIPPoolSpec{
+		Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
 			Blocks: blocks,
 		},
 	}

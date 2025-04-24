@@ -307,6 +307,8 @@ communicating via the proxy must reconnect to re-establish connections.
   exclude the ``io.cilium.k8s.policy.serviceaccount`` label.
 * If using IPsec encryption the upgrade from v1.17 to v1.18 requires special attention.
   Please reference :ref:`encryption_ipsec`
+* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been deprecated in favor of the ``v2`` version. Please change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources.
 
 
 

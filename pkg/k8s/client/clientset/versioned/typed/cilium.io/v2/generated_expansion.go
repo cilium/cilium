@@ -27,6 +27,8 @@ type CiliumEnvoyConfigExpansion interface{}
 
 type CiliumIdentityExpansion interface{}
 
+type CiliumLoadBalancerIPPoolExpansion interface{}
+
 type CiliumLocalRedirectPolicyExpansion interface{}
 
 type CiliumNetworkPolicyExpansion interface{}

@@ -26,6 +26,7 @@ type CiliumV2Interface interface {
 	CiliumEndpointsGetter
 	CiliumEnvoyConfigsGetter
 	CiliumIdentitiesGetter
+	CiliumLoadBalancerIPPoolsGetter
 	CiliumLocalRedirectPoliciesGetter
 	CiliumNetworkPoliciesGetter
 	CiliumNodesGetter
@@ -79,6 +80,10 @@ func (c *CiliumV2Client) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigI
 
 func (c *CiliumV2Client) CiliumIdentities() CiliumIdentityInterface {
 	return newCiliumIdentities(c)
+}
+
+func (c *CiliumV2Client) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInterface {
+	return newCiliumLoadBalancerIPPools(c)
 }
 
 func (c *CiliumV2Client) CiliumLocalRedirectPolicies(namespace string) CiliumLocalRedirectPolicyInterface {

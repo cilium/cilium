@@ -33,6 +33,8 @@ type Interface interface {
 	CiliumEnvoyConfigs() CiliumEnvoyConfigInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
 	CiliumIdentities() CiliumIdentityInformer
+	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
+	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
 	// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
 	CiliumLocalRedirectPolicies() CiliumLocalRedirectPolicyInformer
 	// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
@@ -107,6 +109,11 @@ func (v *version) CiliumEnvoyConfigs() CiliumEnvoyConfigInformer {
 // CiliumIdentities returns a CiliumIdentityInformer.
 func (v *version) CiliumIdentities() CiliumIdentityInformer {
 	return &ciliumIdentityInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
+func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
+	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
