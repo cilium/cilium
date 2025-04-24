@@ -174,10 +174,10 @@ type RemoteEndpointInfo struct {
 
 func (v *RemoteEndpointInfo) String() string {
 	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s flags=%s",
-		v.SecurityIdentity, v.Key, v.getTunnelEndpoint(), v.Flags)
+		v.SecurityIdentity, v.Key, v.GetTunnelEndpoint(), v.Flags)
 }
 
-func (v *RemoteEndpointInfo) getTunnelEndpoint() net.IP {
+func (v *RemoteEndpointInfo) GetTunnelEndpoint() net.IP {
 	if v.Flags&FlagIPv6TunnelEndpoint == 0 {
 		return v.TunnelEndpoint[:4]
 	}
