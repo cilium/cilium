@@ -20,6 +20,7 @@
 #include "metrics.h"
 #include "ratelimit.h"
 #include "tailcall.h"
+#include "classifiers.h"
 
 #define NOTIFY_DROP_VER 2
 
@@ -32,9 +33,10 @@ struct drop_notify {
 	__u8		file;
 	__s8		ext_error;
 	__u32		ifindex;
-	__u8		ipv6:1;
-	__u8		l3_dev:1;
-	__u8		pad1:6;
+	__u8		flags; /* __u8 instead of cls_flags_t so that it will error
+				* when cls_flags_t grows (either borrow bits from pad2 or
+				* move to flags_lower/flags_upper).
+				*/
 	__u8		pad2[3];
 };
 
@@ -59,7 +61,6 @@ struct drop_notify {
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
-	bool l3_dev = false, ipv6 = false;
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -83,11 +84,6 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 			return exitcode;
 	}
 
-#ifdef IS_BPF_WIREGUARD
-	l3_dev = true;
-	ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
-#endif
-
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_DROP_VER),
@@ -98,8 +94,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
-		.ipv6           = ipv6,
-		.l3_dev         = l3_dev,
+		.flags          = ctx_classify_by_eth_hlen(ctx),
 	};
 
 	ctx_event_output(ctx, &cilium_events,
