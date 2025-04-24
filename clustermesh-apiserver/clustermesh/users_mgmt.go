@@ -105,7 +105,7 @@ func (us *usersManager) Start(cell.HookContext) error {
 		logfields.Path, us.ClusterUsersConfigPath,
 	)
 
-	configWatcher, err := fswatcher.New([]string{us.ClusterUsersConfigPath})
+	configWatcher, err := fswatcher.New(us.logger, []string{us.ClusterUsersConfigPath})
 	if err != nil {
 		us.logger.Error("Unable to setup config watcher", logfields.Error, err)
 		return fmt.Errorf("unable to setup config watcher: %w", err)
