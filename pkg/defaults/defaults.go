@@ -278,10 +278,6 @@ const (
 	// EnableEndpointHealthChecking
 	EnableEndpointHealthChecking = true
 
-	// EnableHealthCheckNodePort is the default value for
-	// EnableHealthCheckNodePort
-	EnableHealthCheckNodePort = true
-
 	// EnableHealthCheckLoadBalancerIP is the default value for
 	// EnableHealthCheckLoadBalancerIP
 	EnableHealthCheckLoadBalancerIP = false

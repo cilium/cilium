@@ -134,7 +134,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	option.Config.KubeProxyReplacement = option.KubeProxyReplacementTrue
 	option.Config.K8sRequireIPv6PodCIDR = false
 	option.Config.EnableL7Proxy = false
-	option.Config.EnableHealthCheckNodePort = false
 	option.Config.Debug = true
 
 	// Apply the test-specific agent configuration modifier

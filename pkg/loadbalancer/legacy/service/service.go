@@ -312,7 +312,7 @@ type Service struct {
 func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbConfig lb.Config, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool,
 	config *option.DaemonConfig) *Service {
 	var localHealthServer healthServer
-	if option.Config.EnableHealthCheckNodePort {
+	if lbConfig.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New(logger)
 	}
 
@@ -902,7 +902,7 @@ func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
-	if option.Config.EnableHealthCheckNodePort {
+	if s.lbConfig.EnableHealthCheckNodePort {
 		if svc.isExtLocal() && filterBackends && svc.svcHealthCheckNodePort > 0 {
 			// HealthCheckNodePort is used by external systems to poll the state of the Service,
 			// it should never take into consideration Terminating backends, even when there are only
@@ -2080,7 +2080,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		}
 	}
 
-	if option.Config.EnableHealthCheckNodePort {
+	if s.lbConfig.EnableHealthCheckNodePort {
 		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 	}
 
