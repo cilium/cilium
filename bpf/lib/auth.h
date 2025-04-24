@@ -22,7 +22,6 @@ static __always_inline int
 auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remote_node_ip,
 	    __u8 auth_type)
 {
-	struct node_key node_ip = {};
 	struct node_value *node_value = NULL;
 	struct auth_info *auth;
 	struct auth_key key = {
@@ -33,9 +32,7 @@ auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remot
 	};
 
 	if (remote_node_ip) {
-		node_ip.family = ENDPOINT_KEY_IPV4;
-		node_ip.ip4 = remote_node_ip;
-		node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
+		node_value = lookup_ip4_node(remote_node_ip);
 		if (!node_value || !node_value->id)
 			return DROP_NO_NODE_ID;
 		key.remote_node_id = node_value->id;
