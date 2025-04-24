@@ -50,8 +50,8 @@ func TestEnableNetworkPolicyCorrelation(t *testing.T) {
 		),
 	)
 	opt := WithNetworkPolicyCorrelation(logger, true)
-	opt(&Options{
-		EnableNetworkPolicyCorrelation: true,
-	})
+	opts := Options{EnableNetworkPolicyCorrelation: false}
+	opt(&opts)
+	assert.True(t, opts.EnableNetworkPolicyCorrelation)
 	assert.Equal(t, want, buf.String())
 }
