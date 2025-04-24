@@ -99,6 +99,7 @@ O'Reilly
 PaaS
 Palantir
 Pepelnjak
+Perfdash
 Pfaff
 PodCIDR
 Polytechnique
@@ -373,6 +374,7 @@ goroutine
 goroutines
 grafana
 graphviz
+gsutil
 gve
 hairpinned
 hardcode
@@ -458,6 +460,7 @@ json
 k8sServiceHost
 k8sServiceLookupConfigMapName
 k8sServiceLookupNamespace
+kOps
 kTLS
 kafka
 kallsyms
