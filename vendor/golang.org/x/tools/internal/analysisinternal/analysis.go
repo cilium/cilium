@@ -8,283 +8,70 @@ package analysisinternal
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"go/ast"
+	"go/printer"
+	"go/scanner"
 	"go/token"
 	"go/types"
-	"os"
-	"strconv"
+	"iter"
+	pathpkg "path"
+	"slices"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/internal/aliases"
+	"golang.org/x/tools/go/ast/inspector"
+	"golang.org/x/tools/internal/astutil/cursor"
+	"golang.org/x/tools/internal/typesinternal"
 )
 
+// Deprecated: this heuristic is ill-defined.
+// TODO(adonovan): move to sole use in gopls/internal/cache.
 func TypeErrorEndPos(fset *token.FileSet, src []byte, start token.Pos) token.Pos {
 	// Get the end position for the type error.
-	offset, end := fset.PositionFor(start, false).Offset, start
-	if offset >= len(src) {
-		return end
+	file := fset.File(start)
+	if file == nil {
+		return start
 	}
-	if width := bytes.IndexAny(src[offset:], " \n,():;[]+-*"); width > 0 {
-		end = start + token.Pos(width)
+	if offset := file.PositionFor(start, false).Offset; offset > len(src) {
+		return start
+	} else {
+		src = src[offset:]
+	}
+
+	// Attempt to find a reasonable end position for the type error.
+	//
+	// TODO(rfindley): the heuristic implemented here is unclear. It looks like
+	// it seeks the end of the primary operand starting at start, but that is not
+	// quite implemented (for example, given a func literal this heuristic will
+	// return the range of the func keyword).
+	//
+	// We should formalize this heuristic, or deprecate it by finally proposing
+	// to add end position to all type checker errors.
+	//
+	// Nevertheless, ensure that the end position at least spans the current
+	// token at the cursor (this was golang/go#69505).
+	end := start
+	{
+		var s scanner.Scanner
+		fset := token.NewFileSet()
+		f := fset.AddFile("", fset.Base(), len(src))
+		s.Init(f, src, nil /* no error handler */, scanner.ScanComments)
+		pos, tok, lit := s.Scan()
+		if tok != token.SEMICOLON && token.Pos(f.Base()) <= pos && pos <= token.Pos(f.Base()+f.Size()) {
+			off := file.Offset(pos) + len(lit)
+			src = src[off:]
+			end += token.Pos(off)
+		}
+	}
+
+	// Look for bytes that might terminate the current operand. See note above:
+	// this is imprecise.
+	if width := bytes.IndexAny(src, " \n,():;[]+-*/"); width > 0 {
+		end += token.Pos(width)
 	}
 	return end
-}
-
-func ZeroValue(f *ast.File, pkg *types.Package, typ types.Type) ast.Expr {
-	// TODO(adonovan): think about generics, and also generic aliases.
-	under := aliases.Unalias(typ)
-	// Don't call Underlying unconditionally: although it removes
-	// Named and Alias, it also removes TypeParam.
-	if n, ok := under.(*types.Named); ok {
-		under = n.Underlying()
-	}
-	switch under := under.(type) {
-	case *types.Basic:
-		switch {
-		case under.Info()&types.IsNumeric != 0:
-			return &ast.BasicLit{Kind: token.INT, Value: "0"}
-		case under.Info()&types.IsBoolean != 0:
-			return &ast.Ident{Name: "false"}
-		case under.Info()&types.IsString != 0:
-			return &ast.BasicLit{Kind: token.STRING, Value: `""`}
-		default:
-			panic(fmt.Sprintf("unknown basic type %v", under))
-		}
-	case *types.Chan, *types.Interface, *types.Map, *types.Pointer, *types.Signature, *types.Slice, *types.Array:
-		return ast.NewIdent("nil")
-	case *types.Struct:
-		texpr := TypeExpr(f, pkg, typ) // typ because we want the name here.
-		if texpr == nil {
-			return nil
-		}
-		return &ast.CompositeLit{
-			Type: texpr,
-		}
-	}
-	return nil
-}
-
-// IsZeroValue checks whether the given expression is a 'zero value' (as determined by output of
-// analysisinternal.ZeroValue)
-func IsZeroValue(expr ast.Expr) bool {
-	switch e := expr.(type) {
-	case *ast.BasicLit:
-		return e.Value == "0" || e.Value == `""`
-	case *ast.Ident:
-		return e.Name == "nil" || e.Name == "false"
-	default:
-		return false
-	}
-}
-
-// TypeExpr returns syntax for the specified type. References to
-// named types from packages other than pkg are qualified by an appropriate
-// package name, as defined by the import environment of file.
-func TypeExpr(f *ast.File, pkg *types.Package, typ types.Type) ast.Expr {
-	switch t := typ.(type) {
-	case *types.Basic:
-		switch t.Kind() {
-		case types.UnsafePointer:
-			return &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Pointer")}
-		default:
-			return ast.NewIdent(t.Name())
-		}
-	case *types.Pointer:
-		x := TypeExpr(f, pkg, t.Elem())
-		if x == nil {
-			return nil
-		}
-		return &ast.UnaryExpr{
-			Op: token.MUL,
-			X:  x,
-		}
-	case *types.Array:
-		elt := TypeExpr(f, pkg, t.Elem())
-		if elt == nil {
-			return nil
-		}
-		return &ast.ArrayType{
-			Len: &ast.BasicLit{
-				Kind:  token.INT,
-				Value: fmt.Sprintf("%d", t.Len()),
-			},
-			Elt: elt,
-		}
-	case *types.Slice:
-		elt := TypeExpr(f, pkg, t.Elem())
-		if elt == nil {
-			return nil
-		}
-		return &ast.ArrayType{
-			Elt: elt,
-		}
-	case *types.Map:
-		key := TypeExpr(f, pkg, t.Key())
-		value := TypeExpr(f, pkg, t.Elem())
-		if key == nil || value == nil {
-			return nil
-		}
-		return &ast.MapType{
-			Key:   key,
-			Value: value,
-		}
-	case *types.Chan:
-		dir := ast.ChanDir(t.Dir())
-		if t.Dir() == types.SendRecv {
-			dir = ast.SEND | ast.RECV
-		}
-		value := TypeExpr(f, pkg, t.Elem())
-		if value == nil {
-			return nil
-		}
-		return &ast.ChanType{
-			Dir:   dir,
-			Value: value,
-		}
-	case *types.Signature:
-		var params []*ast.Field
-		for i := 0; i < t.Params().Len(); i++ {
-			p := TypeExpr(f, pkg, t.Params().At(i).Type())
-			if p == nil {
-				return nil
-			}
-			params = append(params, &ast.Field{
-				Type: p,
-				Names: []*ast.Ident{
-					{
-						Name: t.Params().At(i).Name(),
-					},
-				},
-			})
-		}
-		if t.Variadic() {
-			last := params[len(params)-1]
-			last.Type = &ast.Ellipsis{Elt: last.Type.(*ast.ArrayType).Elt}
-		}
-		var returns []*ast.Field
-		for i := 0; i < t.Results().Len(); i++ {
-			r := TypeExpr(f, pkg, t.Results().At(i).Type())
-			if r == nil {
-				return nil
-			}
-			returns = append(returns, &ast.Field{
-				Type: r,
-			})
-		}
-		return &ast.FuncType{
-			Params: &ast.FieldList{
-				List: params,
-			},
-			Results: &ast.FieldList{
-				List: returns,
-			},
-		}
-	case interface{ Obj() *types.TypeName }: // *types.{Alias,Named,TypeParam}
-		if t.Obj().Pkg() == nil {
-			return ast.NewIdent(t.Obj().Name())
-		}
-		if t.Obj().Pkg() == pkg {
-			return ast.NewIdent(t.Obj().Name())
-		}
-		pkgName := t.Obj().Pkg().Name()
-
-		// If the file already imports the package under another name, use that.
-		for _, cand := range f.Imports {
-			if path, _ := strconv.Unquote(cand.Path.Value); path == t.Obj().Pkg().Path() {
-				if cand.Name != nil && cand.Name.Name != "" {
-					pkgName = cand.Name.Name
-				}
-			}
-		}
-		if pkgName == "." {
-			return ast.NewIdent(t.Obj().Name())
-		}
-		return &ast.SelectorExpr{
-			X:   ast.NewIdent(pkgName),
-			Sel: ast.NewIdent(t.Obj().Name()),
-		}
-	case *types.Struct:
-		return ast.NewIdent(t.String())
-	case *types.Interface:
-		return ast.NewIdent(t.String())
-	default:
-		return nil
-	}
-}
-
-// StmtToInsertVarBefore returns the ast.Stmt before which we can safely insert a new variable.
-// Some examples:
-//
-// Basic Example:
-// z := 1
-// y := z + x
-// If x is undeclared, then this function would return `y := z + x`, so that we
-// can insert `x := ` on the line before `y := z + x`.
-//
-// If stmt example:
-// if z == 1 {
-// } else if z == y {}
-// If y is undeclared, then this function would return `if z == 1 {`, because we cannot
-// insert a statement between an if and an else if statement. As a result, we need to find
-// the top of the if chain to insert `y := ` before.
-func StmtToInsertVarBefore(path []ast.Node) ast.Stmt {
-	enclosingIndex := -1
-	for i, p := range path {
-		if _, ok := p.(ast.Stmt); ok {
-			enclosingIndex = i
-			break
-		}
-	}
-	if enclosingIndex == -1 {
-		return nil
-	}
-	enclosingStmt := path[enclosingIndex]
-	switch enclosingStmt.(type) {
-	case *ast.IfStmt:
-		// The enclosingStmt is inside of the if declaration,
-		// We need to check if we are in an else-if stmt and
-		// get the base if statement.
-		return baseIfStmt(path, enclosingIndex)
-	case *ast.CaseClause:
-		// Get the enclosing switch stmt if the enclosingStmt is
-		// inside of the case statement.
-		for i := enclosingIndex + 1; i < len(path); i++ {
-			if node, ok := path[i].(*ast.SwitchStmt); ok {
-				return node
-			} else if node, ok := path[i].(*ast.TypeSwitchStmt); ok {
-				return node
-			}
-		}
-	}
-	if len(path) <= enclosingIndex+1 {
-		return enclosingStmt.(ast.Stmt)
-	}
-	// Check if the enclosing statement is inside another node.
-	switch expr := path[enclosingIndex+1].(type) {
-	case *ast.IfStmt:
-		// Get the base if statement.
-		return baseIfStmt(path, enclosingIndex+1)
-	case *ast.ForStmt:
-		if expr.Init == enclosingStmt || expr.Post == enclosingStmt {
-			return expr
-		}
-	}
-	return enclosingStmt.(ast.Stmt)
-}
-
-// baseIfStmt walks up the if/else-if chain until we get to
-// the top of the current if chain.
-func baseIfStmt(path []ast.Node, index int) ast.Stmt {
-	stmt := path[index]
-	for i := index + 1; i < len(path); i++ {
-		if node, ok := path[i].(*ast.IfStmt); ok && node.Else == stmt {
-			stmt = node
-			continue
-		}
-		break
-	}
-	return stmt.(ast.Stmt)
 }
 
 // WalkASTWithParent walks the AST rooted at n. The semantics are
@@ -396,37 +183,457 @@ func equivalentTypes(want, got types.Type) bool {
 	return types.AssignableTo(want, got)
 }
 
-// MakeReadFile returns a simple implementation of the Pass.ReadFile function.
-func MakeReadFile(pass *analysis.Pass) func(filename string) ([]byte, error) {
+// A ReadFileFunc is a function that returns the
+// contents of a file, such as [os.ReadFile].
+type ReadFileFunc = func(filename string) ([]byte, error)
+
+// CheckedReadFile returns a wrapper around a Pass.ReadFile
+// function that performs the appropriate checks.
+func CheckedReadFile(pass *analysis.Pass, readFile ReadFileFunc) ReadFileFunc {
 	return func(filename string) ([]byte, error) {
 		if err := CheckReadable(pass, filename); err != nil {
 			return nil, err
 		}
-		return os.ReadFile(filename)
+		return readFile(filename)
 	}
 }
 
 // CheckReadable enforces the access policy defined by the ReadFile field of [analysis.Pass].
 func CheckReadable(pass *analysis.Pass, filename string) error {
-	if slicesContains(pass.OtherFiles, filename) ||
-		slicesContains(pass.IgnoredFiles, filename) {
+	if slices.Contains(pass.OtherFiles, filename) ||
+		slices.Contains(pass.IgnoredFiles, filename) {
 		return nil
 	}
 	for _, f := range pass.Files {
-		// TODO(adonovan): use go1.20 f.FileStart
-		if pass.Fset.File(f.Pos()).Name() == filename {
+		if pass.Fset.File(f.FileStart).Name() == filename {
 			return nil
 		}
 	}
 	return fmt.Errorf("Pass.ReadFile: %s is not among OtherFiles, IgnoredFiles, or names of Files", filename)
 }
 
-// TODO(adonovan): use go1.21 slices.Contains.
-func slicesContains[S ~[]E, E comparable](slice S, x E) bool {
-	for _, elem := range slice {
-		if elem == x {
+// AddImport checks whether this file already imports pkgpath and
+// that import is in scope at pos. If so, it returns the name under
+// which it was imported and a zero edit. Otherwise, it adds a new
+// import of pkgpath, using a name derived from the preferred name,
+// and returns the chosen name, a prefix to be concatenated with member
+// to form a qualified name, and the edit for the new import.
+//
+// In the special case that pkgpath is dot-imported then member, the
+// identifier for which the import is being added, is consulted. If
+// member is not shadowed at pos, AddImport returns (".", "", nil).
+// (AddImport accepts the caller's implicit claim that the imported
+// package declares member.)
+//
+// It does not mutate its arguments.
+func AddImport(info *types.Info, file *ast.File, preferredName, pkgpath, member string, pos token.Pos) (name, prefix string, newImport []analysis.TextEdit) {
+	// Find innermost enclosing lexical block.
+	scope := info.Scopes[file].Innermost(pos)
+	if scope == nil {
+		panic("no enclosing lexical block")
+	}
+
+	// Is there an existing import of this package?
+	// If so, are we in its scope? (not shadowed)
+	for _, spec := range file.Imports {
+		pkgname := info.PkgNameOf(spec)
+		if pkgname != nil && pkgname.Imported().Path() == pkgpath {
+			name = pkgname.Name()
+			if name == "." {
+				// The scope of ident must be the file scope.
+				if s, _ := scope.LookupParent(member, pos); s == info.Scopes[file] {
+					return name, "", nil
+				}
+			} else if _, obj := scope.LookupParent(name, pos); obj == pkgname {
+				return name, name + ".", nil
+			}
+		}
+	}
+
+	// We must add a new import.
+	// Ensure we have a fresh name.
+	newName := FreshName(scope, pos, preferredName)
+
+	// Create a new import declaration either before the first existing
+	// declaration (which must exist), including its comments; or
+	// inside the declaration, if it is an import group.
+	//
+	// Use a renaming import whenever the preferred name is not
+	// available, or the chosen name does not match the last
+	// segment of its path.
+	newText := fmt.Sprintf("%q", pkgpath)
+	if newName != preferredName || newName != pathpkg.Base(pkgpath) {
+		newText = fmt.Sprintf("%s %q", newName, pkgpath)
+	}
+	decl0 := file.Decls[0]
+	var before ast.Node = decl0
+	switch decl0 := decl0.(type) {
+	case *ast.GenDecl:
+		if decl0.Doc != nil {
+			before = decl0.Doc
+		}
+	case *ast.FuncDecl:
+		if decl0.Doc != nil {
+			before = decl0.Doc
+		}
+	}
+	// If the first decl is an import group, add this new import at the end.
+	if gd, ok := before.(*ast.GenDecl); ok && gd.Tok == token.IMPORT && gd.Rparen.IsValid() {
+		pos = gd.Rparen
+		newText = "\t" + newText + "\n"
+	} else {
+		pos = before.Pos()
+		newText = "import " + newText + "\n\n"
+	}
+	return newName, newName + ".", []analysis.TextEdit{{
+		Pos:     pos,
+		End:     pos,
+		NewText: []byte(newText),
+	}}
+}
+
+// FreshName returns the name of an identifier that is undefined
+// at the specified position, based on the preferred name.
+func FreshName(scope *types.Scope, pos token.Pos, preferred string) string {
+	newName := preferred
+	for i := 0; ; i++ {
+		if _, obj := scope.LookupParent(newName, pos); obj == nil {
+			break // fresh
+		}
+		newName = fmt.Sprintf("%s%d", preferred, i)
+	}
+	return newName
+}
+
+// Format returns a string representation of the expression e.
+func Format(fset *token.FileSet, e ast.Expr) string {
+	var buf strings.Builder
+	printer.Fprint(&buf, fset, e) // ignore errors
+	return buf.String()
+}
+
+// Imports returns true if path is imported by pkg.
+func Imports(pkg *types.Package, path string) bool {
+	for _, imp := range pkg.Imports() {
+		if imp.Path() == path {
 			return true
 		}
 	}
 	return false
+}
+
+// IsTypeNamed reports whether t is (or is an alias for) a
+// package-level defined type with the given package path and one of
+// the given names. It returns false if t is nil.
+//
+// This function avoids allocating the concatenation of "pkg.Name",
+// which is important for the performance of syntax matching.
+func IsTypeNamed(t types.Type, pkgPath string, names ...string) bool {
+	if named, ok := types.Unalias(t).(*types.Named); ok {
+		tname := named.Obj()
+		return tname != nil &&
+			typesinternal.IsPackageLevel(tname) &&
+			tname.Pkg().Path() == pkgPath &&
+			slices.Contains(names, tname.Name())
+	}
+	return false
+}
+
+// IsPointerToNamed reports whether t is (or is an alias for) a pointer to a
+// package-level defined type with the given package path and one of the given
+// names. It returns false if t is not a pointer type.
+func IsPointerToNamed(t types.Type, pkgPath string, names ...string) bool {
+	r := typesinternal.Unpointer(t)
+	if r == t {
+		return false
+	}
+	return IsTypeNamed(r, pkgPath, names...)
+}
+
+// IsFunctionNamed reports whether obj is a package-level function
+// defined in the given package and has one of the given names.
+// It returns false if obj is nil.
+//
+// This function avoids allocating the concatenation of "pkg.Name",
+// which is important for the performance of syntax matching.
+func IsFunctionNamed(obj types.Object, pkgPath string, names ...string) bool {
+	f, ok := obj.(*types.Func)
+	return ok &&
+		typesinternal.IsPackageLevel(obj) &&
+		f.Pkg().Path() == pkgPath &&
+		f.Type().(*types.Signature).Recv() == nil &&
+		slices.Contains(names, f.Name())
+}
+
+// IsMethodNamed reports whether obj is a method defined on a
+// package-level type with the given package and type name, and has
+// one of the given names. It returns false if obj is nil.
+//
+// This function avoids allocating the concatenation of "pkg.TypeName.Name",
+// which is important for the performance of syntax matching.
+func IsMethodNamed(obj types.Object, pkgPath string, typeName string, names ...string) bool {
+	if fn, ok := obj.(*types.Func); ok {
+		if recv := fn.Type().(*types.Signature).Recv(); recv != nil {
+			_, T := typesinternal.ReceiverNamed(recv)
+			return T != nil &&
+				IsTypeNamed(T, pkgPath, typeName) &&
+				slices.Contains(names, fn.Name())
+		}
+	}
+	return false
+}
+
+// ValidateFixes validates the set of fixes for a single diagnostic.
+// Any error indicates a bug in the originating analyzer.
+//
+// It updates fixes so that fixes[*].End.IsValid().
+//
+// It may be used as part of an analysis driver implementation.
+func ValidateFixes(fset *token.FileSet, a *analysis.Analyzer, fixes []analysis.SuggestedFix) error {
+	fixMessages := make(map[string]bool)
+	for i := range fixes {
+		fix := &fixes[i]
+		if fixMessages[fix.Message] {
+			return fmt.Errorf("analyzer %q suggests two fixes with same Message (%s)", a.Name, fix.Message)
+		}
+		fixMessages[fix.Message] = true
+		if err := validateFix(fset, fix); err != nil {
+			return fmt.Errorf("analyzer %q suggests invalid fix (%s): %v", a.Name, fix.Message, err)
+		}
+	}
+	return nil
+}
+
+// validateFix validates a single fix.
+// Any error indicates a bug in the originating analyzer.
+//
+// It updates fix so that fix.End.IsValid().
+func validateFix(fset *token.FileSet, fix *analysis.SuggestedFix) error {
+
+	// Stably sort edits by Pos. This ordering puts insertions
+	// (end = start) before deletions (end > start) at the same
+	// point, but uses a stable sort to preserve the order of
+	// multiple insertions at the same point.
+	slices.SortStableFunc(fix.TextEdits, func(x, y analysis.TextEdit) int {
+		if sign := cmp.Compare(x.Pos, y.Pos); sign != 0 {
+			return sign
+		}
+		return cmp.Compare(x.End, y.End)
+	})
+
+	var prev *analysis.TextEdit
+	for i := range fix.TextEdits {
+		edit := &fix.TextEdits[i]
+
+		// Validate edit individually.
+		start := edit.Pos
+		file := fset.File(start)
+		if file == nil {
+			return fmt.Errorf("no token.File for TextEdit.Pos (%v)", edit.Pos)
+		}
+		if end := edit.End; end.IsValid() {
+			if end < start {
+				return fmt.Errorf("TextEdit.Pos (%v) > TextEdit.End (%v)", edit.Pos, edit.End)
+			}
+			endFile := fset.File(end)
+			if endFile == nil {
+				return fmt.Errorf("no token.File for TextEdit.End (%v; File(start).FileEnd is %d)", end, file.Base()+file.Size())
+			}
+			if endFile != file {
+				return fmt.Errorf("edit #%d spans files (%v and %v)",
+					i, file.Position(edit.Pos), endFile.Position(edit.End))
+			}
+		} else {
+			edit.End = start // update the SuggestedFix
+		}
+		if eof := token.Pos(file.Base() + file.Size()); edit.End > eof {
+			return fmt.Errorf("end is (%v) beyond end of file (%v)", edit.End, eof)
+		}
+
+		// Validate the sequence of edits:
+		// properly ordered, no overlapping deletions
+		if prev != nil && edit.Pos < prev.End {
+			xpos := fset.Position(prev.Pos)
+			xend := fset.Position(prev.End)
+			ypos := fset.Position(edit.Pos)
+			yend := fset.Position(edit.End)
+			return fmt.Errorf("overlapping edits to %s (%d:%d-%d:%d and %d:%d-%d:%d)",
+				xpos.Filename,
+				xpos.Line, xpos.Column,
+				xend.Line, xend.Column,
+				ypos.Line, ypos.Column,
+				yend.Line, yend.Column,
+			)
+		}
+		prev = edit
+	}
+
+	return nil
+}
+
+// CanImport reports whether one package is allowed to import another.
+//
+// TODO(adonovan): allow customization of the accessibility relation
+// (e.g. for Bazel).
+func CanImport(from, to string) bool {
+	// TODO(adonovan): better segment hygiene.
+	if to == "internal" || strings.HasPrefix(to, "internal/") {
+		// Special case: only std packages may import internal/...
+		// We can't reliably know whether we're in std, so we
+		// use a heuristic on the first segment.
+		first, _, _ := strings.Cut(from, "/")
+		if strings.Contains(first, ".") {
+			return false // example.com/foo ∉ std
+		}
+		if first == "testdata" {
+			return false // testdata/foo ∉ std
+		}
+	}
+	if strings.HasSuffix(to, "/internal") {
+		return strings.HasPrefix(from, to[:len(to)-len("/internal")])
+	}
+	if i := strings.LastIndex(to, "/internal/"); i >= 0 {
+		return strings.HasPrefix(from, to[:i])
+	}
+	return true
+}
+
+// DeleteStmt returns the edits to remove stmt if it is contained
+// in a BlockStmt, CaseClause, CommClause, or is the STMT in switch STMT; ... {...}
+// The report function abstracts gopls' bug.Report.
+func DeleteStmt(fset *token.FileSet, astFile *ast.File, stmt ast.Stmt, report func(string, ...any)) []analysis.TextEdit {
+	// TODO: pass in the cursor to a ast.Stmt. callers should provide the Cursor
+	insp := inspector.New([]*ast.File{astFile})
+	root := cursor.Root(insp)
+	cstmt, ok := root.FindNode(stmt)
+	if !ok {
+		report("%s not found in file", stmt.Pos())
+		return nil
+	}
+	// some paranoia
+	if !stmt.Pos().IsValid() || !stmt.End().IsValid() {
+		report("%s: stmt has invalid position", stmt.Pos())
+		return nil
+	}
+
+	// if the stmt is on a line by itself delete the whole line
+	// otherwise just delete the statement.
+
+	// this logic would be a lot simpler with the file contents, and somewhat simpler
+	// if the cursors included the comments.
+
+	tokFile := fset.File(stmt.Pos())
+	lineOf := tokFile.Line
+	stmtStartLine, stmtEndLine := lineOf(stmt.Pos()), lineOf(stmt.End())
+
+	var from, to token.Pos
+	// bounds of adjacent syntax/comments on same line, if any
+	limits := func(left, right token.Pos) {
+		if lineOf(left) == stmtStartLine {
+			from = left
+		}
+		if lineOf(right) == stmtEndLine {
+			to = right
+		}
+	}
+	// TODO(pjw): there are other places a statement might be removed:
+	// IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
+	// (removing the blocks requires more rewriting than this routine would do)
+	// CommCase   = "case" ( SendStmt | RecvStmt ) | "default" .
+	// (removing the stmt requires more rewriting, and it's unclear what the user means)
+	switch parent := cstmt.Parent().Node().(type) {
+	case *ast.SwitchStmt:
+		limits(parent.Switch, parent.Body.Lbrace)
+	case *ast.TypeSwitchStmt:
+		limits(parent.Switch, parent.Body.Lbrace)
+		if parent.Assign == stmt {
+			return nil // don't let the user break the type switch
+		}
+	case *ast.BlockStmt:
+		limits(parent.Lbrace, parent.Rbrace)
+	case *ast.CommClause:
+		limits(parent.Colon, cstmt.Parent().Parent().Node().(*ast.BlockStmt).Rbrace)
+		if parent.Comm == stmt {
+			return nil // maybe the user meant to remove the entire CommClause?
+		}
+	case *ast.CaseClause:
+		limits(parent.Colon, cstmt.Parent().Parent().Node().(*ast.BlockStmt).Rbrace)
+	case *ast.ForStmt:
+		limits(parent.For, parent.Body.Lbrace)
+
+	default:
+		return nil // not one of ours
+	}
+
+	if prev, found := cstmt.PrevSibling(); found && lineOf(prev.Node().End()) == stmtStartLine {
+		from = prev.Node().End() // preceding statement ends on same line
+	}
+	if next, found := cstmt.NextSibling(); found && lineOf(next.Node().Pos()) == stmtEndLine {
+		to = next.Node().Pos() // following statement begins on same line
+	}
+	// and now for the comments
+Outer:
+	for _, cg := range astFile.Comments {
+		for _, co := range cg.List {
+			if lineOf(co.End()) < stmtStartLine {
+				continue
+			} else if lineOf(co.Pos()) > stmtEndLine {
+				break Outer // no more are possible
+			}
+			if lineOf(co.End()) == stmtStartLine && co.End() < stmt.Pos() {
+				if !from.IsValid() || co.End() > from {
+					from = co.End()
+					continue // maybe there are more
+				}
+			}
+			if lineOf(co.Pos()) == stmtEndLine && co.Pos() > stmt.End() {
+				if !to.IsValid() || co.Pos() < to {
+					to = co.Pos()
+					continue // maybe there are more
+				}
+			}
+		}
+	}
+	// if either from or to is valid, just remove the statement
+	// otherwise remove the line
+	edit := analysis.TextEdit{Pos: stmt.Pos(), End: stmt.End()}
+	if from.IsValid() || to.IsValid() {
+		// remove just the statment.
+		// we can't tell if there is a ; or whitespace right after the statment
+		// ideally we'd like to remove the former and leave the latter
+		// (if gofmt has run, there likely won't be a ;)
+		// In type switches we know there's a semicolon somewhere after the statement,
+		// but the extra work for this special case is not worth it, as gofmt will fix it.
+		return []analysis.TextEdit{edit}
+	}
+	// remove the whole line
+	for lineOf(edit.Pos) == stmtStartLine {
+		edit.Pos--
+	}
+	edit.Pos++ // get back tostmtStartLine
+	for lineOf(edit.End) == stmtEndLine {
+		edit.End++
+	}
+	return []analysis.TextEdit{edit}
+}
+
+// Comments returns an iterator over the comments overlapping the specified interval.
+func Comments(file *ast.File, start, end token.Pos) iter.Seq[*ast.Comment] {
+	// TODO(adonovan): optimize use binary O(log n) instead of linear O(n) search.
+	return func(yield func(*ast.Comment) bool) {
+		for _, cg := range file.Comments {
+			for _, co := range cg.List {
+				if co.Pos() > end {
+					return
+				}
+				if co.End() < start {
+					continue
+				}
+
+				if !yield(co) {
+					return
+				}
+			}
+		}
+	}
 }
