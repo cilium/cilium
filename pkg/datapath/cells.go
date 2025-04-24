@@ -32,12 +32,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	legacy_lbmap "github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -78,14 +75,6 @@ var Cell = cell.Module(
 
 	cell.Provide(newWireguardAgent),
 
-	cell.Provide(func(lbConfig loadbalancer.Config, maglev *maglev.Maglev, logger *slog.Logger) types.LBMap {
-		if lbConfig.EnableExperimentalLB {
-			// The experimental control-plane comes with its own LBMap implementation.
-			return nil
-		}
-		return lbmap.New(logger, lbConfig, maglev)
-	}),
-
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
 	tables.NodeAddressCell,
 
@@ -105,6 +94,9 @@ var Cell = cell.Module(
 
 	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
 	garp.Cell,
+
+	// The legacy  abstraction for load-balancing BPF maps
+	legacy_lbmap.Cell,
 
 	// This cell provides the object used to write the headers for datapath program types.
 	dpcfg.Cell,

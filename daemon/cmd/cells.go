@@ -51,8 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	loadbalancer_legacy "github.com/cilium/cilium/pkg/loadbalancer/legacy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -195,12 +194,11 @@ var (
 		// Maglev table computtations
 		maglev.Cell,
 
-		// Experimental control-plane for configuring service load-balancing.
+		// Control-plane for configuring service load-balancing
 		loadbalancer_cell.Cell,
 
-		// Service is a datapath service handler. Its main responsibility is to reflect
-		// service-related changes into BPF maps used by datapath BPF programs.
-		service.Cell,
+		// Legacy version of the load-balancing control-plane
+		loadbalancer_legacy.Cell,
 
 		// Proxy provides the proxy port allocation and related datapath coordination and
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
@@ -261,9 +259,6 @@ var (
 		// L2announcer resolves l2announcement policies, services, node labels and devices into a list of IPs+netdevs
 		// which need to be announced on the local network.
 		l2announcer.Cell,
-
-		// Redirect policy manages the Local Redirect Policies.
-		redirectpolicy.Cell,
 
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
