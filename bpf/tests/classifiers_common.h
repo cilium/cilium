@@ -3,6 +3,9 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_WIREGUARD 1
+#define HAVE_ENCAP 1
+#define ENCAP_IFINDEX 1
+#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
 
 #if defined(IS_BPF_WIREGUARD)
 # undef IS_BPF_WIREGUARD
@@ -116,6 +119,12 @@ int ctx_classify_by_pkt_mark_check(struct __ctx_buff *ctx)
 
 	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
 
+	ctx->mark = MARK_MAGIC_OVERLAY;
+
+	flags = ctx_classify_by_pkt_mark(ctx);
+
+	assert(flags & CLS_FLAG_VXLAN);
+
 	test_finish();
 }
 
@@ -134,6 +143,7 @@ int ctx_classify_by_pkt_hdr4_check(struct __ctx_buff *ctx)
 
 	void *data, *data_end;
 	struct iphdr *ip4;
+	struct udphdr *udp;
 	cls_flags_t flags;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
@@ -141,6 +151,16 @@ int ctx_classify_by_pkt_hdr4_check(struct __ctx_buff *ctx)
 	flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
 
 	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
+
+	udp = (void *)ip4 + sizeof(struct iphdr);
+	if ((void *)udp + sizeof(struct udphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	udp->source = bpf_htons(TUNNEL_PORT);
+
+	flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
+
+	assert(flags & CLS_FLAG_VXLAN);
 
 	test_finish();
 }
@@ -160,15 +180,26 @@ int ctx_classify_by_pkt_hdr6_check(struct __ctx_buff *ctx)
 
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	struct udphdr *udp;
 	cls_flags_t flags;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip6));
 
 	flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
 
-	assert(((flags & CLS_FLAG_IPV6) != 0) == is_defined(IS_BPF_HOST));
+	assert(flags & CLS_FLAG_IPV6);
 
 	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
+
+	udp = (void *)ip6 + sizeof(struct ipv6hdr);
+	if ((void *)udp + sizeof(struct udphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	udp->source = bpf_htons(TUNNEL_PORT);
+
+	flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
+
+	assert(flags & CLS_FLAG_VXLAN);
 
 	test_finish();
 }

@@ -37,6 +37,12 @@ const (
 	// TraceNotifyFlagIsWireguard is set in TraceNotify.Flags when the
 	// notification refers to an encrypted Wireguard packet.
 	TraceNotifyFlagIsWireguard
+	// TraceNotifyFlagIsVXLAN is set in TraceNotify.Flags when the
+	// notification refers to an overlay VXLAN packet.
+	TraceNotifyFlagIsVXLAN
+	// TraceNotifyFlagIsGeneve is set in TraceNotify.Flags when the
+	// notification refers to an overlay Geneve packet.
+	TraceNotifyFlagIsGeneve
 )
 
 const (
@@ -241,6 +247,16 @@ func (n *TraceNotify) traceSummary() string {
 	default:
 		return "unknown trace"
 	}
+}
+
+// IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
+func (n *TraceNotify) IsVXLAN() bool {
+	return n.Flags&TraceNotifyFlagIsVXLAN != 0
+}
+
+// IsGeneve returns true if the trace refers to an overlay Geneve packet.
+func (n *TraceNotify) IsGeneve() bool {
+	return n.Flags&TraceNotifyFlagIsGeneve != 0
 }
 
 // IsL3Device returns true if the trace comes from an L3 device.

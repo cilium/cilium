@@ -13,9 +13,11 @@
 # define ENABLE_ETH_HDR_CLASSIFIERS 1
 /* Given the additional complexity, selectively enable classifiers
  * requiring packet processing logic based on the observed traffic:
- * - bpf_host -> WireGuard
+ * - bpf_host      -> WireGuard/Overlay
+ * - bpf_wireguard -> Overlay
  */
-# if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
+# if (defined(IS_BPF_HOST) && (defined(ENABLE_WIREGUARD) || defined(HAVE_ENCAP))) || \
+	 (defined(IS_BPF_WIREGUARD) && defined(HAVE_ENCAP))
 # define ENABLE_PKT_HDR_CLASSIFIERS 1
 # define ENABLE_PKT_MARK_CLASSIFIERS 1
 # endif
@@ -28,6 +30,8 @@ enum {
 	CLS_FLAG_L3_DEV    = (1 << 1),
 	CLS_FLAG_IPSEC     = (1 << 2),
 	CLS_FLAG_WIREGUARD = (1 << 3),
+	CLS_FLAG_VXLAN     = (1 << 4),
+	CLS_FLAG_GENEVE    = (1 << 5),
 };
 
 /* Compute classifiers for a potential L3 packet (based on ETH_HLEN):
@@ -75,6 +79,8 @@ ctx_classify_by_eth_hlen6(const struct __ctx_buff *ctx __maybe_unused)
 
 /* Compute classifiers by looking at the packet mark:
  * - CLS_FLAG_WIREGUARD: MARK_MAGIC_WG_ENCRYPTED set;
+ * - CLS_FLAG_VXLAN:     MARK_MAGIC_OVERLAY set;
+ * - CLS_FLAG_GENEVE:    MARK_MAGIC_OVERLAY set.
  */
 static __always_inline cls_flags_t
 ctx_classify_by_pkt_mark(struct __ctx_buff *ctx __maybe_unused)
@@ -82,6 +88,16 @@ ctx_classify_by_pkt_mark(struct __ctx_buff *ctx __maybe_unused)
 #ifdef ENABLE_PKT_MARK_CLASSIFIERS
 	if (is_defined(IS_BPF_HOST) && ctx_is_wireguard(ctx))
 		return CLS_FLAG_WIREGUARD;
+
+	if (ctx_is_overlay(ctx))
+		switch (TUNNEL_PROTOCOL) {
+		case TUNNEL_PROTOCOL_VXLAN:
+			return CLS_FLAG_VXLAN;
+		case TUNNEL_PROTOCOL_GENEVE:
+			return CLS_FLAG_GENEVE;
+		default:
+			__throw_build_bug();
+		}
 #endif /* ENABLE_PKT_MARK_CLASSIFIERS*/
 
 	return 0;
@@ -89,6 +105,8 @@ ctx_classify_by_pkt_mark(struct __ctx_buff *ctx __maybe_unused)
 
 /* Compute classifiers by looking at the packet headers:
  * - CLS_FLAG_WIREGUARD: UDP using WG_PORT
+ * - CLS_FLAG_VXLAN:     UDP using TUNNEL_PORT
+ * - CLS_FLAG_GENEVE:    UDP using TUNNEL_PORT
  */
 static __always_inline cls_flags_t
 ctx_classify_by_pkt_hdr(struct __ctx_buff *ctx __maybe_unused,
@@ -103,11 +121,22 @@ ctx_classify_by_pkt_hdr(struct __ctx_buff *ctx __maybe_unused,
 
 	switch (protocol) {
 	case IPPROTO_UDP:
-		if (!is_defined(ENABLE_WIREGUARD))
+		if (!is_defined(ENABLE_WIREGUARD) && !is_defined(HAVE_ENCAP))
 			break;
 
 		if (l4_load_ports(ctx, l4_off + UDP_SPORT_OFF, &l4.sport) < 0)
 			break;
+
+		if (is_defined(HAVE_ENCAP) &&
+		    (l4.sport == bpf_htons(TUNNEL_PORT) || l4.dport == bpf_htons(TUNNEL_PORT)))
+			switch (TUNNEL_PROTOCOL) {
+			case TUNNEL_PROTOCOL_VXLAN:
+				return CLS_FLAG_VXLAN;
+			case TUNNEL_PROTOCOL_GENEVE:
+				return CLS_FLAG_GENEVE;
+			default:
+				__throw_build_bug();
+		}
 
 # if defined(ENABLE_WIREGUARD)
 		if (is_defined(ENABLE_WIREGUARD) && is_defined(IS_BPF_HOST) &&
