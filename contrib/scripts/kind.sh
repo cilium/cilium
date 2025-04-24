@@ -88,7 +88,7 @@ v4_prefix_secondary="192.168.0.0/16"
 v4_range_secondary="192.168.0.0/24"
 v6_prefix="fc00:c111::/64"
 v6_prefix_secondary="fc00:c112::/64"
-CILIUM_ROOT="$(git rev-parse --show-toplevel)"
+CILIUM_ROOT="$(realpath $(dirname ${BASH_SOURCE[0]:-$0})/../..)"
 
 have_kind() {
     [[ -n "$(command -v kind)" ]]
