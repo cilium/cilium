@@ -62,7 +62,7 @@ func WithRedact(logger *slog.Logger, httpQuery, httpUserInfo, kafkaApiKey bool, 
 	}
 }
 
-// EnableL3L4PolicyCorrelation configures the Network Policy correlation of Hubble Flows.
+// WithNetworkPolicyCorrelation configures the Network Policy correlation of Hubble Flows.
 func WithNetworkPolicyCorrelation(logger *slog.Logger, enabled bool) Option {
 	return func(opt *Options) {
 		opt.EnableNetworkPolicyCorrelation = enabled
