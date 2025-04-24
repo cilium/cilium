@@ -286,31 +286,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		IPv4: option.Config.EnableIPv4,
 		IPv6: option.Config.EnableIPv6,
 
-		MaxSockRevNatMapEntries:  option.Config.SockRevNatEntries,
-		ServiceMapMaxEntries:     option.Config.LBMapEntries,
-		BackEndMapMaxEntries:     option.Config.LBMapEntries,
-		RevNatMapMaxEntries:      option.Config.LBMapEntries,
-		AffinityMapMaxEntries:    option.Config.LBMapEntries,
-		SourceRangeMapMaxEntries: option.Config.LBMapEntries,
-		MaglevMapMaxEntries:      option.Config.LBMapEntries,
-	}
-	if option.Config.LBServiceMapEntries > 0 {
-		lbmapInitParams.ServiceMapMaxEntries = option.Config.LBServiceMapEntries
-	}
-	if option.Config.LBBackendMapEntries > 0 {
-		lbmapInitParams.BackEndMapMaxEntries = option.Config.LBBackendMapEntries
-	}
-	if option.Config.LBRevNatEntries > 0 {
-		lbmapInitParams.RevNatMapMaxEntries = option.Config.LBRevNatEntries
-	}
-	if option.Config.LBAffinityMapEntries > 0 {
-		lbmapInitParams.AffinityMapMaxEntries = option.Config.LBAffinityMapEntries
-	}
-	if option.Config.LBSourceRangeMapEntries > 0 {
-		lbmapInitParams.SourceRangeMapMaxEntries = option.Config.LBSourceRangeMapEntries
-	}
-	if option.Config.LBMaglevMapEntries > 0 {
-		lbmapInitParams.MaglevMapMaxEntries = option.Config.LBMaglevMapEntries
+		MaxSockRevNatMapEntries:  params.LBConfig.LBSockRevNatEntries,
+		ServiceMapMaxEntries:     params.LBConfig.LBServiceMapEntries,
+		BackEndMapMaxEntries:     params.LBConfig.LBBackendMapEntries,
+		RevNatMapMaxEntries:      params.LBConfig.LBRevNatEntries,
+		AffinityMapMaxEntries:    params.LBConfig.LBAffinityMapEntries,
+		SourceRangeMapMaxEntries: params.LBConfig.LBSourceRangeMapEntries,
+		MaglevMapMaxEntries:      params.LBConfig.LBMaglevMapEntries,
 	}
 	lbmap.Init(lbmapInitParams)
 

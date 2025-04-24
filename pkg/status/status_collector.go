@@ -496,7 +496,7 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "Sock reverse NAT",
-				Size: int64(d.statusParams.DaemonConfig.SockRevNatEntries),
+				Size: int64(d.statusParams.LBConfig.LBSockRevNatEntries),
 			},
 		},
 	}

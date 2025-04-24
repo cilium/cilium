@@ -103,7 +103,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 						"Unable to update element for LB bpf map: "+
 						"You can resize it with the flag \"--%s\". "+
 						"The resizing might break existing connections to services",
-						svcKey, svcVal, option.LBMapEntriesName)
+						svcKey, svcVal, loadbalancer.LBMapEntriesName)
 				}
 
 				return fmt.Errorf("Unable to update service entry %+v => %+v: %w", svcKey, svcVal, err)

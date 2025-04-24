@@ -32,6 +32,7 @@ type lbmapsParams struct {
 	Lifecycle    cell.Lifecycle
 	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 	MaglevConfig maglev.Config
+	Config       loadbalancer.Config
 	ExtConfig    loadbalancer.ExternalConfig
 	Writer       *writer.Writer
 }
@@ -61,7 +62,7 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 		}
 	}
 
-	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
+	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.Config, ExtCfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
 	return bpf.NewMapOut(LBMaps(r))
 }
@@ -121,7 +122,8 @@ type BPFLBMaps struct {
 	Pinned bool
 
 	Log       *slog.Logger
-	Cfg       loadbalancer.ExternalConfig
+	Cfg       loadbalancer.Config
+	ExtCfg    loadbalancer.ExternalConfig
 	MaglevCfg maglev.Config
 
 	service4Map, service6Map         *bpf.Map
@@ -262,29 +264,29 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		return newMaglevOuterMap(lbmap.MaglevOuter6MapName, maxEntries, r.maglevInnerMapSpec)
 	}
 	v4Maps := []mapDesc{
-		{&r.service4Map, newService4Map, r.Cfg.ServiceMapMaxEntries},
-		{&r.backend4Map, newBackend4Map, r.Cfg.BackendMapMaxEntries},
-		{&r.revNat4Map, newRevNat4Map, r.Cfg.RevNatMapMaxEntries},
-		{&r.sourceRange4Map, newSourceRange4Map, r.Cfg.SourceRangeMapMaxEntries},
-		{&r.maglev4Map, newMaglev4, r.Cfg.MaglevMapMaxEntries},
+		{&r.service4Map, newService4Map, r.Cfg.LBServiceMapEntries},
+		{&r.backend4Map, newBackend4Map, r.Cfg.LBBackendMapEntries},
+		{&r.revNat4Map, newRevNat4Map, r.Cfg.LBRevNatEntries},
+		{&r.sourceRange4Map, newSourceRange4Map, r.Cfg.LBSourceRangeMapEntries},
+		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 	}
 	v6Maps := []mapDesc{
-		{&r.service6Map, newService6Map, r.Cfg.ServiceMapMaxEntries},
-		{&r.backend6Map, newBackend6Map, r.Cfg.BackendMapMaxEntries},
-		{&r.revNat6Map, newRevNat6Map, r.Cfg.RevNatMapMaxEntries},
-		{&r.sourceRange6Map, newSourceRange6Map, r.Cfg.SourceRangeMapMaxEntries},
-		{&r.maglev6Map, newMaglev6, r.Cfg.MaglevMapMaxEntries},
+		{&r.service6Map, newService6Map, r.Cfg.LBServiceMapEntries},
+		{&r.backend6Map, newBackend6Map, r.Cfg.LBBackendMapEntries},
+		{&r.revNat6Map, newRevNat6Map, r.Cfg.LBRevNatEntries},
+		{&r.sourceRange6Map, newSourceRange6Map, r.Cfg.LBSourceRangeMapEntries},
+		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 	}
 	mapsToCreate := []mapDesc{
-		{&r.affinityMatchMap, newAffinityMatchMap, r.Cfg.AffinityMapMaxEntries},
+		{&r.affinityMatchMap, newAffinityMatchMap, r.Cfg.LBAffinityMapEntries},
 	}
 	mapsToDelete := []mapDesc{}
-	if r.Cfg.EnableIPv4 {
+	if r.ExtCfg.EnableIPv4 {
 		mapsToCreate = append(mapsToCreate, v4Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v4Maps...)
 	}
-	if r.Cfg.EnableIPv6 {
+	if r.ExtCfg.EnableIPv6 {
 		mapsToCreate = append(mapsToCreate, v6Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v6Maps...)

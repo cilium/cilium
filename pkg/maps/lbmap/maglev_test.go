@@ -33,16 +33,15 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 
-	option.Config.LBMapEntries = DefaultMaxEntries
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 
 	Init(InitParams{
 		IPv4: option.Config.EnableIPv4,
 		IPv6: option.Config.EnableIPv6,
 
-		ServiceMapMaxEntries: option.Config.LBMapEntries,
-		RevNatMapMaxEntries:  option.Config.LBMapEntries,
-		MaglevMapMaxEntries:  option.Config.LBMapEntries,
+		ServiceMapMaxEntries: DefaultMaxEntries,
+		RevNatMapMaxEntries:  DefaultMaxEntries,
+		MaglevMapMaxEntries:  DefaultMaxEntries,
 	})
 
 	tb.Cleanup(func() {

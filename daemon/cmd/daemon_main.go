@@ -777,9 +777,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.PolicyMapFullReconciliationIntervalName)
 	flags.MarkHidden(option.PolicyMapFullReconciliationIntervalName)
 
-	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
-	option.BindEnv(vp, option.SockRevNatEntriesName)
-
 	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0025, "Ratio (0.0-1.0] of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps")
 	option.BindEnv(vp, option.MapEntriesGlobalDynamicSizeRatioName)
 
@@ -871,9 +868,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
 	option.BindEnv(vp, option.FragmentsMapEntriesName)
 
-	flags.Int(option.LBMapEntriesName, lbmap.DefaultMaxEntries, "Maximum number of entries in Cilium BPF lbmap")
-	option.BindEnv(vp, option.LBMapEntriesName)
-
 	flags.Int(option.BPFEventsDefaultRateLimit, 0, fmt.Sprintf("Limit of average number of messages per second that can be written to BPF events map (if set, --%s value must also be specified). If both --%s and --%s are 0 or not specified, no limit is imposed.", option.BPFEventsDefaultBurstLimit, option.BPFEventsDefaultRateLimit, option.BPFEventsDefaultBurstLimit))
 	flags.MarkHidden(option.BPFEventsDefaultRateLimit)
 	option.BindEnv(vp, option.BPFEventsDefaultRateLimit)
@@ -881,30 +875,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.BPFEventsDefaultBurstLimit, 0, fmt.Sprintf("Maximum number of messages that can be written to BPF events map in 1 second (if set, --%s value must also be specified). If both --%s and --%s are 0 or not specified, no limit is imposed.", option.BPFEventsDefaultRateLimit, option.BPFEventsDefaultBurstLimit, option.BPFEventsDefaultRateLimit))
 	flags.MarkHidden(option.BPFEventsDefaultBurstLimit)
 	option.BindEnv(vp, option.BPFEventsDefaultBurstLimit)
-
-	flags.Int(option.LBServiceMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for services (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
-	flags.MarkHidden(option.LBServiceMapMaxEntries)
-	option.BindEnv(vp, option.LBServiceMapMaxEntries)
-
-	flags.Int(option.LBBackendMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for service backends (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
-	flags.MarkHidden(option.LBBackendMapMaxEntries)
-	option.BindEnv(vp, option.LBBackendMapMaxEntries)
-
-	flags.Int(option.LBRevNatMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for reverse NAT (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
-	flags.MarkHidden(option.LBRevNatMapMaxEntries)
-	option.BindEnv(vp, option.LBRevNatMapMaxEntries)
-
-	flags.Int(option.LBAffinityMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for session affinities (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
-	flags.MarkHidden(option.LBAffinityMapMaxEntries)
-	option.BindEnv(vp, option.LBAffinityMapMaxEntries)
-
-	flags.Int(option.LBSourceRangeMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for source ranges (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
-	flags.MarkHidden(option.LBSourceRangeMapMaxEntries)
-	option.BindEnv(vp, option.LBSourceRangeMapMaxEntries)
-
-	flags.Int(option.LBMaglevMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for maglev (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
-	flags.MarkHidden(option.LBMaglevMapMaxEntries)
-	option.BindEnv(vp, option.LBMaglevMapMaxEntries)
 
 	flags.String(option.LocalRouterIPv4, "", "Link-local IPv4 used for Cilium's router devices")
 	option.BindEnv(vp, option.LocalRouterIPv4)
@@ -1030,9 +1000,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.WireguardTrackAllIPsFallback, defaults.WireguardTrackAllIPsFallback, "Force WireGuard to track all IPs")
 	flags.MarkHidden(option.WireguardTrackAllIPsFallback)
 	option.BindEnv(vp, option.WireguardTrackAllIPsFallback)
-
-	flags.Bool(option.LBSourceRangeAllTypes, false, "Propagate loadbalancerSourceRanges to all corresponding service types")
-	option.BindEnv(vp, option.LBSourceRangeAllTypes)
 
 	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
 	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)

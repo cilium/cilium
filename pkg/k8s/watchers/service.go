@@ -52,6 +52,8 @@ type k8sServiceWatcherParams struct {
 	ServiceManager service.ServiceManager
 	LRPManager     *redirectpolicy.Manager
 	LocalNodeStore *node.LocalNodeStore
+
+	LBConfig loadbalancer.Config
 }
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
@@ -65,6 +67,7 @@ func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 		svcManager:            params.ServiceManager,
 		redirectPolicyManager: params.LRPManager,
 		localNodeStore:        params.LocalNodeStore,
+		lbConfig:              params.LBConfig,
 		stop:                  make(chan struct{}),
 	}
 }
@@ -85,6 +88,7 @@ type K8sServiceWatcher struct {
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	localNodeStore        *node.LocalNodeStore
+	lbConfig              loadbalancer.Config
 
 	stop chan struct{}
 }
@@ -370,15 +374,15 @@ func genCartesianProduct(
 	return svcs
 }
 
-func configureWithSourceRanges(svcType loadbalancer.SVCType) bool {
+func configureWithSourceRanges(lbConfig loadbalancer.Config, svcType loadbalancer.SVCType) bool {
 	switch svcType {
 	case loadbalancer.SVCTypeLoadBalancer:
 		return true
 	case loadbalancer.SVCTypeNodePort:
-		return option.Config.LBSourceRangeAllTypes
+		return lbConfig.LBSourceRangeAllTypes
 	case loadbalancer.SVCTypeClusterIP:
 		// ClusterIP is only needed here when exposed to N/S traffic.
-		return option.Config.LBSourceRangeAllTypes && option.Config.ExternalClusterIP
+		return lbConfig.LBSourceRangeAllTypes && option.Config.ExternalClusterIP
 	default:
 		return false
 	}
@@ -448,7 +452,7 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 		svcs[i].Annotations = svc.Annotations
 		svcs[i].SourceRangesPolicy = svc.SourceRangesPolicy
 		svcs[i].ProxyDelegation = svc.ProxyDelegation
-		if configureWithSourceRanges(svcs[i].Type) {
+		if configureWithSourceRanges(k.lbConfig, svcs[i].Type) {
 			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
 		}
 	}
