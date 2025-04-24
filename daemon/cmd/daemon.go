@@ -46,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -266,20 +265,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
-
-	lbmapInitParams := lbmap.InitParams{
-		IPv4: option.Config.EnableIPv4,
-		IPv6: option.Config.EnableIPv6,
-
-		MaxSockRevNatMapEntries:  params.LBConfig.LBSockRevNatEntries,
-		ServiceMapMaxEntries:     params.LBConfig.LBServiceMapEntries,
-		BackEndMapMaxEntries:     params.LBConfig.LBBackendMapEntries,
-		RevNatMapMaxEntries:      params.LBConfig.LBRevNatEntries,
-		AffinityMapMaxEntries:    params.LBConfig.LBAffinityMapEntries,
-		SourceRangeMapMaxEntries: params.LBConfig.LBSourceRangeMapEntries,
-		MaglevMapMaxEntries:      params.LBConfig.LBMaglevMapEntries,
-	}
-	lbmap.Init(params.MetricsRegistry, lbmapInitParams)
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
