@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
 	"k8s.io/utils/ptr"
@@ -48,10 +49,11 @@ func fixture(t testing.TB, hooks ...ServiceHook) (p testParams) {
 		Hooks []ServiceHook `group:"service-hooks,flatten"`
 	}
 	h := hive.New(
-		cell.Config(loadbalancer.DefaultUserConfig),
+		loadbalancer.ConfigCell,
 		node.LocalNodeStoreCell,
 		Cell,
 		cell.Provide(
+			func() *option.DaemonConfig { return &option.DaemonConfig{} },
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
 			source.NewSources,

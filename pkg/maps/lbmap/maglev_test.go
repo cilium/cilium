@@ -70,7 +70,7 @@ func TestInitMaps(t *testing.T) {
 		MaglevHashSeed:  maglev.DefaultHashSeed,
 	}, hivetest.Lifecycle(t))
 	require.NoError(t, err, "maglev.New")
-	lbm := New(ml)
+	lbm := New(loadbalancer.DefaultConfig, ml)
 	params := &datapathTypes.UpsertServiceParams{
 		ID:   1,
 		IP:   net.ParseIP("1.1.1.1"),

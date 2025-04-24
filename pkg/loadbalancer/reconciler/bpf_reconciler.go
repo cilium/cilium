@@ -721,7 +721,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
-		(svcType != loadbalancer.SVCTypeClusterIP || ops.extCfg.ExternalClusterIP)
+		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 	svc := fe.Service
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
@@ -952,7 +952,7 @@ func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 	// enabled because ClusterIP can also be accessed from outside with this
 	// setting. We don't do it unconditionally to avoid increasing memory
 	// footprint.
-	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.extCfg.ExternalClusterIP {
+	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP {
 		return false
 	}
 	// Wildcarded frontend is not exposed for external traffic.

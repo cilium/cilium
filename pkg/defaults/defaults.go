@@ -480,10 +480,6 @@ const (
 	// an auto-generated list of ports in the container network namespace
 	ContainerIPLocalReservedPortsAuto = "auto"
 
-	// ExternalClusterIP enables cluster external access to ClusterIP services.
-	// Defaults to false to retain prior behaviour of not routing external packets to ClusterIPs.
-	ExternalClusterIP = false
-
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
 	EnableICMPRules = true
 

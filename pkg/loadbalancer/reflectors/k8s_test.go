@@ -20,7 +20,6 @@ var (
 	benchmarkExternalConfig = loadbalancer.ExternalConfig{
 		EnableIPv4:                      true,
 		EnableIPv6:                      true,
-		ExternalClusterIP:               true,
 		EnableHealthCheckNodePort:       true,
 		KubeProxyReplacement:            true,
 		LoadBalancerAlgorithmAnnotation: false,

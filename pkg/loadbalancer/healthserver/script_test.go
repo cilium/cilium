@@ -92,7 +92,6 @@ func TestScript(t *testing.T) {
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
 							EnableNodePort:                  true,
-							ExternalClusterIP:               cfg.ExternalClusterIP,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},

@@ -12,6 +12,8 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -53,6 +55,10 @@ const (
 
 	// Deprecated option for setting [LBAlgorithm]
 	NodePortAlgName = "node-port-algorithm"
+
+	// ExternalClusterIPName is the name of the option to enable
+	// cluster external access to ClusterIP services.
+	ExternalClusterIPName = "bpf-lb-external-clusterip"
 )
 
 // Configuration option defaults
@@ -116,7 +122,25 @@ type UserConfig struct {
 	// LoadBalancerAlgorithm indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	LBAlgorithm string `mapstructure:"bpf-lb-algorithm"`
+
+	// ExternalClusterIP enables routing to ClusterIP services from outside
+	// the cluster. This mirrors the behaviour of kube-proxy.
+	ExternalClusterIP bool `mapstructure:"bpf-lb-external-clusterip"`
 }
+
+// ConfigCell provides the [Config] and [ExternalConfig] configurations.
+var ConfigCell = cell.Group(
+	cell.Config(DefaultUserConfig),
+	cell.Config(DeprecatedConfig{}),
+	cell.Provide(
+		// Bridge options from [option.DaemonConfig] to [loadbalancer.ExternalConfig] to avoid
+		// direct dependency to DaemonConfig
+		NewExternalConfig,
+
+		// Validate and populate [loadbalancer.userConfig] to produce the final [loadbalancer.Config]
+		NewConfig,
+	),
+)
 
 type Config struct {
 	UserConfig
@@ -178,6 +202,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(NodePortRange, []string{fmt.Sprintf("%d", NodePortMinDefault), fmt.Sprintf("%d", NodePortMaxDefault)}, "Set the min/max NodePort port range")
 
 	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
+
+	flags.Bool(ExternalClusterIPName, def.ExternalClusterIP, "Enable external access to ClusterIP services (default false)")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -296,6 +322,10 @@ var DefaultUserConfig = UserConfig{
 
 	NodePortRange: []string{},
 	LBAlgorithm:   LBAlgorithmRandom,
+
+	// Defaults to false to retain prior behaviour to not route external packets
+	// to ClusterIP services.
+	ExternalClusterIP: false,
 }
 
 var DefaultConfig = Config{
@@ -314,16 +344,12 @@ type TestConfig struct {
 
 	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
 	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
-
-	// ExternalClusterIP mirrors option.Config.ExternalClusterIP
-	ExternalClusterIP bool `mapstructure:"bpf-lb-external-clusterip"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
 	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
-	flags.Bool(option.ExternalClusterIPName, false, "Enable cluster-external access to ClusterIPs")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
@@ -332,7 +358,6 @@ type ExternalConfig struct {
 	ZoneMapper
 
 	EnableIPv4, EnableIPv6          bool
-	ExternalClusterIP               bool
 	EnableHealthCheckNodePort       bool
 	KubeProxyReplacement            bool
 	LoadBalancerAlgorithmAnnotation bool
@@ -344,7 +369,6 @@ func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		ZoneMapper:                      cfg,
 		EnableIPv4:                      cfg.EnableIPv4,
 		EnableIPv6:                      cfg.EnableIPv6,
-		ExternalClusterIP:               cfg.ExternalClusterIP,
 		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
