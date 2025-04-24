@@ -20,10 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	limiter = rate.NewLimiter(time.Second, 1)
-)
-
 type FeatureStatus struct {
 	Feature DynamicFeatureName
 	Enabled bool
@@ -44,7 +40,6 @@ type watcherParams struct {
 
 type configWatcher struct {
 	watcherParams
-	limiter *rate.Limiter
 }
 
 // setEnabled sets the enablement flag for DynamicFeatureName
@@ -87,8 +82,10 @@ func (cw *configWatcher) processDynamicFeatures(dfcJson string) error {
 }
 
 func (cw *configWatcher) watch(ctx context.Context, health cell.Health) error {
+	limiter := rate.NewLimiter(time.Second, 1)
+	defer limiter.Stop()
 	for {
-		if err := cw.limiter.Wait(ctx); err != nil {
+		if err := limiter.Wait(ctx); err != nil {
 			return err
 		}
 
@@ -130,7 +127,7 @@ func registerWatcher(p watcherParams) error {
 		return fmt.Errorf("failed to start dynamic-lifecycle-manager with enable-dynamic-config=%t", p.DynamicConfigCellConfig.EnableDynamicConfig)
 	}
 
-	w := &configWatcher{p, limiter}
+	w := &configWatcher{p}
 	p.JobGroup.Add(job.OneShot("dynamic-config-watcher", func(ctx context.Context, health cell.Health) error {
 		return w.watch(ctx, health)
 	}))
