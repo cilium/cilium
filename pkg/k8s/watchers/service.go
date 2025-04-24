@@ -382,7 +382,7 @@ func configureWithSourceRanges(lbConfig loadbalancer.Config, svcType loadbalance
 		return lbConfig.LBSourceRangeAllTypes
 	case loadbalancer.SVCTypeClusterIP:
 		// ClusterIP is only needed here when exposed to N/S traffic.
-		return lbConfig.LBSourceRangeAllTypes && option.Config.ExternalClusterIP
+		return lbConfig.LBSourceRangeAllTypes && lbConfig.ExternalClusterIP
 	default:
 		return false
 	}

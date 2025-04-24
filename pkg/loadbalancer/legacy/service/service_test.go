@@ -145,15 +145,14 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 }
 
 type ManagerTestSuite struct {
-	svc                         *Service
-	lbmap                       *mockmaps.LBMockMap // for accessing public fields
-	svcHealth                   *healthserver.MockHealthHTTPServerFactory
-	prevOptionSessionAffinity   bool
-	prevOptionLBSourceRanges    bool
-	prevOptionDPMode            string
-	prevOptionExternalClusterIP bool
-	ipv6                        bool
-	logger                      *slog.Logger
+	svc                       *Service
+	lbmap                     *mockmaps.LBMockMap // for accessing public fields
+	svcHealth                 *healthserver.MockHealthHTTPServerFactory
+	prevOptionSessionAffinity bool
+	prevOptionLBSourceRanges  bool
+	prevOptionDPMode          string
+	ipv6                      bool
+	logger                    *slog.Logger
 }
 
 var (
@@ -189,7 +188,6 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 	option.Config.EnableSVCSourceRangeCheck = true
 
 	m.prevOptionDPMode = option.Config.DatapathMode
-	m.prevOptionExternalClusterIP = option.Config.ExternalClusterIP
 
 	option.Config.EnableInternalTrafficPolicy = true
 
@@ -223,7 +221,6 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 		option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
 		option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
 		option.Config.DatapathMode = m.prevOptionDPMode
-		option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
 		option.Config.EnableIPv6 = m.ipv6
 		cancel()
 	})
@@ -1418,7 +1415,7 @@ func TestUpsertServiceWithExternalClusterIP(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
 	m.svc.lbConfig.LBAlgorithm = lb.LBAlgorithmMaglev
-	option.Config.ExternalClusterIP = true
+	m.svc.lbConfig.ExternalClusterIP = true
 	backends := make([]*lb.LegacyBackend, 0, len(backends1))
 	for _, b := range backends1 {
 		backends = append(backends, b.DeepCopy())

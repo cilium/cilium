@@ -995,10 +995,6 @@ const (
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace = "bgp-secrets-namespace"
 
-	// ExternalClusterIPName is the name of the option to enable
-	// cluster external access to ClusterIP services.
-	ExternalClusterIPName = "bpf-lb-external-clusterip"
-
 	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
 	VLANBPFBypass = "vlan-bpf-bypass"
 
@@ -2019,10 +2015,6 @@ type DaemonConfig struct {
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace string
 
-	// ExternalClusterIP enables routing to ClusterIP services from outside
-	// the cluster. This mirrors the behaviour of kube-proxy.
-	ExternalClusterIP bool
-
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
 
@@ -2204,7 +2196,6 @@ var (
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
-		ExternalClusterIP:                    defaults.ExternalClusterIP,
 		EnableVTEP:                           defaults.EnableVTEP,
 		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
@@ -2885,7 +2876,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
-	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6

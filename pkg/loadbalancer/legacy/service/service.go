@@ -159,7 +159,7 @@ func (svc *svcInfo) isIntLocal() bool {
 	}
 }
 
-func (svc *svcInfo) filterBackends(frontend lb.L3n4AddrID) bool {
+func (svc *svcInfo) filterBackends(lbConfig lb.Config, frontend lb.L3n4AddrID) bool {
 	switch svc.svcType {
 	case lb.SVCTypeLocalRedirect:
 		return true
@@ -198,7 +198,7 @@ func (svc *svcInfo) useMaglev(cfg lb.Config) bool {
 	// enabled because ClusterIP can also be accessed from outside with this
 	// setting. We don't do it unconditionally to avoid increasing memory
 	// footprint.
-	if svc.svcType == lb.SVCTypeClusterIP && !option.Config.ExternalClusterIP {
+	if svc.svcType == lb.SVCTypeClusterIP && !cfg.ExternalClusterIP {
 		return false
 	}
 	// Wildcarded frontend is not exposed for external traffic.
@@ -849,7 +849,7 @@ func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 		logfields.ServiceID, svc.frontend.ID,
 	)
 
-	filterBackends := svc.filterBackends(params.Frontend)
+	filterBackends := svc.filterBackends(s.lbConfig, params.Frontend)
 	prevBackendCount := len(svc.backends)
 
 	backendsCopy := []*lb.LegacyBackend{}
