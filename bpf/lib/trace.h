@@ -159,6 +159,7 @@ struct trace_ctx {
 	__u32 monitor;	/* Monitor length for number of bytes to forward in
 			 * trace message. 0 means do not monitor.
 			 */
+	cls_flags_t flags;
 };
 
 struct trace_notify {
@@ -301,6 +302,10 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 #define send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor) \
 	_send_trace_notify(ctx, obs_point, src, dst, dst_id, NULL, ifindex, reason, monitor, \
 			  ctx_device_classifiers(ctx), __MAGIC_LINE__, __MAGIC_FILE__)
+
+#define send_trace_notify_flags(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, flags) \
+	_send_trace_notify(ctx, obs_point, src, dst, dst_id, NULL, ifindex, reason, monitor, \
+			  ctx_device_classifiers(ctx) | (flags), __MAGIC_LINE__, __MAGIC_FILE__)
 
 #define send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor) \
 	_send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor, \

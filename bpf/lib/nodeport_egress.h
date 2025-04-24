@@ -268,18 +268,20 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = 0,
 	};
 	int ret;
 	__s8 ext_err = 0;
 
 	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+					METRIC_EGRESS, trace.flags);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
@@ -588,18 +590,20 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = 0,
 	};
 	int ret;
 	__s8 ext_err = 0;
 
 	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+					METRIC_EGRESS, trace.flags);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
