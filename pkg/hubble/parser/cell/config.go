@@ -14,6 +14,9 @@ type config struct {
 	// be skipped.
 	SkipUnknownCGroupIDs bool `mapstructure:"hubble-skip-unknown-cgroup-ids"`
 
+	// EnableNetworkPolicyCorrelation controls whether to enable network policy correlation of Hubble flows
+	EnableNetworkPolicyCorrelation bool `mapstructure:"hubble-network-policy-correlation-enabled"`
+
 	// EnableRedact controls if sensitive information will be redacted from L7
 	// flows.
 	EnableRedact bool `mapstructure:"hubble-redact-enabled"`
@@ -32,13 +35,14 @@ type config struct {
 }
 
 var defaultConfig = config{
-	SkipUnknownCGroupIDs:   true,
-	EnableRedact:           false,
-	RedactHttpURLQuery:     false,
-	RedactHttpUserInfo:     true,
-	RedactHttpHeadersAllow: []string{},
-	RedactHttpHeadersDeny:  []string{},
-	RedactKafkaAPIKey:      false,
+	SkipUnknownCGroupIDs:           true,
+	EnableNetworkPolicyCorrelation: true,
+	EnableRedact:                   false,
+	RedactHttpURLQuery:             false,
+	RedactHttpUserInfo:             true,
+	RedactHttpHeadersAllow:         []string{},
+	RedactHttpHeadersDeny:          []string{},
+	RedactKafkaAPIKey:              false,
 }
 
 func (cfg config) validate() error {
@@ -57,4 +61,5 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("hubble-redact-http-headers-allow", def.RedactHttpHeadersAllow, "HTTP headers to keep visible in flows")
 	flags.StringSlice("hubble-redact-http-headers-deny", def.RedactHttpHeadersDeny, "HTTP headers to redact from flows")
 	flags.Bool("hubble-redact-kafka-apikey", def.RedactKafkaAPIKey, "Hubble redact Kafka API key from flows")
+	flags.Bool("hubble-network-policy-correlation-enabled", def.EnableNetworkPolicyCorrelation, "Enable network policy correlation of Hubble flows")
 }
