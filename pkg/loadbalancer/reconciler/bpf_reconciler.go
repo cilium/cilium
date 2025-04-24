@@ -114,7 +114,8 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 type BPFOps struct {
 	LBMaps maps.LBMaps
 	log    *slog.Logger
-	cfg    loadbalancer.ExternalConfig
+	cfg    loadbalancer.Config
+	extCfg loadbalancer.ExternalConfig
 	maglev *maglev.Maglev
 
 	serviceIDAlloc     idAllocator
@@ -164,22 +165,23 @@ type backendState struct {
 type bpfOpsParams struct {
 	cell.In
 
-	Lifecycle     cell.Lifecycle
-	Log           *slog.Logger
-	Cfg           loadbalancer.Config
-	ExtCfg        loadbalancer.ExternalConfig
-	LBMaps        maps.LBMaps
-	Maglev        *maglev.Maglev
-	DB            *statedb.DB
-	NodeAddresses statedb.Table[tables.NodeAddress]
+	Lifecycle      cell.Lifecycle
+	Log            *slog.Logger
+	Config         loadbalancer.Config
+	ExternalConfig loadbalancer.ExternalConfig
+	LBMaps         maps.LBMaps
+	Maglev         *maglev.Maglev
+	DB             *statedb.DB
+	NodeAddresses  statedb.Table[tables.NodeAddress]
 }
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
-	if !p.Cfg.EnableExperimentalLB {
+	if !p.Config.EnableExperimentalLB {
 		return nil
 	}
 	ops := &BPFOps{
-		cfg:       p.ExtCfg,
+		cfg:       p.Config,
+		extCfg:    p.ExternalConfig,
 		maglev:    p.Maglev,
 		log:       p.Log,
 		LBMaps:    p.LBMaps,
@@ -278,7 +280,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *loadbalancer.Frontend) error {
-	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
+	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
 
@@ -627,7 +629,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
-	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
+	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
 
@@ -719,7 +721,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
-		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
+		(svcType != loadbalancer.SVCTypeClusterIP || ops.extCfg.ExternalClusterIP)
 	svc := fe.Service
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
@@ -932,8 +934,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 }
 
 func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
-	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.NodePortAlg)
-	if ops.cfg.LoadBalancerAlgorithmAnnotation {
+	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.LBAlgorithm)
+	if ops.extCfg.LoadBalancerAlgorithmAnnotation {
 		alg := fe.Service.GetLBAlgorithmAnnotation()
 		if alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
 			return alg
@@ -950,7 +952,7 @@ func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 	// enabled because ClusterIP can also be accessed from outside with this
 	// setting. We don't do it unconditionally to avoid increasing memory
 	// footprint.
-	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP {
+	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.extCfg.ExternalClusterIP {
 		return false
 	}
 	// Wildcarded frontend is not exposed for external traffic.
@@ -1035,13 +1037,13 @@ func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *loadbalancer.Bac
 
 	if be.Address.AddrCluster.Is6() {
 		lbbe, err = lbmap.NewBackend6V3(id, be.Address.AddrCluster, be.Address.Port, proto,
-			be.State, ops.cfg.GetZoneID(be.Zone))
+			be.State, ops.extCfg.GetZoneID(be.Zone))
 		if err != nil {
 			return err
 		}
 	} else {
 		lbbe, err = lbmap.NewBackend4V3(id, be.Address.AddrCluster, be.Address.Port, proto,
-			be.State, ops.cfg.GetZoneID(be.Zone))
+			be.State, ops.extCfg.GetZoneID(be.Zone))
 		if err != nil {
 			return err
 		}

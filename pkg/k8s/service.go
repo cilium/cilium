@@ -37,8 +37,8 @@ func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.
 	return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), nil
 }
 
-func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
-	return GetAnnotationServiceLoadBalancingAlgorithm(svc.Annotations, loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg))
+func getAnnotationServiceLoadBalancingAlgorithm(cfg loadbalancer.Config, svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
+	return GetAnnotationServiceLoadBalancingAlgorithm(svc.Annotations, loadbalancer.ToSVCLoadBalancingAlgorithm(cfg.LBAlgorithm))
 }
 
 func GetAnnotationServiceLoadBalancingAlgorithm(ann map[string]string, defaultAlg loadbalancer.SVCLoadBalancingAlgorithm) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
@@ -148,7 +148,7 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
+func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
 	scopedLog := logger.With(
 		logfields.K8sSvcName, svc.ObjectMeta.Name,
 		logfields.K8sNamespace, svc.ObjectMeta.Namespace,
@@ -269,11 +269,11 @@ func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs [
 		}
 	}
 
-	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
+	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(cfg.LBAlgorithm)
 	if option.Config.LoadBalancerAlgorithmAnnotation {
 		var err error
 
-		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(svc)
+		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(cfg, svc)
 		if err != nil {
 			scopedLog.Warn(
 				"Ignoring annotation, applying global configuration",

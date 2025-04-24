@@ -250,10 +250,6 @@ const (
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode = "node-port-mode"
 
-	// NodePortAlg indicates which algorithm is used for backend selection
-	// ("random" or "maglev")
-	NodePortAlg = "node-port-algorithm"
-
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
@@ -273,9 +269,6 @@ const (
 
 	// Alias to DSR/IPIP IPv6 source CIDR
 	LoadBalancerRSSv6CIDR = "bpf-lb-rss-ipv6-src-cidr"
-
-	// Alias to NodePortAlg
-	LoadBalancerAlgorithm = "bpf-lb-algorithm"
 
 	// LoadBalancerNat46X64 enables NAT46 and NAT64 for services
 	LoadBalancerNat46X64 = "bpf-lb-nat46x64"
@@ -1176,12 +1169,6 @@ const (
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
-	// NodePortAlgRandom is for randomly selecting a backend
-	NodePortAlgRandom = "random"
-
-	// NodePortAlgMaglev is for using maglev consistent hashing for backend selection
-	NodePortAlgMaglev = "maglev"
-
 	// DSR dispatch mode to encode service into IP option or extension header
 	DSRDispatchOption = "opt"
 
@@ -1836,10 +1823,6 @@ type DaemonConfig struct {
 
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark bool
-
-	// NodePortAlg indicates which backend selection algorithm is used
-	// ("random" or "maglev")
-	NodePortAlg string
 
 	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf load balancing algorithm.
@@ -3274,7 +3257,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
 	c.LoadBalancerModeAnnotation = vp.GetBool(LoadBalancerModeAnnotation)
-	c.NodePortAlg = vp.GetString(LoadBalancerAlgorithm)
 	c.LoadBalancerAlgorithmAnnotation = vp.GetBool(LoadBalancerAlgorithmAnnotation)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
@@ -3292,14 +3274,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 		if vp.IsSet(LoadBalancerMode) && prior != c.NodePortMode {
 			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
 				LoadBalancerMode, NodePortMode, LoadBalancerMode)
-		}
-	}
-	if vp.IsSet(NodePortAlg) {
-		prior := c.NodePortAlg
-		c.NodePortAlg = vp.GetString(NodePortAlg)
-		if vp.IsSet(LoadBalancerAlgorithm) && prior != c.NodePortAlg {
-			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerAlgorithm, NodePortAlg, LoadBalancerAlgorithm)
 		}
 	}
 }

@@ -48,7 +48,7 @@ func fixture(t testing.TB, hooks ...ServiceHook) (p testParams) {
 		Hooks []ServiceHook `group:"service-hooks,flatten"`
 	}
 	h := hive.New(
-		cell.Config(loadbalancer.DefaultConfig),
+		cell.Config(loadbalancer.DefaultUserConfig),
 		node.LocalNodeStoreCell,
 		Cell,
 		cell.Provide(

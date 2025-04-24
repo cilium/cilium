@@ -99,10 +99,10 @@ func (d SVCLoadBalancingAlgorithm) String() string {
 }
 
 func ToSVCLoadBalancingAlgorithm(s string) SVCLoadBalancingAlgorithm {
-	if s == option.NodePortAlgMaglev {
+	if s == LBAlgorithmMaglev {
 		return SVCLoadBalancingAlgorithmMaglev
 	}
-	if s == option.NodePortAlgRandom {
+	if s == LBAlgorithmRandom {
 		return SVCLoadBalancingAlgorithmRandom
 	}
 	return SVCLoadBalancingAlgorithmUndef
