@@ -5,10 +5,10 @@ package gops
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	gopsAgent "github.com/google/gops/agent"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -37,16 +37,15 @@ func (def GopsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.EnableGops, def.EnableGops, "Enable gops server")
 }
 
-func registerGopsHooks(lc cell.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
+func registerGopsHooks(lc cell.Lifecycle, log *slog.Logger, cfg GopsConfig) {
 	if !cfg.EnableGops {
 		return
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
-	addrField := logrus.Fields{"address": addr, logfields.LogSubsys: "gops"}
-	log = log.WithFields(addrField)
+	scopedLog := log.With(logfields.Address, addr)
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			log.Info("Started gops server")
+			scopedLog.Info("Started gops server")
 			return gopsAgent.Listen(gopsAgent.Options{
 				Addr:                   addr,
 				ReuseSocketAddrAndPort: true,
@@ -54,7 +53,7 @@ func registerGopsHooks(lc cell.Lifecycle, log logrus.FieldLogger, cfg GopsConfig
 		},
 		OnStop: func(cell.HookContext) error {
 			gopsAgent.Close()
-			log.Info("Stopped gops server")
+			scopedLog.Info("Stopped gops server")
 			return nil
 		},
 	})
