@@ -280,7 +280,7 @@ func (d *Daemon) initMaps() error {
 
 	if !d.lbConfig.EnableExperimentalLB &&
 		(d.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev ||
-			option.Config.LoadBalancerAlgorithmAnnotation) {
+			d.lbConfig.AlgorithmAnnotation) {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.MaglevTableSize)); err != nil {
 			return fmt.Errorf("initializing maglev maps: %w", err)
 		}

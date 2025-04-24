@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -180,6 +181,9 @@ type LocalNodeConfiguration struct {
 	// XDPConfig holds configuration options to determine how the node should
 	// handle XDP programs.
 	XDPConfig xdp.Config
+
+	// LBConfig holds the configuration options for load-balancing
+	LBConfig loadbalancer.Config
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

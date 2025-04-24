@@ -187,7 +187,7 @@ func (svc *svcInfo) useMaglev(cfg lb.Config) bool {
 	// we need to check if LoadBalancerAlgorithmAnnotation is enabled otherwise load
 	// balancer algorithm will not be populated in lb maps and this information
 	// will be lost when services are restored from maps.
-	if option.Config.LoadBalancerAlgorithmAnnotation {
+	if cfg.AlgorithmAnnotation {
 		if svc.loadBalancerAlgorithm != lb.SVCLoadBalancingAlgorithmMaglev {
 			return false
 		}

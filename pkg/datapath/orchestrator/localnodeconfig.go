@@ -15,6 +15,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -43,6 +44,7 @@ func newLocalNodeConfig(
 	nodeAddresses statedb.Table[tables.NodeAddress],
 	masqInterface string,
 	xdpConfig xdp.Config,
+	lbConfig loadbalancer.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
@@ -101,5 +103,6 @@ func newLocalNodeConfig(
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
+		LBConfig:                     lbConfig,
 	}, common.MergeChannels(devsWatch, addrsWatch, directRoutingDevWatch, mtuWatch), nil
 }

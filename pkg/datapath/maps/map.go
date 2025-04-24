@@ -190,7 +190,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if ms.lbConfig.LBAlgorithm != loadbalancer.LBAlgorithmMaglev &&
-		!option.Config.LoadBalancerAlgorithmAnnotation {
+		!ms.lbConfig.AlgorithmAnnotation {
 		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
 	}
 

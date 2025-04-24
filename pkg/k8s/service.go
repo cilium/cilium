@@ -255,7 +255,7 @@ func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1
 	svcInfo.Shared = annotation.GetAnnotationShared(svc)
 
 	svcInfo.ForwardingMode = loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode)
-	if option.Config.LoadBalancerAlgorithmAnnotation {
+	if cfg.AlgorithmAnnotation {
 		var err error
 
 		svcInfo.ForwardingMode, err = getAnnotationServiceForwardingMode(svc)
@@ -270,7 +270,7 @@ func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1
 	}
 
 	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(cfg.LBAlgorithm)
-	if option.Config.LoadBalancerAlgorithmAnnotation {
+	if cfg.AlgorithmAnnotation {
 		var err error
 
 		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(cfg, svc)
