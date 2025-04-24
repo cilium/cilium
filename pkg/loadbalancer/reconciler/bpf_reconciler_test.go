@@ -1051,27 +1051,21 @@ func TestBPFOps(t *testing.T) {
 
 	// Enable features.
 	extCfg := loadbalancer.ExternalConfig{
-		ZoneMapper: &option.DaemonConfig{},
-		LBMapsConfig: loadbalancer.LBMapsConfig{
-			MaxSockRevNatMapEntries:  1000,
-			ServiceMapMaxEntries:     1000,
-			BackendMapMaxEntries:     1000,
-			RevNatMapMaxEntries:      1000,
-			AffinityMapMaxEntries:    1000,
-			SourceRangeMapMaxEntries: 1000,
-			MaglevMapMaxEntries:      1000,
-		},
-
+		ZoneMapper:           &option.DaemonConfig{},
 		EnableIPv4:           true,
 		EnableIPv6:           true,
 		KubeProxyReplacement: true,
 	}
 
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultConfig, &option.DaemonConfig{})
+	cfg.EnableExperimentalLB = true
+
 	var lbmaps maps.LBMaps
 	if testutils.IsPrivileged() {
 		r := &maps.BPFLBMaps{
 			Pinned:    false,
-			Cfg:       extCfg,
+			Cfg:       cfg,
+			ExtCfg:    extCfg,
 			MaglevCfg: maglevCfg,
 		}
 		lc.Append(r)
@@ -1079,9 +1073,6 @@ func TestBPFOps(t *testing.T) {
 	} else {
 		lbmaps = maps.NewFakeLBMaps()
 	}
-
-	cfg := loadbalancer.DefaultConfig
-	cfg.EnableExperimentalLB = true
 
 	// Insert node addrs used for NodePort/HostPort
 	db := statedb.New()

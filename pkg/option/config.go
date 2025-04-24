@@ -643,10 +643,6 @@ const (
 	// reconciliation of the endpoint policy map.
 	PolicyMapFullReconciliationIntervalName = "bpf-policy-map-full-reconciliation-interval"
 
-	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
-	// entries.
-	SockRevNatEntriesName = "bpf-sock-rev-map-max"
-
 	// EgressGatewayPolicyMapEntriesName configures max entries for egress gateway's policy
 	// map.
 	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
@@ -993,30 +989,6 @@ const (
 
 	// K8sEnableAPIDiscovery enables Kubernetes API discovery
 	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
-
-	// LBMapEntriesName configures max entries for BPF lbmap.
-	LBMapEntriesName = "bpf-lb-map-max"
-
-	// LBServiceMapMaxEntries configures max entries of bpf map for services.
-	LBServiceMapMaxEntries = "bpf-lb-service-map-max"
-
-	// LBBackendMapMaxEntries configures max entries of bpf map for service backends.
-	LBBackendMapMaxEntries = "bpf-lb-service-backend-map-max"
-
-	// LBRevNatMapMaxEntries configures max entries of bpf map for reverse NAT.
-	LBRevNatMapMaxEntries = "bpf-lb-rev-nat-map-max"
-
-	// LBAffinityMapMaxEntries configures max entries of bpf map for session affinity.
-	LBAffinityMapMaxEntries = "bpf-lb-affinity-map-max"
-
-	// LBSourceRangeAllTypes configures service source ranges for all service types.
-	LBSourceRangeAllTypes = "bpf-lb-source-range-all-types"
-
-	// LBSourceRangeMapMaxEntries configures max entries of bpf map for service source ranges.
-	LBSourceRangeMapMaxEntries = "bpf-lb-source-range-map-max"
-
-	// LBMaglevMapMaxEntries configures max entries of bpf map for Maglev.
-	LBMaglevMapMaxEntries = "bpf-lb-maglev-map-max"
 
 	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
 	// store rules and routes under ENI and Azure IPAM modes, if false.
@@ -1502,10 +1474,6 @@ type DaemonConfig struct {
 	// PolicyMapFullReconciliationInterval is the interval at which to perform
 	// the full reconciliation of the endpoint policy map.
 	PolicyMapFullReconciliationInterval time.Duration
-
-	// SockRevNatEntries is the maximum number of sock rev nat mappings
-	// allowed in the BPF rev nat table
-	SockRevNatEntries int
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
@@ -2059,31 +2027,6 @@ type DaemonConfig struct {
 	// election purposes in HA mode.
 	// This is only enabled for cilium-operator
 	K8sEnableLeasesFallbackDiscovery bool
-
-	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
-	LBMapEntries int
-
-	// LBServiceMapEntries is the maximum number of entries allowed in BPF lbmap for services.
-	LBServiceMapEntries int
-
-	// LBBackendMapEntries is the maximum number of entries allowed in BPF lbmap for service backends.
-	LBBackendMapEntries int
-
-	// LBRevNatEntries is the maximum number of entries allowed in BPF lbmap for reverse NAT.
-	LBRevNatEntries int
-
-	// LBAffinityMapEntries is the maximum number of entries allowed in BPF lbmap for session affinities.
-	LBAffinityMapEntries int
-
-	// LBSourceRangeAllTypes enables propagation of loadbalancerSourceRanges to all Kubernetes
-	// service types which were created from the LoadBalancer service.
-	LBSourceRangeAllTypes bool
-
-	// LBSourceRangeMapEntries is the maximum number of entries allowed in BPF lbmap for source ranges.
-	LBSourceRangeMapEntries int
-
-	// LBMaglevMapEntries is the maximum number of entries allowed in BPF lbmap for maglev.
-	LBMaglevMapEntries int
 
 	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
 	// store rules and routes under ENI and Azure IPAM modes, if false.
@@ -2990,7 +2933,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
-	c.LBSourceRangeAllTypes = vp.GetBool(LBSourceRangeAllTypes)
 	c.BootIDFile = vp.GetString(BootIDFilename)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
@@ -3451,15 +3393,6 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 		}
 	}
 
-	if c.SockRevNatEntries < LimitTableMin {
-		return fmt.Errorf("specified Socket Reverse NAT table size %d must be greater or equal to %d",
-			c.SockRevNatEntries, LimitTableMin)
-	}
-	if c.SockRevNatEntries > LimitTableMax {
-		return fmt.Errorf("specified Socket Reverse NAT tables size %d must not exceed maximum %d",
-			c.SockRevNatEntries, LimitTableMax)
-	}
-
 	if c.FragmentsMapEntries < FragmentsMapMin {
 		return fmt.Errorf("specified max entries %d for fragment-tracking map must be greater or equal to %d",
 			c.FragmentsMapEntries, FragmentsMapMin)
@@ -3469,25 +3402,6 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 			c.FragmentsMapEntries, FragmentsMapMax)
 	}
 
-	if c.LBMapEntries <= 0 {
-		return fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", c.LBMapEntries)
-	}
-
-	if c.LBServiceMapEntries < 0 ||
-		c.LBBackendMapEntries < 0 ||
-		c.LBRevNatEntries < 0 ||
-		c.LBAffinityMapEntries < 0 ||
-		c.LBSourceRangeMapEntries < 0 ||
-		c.LBMaglevMapEntries < 0 {
-		return fmt.Errorf("specified LB Service Map max entries must not be a negative value"+
-			"(Service Map: %d, Service Backend: %d, Reverse NAT: %d, Session Affinity: %d, Source Range: %d, Maglev: %d)",
-			c.LBServiceMapEntries,
-			c.LBBackendMapEntries,
-			c.LBRevNatEntries,
-			c.LBAffinityMapEntries,
-			c.LBSourceRangeMapEntries,
-			c.LBMaglevMapEntries)
-	}
 	return nil
 }
 
@@ -3574,14 +3488,6 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)
 	c.NeighMapEntriesGlobal = vp.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapFullReconciliationInterval = vp.GetDuration(PolicyMapFullReconciliationIntervalName)
-	c.SockRevNatEntries = vp.GetInt(SockRevNatEntriesName)
-	c.LBMapEntries = vp.GetInt(LBMapEntriesName)
-	c.LBServiceMapEntries = vp.GetInt(LBServiceMapMaxEntries)
-	c.LBBackendMapEntries = vp.GetInt(LBBackendMapMaxEntries)
-	c.LBRevNatEntries = vp.GetInt(LBRevNatMapMaxEntries)
-	c.LBAffinityMapEntries = vp.GetInt(LBAffinityMapMaxEntries)
-	c.LBSourceRangeMapEntries = vp.GetInt(LBSourceRangeMapMaxEntries)
-	c.LBMaglevMapEntries = vp.GetInt(LBMaglevMapMaxEntries)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).
@@ -3601,8 +3507,8 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 		if err != nil || vms == nil {
 			log.WithError(err).Fatal("Failed to get system memory")
 		}
-		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
 		c.BPFMapsDynamicSizeRatio = dynamicSizeRatio
+		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
 	} else if c.BPFDistributedLRU {
 		return fmt.Errorf("distributed LRU is only valid with a specified dynamic map size ratio")
 	} else if dynamicSizeRatio < 0.0 {
@@ -3627,7 +3533,20 @@ func (c *DaemonConfig) SetMapElementSizes(
 	c.SizeofSockRevElement = sizeofSockRevElement
 }
 
-func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory uint64, dynamicSizeRatio float64) {
+func (c *DaemonConfig) GetDynamicSizeCalculator() func(def, min, max int) int {
+	vms, err := memory.Get()
+	if err != nil || vms == nil {
+		log.WithError(err).Fatal("Failed to get system memory")
+	}
+
+	return c.getDynamicSizeCalculator(c.BPFMapsDynamicSizeRatio, vms.Total)
+}
+
+func (c *DaemonConfig) getDynamicSizeCalculator(dynamicSizeRatio float64, totalMemory uint64) func(def, min, max int) int {
+	if 0.0 >= dynamicSizeRatio || dynamicSizeRatio > 1.0 {
+		return func(def int, min int, max int) int { return def }
+	}
+
 	possibleCPUs := 1
 	// Heuristic:
 	// Distribute relative to map default entries among the different maps.
@@ -3643,6 +3562,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 	//    1GB    66280   33140    66280
 	//    4GB   265121  132560   265121
 	//   16GB  1060485  530242  1060485
+
 	memoryAvailableForMaps := int(float64(totalMemory) * dynamicSizeRatio)
 	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio*100, totalMemory, memoryAvailableForMaps)
 	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.SizeofCTElement +
@@ -3668,7 +3588,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 		}
 		possibleCPUs = cpus
 	}
-	getEntries := func(entriesDefault, min, max int) int {
+	return func(entriesDefault, min, max int) int {
 		entries := (entriesDefault * memoryAvailableForMaps) / totalMapMemoryDefault
 		entries = util.RoundUp(entries, possibleCPUs)
 		if entries < min {
@@ -3678,6 +3598,10 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 		}
 		return entries
 	}
+}
+
+func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory uint64, dynamicSizeRatio float64) {
+	getEntries := c.getDynamicSizeCalculator(dynamicSizeRatio, totalMemory)
 
 	// If value for a particular map was explicitly set by an
 	// option, disable dynamic sizing for this map and use the
@@ -3722,14 +3646,6 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
 	} else {
 		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
-	}
-	if !vp.IsSet(SockRevNatEntriesName) {
-		c.SockRevNatEntries =
-			getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v",
-			SockRevNatEntriesName, c.SockRevNatEntries)
-	} else {
-		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
 }
 
