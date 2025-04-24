@@ -60,42 +60,6 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 }
 
 #ifdef ENABLE_IPSEC
-# ifdef ENABLE_IPV4
-static __always_inline __u16
-lookup_ip4_node_id(__u32 ip4)
-{
-	struct node_key node_ip = {};
-	struct node_value *node_value = NULL;
-
-	node_ip.family = ENDPOINT_KEY_IPV4;
-	node_ip.ip4 = ip4;
-	node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
-	if (!node_value)
-		return 0;
-	if (!node_value->id)
-		return 0;
-	return node_value->id;
-}
-# endif /* ENABLE_IPV4 */
-
-# ifdef ENABLE_IPV6
-static __always_inline __u16
-lookup_ip6_node_id(const union v6addr *ip6)
-{
-	struct node_key node_ip = {};
-	struct node_value *node_value = NULL;
-
-	node_ip.family = ENDPOINT_KEY_IPV6;
-	node_ip.ip6 = *ip6;
-	node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
-	if (!node_value)
-		return 0;
-	if (!node_value->id)
-		return 0;
-	return node_value->id;
-}
-# endif /* ENABLE_IPV6 */
-
 /**
  * or_encrypt_key - mask and shift key into encryption format
  */

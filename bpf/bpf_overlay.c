@@ -37,6 +37,7 @@
 #include "lib/local_delivery.h"
 #include "lib/drop.h"
 #include "lib/identity.h"
+#include "lib/node.h"
 #include "lib/nodeport.h"
 #include "lib/nodeport_egress.h"
 #include "lib/clustermesh.h"
