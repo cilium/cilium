@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -23,12 +22,6 @@ func (m *MockIPCache) GetNamedPorts() types.NamedPortMultiMap {
 }
 
 func (m *MockIPCache) AddListener(listener ipcache.IPIdentityMappingListener) {}
-
-func (m *MockIPCache) AllocateCIDRs(prefixes []netip.Prefix, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
-	return nil, nil
-}
-
-func (m *MockIPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix) {}
 
 func (m *MockIPCache) LookupByIP(IP string) (ipcache.Identity, bool) {
 	return ipcache.Identity{}, false
