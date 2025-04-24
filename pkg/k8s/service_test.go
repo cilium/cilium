@@ -223,7 +223,9 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 		option.Config.EnableNodePort = oldNodePort
 	}()
 
-	_, svc := ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	lbcfg := loadbalancer.DefaultConfig
+
+	_, svc := ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Len(t, svc.NodePorts, 1)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -231,7 +233,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only ClusterIP
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "ClusterIP"
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Empty(t, svc.NodePorts)
 	require.Empty(t, svc.LoadBalancerIPs)
@@ -240,7 +242,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only NodePort
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "NodePort"
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Empty(t, svc.FrontendIPs)
 	require.Len(t, svc.NodePorts, 1)
 	require.Empty(t, svc.LoadBalancerIPs)
@@ -249,7 +251,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only LoadBalancer
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "LoadBalancer"
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Empty(t, svc.FrontendIPs)
 	require.Empty(t, svc.NodePorts)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -258,7 +260,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose all
 
 	delete(k8sSvc.Annotations, annotation.ServiceTypeExposure)
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Len(t, svc.NodePorts, 1)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -267,12 +269,9 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 
 func TestParseService(t *testing.T) {
 	oldDefaultLbMode := option.Config.NodePortMode
-	oldDefaultLbAlg := option.Config.NodePortAlg
 	option.Config.NodePortMode = option.NodePortModeSNAT
-	option.Config.NodePortAlg = option.NodePortAlgRandom
 	defer func() {
 		option.Config.NodePortMode = oldDefaultLbMode
-		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 	objMeta := slim_metav1.ObjectMeta{
 		Name:      "foo",
@@ -293,7 +292,9 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
+	lbcfg := loadbalancer.DefaultConfig
+
+	id, svc := ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
@@ -319,7 +320,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		IsHeadless:               true,
@@ -345,7 +346,7 @@ func TestParseService(t *testing.T) {
 	}
 	k8sSvc.ObjectMeta.Labels[corev1.IsHeadlessService] = ""
 
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		IsHeadless:               true,
@@ -374,7 +375,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
@@ -452,11 +453,12 @@ func TestParseService(t *testing.T) {
 	oldLbAlg := option.Config.LoadBalancerAlgorithmAnnotation
 	option.Config.LoadBalancerAlgorithmAnnotation = true
 
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	lbcfg.LBAlgorithm = loadbalancer.LBAlgorithmMaglev
+
 	defer func() {
 		option.Config.LoadBalancerAlgorithmAnnotation = oldLbAlg
 	}()
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -486,7 +488,7 @@ func TestParseService(t *testing.T) {
 		LoadBalancerAlgorithm:    loadbalancer.SVCLoadBalancingAlgorithmMaglev,
 	}, svc)
 
-	objMeta.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgRandom
+	objMeta.Annotations[annotation.ServiceLoadBalancingAlgorithm] = loadbalancer.LBAlgorithmRandom
 
 	ipMode := slim_corev1.LoadBalancerIPModeProxy
 	k8sSvc = &slim_corev1.Service{
@@ -521,7 +523,7 @@ func TestParseService(t *testing.T) {
 			},
 		},
 	}
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -549,7 +551,7 @@ func TestParseService(t *testing.T) {
 		TopologyAware:            true,
 		Annotations: map[string]string{
 			"service.kubernetes.io/topology-aware-hints": "auto",
-			annotation.ServiceLoadBalancingAlgorithm:     option.NodePortAlgRandom,
+			annotation.ServiceLoadBalancingAlgorithm:     loadbalancer.LBAlgorithmRandom,
 		},
 		LoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmRandom,
 	}, svc)
@@ -578,7 +580,7 @@ func TestParseService(t *testing.T) {
 			},
 		},
 	}
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -606,7 +608,7 @@ func TestParseService(t *testing.T) {
 		TopologyAware:            true,
 		Annotations: map[string]string{
 			"service.kubernetes.io/topology-aware-hints": "auto",
-			annotation.ServiceLoadBalancingAlgorithm:     option.NodePortAlgRandom,
+			annotation.ServiceLoadBalancingAlgorithm:     loadbalancer.LBAlgorithmRandom,
 		},
 		LoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmRandom,
 	}, svc)
@@ -1262,13 +1264,13 @@ func TestServiceString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, svc := ParseService(hivetest.Logger(t), tt.service, nil)
+		_, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, tt.service, nil)
 		require.Equal(t, tt.svcString, svc.String())
 	}
 }
 
 func TestNewClusterService(t *testing.T) {
-	id, svc := ParseService(hivetest.Logger(t), &slim_corev1.Service{
+	id, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",

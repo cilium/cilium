@@ -337,7 +337,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
@@ -474,7 +474,7 @@ func TestChangeSVCPort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
@@ -943,7 +943,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
@@ -1241,7 +1241,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
@@ -1532,7 +1532,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
@@ -2457,7 +2457,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
@@ -2590,7 +2590,7 @@ func TestHeadless(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		logger:      logger,
 		k8sSvcCache: k8sSvcCache,

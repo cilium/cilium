@@ -12,6 +12,7 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type testEPManager struct {
@@ -181,7 +182,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager()
 			bwManager := newTestBWManager()
-			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager)
+			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig)
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)

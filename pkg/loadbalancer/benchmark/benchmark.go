@@ -98,7 +98,6 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 				ExternalClusterIP:               true,
 				EnableHealthCheckNodePort:       true,
 				KubeProxyReplacement:            true,
-				NodePortAlg:                     "random",
 				LoadBalancerAlgorithmAnnotation: false,
 			},
 			MaglevCfg: maglevConfig,
@@ -548,7 +547,7 @@ func testHive(maps lbmaps.LBMaps,
 			cell.Provide(
 				func() loadbalancer.Config {
 					return loadbalancer.Config{
-						UserConfig:  loadbalancer.DefaultConfig,
+						UserConfig:  loadbalancer.DefaultUserConfig,
 						NodePortMin: loadbalancer.NodePortMinDefault,
 						NodePortMax: loadbalancer.NodePortMaxDefault,
 					}

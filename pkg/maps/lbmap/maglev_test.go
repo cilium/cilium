@@ -19,7 +19,6 @@ import (
 )
 
 type MaglevSuite struct {
-	prevNodePortAlg string
 }
 
 func setupMaglevSuite(tb testing.TB) *MaglevSuite {
@@ -27,13 +26,9 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 
 	s := &MaglevSuite{}
 
-	s.prevNodePortAlg = option.Config.NodePortAlg
-
 	// Otherwise opening the map might fail with EPERM
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
-
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
 
 	Init(InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -42,10 +37,6 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 		ServiceMapMaxEntries: DefaultMaxEntries,
 		RevNatMapMaxEntries:  DefaultMaxEntries,
 		MaglevMapMaxEntries:  DefaultMaxEntries,
-	})
-
-	tb.Cleanup(func() {
-		option.Config.NodePortAlg = s.prevNodePortAlg
 	})
 
 	return s

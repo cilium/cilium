@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -42,7 +43,8 @@ type serviceManagerParams struct {
 	Clientset      k8sClient.Clientset
 	NodeNeighbors  types.NodeNeighbors
 
-	Config *option.DaemonConfig
+	Config   *option.DaemonConfig
+	LBConfig loadbalancer.Config
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
@@ -53,7 +55,7 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		}
 	}
 
-	svc := newService(params.Logger, params.MonitorAgent, params.LBMap, params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled(),
+	svc := newService(params.Logger, params.MonitorAgent, params.LBConfig, params.LBMap, params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled(),
 		params.Config)
 
 	params.JG.Add(job.OneShot("health-check-event-watcher", svc.handleHealthCheckEvent))

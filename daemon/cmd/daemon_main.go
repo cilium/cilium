@@ -553,10 +553,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.NodePortMode)
 	option.BindEnv(vp, option.NodePortMode)
 
-	flags.String(option.NodePortAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
-	flags.MarkHidden(option.NodePortAlg)
-	option.BindEnv(vp, option.NodePortAlg)
-
 	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
@@ -571,9 +567,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.LoadBalancerAlgorithmAnnotation, false, "Enable service-level annotation for configuring BPF load balancing algorithm")
 	option.BindEnv(vp, option.LoadBalancerAlgorithmAnnotation)
-
-	flags.String(option.LoadBalancerAlgorithm, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
-	option.BindEnv(vp, option.LoadBalancerAlgorithm)
 
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\", \"geneve\")")
 	option.BindEnv(vp, option.LoadBalancerDSRDispatch)
@@ -1724,7 +1717,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 		ms := maps.NewMapSweeper(params.Logger, &EndpointMapManager{
 			EndpointManager: d.endpointManager,
-		}, d.bwManager)
+		}, d.bwManager, d.lbConfig)
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
 

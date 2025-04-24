@@ -918,7 +918,7 @@ var perServiceAlgorithmCases = []setWithAlgo{
 					if svc.Annotations == nil {
 						svc.Annotations = make(map[string]string)
 					}
-					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgMaglev
+					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = loadbalancer.LBAlgorithmMaglev
 					return false, []loadbalancer.Backend{baseBackend}
 				},
 				[]maps.MapDump{
@@ -941,7 +941,7 @@ var perServiceAlgorithmCases = []setWithAlgo{
 				nil,
 			),
 		},
-		algo: option.NodePortAlgRandom,
+		algo: loadbalancer.LBAlgorithmRandom,
 	},
 	{
 		testCaseSet: []testCase{
@@ -970,7 +970,7 @@ var perServiceAlgorithmCases = []setWithAlgo{
 				nil,
 			),
 		},
-		algo: option.NodePortAlgRandom,
+		algo: loadbalancer.LBAlgorithmRandom,
 	},
 	{
 		testCaseSet: []testCase{
@@ -982,7 +982,7 @@ var perServiceAlgorithmCases = []setWithAlgo{
 					if svc.Annotations == nil {
 						svc.Annotations = make(map[string]string)
 					}
-					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgRandom
+					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = loadbalancer.LBAlgorithmRandom
 					return false, []loadbalancer.Backend{baseBackend}
 				},
 				[]maps.MapDump{
@@ -1003,7 +1003,7 @@ var perServiceAlgorithmCases = []setWithAlgo{
 				nil,
 			),
 		},
-		algo: option.NodePortAlgMaglev,
+		algo: loadbalancer.LBAlgorithmMaglev,
 	},
 	{
 		testCaseSet: []testCase{
@@ -1034,7 +1034,7 @@ var perServiceAlgorithmCases = []setWithAlgo{
 				nil,
 			),
 		},
-		algo: option.NodePortAlgMaglev,
+		algo: loadbalancer.LBAlgorithmMaglev,
 	},
 }
 
@@ -1057,7 +1057,7 @@ func TestBPFOps(t *testing.T) {
 		KubeProxyReplacement: true,
 	}
 
-	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultConfig, &option.DaemonConfig{})
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
 	cfg.EnableExperimentalLB = true
 
 	var lbmaps maps.LBMaps
@@ -1169,9 +1169,9 @@ func TestBPFOps(t *testing.T) {
 
 	for _, testCaseSet := range testCases {
 		// Run each set with Random and Maglev load balancing algos.
-		for _, algo := range []string{option.NodePortAlgRandom, option.NodePortAlgMaglev} {
+		for _, algo := range []string{loadbalancer.LBAlgorithmRandom, loadbalancer.LBAlgorithmMaglev} {
 			testCaseSet := testCaseSet
-			if algo == option.NodePortAlgMaglev {
+			if algo == loadbalancer.LBAlgorithmMaglev {
 				for i, tc := range testCaseSet {
 					for j, line := range tc.maps {
 						line = strings.Replace(line, "LBALG=random", "LBALG=maglev", 1)
@@ -1184,20 +1184,21 @@ func TestBPFOps(t *testing.T) {
 				// For each set of test cases, use a fresh instance so each set gets
 				// fresh IDs.
 				external := extCfg
-				external.NodePortAlg = algo
+				cfg := cfg
+				cfg.LBAlgorithm = algo
 				p := bpfOpsParams{
-					Lifecycle:     lc,
-					Log:           log,
-					Cfg:           cfg,
-					ExtCfg:        external,
-					LBMaps:        lbmaps,
-					Maglev:        maglev,
-					DB:            db,
-					NodeAddresses: nodeAddrs,
+					Lifecycle:      lc,
+					Log:            log,
+					Config:         cfg,
+					ExternalConfig: external,
+					LBMaps:         lbmaps,
+					Maglev:         maglev,
+					DB:             db,
+					NodeAddresses:  nodeAddrs,
 				}
 
 				ops := newBPFOps(p)
-				validateMaglev := algo == option.NodePortAlgMaglev
+				validateMaglev := algo == loadbalancer.LBAlgorithmMaglev
 				runTests(ops, testCaseSet, algo, addr, validateMaglev)
 			}
 		}
@@ -1210,16 +1211,16 @@ func TestBPFOps(t *testing.T) {
 			// For each set of test cases, use a fresh instance so each set gets
 			// fresh IDs.
 			external := extCfg
-			external.NodePortAlg = setWithAlgo.algo
+			cfg.LBAlgorithm = setWithAlgo.algo
 			p := bpfOpsParams{
-				Lifecycle:     lc,
-				Log:           log,
-				Cfg:           cfg,
-				ExtCfg:        external,
-				LBMaps:        lbmaps,
-				Maglev:        maglev,
-				DB:            db,
-				NodeAddresses: nodeAddrs,
+				Lifecycle:      lc,
+				Log:            log,
+				Config:         cfg,
+				ExternalConfig: external,
+				LBMaps:         lbmaps,
+				Maglev:         maglev,
+				DB:             db,
+				NodeAddresses:  nodeAddrs,
 			}
 			ops := newBPFOps(p)
 			runTests(ops, setWithAlgo.testCaseSet, setWithAlgo.algo, addr, true)

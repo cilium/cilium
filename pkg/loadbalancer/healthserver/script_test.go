@@ -89,7 +89,6 @@ func TestScript(t *testing.T) {
 						return &option.DaemonConfig{
 							EnableIPv4:                      true,
 							EnableIPv6:                      true,
-							NodePortAlg:                     cfg.NodePortAlg,
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
 							EnableNodePort:                  true,
