@@ -63,6 +63,9 @@ const (
 	// AlgorithmAnnotationName tells whether controller should check service
 	// level annotation for configuring bpf loadbalancing algorithm.
 	AlgorithmAnnotationName = "bpf-lb-algorithm-annotation"
+
+	// EnableHealthCheckNodePort is the name of the EnableHealthCheckNodePort option
+	EnableHealthCheckNodePortName = "enable-health-check-nodeport"
 )
 
 // Configuration option defaults
@@ -135,6 +138,10 @@ type UserConfig struct {
 	// AlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf load balancing algorithm.
 	AlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
+
+	// EnableHealthCheckNodePort enables health checking of NodePort by
+	// cilium
+	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -217,6 +224,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(ExternalClusterIPName, def.ExternalClusterIP, "Enable external access to ClusterIP services (default false)")
 
 	flags.Bool(AlgorithmAnnotationName, def.AlgorithmAnnotation, "Enable service-level annotation for configuring BPF load balancing algorithm")
+
+	flags.Bool(EnableHealthCheckNodePortName, def.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -341,6 +350,8 @@ var DefaultUserConfig = UserConfig{
 	ExternalClusterIP: false,
 
 	AlgorithmAnnotation: false,
+
+	EnableHealthCheckNodePort: true,
 }
 
 var DefaultConfig = Config{
@@ -352,15 +363,10 @@ var DefaultConfig = Config{
 // TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.
 type TestConfig struct {
 	TestFaultProbability float32 `mapstructure:"lb-test-fault-probability"`
-
-	// EnableHealthCheckNodePort is defined here to allow script tests to enable this.
-	// Can be removed once this option moves out from DaemonConfig into [Config].
-	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
-	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
@@ -368,19 +374,17 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 type ExternalConfig struct {
 	ZoneMapper
 
-	EnableIPv4, EnableIPv6    bool
-	EnableHealthCheckNodePort bool
-	KubeProxyReplacement      bool
+	EnableIPv4, EnableIPv6 bool
+	KubeProxyReplacement   bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
 func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		ZoneMapper:                cfg,
-		EnableIPv4:                cfg.EnableIPv4,
-		EnableIPv6:                cfg.EnableIPv6,
-		KubeProxyReplacement:      cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
-		EnableHealthCheckNodePort: cfg.EnableHealthCheckNodePort,
+		ZoneMapper:           cfg,
+		EnableIPv4:           cfg.EnableIPv4,
+		EnableIPv6:           cfg.EnableIPv6,
+		KubeProxyReplacement: cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
 	}
 }
 

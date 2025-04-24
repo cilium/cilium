@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // ServiceName is the name and namespace of the service
@@ -189,7 +188,7 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 			svc := srv.loadService()
 			if errors.Is(err, unix.EADDRINUSE) {
 				h.logger.Error(
-					fmt.Sprintf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", option.EnableHealthCheckNodePort),
+					fmt.Sprintf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", lb.EnableHealthCheckNodePortName),
 					logfields.Error, err,
 					logfields.ServiceNamespace, svc.Service.Namespace,
 					logfields.ServiceName, svc.Service.Name,

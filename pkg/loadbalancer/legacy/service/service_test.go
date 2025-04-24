@@ -1059,12 +1059,10 @@ func TestHealthCheckNodePortDisabled(t *testing.T) {
 
 	// NewService sets healthServer to nil if EnableHealthCheckNodePort is
 	// false at start time. We emulate this here by temporarily setting it nil.
-	enableHealthCheckNodePort := option.Config.EnableHealthCheckNodePort
 	healthServer := m.svc.healthServer
-	option.Config.EnableHealthCheckNodePort = false
+	m.svc.lbConfig.EnableHealthCheckNodePort = false
 	m.svc.healthServer = nil
 	defer func() {
-		option.Config.EnableHealthCheckNodePort = enableHealthCheckNodePort
 		m.svc.healthServer = healthServer
 	}()
 
