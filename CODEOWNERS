@@ -388,6 +388,7 @@ Makefile* @cilium/build
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
 /Documentation/contributing/development/reviewers_committers/review_vendor.rst @cilium/vendor
+/Documentation/contributing/testing/scalability.rst @cilium/sig-scalability
 /Documentation/crdlist.rst
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
