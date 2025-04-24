@@ -35,7 +35,7 @@ func NewWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile string
 	// An error here would be unexpected as we were able to create a
 	// FileReloader having read the files, so the files should exist and be
 	// "watchable".
-	fswatcher, err := newFsWatcher(caFiles, certFile, privkeyFile)
+	fswatcher, err := newFsWatcher(log, caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func FutureWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile str
 	if err != nil {
 		return nil, err
 	}
-	fswatcher, err := newFsWatcher(caFiles, certFile, privkeyFile)
+	fswatcher, err := newFsWatcher(log, caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (w *Watcher) Stop() {
 // newFsWatcher returns a fswatcher.Watcher watching over the given files.
 // The fswatcher.Watcher supports watching over files which do not exist yet.
 // A create event will be emitted once the file is added.
-func newFsWatcher(caFiles []string, certFile, privkeyFile string) (*fswatcher.Watcher, error) {
+func newFsWatcher(logger *slog.Logger, caFiles []string, certFile, privkeyFile string) (*fswatcher.Watcher, error) {
 	trackFiles := []string{}
 
 	if certFile != "" {
@@ -223,5 +223,5 @@ func newFsWatcher(caFiles []string, certFile, privkeyFile string) (*fswatcher.Wa
 		}
 	}
 
-	return fswatcher.New(trackFiles)
+	return fswatcher.New(logger, trackFiles)
 }
