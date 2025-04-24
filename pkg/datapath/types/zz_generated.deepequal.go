@@ -271,5 +271,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
+	if !in.LBConfig.DeepEqual(&other.LBConfig) {
+		return false
+	}
+
 	return true
 }

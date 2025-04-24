@@ -59,6 +59,10 @@ const (
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
+
+	// AlgorithmAnnotationName tells whether controller should check service
+	// level annotation for configuring bpf loadbalancing algorithm.
+	AlgorithmAnnotationName = "bpf-lb-algorithm-annotation"
 )
 
 // Configuration option defaults
@@ -82,6 +86,7 @@ const (
 )
 
 // UserConfig is the configuration provided by the user that has not been processed.
+// +deepequal-gen=true
 type UserConfig struct {
 	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
 	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
@@ -126,6 +131,10 @@ type UserConfig struct {
 	// ExternalClusterIP enables routing to ClusterIP services from outside
 	// the cluster. This mirrors the behaviour of kube-proxy.
 	ExternalClusterIP bool `mapstructure:"bpf-lb-external-clusterip"`
+
+	// AlgorithmAnnotation tells whether controller should check service
+	// level annotation for configuring bpf load balancing algorithm.
+	AlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -142,6 +151,8 @@ var ConfigCell = cell.Group(
 	),
 )
 
+// Config for load-balancing
+// +deepequal-gen=true
 type Config struct {
 	UserConfig
 
@@ -204,6 +215,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
 
 	flags.Bool(ExternalClusterIPName, def.ExternalClusterIP, "Enable external access to ClusterIP services (default false)")
+
+	flags.Bool(AlgorithmAnnotationName, def.AlgorithmAnnotation, "Enable service-level annotation for configuring BPF load balancing algorithm")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -326,6 +339,8 @@ var DefaultUserConfig = UserConfig{
 	// Defaults to false to retain prior behaviour to not route external packets
 	// to ClusterIP services.
 	ExternalClusterIP: false,
+
+	AlgorithmAnnotation: false,
 }
 
 var DefaultConfig = Config{
@@ -341,15 +356,11 @@ type TestConfig struct {
 	// EnableHealthCheckNodePort is defined here to allow script tests to enable this.
 	// Can be removed once this option moves out from DaemonConfig into [Config].
 	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
-
-	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
-	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
-	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
@@ -357,21 +368,19 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 type ExternalConfig struct {
 	ZoneMapper
 
-	EnableIPv4, EnableIPv6          bool
-	EnableHealthCheckNodePort       bool
-	KubeProxyReplacement            bool
-	LoadBalancerAlgorithmAnnotation bool
+	EnableIPv4, EnableIPv6    bool
+	EnableHealthCheckNodePort bool
+	KubeProxyReplacement      bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
 func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		ZoneMapper:                      cfg,
-		EnableIPv4:                      cfg.EnableIPv4,
-		EnableIPv6:                      cfg.EnableIPv6,
-		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
-		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
-		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
+		ZoneMapper:                cfg,
+		EnableIPv4:                cfg.EnableIPv4,
+		EnableIPv6:                cfg.EnableIPv6,
+		KubeProxyReplacement:      cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		EnableHealthCheckNodePort: cfg.EnableHealthCheckNodePort,
 	}
 }
 

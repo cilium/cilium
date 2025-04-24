@@ -490,7 +490,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
 	}
 	// Validate alignments of C and Go equivalent structs
-	alignchecker.RegisterLbStructsToCheck(option.Config.LoadBalancerAlgorithmAnnotation)
+	alignchecker.RegisterLbStructsToCheck(lnc.LBConfig.AlgorithmAnnotation)
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}

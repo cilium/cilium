@@ -273,10 +273,6 @@ const (
 	// LoadBalancerNat46X64 enables NAT46 and NAT64 for services
 	LoadBalancerNat46X64 = "bpf-lb-nat46x64"
 
-	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
-	// level annotation for configuring bpf loadbalancing algorithm.
-	LoadBalancerAlgorithmAnnotation = "bpf-lb-algorithm-annotation"
-
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
@@ -1820,10 +1816,6 @@ type DaemonConfig struct {
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark bool
 
-	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
-	// level annotation for configuring bpf load balancing algorithm.
-	LoadBalancerAlgorithmAnnotation bool
-
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt" or "ipip")
 	LoadBalancerDSRDispatch string
@@ -3247,7 +3239,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
 	c.LoadBalancerModeAnnotation = vp.GetBool(LoadBalancerModeAnnotation)
-	c.LoadBalancerAlgorithmAnnotation = vp.GetBool(LoadBalancerAlgorithmAnnotation)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
 	if vp.IsSet(NodePortAcceleration) {

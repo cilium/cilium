@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
@@ -96,6 +97,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 			provideNodemap,
 			tables.DirectRoutingDeviceCell,
 			maglev.Cell,
+			cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },

@@ -565,9 +565,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(vp, option.LoadBalancerMode)
 
-	flags.Bool(option.LoadBalancerAlgorithmAnnotation, false, "Enable service-level annotation for configuring BPF load balancing algorithm")
-	option.BindEnv(vp, option.LoadBalancerAlgorithmAnnotation)
-
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\", \"geneve\")")
 	option.BindEnv(vp, option.LoadBalancerDSRDispatch)
 
