@@ -6,6 +6,7 @@
 #include "node_config.h"
 #include "lib/encrypt.h"
 #include "tests/lib/ipcache.h"
+#include "tests/lib/node.h"
 
 PKTGEN("tc", "ipsec_redirect")
 int ipsec_redirect_pktgen(struct __ctx_buff *ctx)
@@ -43,15 +44,7 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	 */
 
 	/* fill in nodemap entry */
-	struct node_key key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = DST_IP,
-	};
-	struct node_value val = {
-		.id = DST_NODE_ID,
-		.spi = TARGET_SPI, /* we should find spi 2 in mark since we use lowest */
-	};
-	map_update_elem(&cilium_node_map_v2, &key, &val, BPF_ANY);
+	node_v4_add_entry(DST_IP, DST_NODE_ID, TARGET_SPI);
 
 	/* fill encrypt map with node's current SPI 3 */
 	struct encrypt_config cfg = {
