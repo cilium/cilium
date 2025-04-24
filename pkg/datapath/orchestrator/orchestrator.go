@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -103,6 +104,7 @@ type orchestratorParams struct {
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
 	XDPConfig           xdp.Config
+	LBConfig            loadbalancer.Config
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -198,6 +200,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.NodeAddresses,
 			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
+			o.params.LBConfig,
 			o.params.MTU,
 		)
 		if err != nil {

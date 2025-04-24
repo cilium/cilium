@@ -328,7 +328,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
 			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.MaglevTableSize)
 		}
-		if d.statusParams.DaemonConfig.LoadBalancerAlgorithmAnnotation {
+		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.MaglevTableSize)
 		}
 		if d.statusParams.DaemonConfig.NodePortAcceleration == option.NodePortAccelerationGeneric {
@@ -369,7 +369,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.Nat46X64.Service = svc
 	}
 	if d.statusParams.DaemonConfig.EnableNodePort {
-		if d.statusParams.DaemonConfig.LoadBalancerAlgorithmAnnotation {
+		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
 		}
 		if d.statusParams.DaemonConfig.LoadBalancerModeAnnotation {

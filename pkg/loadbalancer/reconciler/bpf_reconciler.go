@@ -935,7 +935,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
 	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.LBAlgorithm)
-	if ops.extCfg.LoadBalancerAlgorithmAnnotation {
+	if ops.cfg.AlgorithmAnnotation {
 		alg := fe.Service.GetLBAlgorithmAnnotation()
 		if alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
 			return alg

@@ -450,14 +450,10 @@ func TestParseService(t *testing.T) {
 		ipv4InternalAddrCluster.Addr(),
 		ipv4NodePortAddrCluster.Addr(),
 	}
-	oldLbAlg := option.Config.LoadBalancerAlgorithmAnnotation
-	option.Config.LoadBalancerAlgorithmAnnotation = true
 
+	lbcfg.AlgorithmAnnotation = true
 	lbcfg.LBAlgorithm = loadbalancer.LBAlgorithmMaglev
 
-	defer func() {
-		option.Config.LoadBalancerAlgorithmAnnotation = oldLbAlg
-	}()
 	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{

@@ -1204,7 +1204,7 @@ func TestBPFOps(t *testing.T) {
 		}
 	}
 
-	extCfg.LoadBalancerAlgorithmAnnotation = true
+	cfg.AlgorithmAnnotation = true
 	for _, setWithAlgo := range perServiceAlgorithmCases {
 		// Run each set with IPv4 and IPv6 addresses.
 		for _, addr := range frontendAddrs {

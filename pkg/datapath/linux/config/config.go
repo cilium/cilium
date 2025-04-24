@@ -63,7 +63,6 @@ type HeaderfileWriter struct {
 	nodeMap            nodemap.MapV2
 	nodeAddressing     datapath.NodeAddressing
 	maglev             *maglev.Maglev
-	lbConfig           loadbalancer.Config
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 	sysctl             sysctl.Sysctl
@@ -84,7 +83,6 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		log:                p.Log,
 		sysctl:             p.Sysctl,
 		maglev:             p.Maglev,
-		lbConfig:           p.LBConfig,
 	}, nil
 }
 
@@ -467,9 +465,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 		}
 
-		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", h.lbConfig.NodePortMin)
-		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", h.lbConfig.NodePortMax)
-		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", h.lbConfig.NodePortMax+1)
+		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMin)
+		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax)
+		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = strconv.Itoa(NodePortMaxNAT)
 	}
 
@@ -488,19 +486,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	)
 	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
 	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
-	if option.Config.LoadBalancerAlgorithmAnnotation {
+	if cfg.LBConfig.AlgorithmAnnotation {
 		cDefinesMap["LB_SELECTION_PER_SERVICE"] = "1"
 	}
-	if h.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmRandom {
+	if cfg.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmRandom {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
-	} else if h.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
+	} else if cfg.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
 	}
 
 	// define maglev tables when loadbalancer algorith is maglev or config can
 	// be set by the Service annotation
-	if option.Config.LoadBalancerAlgorithmAnnotation ||
-		h.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
+	if cfg.LBConfig.AlgorithmAnnotation ||
+		cfg.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", h.maglev.Config.MaglevTableSize)
 	}
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", h.maglev.SeedJhash0)
