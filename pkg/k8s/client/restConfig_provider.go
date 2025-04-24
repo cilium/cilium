@@ -320,7 +320,7 @@ func (r *restConfigManager) startK8sAPIServerFileWatcher() error {
 			err     error
 		)
 		wait.Until(func() {
-			watcher, err = fswatcher.New([]string{K8sAPIServerFilePath})
+			watcher, err = fswatcher.New(r.log, []string{K8sAPIServerFilePath})
 			if err == nil {
 				close(stop)
 				return
