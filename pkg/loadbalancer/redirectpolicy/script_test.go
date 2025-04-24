@@ -81,8 +81,6 @@ func TestScript(t *testing.T) {
 							EnableIPv4:                true,
 							EnableIPv6:                true,
 							EnableNodePort:            true,
-							SockRevNatEntries:         1000,
-							LBMapEntries:              1000,
 							EnableLocalRedirectPolicy: true,
 							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
 						}

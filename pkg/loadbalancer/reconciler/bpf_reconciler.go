@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -983,7 +982,7 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 			"Unable to update element for LB bpf map: "+
 			"You can resize it with the flag \"--%s\". "+
 			"The resizing might break existing connections to services",
-			svcKey, svcVal, option.LBMapEntriesName)
+			svcKey, svcVal, loadbalancer.LBMapEntriesName)
 	}
 	return err
 }
