@@ -1227,7 +1227,7 @@ func StartKeyfileWatcher(log *slog.Logger, group job.Group, keyfilePath string, 
 		return nil
 	}
 
-	watcher, err := fswatcher.New([]string{keyfilePath})
+	watcher, err := fswatcher.New(log, []string{keyfilePath})
 	if err != nil {
 		return err
 	}
