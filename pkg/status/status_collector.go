@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
@@ -323,7 +324,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 			features.NodePort.Mode = strings.Title(d.statusParams.DaemonConfig.NodePortMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
-		if d.statusParams.DaemonConfig.NodePortAlg == option.NodePortAlgMaglev {
+		if d.statusParams.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
 			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.MaglevTableSize)
 		}

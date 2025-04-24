@@ -23,7 +23,6 @@ var (
 		ExternalClusterIP:               true,
 		EnableHealthCheckNodePort:       true,
 		KubeProxyReplacement:            true,
-		NodePortAlg:                     "random",
 		LoadBalancerAlgorithmAnnotation: false,
 	}
 )

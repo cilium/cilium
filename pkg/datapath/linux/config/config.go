@@ -491,16 +491,16 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.LoadBalancerAlgorithmAnnotation {
 		cDefinesMap["LB_SELECTION_PER_SERVICE"] = "1"
 	}
-	if option.Config.NodePortAlg == option.NodePortAlgRandom {
+	if h.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmRandom {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
-	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+	} else if h.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
 	}
 
 	// define maglev tables when loadbalancer algorith is maglev or config can
 	// be set by the Service annotation
 	if option.Config.LoadBalancerAlgorithmAnnotation ||
-		option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		h.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", h.maglev.Config.MaglevTableSize)
 	}
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", h.maglev.SeedJhash0)

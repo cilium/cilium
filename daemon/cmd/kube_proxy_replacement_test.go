@@ -81,7 +81,7 @@ func errorMatch(err error, regex string) assert.Comparison {
 }
 
 func (cfg *kprConfig) verify(t *testing.T, tc tunnel.Config) {
-	err := initKubeProxyReplacementOptions(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, loadbalancer.Config{})
+	err := initKubeProxyReplacementOptions(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, loadbalancer.DefaultConfig)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -42,15 +43,17 @@ type MapSweeper struct {
 	logger *slog.Logger
 	endpointManager
 	bwManager dptypes.BandwidthManager
+	lbConfig  loadbalancer.Config
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager) *MapSweeper {
+func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config) *MapSweeper {
 	return &MapSweeper{
 		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
 		endpointManager: g,
 		bwManager:       bwm,
+		lbConfig:        lbConfig,
 	}
 }
 
@@ -186,7 +189,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmap.HealthProbe6MapName, lbmap.HealthProbe4MapName)
 	}
 
-	if option.Config.NodePortAlg != option.NodePortAlgMaglev &&
+	if ms.lbConfig.LBAlgorithm != loadbalancer.LBAlgorithmMaglev &&
 		!option.Config.LoadBalancerAlgorithmAnnotation {
 		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
 	}

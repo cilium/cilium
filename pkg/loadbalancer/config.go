@@ -48,6 +48,11 @@ const (
 
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
+
+	LBAlgorithmName = "bpf-lb-algorithm"
+
+	// Deprecated option for setting [LBAlgorithm]
+	NodePortAlgName = "node-port-algorithm"
 )
 
 // Configuration option defaults
@@ -60,6 +65,14 @@ const (
 
 	// NodePortMaxDefault is the maximum port to listen for NodePort requests
 	NodePortMaxDefault = 32767
+)
+
+const (
+	// LBAlgorithmRandom is for randomly selecting a backend
+	LBAlgorithmRandom = "random"
+
+	// LBAlgorithmMaglev is for using maglev consistent hashing for backend selection
+	LBAlgorithmMaglev = "maglev"
 )
 
 // UserConfig is the configuration provided by the user that has not been processed.
@@ -99,6 +112,10 @@ type UserConfig struct {
 
 	// NodePortRange is the minimum and maximum ports to use for NodePort
 	NodePortRange []string
+
+	// LoadBalancerAlgorithm indicates which backend selection algorithm is used
+	// ("random" or "maglev")
+	LBAlgorithm string `mapstructure:"bpf-lb-algorithm"`
 }
 
 type Config struct {
@@ -109,6 +126,19 @@ type Config struct {
 
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax uint16
+}
+
+type DeprecatedConfig struct {
+	// NodePortAlg indicates which backend selection algorithm is used
+	// ("random" or "maglev")
+	NodePortAlg string `mapstructure:"node-port-algorithm"`
+}
+
+func (DeprecatedConfig) Flags(flags *pflag.FlagSet) {
+	// Deprecated option for setting [LBAlgorithm]
+	flags.String(NodePortAlgName, "", "BPF load balancing algorithm (\"random\", \"maglev\")")
+	flags.MarkHidden(NodePortAlgName)
+	flags.MarkDeprecated(NodePortAlgName, "Use --"+LBAlgorithmName+" instead")
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
@@ -146,11 +176,13 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(LBSockRevNatEntriesName, def.LBSockRevNatEntries, "Maximum number of entries for the SockRevNAT BPF map")
 
 	flags.StringSlice(NodePortRange, []string{fmt.Sprintf("%d", NodePortMinDefault), fmt.Sprintf("%d", NodePortMaxDefault)}, "Set the min/max NodePort port range")
+
+	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
 // configuration for load-balancing.
-func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
+func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig DeprecatedConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
 	cfg.UserConfig = userConfig
 
 	if cfg.LBMapEntries <= 0 {
@@ -233,10 +265,19 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 		return Config{}, fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
 	}
 
+	if deprecatedConfig.NodePortAlg != "" {
+		cfg.LBAlgorithm = deprecatedConfig.NodePortAlg
+	}
+
+	if cfg.LBAlgorithm != LBAlgorithmRandom &&
+		cfg.LBAlgorithm != LBAlgorithmMaglev {
+		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LBAlgorithmName, cfg.LBAlgorithm)
+	}
+
 	return
 }
 
-var DefaultConfig = UserConfig{
+var DefaultUserConfig = UserConfig{
 	EnableExperimentalLB: true,
 	RetryBackoffMin:      50 * time.Millisecond,
 	RetryBackoffMax:      time.Minute,
@@ -254,15 +295,18 @@ var DefaultConfig = UserConfig{
 	LBSourceRangeAllTypes: false,
 
 	NodePortRange: []string{},
+	LBAlgorithm:   LBAlgorithmRandom,
+}
+
+var DefaultConfig = Config{
+	UserConfig:  DefaultUserConfig,
+	NodePortMin: NodePortMinDefault,
+	NodePortMax: NodePortMaxDefault,
 }
 
 // TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.
 type TestConfig struct {
 	TestFaultProbability float32 `mapstructure:"lb-test-fault-probability"`
-
-	// NodePortAlg mirrors option.Config.NodePortAlg. This can be removed when the NodePort config
-	// flags move away from option.DaemonConfig and can thus be set directly.
-	NodePortAlg string `mapstructure:"node-port-algorithm"`
 
 	// EnableHealthCheckNodePort is defined here to allow script tests to enable this.
 	// Can be removed once this option moves out from DaemonConfig into [Config].
@@ -277,7 +321,6 @@ type TestConfig struct {
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
-	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
 	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
 	flags.Bool(option.ExternalClusterIPName, false, "Enable cluster-external access to ClusterIPs")
@@ -292,7 +335,6 @@ type ExternalConfig struct {
 	ExternalClusterIP               bool
 	EnableHealthCheckNodePort       bool
 	KubeProxyReplacement            bool
-	NodePortAlg                     string
 	LoadBalancerAlgorithmAnnotation bool
 }
 
@@ -305,7 +347,6 @@ func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		ExternalClusterIP:               cfg.ExternalClusterIP,
 		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
-		NodePortAlg:                     cfg.NodePortAlg,
 		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 	}
 }
