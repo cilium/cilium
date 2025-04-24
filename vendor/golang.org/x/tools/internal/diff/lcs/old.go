@@ -199,6 +199,7 @@ func (e *editGraph) bdone(D, k int) (bool, lcs) {
 }
 
 // run the backward algorithm, until success or up to the limit on D.
+// (used only by tests)
 func backward(e *editGraph) lcs {
 	e.setBackward(0, 0, e.ux)
 	if ok, ans := e.bdone(0, 0); ok {
@@ -376,10 +377,7 @@ func (e *editGraph) twoDone(df, db int) (int, bool) {
 	if (df+db+e.delta)%2 != 0 {
 		return 0, false // diagonals cannot overlap
 	}
-	kmin := -db + e.delta
-	if -df > kmin {
-		kmin = -df
-	}
+	kmin := max(-df, -db+e.delta)
 	kmax := db + e.delta
 	if df < kmax {
 		kmax = df

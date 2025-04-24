@@ -7,6 +7,7 @@ package diff
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -64,7 +65,7 @@ func ApplyBytes(src []byte, edits []Edit) ([]byte, error) {
 // It may return a different slice.
 func validate(src string, edits []Edit) ([]Edit, int, error) {
 	if !sort.IsSorted(editsSort(edits)) {
-		edits = append([]Edit(nil), edits...)
+		edits = slices.Clone(edits)
 		SortEdits(edits)
 	}
 
