@@ -20,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -173,11 +171,6 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
-		logging.Fatal(d.logger, "Unable to initialize service maps", logfields.Error, err)
-	}
-
 	for _, ep := range d.endpointManager.GetEndpoints() {
 		ep.InitMap()
 	}
@@ -248,51 +241,6 @@ func (d *Daemon) initMaps() error {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
 		lxcmap.LXCMap(d.metricsRegistry).DeleteAll()
-	}
-
-	if option.Config.EnableSessionAffinity {
-		if err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing affinity match map: %w", err)
-		}
-		if option.Config.EnableIPv4 {
-			if err := lbmap.Affinity4Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing affinity v4 map: %w", err)
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := lbmap.Affinity6Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing affinity v6 map: %w", err)
-			}
-		}
-	}
-
-	if option.Config.EnableSVCSourceRangeCheck {
-		if option.Config.EnableIPv4 {
-			if err := lbmap.SourceRange4Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing source range v4 map: %w", err)
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := lbmap.SourceRange6Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing source range v6 map: %w", err)
-			}
-		}
-	}
-
-	if !d.lbConfig.EnableExperimentalLB &&
-		(d.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev ||
-			d.lbConfig.AlgorithmAnnotation) {
-		if err := lbmap.InitMaglevMaps(logging.DefaultSlogLogger, option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.TableSize)); err != nil {
-			return fmt.Errorf("initializing maglev maps: %w", err)
-		}
-	}
-
-	skiplbmap, err := lbmap.NewSkipLBMap(logging.DefaultSlogLogger)
-	if err == nil {
-		err = skiplbmap.OpenOrCreate()
-	}
-	if err != nil {
-		return fmt.Errorf("initializing local redirect policy maps: %w", err)
 	}
 
 	return nil
