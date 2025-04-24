@@ -1074,7 +1074,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	logger.Info(fmt.Sprintf("Cilium %s", version.Version))
 
 	if option.Config.LogSystemLoadConfig {
-		loadinfo.StartBackgroundLogger()
+		loadinfo.StartBackgroundLogger(logging.DefaultSlogLogger)
 	}
 
 	if option.Config.PreAllocateMaps {
