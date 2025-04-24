@@ -293,6 +293,8 @@ communicating via the proxy must reconnect to re-establish connections.
 1.19 Upgrade Notes
 ------------------
 * MCS-API CoreDNS configuration recommendation has been updated. See :ref:`clustermesh_mcsapi_prereqs` for more details.
+* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been deprecated in favor of the ``v2`` version. Please change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources.
 
 Removed Options
 ~~~~~~~~~~~~~~~
