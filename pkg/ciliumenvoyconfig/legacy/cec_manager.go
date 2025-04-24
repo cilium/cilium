@@ -90,7 +90,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
-		len(cecSpec.Services) > 0,
+		ciliumenvoyconfig.InjectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
 		ciliumenvoyconfig.UseOriginalSourceAddress(&cecObjectMeta),
 		true,
 	)
