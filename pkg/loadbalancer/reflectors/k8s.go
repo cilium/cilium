@@ -83,6 +83,7 @@ type reflectorParams struct {
 	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
 	Pods                   statedb.Table[daemonK8s.LocalPod]
 	Writer                 *writer.Writer
+	Config                 loadbalancer.Config
 	ExtConfig              loadbalancer.ExternalConfig
 	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
@@ -157,7 +158,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 						continue
 					}
 
-					err := upsertHostPort(p.HaveNetNSCookieSupport, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					err := upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
 					rh.update(podName, err)
 				}
 			}
@@ -727,7 +728,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
@@ -739,12 +740,12 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, extConfig loadbal
 				continue
 			}
 
-			if uint16(p.HostPort) >= extConfig.NodePortMin &&
-				uint16(p.HostPort) <= extConfig.NodePortMax {
+			if uint16(p.HostPort) >= config.NodePortMin &&
+				uint16(p.HostPort) <= config.NodePortMax {
 				log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
 					logfields.HostPort, p.HostPort,
-					logfields.NodePortMin, extConfig.NodePortMin,
-					logfields.NodePortMax, extConfig.NodePortMax,
+					logfields.NodePortMin, config.NodePortMin,
+					logfields.NodePortMax, config.NodePortMax,
 				)
 				continue
 			}

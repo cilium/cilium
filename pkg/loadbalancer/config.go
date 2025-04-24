@@ -4,8 +4,11 @@
 package loadbalancer
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/pflag"
 
@@ -13,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// Configuration option names
 const (
-
 	// LBMapEntriesName configures max entries for BPF lbmap.
 	LBMapEntriesName = "bpf-lb-map-max"
 
@@ -42,9 +45,25 @@ const (
 	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
 	// entries.
 	LBSockRevNatEntriesName = "bpf-sock-rev-map-max"
+
+	// NodePortRange defines a custom range where to look up NodePort services
+	NodePortRange = "node-port-range"
 )
 
-type Config struct {
+// Configuration option defaults
+const (
+	// DefaultLBMapMaxEntries is the default size for the load-balancing BPF maps.
+	DefaultLBMapMaxEntries = 65536
+
+	// NodePortMinDefault is the minimal port to listen for NodePort requests
+	NodePortMinDefault = 30000
+
+	// NodePortMaxDefault is the maximum port to listen for NodePort requests
+	NodePortMaxDefault = 32767
+)
+
+// UserConfig is the configuration provided by the user that has not been processed.
+type UserConfig struct {
 	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
 	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
 	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
@@ -77,15 +96,20 @@ type Config struct {
 	// LBSockRevNatEntries is the maximum number of sock rev nat mappings
 	// allowed in the BPF rev nat table
 	LBSockRevNatEntries int `mapstructure:"bpf-sock-rev-map-max"`
+
+	// NodePortRange is the minimum and maximum ports to use for NodePort
+	NodePortRange []string
 }
 
-const (
-	// DefaultLBMapMaxEntries is the default size for the load-balancing BPF maps.
-	DefaultLBMapMaxEntries = 65536
-)
+type Config struct {
+	UserConfig
 
-// UserConfig is the configuration provided by the user that has not been processed.
-type UserConfig Config
+	// NodePortMin is the minimum port address for the NodePort range
+	NodePortMin uint16
+
+	// NodePortMax is the maximum port address for the NodePort range
+	NodePortMax uint16
+}
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-experimental-lb", def.EnableExperimentalLB, "Enable experimental load-balancing control-plane")
@@ -121,12 +145,13 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Int(LBSockRevNatEntriesName, def.LBSockRevNatEntries, "Maximum number of entries for the SockRevNAT BPF map")
 
+	flags.StringSlice(NodePortRange, []string{fmt.Sprintf("%d", NodePortMinDefault), fmt.Sprintf("%d", NodePortMaxDefault)}, "Set the min/max NodePort port range")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
 // configuration for load-balancing.
 func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
-	cfg = Config(userConfig)
+	cfg.UserConfig = userConfig
 
 	if cfg.LBMapEntries <= 0 {
 		return Config{}, fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", cfg.LBMapEntries)
@@ -178,6 +203,36 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 			*opt = cfg.LBMapEntries
 		}
 	}
+
+	cfg.NodePortMin = NodePortMinDefault
+	cfg.NodePortMax = NodePortMaxDefault
+	nodePortRange := cfg.NodePortRange
+	// When passed via configmap, we might not get a slice but single
+	// string instead, so split it if needed.
+	if len(nodePortRange) == 1 {
+		nodePortRange = strings.Split(nodePortRange[0], ",")
+	}
+	switch len(nodePortRange) {
+	case 0:
+		// Use the defaults
+	case 2:
+		min, err := strconv.ParseUint(nodePortRange[0], 10, 16)
+		if err != nil {
+			return Config{}, fmt.Errorf("Unable to parse min port value for NodePort range: %w", err)
+		}
+		cfg.NodePortMin = uint16(min)
+		max, err := strconv.ParseUint(nodePortRange[1], 10, 16)
+		if err != nil {
+			return Config{}, fmt.Errorf("Unable to parse max port value for NodePort range: %w", err)
+		}
+		cfg.NodePortMax = uint16(max)
+		if cfg.NodePortMax <= cfg.NodePortMin {
+			return Config{}, errors.New("NodePort range min port must be smaller than max port")
+		}
+	default:
+		return Config{}, fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
+	}
+
 	return
 }
 
@@ -197,6 +252,8 @@ var DefaultConfig = UserConfig{
 	LBSockRevNatEntries: 0, // Probes for suitable size if zero
 
 	LBSourceRangeAllTypes: false,
+
+	NodePortRange: []string{},
 }
 
 // TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.
@@ -235,7 +292,6 @@ type ExternalConfig struct {
 	ExternalClusterIP               bool
 	EnableHealthCheckNodePort       bool
 	KubeProxyReplacement            bool
-	NodePortMin, NodePortMax        uint16
 	NodePortAlg                     string
 	LoadBalancerAlgorithmAnnotation bool
 }
@@ -249,8 +305,6 @@ func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		ExternalClusterIP:               cfg.ExternalClusterIP,
 		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
-		NodePortMin:                     uint16(cfg.NodePortMin),
-		NodePortMax:                     uint16(cfg.NodePortMax),
 		NodePortAlg:                     cfg.NodePortAlg,
 		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 	}

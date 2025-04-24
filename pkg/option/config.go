@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -300,9 +299,6 @@ const (
 
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection = "node-port-bind-protection"
-
-	// NodePortRange defines a custom range where to look up NodePort services
-	NodePortRange = "node-port-range"
 
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
@@ -1171,12 +1167,6 @@ const (
 )
 
 const (
-	// NodePortMinDefault is the minimal port to listen for NodePort requests
-	NodePortMinDefault = 30000
-
-	// NodePortMaxDefault is the maximum port to listen for NodePort requests
-	NodePortMaxDefault = 32767
-
 	// NodePortModeSNAT is for SNATing requests to remote nodes
 	NodePortModeSNAT = "snat"
 
@@ -1915,12 +1905,6 @@ type DaemonConfig struct {
 
 	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
 	EnableLocalRedirectPolicy bool
-
-	// NodePortMin is the minimum port address for the NodePort range
-	NodePortMin int
-
-	// NodePortMax is the maximum port address for the NodePort range
-	NodePortMax int
 
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity bool
@@ -3092,11 +3076,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 	c.IPv6PodSubnets = subnets
 
-	err = c.populateNodePortRange(vp)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to populate NodePortRange")
-	}
-
 	monitorAggregationFlags := vp.GetStringSlice(MonitorAggregationFlags)
 	var ctMonitorReportFlags uint16
 	for i := range monitorAggregationFlags {
@@ -3323,39 +3302,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 				LoadBalancerAlgorithm, NodePortAlg, LoadBalancerAlgorithm)
 		}
 	}
-}
-
-func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
-	nodePortRange := vp.GetStringSlice(NodePortRange)
-	// When passed via configmap, we might not get a slice but single
-	// string instead, so split it if needed.
-	if len(nodePortRange) == 1 {
-		nodePortRange = strings.Split(nodePortRange[0], ",")
-	}
-	switch len(nodePortRange) {
-	case 2:
-		var err error
-
-		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
-		if err != nil {
-			return fmt.Errorf("Unable to parse min port value for NodePort range: %w", err)
-		}
-		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
-		if err != nil {
-			return fmt.Errorf("Unable to parse max port value for NodePort range: %w", err)
-		}
-		if c.NodePortMax <= c.NodePortMin {
-			return errors.New("NodePort range min port must be smaller than max port")
-		}
-	case 0:
-		if vp.IsSet(NodePortRange) {
-			log.Warning("NodePort range was set but is empty.")
-		}
-	default:
-		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
-	}
-
-	return nil
 }
 
 func (c *DaemonConfig) checkMapSizeLimits() error {

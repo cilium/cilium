@@ -275,7 +275,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig); err != nil {
+	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig, params.LBConfig); err != nil {
 		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
