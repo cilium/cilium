@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -80,7 +81,7 @@ func errorMatch(err error, regex string) assert.Comparison {
 }
 
 func (cfg *kprConfig) verify(t *testing.T, tc tunnel.Config) {
-	err := initKubeProxyReplacementOptions(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc)
+	err := initKubeProxyReplacementOptions(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, loadbalancer.Config{})
 	if err != nil || cfg.expectedErrorRegex != "" {
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {

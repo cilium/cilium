@@ -335,8 +335,8 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		} else {
 			features.NodePort.Acceleration = strings.Title(d.statusParams.DaemonConfig.NodePortAcceleration)
 		}
-		features.NodePort.PortMin = int64(d.statusParams.DaemonConfig.NodePortMin)
-		features.NodePort.PortMax = int64(d.statusParams.DaemonConfig.NodePortMax)
+		features.NodePort.PortMin = int64(d.statusParams.LBConfig.NodePortMin)
+		features.NodePort.PortMax = int64(d.statusParams.LBConfig.NodePortMax)
 	}
 	if d.statusParams.DaemonConfig.EnableHostPort {
 		features.HostPort.Enabled = true

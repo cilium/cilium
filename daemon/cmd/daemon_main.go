@@ -605,9 +605,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")
 	option.BindEnv(vp, option.EnableAutoProtectNodePortRange)
 
-	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
-	option.BindEnv(vp, option.NodePortRange)
-
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(vp, option.NodePortBindProtection)
 

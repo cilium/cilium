@@ -15,10 +15,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -122,6 +122,7 @@ type params struct {
 	Jobs      job.Group
 	Metrics   natMetrics
 	Config    Config
+	LBConfig  loadbalancer.Config
 	Health    cell.Health
 }
 
@@ -146,11 +147,11 @@ func newStats(params params) (*Stats, error) {
 
 	// number of available source-ports is ephemeral range subtracting those
 	// used by node-ports.
-	maxAvailPorts := config.NodePortMaxNAT - (option.Config.NodePortMax + 1)
+	maxAvailPorts := config.NodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
 	m := &Stats{
 		metrics:  params.Metrics,
 		config:   params.Config,
-		maxPorts: maxAvailPorts,
+		maxPorts: int(maxAvailPorts),
 		db:       params.DB,
 		table:    params.Table,
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -49,10 +50,10 @@ func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 	s := setupNodePortSuite(t)
 
 	cases := []struct {
-		npMin       int
-		npMax       int
-		epMin       int
-		epMax       int
+		npMin       uint16
+		npMax       uint16
+		epMin       uint16
+		epMax       uint16
 		resPorts    string
 		autoProtect bool
 
@@ -70,8 +71,9 @@ func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 	}
 
 	for _, test := range cases {
-		option.Config.NodePortMin = test.npMin
-		option.Config.NodePortMax = test.npMax
+		var cfg loadbalancer.Config
+		cfg.NodePortMin = test.npMin
+		cfg.NodePortMax = test.npMax
 		option.Config.EnableAutoProtectNodePortRange = test.autoProtect
 		err := s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"},
 			fmt.Sprintf("%d %d", test.epMin, test.epMax))
@@ -79,7 +81,7 @@ func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, test.resPorts)
 		require.NoError(t, err)
 
-		err = checkNodePortAndEphemeralPortRanges(s.sysctl)
+		err = checkNodePortAndEphemeralPortRanges(cfg, s.sysctl)
 		if test.expErr {
 			require.Condition(t, errorMatch(err, test.expErrMatch))
 		} else {
