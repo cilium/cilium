@@ -470,28 +470,32 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	}
 
 	for _, l := range gw.Spec.Listeners {
+		allSupported := getSupportedRouteKinds(l.Protocol)
+		supportedKinds := []gatewayv1.RouteGroupKind{}
 		isValid := true
 
-		// SupportedKinds is a required field, so we can't declare it as nil.
-		supportedKinds := []gatewayv1.RouteGroupKind{}
-
 		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
-			allowedKindsMap := make(map[gatewayv1.RouteGroupKind]struct{})
-			for _, k := range l.AllowedRoutes.Kinds {
-				allowedKindsMap[k] = struct{}{}
-			}
-
-			for _, kind := range getSupportedRouteKinds(l.Protocol) {
-				if _, ok := allowedKindsMap[kind]; ok {
-					supportedKinds = append(supportedKinds, kind)
+			intersection := []gatewayv1.RouteGroupKind{}
+			for _, supported := range allSupported {
+				for _, allowed := range l.AllowedRoutes.Kinds {
+					if supported.Kind == allowed.Kind &&
+						groupDerefOr(allowed.Group, gatewayv1.GroupName) == string(*supported.Group) {
+						intersection = append(intersection, supported)
+						break
+					}
 				}
 			}
+			supportedKinds = intersection
 
-			if len(supportedKinds) == 0 {
+			// Mark invalid if not all explicitly allowed kinds are actually supported
+			if len(supportedKinds) != len(l.AllowedRoutes.Kinds) {
 				isValid = false
 			}
 		} else {
-			supportedKinds = getSupportedRouteKinds(l.Protocol)
+			supportedKinds = allSupported
+			if len(supportedKinds) == 0 {
+				isValid = false
+			}
 		}
 
 		var conds []metav1.Condition
