@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -133,6 +134,7 @@ type IPMasqTestSuite struct {
 }
 
 func setUpTest(tb testing.TB) *IPMasqTestSuite {
+	logger := hivetest.Logger(tb)
 	i := &IPMasqTestSuite{}
 	i.ipMasqMap = &ipMasqMapMock{
 		cidrsIPv4: map[string]netip.Prefix{},
@@ -143,7 +145,7 @@ func setUpTest(tb testing.TB) *IPMasqTestSuite {
 	require.NoError(tb, err)
 	i.configFilePath = configFile.Name()
 
-	agent, err := newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	agent, err := newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(tb, err)
 	i.ipMasqAgent = agent
 
@@ -359,6 +361,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestRestoreIPv4(t *testing.T) {
+	logger := hivetest.Logger(t)
 	var err error
 
 	i := setUpTest(t)
@@ -374,7 +377,7 @@ func TestRestoreIPv4(t *testing.T) {
 	i.ipMasqMap.cidrsIPv4[cidr.String()] = cidr
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4.4.0.0/16")
 
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
@@ -396,7 +399,7 @@ func TestRestoreIPv4(t *testing.T) {
 	}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3.3.0.0/16\nmasqLinkLocal: true")
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 
@@ -407,6 +410,7 @@ func TestRestoreIPv4(t *testing.T) {
 }
 
 func TestRestoreIPv6(t *testing.T) {
+	logger := hivetest.Logger(t)
 	var err error
 
 	i := setUpTest(t)
@@ -422,7 +426,7 @@ func TestRestoreIPv6(t *testing.T) {
 	i.ipMasqMap.cidrsIPv6[cidr.String()] = cidr
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4:4::/32")
 
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
@@ -444,7 +448,7 @@ func TestRestoreIPv6(t *testing.T) {
 	}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3:3::/96\nmasqLinkLocalIPv6: true")
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 
@@ -455,6 +459,7 @@ func TestRestoreIPv6(t *testing.T) {
 }
 
 func TestRestore(t *testing.T) {
+	logger := hivetest.Logger(t)
 	var err error
 
 	i := setUpTest(t)
@@ -474,7 +479,7 @@ func TestRestore(t *testing.T) {
 	i.ipMasqMap.cidrsIPv4[cidr.String()] = cidr
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4.4.0.0/16\n- 4:4::/32")
 
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
@@ -501,7 +506,7 @@ func TestRestore(t *testing.T) {
 	}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3.3.0.0/16\n- 3:3:3:3::/96\nmasqLinkLocal: true\nmasqLinkLocalIPv6: true")
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(logger, i.configFilePath, i.ipMasqMap)
 	require.NoError(t, err)
 	i.ipMasqAgent.Start()
 
