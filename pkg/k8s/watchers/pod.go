@@ -90,6 +90,7 @@ type k8sPodWatcherParams struct {
 	NodeAddrs         statedb.Table[datapathTables.NodeAddress]
 	LRPManager        *redirectpolicy.Manager
 	CGroupManager     cgroup.CGroupManager
+	LBConfig          loadbalancer.Config
 }
 
 func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
@@ -109,6 +110,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		db:                    params.DB,
 		pods:                  params.Pods,
 		nodeAddrs:             params.NodeAddrs,
+		lbConfig:              params.LBConfig,
 
 		controllersStarted: make(chan struct{}),
 	}
@@ -137,6 +139,7 @@ type K8sPodWatcher struct {
 	db                    *statedb.DB
 	pods                  statedb.Table[agentK8s.LocalPod]
 	nodeAddrs             statedb.Table[datapathTables.NodeAddress]
+	lbConfig              loadbalancer.Config
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -567,11 +570,11 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				continue
 			}
 
-			if int(p.HostPort) >= option.Config.NodePortMin &&
-				int(p.HostPort) <= option.Config.NodePortMax {
+			if uint16(p.HostPort) >= k.lbConfig.NodePortMin &&
+				uint16(p.HostPort) <= k.lbConfig.NodePortMax {
 				logger.Warn(
 					fmt.Sprintf("The requested hostPort %d is colliding with the configured NodePort range [%d, %d]. Ignoring.",
-						p.HostPort, option.Config.NodePortMin, option.Config.NodePortMax))
+						p.HostPort, k.lbConfig.NodePortMin, k.lbConfig.NodePortMax))
 				continue
 			}
 

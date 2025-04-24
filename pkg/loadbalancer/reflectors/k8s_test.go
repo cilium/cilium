@@ -23,8 +23,6 @@ var (
 		ExternalClusterIP:               true,
 		EnableHealthCheckNodePort:       true,
 		KubeProxyReplacement:            true,
-		NodePortMin:                     10000,
-		NodePortMax:                     30000,
 		NodePortAlg:                     "random",
 		LoadBalancerAlgorithmAnnotation: false,
 	}
