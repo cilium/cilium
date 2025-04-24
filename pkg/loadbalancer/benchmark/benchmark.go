@@ -92,11 +92,10 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 				NodePortMax: loadbalancer.NodePortMaxDefault,
 			},
 			ExtCfg: loadbalancer.ExternalConfig{
-				ZoneMapper:                &option.DaemonConfig{},
-				EnableIPv4:                true,
-				EnableIPv6:                true,
-				EnableHealthCheckNodePort: true,
-				KubeProxyReplacement:      true,
+				ZoneMapper:           &option.DaemonConfig{},
+				EnableIPv4:           true,
+				EnableIPv6:           true,
+				KubeProxyReplacement: true,
 			},
 			MaglevCfg: maglevConfig,
 		}
