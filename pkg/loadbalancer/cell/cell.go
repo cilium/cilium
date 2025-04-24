@@ -17,16 +17,8 @@ import (
 
 // Load-balancing control-plane meta cell.
 var Cell = cell.Group(
-	cell.Config(loadbalancer.DefaultUserConfig),
-	cell.Config(loadbalancer.DeprecatedConfig{}),
-	cell.Provide(
-		// Bridge options from [option.DaemonConfig] to [loadbalancer.ExternalConfig] to avoid
-		// direct dependency to DaemonConfig
-		loadbalancer.NewExternalConfig,
-
-		// Validate and populate [loadbalancer.userConfig] to produce the final [loadbalancer.Config]
-		loadbalancer.NewConfig,
-	),
+	// Provides [loadbalancer.Config] and [loadbalancer.ExternalConfig].
+	loadbalancer.ConfigCell,
 
 	// Load-balancing tables and the [writer.Writer] API
 	writer.Cell,

@@ -41,11 +41,12 @@ var (
 
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct {
-	maglev *maglev.Maglev
+	lbConfig loadbalancer.Config
+	maglev   *maglev.Maglev
 }
 
-func New(maglev *maglev.Maglev) *LBBPFMap {
-	return &LBBPFMap{maglev}
+func New(lbConfig loadbalancer.Config, maglev *maglev.Maglev) *LBBPFMap {
+	return &LBBPFMap{lbConfig, maglev}
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
@@ -120,7 +121,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
+	if err := updateMasterService(lbmap.lbConfig, svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
 		p.SourceRangesPolicy, p.CheckSourceRange, p.ProxyDelegation, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
 		deleteRevNatLocked(revNATKey)
@@ -604,7 +605,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
+func updateMasterService(lbConfig loadbalancer.Config, fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
 	revNATID int, svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy,
@@ -612,7 +613,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	loopbackHostport bool, loadBalancingAlgorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
-		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+		(svcType != loadbalancer.SVCTypeClusterIP || lbConfig.ExternalClusterIP)
 	if sessionAffinity && l7lbProxyPort != 0 {
 		log.Warn("Failure in updating master service entry: Service session affinity incompatible with L7 proxy feature")
 		return fmt.Errorf("invalid feature combination")

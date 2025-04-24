@@ -95,7 +95,6 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 				ZoneMapper:                      &option.DaemonConfig{},
 				EnableIPv4:                      true,
 				EnableIPv6:                      true,
-				ExternalClusterIP:               true,
 				EnableHealthCheckNodePort:       true,
 				KubeProxyReplacement:            true,
 				LoadBalancerAlgorithmAnnotation: false,
@@ -530,10 +529,9 @@ func testHive(maps lbmaps.LBMaps,
 	bo **lbreconciler.BPFOps,
 ) *hive.Hive {
 	extConfig := loadbalancer.ExternalConfig{
-		ZoneMapper:        &option.DaemonConfig{},
-		EnableIPv4:        true,
-		EnableIPv6:        true,
-		ExternalClusterIP: false,
+		ZoneMapper: &option.DaemonConfig{},
+		EnableIPv4: true,
+		EnableIPv6: true,
 	}
 
 	return hive.New(
