@@ -1665,4 +1665,12 @@ const (
 	Flags = "flags"
 
 	ExitCode = "exitCode"
+
+	NumBufferedEvents = "numBufferedEvents"
+
+	EventHandlingDuration = "eventHandlingDuration"
+
+	EventEnqueueWaitTime = "eventEnqueueWaitTime"
+
+	EventConsumeOffQueueWaitTime = "eventConsumeOffQueueWaitTime"
 )

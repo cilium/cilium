@@ -133,7 +133,7 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 			}
 			eventHandler.datapathRegenTrigger = rt
 
-			eventHandler.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
+			eventHandler.configModifyQueue = eventqueue.NewEventQueueBuffered(logging.DefaultSlogLogger, "config-modify-queue", ConfigModifyQueueSize)
 			eventHandler.configModifyQueue.Run()
 
 			return nil
