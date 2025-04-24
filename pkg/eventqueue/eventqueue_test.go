@@ -8,13 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
 type EventQueueSuite struct{}
 
 func TestNewEventQueue(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	require.NotNil(t, q.close)
 	require.NotNil(t, q.events)
 	require.NotNil(t, q.drain)
@@ -23,7 +25,8 @@ func TestNewEventQueue(t *testing.T) {
 }
 
 func TestNewEventQueueBuffered(t *testing.T) {
-	q := NewEventQueueBuffered("foo", 25)
+	logger := hivetest.Logger(t)
+	q := NewEventQueueBuffered(logger, "foo", 25)
 	require.Equal(t, "foo", q.name)
 	require.Equal(t, 25, cap(q.events))
 }
@@ -35,19 +38,22 @@ func TestNilEventQueueOperations(t *testing.T) {
 }
 
 func TestStopWithoutRun(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	q.Stop()
 }
 
 func TestCloseEventQueueMultipleTimes(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	q.Stop()
 	// Closing event queue twice should not cause panic.
 	q.Stop()
 }
 
 func TestDrained(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	q.Run()
 
 	// Stopping queue should drain it as well.
@@ -65,7 +71,8 @@ func TestDrained(t *testing.T) {
 }
 
 func TestNilEvent(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	res, err := q.Enqueue(nil)
 	require.Nil(t, res)
 	require.Error(t, err)
@@ -85,7 +92,8 @@ func (d *DummyEvent) Handle(ifc chan any) {
 }
 
 func TestEventCancelAfterQueueClosed(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	q.Run()
 	ev := NewEvent(&DummyEvent{})
 	_, err := q.Enqueue(ev)
@@ -119,7 +127,8 @@ func CreateHangEvent() *NewHangEvent {
 }
 
 func TestDrain(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	q.Run()
 
 	nh1 := CreateHangEvent()
@@ -176,7 +185,8 @@ func TestDrain(t *testing.T) {
 }
 
 func TestEnqueueTwice(t *testing.T) {
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 	q.Run()
 
 	ev := NewEvent(&DummyEvent{})
@@ -203,7 +213,8 @@ func TestForcefulDraining(t *testing.T) {
 	// after the event is stopped and drained, the returned channel will
 	// unblock.
 
-	q := NewEventQueue()
+	logger := hivetest.Logger(t)
+	q := NewEventQueue(logger)
 
 	ev := NewEvent(&DummyEvent{})
 	res, err := q.Enqueue(ev)

@@ -5,21 +5,15 @@ package eventqueue
 
 import (
 	"fmt"
+	"log/slog"
 	"reflect"
 	"sync"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eventqueue")
 )
 
 // EventQueue is a structure which is utilized to handle Events in a first-in,
@@ -32,6 +26,7 @@ var (
 // `EventHandler` interface. This allows for different types of events to be
 // processed by anything which chooses to utilize an `EventQueue`.
 type EventQueue struct {
+	logger *slog.Logger
 	// events represents the queue of events. This should always be a buffered
 	// channel.
 	events chan *Event
@@ -66,19 +61,23 @@ type EventQueue struct {
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
 // a time.
-func NewEventQueue() *EventQueue {
-	return NewEventQueueBuffered("", 1)
+func NewEventQueue(defaultLogger *slog.Logger) *EventQueue {
+	return NewEventQueueBuffered(defaultLogger, "", 1)
 }
 
 // NewEventQueueBuffered returns an EventQueue with a capacity of,
 // numBufferedEvents at a time, and all other needed fields initialized.
-func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
-	log.WithFields(logrus.Fields{
-		"name":              name,
-		"numBufferedEvents": numBufferedEvents,
-	}).Debug("creating new EventQueue")
+func NewEventQueueBuffered(defaultLogger *slog.Logger, name string, numBufferedEvents int) *EventQueue {
+	logger := defaultLogger.With(
+		logfields.LogSubsys, "eventqueue",
+		logfields.Name, name,
+	)
+	logger.Debug("creating new EventQueue",
+		logfields.NumBufferedEvents, numBufferedEvents,
+	)
 	return &EventQueue{
-		name: name,
+		logger: logger,
+		name:   name,
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
 		events:       make(chan *Event, numBufferedEvents),
 		close:        make(chan struct{}),
@@ -203,12 +202,13 @@ func (ev *Event) WasCancelled() bool {
 
 func (ev *Event) printStats(q *EventQueue) {
 	if option.Config.Debug {
-		q.getLogger().WithFields(logrus.Fields{
-			"eventType":                    reflect.TypeOf(ev.Metadata).String(),
-			"eventHandlingDuration":        ev.stats.durationStat.Total(),
-			"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
-			"eventConsumeOffQueueWaitTime": ev.stats.waitConsumeOffQueue.Total(),
-		}).Debug("EventQueue event processing statistics")
+		q.logger.Debug(
+			"EventQueue event processing statistics",
+			logfields.EventType, reflect.TypeOf(ev.Metadata).String(),
+			logfields.EventHandlingDuration, ev.stats.durationStat.Total(),
+			logfields.EventEnqueueWaitTime, ev.stats.waitEnqueue.Total(),
+			logfields.EventConsumeOffQueueWaitTime, ev.stats.waitConsumeOffQueue.Total(),
+		)
 	}
 }
 
@@ -268,7 +268,7 @@ func (q *EventQueue) Stop() {
 	}
 
 	q.closeOnce.Do(func() {
-		q.getLogger().Debug("stopping EventQueue")
+		q.logger.Debug("stopping EventQueue")
 		// Any event that is sent to the queue at this point will be cancelled
 		// immediately in Enqueue().
 		close(q.drain)
@@ -297,13 +297,6 @@ func (q *EventQueue) WaitToBeDrained() {
 	// will so that it can be drained.
 	go q.run()
 	<-q.eventsClosed
-}
-
-func (q *EventQueue) getLogger() *logrus.Entry {
-	return log.WithFields(
-		logrus.Fields{
-			"name": q.name,
-		})
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events
