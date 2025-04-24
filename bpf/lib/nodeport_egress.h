@@ -130,6 +130,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = 0,
 	};
 	union v6addr saddr = {};
 	int ret;
@@ -137,7 +138,8 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+					METRIC_EGRESS, trace.flags);
 
 	/* Don't emit a trace event if the packet has been redirected to another
 	 * interface.
@@ -145,9 +147,9 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				   trace.reason, trace.monitor);
+		send_trace_notify_flags6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					 &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					 trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
@@ -268,18 +270,20 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = 0,
 	};
 	int ret;
 	__s8 ext_err = 0;
 
 	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+					METRIC_EGRESS, trace.flags);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
@@ -440,6 +444,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = 0,
 	};
 	__be32 saddr = 0;
 	int ret;
@@ -447,7 +452,8 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+					 METRIC_EGRESS, trace.flags);
 
 	/* Don't emit a trace event if the packet has been redirected to another
 	 * interface.
@@ -455,9 +461,9 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				   trace.reason, trace.monitor);
+		send_trace_notify_flags4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					 saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					 trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
@@ -588,18 +594,20 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = 0,
 	};
 	int ret;
 	__s8 ext_err = 0;
 
 	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+					METRIC_EGRESS, trace.flags);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
