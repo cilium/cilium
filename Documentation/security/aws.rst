@@ -144,7 +144,7 @@ status of ``coredns`` you can run the following command:
 
 .. code-block:: shell-session
 
-    $ kubectl get deployment coredns -n kube-system
+    $ kubectl get deployment -l k8s-app=kube-dns -n kube-system
     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     coredns    2         2         2            2           13h
 
