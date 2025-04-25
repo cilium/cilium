@@ -33,7 +33,7 @@ func TestMarkAndSweep(t *testing.T) {
 	logger := hivetest.Logger(t)
 	s := setupEndpointManagerSuite(t)
 	// Open-code WithPeriodicGC() to avoid running the controller
-	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
 	mgr.checkHealth = fakeCheck
 	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
 

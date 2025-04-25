@@ -66,7 +66,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	ds := &DaemonFQDNSuite{}
 	d := &fqdnProxyBootstrapper{}
 	d.policyRepo = policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-	d.endpointManager = endpointmanager.New(logger, &dummyEpSyncher{}, nil, nil, nil)
+	d.endpointManager = endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
 		Logger:            logger,

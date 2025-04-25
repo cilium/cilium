@@ -15,7 +15,11 @@ func TestGaugeWithThreshold(t *testing.T) {
 	threshold := 1.0
 	underThreshold := threshold - 0.5
 	overThreshold := threshold + 0.5
-	gauge := NewGaugeWithThreshold(
+	reg := NewRegistry(RegistryParams{
+		DaemonConfig: &option.DaemonConfig{},
+	})
+
+	gauge := reg.NewGaugeWithThreshold(
 		"test_metric",
 		"test_subsystem",
 		"test_metric",
@@ -24,10 +28,6 @@ func TestGaugeWithThreshold(t *testing.T) {
 		},
 		threshold,
 	)
-
-	reg := NewRegistry(RegistryParams{
-		DaemonConfig: &option.DaemonConfig{},
-	})
 
 	metrics, err := reg.inner.Gather()
 	require.NoError(t, err)

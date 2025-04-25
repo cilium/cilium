@@ -32,7 +32,7 @@ var bpfVtepListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf vtep list")
 
 		bpfVtepList := make(map[string][]string)
-		if err := vtep.VtepMap().Dump(bpfVtepList); err != nil {
+		if err := vtep.VtepMap(nil).Dump(bpfVtepList); err != nil {
 			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
 			os.Exit(1)
 		}

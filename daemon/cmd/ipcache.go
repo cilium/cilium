@@ -77,7 +77,7 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
-	err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+	err := ipcachemap.IPCacheMap(d.metricsRegistry).DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 		k := key.(*ipcachemap.Key)
 		v := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
@@ -92,7 +92,7 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 	})
 	// dumpwithcallback() leaves the ipcache map open, must close before opened for
 	// parallel mode in daemon.initmaps()
-	ipcachemap.IPCacheMap().Close()
+	ipcachemap.IPCacheMap(d.metricsRegistry).Close()
 
 	if err != nil {
 		// ignore non-existent cache

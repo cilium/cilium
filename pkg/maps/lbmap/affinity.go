@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -29,7 +30,7 @@ var (
 )
 
 // initAffinity creates the BPF maps for implementing session affinity.
-func initAffinity(params InitParams) {
+func initAffinity(registry *metrics.Registry, params InitParams) {
 	AffinityMapMaxEntries = params.AffinityMapMaxEntries
 
 	AffinityMatchMap = bpf.NewMap(
@@ -39,7 +40,7 @@ func initAffinity(params InitParams) {
 		&AffinityMatchValue{},
 		AffinityMapMaxEntries,
 		0,
-	).WithCache().WithPressureMetric().
+	).WithCache().WithPressureMetric(registry).
 		WithEvents(option.Config.GetEventBufferConfig(AffinityMatchMapName))
 
 	if params.IPv4 {
