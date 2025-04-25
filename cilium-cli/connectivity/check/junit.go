@@ -12,18 +12,24 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 )
 
 const MetadataDelimiter = ";metadata;"
 
 // NewJUnitCollector factory function that returns JUnitCollector.
-func NewJUnitCollector(junitProperties map[string]string, junitFile string) *JUnitCollector {
+func NewJUnitCollector(junitProperties map[string]string, junitFile string, codeowners *codeowners.Ruleset) *JUnitCollector {
 	properties := []junit.Property{
 		{Name: "Args", Value: strings.Join(os.Args[3:], "|")},
 	}
-	for key, val := range junitProperties {
-		properties = append(properties, junit.Property{Name: key, Value: val})
+	if codeowners != nil {
+		if workflowOwners, err := codeowners.WorkflowOwners(false); err == nil {
+			for _, o := range workflowOwners {
+				properties = append(properties, junit.Property{Name: "owner", Value: o})
+			}
+		}
 	}
+
 	return &JUnitCollector{
 		testSuite: &junit.TestSuite{
 			Name:    "connectivity test",
@@ -51,15 +57,6 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 	// Timestamp of the TestSuite is the first test's start time
 	if j.testSuite.Timestamp == "" {
 		j.testSuite.Timestamp = ct.tests[0].startTime.Format(time.RFC3339)
-	}
-	if ct.params.LogCodeOwners {
-		props := j.testSuite.Properties.Properties
-		if workflowOwners, err := ct.CodeOwners.WorkflowOwners(false); err == nil {
-			for _, o := range workflowOwners {
-				props = append(props, junit.Property{Name: "owner", Value: o})
-			}
-		}
-		j.testSuite.Properties.Properties = props
 	}
 	for _, t := range ct.tests {
 		test := &junit.TestCase{
