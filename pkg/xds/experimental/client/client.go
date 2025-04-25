@@ -132,7 +132,7 @@ func NewClient(log *slog.Logger, useSOTW bool, opts *ConnectionOptions) Client {
 }
 
 func newClient[ReqT requestConstraint, RespT responseConstraint](log *slog.Logger, opts *ConnectionOptions, flavour flavour[ReqT, RespT]) *XDSClient[ReqT, RespT] {
-	cache := xds.NewCache()
+	cache := xds.NewCache(log)
 
 	return &XDSClient[ReqT, RespT]{
 		log:           log,
