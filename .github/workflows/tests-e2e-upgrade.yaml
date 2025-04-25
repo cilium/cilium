@@ -579,8 +579,7 @@ jobs:
         uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          ci-version: 83306816280f2707e1e4c819a8fac7b9156aa216
           binary-name: cilium-cli
           binary-dir: ./
 
