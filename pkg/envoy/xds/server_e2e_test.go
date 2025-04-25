@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
@@ -75,6 +76,7 @@ func responseCheck(response *envoy_service_discovery.DiscoveryResponse,
 }
 
 func TestRequestAllResources(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -87,14 +89,14 @@ func TestRequestAllResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -210,6 +212,7 @@ func TestRequestAllResources(t *testing.T) {
 }
 
 func TestAck(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -221,14 +224,14 @@ func TestAck(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -269,7 +272,7 @@ func TestAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -281,7 +284,7 @@ func TestAck(t *testing.T) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	callback2, comp2 := newCompCallback()
+	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
 
@@ -331,6 +334,7 @@ func TestAck(t *testing.T) {
 }
 
 func TestRequestSomeResources(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -343,14 +347,14 @@ func TestRequestSomeResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -514,6 +518,7 @@ func TestRequestSomeResources(t *testing.T) {
 }
 
 func TestUpdateRequestResources(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -526,14 +531,14 @@ func TestUpdateRequestResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -619,6 +624,7 @@ func TestUpdateRequestResources(t *testing.T) {
 }
 
 func TestRequestStaleNonce(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -631,14 +637,14 @@ func TestRequestStaleNonce(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -753,6 +759,7 @@ func TestRequestStaleNonce(t *testing.T) {
 }
 
 func TestNAck(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -764,14 +771,14 @@ func TestNAck(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -814,7 +821,7 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -841,7 +848,7 @@ func TestNAck(t *testing.T) {
 	// Create version 3 with resources 0 and 1.
 	// NACK cancelled the wg, create a new one
 	wg = completion.NewWaitGroup(ctx)
-	callback2, comp2 := newCompCallback()
+	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
 
@@ -888,6 +895,7 @@ func TestNAck(t *testing.T) {
 }
 
 func TestNAckFromTheStart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -899,14 +907,14 @@ func TestNAckFromTheStart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -937,7 +945,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -982,7 +990,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	wg = completion.NewWaitGroup(ctx)
 
 	// Create version 3 with resources 0 and 1.
-	callback2, comp2 := newCompCallback()
+	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
 
@@ -1024,6 +1032,7 @@ func TestNAckFromTheStart(t *testing.T) {
 }
 
 func TestRequestHighVersionFromTheStart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -1035,14 +1044,14 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -1054,7 +1063,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -1090,6 +1099,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 }
 
 func TestTheSameVersionOnRestart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// This is a special case similar to the TestRequestHighVersionFromTheStart.
 	// We check that if new stream is established with accidentally the
 	// same version as previously, we still receive response.
@@ -1106,13 +1116,13 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -1124,7 +1134,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -1181,6 +1191,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 }
 
 func TestNotAckedAfterRestart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Similar to test case TestNAckFromTheStart
 	// But here we are making sure that we don't issue incorrect ACKs
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -1194,14 +1205,14 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -1213,7 +1224,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 

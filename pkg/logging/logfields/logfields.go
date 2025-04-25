@@ -1558,4 +1558,22 @@ const (
 	PolicyChanged = "policyChanged"
 
 	CEPUIDOld = "old-" + CEPUID
+
+	Resources = "resources"
+
+	LastModifiedVersion = "lastModifiedVersion"
+
+	ReturningResources = "returningResources"
+
+	RequestedResources = "requestedResources"
+
+	ResponseNonce = "responseNonce"
+
+	ResourceWatcherVersion = "resourceWatcherVersion"
+
+	WaitVersion = "waitVersion"
+
+	CurrentVersion = "currentVersion"
+
+	PendingCompletions = "pendingCompletions"
 )
