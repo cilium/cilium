@@ -1596,6 +1596,12 @@ const (
 
 	BootID = "bootID"
 
+	LeaseDuration = "leaseDuration"
+
+	RenewDeadline = "renewDeadline"
+
+	RetryPeriod = "retryPeriod"
+
 	Resources = "resources"
 
 	LastModifiedVersion = "lastModifiedVersion"

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
 	"net/netip"
@@ -18,7 +19,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/time"
@@ -63,7 +64,7 @@ func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (re
 type l2AnnouncerParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	DaemonConfig         *option.DaemonConfig
 	Clientset            k8sClient.Clientset
@@ -162,7 +163,10 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 		}
 
 		if err := l2a.processLocalNodeEvent(ctx, event); err != nil {
-			l2a.params.Logger.WithError(err).Warn("Error processing local node event")
+			l2a.params.Logger.Warn(
+				"Error processing local node event",
+				logfields.Error, err,
+			)
 		}
 
 		if l2a.localNode != nil {
@@ -182,7 +186,9 @@ loop:
 			}
 
 			if err := l2a.processSvcEvent(event); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing service event")
+				l2a.params.Logger.Warn("Error processing service event",
+					logfields.Error, err,
+				)
 			}
 
 		case event, more := <-policyChan:
@@ -192,7 +198,9 @@ loop:
 			}
 
 			if err := l2a.processPolicyEvent(ctx, event); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing policy event")
+				l2a.params.Logger.Warn("Error processing policy event",
+					logfields.Error, err,
+				)
 			}
 
 		case event, more := <-localNodeChan:
@@ -202,12 +210,16 @@ loop:
 			}
 
 			if err := l2a.processLocalNodeEvent(ctx, event); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing local node event")
+				l2a.params.Logger.Warn("Error processing local node event",
+					logfields.Error, err,
+				)
 			}
 
 		case event := <-l2a.leaderChannel:
 			if err := l2a.processLeaderEvent(event); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing leader event")
+				l2a.params.Logger.Warn("Error processing leader event",
+					logfields.Error, err,
+				)
 			}
 
 		case <-watchDevices:
@@ -219,7 +231,9 @@ loop:
 			}
 			l2a.devices = deviceNames
 			if err := l2a.processDevicesChanged(ctx); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing devices changed signal")
+				l2a.params.Logger.Warn("Error processing devices changed signal",
+					logfields.Error, err,
+				)
 			}
 		}
 	}
@@ -438,12 +452,18 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 		nodeselector, err := slim_meta_v1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
 		if err != nil {
 			if err2 := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-node-selector", err); err2 != nil {
-				l2a.params.Logger.WithError(err2).Warn("updating policy status failed")
+				l2a.params.Logger.Warn(
+					"updating policy status failed",
+					logfields.Error, err2,
+				)
 			}
 			return fmt.Errorf("make node selector: %w", err)
 		}
 		if err := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-node-selector", nil); err != nil {
-			l2a.params.Logger.WithError(err).Warn("updating policy status failed")
+			l2a.params.Logger.Warn(
+				"updating policy status failed",
+				logfields.Error, err,
+			)
 		}
 
 		// The new policy does not match the node selector
@@ -457,7 +477,10 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 	} else {
 		// Clear any error status if it was set before
 		if err := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-node-selector", nil); err != nil {
-			l2a.params.Logger.WithError(err).Warn("updating policy status failed")
+			l2a.params.Logger.Warn(
+				"updating policy status failed",
+				logfields.Error, err,
+			)
 		}
 	}
 
@@ -471,7 +494,10 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 			regex, err := regexp.Compile(strRegex)
 			if err != nil {
 				if err2 := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-interface-regex", err); err2 != nil {
-					l2a.params.Logger.WithError(err2).Warn("updating policy status failed")
+					l2a.params.Logger.Warn(
+						"updating policy status failed",
+						logfields.Error, err2,
+					)
 				}
 				return fmt.Errorf("policy compile interface regex: %w", err)
 			}
@@ -490,7 +516,10 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 
 	// Clear any error status if it was set before.
 	if err := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-interface-regex", nil); err != nil {
-		l2a.params.Logger.WithError(err).Warn("updating policy status failed")
+		l2a.params.Logger.Warn(
+			"updating policy status failed",
+			logfields.Error, err,
+		)
 	}
 
 	// If no selector is specified, all services match.
@@ -500,7 +529,10 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 		serviceSelector, err = slim_meta_v1.LabelSelectorAsSelector(policy.Spec.ServiceSelector)
 		if err != nil {
 			if err2 := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-service-selector", err); err2 != nil {
-				l2a.params.Logger.WithError(err2).Warn("updating policy status failed")
+				l2a.params.Logger.Warn(
+					"updating policy status failed",
+					logfields.Error, err,
+				)
 			}
 			return fmt.Errorf("make service selector: %w", err)
 		}
@@ -508,7 +540,10 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 
 	// Clear any error status if it exists
 	if err := l2a.updatePolicyStatus(ctx, policy, "io.cilium/bad-service-selector", nil); err != nil {
-		l2a.params.Logger.WithError(err).Warn("updating policy status failed")
+		l2a.params.Logger.Warn(
+			"updating policy status failed",
+			logfields.Error, err,
+		)
 	}
 
 	l2a.selectedPolicies[key] = &selectedPolicy{
@@ -665,57 +700,62 @@ func (l2a *L2Announcer) leaseTimings() (leaseDuration, renewDeadline, retryPerio
 	log := l2a.params.Logger
 
 	if leaseDuration < 1*time.Second {
-		log.WithFields(logrus.Fields{
-			"leaseDuration": leaseDuration,
-		}).Warnf(
-			"--%s must be greater than 1s, defaulting to 1s",
-			option.L2AnnouncerLeaseDuration,
+		log.Warn(
+			fmt.Sprintf(
+				"--%s must be greater than 1s, defaulting to 1s",
+				option.L2AnnouncerLeaseDuration,
+			),
+			logfields.LeaseDuration, leaseDuration,
 		)
 		leaseDuration = time.Second
 	}
 
 	if renewDeadline < 1 {
-		log.WithFields(logrus.Fields{
-			"renewDeadline": renewDeadline,
-		}).Warnf(
-			"--%s must be greater than 1ns, defaulting to 1s",
-			option.L2AnnouncerRenewDeadline,
+		log.Warn(
+			fmt.Sprintf(
+				"--%s must be greater than 1ns, defaulting to 1s",
+				option.L2AnnouncerRenewDeadline,
+			),
+			logfields.RenewDeadline, renewDeadline,
 		)
 		renewDeadline = time.Second
 	}
 
 	if retryPeriod < 1 {
-		log.WithFields(logrus.Fields{
-			"retryPeriod": retryPeriod,
-		}).Warnf(
-			"--%s must be greater than 1ns, defaulting to 200ms",
-			option.L2AnnouncerRetryPeriod,
+		log.Warn(
+			fmt.Sprintf(
+				"--%s must be greater than 1ns, defaulting to 200ms",
+				option.L2AnnouncerRetryPeriod,
+			),
+			logfields.RetryPeriod, retryPeriod,
 		)
 		retryPeriod = 200 * time.Millisecond
 	}
 
 	if leaseDuration <= renewDeadline {
-		log.WithFields(logrus.Fields{
-			"leaseDuration": leaseDuration,
-			"renewDeadline": renewDeadline,
-		}).Warnf(
-			"--%s must be greater than --%s, defaulting to a 2/1 ratio",
-			option.L2AnnouncerLeaseDuration,
-			option.L2AnnouncerRenewDeadline,
+		log.Warn(
+			fmt.Sprintf(
+				"--%s must be greater than --%s, defaulting to a 2/1 ratio",
+				option.L2AnnouncerLeaseDuration,
+				option.L2AnnouncerRenewDeadline,
+			),
+			logfields.LeaseDuration, leaseDuration,
+			logfields.RenewDeadline, renewDeadline,
 		)
 		renewDeadline = leaseDuration / 2
 	}
 
 	if renewDeadline <= time.Duration(leaderelection.JitterFactor*float64(retryPeriod)) {
-		log.WithFields(logrus.Fields{
-			"renewDeadline": renewDeadline,
-			"retryPeriod":   retryPeriod,
-		}).Warnf(
-			"--%s must be greater than --%s * %.2f, defaulting to --%s / 2",
-			option.L2AnnouncerRenewDeadline,
-			option.L2AnnouncerRetryPeriod,
-			leaderelection.JitterFactor,
-			option.L2AnnouncerRetryPeriod,
+		log.Warn(
+			fmt.Sprintf(
+				"--%s must be greater than --%s * %.2f, defaulting to --%s / 2",
+				option.L2AnnouncerRenewDeadline,
+				option.L2AnnouncerRetryPeriod,
+				leaderelection.JitterFactor,
+				option.L2AnnouncerRetryPeriod,
+			),
+			logfields.RenewDeadline, renewDeadline,
+			logfields.RetryPeriod, retryPeriod,
 		)
 		retryPeriod = renewDeadline / 2
 	}
@@ -834,13 +874,19 @@ func (l2a *L2Announcer) upsertLocalNode(ctx context.Context, localNode *v2.Ciliu
 			nodeselector, err = slim_meta_v1.LabelSelectorAsSelector(selectedPolicy.policy.Spec.NodeSelector)
 			if err != nil {
 				if err2 := l2a.updatePolicyStatus(ctx, selectedPolicy.policy, "io.cilium/bad-node-selector", err); err2 != nil {
-					l2a.params.Logger.WithError(err2).Warn("updating policy status failed")
+					l2a.params.Logger.Warn(
+						"updating policy status failed",
+						logfields.Error, err2,
+					)
 				}
 				return fmt.Errorf("make node selector: %w", err)
 			}
 		}
 		if err := l2a.updatePolicyStatus(ctx, selectedPolicy.policy, "io.cilium/bad-node-selector", nil); err != nil {
-			l2a.params.Logger.WithError(err).Warn("updating policy status failed")
+			l2a.params.Logger.Warn(
+				"updating policy status failed",
+				logfields.Error, err,
+			)
 		}
 
 		if nodeselector.Matches(labels.Set(l2a.localNode.Labels)) {
