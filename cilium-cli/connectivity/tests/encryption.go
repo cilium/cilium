@@ -162,7 +162,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
 	dstIP := server.Address(ipFam)
 
-	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
+	if tunnelEnabled {
 		cmd := []string{
 			"/bin/sh", "-c",
 			fmt.Sprintf("ip -o route get %s | grep -oE 'src [^ ]*' | cut -d' ' -f2",
