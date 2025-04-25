@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -143,7 +144,7 @@ var (
 
 // initSourceRange creates the BPF maps for storing both IPv4 and IPv6
 // service source ranges.
-func initSourceRange(params InitParams) {
+func initSourceRange(registry *metrics.Registry, params InitParams) {
 	SourceRangeMapMaxEntries = params.SourceRangeMapMaxEntries
 
 	if params.IPv4 {
@@ -154,7 +155,7 @@ func initSourceRange(params InitParams) {
 			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange4MapName))
 	}
 
@@ -166,7 +167,7 @@ func initSourceRange(params InitParams) {
 			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))
 	}
 }

@@ -77,7 +77,7 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 		mask := net.CIDRMask(prefix.Bits(), 32)
 		key := ipcache.NewKey(ip, mask, clusterID)
 		value := ipcache.NewValue(identity, tunnelEndpoint, encryptKey, flags)
-		if err := ipcache.IPCacheMap().Update(&key, &value); err != nil {
+		if err := ipcache.IPCacheMap(nil).Update(&key, &value); err != nil {
 			fmt.Fprintf(os.Stderr, "Error updating entry %s: %v\n", key, err)
 			os.Exit(1)
 		}

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var (
@@ -99,8 +100,8 @@ type IPMasqAgent struct {
 	handlerFinished        chan struct{}
 }
 
-func NewIPMasqAgent(configPath string) (*IPMasqAgent, error) {
-	return newIPMasqAgent(configPath, &ipmasq.IPMasqBPFMap{})
+func NewIPMasqAgent(reg *metrics.Registry, configPath string) (*IPMasqAgent, error) {
+	return newIPMasqAgent(configPath, &ipmasq.IPMasqBPFMap{MetricsRegistry: reg})
 }
 
 func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error) {

@@ -40,7 +40,7 @@ type mapPressureMetricsOps interface {
 //	cell.Invoke(
 //	  bpf.RegisterTablePressureMetricsJob[MyObj, myBPFMap],
 //	)
-func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.Group, db *statedb.DB, table statedb.Table[Obj], m Map) {
+func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.Group, registry *metrics.Registry, db *statedb.DB, table statedb.Table[Obj], m Map) {
 	name := m.NonPrefixedName()
 	var pressureGauge *metrics.GaugeWithThreshold
 	g.Add(job.Timer(
@@ -52,7 +52,7 @@ func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.G
 			}
 
 			if pressureGauge == nil {
-				pressureGauge = metrics.NewBPFMapPressureGauge(name, 0.0)
+				pressureGauge = registry.NewBPFMapPressureGauge(name, 0.0)
 			}
 
 			txn := db.ReadTxn()

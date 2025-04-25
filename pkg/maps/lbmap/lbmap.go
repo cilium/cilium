@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -790,7 +791,7 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Legacy
 
 // Init updates the map info defaults for sock rev nat {4,6} and LB maps and
 // then initializes all LB-related maps.
-func Init(params InitParams) {
+func Init(registry *metrics.Registry, params InitParams) {
 	if params.MaxSockRevNatMapEntries != 0 {
 		MaxSockRevNat4MapEntries = params.MaxSockRevNatMapEntries
 		MaxSockRevNat6MapEntries = params.MaxSockRevNatMapEntries
@@ -798,9 +799,9 @@ func Init(params InitParams) {
 
 	MaglevMapMaxEntries = params.MaglevMapMaxEntries
 
-	initSVC(params)
-	initAffinity(params)
-	initSourceRange(params)
+	initSVC(registry, params)
+	initAffinity(registry, params)
+	initSourceRange(registry, params)
 }
 
 // ExistsSockRevNat checks if the passed entry exists in the sock rev nat map.

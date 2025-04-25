@@ -122,8 +122,8 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(v4, v6, nodeport bool) {
-	global4Map, global6Map := nat.GlobalMaps(v4, v6, nodeport)
+func InitMapInfo(registry *metrics.Registry, v4, v6, nodeport bool) {
+	global4Map, global6Map := nat.GlobalMaps(registry, v4, v6, nodeport)
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
 
@@ -306,7 +306,7 @@ func newMap(mapName string, m mapType) *Map {
 			m.value(),
 			m.maxEntries(),
 			0,
-		).WithPressureMetric(),
+		),
 		mapType: m,
 	}
 	return result
@@ -801,8 +801,11 @@ const ctmapPressureInterval = 30 * time.Second
 
 // CalculateCTMapPressure is a controller that calculates the BPF CT map
 // pressure and pubishes it as part of the BPF map pressure metric.
-func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
+func CalculateCTMapPressure(mgr *controller.Manager, registry *metrics.Registry, allMaps ...*Map) {
 	ctx, cancel := context.WithCancelCause(context.Background())
+	for _, m := range allMaps {
+		m.WithPressureMetric(registry)
+	}
 	mgr.UpdateController("ct-map-pressure", controller.ControllerParams{
 		Group: controller.Group{
 			Name: "ct-map-pressure",
