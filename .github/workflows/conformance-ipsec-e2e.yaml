@@ -332,6 +332,8 @@ jobs:
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
 
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
