@@ -28,7 +28,7 @@ func GetTunnelFilter(ct *check.ConnectivityTest) (string, error) {
 
 	switch tunnelProtocol.Mode {
 	case "vxlan", "geneve":
-		return fmt.Sprintf("(udp and port %s)", tunnelPort.Mode), nil
+		return fmt.Sprintf("(udp and dst port %s)", tunnelPort.Mode), nil
 	}
 
 	return "", fmt.Errorf("unrecognized tunnel protocol %s", tunnelProtocol.Mode)
