@@ -375,6 +375,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
+          job-name: ${{ env.job_name }}-${{ matrix.version }}-post-rotate
           full-test: 'true'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 

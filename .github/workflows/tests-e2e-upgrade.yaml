@@ -391,7 +391,7 @@ jobs:
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
@@ -405,14 +405,14 @@ jobs:
       - name: Run sequential Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*,!pod-to-world.*'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
@@ -420,7 +420,7 @@ jobs:
       - name: Check for unexpected packet drops during connectivity tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-postcheck
           tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
@@ -468,7 +468,7 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
@@ -483,7 +483,7 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*,!pod-to-world.*'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
@@ -491,7 +491,7 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
@@ -500,7 +500,7 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-postcheck
           tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
