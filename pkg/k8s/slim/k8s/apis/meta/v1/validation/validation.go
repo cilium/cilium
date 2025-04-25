@@ -21,6 +21,10 @@ import (
 type LabelSelectorValidationOptions struct {
 	// Allow invalid label value in selector
 	AllowInvalidLabelValueInSelector bool
+
+	// Allows an operator that is not interpretable to pass validation.  This is useful for cases where a broader check
+	// can be performed, as in a *SubjectAccessReview
+	AllowUnknownOperatorInRequirement bool
 }
 
 // LabelSelectorHasInvalidLabelValue returns true if the given selector contains an invalid label value in a match expression.
@@ -68,7 +72,9 @@ func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, o
 			allErrs = append(allErrs, field.Forbidden(fldPath.Child("values"), "may not be specified when `operator` is 'Exists' or 'DoesNotExist'"))
 		}
 	default:
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("operator"), sr.Operator, "not a valid selector operator"))
+		if !opts.AllowUnknownOperatorInRequirement {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("operator"), sr.Operator, "not a valid selector operator"))
+		}
 	}
 	allErrs = append(allErrs, ValidateLabelName(sr.Key, fldPath.Child("key"))...)
 	if !opts.AllowInvalidLabelValueInSelector {
@@ -85,7 +91,7 @@ func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, o
 func ValidateLabelName(labelName string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	for _, msg := range validation.IsQualifiedName(labelName) {
-		allErrs = append(allErrs, field.Invalid(fldPath, labelName, msg))
+		allErrs = append(allErrs, field.Invalid(fldPath, labelName, msg).WithOrigin("labelKey"))
 	}
 	return allErrs
 }
@@ -112,7 +118,7 @@ func ValidateFieldManager(fieldManager string, fldPath *field.Path) field.ErrorL
 	// considered as not set and is defaulted by the rest of the process
 	// (unless apply is used, in which case it is required).
 	if len(fieldManager) > FieldManagerMaxLength {
-		allErrs = append(allErrs, field.TooLong(fldPath, fieldManager, FieldManagerMaxLength))
+		allErrs = append(allErrs, field.TooLong(fldPath, "" /*unused*/, FieldManagerMaxLength))
 	}
 	// Verify that all characters are printable.
 	for i, r := range fieldManager {
@@ -189,12 +195,12 @@ func ValidateCondition(condition slim_metav1.Condition, fldPath *field.Path) fie
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("reason"), condition.Reason, currErr))
 		}
 		if len(condition.Reason) > maxReasonLen {
-			allErrs = append(allErrs, field.TooLong(fldPath.Child("reason"), condition.Reason, maxReasonLen))
+			allErrs = append(allErrs, field.TooLong(fldPath.Child("reason"), "" /*unused*/, maxReasonLen))
 		}
 	}
 
 	if len(condition.Message) > maxMessageLen {
-		allErrs = append(allErrs, field.TooLong(fldPath.Child("message"), condition.Message, maxMessageLen))
+		allErrs = append(allErrs, field.TooLong(fldPath.Child("message"), "" /*unused*/, maxMessageLen))
 	}
 
 	return allErrs
