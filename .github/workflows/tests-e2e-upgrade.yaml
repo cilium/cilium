@@ -546,8 +546,6 @@ jobs:
             --sysdump-hubble-flows-count=1000000 \
             --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
-            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
             ${EXTRA_CLI_FLAGS[@]}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
@@ -730,7 +728,8 @@ jobs:
         run: |
           ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --include-conn-disrupt-test \
-            --test "no-interrupted-connections" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }})-upgrade.xml" \
+            --junit-property github_job_step="Test Cilium (${{ matrix.name }})" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
 
           # --flush-ct interrupts the flows, so we need to set up again.
@@ -763,7 +762,8 @@ jobs:
         run: |
           ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --include-conn-disrupt-test \
-            --test "no-interrupted-connections" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }})-downgrade.xml" \
+            --junit-property github_job_step="Test Cilium after downgrade (${{ matrix.name }})" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
 
       - name: Features tested after downgrade
