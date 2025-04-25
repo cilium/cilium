@@ -299,7 +299,7 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters4(ctx context.Context) (clie
 
 // icmpv6NAFilter filters ipv6 packets with icmpv6 type 136 (neighbor advertisement).
 // These are sent unencrypted when node encryption and wireguard is enabled.
-const icmpv6NAFilter = "not (ip6[40] = 136)"
+const icmpv6NAFilter = "not (icmp6 and ip6[40] = 136)"
 
 // tunnelTCPDumpFilters6 is equivalent to tunnelTCPDumpFilters4 but for IPv6.
 func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clientFilter string, serverFilter string, err error) {
