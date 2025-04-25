@@ -138,7 +138,7 @@ var bpfLBListCmd = &cobra.Command{
 		// initializing the Go object representing the map. We don't need to
 		// pass the correct sizes here because once the maps are opened, their
 		// size will be read.
-		lbmap.Init(lbmap.InitParams{IPv4: true, IPv6: true})
+		lbmap.Init(nil, lbmap.InitParams{IPv4: true, IPv6: true})
 
 		var firstTitle string
 		secondTitle := backendAddressTitle
