@@ -8,6 +8,7 @@
 // +k8s:conversion-gen=false
 // +k8s:defaulter-gen=TypeMeta
 // +k8s:openapi-gen=true
+// +k8s:prerelease-lifecycle-gen=true
 // +groupName=apiextensions.k8s.io
 
 // Package v1 is the v1 version of the API.

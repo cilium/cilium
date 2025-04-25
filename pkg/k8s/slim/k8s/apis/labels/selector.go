@@ -36,6 +36,19 @@ var (
 // Requirements is AND of all requirements.
 type Requirements []Requirement
 
+func (r Requirements) String() string {
+	var sb strings.Builder
+
+	for i, requirement := range r {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(requirement.String())
+	}
+
+	return sb.String()
+}
+
 // Selector represents a label selector.
 type Selector interface {
 	// Matches returns true if this selector matches the given set of labels.
@@ -268,6 +281,13 @@ func (r *Requirement) Values() sets.Set[string] {
 	for i := range r.strValues {
 		ret.Insert(r.strValues[i])
 	}
+	return ret
+}
+
+// ValuesUnsorted returns a copy of requirement values as passed to NewRequirement without sorting.
+func (r *Requirement) ValuesUnsorted() []string {
+	ret := make([]string, 0, len(r.strValues))
+	ret = append(ret, r.strValues...)
 	return ret
 }
 
@@ -904,7 +924,7 @@ func SelectorFromSet(ls Set) Selector {
 // nil and empty Sets are considered equivalent to Everything().
 // The Set is validated client-side, which allows to catch errors early.
 func ValidatedSelectorFromSet(ls Set) (Selector, error) {
-	if len(ls) == 0 {
+	if ls == nil || len(ls) == 0 {
 		return internalSelector{}, nil
 	}
 	requirements := make([]Requirement, 0, len(ls))
@@ -926,7 +946,7 @@ func ValidatedSelectorFromSet(ls Set) (Selector, error) {
 // Note: this method copies the Set; if the Set is immutable, consider wrapping it with ValidatedSetSelector
 // instead, which does not copy.
 func SelectorFromValidatedSet(ls Set) Selector {
-	if len(ls) == 0 {
+	if ls == nil || len(ls) == 0 {
 		return internalSelector{}
 	}
 	requirements := make([]Requirement, 0, len(ls))

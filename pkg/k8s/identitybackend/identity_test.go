@@ -66,6 +66,7 @@ func TestSanitizeK8sLabels(t *testing.T) {
 					Field:    "test.labels",
 					BadValue: "some.really.really.really.really.really.really.really.long.label.name",
 					Detail:   "name part must be no more than 63 characters",
+					Origin:   "labelKey",
 				},
 			},
 		},

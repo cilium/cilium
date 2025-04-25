@@ -272,7 +272,7 @@ type LabelSelector struct {
 	// +kubebuilder:validation:Optional
 	MatchLabels map[string]MatchLabelsValue `json:"matchLabels,omitempty" protobuf:"bytes,1,rep,name=matchLabels"`
 	// matchExpressions is a list of label selector requirements. The requirements are ANDed.
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +listType=atomic
 	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
 }
@@ -297,7 +297,7 @@ type LabelSelectorRequirement struct {
 	// the values array must be non-empty. If the operator is Exists or DoesNotExist,
 	// the values array must be empty. This array is replaced during a strategic
 	// merge patch.
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +listType=atomic
 	Values []string `json:"values,omitempty" protobuf:"bytes,3,rep,name=values"`
 }

@@ -95,7 +95,7 @@ message LabelSelector {
   map<string, string> matchLabels = 1;
 
   // matchExpressions is a list of label selector requirements. The requirements are ANDed.
-  // +kubebuilder:validation:Optional
+  // +optional
   // +listType=atomic
   repeated LabelSelectorRequirement matchExpressions = 2;
 }
@@ -116,7 +116,7 @@ message LabelSelectorRequirement {
   // the values array must be non-empty. If the operator is Exists or DoesNotExist,
   // the values array must be empty. This array is replaced during a strategic
   // merge patch.
-  // +kubebuilder:validation:Optional
+  // +optional
   // +listType=atomic
   repeated string values = 3;
 }
