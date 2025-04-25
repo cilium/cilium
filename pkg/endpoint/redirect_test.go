@@ -119,6 +119,11 @@ func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, po
 // RemoveNetworkPolicy does nothing.
 func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
 
+// GetListenerProxyPort does nothing.
+func (r *RedirectSuiteProxy) GetListenerProxyPort(listener string) uint16 {
+	return 0
+}
+
 // DummyIdentityAllocatorOwner implements
 // pkg/identity/cache/IdentityAllocatorOwner. It is used for unit testing.
 type DummyIdentityAllocatorOwner struct{}

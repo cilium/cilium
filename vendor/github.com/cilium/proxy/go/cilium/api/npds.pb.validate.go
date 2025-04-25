@@ -531,6 +531,8 @@ func (m *PortNetworkPolicyRule) validate(all bool) error {
 
 	// no validation rules for Deny
 
+	// no validation rules for ProxyId
+
 	// no validation rules for Name
 
 	if all {
