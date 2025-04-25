@@ -377,20 +377,20 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-precheck
 
       - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*'
 
       - name: Run concurrent tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-concurrent
           tests: '!seq-.*'
           test-concurrency: ${{ env.test_concurrency }}
 
@@ -434,20 +434,20 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-precheck
 
       - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*'
 
       - name: Run concurrent tests after downgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-concurrent
           tests: '!seq-.*'
           test-concurrency: ${{ env.test_concurrency }}
 
