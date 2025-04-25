@@ -277,17 +277,6 @@ func (mgr *endpointManager) allocateID(currID uint16) (uint16, error) {
 	return newID, nil
 }
 
-func (mgr *endpointManager) removeIDLocked(currID uint16) {
-	delete(mgr.endpoints, currID)
-}
-
-// RemoveID removes the id from the endpoints map in the endpointManager.
-func (mgr *endpointManager) RemoveID(currID uint16) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-	mgr.removeIDLocked(currID)
-}
-
 // Lookup looks up the endpoint by prefix id
 func (mgr *endpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	mgr.mutex.RLock()
@@ -422,12 +411,6 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 	return eps
 }
 
-// ReleaseID releases the ID of the specified endpoint from the endpointManager.
-// Returns an error if the ID cannot be released.
-func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
-	return mgr.epIDAllocator.release(ep.ID)
-}
-
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
@@ -440,13 +423,13 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 	defer mgr.mutex.Unlock()
 
 	// This must be done before the ID is released for the endpoint!
-	mgr.removeIDLocked(ep.ID)
+	delete(mgr.endpoints, ep.ID)
 	mgr.mcastManager.RemoveAddress(ep.IPv6)
 
 	// We haven't yet allocated the ID for a restoring endpoint, so no
 	// need to release it.
 	if previousState != endpoint.StateRestoring {
-		if err := mgr.ReleaseID(ep); err != nil {
+		if err := mgr.epIDAllocator.release(ep.ID); err != nil {
 			mgr.logger.Warn(
 				"Unable to release endpoint ID",
 				logfields.Error, err,
