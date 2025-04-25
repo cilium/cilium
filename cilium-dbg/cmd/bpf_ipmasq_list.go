@@ -32,8 +32,8 @@ var bpfIPMasqListCmd = &cobra.Command{
 		// Here we try to open the maps as a hack to avoid going
 		// through a full API request to check the config options from
 		// the agent.
-		ipv4Needed := ipmasq.IPMasq4Map().Open() == nil
-		ipv6Needed := ipmasq.IPMasq6Map().Open() == nil
+		ipv4Needed := ipmasq.IPMasq4Map(nil).Open() == nil
+		ipv6Needed := ipmasq.IPMasq6Map(nil).Open() == nil
 		cidrs, err := (&ipmasq.IPMasqBPFMap{}).DumpForProtocols(ipv4Needed, ipv6Needed)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)

@@ -1464,6 +1464,7 @@ type daemonParams struct {
 	Logger              *slog.Logger
 	Lifecycle           cell.Lifecycle
 	Health              cell.Health
+	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
 	WGAgent             *wireguard.Agent
 	LocalNodeStore      *node.LocalNodeStore
@@ -1692,7 +1693,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	if option.Config.EnableIPMasqAgent {
-		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
+		ipmasqAgent, err := ipmasq.NewIPMasqAgent(d.metricsRegistry, option.Config.IPMasqAgentConfigPath)
 		if err != nil {
 			return fmt.Errorf("failed to create ipmasq agent: %w", err)
 		}

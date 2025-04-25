@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -50,7 +51,7 @@ var (
 	onceIPv6   sync.Once
 )
 
-func IPMasq4Map() *bpf.Map {
+func IPMasq4Map(registry *metrics.Registry) *bpf.Map {
 	onceIPv4.Do(func() {
 		ipMasq4Map = bpf.NewMap(
 			MapNameIPv4,
@@ -59,13 +60,13 @@ func IPMasq4Map() *bpf.Map {
 			&Value{},
 			MaxEntriesIPv4,
 			bpf.BPF_F_NO_PREALLOC,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4))
 	})
 	return ipMasq4Map
 }
 
-func IPMasq6Map() *bpf.Map {
+func IPMasq6Map(registry *metrics.Registry) *bpf.Map {
 	onceIPv6.Do(func() {
 		ipMasq6Map = bpf.NewMap(
 			MapNameIPv6,
@@ -74,35 +75,37 @@ func IPMasq6Map() *bpf.Map {
 			&Value{},
 			MaxEntriesIPv6,
 			bpf.BPF_F_NO_PREALLOC,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6))
 	})
 	return ipMasq6Map
 }
 
-type IPMasqBPFMap struct{}
+type IPMasqBPFMap struct {
+	MetricsRegistry *metrics.Registry
+}
 
-func (*IPMasqBPFMap) Update(cidr netip.Prefix) error {
+func (m *IPMasqBPFMap) Update(cidr netip.Prefix) error {
 	if cidr.Addr().Is4() {
 		if option.Config.EnableIPv4Masquerade {
-			return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
+			return IPMasq4Map(m.MetricsRegistry).Update(keyIPv4(cidr), &Value{})
 		}
 	} else {
 		if option.Config.EnableIPv6Masquerade {
-			return IPMasq6Map().Update(keyIPv6(cidr), &Value{})
+			return IPMasq6Map(m.MetricsRegistry).Update(keyIPv6(cidr), &Value{})
 		}
 	}
 	return nil
 }
 
-func (*IPMasqBPFMap) Delete(cidr netip.Prefix) error {
+func (m *IPMasqBPFMap) Delete(cidr netip.Prefix) error {
 	if cidr.Addr().Is4() {
 		if option.Config.EnableIPv4Masquerade {
-			return IPMasq4Map().Delete(keyIPv4(cidr))
+			return IPMasq4Map(m.MetricsRegistry).Delete(keyIPv4(cidr))
 		}
 	} else {
 		if option.Config.EnableIPv6Masquerade {
-			return IPMasq6Map().Delete(keyIPv6(cidr))
+			return IPMasq6Map(m.MetricsRegistry).Delete(keyIPv6(cidr))
 		}
 	}
 	return nil
@@ -117,7 +120,7 @@ func (*IPMasqBPFMap) Delete(cidr netip.Prefix) error {
 func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]netip.Prefix, error) {
 	cidrs := []netip.Prefix{}
 	if ipv4Needed {
-		if err := IPMasq4Map().DumpWithCallback(
+		if err := IPMasq4Map(nil).DumpWithCallback(
 			func(keyIPv4 bpf.MapKey, _ bpf.MapValue) {
 				cidrs = append(cidrs, keyToIPNetIPv4(keyIPv4.(*Key4)))
 			}); err != nil {
@@ -125,7 +128,7 @@ func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]netip.Pref
 		}
 	}
 	if ipv6Needed {
-		if err := IPMasq6Map().DumpWithCallback(
+		if err := IPMasq6Map(nil).DumpWithCallback(
 			func(keyIPv6 bpf.MapKey, _ bpf.MapValue) {
 				cidrs = append(cidrs, keyToIPNetIPv6(keyIPv6.(*Key6)))
 			}); err != nil {

@@ -328,21 +328,25 @@ func (m *Map) WithGroupName(group string) *Map {
 // WithPressureMetricThreshold enables the tracking of a metric that measures
 // the pressure of this map. This metric is only reported if over the
 // threshold.
-func (m *Map) WithPressureMetricThreshold(threshold float64) *Map {
+func (m *Map) WithPressureMetricThreshold(registry *metrics.Registry, threshold float64) *Map {
+	if registry == nil {
+		return m
+	}
+
 	// When pressure metric is enabled, we keep track of map keys in cache
 	if m.cache == nil {
 		m.cache = map[string]*cacheEntry{}
 	}
 
-	m.pressureGauge = metrics.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
+	m.pressureGauge = registry.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
 
 	return m
 }
 
 // WithPressureMetric enables tracking and reporting of this map pressure with
 // threshold 0.
-func (m *Map) WithPressureMetric() *Map {
-	return m.WithPressureMetricThreshold(0.0)
+func (m *Map) WithPressureMetric(registry *metrics.Registry) *Map {
+	return m.WithPressureMetricThreshold(registry, 0.0)
 }
 
 // UpdatePressureMetricWithSize updates map pressure metric using the given map size.

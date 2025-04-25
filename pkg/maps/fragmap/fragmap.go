@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -57,14 +58,14 @@ func (v *FragmentValue4) String() string {
 func (v *FragmentValue4) New() bpf.MapValue { return &FragmentValue4{} }
 
 // InitMap4 creates the IPv4 fragments map in the kernel.
-func InitMap4(mapEntries int) error {
+func InitMap4(registry *metrics.Registry, mapEntries int) error {
 	fragMap := bpf.NewMap(MapNameIPv4,
 		ebpf.LRUHash,
 		&FragmentKey4{},
 		&FragmentValue4{},
 		mapEntries,
 		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4)).WithPressureMetric()
+	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4)).WithPressureMetric(registry)
 	return fragMap.Create()
 }
 
@@ -105,14 +106,14 @@ func (v *FragmentValue6) String() string {
 func (v *FragmentValue6) New() bpf.MapValue { return &FragmentValue6{} }
 
 // InitMap6 creates the IPv6 fragments map in the kernel.
-func InitMap6(mapEntries int) error {
+func InitMap6(registry *metrics.Registry, mapEntries int) error {
 	fragMap := bpf.NewMap(MapNameIPv6,
 		ebpf.LRUHash,
 		&FragmentKey6{},
 		&FragmentValue6{},
 		mapEntries,
 		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6)).WithPressureMetric()
+	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6)).WithPressureMetric(registry)
 	return fragMap.Create()
 }
 

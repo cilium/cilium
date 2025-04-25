@@ -1493,42 +1493,23 @@ type GaugeWithThreshold struct {
 	active    bool
 }
 
-func (gwt *GaugeWithThreshold) withRegistry(fn func(*Registry)) {
-	if gwt.reg == nil {
-		// Registry was not provided and for backwards compatibility we need
-		// to go via the [registry] global variable which may not yet
-		// have been set up. Since this may be called many times in
-		// rapid succession, use a very low timeout. Eventually Gauge.Set() will
-		// be called after the registry is up and this succeeds.
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
-		defer cancel()
-		reg, err := registry.Await(ctx)
-		if err == nil {
-			fn(reg)
-		}
-	} else {
-		fn(gwt.reg)
-	}
-}
-
 // Set the value of the GaugeWithThreshold.
 func (gwt *GaugeWithThreshold) Set(value float64) {
+	if gwt.reg == nil {
+		return
+	}
 	overThreshold := value > gwt.threshold
 	if gwt.active && !overThreshold {
-		gwt.withRegistry(func(reg *Registry) {
-			gwt.active = !reg.Unregister(gwt.gauge)
-			if gwt.active {
-				logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
-			}
-		})
+		gwt.active = !gwt.reg.Unregister(gwt.gauge)
+		if gwt.active {
+			logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+		}
 	} else if !gwt.active && overThreshold {
-		gwt.withRegistry(func(reg *Registry) {
-			err := reg.Register(gwt.gauge)
-			gwt.active = err == nil
-			if err != nil {
-				logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
-			}
-		})
+		err := gwt.reg.Register(gwt.gauge)
+		gwt.active = err == nil
+		if err != nil {
+			logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+		}
 	}
 
 	gwt.gauge.Set(value)
@@ -1548,40 +1529,6 @@ func (reg *Registry) NewGaugeWithThreshold(name string, subsystem string, desc s
 		threshold: threshold,
 		active:    false,
 	}
-}
-
-// NewGaugeWithThreshold creates a new GaugeWithThreshold.
-//
-// Deprecated: Use [Registry.NewGaugeWithThreshold]
-func NewGaugeWithThreshold(name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
-	return &GaugeWithThreshold{
-		reg: nil,
-		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace:   Namespace,
-			Subsystem:   subsystem,
-			Name:        name,
-			Help:        desc,
-			ConstLabels: labels,
-		}),
-		threshold: threshold,
-		active:    false,
-	}
-}
-
-// NewBPFMapPressureGauge creates a new GaugeWithThreshold for the
-// cilium_bpf_map_pressure metric with the map name as constant label.
-//
-// Deprecated: Use [Registry.NewGaugeWithThreshold]
-func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThreshold {
-	return NewGaugeWithThreshold(
-		"map_pressure",
-		SubsystemBPF,
-		"Fill percentage of map, tagged by map name",
-		map[string]string{
-			LabelMapName: mapname,
-		},
-		threshold,
-	)
 }
 
 // NewBPFMapPressureGauge creates a new GaugeWithThreshold for the
