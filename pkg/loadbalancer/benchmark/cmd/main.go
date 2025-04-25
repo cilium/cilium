@@ -5,12 +5,12 @@ package main
 
 import (
 	"flag"
-	"log"
 	"log/slog"
 	"os"
 	"runtime/pprof"
 
 	"github.com/cilium/cilium/pkg/loadbalancer/benchmark"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Test size is the number of services. For each service, there is a single endpointslice with a single endpoint with a single port.
@@ -26,11 +26,11 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			log.Fatal("could not create CPU profile: ", err)
+			logging.Fatal(slog.Default(), "could not create CPU profile: ", err)
 		}
 		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal("could not start CPU profile: ", err)
+			logging.Fatal(slog.Default(), "could not start CPU profile: ", err)
 		}
 		defer pprof.StopCPUProfile()
 	}
