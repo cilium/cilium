@@ -462,7 +462,7 @@ jobs:
             --flush-ct \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-other-conn-test-${{ inputs.job-name }}-<ts>" \
-            --junit-file "cilium-junits/other-conn-test-${{ inputs.job-name }}.xml" \
+            --junit-file "cilium-junits/other-conn-test-after-downgrade-${{ inputs.job-name }}.xml" \
             --junit-property github_job_step="Run other conn tests (${{ inputs.job-name }})" \
             --expected-xfrm-errors "+inbound_no_state"
 
