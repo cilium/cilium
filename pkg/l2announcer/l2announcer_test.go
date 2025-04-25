@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -47,11 +46,12 @@ type fixture struct {
 
 func newFixture(t testing.TB) *fixture {
 	var (
-		tbl statedb.RWTable[*tables.L2AnnounceEntry]
-		db  *statedb.DB
-		jr  job.Registry
-		jg  job.Group
-		h   cell.Health
+		tbl    statedb.RWTable[*tables.L2AnnounceEntry]
+		db     *statedb.DB
+		jr     job.Registry
+		jg     job.Group
+		h      cell.Health
+		logger = hivetest.Logger(t)
 	)
 
 	hive.New(
@@ -64,13 +64,13 @@ func newFixture(t testing.TB) *fixture {
 			jg = jg_
 			h = h_
 		})),
-	).Populate(hivetest.Logger(t))
+	).Populate(logger)
 
 	fakeSvcStore := &fakeStore[*slim_corev1.Service]{}
 	fakePolicyStore := &fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]{}
 
 	params := l2AnnouncerParams{
-		Logger: logrus.New(),
+		Logger: logger,
 		DaemonConfig: &option.DaemonConfig{
 			K8sNamespace:             "kube_system",
 			EnableL2Announcements:    true,
