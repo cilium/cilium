@@ -73,7 +73,7 @@ type IPCacheEventSource interface {
 }
 
 func newNPHDSCache(logger *slog.Logger, ipcache IPCacheEventSource) NPHDSCache {
-	return NPHDSCache{Cache: xds.NewCache(), logger: logger, ipcache: ipcache}
+	return NPHDSCache{Cache: xds.NewCache(logger), logger: logger, ipcache: ipcache}
 }
 
 var observerOnce = sync.Once{}

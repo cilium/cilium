@@ -258,43 +258,43 @@ func (s *xdsServer) start() error {
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
-	ldsCache := xds.NewCache()
-	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache, s.config.metrics)
+	ldsCache := xds.NewCache(s.logger)
+	ldsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, ldsCache, s.config.metrics)
 	ldsConfig := &xds.ResourceTypeConfiguration{
 		Source:      ldsCache,
 		AckObserver: ldsMutator,
 	}
 
-	rdsCache := xds.NewCache()
-	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache, s.config.metrics)
+	rdsCache := xds.NewCache(s.logger)
+	rdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, rdsCache, s.config.metrics)
 	rdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      rdsCache,
 		AckObserver: rdsMutator,
 	}
 
-	cdsCache := xds.NewCache()
-	cdsMutator := xds.NewAckingResourceMutatorWrapper(cdsCache, s.config.metrics)
+	cdsCache := xds.NewCache(s.logger)
+	cdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, cdsCache, s.config.metrics)
 	cdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      cdsCache,
 		AckObserver: cdsMutator,
 	}
 
-	edsCache := xds.NewCache()
-	edsMutator := xds.NewAckingResourceMutatorWrapper(edsCache, s.config.metrics)
+	edsCache := xds.NewCache(s.logger)
+	edsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, edsCache, s.config.metrics)
 	edsConfig := &xds.ResourceTypeConfiguration{
 		Source:      edsCache,
 		AckObserver: edsMutator,
 	}
 
-	sdsCache := xds.NewCache()
-	sdsMutator := xds.NewAckingResourceMutatorWrapper(sdsCache, s.config.metrics)
+	sdsCache := xds.NewCache(s.logger)
+	sdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, sdsCache, s.config.metrics)
 	sdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      sdsCache,
 		AckObserver: sdsMutator,
 	}
 
-	npdsCache := xds.NewCache()
-	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache, s.config.metrics)
+	npdsCache := xds.NewCache(s.logger)
+	npdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, npdsCache, s.config.metrics)
 	npdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      npdsCache,
 		AckObserver: npdsMutator,

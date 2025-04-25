@@ -7,11 +7,13 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 )
 
 func TestGetResource(t *testing.T) {
-	c := NewCache()
+	logger := hivetest.Logger(t)
+	c := NewCache(logger)
 	c.resources[cacheKey{typeURL: "a", resourceName: "a1"}] = cacheValue{}
 	c.resources[cacheKey{typeURL: "a", resourceName: "a2"}] = cacheValue{}
 	c.resources[cacheKey{typeURL: "b", resourceName: "a1"}] = cacheValue{}

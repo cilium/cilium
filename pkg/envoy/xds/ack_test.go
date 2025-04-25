@@ -5,13 +5,16 @@ package xds
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -38,10 +41,10 @@ func (c *compCheck) Err() error {
 }
 
 // Return a new completion callback that will write the completion error to a channel
-func newCompCallback() (func(error), *compCheck) {
+func newCompCallback(logger *slog.Logger) (func(error), *compCheck) {
 	comp := newCompCheck()
 	callback := func(err error) {
-		log.WithError(err).Debug("callback called")
+		logger.Debug("callback called", logfields.Error, err)
 		comp.ch <- err
 		close(comp.ch)
 	}
@@ -78,6 +81,7 @@ func completedInTime(comp *compCheck) bool {
 }
 
 func TestUpsertSingleNode(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -85,12 +89,12 @@ func TestUpsertSingleNode(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Empty(t, acker.ackedVersions)
@@ -131,6 +135,7 @@ func TestUpsertSingleNode(t *testing.T) {
 }
 
 func TestUseCurrent(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -138,12 +143,12 @@ func TestUseCurrent(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Empty(t, acker.ackedVersions)
@@ -192,6 +197,7 @@ func TestUseCurrent(t *testing.T) {
 }
 
 func TestUpsertMultipleNodes(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -199,12 +205,12 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.False(t, acker.currentVersionAcked([]string{node0}))
@@ -244,6 +250,7 @@ func TestUpsertMultipleNodes(t *testing.T) {
 }
 
 func TestUpsertMoreRecentVersion(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -251,11 +258,11 @@ func TestUpsertMoreRecentVersion(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 
@@ -273,6 +280,7 @@ func TestUpsertMoreRecentVersion(t *testing.T) {
 }
 
 func TestUpsertMoreRecentVersionNack(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -280,11 +288,11 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 
@@ -305,6 +313,7 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 }
 
 func TestDeleteSingleNode(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -312,11 +321,11 @@ func TestDeleteSingleNode(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 
@@ -327,7 +336,7 @@ func TestDeleteSingleNode(t *testing.T) {
 	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 3 with no resources.
-	callback, comp = newCompCallback()
+	callback, comp = newCompCallback(logger)
 	acker.Delete(typeURL, resources[0].Name, []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 
@@ -346,6 +355,7 @@ func TestDeleteSingleNode(t *testing.T) {
 }
 
 func TestDeleteMultipleNodes(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -353,11 +363,11 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback()
+	callback, comp := newCompCallback(logger)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 
@@ -368,7 +378,7 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 3 with no resources.
-	callback, comp = newCompCallback()
+	callback, comp = newCompCallback(logger)
 	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
 
@@ -387,14 +397,15 @@ func TestDeleteMultipleNodes(t *testing.T) {
 }
 
 func TestRevertInsert(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 	metrics := newMockMetrics()
 
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 1 with resource 0.
 	// Insert.
@@ -428,14 +439,15 @@ func TestRevertInsert(t *testing.T) {
 }
 
 func TestRevertUpdate(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 	metrics := newMockMetrics()
 
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 1 with resource 0.
 	// Insert.
@@ -476,14 +488,15 @@ func TestRevertUpdate(t *testing.T) {
 }
 
 func TestRevertDelete(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 	metrics := newMockMetrics()
 
-	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 1 with resource 0.
 	// Insert.

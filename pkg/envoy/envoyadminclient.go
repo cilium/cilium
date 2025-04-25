@@ -13,8 +13,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 )
@@ -70,7 +68,7 @@ func (a *EnvoyAdminClient) transact(query string) error {
 }
 
 // ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
-func (a *EnvoyAdminClient) ChangeLogLevel(agentLogLevel logrus.Level) error {
+func (a *EnvoyAdminClient) ChangeLogLevel(agentLogLevel slog.Level) error {
 	envoyLevel := mapLogLevel(agentLogLevel, a.defaultLogLevel)
 
 	if envoyLevel == a.currentLogLevel {

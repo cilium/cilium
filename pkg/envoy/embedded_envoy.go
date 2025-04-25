@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +25,6 @@ import (
 	envoy_extensions_bootstrap_internal_listener_v3 "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
 	envoy_extensions_resource_monitors_downstream_connections "github.com/cilium/proxy/go/envoy/extensions/resource_monitors/downstream_connections/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -48,14 +48,14 @@ const (
 )
 
 var (
-	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
-	envoyLevelMap = map[logrus.Level]string{
-		logrus.PanicLevel: envoyLogLevelOff,
-		logrus.FatalLevel: envoyLogLevelCritical,
-		logrus.ErrorLevel: envoyLogLevelError,
-		logrus.WarnLevel:  envoyLogLevelWarning,
-		logrus.InfoLevel:  envoyLogLevelInfo,
-		logrus.DebugLevel: envoyLogLevelDebug,
+	// envoyLevelMap maps slog.Level values to Envoy (spdlog) log levels.
+	envoyLevelMap = map[slog.Level]string{
+		logging.LevelPanic: envoyLogLevelOff,
+		logging.LevelFatal: envoyLogLevelCritical,
+		slog.LevelError:    envoyLogLevelError,
+		slog.LevelWarn:     envoyLogLevelWarning,
+		slog.LevelInfo:     envoyLogLevelInfo,
+		slog.LevelDebug:    envoyLogLevelDebug,
 		// spdlog "trace" not mapped
 	}
 
@@ -74,14 +74,14 @@ func EnableTracing() {
 	tracing = true
 }
 
-func mapLogLevel(agentLogLevel logrus.Level, defaultEnvoyLogLevel string) string {
+func mapLogLevel(agentLogLevel slog.Level, defaultEnvoyLogLevel string) string {
 	// Set Envoy loglevel to trace if debug AND verbose Engoy logging is enabled
-	if agentLogLevel == logrus.DebugLevel && tracing {
+	if agentLogLevel == slog.LevelDebug && tracing {
 		return envoyLogLevelTrace
 	}
 
 	// Suppress the debug level if not debugging at flow level.
-	if agentLogLevel == logrus.DebugLevel && !flowdebug.Enabled() {
+	if agentLogLevel == slog.LevelDebug && !flowdebug.Enabled() {
 		return envoyLogLevelInfo
 	}
 
@@ -181,7 +181,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 		}
 		defer logWriter.Close()
 
-		envoyArgs := []string{"-l", mapLogLevel(logging.GetLevel(logging.DefaultLogger), config.defaultLogLevel), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
+		envoyArgs := []string{"-l", mapLogLevel(logging.GetSlogLevel(logging.DefaultSlogLogger), config.defaultLogLevel), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
 		envoyStarterArgs := []string{}
 		if config.keepCapNetBindService {
 			envoyStarterArgs = append(envoyStarterArgs, "--keep-cap-net-bind-service", "--")

@@ -5,8 +5,7 @@ package proxy
 
 import (
 	"errors"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/service"
@@ -67,6 +66,6 @@ func (p *dnsProxyIntegration) createRedirect(redirect Redirect) (RedirectImpleme
 	return dr, nil
 }
 
-func (p *dnsProxyIntegration) changeLogLevel(level logrus.Level) error {
+func (p *dnsProxyIntegration) changeLogLevel(level slog.Level) error {
 	return nil
 }

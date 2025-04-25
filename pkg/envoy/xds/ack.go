@@ -5,12 +5,14 @@ package xds
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -96,6 +98,7 @@ type AckingResourceMutator interface {
 // AckingResourceMutatorWrapper also implements ResourceVersionAckObserver in
 // order to be notified of ACKs from nodes.
 type AckingResourceMutatorWrapper struct {
+	logger *slog.Logger
 	// mutator is the wrapped resource mutator.
 	mutator ResourceMutator
 
@@ -135,8 +138,9 @@ type pendingCompletion struct {
 
 // NewAckingResourceMutatorWrapper creates a new AckingResourceMutatorWrapper
 // to wrap the given ResourceMutator.
-func NewAckingResourceMutatorWrapper(mutator ResourceMutator, metrics Metrics) *AckingResourceMutatorWrapper {
+func NewAckingResourceMutatorWrapper(logger *slog.Logger, mutator ResourceMutator, metrics Metrics) *AckingResourceMutatorWrapper {
 	return &AckingResourceMutatorWrapper{
+		logger:             logger,
 		mutator:            mutator,
 		ackedVersions:      make(map[string]uint64),
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
@@ -184,9 +188,9 @@ func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []stri
 
 	if m.restoring {
 		// Do not wait for acks when restoring state
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL: typeURL,
-		}).Debug("UseCurrent: Restoring, skipping wait for ACK")
+		m.logger.Debug("UseCurrent: Restoring, skipping wait for ACK",
+			logfields.XDSTypeURL, typeURL,
+		)
 
 		wait = false
 	}
@@ -212,10 +216,10 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	if m.restoring {
 		// Do not wait for acks when restoring state
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Debug("Upsert: Restoring, skipping wait for ACK")
+		m.logger.Debug("Upsert: Restoring, skipping wait for ACK",
+			logfields.XDSTypeURL, typeURL,
+			logfields.XDSResourceName, resourceName,
+		)
 
 		wait = false
 	}
@@ -237,10 +241,11 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 		// Create a new completion
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
-			log.WithFields(logrus.Fields{
-				logfields.XDSTypeURL:      typeURL,
-				logfields.XDSResourceName: resourceName,
-			}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
+			s := fmt.Sprintf("attempt to reuse completion to upsert xDS resource: %v", c)
+			logging.Fatal(m.logger, s,
+				logfields.XDSTypeURL, typeURL,
+				logfields.XDSResourceName, resourceName,
+			)
 		}
 
 		comp := &pendingCompletion{
@@ -286,12 +291,11 @@ func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []stri
 func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
 	for _, node := range nodeIDs {
 		if acked, exists := m.ackedVersions[node]; !exists || acked < m.version {
-			ackLog := log.WithFields(logrus.Fields{
-				logfields.XDSCachedVersion: m.version,
-				logfields.XDSAckedVersion:  acked,
-				logfields.XDSClientNode:    node,
-			})
-			ackLog.Debugf("Node has not acked the current cached version yet")
+			m.logger.Debug("Node has not acked the current cached version yet",
+				logfields.XDSCachedVersion, m.version,
+				logfields.XDSAckedVersion, acked,
+				logfields.XDSClientNode, node,
+			)
 			return false
 		}
 	}
@@ -306,10 +310,10 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	if m.restoring {
 		// Do not wait for acks when restoring state
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Debug("Delete: Restoring, skipping wait for ACK")
+		m.logger.Debug("Delete: Restoring, skipping wait for ACK",
+			logfields.XDSTypeURL, typeURL,
+			logfields.XDSResourceName, resourceName,
+		)
 
 		wait = false
 	}
@@ -338,10 +342,10 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	if wait {
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
-			log.WithFields(logrus.Fields{
-				logfields.XDSTypeURL:      typeURL,
-				logfields.XDSResourceName: resourceName,
-			}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
+			s := fmt.Sprintf("attempt to reuse completion to delete xDS resource: %v", c)
+			logging.Fatal(m.logger, s,
+				logfields.XDSTypeURL, typeURL,
+				logfields.XDSResourceName, resourceName)
 		}
 
 		m.addVersionCompletion(typeURL, m.version, nodeIDs, c)
@@ -368,12 +372,12 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'ackVersion', is the last version that was NACKed.
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
-	ackLog := log.WithFields(logrus.Fields{
-		logfields.XDSAckedVersion: ackVersion,
-		logfields.XDSNonce:        nackVersion,
-		logfields.XDSClientNode:   nodeIP,
-		logfields.XDSTypeURL:      typeURL,
-	})
+	scopedLogger := m.logger.With(
+		logfields.XDSAckedVersion, ackVersion,
+		logfields.XDSNonce, nackVersion,
+		logfields.XDSClientNode, nodeIP,
+		logfields.XDSTypeURL, typeURL,
+	)
 
 	m.locker.Lock()
 	defer m.locker.Unlock()
@@ -392,7 +396,10 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 		if comp.Err() != nil {
 			// Completion was canceled or timed out.
 			// Remove from pending list.
-			ackLog.Debugf("completion context was canceled: %v", pending)
+			scopedLogger.Debug(
+				"completion context was canceled",
+				logfields.PendingCompletions, pending,
+			)
 			continue
 		}
 
@@ -412,11 +419,11 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 						// completedComparision. Notify and remove from pending list.
 						if pending.version <= ackVersion {
 							m.metrics.IncreaseACK(typeURL)
-							ackLog.Debugf("completing ACK: %v", pending)
+							scopedLogger.Debug(fmt.Sprintf("completing ACK: %v", pending))
 							comp.Complete(nil)
 						} else {
 							m.metrics.IncreaseNACK(typeURL)
-							ackLog.Warningf("completing NACK: %v", pending)
+							scopedLogger.Warn(fmt.Sprintf("completing NACK: %v", pending))
 							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 						}
 						continue
