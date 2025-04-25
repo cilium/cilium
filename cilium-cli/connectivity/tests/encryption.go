@@ -188,6 +188,11 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	// make tcpdump to capture the pkts (false positive).
 	filter = fmt.Sprintf("%s and dst host %s", filter, dstIP)
 
+	// Exclude icmpv6 neighbor broadcast packets, as these are intentionally not encrypted:
+	// Ref[0]: https://github.com/cilium/cilium/blob/e8543eef/bpf/lib/wireguard.h#L95
+	// See Issue: #38688
+	filter = fmt.Sprintf("(%s) and (%s)", filter, icmpv6NAFilter)
+
 	return filter
 }
 
