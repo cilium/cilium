@@ -8,5 +8,6 @@
 // +groupName=meta
 // +deepequal-gen=package
 
-// Package types contains slimmer versions of k8s types.
+// +groupName=meta.k8s.io
+
 package v1

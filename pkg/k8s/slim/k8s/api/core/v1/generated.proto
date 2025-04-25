@@ -59,6 +59,8 @@ message Container {
   // +optional
   // +patchMergeKey=mountPath
   // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=mountPath
   repeated VolumeMount volumeMounts = 9;
 }
 
@@ -122,6 +124,7 @@ message ContainerStatus {
 }
 
 // EndpointAddress is a tuple that describes single IP address.
+// Deprecated: This API is deprecated in v1.33+.
 // +structType=atomic
 message EndpointAddress {
   // The IP of this endpoint.
@@ -139,6 +142,7 @@ message EndpointAddress {
 }
 
 // EndpointPort is a tuple that describes a single port.
+// Deprecated: This API is deprecated in v1.33+.
 // +structType=atomic
 message EndpointPort {
   // The name of this port.  This must match the 'name' field in the
@@ -189,6 +193,8 @@ message EndpointPort {
 //
 // 	a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
 // 	b: [ 10.10.1.1:309, 10.10.2.2:309 ]
+//
+// Deprecated: This API is deprecated in v1.33+.
 message EndpointSubset {
   // IP addresses which offer the related ports that are marked as ready. These endpoints
   // should be considered safe for load balancers and clients to utilize.
@@ -215,6 +221,11 @@ message EndpointSubset {
 // 	     Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
 // 	   },
 // 	]
+//
+// Endpoints is a legacy API and does not contain information about all Service features.
+// Use discoveryv1.EndpointSlice for complete information about Service endpoints.
+//
+// Deprecated: This API is deprecated in v1.33+. Use discoveryv1.EndpointSlice.
 message Endpoints {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -234,6 +245,7 @@ message Endpoints {
 }
 
 // EndpointsList is a list of endpoints.
+// Deprecated: This API is deprecated in v1.33+.
 message EndpointsList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
@@ -384,7 +396,7 @@ message NodeSpec {
 // NodeStatus is information about the current status of a node.
 message NodeStatus {
   // Conditions is an array of current observed node conditions.
-  // More info: https://kubernetes.io/docs/concepts/nodes/node/#condition
+  // More info: https://kubernetes.io/docs/reference/node/node-status/#condition
   // +optional
   // +patchMergeKey=type
   // +patchStrategy=merge
@@ -394,7 +406,7 @@ message NodeStatus {
 
   // List of addresses reachable to the node.
   // Queried from cloud provider, if available.
-  // More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
+  // More info: https://kubernetes.io/docs/reference/node/node-status/#addresses
   // Note: This field is declared as mergeable, but the merge key is not sufficiently
   // unique, which can cause data corruption when it is merged. Callers should instead
   // use a full-replacement patch. See https://pr.k8s.io/79391 for an example.
@@ -495,7 +507,7 @@ message PodSpec {
   // Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
   // The resourceRequirements of an init container are taken into account during scheduling
   // by finding the highest request/limit for each resource type, and then using the max of
-  // of that value or the sum of the normal containers. Limits are applied to init containers
+  // that value or the sum of the normal containers. Limits are applied to init containers
   // in a similar fashion.
   // Init containers cannot currently be added or removed.
   // Cannot be updated.
@@ -526,6 +538,7 @@ message PodSpec {
   // Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod.
   // This field should not be used to express a desire for the pod to be scheduled on a specific node.
   // https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename
+  // +optional
   optional string nodeName = 10;
 
   // Host networking requested for this pod. Use the host's network namespace.
@@ -596,7 +609,13 @@ message PodStatus {
   // +optional
   optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
 
-  // The list has one entry per container in the manifest.
+  // Statuses of containers in this pod.
+  // Each container in the pod should have at most one status in this list,
+  // and all statuses should be for containers in the pod.
+  // However this is not enforced.
+  // If a status for a non-existent container is present in the list, or the list has duplicate names,
+  // the behavior of various Kubernetes components is not defined and those statuses might be
+  // ignored.
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
   // +optional
   // +listType=atomic
@@ -981,13 +1000,13 @@ message ServiceSpec {
   // +optional
   optional string internalTrafficPolicy = 22;
 
-  // TrafficDistribution offers a way to express preferences for how traffic is
-  // distributed to Service endpoints. Implementations can use this field as a
-  // hint, but are not required to guarantee strict adherence. If the field is
-  // not set, the implementation will apply its default routing strategy. If set
-  // to "PreferClose", implementations should prioritize endpoints that are
-  // topologically close (e.g., same zone).
-  // This is an alpha field and requires enabling ServiceTrafficDistribution feature.
+  // TrafficDistribution offers a way to express preferences for how traffic
+  // is distributed to Service endpoints. Implementations can use this field
+  // as a hint, but are not required to guarantee strict adherence. If the
+  // field is not set, the implementation will apply its default routing
+  // strategy. If set to "PreferClose", implementations should prioritize
+  // endpoints that are in the same zone.
+  // +featureGate=ServiceTrafficDistribution
   // +optional
   optional string trafficDistribution = 23;
 }
@@ -1038,6 +1057,20 @@ message Taint {
 
 // TypedLocalObjectReference contains enough information to let you locate the
 // typed referenced object inside the same namespace.
+// ---
+// New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
+//  1. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
+//     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
+//     Those cannot be well described when embedded.
+//  2. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
+//  3. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
+//     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
+//     and the version of the actual struct is irrelevant.
+//  4. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
+//     will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
+//
+// Instead of using this type, create a locally provided and used type that is well-focused on your reference.
+// For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
 // +structType=atomic
 message TypedLocalObjectReference {
   // APIGroup is the group for the resource being referenced.
