@@ -299,7 +299,7 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters4(ctx context.Context) (clie
 
 // icmpv6NAFilter filters ipv6 packets with icmpv6 type 136 (neighbor advertisement).
 // These are sent unencrypted when node encryption and wireguard is enabled.
-const icmpv6NAFilter = " and not (ip6[40] = 136)"
+const icmpv6NAFilter = "not (ip6[40] = 136)"
 
 // tunnelTCPDumpFilters6 is equivalent to tunnelTCPDumpFilters4 but for IPv6.
 func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clientFilter string, serverFilter string, err error) {
@@ -357,8 +357,8 @@ func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clien
 	// that are neighbor broadcast messages as these are not sent to the WG device.
 	encNode, ok := s.ct.Feature(features.EncryptionNode)
 	if ok && encNode.Enabled && s.encryptMode.Mode == "wireguard" {
-		clientFilter += icmpv6NAFilter
-		serverFilter += icmpv6NAFilter
+		clientFilter = fmt.Sprintf("(%s) and (%s)", clientFilter, icmpv6NAFilter)
+		serverFilter = fmt.Sprintf("(%s) and (%s)", serverFilter, icmpv6NAFilter)
 	}
 
 	return clientFilter, serverFilter, nil
