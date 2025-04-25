@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -50,6 +51,7 @@ type localIdentityRestorerParams struct {
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	IPCache           *ipcache.IPCache
 	NodeLocalStore    *node.LocalNodeStore
+	MetricsRegistry   *metrics.Registry
 }
 
 type LocalIdentityRestorer struct {
@@ -115,7 +117,7 @@ func (d *LocalIdentityRestorer) dumpOldIPCache() (map[netip.Prefix]identity.Nume
 
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
-	err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+	err := ipcachemap.IPCacheMap(d.params.MetricsRegistry).DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 		k := key.(*ipcachemap.Key)
 		v := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
@@ -130,7 +132,7 @@ func (d *LocalIdentityRestorer) dumpOldIPCache() (map[netip.Prefix]identity.Nume
 	})
 	// dumpwithcallback() leaves the ipcache map open, must close before opened for
 	// parallel mode in daemon.initmaps()
-	ipcachemap.IPCacheMap().Close()
+	ipcachemap.IPCacheMap(d.params.MetricsRegistry).Close()
 
 	if err != nil {
 		// ignore non-existent cache

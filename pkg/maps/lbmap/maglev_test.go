@@ -30,7 +30,7 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 
-	Init(InitParams{
+	Init(nil, InitParams{
 		IPv4: option.Config.EnableIPv4,
 		IPv6: option.Config.EnableIPv6,
 

@@ -20,7 +20,7 @@ const numberOfEndpointPolicies = 10
 
 func Test_PolicyUpdateCallback(t *testing.T) {
 	logger := hivetest.Logger(t)
-	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
 	called := int32(0)
 	updateFunc := func(idsRegen *set.Set[identity.NumericIdentity], incremental bool) error {
 		atomic.AddInt32(&called, 1)

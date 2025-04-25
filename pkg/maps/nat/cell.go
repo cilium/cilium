@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -27,7 +28,7 @@ var MapDisabled = fmt.Errorf("nat map is disabled")
 var Cell = cell.Module(
 	"nat-maps",
 	"NAT Maps",
-	cell.Provide(func(lc cell.Lifecycle, cfgPromise promise.Promise[*option.DaemonConfig]) (promise.Promise[NatMap4], promise.Promise[NatMap6]) {
+	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfgPromise promise.Promise[*option.DaemonConfig]) (promise.Promise[NatMap4], promise.Promise[NatMap6]) {
 		var ipv4Nat, ipv6Nat *Map
 		res4, promise4 := promise.New[NatMap4]()
 		res6, promise6 := promise.New[NatMap6]()
@@ -46,7 +47,7 @@ var Cell = cell.Module(
 					return nil
 				}
 
-				ipv4Nat, ipv6Nat = GlobalMaps(cfg.EnableIPv4,
+				ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4,
 					cfg.EnableIPv6, true)
 
 				// Maps are still created before DaemonConfig promise is resolved in

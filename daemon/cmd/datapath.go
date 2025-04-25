@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -137,7 +138,7 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	if err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
+	if err := lxcmap.LXCMap(d.metricsRegistry).OpenOrCreate(); err != nil {
 		return fmt.Errorf("initializing lxc map: %w", err)
 	}
 
@@ -151,7 +152,7 @@ func (d *Daemon) initMaps() error {
 	// the first time and its bpf programs have been replaced. Existing endpoints
 	// are using a policy map which is potentially out of sync as local identities
 	// are re-allocated on startup.
-	if err := ipcachemap.IPCacheMap().Recreate(); err != nil {
+	if err := ipcachemap.IPCacheMap(d.metricsRegistry).Recreate(); err != nil {
 		return fmt.Errorf("initializing ipcache map: %w", err)
 	}
 
@@ -167,7 +168,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableVTEP {
-		if err := vtep.VtepMap().Recreate(); err != nil {
+		if err := vtep.VtepMap(d.metricsRegistry).Recreate(); err != nil {
 			return fmt.Errorf("initializing vtep map: %w", err)
 		}
 	}
@@ -188,7 +189,7 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	ipv4Nat, ipv6Nat := nat.GlobalMaps(option.Config.EnableIPv4,
+	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.metricsRegistry, option.Config.EnableIPv4,
 		option.Config.EnableIPv6, option.Config.EnableNodePort)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
@@ -213,25 +214,25 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableIPv4FragmentsTracking {
-		if err := fragmap.InitMap4(option.Config.FragmentsMapEntries); err != nil {
+		if err := fragmap.InitMap4(d.metricsRegistry, option.Config.FragmentsMapEntries); err != nil {
 			return fmt.Errorf("initializing fragments map: %w", err)
 		}
 	}
 
 	if option.Config.EnableIPv6FragmentsTracking {
-		if err := fragmap.InitMap6(option.Config.FragmentsMapEntries); err != nil {
+		if err := fragmap.InitMap6(d.metricsRegistry, option.Config.FragmentsMapEntries); err != nil {
 			return fmt.Errorf("initializing fragments map: %w", err)
 		}
 	}
 
 	if option.Config.EnableIPMasqAgent {
 		if option.Config.EnableIPv4Masquerade {
-			if err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
+			if err := ipmasq.IPMasq4Map(d.metricsRegistry).OpenOrCreate(); err != nil {
 				return fmt.Errorf("initializing IPv4 masquerading map: %w", err)
 			}
 		}
 		if option.Config.EnableIPv6Masquerade {
-			if err := ipmasq.IPMasq6Map().OpenOrCreate(); err != nil {
+			if err := ipmasq.IPMasq6Map(d.metricsRegistry).OpenOrCreate(); err != nil {
 				return fmt.Errorf("initializing IPv6 masquerading map: %w", err)
 			}
 		}
@@ -246,7 +247,7 @@ func (d *Daemon) initMaps() error {
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap().DeleteAll()
+		lxcmap.LXCMap(d.metricsRegistry).DeleteAll()
 	}
 
 	if option.Config.EnableSessionAffinity {
@@ -297,10 +298,10 @@ func (d *Daemon) initMaps() error {
 	return nil
 }
 
-func syncVTEP(logger *slog.Logger) func(context.Context) error {
+func syncVTEP(logger *slog.Logger, registry *metrics.Registry) func(context.Context) error {
 	return func(context.Context) error {
 		if option.Config.EnableVTEP {
-			err := setupVTEPMapping(logger)
+			err := setupVTEPMapping(logger, registry)
 			if err != nil {
 				return err
 			}
@@ -313,14 +314,14 @@ func syncVTEP(logger *slog.Logger) func(context.Context) error {
 	}
 }
 
-func setupVTEPMapping(logger *slog.Logger) error {
+func setupVTEPMapping(logger *slog.Logger, registry *metrics.Registry) error {
 	for i, ep := range option.Config.VtepEndpoints {
 		logger.Debug(
 			"Updating vtep map entry for VTEP",
 			logfields.IPAddr, ep,
 		)
 
-		err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
+		err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, registry, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}

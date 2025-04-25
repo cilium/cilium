@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -64,7 +65,7 @@ var (
 // initSVC constructs the IPv4 & IPv6 LB BPF maps used for Services. The maps
 // have their maximum entries configured. Note this does not create or open the
 // maps; it simply constructs the objects.
-func initSVC(params InitParams) {
+func initSVC(registry *metrics.Registry, params InitParams) {
 	ServiceMapMaxEntries = params.ServiceMapMaxEntries
 	ServiceBackEndMapMaxEntries = params.BackEndMapMaxEntries
 	RevNatMapMaxEntries = params.RevNatMapMaxEntries
@@ -76,7 +77,7 @@ func initSVC(params InitParams) {
 			&Service4Value{},
 			ServiceMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
 		Backend4Map = bpf.NewMap(Backend4MapName,
 			ebpf.Hash,
@@ -84,7 +85,7 @@ func initSVC(params InitParams) {
 			&Backend4Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapName))
 		Backend4MapV2 = bpf.NewMap(Backend4MapV2Name,
 			ebpf.Hash,
@@ -92,7 +93,7 @@ func initSVC(params InitParams) {
 			&Backend4Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV2Name))
 		Backend4MapV3 = bpf.NewMap(Backend4MapV3Name,
 			ebpf.Hash,
@@ -100,7 +101,7 @@ func initSVC(params InitParams) {
 			&Backend4ValueV3{},
 			ServiceBackEndMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV3Name))
 		RevNat4Map = bpf.NewMap(RevNat4MapName,
 			ebpf.Hash,
@@ -108,7 +109,7 @@ func initSVC(params InitParams) {
 			&RevNat4Value{},
 			RevNatMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(RevNat4MapName))
 	}
 
@@ -119,7 +120,7 @@ func initSVC(params InitParams) {
 			&Service6Value{},
 			ServiceMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
 		Backend6Map = bpf.NewMap(Backend6MapName,
 			ebpf.Hash,
@@ -127,7 +128,7 @@ func initSVC(params InitParams) {
 			&Backend6Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapName))
 		Backend6MapV2 = bpf.NewMap(Backend6MapV2Name,
 			ebpf.Hash,
@@ -135,7 +136,7 @@ func initSVC(params InitParams) {
 			&Backend6Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV2Name))
 		Backend6MapV3 = bpf.NewMap(Backend6MapV3Name,
 			ebpf.Hash,
@@ -143,7 +144,7 @@ func initSVC(params InitParams) {
 			&Backend6ValueV3{},
 			ServiceBackEndMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV3Name))
 		RevNat6Map = bpf.NewMap(RevNat6MapName,
 			ebpf.Hash,
@@ -151,7 +152,7 @@ func initSVC(params InitParams) {
 			&RevNat6Value{},
 			RevNatMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(RevNat6MapName))
 	}
 }
@@ -628,13 +629,13 @@ func (v *SockRevNat4Value) String() string {
 func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
 
 // CreateSockRevNat4Map creates the reverse NAT sock map.
-func CreateSockRevNat4Map() error {
+func CreateSockRevNat4Map(registry *metrics.Registry) error {
 	SockRevNat4Map = bpf.NewMap(SockRevNat4MapName,
 		ebpf.LRUHash,
 		&SockRevNat4Key{},
 		&SockRevNat4Value{},
 		MaxSockRevNat4MapEntries,
 		0,
-	).WithPressureMetric()
+	).WithPressureMetric(registry)
 	return SockRevNat4Map.OpenOrCreate()
 }

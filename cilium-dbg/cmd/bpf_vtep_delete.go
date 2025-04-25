@@ -30,7 +30,7 @@ var bpfVtepDeleteCmd = &cobra.Command{
 
 		key := vtep.NewKey(vcidr.IP)
 
-		if err := vtep.VtepMap().Delete(&key); err != nil {
+		if err := vtep.VtepMap(nil).Delete(&key); err != nil {
 			Fatalf("error deleting contents of map: %s\n", err)
 		}
 	},

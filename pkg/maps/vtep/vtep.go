@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -74,7 +75,7 @@ type Map struct {
 }
 
 // NewMap instantiates a Map.
-func NewMap(name string) *Map {
+func NewMap(registry *metrics.Registry, name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
@@ -83,7 +84,7 @@ func NewMap(name string) *Map {
 			&VtepEndpointInfo{},
 			MaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(name)),
 	}
 }
@@ -94,15 +95,15 @@ var (
 	vtepMapInit = &sync.Once{}
 )
 
-func VtepMap() *Map {
+func VtepMap(registry *metrics.Registry) *Map {
 	vtepMapInit.Do(func() {
-		vtepMAP = NewMap(Name)
+		vtepMAP = NewMap(registry, Name)
 	})
 	return vtepMAP
 }
 
 // Function to update vtep map with VTEP CIDR
-func UpdateVTEPMapping(logger *slog.Logger, newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error {
+func UpdateVTEPMapping(logger *slog.Logger, registry *metrics.Registry, newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error {
 	key := NewKey(newCIDR.IP)
 
 	mac, err := vtepMAC.Uint64()
@@ -124,5 +125,5 @@ func UpdateVTEPMapping(logger *slog.Logger, newCIDR *cidr.CIDR, newTunnelEndpoin
 		logfields.Endpoint, newTunnelEndpoint,
 	)
 
-	return VtepMap().Update(&key, &value)
+	return VtepMap(registry).Update(&key, &value)
 }

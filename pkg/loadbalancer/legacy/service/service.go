@@ -272,7 +272,8 @@ func (svc *svcInfo) checkLBSourceRange() bool {
 // The changes can be triggered either by k8s_watcher or directly by
 // API calls to the /services endpoint.
 type Service struct {
-	logger *slog.Logger
+	logger          *slog.Logger
+	metricsRegistry *metrics.Registry
 	lock.RWMutex
 
 	svcByHash map[string]*svcInfo
@@ -306,8 +307,16 @@ type Service struct {
 }
 
 // newService creates a new instance of the service handler.
-func newService(logger *slog.Logger, lbConfig lb.Config, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool,
-	config *option.DaemonConfig) *Service {
+func newService(
+	logger *slog.Logger,
+	registry *metrics.Registry,
+	lbConfig lb.Config,
+	lbmap datapathTypes.LBMap,
+	backendDiscoveryHandler datapathTypes.NodeNeighbors,
+	healthCheckers []HealthChecker,
+	k8sControlplaneEnabled bool,
+	config *option.DaemonConfig,
+) *Service {
 	var localHealthServer healthServer
 	if lbConfig.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New(logger)
@@ -315,6 +324,7 @@ func newService(logger *slog.Logger, lbConfig lb.Config, lbmap datapathTypes.LBM
 
 	svc := &Service{
 		logger:                   logger,
+		metricsRegistry:          registry,
 		svcByHash:                map[string]*svcInfo{},
 		svcByID:                  map[lb.ID]*svcInfo{},
 		backendRefCount:          counter.Counter[string]{},
@@ -680,7 +690,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 			toDelete = append(toDelete, lbmap.Service6MapV2, lbmap.Backend6MapV3, lbmap.RevNat6Map)
 		}
 		if sockMaps {
-			if err := lbmap.CreateSockRevNat6Map(); err != nil {
+			if err := lbmap.CreateSockRevNat6Map(s.metricsRegistry); err != nil {
 				return err
 			}
 		}
@@ -692,7 +702,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 			toDelete = append(toDelete, lbmap.Service4MapV2, lbmap.Backend4MapV3, lbmap.RevNat4Map)
 		}
 		if sockMaps {
-			if err := lbmap.CreateSockRevNat4Map(); err != nil {
+			if err := lbmap.CreateSockRevNat4Map(s.metricsRegistry); err != nil {
 				return err
 			}
 		}
