@@ -70,6 +70,9 @@ func (in *Device) DeepEqual(other *Device) bool {
 	if in.MasterIndex != other.MasterIndex {
 		return false
 	}
+	if in.OperStatus != other.OperStatus {
+		return false
+	}
 	if in.Selected != other.Selected {
 		return false
 	}
