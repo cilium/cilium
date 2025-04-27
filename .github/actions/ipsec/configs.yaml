@@ -1,6 +1,6 @@
 - name: '1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'rhel8.6-20250415.134122'
+  kernel: 'rhel8.6-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -10,7 +10,7 @@
   key-type-two: '+'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.4-20250415.134122'
+  kernel: '5.4-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -20,7 +20,7 @@
   key-type-two: ''
 - name: '3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250415.134122'
+  kernel: '5.10-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -32,7 +32,7 @@
   kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250415.134122'
+  kernel: '6.6-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -44,7 +44,7 @@
   kvstore: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.4-20250415.134122'
+  kernel: '5.4-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'disabled'
@@ -55,7 +55,7 @@
   skip-minor-upgrade: 'true'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250415.134122'
+  kernel: '5.10-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'disabled'
@@ -69,7 +69,7 @@
   skip-minor-upgrade: 'true'
 - name: '7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250415.134122'
+  kernel: '5.15-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -80,7 +80,7 @@
   key-type-two: '+'
 - name: '8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250415.134122'
+  kernel: '6.6-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'vxlan'
