@@ -13,7 +13,8 @@ import (
 
 // Modifies the permissions for your VPC endpoint service. You can add or remove
 // permissions for service consumers (Amazon Web Services accounts, users, and IAM
-// roles) to connect to your endpoint service.
+// roles) to connect to your endpoint service. Principal ARNs with path components
+// aren't supported.
 //
 // If you grant permissions to all principals, the service is public. Any users
 // who know the name of a public service can send a request to attach an endpoint.
