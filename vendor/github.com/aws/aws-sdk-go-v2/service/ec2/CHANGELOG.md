@@ -1,3 +1,7 @@
+# v1.212.0 (2025-04-22)
+
+* **Feature**: Added support for  ClientRouteEnforcementOptions flag in CreateClientVpnEndpoint and ModifyClientVpnEndpoint requests and DescribeClientVpnEndpoints responses
+
 # v1.211.3 (2025-04-10)
 
 * No change notes available for this release.

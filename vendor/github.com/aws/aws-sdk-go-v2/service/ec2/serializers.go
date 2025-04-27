@@ -48093,6 +48093,18 @@ func awsEc2query_serializeDocumentClientLoginBannerOptions(v *types.ClientLoginB
 	return nil
 }
 
+func awsEc2query_serializeDocumentClientRouteEnforcementOptions(v *types.ClientRouteEnforcementOptions, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Enforced != nil {
+		objectKey := object.Key("Enforced")
+		objectKey.Boolean(*v.Enforced)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentClientVpnAuthenticationRequest(v *types.ClientVpnAuthenticationRequest, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -59907,6 +59919,13 @@ func awsEc2query_serializeOpDocumentCreateClientVpnEndpointInput(v *CreateClient
 	if v.ClientLoginBannerOptions != nil {
 		objectKey := object.Key("ClientLoginBannerOptions")
 		if err := awsEc2query_serializeDocumentClientLoginBannerOptions(v.ClientLoginBannerOptions, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.ClientRouteEnforcementOptions != nil {
+		objectKey := object.Key("ClientRouteEnforcementOptions")
+		if err := awsEc2query_serializeDocumentClientRouteEnforcementOptions(v.ClientRouteEnforcementOptions, objectKey); err != nil {
 			return err
 		}
 	}
@@ -74331,6 +74350,13 @@ func awsEc2query_serializeOpDocumentModifyClientVpnEndpointInput(v *ModifyClient
 	if v.ClientLoginBannerOptions != nil {
 		objectKey := object.Key("ClientLoginBannerOptions")
 		if err := awsEc2query_serializeDocumentClientLoginBannerOptions(v.ClientLoginBannerOptions, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.ClientRouteEnforcementOptions != nil {
+		objectKey := object.Key("ClientRouteEnforcementOptions")
+		if err := awsEc2query_serializeDocumentClientRouteEnforcementOptions(v.ClientRouteEnforcementOptions, objectKey); err != nil {
 			return err
 		}
 	}

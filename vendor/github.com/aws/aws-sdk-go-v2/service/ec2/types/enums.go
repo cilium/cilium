@@ -8154,8 +8154,9 @@ type ServiceManaged string
 
 // Enum values for ServiceManaged
 const (
-	ServiceManagedAlb ServiceManaged = "alb"
-	ServiceManagedNlb ServiceManaged = "nlb"
+	ServiceManagedAlb  ServiceManaged = "alb"
+	ServiceManagedNlb  ServiceManaged = "nlb"
+	ServiceManagedRnat ServiceManaged = "rnat"
 )
 
 // Values returns all known values for ServiceManaged. Note that this can be
@@ -8166,6 +8167,7 @@ func (ServiceManaged) Values() []ServiceManaged {
 	return []ServiceManaged{
 		"alb",
 		"nlb",
+		"rnat",
 	}
 }
 
