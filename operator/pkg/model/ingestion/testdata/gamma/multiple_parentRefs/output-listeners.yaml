@@ -36,6 +36,7 @@
     name: mesh-multipleParentRefs
     namespace: gateway-conformance-mesh
     version: v1
+  gamma: true
 - hostname: '*'
   name: gateway-conformance-mesh-echo-8080
   port: 8080
@@ -74,3 +75,4 @@
     name: mesh-multipleParentRefs
     namespace: gateway-conformance-mesh
     version: v1
+  gamma: true

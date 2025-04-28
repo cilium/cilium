@@ -159,7 +159,7 @@ func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 				res.Service = &model.Service{
 					Type: string(corev1.ServiceTypeClusterIP),
 				}
-
+				res.Gamma = true
 				res.Routes = append(res.Routes, extractRoutes(int32(portVal), []string{res.Hostname}, hr, input.Services, []v1alpha1.ServiceImport{}, input.ReferenceGrants)...)
 				resHTTP = append(resHTTP, res)
 			}
