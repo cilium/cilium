@@ -31,6 +31,7 @@ func Test_translator_Translate(t *testing.T) {
 		name    string
 		wantErr bool
 	}{
+		// Gateway API related tests
 		{name: "basic_http_listener"},
 		{name: "basic_http_listener_nodeport"},
 		{name: "basic_http_listener_external_traffic_policy"},
@@ -57,6 +58,11 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/httproute_request_mirror"},
 		{name: "conformance/httproute_request_redirect_with_multi_httplisteners"},
 		{name: "conformance/httproute_backend_protocol_h_2_c_app_protocol"},
+
+		// GAMMA related tests
+		{name: "conformance/gamma/mesh_frontend"},
+		{name: "conformance/gamma/mesh_ports"},
+		{name: "conformance/gamma/mesh_splits"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
