@@ -37,7 +37,7 @@ http:
     name: mesh-split
     namespace: gateway-conformance-mesh
     version: v1
-  use_original_source_address: true
+  gamma: true
 - hostname: '*'
   name: gateway-conformance-mesh-echo-8080
   port: 8080
@@ -76,4 +76,4 @@ http:
     name: mesh-split
     namespace: gateway-conformance-mesh
     version: v1
-  use_original_source_address: true
+  gamma: true
