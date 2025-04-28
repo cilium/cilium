@@ -28,3 +28,4 @@
     name: mesh-split-v1
     namespace: gateway-conformance-mesh
     version: v1
+  use_original_source_address: true
