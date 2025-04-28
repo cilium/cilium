@@ -117,9 +117,7 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
-			Labels: map[string]string{
-				k8s.UseOriginalSourceAddressLabel: "false",
-			},
+			Labels:    i.desiredLabels(model),
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			BackendServices: backendServices,
@@ -206,6 +204,18 @@ func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource
 	res = append(res, clusters...)
 
 	return res, nil
+}
+
+func (i *cecTranslator) desiredLabels(m *model.Model) map[string]string {
+	labels := map[string]string{}
+	for _, l := range m.HTTP {
+		if l.Gamma {
+			labels[k8s.UseOriginalSourceAddressLabel] = "true"
+			return labels
+		}
+	}
+	labels[k8s.UseOriginalSourceAddressLabel] = "false"
+	return labels
 }
 
 func (i *cecTranslator) desiredNodeSelector() *slim_metav1.LabelSelector {

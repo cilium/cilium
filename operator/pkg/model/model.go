@@ -80,6 +80,9 @@ type HTTPListener struct {
 	// This plaintext listener will override any other plaintext HTTP config in
 	// the final rendered Envoy Config.
 	ForceHTTPtoHTTPSRedirect bool `json:"force_http_to_https_redirect,omitempty"`
+
+	// Gamma is an indicator if this listener is a gamma listener
+	Gamma bool `json:"gamma,omitempty"`
 }
 
 func (l HTTPListener) GetSources() []FullyQualifiedResource {
