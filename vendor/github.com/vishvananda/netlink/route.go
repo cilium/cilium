@@ -82,6 +82,7 @@ type Route struct {
 	InitCwnd         int
 	Features         int
 	RtoMin           int
+	RtoMinLock       bool
 	InitRwnd         int
 	QuickACK         int
 	Congctl          string
