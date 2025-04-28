@@ -44,11 +44,11 @@ db/cmp routes routes_dummy01.table
 db/cmp neighbors neighbors_dummy1.table
 
 # Exercise device table "selected" index.
-db/prefix --index=selected --columns=Name,Selected,Type,Addresses -o devices.actual devices true
+db/prefix --index=selected --columns=Name,Selected,Type,Addresses,OperStatus -o devices.actual devices true
 * cmp devices_dummy1.table devices.actual
 
 # Exercise device table "name" index.
-db/prefix --index=name --columns=Name,Selected,Type,Addresses -o devices.actual devices dummy
+db/prefix --index=name --columns=Name,Selected,Type,Addresses,OperStatus -o devices.actual devices dummy
 * cmp devices_dummy01.table devices.actual
 
 # Exercise neighbor table "IPAddr" index.
@@ -74,65 +74,65 @@ db/cmp neighbors neighbors_empty.table
 # ---------------------------------------------
 
 -- devices_empty.table --
-Name   Selected   Type     Addresses
+Name   Selected   Type     Addresses     OperStatus
 
 -- devices_dummy0.table --
-Name     Selected   Type     Addresses
-dummy0   false      dummy    192.168.0.1
+Name     Selected   Type     Addresses     OperStatus
+dummy0   false      dummy    192.168.0.1   down
 
 -- devices_dummy01.table --
-Name     Selected   Type     Addresses
-dummy0   false      dummy    192.168.0.1
-dummy1   true       dummy    192.168.1.1, 192.168.1.2
+Name     Selected   Type    Addresses                  OperStatus
+dummy0   false      dummy   192.168.0.1                down
+dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
 
 -- devices_dummy01.table --
-Name     Selected   Type    Addresses
-dummy0   false      dummy   192.168.0.1
-dummy1   true       dummy   192.168.1.1, 192.168.1.2
+Name     Selected   Type    Addresses                  OperStatus
+dummy0   false      dummy   192.168.0.1                down
+dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
 -- devices_dummy1.table --
-Name     Selected   Type    Addresses
-dummy1   true       dummy   192.168.1.1, 192.168.1.2
+Name     Selected   Type    Addresses                  OperStatus
+dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
 -- devices_placeholder --
 
 
 -- routes_empty.table --
-Destination   Source   Gateway   LinkIndex   Table   Scope
+Destination   Source   Gateway   LinkIndex   Table   Scope   Priority
 
 -- routes_dummy0.table --
-Destination      Source        Gateway   Table   Scope
-192.168.0.1/32   192.168.0.1             255     254
+Destination      Source        Gateway   Table   Scope   Priority
+192.168.0.1/32   192.168.0.1             255     254     0
 
 -- routes_dummy01.table --
-Destination        Source        Gateway         Table   Scope
-0.0.0.0/0                        192.168.1.254   254     0
-192.168.1.0/24     192.168.1.1                   254     253
-192.168.1.253/32                                 254     253
-192.168.1.254/32                                 254     253
-192.168.0.1/32     192.168.0.1                   255     254
-192.168.1.1/32     192.168.1.1                   255     254
-192.168.1.2/32     192.168.1.1                   255     254
-192.168.1.255/32   192.168.1.1                   255     253
-ff00::/8                                         255     0
+Destination        Source        Gateway         Table   Scope   Priority
+0.0.0.0/0                        192.168.1.254   254     0       0
+192.168.1.0/24     192.168.1.1                   254     253     0
+192.168.1.253/32                                 254     253     0
+192.168.1.254/32                                 254     253     0
+192.168.0.1/32     192.168.0.1                   255     254     0
+192.168.1.1/32     192.168.1.1                   255     254     0
+192.168.1.2/32     192.168.1.1                   255     254     0
+192.168.1.255/32   192.168.1.1                   255     253     0
+ff00::/8                                         255     0       256
 
 -- routes_table254_link3_254.table --
-Destination        Source   Gateway   Table   Scope
+Destination        Source   Gateway   Table   Scope   Priority
 192.168.1.254/32                      254     253
 -- routes_table254_link3_all.table --
-Destination        Source        Gateway         Table   Scope
-0.0.0.0/0                        192.168.1.254   254     0
-192.168.1.0/24     192.168.1.1                   254     253
-192.168.1.253/32                                 254     253
-192.168.1.254/32                                 254     253
+Destination        Source        Gateway         Table   Scope   Priority
+0.0.0.0/0                        192.168.1.254   254     0       0
+192.168.1.0/24     192.168.1.1                   254     253     0
+192.168.1.253/32                                 254     253     0
+192.168.1.254/32                                 254     253     0
 -- routes_link3.table --
-Destination        Source        Gateway         Table   Scope
-192.168.1.254/32                                 254     253
-192.168.1.253/32                                 254     253
-192.168.1.0/24     192.168.1.1                   254     253
-0.0.0.0/0                        192.168.1.254   254     0
-192.168.1.1/32     192.168.1.1                   255     254
-192.168.1.2/32     192.168.1.1                   255     254
-192.168.1.255/32   192.168.1.1                   255     253
-ff00::/8                                         255     0
+Destination        Source        Gateway         Table   Scope   Priority
+192.168.1.254/32                                 254     253     0
+192.168.1.253/32                                 254     253     0
+192.168.1.0/24     192.168.1.1                   254     253     0
+0.0.0.0/0                        192.168.1.254   254     0       0
+192.168.1.1/32     192.168.1.1                   255     254     0
+192.168.1.2/32     192.168.1.1                   255     254     0
+192.168.1.255/32   192.168.1.1                   255     253     0
+ff00::/8                                         255     0       0
 -- routes_placeholder --
 
 
