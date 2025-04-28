@@ -301,6 +301,8 @@ podSecurityContext:
   # -- AppArmorProfile options for the `cilium-agent` and init containers
   appArmorProfile:
     type: "Unconfined"
+  seccompProfile:
+    type: RuntimeDefault
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 # -- Labels to be added to agent pods
@@ -320,6 +322,8 @@ initResources: {}
 securityContext:
   # -- User to run the pod with
   # runAsUser: 0
+  # -- disable privilege escalation
+  allowPrivilegeEscalation: false
   # -- Run the pod with elevated privileges
   privileged: false
   # -- SELinux options for the `cilium-agent` and init containers
@@ -1598,6 +1602,8 @@ hubble:
       runAsNonRoot: true
       runAsUser: 65532
       runAsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
       capabilities:
         drop:
           - ALL
@@ -1773,7 +1779,8 @@ hubble:
         useDigest: true
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui backend security context.
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
       # -- Additional hubble-ui backend volumes.
@@ -1807,7 +1814,8 @@ hubble:
         useDigest: true
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui frontend security context.
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
       # -- Additional hubble-ui frontend volumes.
@@ -2919,7 +2927,9 @@ operator:
   # -- HostNetwork setting
   hostNetwork: true
   # -- Security context to be added to cilium-operator pods
-  podSecurityContext: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
   # -- Labels to be added to cilium-operator pods
@@ -2951,7 +2961,11 @@ operator:
   #     memory: 128Mi
 
   # -- Security context to be added to cilium-operator pods
-  securityContext: {}
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    allowPrivilegeEscalation: false
   # runAsUser: 0
 
   # -- Interval for endpoint garbage collection.
@@ -3093,6 +3107,7 @@ nodeinit:
       memory: 100Mi
   # -- Security context to be added to nodeinit pods.
   securityContext:
+    allowPrivilegeEscalation: false
     privileged: false
     seLinuxOptions:
       level: 's0'
@@ -3206,7 +3221,8 @@ preflight:
     # -- interval between checks of the readiness probe
     periodSeconds: 5
   # -- Security context to be added to preflight pods
-  securityContext: {}
+  securityContext:
+    allowPrivilegeEscalation: false
   #   runAsUser: 0
 
   # -- Path to write the `--tofqdns-pre-cache` file to.
