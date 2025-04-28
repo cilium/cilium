@@ -296,7 +296,6 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				if buf == nil {
 					buf = bufferPool.Get().(buffer)
 				}
-				ev.Done(nil)
 				_, isSvc := ev.Object.(*slim_corev1.Service)
 				buf.Insert(bufferKey{key: ev.Key, isSvc: isSvc}, ev)
 				return buf
@@ -906,6 +905,9 @@ func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_core
 
 func toObjectObservable[T runtime.Object](src stream.Observable[resource.Event[T]]) stream.Observable[resource.Event[runtime.Object]] {
 	return stream.Map(src, func(ev resource.Event[T]) resource.Event[runtime.Object] {
+		// Already mark the event as handled as we don't need retries.
+		ev.Done(nil)
+
 		return resource.Event[runtime.Object]{
 			Kind:   ev.Kind,
 			Key:    ev.Key,
@@ -918,21 +920,24 @@ func toObjectObservable[T runtime.Object](src stream.Observable[resource.Event[T
 func joinObservables[T any](src stream.Observable[T], srcs ...stream.Observable[T]) stream.Observable[T] {
 	return stream.FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
-			var mu lock.Mutex // Use a mutex to serialize the 'next' callbacks
-			completed := false
+			// Use a mutex to serialize the 'next' callbacks
+			var mu lock.Mutex
+
+			remainingCompletions := len(srcs)
 			emit := func(x T) {
 				mu.Lock()
 				defer mu.Unlock()
-				if !completed {
+				if remainingCompletions > 0 {
 					next(x)
 				}
 			}
+
 			comp := func(err error) {
 				mu.Lock()
 				defer mu.Unlock()
-				if !completed {
+				remainingCompletions--
+				if remainingCompletions == 0 {
 					complete(err)
-					completed = true
 				}
 			}
 			src.Observe(ctx, emit, comp)
