@@ -1138,6 +1138,10 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	if route.RtoMin > 0 {
 		b := nl.Uint32Attr(uint32(route.RtoMin))
 		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_RTO_MIN, b))
+		if route.RtoMinLock {
+			b := nl.Uint32Attr(uint32(1 << unix.RTAX_RTO_MIN))
+			metrics = append(metrics, nl.NewRtAttr(unix.RTAX_LOCK, b))
+		}
 	}
 	if route.InitRwnd > 0 {
 		b := nl.Uint32Attr(uint32(route.InitRwnd))
@@ -1464,6 +1468,7 @@ func deserializeRoute(m []byte) (Route, error) {
 					route.MTU = int(native.Uint32(metric.Value[0:4]))
 				case unix.RTAX_LOCK:
 					route.MTULock = native.Uint32(metric.Value[0:4]) == uint32(1<<unix.RTAX_MTU)
+					route.RtoMinLock = native.Uint32(metric.Value[0:4]) == uint32(1<<unix.RTAX_RTO_MIN)
 				case unix.RTAX_WINDOW:
 					route.Window = int(native.Uint32(metric.Value[0:4]))
 				case unix.RTAX_RTT:
