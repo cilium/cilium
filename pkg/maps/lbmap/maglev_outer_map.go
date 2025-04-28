@@ -50,6 +50,9 @@ type MaglevOuterVal struct {
 	FD uint32
 }
 
+func (v *MaglevOuterVal) New() bpf.MapValue { return &MaglevOuterVal{} }
+func (k *MaglevOuterVal) String() string    { return fmt.Sprintf("%d", k.FD) }
+
 // NewMaglevOuterMap returns a new object representing a maglev outer map.
 func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec) (*MaglevOuterMap, error) {
 	m := ebpf.NewMap(&ebpf.MapSpec{
