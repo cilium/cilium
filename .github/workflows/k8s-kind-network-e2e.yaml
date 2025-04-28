@@ -171,7 +171,6 @@ jobs:
           node2=$(getKubeApiServerAddress ${{ env.cluster_name }}-control-plane2)
 
           cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }} \
-          --helm-set kubeProxyReplacement=true \
           --helm-set k8s.apiServerURLs="https://$node1:6443 https://$node2:6443"
 
       - name: Create LB IPAM pool
