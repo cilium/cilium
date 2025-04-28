@@ -1813,10 +1813,8 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}
 
-	if !option.Config.DryMode {
-		if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
-			log.WithError(err).Warn("Failed to send agent start monitor message")
-		}
+	if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
+		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
 	// Watches for node neighbors link updates.
