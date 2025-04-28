@@ -267,7 +267,7 @@ spec:
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
-        {{- if and .Values.envoy.debug.admin.port (not $envoyDS) }}
+        {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port (not $envoyDS) }}
         - name: envoy-admin
           containerPort: {{ .Values.envoy.debug.admin.port }}
           hostPort: {{ .Values.envoy.debug.admin.port }}
