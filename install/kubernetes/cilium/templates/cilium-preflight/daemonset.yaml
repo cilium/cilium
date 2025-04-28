@@ -4,11 +4,11 @@ kind: DaemonSet
 metadata:
   name: cilium-pre-flight-check
   namespace: {{ include "cilium.namespace" . }}
-  {{- with .Values.preflight.annotations }}
   {{- with .Values.commonLabels }}
   labels:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  {{- with .Values.preflight.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -19,11 +19,11 @@ spec:
       kubernetes.io/cluster-service: "true"
   template:
     metadata:
-      {{- with .Values.preflight.podAnnotations }}
       annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
         kubectl.kubernetes.io/default-container: cilium-pre-flight-check
+        {{- with .Values.preflight.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         app.kubernetes.io/part-of: cilium
         k8s-app: cilium-pre-flight-check
