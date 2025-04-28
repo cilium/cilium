@@ -317,7 +317,7 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
+		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 
