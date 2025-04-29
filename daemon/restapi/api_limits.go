@@ -4,6 +4,8 @@
 package restapi
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
@@ -36,12 +38,12 @@ var defaultRateLimiterConfig = rateLimiterConfig{
 	APIRateLimit: "",
 }
 
-func newApiRateLimiter(cfg rateLimiterConfig) (*rate.APILimiterSet, error) {
+func newApiRateLimiter(logger *slog.Logger, cfg rateLimiterConfig) (*rate.APILimiterSet, error) {
 	config, err := command.ToStringMapStringE(cfg.APIRateLimit)
 	if err != nil {
 		return nil, err
 	}
-	return rate.NewAPILimiterSet(config, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
+	return rate.NewAPILimiterSet(logger, config, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
 }
 
 const (
