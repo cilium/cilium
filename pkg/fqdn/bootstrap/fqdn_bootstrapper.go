@@ -80,7 +80,7 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		}
 	}
 
-	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
+	if err := re.InitRegexCompileLRU(b.logger, option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
@@ -93,7 +93,7 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
 	}
-	dnsProxy := dnsproxy.NewDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsMessageHandler.NotifyOnDNSMsg)
+	dnsProxy := dnsproxy.NewDNSProxy(b.logger, dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsMessageHandler.NotifyOnDNSMsg)
 	b.proxyInstance.Set(dnsProxy)
 
 	if err := dnsProxy.Listen(); err != nil {

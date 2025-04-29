@@ -621,7 +621,7 @@ func createEndpoint(dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, lo
 		DNSRules:         nil,
 		DNSRulesV2:       nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies:       fqdn.NewDNSZombieMappings(logging.DefaultSlogLogger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
 		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}),

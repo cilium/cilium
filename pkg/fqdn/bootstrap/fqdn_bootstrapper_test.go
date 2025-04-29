@@ -60,7 +60,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		// Set local node store as it is accessed by NewLogRecord to get node IPv4
 		node.SetTestLocalNodeStore()
 
-		re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+		re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 	})
 
 	ds := &DaemonFQDNSuite{}

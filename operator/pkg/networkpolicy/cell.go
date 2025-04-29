@@ -82,7 +82,7 @@ func registerPolicyValidator(params PolicyParams) {
 
 	// LRU size of 1 since we are only doing one-off validation of policies and
 	// the FQDN regexes are not referenced again.
-	if err := re.InitRegexCompileLRU(1); err != nil {
+	if err := re.InitRegexCompileLRU(params.Logger, 1); err != nil {
 		params.Logger.Error("CNP / CCNP validator can't run due to failure in initializing regex LRU cache.", logfields.Error, err)
 		return
 	}
