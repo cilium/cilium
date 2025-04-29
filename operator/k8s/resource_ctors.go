@@ -70,8 +70,13 @@ func CiliumNodeResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.Met
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
 		opts...,
 	)
+	indexers := cache.Indexers{
+		// This index will be used to create CES from pods.
+		CiliumNodeIPIndex: CiliumNodeIPIndexFunc,
+	}
 	return resource.New[*cilium_api_v2.CiliumNode](lc, lw, mp,
 		resource.WithMetric("CiliumNode"),
+		resource.WithIndexers(indexers),
 	), nil
 }
 
