@@ -75,7 +75,7 @@ require (
 	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.33.1
-	github.com/osrg/gobgp/v3 v3.27.0
+	github.com/osrg/gobgp/v3 v3.35.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1

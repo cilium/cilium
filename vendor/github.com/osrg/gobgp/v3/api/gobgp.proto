@@ -621,6 +621,7 @@ message PeerConf {
   bool replace_peer_asn = 14;
   bool admin_down = 15;
   bool send_software_version = 16;
+  bool allow_aspath_loop_local = 17;
 }
 
 message PeerGroupConf {
@@ -964,6 +965,13 @@ message CommunityCount {
   uint32 count = 2;
 }
 
+enum RouteOriginType {
+  ORIGIN_NONE = 0;
+  ORIGIN_IGP = 1;
+  ORIGIN_EGP = 2;
+  ORIGIN_INCOMPLETE = 3;
+}
+
 message Conditions {
   MatchSet prefix_set = 1;
   MatchSet neighbor_set = 2;
@@ -980,6 +988,7 @@ message Conditions {
   repeated string next_hop_in_list = 10;
   repeated Family afi_safi_in = 11;
   CommunityCount community_count = 12;
+  RouteOriginType origin = 13;
 }
 
 enum RouteAction { NONE = 0; ACCEPT = 1; REJECT = 2; }
@@ -1008,9 +1017,14 @@ message NexthopAction {
   string address = 1;
   bool self = 2;
   bool unchanged = 3;
+  bool peer_address = 4;
 }
 
 message LocalPrefAction { uint32 value = 1; }
+
+message OriginAction {
+  RouteOriginType origin = 1;
+}
 
 message Actions {
   RouteAction route_action = 1;
@@ -1021,6 +1035,7 @@ message Actions {
   NexthopAction nexthop = 6;
   LocalPrefAction local_pref = 7;
   CommunityAction large_community = 8;
+  OriginAction origin_action = 9;
 }
 
 message Statement {
