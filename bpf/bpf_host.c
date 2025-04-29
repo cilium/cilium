@@ -1483,7 +1483,7 @@ skip_host_firewall:
 				src_sec_identity = src_ep->sec_id;
 
 			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-			if (info && info->sec_identity)
+			if (info)
 				dst_sec_identity = info->sec_identity;
 
 			/* lower-level code expects CT tuple to be flipped: */
@@ -1533,7 +1533,7 @@ skip_host_firewall:
 				src_sec_identity = src_ep->sec_id;
 
 			info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-			if (info && info->sec_identity)
+			if (info)
 				dst_sec_identity = info->sec_identity;
 
 			/* lower-level code expects CT tuple to be flipped: */
