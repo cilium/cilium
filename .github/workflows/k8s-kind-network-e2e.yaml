@@ -229,6 +229,7 @@ jobs:
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
             --provider=local                              \
+            --num-nodes=2                                 \
             --dump-logs-on-failure=true                   \
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
