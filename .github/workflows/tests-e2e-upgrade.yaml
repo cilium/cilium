@@ -132,7 +132,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 40
+      max-parallel: 41
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 

@@ -366,3 +366,13 @@
   tunnel: 'vxlan'
   underlay: 'ipv6'
   skip-upgrade: 'true'
+- name: '33'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
+  kube-proxy: 'iptables'
+  kpr: 'false'
+  ipv6: 'true'
+  ipv4: 'false'
+  tunnel: 'vxlan'
+  underlay: 'ipv6'
+  skip-upgrade: 'true'
