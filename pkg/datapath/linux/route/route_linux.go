@@ -320,11 +320,11 @@ type Rule struct {
 	Priority int
 
 	// Mark is the skb mark that needs to match
-	Mark int
+	Mark uint32
 
 	// Mask is the mask to apply to the skb mark before matching the Mark
 	// field
-	Mask int
+	Mask uint32
 
 	// From is the source address selector
 	From *net.IPNet
@@ -440,12 +440,12 @@ func ListRules(family int, filter *Rule) ([]netlink.Rule, error) {
 		}
 		if filter.Mask != 0 {
 			mask |= netlink.RT_FILTER_MASK
-			nlFilter.Mask = filter.Mask
+			nlFilter.Mask = &filter.Mask
 		}
 
 		nlFilter.Priority = filter.Priority
 		nlFilter.Mark = filter.Mark
-		nlFilter.Mask = filter.Mask
+		nlFilter.Mask = &filter.Mask
 		nlFilter.Src = filter.From
 		nlFilter.Dst = filter.To
 		nlFilter.Table = filter.Table
@@ -475,7 +475,7 @@ func replaceRule(spec Rule, family int) error {
 	}
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
-	rule.Mask = spec.Mask
+	rule.Mask = &spec.Mask
 	rule.Table = spec.Table
 	rule.Family = family
 	rule.Priority = spec.Priority
@@ -489,7 +489,7 @@ func replaceRule(spec Rule, family int) error {
 func DeleteRule(family int, spec Rule) error {
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
-	rule.Mask = spec.Mask
+	rule.Mask = &spec.Mask
 	rule.Table = spec.Table
 	rule.Priority = spec.Priority
 	rule.Src = spec.From
