@@ -405,6 +405,8 @@ Agent Options
 * The new agent flag ``underlay-protocol`` allows selecting the IP family for the underlay. It defaults to IPv4.
 * ``k8s-api-server-urls``: This option specifies a list of URLs for Kubernetes API server instances to support high availability
   for the servers. The agent will fail over to an active instance in case of connectivity failures at runtime.
+* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
+  it only available when WireGuard and tunneling are enabled as well.
 
 Bugtool Options
 ~~~~~~~~~~~~~~~

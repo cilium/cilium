@@ -1215,7 +1215,7 @@
    * - :spelling:ignore:`encryption.strictMode`
      - Configure the WireGuard Pod2Pod strict mode.
      - object
-     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
+     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false,"ingress":{"enabled":false}}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
      - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
      - bool
@@ -1226,6 +1226,10 @@
      - ``""``
    * - :spelling:ignore:`encryption.strictMode.enabled`
      - Enable WireGuard Pod2Pod strict mode.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.strictMode.ingress.enabled`
+     - Enable strict ingress encryption. When enabled, all unencrypted Pod2Pod ingress traffic will be dropped. This option is only applicable when WireGuard and tunneling is enabled.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`

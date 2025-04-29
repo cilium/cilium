@@ -271,7 +271,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
-	if option.Config.EnableEncryptionStrictMode {
+	if option.Config.EnableEncryptionStrictEgress {
 		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"
 
 		// when parsing the user input we only accept ipv4 addresses

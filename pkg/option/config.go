@@ -758,8 +758,9 @@ const (
 	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
 	L2AnnouncerRetryPeriod = "l2-announcements-retry-period"
 
-	// EnableEncryptionStrictMode is the name of the option to enable strict encryption mode.
-	EnableEncryptionStrictMode = "enable-encryption-strict-mode"
+	// EnableEncryptionStrictEgress enables strict mode encryption enforcement for egress traffic.
+	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
+	EnableEncryptionStrictEgress = "enable-encryption-strict-mode"
 
 	// EncryptionStrictModeCIDR is the CIDR in which the strict encryption mode should be enforced.
 	EncryptionStrictModeCIDR = "encryption-strict-mode-cidr"
@@ -768,6 +769,11 @@ const (
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
+
+	// EnableEncryptionStrictIngress enables strict mode encryption enforcement for ingress traffic.
+	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
+	// This option is only applicable when encryption and tunneling is enabled.
+	EnableEncryptionStrictIngress = "enable-encryption-strict-mode-ingress"
 
 	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option. Set 0 to disable.
 	WireguardPersistentKeepalive = "wireguard-persistent-keepalive"
@@ -1489,8 +1495,9 @@ type DaemonConfig struct {
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
 
-	// EnableEncryptionStrictMode enables strict mode for encryption
-	EnableEncryptionStrictMode bool
+	// EnableEncryptionStrictEgress enables strict mode for egress traffic.
+	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
+	EnableEncryptionStrictEgress bool
 
 	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
 	WireguardTrackAllIPsFallback bool
@@ -1502,6 +1509,11 @@ type DaemonConfig struct {
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities bool
+
+	// EnableEncryptionStrictIngress enables strict mode encryption for ingress traffic.
+	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
+	// This option is only applicable when wireguard encryption and tunneling is enabled.
+	EnableEncryptionStrictIngress bool
 
 	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option.
 	WireguardPersistentKeepalive time.Duration
@@ -2857,8 +2869,8 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
-	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
-	if encryptionStrictModeEnabled {
+	encryptionStrictegressEnabled := vp.GetBool(EnableEncryptionStrictEgress)
+	if encryptionStrictegressEnabled {
 		if c.EnableIPv6 {
 			logger.Info("WireGuard encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
 		}
@@ -2874,7 +2886,15 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 
 		c.EncryptionStrictModeAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
-		c.EnableEncryptionStrictMode = encryptionStrictModeEnabled
+		c.EnableEncryptionStrictEgress = encryptionStrictegressEnabled
+	}
+
+	encryptionStrictIngressEnabled := vp.GetBool(EnableEncryptionStrictIngress)
+	if encryptionStrictIngressEnabled {
+		if !c.EnableWireguard {
+			logging.Fatal(logger, fmt.Sprintf("%s requires --%s enabled", EnableEncryptionStrictIngress, EnableWireguard))
+		}
+		c.EnableEncryptionStrictIngress = encryptionStrictIngressEnabled
 	}
 
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)

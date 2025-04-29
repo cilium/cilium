@@ -418,14 +418,17 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.NodeEncryptionOptOutLabels, defaults.NodeEncryptionOptOutLabels, "Label selector for nodes which will opt-out of node-to-node encryption")
 	option.BindEnv(vp, option.NodeEncryptionOptOutLabels)
 
-	flags.Bool(option.EnableEncryptionStrictMode, false, "Enable encryption strict mode")
-	option.BindEnv(vp, option.EnableEncryptionStrictMode)
+	flags.Bool(option.EnableEncryptionStrictEgress, false, "Enable encryption strict mode")
+	option.BindEnv(vp, option.EnableEncryptionStrictEgress)
 
 	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped")
 	option.BindEnv(vp, option.EncryptionStrictModeCIDR)
 
 	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
 	option.BindEnv(vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)
+
+	flags.Bool(option.EnableEncryptionStrictIngress, false, "Enable strict mode encryption enforcement for ingress traffic")
+	option.BindEnv(vp, option.EnableEncryptionStrictIngress)
 
 	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
@@ -1258,6 +1261,10 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
 		logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
+	}
+
+	if option.Config.EnableEncryptionStrictIngress && !option.Config.TunnelingEnabled() {
+		logging.Fatal(logger, "Strict ingress encryption requires tunneling to be enabled")
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
