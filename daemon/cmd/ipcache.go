@@ -4,19 +4,12 @@
 package cmd
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"io/fs"
-	"net"
 	"net/netip"
 
-	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/api/v1/models"
-	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -34,103 +27,6 @@ var (
 	restoredCIDRResource = ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "restored")
 	ingressResource      = ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "ingress")
 )
-
-func getIPHandler(d *Daemon, params GetIPParams) middleware.Responder {
-	listener := &ipCacheDumpListener{
-		d: d,
-	}
-	if params.Cidr != nil {
-		_, cidrFilter, err := net.ParseCIDR(*params.Cidr)
-		if err != nil {
-			return api.Error(GetIPBadRequestCode, err)
-		}
-		listener.cidrFilter = cidrFilter
-	}
-	if params.Labels != nil {
-		listener.labelsFilter = labels.NewLabelsFromModel(params.Labels)
-	}
-	d.ipcache.DumpToListener(listener)
-	if len(listener.entries) == 0 {
-		return NewGetIPNotFound()
-	}
-
-	return NewGetIPOK().WithPayload(listener.entries)
-}
-
-type ipCacheDumpListener struct {
-	cidrFilter   *net.IPNet
-	labelsFilter labels.Labels
-	d            *Daemon
-	entries      []*models.IPListEntry
-}
-
-// getIdentity implements IdentityGetter. It looks up identity by ID from
-// Cilium's identity cache.
-func (ipc *ipCacheDumpListener) getIdentity(securityIdentity uint32) (*identity.Identity, error) {
-	ident := ipc.d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
-	if ident == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
-	}
-	return ident, nil
-}
-
-// OnIPIdentityCacheChange is called by DumpToListenerLocked
-func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
-	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
-	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
-	cidr := cidrCluster.AsIPNet()
-
-	// only capture entries which are a subnet of cidrFilter
-	if ipc.cidrFilter != nil && !containsSubnet(*ipc.cidrFilter, cidr) {
-		return
-	}
-	// Only capture identities with requested labels
-	if ipc.labelsFilter != nil {
-		id, err := ipc.getIdentity(newID.ID.Uint32())
-		if err != nil {
-			return
-		}
-		for _, label := range ipc.labelsFilter {
-			if !id.Labels.Has(label) {
-				return
-			}
-		}
-	}
-
-	cidrStr := cidr.String()
-	identity := int64(newID.ID.Uint32())
-	hostIP := ""
-	if newHostIP != nil {
-		hostIP = newHostIP.String()
-	}
-
-	entry := &models.IPListEntry{
-		Cidr:       &cidrStr,
-		Identity:   &identity,
-		HostIP:     hostIP,
-		EncryptKey: int64(encryptKey),
-	}
-
-	if k8sMeta != nil {
-		entry.Metadata = &models.IPListEntryMetadata{
-			Source:    string(newID.Source),
-			Namespace: k8sMeta.Namespace,
-			Name:      k8sMeta.PodName,
-			// TODO (jrajahalme): Consider if named ports should be
-			//                    made visible in the model.
-		}
-	}
-
-	ipc.entries = append(ipc.entries, entry)
-}
-
-// containsSubnet returns true if 'outer' contains 'inner'
-func containsSubnet(outer, inner net.IPNet) bool {
-	outerOnes, outerBits := outer.Mask.Size()
-	innerOnes, innerBits := inner.Mask.Size()
-
-	return outerBits == innerBits && outerOnes <= innerOnes && outer.Contains(inner.IP)
-}
 
 // restoreLocalIdentities restores the local identity state in the
 // allocator and IPCache.
