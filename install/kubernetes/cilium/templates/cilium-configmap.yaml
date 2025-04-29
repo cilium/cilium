@@ -744,6 +744,10 @@ data:
   encryption-strict-mode-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
 {{- end }}
 
+{{- if .Values.encryption.strictMode.ingress.enabled }}
+  enable-encryption-strict-mode-ingress: {{ .Values.encryption.strictMode.ingress.enabled | quote }}
+{{- end }}
+
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
 {{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne $cniChainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"

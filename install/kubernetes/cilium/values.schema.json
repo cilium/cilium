@@ -1899,6 +1899,14 @@
             },
             "enabled": {
               "type": "boolean"
+            },
+            "ingress": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"

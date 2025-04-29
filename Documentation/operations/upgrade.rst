@@ -387,7 +387,8 @@ Helm Options
 
 Agent Options
 ~~~~~~~~~~~~~
-
+* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
+  is only available when WireGuard and tunneling are enabled as well.
 
 Cluster Mesh API Server Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

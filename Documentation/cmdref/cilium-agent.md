@@ -125,6 +125,7 @@ cilium-agent [flags]
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
       --enable-egress-gateway                                     Enable egress gateway
       --enable-encryption-strict-mode                             Enable encryption strict mode
+      --enable-encryption-strict-mode-ingress                     Enable strict mode encryption enforcement for ingress traffic
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-lockdown-on-policy-overflow               When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
