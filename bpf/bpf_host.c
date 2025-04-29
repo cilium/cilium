@@ -100,18 +100,17 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
 			*sec_identity = info->sec_identity;
-			if (*sec_identity) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "srcid_from_proxy"
-				 * (passed into this function) reports the src as
-				 * the host. So we can ignore the ipcache if it
-				 * reports the source as HOST_ID.
-				 */
-				if (*sec_identity != HOST_ID)
-					srcid_from_ipcache = *sec_identity;
-			}
+
+			/* When SNAT is enabled on traffic ingressing
+			 * into Cilium, all traffic from the world will
+			 * have a source IP of the host. It will only
+			 * actually be from the host if "srcid_from_proxy"
+			 * (passed into this function) reports the src as
+			 * the host. So we can ignore the ipcache if it
+			 * reports the source as HOST_ID.
+			 */
+			if (*sec_identity != HOST_ID)
+				srcid_from_ipcache = *sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
@@ -534,18 +533,16 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (info != NULL) {
 			*sec_identity = info->sec_identity;
 
-			if (*sec_identity) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "srcid_from_proxy"
-				 * (passed into this function) reports the src as
-				 * the host. So we can ignore the ipcache if it
-				 * reports the source as HOST_ID.
-				 */
-				if (*sec_identity != HOST_ID)
-					srcid_from_ipcache = *sec_identity;
-			}
+			/* When SNAT is enabled on traffic ingressing
+			 * into Cilium, all traffic from the world will
+			 * have a source IP of the host. It will only
+			 * actually be from the host if "srcid_from_proxy"
+			 * (passed into this function) reports the src as
+			 * the host. So we can ignore the ipcache if it
+			 * reports the source as HOST_ID.
+			 */
+			if (*sec_identity != HOST_ID)
+				srcid_from_ipcache = *sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, srcid_from_ipcache);
