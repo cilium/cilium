@@ -1582,4 +1582,30 @@ const (
 	CurrentVersion = "currentVersion"
 
 	PendingCompletions = "pendingCompletions"
+
+	Exists = "exists"
+
+	IPRules = "ipRules"
+
+	Rules = "rules"
+
+	SecID = "secID"
+
+	WrittenBytes = "writtenBytes"
+
+	TotalBytes = "totalBytes"
+
+	Destination = "destination"
+
+	LenEntries = "lenEntries"
+
+	FQDNSelector = "fqdnSelector"
+
+	MatchName = "matchName"
+
+	LenPrefixes = "lenPrefixes"
+
+	LookupIPAddrs = "lookupIPAddrs"
+
+	MatchPattern = "matchPattern"
 )

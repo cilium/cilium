@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -22,7 +23,8 @@ import (
 )
 
 func TestSetPortRulesForID(t *testing.T) {
-	re.InitRegexCompileLRU(1)
+	logger := hivetest.Logger(t)
+	re.InitRegexCompileLRU(logger, 1)
 	rules := policy.L7DataMap{}
 	epID := uint64(1)
 	pea := perEPAllow{}
@@ -83,7 +85,8 @@ func TestSetPortRulesForID(t *testing.T) {
 }
 
 func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
-	re.InitRegexCompileLRU(1)
+	logger := hivetest.Logger(t)
+	re.InitRegexCompileLRU(logger, 1)
 	rules := make(CachedSelectorREEntry)
 	epID := uint64(1)
 	pea := perEPAllow{}
@@ -116,6 +119,7 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 }
 
 func TestGeneratePattern(t *testing.T) {
+	logger := hivetest.Logger(t)
 	l7 := &policy.PerSelectorPolicy{
 		L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{
 			{MatchName: "example.name."},
@@ -129,7 +133,7 @@ func TestGeneratePattern(t *testing.T) {
 	matching := []string{"example.name.", "example.com.", "demo.io.", "demoo.tld.", "testpattern.com.", "pattern.com.", "a.b.cmiddle.io."}
 	notMatching := []string{"eexample.name.", "eexample.com.", "vdemo.io.", "demo.ioo.", "emoo.tld.", "test.ppattern.com.", "b.cmiddle.io."}
 
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 	pattern := GeneratePattern(l7)
 
 	regex, err := re.CompileRegex(pattern)
