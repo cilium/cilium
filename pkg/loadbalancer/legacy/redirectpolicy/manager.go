@@ -6,6 +6,7 @@ package redirectpolicy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -13,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -37,7 +37,6 @@ import (
 )
 
 var (
-	log                 = logging.DefaultLogger.WithField(logfields.LogSubsys, "redirectpolicy")
 	localRedirectSvcStr = "-local-redirect"
 )
 
@@ -68,6 +67,8 @@ type podID = k8s.ServiceID
 // For every local redirect policy configuration, it creates a
 // new lb.SVCTypeLocalRedirect service with a frontend that has at least one node-local backend.
 type Manager struct {
+	logger *slog.Logger
+
 	db *statedb.DB
 
 	// Service handler to manage service entries corresponding to redirect policies
@@ -103,8 +104,9 @@ type Manager struct {
 	metricsManager LRPMetrics
 }
 
-func NewRedirectPolicyManager(db *statedb.DB, svc svcManager, svcCache k8s.ServiceCache, lp statedb.Table[agentK8s.LocalPod], epM endpointManager, metricsManager LRPMetrics) *Manager {
+func NewRedirectPolicyManager(logger *slog.Logger, db *statedb.DB, svc svcManager, svcCache k8s.ServiceCache, lp statedb.Table[agentK8s.LocalPod], epM endpointManager, metricsManager LRPMetrics) *Manager {
 	return &Manager{
+		logger:                logger,
 		db:                    db,
 		svcManager:            svc,
 		svcCache:              svcCache,
@@ -144,8 +146,11 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 					err = rpm.skipLBMap.OpenOrCreate()
 				}
 				if err != nil {
-					log.WithError(err).Warn("failed to init cilium_skip_lb maps: " +
-						"policies with skipRedirectFromBackend flag set not supported")
+					rpm.logger.Warn(
+						"failed to init cilium_skip_lb maps: "+
+							"policies with skipRedirectFromBackend flag set not supported",
+						logfields.Error, err,
+					)
 				}
 
 			}
@@ -155,21 +160,25 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 		if rpm.noNetnsCookieSupport {
 			err := fmt.Errorf("policy with skipRedirectFromBackend flag set not applied" +
 				":`getsockopt() with SO_NETNS_COOKIE option not supported. Needs kernel version >= 5.12")
-			log.WithFields(logrus.Fields{
-				logfields.LRPType:      config.lrpType,
-				logfields.K8sNamespace: config.id.Namespace,
-				logfields.LRPName:      config.id.Name,
-			}).Error(err)
+			rpm.logger.Error(
+				"redirect policy",
+				logfields.Error, err,
+				logfields.LRPType, config.lrpType,
+				logfields.K8sNamespace, config.id.Namespace,
+				logfields.LRPName, config.id.Name,
+			)
 			return false, err
 		}
 		if rpm.skipLBMap == nil {
 			err := fmt.Errorf("policy with skipRedirectFromBackend flag set not applied:" +
 				"requires cilium_skip_lb maps")
-			log.WithFields(logrus.Fields{
-				logfields.LRPType:      config.lrpType,
-				logfields.K8sNamespace: config.id.Namespace,
-				logfields.LRPName:      config.id.Name,
-			}).Error(err)
+			rpm.logger.Error(
+				"redirect policy",
+				logfields.Error, err,
+				logfields.LRPType, config.lrpType,
+				logfields.K8sNamespace, config.id.Namespace,
+				logfields.LRPName, config.id.Name,
+			)
 			return false, err
 		}
 	}
@@ -177,7 +186,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	_, ok := rpm.policyConfigs[config.id]
 	if ok {
 		// TODO Existing policy update
-		log.Warn("Local redirect policy updates are not handled")
+		rpm.logger.Warn("Local redirect policy updates are not handled")
 		return true, nil
 	}
 
@@ -191,15 +200,16 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 
 	switch config.lrpType {
 	case lrpConfigTypeAddr:
-		log.WithFields(logrus.Fields{
-			logfields.LRPType:                  config.lrpType,
-			logfields.K8sNamespace:             config.id.Namespace,
-			logfields.LRPName:                  config.id.Name,
-			logfields.LRPFrontends:             config.frontendMappings,
-			logfields.LRPLocalEndpointSelector: config.backendSelector,
-			logfields.LRPBackendPorts:          config.backendPorts,
-			logfields.LRPFrontendType:          config.frontendType,
-		}).Debug("Add local redirect policy")
+		rpm.logger.Debug(
+			"Add local redirect policy",
+			logfields.LRPType, config.lrpType,
+			logfields.K8sNamespace, config.id.Namespace,
+			logfields.LRPName, config.id.Name,
+			logfields.LRPFrontends, config.frontendMappings,
+			logfields.LRPLocalEndpointSelector, config.backendSelector,
+			logfields.LRPBackendPorts, config.backendPorts,
+			logfields.LRPFrontendType, config.frontendType,
+		)
 		pods, err := rpm.getLocalPodsForPolicy(&config)
 		if err != nil {
 			return false, err
@@ -210,16 +220,17 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 		rpm.processConfig(&config, pods...)
 
 	case lrpConfigTypeSvc:
-		log.WithFields(logrus.Fields{
-			logfields.LRPType:                  config.lrpType,
-			logfields.K8sNamespace:             config.id.Namespace,
-			logfields.LRPName:                  config.id.Name,
-			logfields.K8sSvcID:                 config.serviceID,
-			logfields.LRPFrontends:             config.frontendMappings,
-			logfields.LRPLocalEndpointSelector: config.backendSelector,
-			logfields.LRPBackendPorts:          config.backendPorts,
-			logfields.LRPFrontendType:          config.frontendType,
-		}).Debug("Add local redirect policy")
+		rpm.logger.Debug(
+			"Add local redirect policy",
+			logfields.LRPType, config.lrpType,
+			logfields.K8sNamespace, config.id.Namespace,
+			logfields.LRPName, config.id.Name,
+			logfields.K8sSvcID, config.serviceID,
+			logfields.LRPFrontends, config.frontendMappings,
+			logfields.LRPLocalEndpointSelector, config.backendSelector,
+			logfields.LRPBackendPorts, config.backendPorts,
+			logfields.LRPFrontendType, config.frontendType,
+		)
 
 		err := rpm.getAndUpsertPolicySvcConfig(&config)
 		if err != nil {
@@ -243,8 +254,10 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 	if storedConfig == nil {
 		return fmt.Errorf("local redirect policy to be deleted not found")
 	}
-	log.WithFields(logrus.Fields{"policyID": config.id}).
-		Debug("Delete local redirect policy")
+	rpm.logger.Debug(
+		"Delete local redirect policy",
+		logfields.PolicyID, config.id,
+	)
 
 	switch storedConfig.lrpType {
 	case lrpConfigTypeSvc:
@@ -420,18 +433,21 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 		addr, _ := netip.ParseAddr(podData.ips[0])
 		cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"addr": addr,
-			}).Debug("Track pod for endpoint metadata")
+			rpm.logger.Debug(
+				"Track pod for endpoint metadata",
+				logfields.Error, err,
+				logfields.Address, addr,
+			)
 			// Netns cookie not available yet.
 			// Track the pod for this policy in order to retrieve metadata via endpoint events.
 			pendingPolicies.Insert(config.id)
 			continue
 		}
-		log.WithFields(logrus.Fields{
-			logfields.K8sPodName:  pod.Name,
-			logfields.NetnsCookie: cookie,
-		}).Debug("Pod endpoint netNsCookie")
+		rpm.logger.Debug(
+			"Pod endpoint netNsCookie",
+			logfields.K8sPodName, pod.Name,
+			logfields.NetnsCookie, cookie,
+		)
 		podData.netnsCookie = cookie
 	}
 	if len(pendingPolicies) > 0 {
@@ -507,10 +523,11 @@ func (rpm *Manager) EndpointCreated(ep *endpoint.Endpoint) {
 				return
 			}
 			podData.netnsCookie = ep.NetNsCookie
-			log.WithFields(logrus.Fields{
-				"podID":               podID,
-				logfields.NetnsCookie: ep.NetNsCookie,
-			}).Debug("Endpoint event metadata")
+			rpm.logger.Debug(
+				"Endpoint event metadata",
+				logfields.Pod, podID,
+				logfields.NetnsCookie, ep.NetNsCookie,
+			)
 			rpm.processConfig(config, podData)
 		}
 	}
@@ -665,8 +682,11 @@ func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) 
 	found, err := rpm.svcManager.DeleteService(*frontend)
 	delete(rpm.policyFrontendsByHash, frontend.Hash())
 	if !found || err != nil {
-		log.WithError(err).Debugf("Local redirect service for policy %v not deleted",
-			config.id)
+		rpm.logger.Debug(
+			"Local redirect service for policy not deleted",
+			logfields.Error, err,
+			logfields.PolicyID, config.id,
+		)
 	}
 	if config.skipRedirectFromBackend {
 		// Delete skip_lb map entries.
@@ -687,14 +707,19 @@ func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping
 		// No backends so remove the service entry.
 		found, err := rpm.svcManager.DeleteService(*frontendMapping.feAddr)
 		if !found || err != nil {
-			log.WithError(err).Errorf("Local redirect service for policy (%v)"+
-				" with frontend (%v) not deleted", config.id, frontendMapping.feAddr)
+			rpm.logger.Error(
+				"Local redirect service for policy not deleted with frontend not deleted",
+				logfields.Error, err,
+				logfields.PolicyID, config.id,
+				logfields.Frontend, frontendMapping.feAddr,
+			)
 		}
 		if config.lrpType == lrpConfigTypeSvc {
 			if restored := rpm.svcCache.EnsureService(*config.serviceID, lock.NewStoppableWaitGroup()); restored {
-				log.WithFields(logrus.Fields{
-					logfields.K8sSvcID: *config.serviceID,
-				}).Info("Restored service")
+				rpm.logger.Info(
+					"Restored service",
+					logfields.K8sSvcID, *config.serviceID,
+				)
 			}
 		}
 	}
@@ -719,9 +744,10 @@ func (rpm *Manager) deletePolicyService(config *LRPConfig) {
 	swg := lock.NewStoppableWaitGroup()
 	svcID := *config.serviceID
 	if restored := rpm.svcCache.EnsureService(svcID, swg); restored {
-		log.WithFields(logrus.Fields{
-			logfields.K8sSvcID: svcID,
-		}).Debug("Restored service")
+		rpm.logger.Debug(
+			"Restored service",
+			logfields.K8sSvcID, svcID,
+		)
 	}
 }
 
@@ -777,11 +803,13 @@ func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
 func (rpm *Manager) upsertPolicyMapping(config *LRPConfig, feMapping *feMapping) {
 	if config.skipRedirectFromBackend {
 		if err := rpm.plumbSkipLBEntries(feMapping); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.LRPType:      config.lrpType,
-				logfields.K8sNamespace: config.id.Namespace,
-				logfields.LRPName:      config.id.Name,
-			}).Error("LRP not applied due to error in plumbing skip_lb map")
+			rpm.logger.Error(
+				"LRP not applied due to error in plumbing skip_lb map",
+				logfields.Error, err,
+				logfields.LRPType, config.lrpType,
+				logfields.K8sNamespace, config.id.Namespace,
+				logfields.LRPName, config.id.Name,
+			)
 			return
 		}
 	}
@@ -816,9 +844,12 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 
 	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {
 		if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
-			log.WithError(err).Debug("Error while inserting service in LB map")
+			rpm.logger.Debug(
+				"Error while inserting service in LB map",
+				logfields.Error, err,
+			)
 		} else {
-			log.WithError(err).Error("Error while inserting service in LB map")
+			rpm.logger.Error("Error while inserting service in LB map", logfields.Error, err)
 		}
 	}
 }
@@ -849,9 +880,11 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 			addr, _ := netip.ParseAddr(podData.ips[0])
 			cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
 			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					"addr": addr,
-				}).Debug("Track pod for endpoint metadata")
+				rpm.logger.Debug(
+					"Track pod for endpoint metadata",
+					logfields.Error, err,
+					logfields.Address, addr,
+				)
 				// Netns cookie not available yet.
 				// Track the pod for this policy in order to retrieve metadata via endpoint events.
 				podID := k8s.ServiceID{
@@ -868,10 +901,11 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 				}
 				continue
 			}
-			log.WithFields(logrus.Fields{
-				logfields.K8sPodName:  pod.Name,
-				logfields.NetnsCookie: cookie,
-			}).Debug("Pod endpoint netNsCookie")
+			rpm.logger.Debug(
+				"Pod endpoint netNsCookie",
+				logfields.K8sPodName, pod.Name,
+				logfields.NetnsCookie, cookie,
+			)
 			podData.netnsCookie = cookie
 		}
 
