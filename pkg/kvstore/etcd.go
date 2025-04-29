@@ -573,7 +573,7 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 		}()
 	}
 
-	ec.limiter = ciliumrate.NewAPILimiter(makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
+	ec.limiter = ciliumrate.NewAPILimiter(logger, makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
 		RateLimit:        rate.Limit(initialLimit),
 		RateBurst:        clientOptions.RateLimit,
 		ParallelRequests: clientOptions.MaxInflight,
