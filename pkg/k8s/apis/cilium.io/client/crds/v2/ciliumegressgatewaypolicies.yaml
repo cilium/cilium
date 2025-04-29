@@ -55,8 +55,10 @@ spec:
                   type: string
                 type: array
               egressGateway:
-                description: EgressGateway is the gateway node responsible for SNATing
-                  traffic.
+                description: |-
+                  EgressGateway is the gateway node responsible for SNATing traffic.
+                  In case multiple nodes are a match for the given set of labels, the first node
+                  in lexical ordering based on their name will be selected.
                 properties:
                   egressIP:
                     description: |-
@@ -150,6 +152,113 @@ spec:
                 required:
                 - nodeSelector
                 type: object
+              egressGateways:
+                default: []
+                description: |-
+                  Optional list of gateway nodes responsible for SNATing traffic.
+                  If this field has any entries the contents of the egressGateway field will be ignored.
+                  In case multiple nodes are a match for the given set of labels in each entry,
+                  the first node in lexical ordering based on their name will be selected for each entry.
+                items:
+                  description: |-
+                    EgressGateway identifies the node that should act as egress gateway for a
+                    given egress Gateway policy. In addition to that it also specifies the
+                    configuration of said node (which egress IP or network interface should be
+                    used to SNAT traffic).
+                  properties:
+                    egressIP:
+                      description: |-
+                        EgressIP is the source IP address that the egress traffic is SNATed
+                        with.
+
+                        Example:
+                        When set to "192.168.1.100", matching egress traffic will be
+                        redirected to the node matching the NodeSelector field and SNATed
+                        with IP address 192.168.1.100.
+
+                        When none of the Interface or EgressIP fields is specified, the
+                        policy will use the first IPv4 assigned to the interface with the
+                        default route.
+                      format: ipv4
+                      type: string
+                    interface:
+                      description: |-
+                        Interface is the network interface to which the egress IP address
+                        that the traffic is SNATed with is assigned.
+
+                        Example:
+                        When set to "eth1", matching egress traffic will be redirected to the
+                        node matching the NodeSelector field and SNATed with the first IPv4
+                        address assigned to the eth1 interface.
+
+                        When none of the Interface or EgressIP fields is specified, the
+                        policy will use the first IPv4 assigned to the interface with the
+                        default route.
+                      type: string
+                    nodeSelector:
+                      description: |-
+                        This is a label selector which selects the node that should act as
+                        egress gateway for the given policy.
+                        In case multiple nodes are selected, only the first one in the
+                        lexical ordering over the node names will be used.
+                        This field follows standard label selector semantics.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                enum:
+                                - In
+                                - NotIn
+                                - Exists
+                                - DoesNotExist
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            description: MatchLabelsValue represents the value from
+                              the MatchLabels {key,value} pair.
+                            maxLength: 63
+                            pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  required:
+                  - nodeSelector
+                  type: object
+                type: array
               excludedCIDRs:
                 description: |-
                   ExcludedCIDRs is a list of destination CIDRs that will be excluded

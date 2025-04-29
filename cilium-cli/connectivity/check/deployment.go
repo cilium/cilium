@@ -592,6 +592,7 @@ func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
 					},
 				},
 			},
+			EgressGateways: []ciliumv2.EgressGateway{},
 		},
 	}
 }
