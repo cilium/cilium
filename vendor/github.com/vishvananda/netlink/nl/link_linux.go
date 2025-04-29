@@ -144,7 +144,9 @@ const (
 	IFLA_MACVLAN_MACADDR
 	IFLA_MACVLAN_MACADDR_DATA
 	IFLA_MACVLAN_MACADDR_COUNT
-	IFLA_MACVLAN_MAX = IFLA_MACVLAN_FLAGS
+	IFLA_MACVLAN_BC_QUEUE_LEN
+	IFLA_MACVLAN_BC_QUEUE_LEN_USED
+	IFLA_MACVLAN_MAX = IFLA_MACVLAN_BC_QUEUE_LEN_USED
 )
 
 const (
@@ -321,7 +323,7 @@ const (
 const (
 	SizeofVfMac        = 0x24
 	SizeofVfVlan       = 0x0c
-	SizeofVfVlanInfo   = 0x0e
+	SizeofVfVlanInfo   = 0x10
 	SizeofVfTxRate     = 0x08
 	SizeofVfRate       = 0x0c
 	SizeofVfSpoofchk   = 0x08

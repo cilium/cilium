@@ -111,7 +111,7 @@ func (p *RouteSuitePrivileged) TestReplaceRoute(c *C) {
 	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
 }
 
-func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
+func testReplaceRule(c *C, mark uint32, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
@@ -133,7 +133,7 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 	c.Assert(exists, Equals, false)
 }
 
-func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
+func testReplaceRuleIPv6(c *C, mark uint32, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
@@ -437,7 +437,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 				r.Family = family
 				r.Priority = 1 // Must add priority and table otherwise it's auto-assigned
 				r.Table = 1
-				r.Mask = 0x5
+				r.Mask = func() *uint32 { a := uint32(0x5); return &a }()
 				addRule(t, r)
 				return r
 			},
@@ -455,7 +455,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 				r.Family = family
 				r.Priority = 1 // Must add priority, table, mask otherwise it's auto-assigned
 				r.Table = 1
-				r.Mask = 0xff
+				r.Mask = func() *uint32 { a := uint32(0xff); return &a }()
 				r.Mark = 0xbb
 				addRule(t, r)
 				return r

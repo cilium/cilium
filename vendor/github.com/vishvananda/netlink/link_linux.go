@@ -1733,15 +1733,9 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		data.AddRtAttr(nl.IFLA_IPVLAN_MODE, nl.Uint16Attr(uint16(link.Mode)))
 		data.AddRtAttr(nl.IFLA_IPVLAN_FLAG, nl.Uint16Attr(uint16(link.Flag)))
 	case *Macvlan:
-		if link.Mode != MACVLAN_MODE_DEFAULT {
-			data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
-			data.AddRtAttr(nl.IFLA_MACVLAN_MODE, nl.Uint32Attr(macvlanModes[link.Mode]))
-		}
+		addMacvlanAttrs(link, linkInfo)
 	case *Macvtap:
-		if link.Mode != MACVLAN_MODE_DEFAULT {
-			data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
-			data.AddRtAttr(nl.IFLA_MACVLAN_MODE, nl.Uint32Attr(macvlanModes[link.Mode]))
-		}
+		addMacvtapAttrs(link, linkInfo)
 	case *Geneve:
 		addGeneveAttrs(link, linkInfo)
 	case *Gretap:
@@ -1975,9 +1969,6 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	base.Flags = linkFlags(msg.Flags)
 	base.EncapType = msg.EncapType()
 	base.NetNsID = -1
-	if msg.Flags&unix.IFF_PROMISC != 0 {
-		base.Promisc = 1
-	}
 	if msg.Flags&unix.IFF_ALLMULTI != 0 {
 		base.Allmulti = 1
 	}
@@ -2164,6 +2155,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.Name = string(attr.Value[:len(attr.Value)-1])
 		case unix.IFLA_MTU:
 			base.MTU = int(native.Uint32(attr.Value[0:4]))
+		case unix.IFLA_PROMISCUITY:
+			base.Promisc = int(native.Uint32(attr.Value[0:4]))
 		case unix.IFLA_LINK:
 			base.ParentIndex = int(native.Uint32(attr.Value[0:4]))
 		case unix.IFLA_MASTER:
@@ -2494,6 +2487,16 @@ func (h *Handle) LinkSetGuard(link Link, mode bool) error {
 	return h.setProtinfoAttr(link, mode, nl.IFLA_BRPORT_GUARD)
 }
 
+// LinkSetBRSlaveGroupFwdMask set the group_fwd_mask of a bridge slave interface
+func LinkSetBRSlaveGroupFwdMask(link Link, mask uint16) error {
+	return pkgHandle.LinkSetBRSlaveGroupFwdMask(link, mask)
+}
+
+// LinkSetBRSlaveGroupFwdMask set the group_fwd_mask of a bridge slave interface
+func (h *Handle) LinkSetBRSlaveGroupFwdMask(link Link, mask uint16) error {
+	return h.setProtinfoAttrRawVal(link, nl.Uint16Attr(mask), nl.IFLA_BRPORT_GROUP_FWD_MASK)
+}
+
 func LinkSetFastLeave(link Link, mode bool) error {
 	return pkgHandle.LinkSetFastLeave(link, mode)
 }
@@ -2558,7 +2561,7 @@ func (h *Handle) LinkSetBrNeighSuppress(link Link, mode bool) error {
 	return h.setProtinfoAttr(link, mode, nl.IFLA_BRPORT_NEIGH_SUPPRESS)
 }
 
-func (h *Handle) setProtinfoAttr(link Link, mode bool, attr int) error {
+func (h *Handle) setProtinfoAttrRawVal(link Link, val []byte, attr int) error {
 	base := link.Attrs()
 	h.ensureIndex(base)
 	req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
@@ -2568,13 +2571,16 @@ func (h *Handle) setProtinfoAttr(link Link, mode bool, attr int) error {
 	req.AddData(msg)
 
 	br := nl.NewRtAttr(unix.IFLA_PROTINFO|unix.NLA_F_NESTED, nil)
-	br.AddRtAttr(attr, boolToByte(mode))
+	br.AddRtAttr(attr, val)
 	req.AddData(br)
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+func (h *Handle) setProtinfoAttr(link Link, mode bool, attr int) error {
+	return h.setProtinfoAttrRawVal(link, boolToByte(mode), attr)
 }
 
 // LinkSetTxQLen sets the transaction queue length for the link.
@@ -2941,9 +2947,28 @@ func parseIPVtapData(link Link, data []syscall.NetlinkRouteAttr) {
 	}
 }
 
+func addMacvtapAttrs(macvtap *Macvtap, linkInfo *nl.RtAttr) {
+	addMacvlanAttrs(&macvtap.Macvlan, linkInfo)
+}
+
 func parseMacvtapData(link Link, data []syscall.NetlinkRouteAttr) {
 	macv := link.(*Macvtap)
 	parseMacvlanData(&macv.Macvlan, data)
+}
+
+func addMacvlanAttrs(macvlan *Macvlan, linkInfo *nl.RtAttr) {
+	var data *nl.RtAttr
+
+	if macvlan.Mode != MACVLAN_MODE_DEFAULT || macvlan.BCQueueLen > 0 {
+		data = linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+	}
+
+	if macvlan.Mode != MACVLAN_MODE_DEFAULT {
+		data.AddRtAttr(nl.IFLA_MACVLAN_MODE, nl.Uint32Attr(macvlanModes[macvlan.Mode]))
+	}
+	if macvlan.BCQueueLen > 0 {
+		data.AddRtAttr(nl.IFLA_MACVLAN_BC_QUEUE_LEN, nl.Uint32Attr(macvlan.BCQueueLen))
+	}
 }
 
 func parseMacvlanData(link Link, data []syscall.NetlinkRouteAttr) {
@@ -2973,6 +2998,10 @@ func parseMacvlanData(link Link, data []syscall.NetlinkRouteAttr) {
 			for _, macDatum := range macs {
 				macv.MACAddrs = append(macv.MACAddrs, net.HardwareAddr(macDatum.Value[0:6]))
 			}
+		case nl.IFLA_MACVLAN_BC_QUEUE_LEN:
+			macv.BCQueueLen = native.Uint32(datum.Value[0:4])
+		case nl.IFLA_MACVLAN_BC_QUEUE_LEN_USED:
+			macv.UsedBCQueueLen = native.Uint32(datum.Value[0:4])
 		}
 	}
 }
@@ -3541,6 +3570,9 @@ func addBridgeAttrs(bridge *Bridge, linkInfo *nl.RtAttr) {
 	if bridge.VlanDefaultPVID != nil {
 		data.AddRtAttr(nl.IFLA_BR_VLAN_DEFAULT_PVID, nl.Uint16Attr(*bridge.VlanDefaultPVID))
 	}
+	if bridge.GroupFwdMask != nil {
+		data.AddRtAttr(nl.IFLA_BR_GROUP_FWD_MASK, nl.Uint16Attr(*bridge.GroupFwdMask))
+	}
 }
 
 func parseBridgeData(bridge Link, data []syscall.NetlinkRouteAttr) {
@@ -3562,6 +3594,9 @@ func parseBridgeData(bridge Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_BR_VLAN_DEFAULT_PVID:
 			vlanDefaultPVID := native.Uint16(datum.Value[0:2])
 			br.VlanDefaultPVID = &vlanDefaultPVID
+		case nl.IFLA_BR_GROUP_FWD_MASK:
+			mask := native.Uint16(datum.Value[0:2])
+			br.GroupFwdMask = &mask
 		}
 	}
 }
@@ -3686,8 +3721,7 @@ func parseXfrmiData(link Link, data []syscall.NetlinkRouteAttr) {
 	}
 }
 
-// LinkSetBondSlave add slave to bond link via ioctl interface.
-func LinkSetBondSlave(link Link, master *Bond) error {
+func ioctlBondSlave(cmd uintptr, link Link, master *Bond) error {
 	fd, err := getSocketUDP()
 	if err != nil {
 		return err
@@ -3695,10 +3729,38 @@ func LinkSetBondSlave(link Link, master *Bond) error {
 	defer syscall.Close(fd)
 
 	ifreq := newIocltSlaveReq(link.Attrs().Name, master.Attrs().Name)
-
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), unix.SIOCBONDENSLAVE, uintptr(unsafe.Pointer(ifreq)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), cmd, uintptr(unsafe.Pointer(ifreq)))
 	if errno != 0 {
-		return fmt.Errorf("Failed to enslave %q to %q, errno=%v", link.Attrs().Name, master.Attrs().Name, errno)
+		return fmt.Errorf("errno=%v", errno)
+	}
+	return nil
+}
+
+// LinkSetBondSlaveActive sets specified slave to ACTIVE in an `active-backup` bond link via ioctl interface.
+//
+//	Multiple calls keeps the status unchanged(shown in the unit test).
+func LinkSetBondSlaveActive(link Link, master *Bond) error {
+	err := ioctlBondSlave(unix.SIOCBONDCHANGEACTIVE, link, master)
+	if err != nil {
+		return fmt.Errorf("Failed to set slave %q active in %q, %v", link.Attrs().Name, master.Attrs().Name, err)
+	}
+	return nil
+}
+
+// LinkSetBondSlave add slave to bond link via ioctl interface.
+func LinkSetBondSlave(link Link, master *Bond) error {
+	err := ioctlBondSlave(unix.SIOCBONDENSLAVE, link, master)
+	if err != nil {
+		return fmt.Errorf("Failed to enslave %q to %q, %v", link.Attrs().Name, master.Attrs().Name, err)
+	}
+	return nil
+}
+
+// LinkSetBondSlave removes specified slave from bond link via ioctl interface.
+func LinkDelBondSlave(link Link, master *Bond) error {
+	err := ioctlBondSlave(unix.SIOCBONDRELEASE, link, master)
+	if err != nil {
+		return fmt.Errorf("Failed to del slave %q from %q, %v", link.Attrs().Name, master.Attrs().Name, err)
 	}
 	return nil
 }

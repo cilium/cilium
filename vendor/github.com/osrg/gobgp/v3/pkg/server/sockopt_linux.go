@@ -79,7 +79,7 @@ func setTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
 	if err := sc.Control(func(s uintptr) {
 		opt := unix.TCP_MD5SIG
 
-		if t.Prefixlen != 0 {
+		if strings.Contains(address, "/") {
 			opt = unix.TCP_MD5SIG_EXT
 		}
 

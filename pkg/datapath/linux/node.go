@@ -1581,8 +1581,6 @@ func NodeEnsureLocalRoutingRule() error {
 		Table:    unix.RT_TABLE_LOCAL,
 		Priority: linux_defaults.RulePriorityLocalLookup,
 		Protocol: linux_defaults.RTProto,
-		Mark:     -1,
-		Mask:     -1,
 	}
 
 	if option.Config.EnableIPv4 {
