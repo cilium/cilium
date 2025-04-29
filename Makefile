@@ -15,6 +15,7 @@ include Makefile.defs
 SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
+SUBDIR_BPF := bpf
 
 ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
@@ -80,7 +81,7 @@ build-container-hubble-relay:
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
-tests-privileged: ## Run Go tests including ones that require elevated privileges.
+tests-privileged: bpf-static ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
 	## We split tests into two parts: one that can be run in parallel
 	## and tests that cannot be run in parallel with other packages
@@ -93,6 +94,9 @@ tests-privileged: ## Run Go tests including ones that require elevated privilege
 	tail -n+2 coverage2.out >> coverage.out
 	rm coverage2.out
 	$(MAKE) generate-cov
+
+bpf-static: ## Build statically-compiled BPF objects needed by unit tests.
+	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_BPF) bpf_sock_term.o
 
 start-kvstores: ## Start running kvstores (etcd container) for integration tests.
 ifeq ($(SKIP_KVSTORES),"false")
@@ -134,12 +138,12 @@ integration-tests: start-kvstores ## Run Go tests including ones that are marked
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
-bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repository.
-	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
+bench: start-kvstores bpf-static ## Run benchmarks for Cilium integration-tests in the repository.
+	PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 	$(MAKE) stop-kvstores
 
-bench-privileged: ## Run benchmarks for privileged tests.
-	PRIVILEGED_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
+bench-privileged: bpf-static ## Run benchmarks for privileged tests.
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 
 clean-tags: ## Remove all the tags files from the repository.
 	@$(ECHO_CLEAN) tags
