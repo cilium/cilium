@@ -14,6 +14,7 @@ type ipamMetrics struct {
 	UsedIPs             metric.DeletableVec[metric.Gauge]
 	MatchingServices    metric.Gauge
 	UnsatisfiedServices metric.Gauge
+	EventProcessingTime metric.Vec[metric.Observer]
 }
 
 func newMetrics() *ipamMetrics {
@@ -53,5 +54,12 @@ func newMetrics() *ipamMetrics {
 			Name:       "services_unsatisfied",
 			Help:       "The number of services which did not receive all requested IPs",
 		}),
+		EventProcessingTime: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: metrics.Namespace + "_lbipam_event_processing_time_seconds",
+			Namespace:  metrics.Namespace,
+			Subsystem:  "lbipam",
+			Name:       "event_processing_time_seconds",
+			Help:       "The time taken to process an event",
+		}, []string{"event", "resource"}),
 	}
 }
