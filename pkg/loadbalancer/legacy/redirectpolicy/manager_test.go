@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,6 +42,7 @@ type ManagerSuite struct {
 
 func setupManagerSuite(tb testing.TB) *ManagerSuite {
 	testutils.PrivilegedTest(tb)
+	logger := hivetest.Logger(tb)
 
 	m := &ManagerSuite{}
 	m.svc = &fakeSvcManager{}
@@ -49,7 +51,7 @@ func setupManagerSuite(tb testing.TB) *ManagerSuite {
 	m.db = statedb.New()
 	m.pods, err = agentk8s.NewPodTable(m.db)
 	require.NoError(tb, err, "NewPodTable")
-	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
+	m.rpm = NewRedirectPolicyManager(logger, m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
@@ -545,6 +547,7 @@ func TestManager_AddrMatcherConfigSinglePortMulPods(t *testing.T) {
 // Tests add redirect policy, add pod, delete pod and delete redirect policy events
 // for an addressMatcher config with a frontend having multiple named ports.
 func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
+	logger := hivetest.Logger(t)
 	m := setupManagerSuite(t)
 	txn := m.db.WriteTxn(m.pods)
 	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod1})
@@ -610,7 +613,7 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 				require.Equal(t, expectedbes[i], feM.podBackends[i])
 			}
 		default:
-			log.Errorf("Unknown port %s", feM.fePort)
+			logger.Error(fmt.Sprintf("Unknown port %s", feM.fePort))
 		}
 	}
 	require.Len(t, m.rpm.policyPods, 1)
@@ -629,6 +632,7 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 // Tests add redirect policy for an addressMatcher config with a frontend having
 // multiple named ports and multiple pods upon AddRedirectPolicy.
 func TestManager_AddrMatcherConfigMultiplePortsMulPods(t *testing.T) {
+	logger := hivetest.Logger(t)
 	m := setupManagerSuite(t)
 
 	// Update localPods to pod1 and pod2
@@ -708,7 +712,7 @@ func TestManager_AddrMatcherConfigMultiplePortsMulPods(t *testing.T) {
 				require.Equal(t, expectedbes[i], feM.podBackends[i])
 			}
 		default:
-			log.Errorf("Unknown port %s", feM.fePort)
+			logger.Error(fmt.Sprintf("Unknown port %s", feM.fePort))
 		}
 	}
 	require.Len(t, m.rpm.policyPods, 2)
@@ -813,6 +817,7 @@ func TestManager_OnAddandUpdatePod(t *testing.T) {
 // Tests policies with skipRedirectFromBackend flag set.
 func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	m := setupManagerSuite(t)
+	logger := hivetest.Logger(t)
 
 	// Sequence of events: Pods -> RedirectPolicy -> Endpoint
 	sMgr := &fakeSvcManager{}
@@ -840,7 +845,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 		K8sNamespace: pod.Namespace,
 		NetNsCookie:  1234,
 	}
-	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
+	m.rpm = NewRedirectPolicyManager(logger, m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
 
 	added, err := m.rpm.AddRedirectPolicy(pc)
@@ -903,7 +908,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	m.pods.DeleteAll(txn)
 	m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod})
 	txn.Commit()
-	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
+	m.rpm = NewRedirectPolicyManager(logger, m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 	lbEvents = make(chan skipLBParams)
 	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
 
@@ -969,7 +974,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 		m.pods.Insert(txn, agentk8s.LocalPod{Pod: pod})
 	}
 	txn.Commit()
-	m.rpm = NewRedirectPolicyManager(m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
+	m.rpm = NewRedirectPolicyManager(logger, m.db, m.svc, nil, m.pods, m.epM, NewLRPMetricsNoop())
 	lbEvents = make(chan skipLBParams)
 	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
 
