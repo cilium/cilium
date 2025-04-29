@@ -4,6 +4,8 @@
 package redirectpolicy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
@@ -27,6 +29,7 @@ var Cell = cell.Module(
 type lrpManagerParams struct {
 	cell.In
 
+	Logger         *slog.Logger
 	DB             *statedb.DB
 	Svc            service.ServiceManager
 	SvcCache       k8s.ServiceCache
@@ -41,7 +44,7 @@ func newLRPManager(params lrpManagerParams) *Manager {
 		// The experimental implementation is enabled, do nothing here.
 		return nil
 	}
-	return NewRedirectPolicyManager(params.DB, params.Svc, params.SvcCache, params.Pods, params.Ep, params.MetricsManager)
+	return NewRedirectPolicyManager(params.Logger, params.DB, params.Svc, params.SvcCache, params.Pods, params.Ep, params.MetricsManager)
 }
 
 func newLRPApiHandler(lrpManager *Manager) serviceapi.GetLrpHandler {

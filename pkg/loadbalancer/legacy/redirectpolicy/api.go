@@ -16,7 +16,7 @@ type getLrpHandler struct {
 }
 
 func (h *getLrpHandler) Handle(params service.GetLrpParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /lrp request")
+	h.lrpManager.logger.Debug("GET /lrp request", logfields.Params, params)
 	return service.NewGetLrpOK().WithPayload(getLRPs(h.lrpManager))
 }
 
