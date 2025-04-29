@@ -4,6 +4,8 @@
 package k8s
 
 import (
+	"fmt"
+
 	"github.com/cilium/hive/cell"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -13,11 +15,13 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
 const (
 	CiliumEndpointIndexIdentity = "identity"
 	PodNodeNameIndex            = "pod-node"
+	CiliumNodeIPIndex           = "node-ip"
 )
 
 var (
@@ -89,4 +93,21 @@ func PodNodeNameIndexFunc(obj any) ([]string, error) {
 		return []string{pod.Spec.NodeName}, nil
 	}
 	return []string{}, nil
+}
+
+// CiliumNodeIPIndexFunc indexes CiliumNode objects by their node addresses.
+// Only indices IPs of type NodeInternalIP or NodeExternalIP.
+func CiliumNodeIPIndexFunc(obj any) ([]string, error) {
+	node, ok := obj.(*cilium_api_v2.CiliumNode)
+	if !ok {
+		return nil, fmt.Errorf("expected *cilium_v2.CiliumNode, got %T", obj)
+	}
+	indices := make([]string, 0)
+	for _, addr := range node.Spec.Addresses {
+		if addr.AddrType() == addressing.NodeInternalIP ||
+			addr.AddrType() == addressing.NodeExternalIP {
+			indices = append(indices, addr.IP)
+		}
+	}
+	return indices, nil
 }
