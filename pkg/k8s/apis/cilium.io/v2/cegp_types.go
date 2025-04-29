@@ -63,7 +63,18 @@ type CiliumEgressGatewayPolicySpec struct {
 	ExcludedCIDRs []CIDR `json:"excludedCIDRs"`
 
 	// EgressGateway is the gateway node responsible for SNATing traffic.
+	// In case multiple nodes are a match for the given set of labels, the first node
+	// in lexical ordering based on their name will be selected.
 	EgressGateway *EgressGateway `json:"egressGateway"`
+
+	// Optional list of gateway nodes responsible for SNATing traffic.
+	// If this field has any entries the contents of the egressGateway field will be ignored.
+	// In case multiple nodes are a match for the given set of labels in each entry,
+	// the first node in lexical ordering based on their name will be selected for each entry.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={}
+	EgressGateways []EgressGateway `json:"egressGateways,omitempty"`
 }
 
 // EgressGateway identifies the node that should act as egress gateway for a
