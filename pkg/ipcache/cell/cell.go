@@ -8,10 +8,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	policyapi "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache/api"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/policy"
@@ -27,6 +30,7 @@ var Cell = cell.Module(
 		newIPCache,
 		newIPIdentityWatcher,
 		ipcache.NewIPIdentitySynchronizer,
+		newIPCacheAPIHandler,
 	),
 )
 
@@ -73,6 +77,26 @@ func newIPIdentityWatcher(in struct {
 	ClusterInfo cmtypes.ClusterInfo
 	IPCache     *ipcache.IPCache
 	Factory     store.Factory
-}) *ipcache.IPIdentityWatcher {
+},
+) *ipcache.IPIdentityWatcher {
 	return ipcache.NewIPIdentityWatcher(in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
+}
+
+type ipcacheAPIHandlerParams struct {
+	cell.In
+
+	IPCache           *ipcache.IPCache
+	IdentityAllocator identitycell.CachingIdentityAllocator
+}
+
+type ipcacheAPIHandlerOut struct {
+	cell.Out
+
+	PolicyGetIPHandler policyapi.GetIPHandler
+}
+
+func newIPCacheAPIHandler(params ipcacheAPIHandlerParams) ipcacheAPIHandlerOut {
+	return ipcacheAPIHandlerOut{
+		PolicyGetIPHandler: api.NewIPCacheGetIPHandler(params.IPCache, params.IdentityAllocator),
+	}
 }
