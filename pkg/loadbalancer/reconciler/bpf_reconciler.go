@@ -934,43 +934,47 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 }
 
 func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
-	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.LBAlgorithm)
-	if ops.cfg.AlgorithmAnnotation {
-		alg := fe.Service.GetLBAlgorithmAnnotation()
-		if alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
-			return alg
-		}
+	if !ops.cfg.AlgorithmAnnotation {
+		// Use the undefined algorithm to fall back to default when annotations are disabled.
+		return loadbalancer.SVCLoadBalancingAlgorithmUndef
 	}
-	return defaultAlgorithm
+	return fe.Service.GetLBAlgorithmAnnotation()
 }
 
 func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
-	if ops.lbAlgorithm(fe) != loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+	alg := ops.lbAlgorithm(fe)
+	switch {
+	// Wildcarded frontend is not exposed for external traffic.
+	case fe.Address.AddrCluster.IsUnspecified():
 		return false
-	}
+
+	// Maglev algorithm annotation overrides rest of the checks.
+	case alg != loadbalancer.SVCLoadBalancingAlgorithmUndef:
+		return alg == loadbalancer.SVCLoadBalancingAlgorithmMaglev
+
+	case ops.cfg.LBAlgorithm != loadbalancer.LBAlgorithmMaglev:
+		return false
+
 	// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is
 	// enabled because ClusterIP can also be accessed from outside with this
 	// setting. We don't do it unconditionally to avoid increasing memory
 	// footprint.
-	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP {
+	case fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP:
 		return false
-	}
-	// Wildcarded frontend is not exposed for external traffic.
-	if fe.Address.AddrCluster.IsUnspecified() {
-		return false
-	}
-	// Only provision the Maglev LUT for service types which are reachable
-	// from outside the node.
-	switch fe.Type {
-	case loadbalancer.SVCTypeClusterIP,
-		loadbalancer.SVCTypeNodePort,
-		loadbalancer.SVCTypeLoadBalancer,
-		loadbalancer.SVCTypeHostPort,
-		loadbalancer.SVCTypeExternalIPs:
-		return true
-	}
-	return false
 
+	default:
+		// Only provision the Maglev LUT for service types which are reachable
+		// from outside the node.
+		switch fe.Type {
+		case loadbalancer.SVCTypeClusterIP,
+			loadbalancer.SVCTypeNodePort,
+			loadbalancer.SVCTypeLoadBalancer,
+			loadbalancer.SVCTypeHostPort,
+			loadbalancer.SVCTypeExternalIPs:
+			return true
+		}
+		return false
+	}
 }
 
 func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue) error {
