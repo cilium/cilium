@@ -468,11 +468,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, lnc, tunnelConfig); err != nil {
+	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
 		return err
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
+	if err := reinitializeOverlay(ctx, l.logger, lnc, tunnelConfig); err != nil {
 		return err
 	}
 
