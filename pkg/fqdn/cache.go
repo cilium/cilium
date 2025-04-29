@@ -5,6 +5,8 @@ package fqdn
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"regexp"
@@ -806,6 +808,7 @@ func (zombie *DNSZombieMapping) DeepCopy() *DNSZombieMapping {
 // allowing us to skip deleting an IP from the global DNS cache to avoid
 // breaking connections that outlast the DNS TTL.
 type DNSZombieMappings struct {
+	logger *slog.Logger
 	lock.Mutex
 	deletes        map[netip.Addr]*DNSZombieMapping
 	lastCTGCUpdate time.Time
@@ -821,8 +824,9 @@ type DNSZombieMappings struct {
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
-func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
+func NewDNSZombieMappings(logger *slog.Logger, max, perHostLimit int) *DNSZombieMappings {
 	return &DNSZombieMappings{
+		logger:       logger,
 		deletes:      make(map[netip.Addr]*DNSZombieMapping),
 		max:          max,
 		perHostLimit: perHostLimit,
@@ -1031,7 +1035,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 			}
 		}
 		if warnActiveDNSEntries {
-			log.Warningf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost)
+			zombies.logger.Warn(fmt.Sprintf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost))
 		}
 
 		for _, dead := range dead[deadIdx:] {
@@ -1053,7 +1057,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		dead = append(dead, alive[:overLimit]...)
 		alive = alive[overLimit:]
 		if dead[len(dead)-1].AliveAt.After(zombies.lastCTGCUpdate) {
-			log.Warning("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
+			zombies.logger.Warn("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
 		}
 	}
 

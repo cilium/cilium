@@ -65,6 +65,8 @@ type testData struct {
 }
 
 func newTestData(logger *slog.Logger) *testData {
+	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
+
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
 		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, api.NewPolicyMetricsNoop()),
@@ -237,10 +239,6 @@ func (p *testPolicyContextType) GetLogger() *slog.Logger {
 
 func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
-}
-
-func init() {
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
 
 // Tests in this file:

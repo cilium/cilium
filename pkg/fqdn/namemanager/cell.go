@@ -5,6 +5,7 @@ package namemanager
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 
@@ -53,6 +54,7 @@ type NameManagerConfig struct {
 type ManagerParams struct {
 	cell.In
 
+	Logger  *slog.Logger
 	Config  NameManagerConfig
 	IPCache ipc
 	EPMgr   endpoints

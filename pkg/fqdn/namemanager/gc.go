@@ -159,8 +159,12 @@ func (n *manager) doGC(ctx context.Context) error {
 		// namesToClean is only used for logging after this so we can reslice it in place
 		namesToCleanSlice = namesToCleanSlice[:20]
 	}
-	log.WithField(logfields.Controller, dnsGCJobName).Infof(
-		"FQDN garbage collector work deleted %d name entries: %s", namesCount, strings.Join(namesToCleanSlice, ","))
+	n.logger.Info(
+		"FQDN garbage collector work deleted entries",
+		logfields.Controller, dnsGCJobName,
+		logfields.LenEntries, namesCount,
+		logfields.Entries, strings.Join(namesToCleanSlice, ","),
+	)
 
 	// Remove any now-stale ipcache metadata.
 	// Need to RLock here so we don't race on re-insertion.
@@ -184,11 +188,14 @@ func (n *manager) StartGC(ctx context.Context) {
 func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	if preCachePath != "" {
-		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
+		n.logger.Info("Reading toFQDNs pre-cache data")
 		precache, err := readPreCache(preCachePath)
 		if err != nil {
 			// FIXME: add a link to the "documented format"
-			log.WithError(err).WithField(logfields.Path, preCachePath).Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format")
+			n.logger.Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format",
+				logfields.Error, err,
+				logfields.Path, preCachePath,
+			)
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
@@ -234,12 +241,15 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 		// correct identities into IPCache
 		oldSelectors, err := restoreSelectors(checkpointPath)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, checkpointPath).Error("Failed to restore FQDN selectors. " +
-				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration")
+			n.logger.Error("Failed to restore FQDN selectors. "+
+				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration",
+				logfields.Error, err,
+				logfields.Path, checkpointPath,
+			)
 			return
 		}
 		if len(oldSelectors) == 0 {
-			log.Info("No FQDN selectors to restore from previous Cilium v1.15 installations")
+			n.logger.Info("No FQDN selectors to restore from previous Cilium v1.15 installations")
 			return
 		}
 
@@ -251,7 +261,7 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 		// will use different identities for the prefixes in IPCache.
 		// These restored labels are removed in CompleteBootstrap, which is invoked after the real
 		// labels have been discovered in endpoint regeneration.
-		log.Info("Detected upgrade from Cilium v1.15. Building IPCache metadata from restored FQDN selectors")
+		n.logger.Info("Detected upgrade from Cilium v1.15. Building IPCache metadata from restored FQDN selectors")
 
 		ipsToNames := n.cache.GetIPs()
 		ipcacheUpdates := make([]ipcache.MU, 0, len(ipsToNames))

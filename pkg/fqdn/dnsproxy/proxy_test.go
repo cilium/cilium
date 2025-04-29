@@ -60,6 +60,8 @@ type DNSProxyTestSuite struct {
 func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	testutils.PrivilegedTest(tb)
 
+	logger := hivetest.Logger(tb)
+
 	s := &DNSProxyTestSuite{}
 
 	// Add these identities
@@ -86,53 +88,44 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		ConcurrencyLimit:       0,
 		ConcurrencyGracePeriod: 0,
 	}
-	proxy := NewDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
-		// LookupEPByIP
-		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
-			if s.restoring {
-				return nil, false, fmt.Errorf("No EPs available when restoring")
+	proxy := NewDNSProxy(logger, dnsProxyConfig, func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+		if s.restoring {
+			return nil, false, fmt.Errorf("No EPs available when restoring")
+		}
+		model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+		ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+		ep.Start(uint16(model.ID))
+		tb.Cleanup(ep.Stop)
+		return ep, false, err
+	}, func(ip netip.Addr) (ipcache.Identity, bool) {
+		DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
+		switch {
+		case ip.String() == DNSServerListenerAddr.IP.String():
+			ident := ipcache.Identity{
+				ID:     dstID1,
+				Source: source.Unspec,
 			}
-			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
-			ep.Start(uint16(model.ID))
-			tb.Cleanup(ep.Stop)
-			return ep, false, err
-		},
-		// LookupSecIDByIP
-		func(ip netip.Addr) (ipcache.Identity, bool) {
-			DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
-			switch {
-			case ip.String() == DNSServerListenerAddr.IP.String():
-				ident := ipcache.Identity{
-					ID:     dstID1,
-					Source: source.Unspec,
-				}
-				return ident, true
-			default:
-				ident := ipcache.Identity{
-					ID:     dstID2,
-					Source: source.Unspec,
-				}
-				return ident, true
+			return ident, true
+		default:
+			ident := ipcache.Identity{
+				ID:     dstID2,
+				Source: source.Unspec,
 			}
-		},
-		// LookupIPsBySecID
-		func(nid identity.NumericIdentity) []string {
-			DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
-			switch nid {
-			case dstID1:
-				return []string{DNSServerListenerAddr.IP.String()}
-			case dstID2:
-				return []string{"127.0.0.1", "127.0.0.2"}
-			default:
-				return nil
-			}
-		},
-		// NotifyOnDNSMsg
-		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
+			return ident, true
+		}
+	}, func(nid identity.NumericIdentity) []string {
+		DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
+		switch nid {
+		case dstID1:
+			return []string{DNSServerListenerAddr.IP.String()}
+		case dstID2:
+			return []string{"127.0.0.1", "127.0.0.2"}
+		default:
 			return nil
-		},
-	)
+		}
+	}, func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
+		return nil
+	})
 	err := proxy.Listen()
 	require.NoError(tb, err, "error listening for DNS requests")
 	s.proxy = proxy
