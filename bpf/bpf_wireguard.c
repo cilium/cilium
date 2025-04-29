@@ -266,6 +266,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
+	/* mark packet as decrypted by wireguard */
+	ctx->mark = MARK_MAGIC_WG_DECRYPTED;
+
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):

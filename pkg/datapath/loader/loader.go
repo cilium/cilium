@@ -775,21 +775,12 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 			)
 		}
 	}
-	// Attach/detach cil_from_wireguard to/from ingress.
-	if option.Config.NeedIngressOnWireGuardDevice() {
-		if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
-			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
-			return fmt.Errorf("interface %s ingress: %w", device, err)
-		}
-	} else {
-		if err := detachSKBProgram(logger, device, symbolFromWireguard,
-			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-			logger.Error("",
-				logfields.Error, err,
-				logfields.Device, device,
-			)
-		}
+	// Attach cil_from_wireguard to ingress.
+	if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
+		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
+
 	// Cleanup previous cil_from_netdev from v1.17.
 	// TODO: remove this in v1.19/v1.18.1.
 	if err := detachSKBProgram(logger, device, symbolFromHostNetdevEp,
