@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -67,6 +68,8 @@ type statusParams struct {
 
 	Config       Config
 	DaemonConfig *option.DaemonConfig
+
+	DaemonConfigPromise promise.Promise[*option.DaemonConfig]
 
 	AuthManager      *auth.AuthManager
 	BigTCPConfig     *bigtcp.Configuration
@@ -116,6 +119,12 @@ func newStatusCollector(params statusParams) StatusCollector {
 	}
 
 	params.JobGroup.Add(job.OneShot("probes", func(ctx context.Context, health cell.Health) error {
+		// Wait for map initialization in daemon (lbmap.Init) to prevent data race (we use daemonconfig promise to avoid cyclic dependencies)
+		// TODO: remove once map initialization is modularized
+		if _, err := params.DaemonConfigPromise.Await(ctx); err != nil {
+			return fmt.Errorf("failed to wait for daemon: %w", err)
+		}
+
 		params.Logger.Debug("Starting probes")
 		collector.statusCollector.StartProbes(collector.getProbes())
 		defer collector.statusCollector.Close()
