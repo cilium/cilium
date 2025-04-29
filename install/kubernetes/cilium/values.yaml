@@ -1093,6 +1093,11 @@ encryption:
     # -- Allow dynamic lookup of remote node identities.
     # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
     allowRemoteNodeIdentities: false
+    ingress:
+      # -- Enable strict ingress encryption.
+      # When enabled, all unencrypted overlay ingress traffic will be dropped.
+      # This option is only applicable when WireGuard and tunneling are enabled.
+      enabled: false
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
     keyFile: keys

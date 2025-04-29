@@ -400,7 +400,9 @@ Helm Options
 
 Agent Options
 ~~~~~~~~~~~~~
-
+* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
+  is only available when WireGuard and tunneling are enabled as well. It should be noted that enabling this feature directly
+  with the upgrade can lead to intermittent packet drops.
 
 Operator Options
 ~~~~~~~~~~~~~~~~

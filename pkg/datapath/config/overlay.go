@@ -29,6 +29,8 @@ func Overlay(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
+	cfg.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
+
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	return cfg

@@ -70,3 +70,6 @@ Encryption strict mode has the following limitations:
   ``encryption.strictMode.allowRemoteNodeIdentities`` must be set to ``true``.
   This allows unencrypted traffic sent from or to an IP address
   associated with a node identity.
+
+Encryption strict mode ingress is currently not supported when chaining Cilium
+on top of other CNI plugins. For more information, see GitHub issue 15596.
