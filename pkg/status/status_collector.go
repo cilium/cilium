@@ -326,10 +326,10 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if d.statusParams.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
-			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.MaglevTableSize)
+			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.TableSize)
 		}
 		if d.statusParams.LBConfig.AlgorithmAnnotation {
-			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.MaglevTableSize)
+			features.NodePort.LutSize = int64(d.statusParams.MaglevConfig.TableSize)
 		}
 		if d.statusParams.DaemonConfig.NodePortAcceleration == option.NodePortAccelerationGeneric {
 			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric

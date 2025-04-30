@@ -43,12 +43,14 @@ func TestPermutations(t *testing.T) {
 			backends[i].setHashString()
 		}
 		for _, m := range []uint64{251, 509, 1021} {
-			ml, err := New(Config{
-				MaglevTableSize: uint(m),
-				MaglevHashSeed:  DefaultHashSeed,
-			}, lc)
+			cfg, err := UserConfig{
+				TableSize: uint(m),
+				HashSeed:  DefaultHashSeed,
+			}.ToConfig()
+			require.NoError(t, err, "ToConfig")
+			ml := New(cfg, lc)
 			require.NoError(t, err, "New")
-			expectedPerm := getExpectedPermutation(backends, m, ml.seedMurmur)
+			expectedPerm := getExpectedPermutation(backends, m, ml.SeedMurmur)
 			for _, numCPU := range []int{1, 2, 3, 4, 8, 100} {
 				testPerm := ml.getPermutation(backends, numCPU)
 				require.Equal(t, expectedPerm, testPerm)
@@ -97,12 +99,12 @@ func TestReproducible(t *testing.T) {
 	// small.
 	m := uint64(251)
 
-	ml, err := New(
-		Config{
-			MaglevTableSize: uint(m),
-			MaglevHashSeed:  DefaultHashSeed,
-		}, hivetest.Lifecycle(t))
-	require.NoError(t, err, "New")
+	cfg, err := UserConfig{
+		TableSize: uint(m),
+		HashSeed:  DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	ml := New(cfg, hivetest.Lifecycle(t))
 
 	// Run-length-encoded expected maglev table in format <id>(<count>),...
 	expected := "2(5),3(1),2(3),1(1),2(2),0(1),2(1),3(1),2(1),3(1),2(1),1(1),2(7),1(1),2(14),3(1),2(1)," +
@@ -124,11 +126,12 @@ func TestReproducible(t *testing.T) {
 
 func TestBackendRemoval(t *testing.T) {
 	m := uint(1021) // 3 (backends) * 100 should be less than M
-	ml, err := New(
-		Config{
-			MaglevTableSize: uint(m),
-			MaglevHashSeed:  DefaultHashSeed,
-		}, hivetest.Lifecycle(t))
+	cfg, err := UserConfig{
+		TableSize: uint(m),
+		HashSeed:  DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	ml := New(cfg, hivetest.Lifecycle(t))
 	require.NoError(t, err, "New")
 	changesInExistingBackends := 0
 
@@ -160,11 +163,11 @@ func TestBackendRemoval(t *testing.T) {
 
 func TestWeightedBackendWithRemoval(t *testing.T) {
 	m := uint(1021) // 4 (backends) * 100 is still less than M
-	ml, err := New(
-		Config{
-			MaglevTableSize: uint(m),
-			MaglevHashSeed:  DefaultHashSeed,
-		}, hivetest.Lifecycle(t))
+	cfg, err := UserConfig{
+		TableSize: uint(m),
+		HashSeed:  DefaultHashSeed,
+	}.ToConfig()
+	ml := New(cfg, hivetest.Lifecycle(t))
 	require.NoError(t, err, "New")
 
 	changesInExistingBackends := 0
@@ -219,12 +222,12 @@ func BenchmarkGetMaglevTable(b *testing.B) {
 
 func benchmarkGetMaglevTable(b *testing.B, m uint64) {
 	backendCount := 1000
-	ml, err := New(
-		Config{
-			MaglevTableSize: uint(m),
-			MaglevHashSeed:  DefaultHashSeed,
-		}, hivetest.Lifecycle(b))
-	require.NoError(b, err, "New")
+	cfg, err := UserConfig{
+		TableSize: uint(m),
+		HashSeed:  DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(b, err, "ToConfig")
+	ml := New(cfg, hivetest.Lifecycle(b))
 
 	// Preallocate the info buffer to not skew the allocation count.
 	ml.backendInfosBuffer = make([]BackendInfo, 0, 1024)
