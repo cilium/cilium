@@ -345,6 +345,8 @@ Deprecated Options
   feature is enabled by default.
 * The custom calls feature (``--enable-custom-calls``) has been deprecated, and will
   be removed in Cilium 1.19.
+* The flag ``--bpf-lb-proto-diff`` has been deprecated and will be removed in Cilium 1.19.
+  Service protocol differentiation will be unconditionally enabled.
 
 Helm Options
 ~~~~~~~~~~~~

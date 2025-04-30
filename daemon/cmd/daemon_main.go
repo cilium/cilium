@@ -585,6 +585,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.LoadBalancerAcceleration)
 
 	flags.Bool(option.LoadBalancerProtocolDifferentiation, true, "Enable support for service protocol differentiation (TCP, UDP, SCTP)")
+	flags.MarkDeprecated(option.LoadBalancerProtocolDifferentiation, "The flag to control service protocol differentiation has been deprecated, and it will be removed in v1.19. The feature will be unconditionally enabled.")
 	option.BindEnv(vp, option.LoadBalancerProtocolDifferentiation)
 
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
