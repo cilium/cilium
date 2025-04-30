@@ -22,13 +22,13 @@ import (
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(logging.DefaultSlogLogger, nil, nil, k8s.NewSVCMetricsNoop())
+	K8sSvcCache = newServiceCache(logging.DefaultSlogLogger)
 
 	kvs store.SyncStore
 )
 
 func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
-	serviceHandler := func(event k8s.ServiceEvent) {
+	serviceHandler := func(event serviceEvent) {
 		defer event.SWGDone()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
@@ -51,7 +51,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *s
 		}
 
 		switch event.Action {
-		case k8s.UpdateService:
+		case UpdateService:
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
@@ -62,7 +62,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *s
 				)
 			}
 
-		case k8s.DeleteService:
+		case DeleteService:
 			kvs.DeleteKey(ctx, &svc)
 		}
 	}
