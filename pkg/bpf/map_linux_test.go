@@ -1076,6 +1076,10 @@ func TestBatchIterator(t *testing.T) {
 		assert.Len(t, ks, int(size))
 		assert.Len(t, vs, int(size))
 		assert.Equal(t, size, count)
+
+		count, err := m.BatchCount()
+		require.NoError(t, err, "BatchCount")
+		assert.Equal(t, size, count)
 	}
 
 	for _, test := range []struct {
