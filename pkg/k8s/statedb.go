@@ -124,6 +124,10 @@ type ReflectorConfig[Obj any] struct {
 	// a resync.
 	QueryAll QueryAllFunc[Obj]
 
+	// Optional function to query the diff between the existing objects in the table
+	// and the new set of objects being inserted into the table.
+	Diff DiffFunc[Obj]
+
 	// Optional function to merge the new object with an existing object in the target
 	// table.
 	Merge MergeFunc[Obj]
@@ -163,6 +167,10 @@ type QueryAllFunc[Obj any] func(statedb.ReadTxn, statedb.Table[Obj]) iter.Seq2[O
 // MergeFunc is an optional function to merge the new object with an existing
 // object in th target table. Only invoked if an old object exists.
 type MergeFunc[Obj any] func(old Obj, new Obj) Obj
+
+// DiffFunc is an optional function to query the diff between objects in the
+// existing table and the new set of objects to insert.
+type DiffFunc[Obj any] func(statedb.ReadTxn, statedb.Table[Obj], any) []Obj
 
 const (
 	// DefaultBufferSize is the maximum number of objects to commit to the table in one write transaction.
@@ -284,6 +292,14 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		}
 	}
 
+	diff := r.Diff
+	if diff == nil {
+		// No diff function provided, so don't calculate the diff.
+		diff = DiffFunc[Obj](func(txn statedb.ReadTxn, tbl statedb.Table[Obj], obj any) []Obj {
+			return nil
+		})
+	}
+
 	// Construct a stream of K8s objects, buffered into chunks every [waitTime] period
 	// and then committed.
 	// This reduces the number of write transactions required and thus the number of times
@@ -359,6 +375,13 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			// Mark the table as initialized. Internally this has a sync.Once
 			// so safe to call multiple times.
 			r.initDone(txn)
+		}
+
+		// Delete objects returned by diff() from table.
+		for entry := range buf.entries.Values() {
+			for _, obj := range diff(txn, table, entry.obj) {
+				table.Delete(txn, obj)
+			}
 		}
 
 		for entry := range buf.entries.Values() {
