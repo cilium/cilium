@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // field names used while logging
@@ -38,6 +39,8 @@ type Proxy struct {
 
 	logger *slog.Logger
 
+	localNodeStore *node.LocalNodeStore
+
 	// redirects is the map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
 	// proxies.
@@ -52,12 +55,14 @@ type Proxy struct {
 
 func createProxy(
 	logger *slog.Logger,
+	localNodeStore *node.LocalNodeStore,
 	proxyPorts *proxyports.ProxyPorts,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
 ) *Proxy {
 	return &Proxy{
 		logger:           logger,
+		localNodeStore:   localNodeStore,
 		redirects:        make(map[string]RedirectImplementation),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
@@ -357,8 +362,11 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 
 	rangeMin, rangeMax, nPorts := p.proxyPorts.GetStatusInfo()
 
+	ctx, cancelCtx := context.WithTimeout(context.Background(), time.Second)
+	defer cancelCtx()
+
 	result := &models.ProxyStatus{
-		IP:             node.GetInternalIPv4Router().String(),
+		IP:             p.getProxyIP(ctx),
 		PortRange:      fmt.Sprintf("%d-%d", rangeMin, rangeMax),
 		TotalPorts:     int64(nPorts),
 		TotalRedirects: int64(len(p.redirects)),
@@ -377,6 +385,20 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 		result.EnvoyDeploymentMode = "external"
 	}
 	return result
+}
+
+func (p *Proxy) getProxyIP(ctx context.Context) string {
+	ln, err := p.localNodeStore.Get(ctx)
+	if err != nil {
+		return "n/a"
+	}
+
+	localNodeIP := ln.GetCiliumInternalIP(false)
+	if localNodeIP == nil {
+		return "n/a"
+	}
+
+	return localNodeIP.String()
 }
 
 // updateRedirectMetrics updates the redirect metrics per application protocol
