@@ -22,6 +22,10 @@ import (
 )
 
 func TestBackendNeighborSync(t *testing.T) {
+	// Ignore all the currently running goroutines spawned
+	// by prior tests or by package init() functions.
+	goleakOpt := goleak.IgnoreCurrent()
+	t.Cleanup(func() { goleak.VerifyNone(t, goleakOpt) })
 
 	var (
 		db       *statedb.DB
@@ -48,7 +52,6 @@ func TestBackendNeighborSync(t *testing.T) {
 	require.NoError(t, h.Start(log, t.Context()), "Start")
 	t.Cleanup(func() {
 		require.NoError(t, h.Stop(log, context.Background()), "Stop")
-		goleak.VerifyNone(t)
 	})
 
 	var addr1, addr2 loadbalancer.L3n4Addr
