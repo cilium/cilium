@@ -535,9 +535,10 @@ run-builder: ## Drop into a shell inside a container running the cilium-builder 
 
 .PHONY: renovate-local
 renovate-local: ## Run a local linter for the renovate configuration
-	$(CONTAINER_ENGINE) run --rm -ti \
+	@echo "Running renovate --platform=local"
+	@$(CONTAINER_ENGINE) run --rm -ti \
 		-e LOG_LEVEL=debug \
-		-e GITHUB_COM_TOKEN="$(gh auth token)" \
+		-e GITHUB_COM_TOKEN="$(RENOVATE_GITHUB_COM_TOKEN)" \
 		-v /tmp:/tmp \
 		-v $(ROOT_DIR):/usr/src/app \
 		docker.io/renovate/renovate:slim \
