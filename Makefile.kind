@@ -72,6 +72,34 @@ kind-bgp-dual-down:
 kind-bgp-dual-apply-policy:
 	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual apply-policy
 
+.PHONY: kind-bgpv2-dg-service
+kind-bgpv2-dg-service:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service deploy
+
+.PHONY: kind-bgpv2-dg-service-down
+kind-bgpv2-dg-service-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service destroy
+
+.PHONY: kind-bgpv2-dg-service-apply-bgp
+kind-bgpv2-dg-service-apply-bgp:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service apply-bgp
+
+.PHONY: kind-bgpv2-dg-service-apply-policy
+kind-bgpv2-dg-service-apply-service:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service apply-service
+
+.PHONY: kind-bgpv2-dg-multi-homing
+kind-bgpv2-dg-multi-homing:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/multi-homing deploy
+
+.PHONY: kind-bgpv2-dg-multi-homing-down
+kind-bgpv2-dg-multi-homing-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/multi-homing destroy
+
+.PHONY: kind-bgpv2-dg-multi-homing-apply-bgp
+kind-bgpv2-dg-multi-homing-apply-bgp:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/multi-homing apply-bgp
+
 # Template for kind environment for a target. Parameters are:
 # $(1) Makefile target name
 define KIND_ENV

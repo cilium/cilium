@@ -94,10 +94,11 @@ type Route struct {
 	Table     RouteTable
 	LinkIndex int
 
-	Scope uint8
-	Dst   netip.Prefix
-	Src   netip.Addr
-	Gw    netip.Addr
+	Scope    uint8
+	Dst      netip.Prefix
+	Src      netip.Addr
+	Gw       netip.Addr
+	Priority int
 }
 
 func (r *Route) DeepCopy() *Route {
@@ -106,8 +107,8 @@ func (r *Route) DeepCopy() *Route {
 }
 
 func (r *Route) String() string {
-	return fmt.Sprintf("Route{Dst: %s, Src: %s, Table: %d, LinkIndex: %d}",
-		r.Dst, r.Src, r.Table, r.LinkIndex)
+	return fmt.Sprintf("Route{Dst: %s, Src: %s, Table: %d, LinkIndex: %d, Priority: %d}",
+		r.Dst, r.Src, r.Table, r.LinkIndex, r.Priority)
 }
 
 func (*Route) TableHeader() []string {
@@ -118,6 +119,7 @@ func (*Route) TableHeader() []string {
 		"LinkIndex",
 		"Table",
 		"Scope",
+		"Priority",
 	}
 }
 
@@ -138,6 +140,7 @@ func (r *Route) TableRow() []string {
 		fmt.Sprintf("%d", r.LinkIndex),
 		fmt.Sprintf("%d", r.Table),
 		fmt.Sprintf("%d", r.Scope),
+		fmt.Sprintf("%d", r.Priority),
 	}
 }
 
