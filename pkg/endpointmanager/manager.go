@@ -112,7 +112,7 @@ func New(logger *slog.Logger, epSynchronizer EndpointResourceSynchronizer, lns *
 		health:                       health,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
-		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
+		mcastManager:                 mcastmanager.New(logger, option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),

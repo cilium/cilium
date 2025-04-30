@@ -1585,6 +1585,8 @@ const (
 
 	Exists = "exists"
 
+	MulticastAddr = "multicastAddr"
+
 	IPRules = "ipRules"
 
 	Rules = "rules"

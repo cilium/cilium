@@ -8,11 +8,13 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
 
 func TestGroupOps(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ifs, err := netlink.LinkList()
 	require.NoError(t, err)
 
@@ -24,7 +26,7 @@ func TestGroupOps(t *testing.T) {
 	maddr := randMaddr()
 
 	// Join Group
-	err = JoinGroup(ifc.Attrs().Name, maddr)
+	err = JoinGroup(logger, ifc.Attrs().Name, maddr)
 	require.NoError(t, err)
 
 	// maddr in group
@@ -33,7 +35,7 @@ func TestGroupOps(t *testing.T) {
 	require.True(t, inGroup)
 
 	// LeaveGroup
-	err = LeaveGroup(ifc.Attrs().Name, maddr)
+	err = LeaveGroup(logger, ifc.Attrs().Name, maddr)
 	require.NoError(t, err)
 
 	// maddr not in group

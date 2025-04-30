@@ -7,11 +7,13 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
 
 func TestAddRemoveEndpoint(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ifaces, err := netlink.LinkList()
 	require.NoError(t, err)
 
@@ -19,7 +21,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 		t.Skip("no interfaces to test")
 	}
 
-	mgr := New(ifaces[0].Attrs().Name)
+	mgr := New(logger, ifaces[0].Attrs().Name)
 
 	// Add first endpoint
 	mgr.AddAddress(netip.MustParseAddr("f00d::1234"))
@@ -49,6 +51,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 }
 
 func TestAddRemoveNil(t *testing.T) {
+	logger := hivetest.Logger(t)
 	ifaces, err := netlink.LinkList()
 	require.NoError(t, err)
 
@@ -58,7 +61,7 @@ func TestAddRemoveNil(t *testing.T) {
 
 	var (
 		iface = ifaces[0]
-		mgr   = New(iface.Attrs().Name)
+		mgr   = New(logger, iface.Attrs().Name)
 	)
 
 	mgr.AddAddress(netip.Addr{})
