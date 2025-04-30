@@ -47,6 +47,7 @@ var (
 		Devices:            []*tables.Device{},
 		NodeAddresses:      []tables.NodeAddress{},
 		HostEndpointID:     1,
+		MaglevConfig:       maglev.DefaultConfig,
 	}
 	dummyDevCfg   testutils.TestEndpoint
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
@@ -237,8 +238,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 	setupConfigSuite(t)
 
 	var (
-		na   datapath.NodeAddressing
-		magl *maglev.Maglev
+		na datapath.NodeAddressing
 	)
 	h := hive.New(
 		cell.Provide(
@@ -247,10 +247,8 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		maglev.Cell,
 		cell.Invoke(func(
 			nodeaddressing datapath.NodeAddressing,
-			ml *maglev.Maglev,
 		) {
 			na = nodeaddressing
-			magl = ml
 		}),
 	)
 
@@ -270,7 +268,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
-		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -291,7 +288,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
-		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -308,7 +304,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
-		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -391,9 +386,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setupConfigSuite(t)
 
-	lc := hivetest.Lifecycle(t)
-	magl := maglev.New(maglev.DefaultConfig, lc)
-
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
@@ -403,7 +395,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap:            fake.NewFakeNodeMapV2(),
-		Maglev:             magl,
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -414,7 +405,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap:            fake.NewFakeNodeMapV2(),
-		Maglev:             magl,
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
