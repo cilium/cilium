@@ -50,7 +50,6 @@ func (l *loader) writeNetdevHeader(dir string) error {
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
-
 	}
 	defer f.Close()
 
@@ -519,7 +518,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRoutingRules(lnc.RouteMTU); err != nil {
+		if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU); err != nil {
 			return err
 		}
 	}
