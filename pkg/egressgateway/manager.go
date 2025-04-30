@@ -573,18 +573,20 @@ func (manager *Manager) relaxRPFilter() error {
 	ifSet := make(map[string]struct{})
 
 	for _, pc := range manager.policyConfigs {
-		if !pc.gatewayConfig.localNodeConfiguredAsGateway {
-			continue
-		}
+		for _, gatewayConfig := range pc.gatewayConfigs {
+			if !gatewayConfig.localNodeConfiguredAsGateway {
+				continue
+			}
 
-		ifaceName := pc.gatewayConfig.ifaceName
-		if _, ok := ifSet[ifaceName]; !ok {
-			ifSet[ifaceName] = struct{}{}
-			sysSettings = append(sysSettings, tables.Sysctl{
-				Name:      []string{"net", "ipv4", "conf", ifaceName, "rp_filter"},
-				Val:       "2",
-				IgnoreErr: false,
-			})
+			ifaceName := gatewayConfig.ifaceName
+			if _, ok := ifSet[ifaceName]; !ok {
+				ifSet[ifaceName] = struct{}{}
+				sysSettings = append(sysSettings, tables.Sysctl{
+					Name:      []string{"net", "ipv4", "conf", ifaceName, "rp_filter"},
+					Val:       "2",
+					IgnoreErr: false,
+				})
+			}
 		}
 	}
 
