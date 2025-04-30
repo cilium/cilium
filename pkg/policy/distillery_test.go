@@ -20,7 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/defaults"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -1941,6 +1943,8 @@ func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id ident
 
 // Validate that incrementally deleted identities are handled properly when present in both CIDR and FQDN rules.
 func Test_IncrementalFQDNDeletion(t *testing.T) {
+	logger := hivetest.Logger(t)
+	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -1957,7 +1961,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	})
 	id2 := addCIDRIdentity("192.0.2.0/24", identityCache)
 	id3 := addCIDRIdentity("192.0.3.0/24", identityCache)
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(logger, identityCache)
 
 	fqdnSel := api.FQDNSelector{MatchName: "www.example.com"}
 	idExample, fqdnIdentities := addFQDNIdentity(fqdnSel, identityCache)
@@ -2006,8 +2010,8 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			epp, err := repo.distillEndpointPolicy(hivetest.Logger(t), DummyOwner{
-				logger: hivetest.Logger(t),
+			epp, err := repo.distillEndpointPolicy(logger, DummyOwner{
+				logger: logger,
 			}, fooIdentity)
 			if err != nil {
 				t.Fatal(err)
@@ -2047,7 +2051,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 			}
 
 			epp.Ready()
-			epp.Detach(hivetest.Logger(t))
+			epp.Detach(logger)
 		})
 	}
 }

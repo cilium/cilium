@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"sync"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -15,14 +16,14 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(logging.DefaultSlogLogger, nil, nil, k8s.NewSVCMetricsNoop())
+	K8sSvcCache = k8s.NewServiceCache(logging.DefaultSlogLogger, loadbalancer.DefaultConfig, nil, nil, k8s.NewSVCMetricsNoop())
 
 	kvs store.SyncStore
 )

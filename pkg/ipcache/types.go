@@ -200,7 +200,7 @@ func (s prefixInfo) Source() source.Source {
 }
 
 func (s prefixInfo) EncryptKey() ipcachetypes.EncryptKey {
-	for _, rid := range s.sortedBySourceThenResourceID() {
+	for rid := range s {
 		if k := s[rid].encryptKey; k.IsValid() {
 			return k
 		}
@@ -209,7 +209,7 @@ func (s prefixInfo) EncryptKey() ipcachetypes.EncryptKey {
 }
 
 func (s prefixInfo) TunnelPeer() ipcachetypes.TunnelPeer {
-	for _, rid := range s.sortedBySourceThenResourceID() {
+	for rid := range s {
 		if t := s[rid].tunnelPeer; t.IsValid() {
 			return t
 		}
@@ -307,7 +307,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 			if len(info.labels) == 0 {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Resource:    resourceID,
-					logfields.OldIdentity: s.ToLabels().String(),
+					logfields.IdentityOld: s.ToLabels().String(),
 				}).Warning("Detected identity override, but no labels where specified. " +
 					"Falling back on the old non-override labels. " +
 					"This may cause connectivity issues for this address.")

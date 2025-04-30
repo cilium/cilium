@@ -5,9 +5,11 @@ package agent
 
 import (
 	"encoding/gob"
+	"log/slog"
 	"net"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
@@ -16,6 +18,7 @@ import (
 // cilium 1.2
 // cleanupFn is called on exit
 type listenerv1_2 struct {
+	logger    *slog.Logger
 	conn      net.Conn
 	queue     chan *payload.Payload
 	cleanupFn func(listener.MonitorListener)
@@ -23,8 +26,9 @@ type listenerv1_2 struct {
 	once sync.Once
 }
 
-func newListenerv1_2(c net.Conn, queueSize int, cleanupFn func(listener.MonitorListener)) *listenerv1_2 {
+func newListenerv1_2(logger *slog.Logger, c net.Conn, queueSize int, cleanupFn func(listener.MonitorListener)) *listenerv1_2 {
 	ml := &listenerv1_2{
+		logger:    logger,
 		conn:      c,
 		queue:     make(chan *payload.Payload, queueSize),
 		cleanupFn: cleanupFn,
@@ -39,7 +43,7 @@ func (ml *listenerv1_2) Enqueue(pl *payload.Payload) {
 	select {
 	case ml.queue <- pl:
 	default:
-		log.Debug("Per listener queue is full, dropping message")
+		ml.logger.Debug("Per listener queue is full, dropping message")
 	}
 }
 
@@ -55,11 +59,11 @@ func (ml *listenerv1_2) drainQueue() {
 		if err := pl.EncodeBinary(enc); err != nil {
 			switch {
 			case listener.IsDisconnected(err):
-				log.Debug("Listener disconnected")
+				ml.logger.Debug("Listener disconnected")
 				return
 
 			default:
-				log.WithError(err).Warn("Removing listener due to write failure")
+				ml.logger.Warn("Removing listener due to write failure", logfields.Error, err)
 				return
 			}
 		}

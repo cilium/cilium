@@ -213,7 +213,7 @@ func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4Add
 	return feL3n4AddrID
 }
 
-func svcBackend(backendID loadbalancer.BackendID, backend BackendValue, backendFlags loadbalancer.ServiceFlags) *loadbalancer.Backend {
+func svcBackend(backendID loadbalancer.BackendID, backend BackendValue, backendFlags loadbalancer.ServiceFlags) *loadbalancer.LegacyBackend {
 	beIP := backend.GetAddress()
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
 	bePort := backend.GetPort()

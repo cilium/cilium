@@ -22,16 +22,14 @@ lb/maps-dump lbmaps.out
 * cmp lbmaps.out lbmaps.expected
 
 # Check that right updates towards Envoy happened.
-envoy envoy.out
-* cmp envoy.out envoy1.expected
+* envoy/cmp envoy1.expected
 
 # Test the processing other way around, e.g. CEC exists before
 # the service. Start by dropping the backends.
 k8s/delete endpointslice.yaml
 
 # Backends towards Envoy should be dropped.
-envoy envoy.out
-* cmp envoy.out envoy2.expected
+* envoy/cmp envoy2.expected
 
 # Drop the service
 k8s/delete service.yaml
@@ -44,8 +42,7 @@ k8s/add service.yaml endpointslice.yaml
 db/cmp services services_redirected.table
 
 # Check again that updates happened.
-envoy envoy.out
-* cmp envoy.out envoy3.expected
+* envoy/cmp envoy3.expected
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
 k8s/delete cec.yaml
@@ -55,8 +52,7 @@ k8s/delete cec.yaml
 db/cmp services services.table
 
 # The listener should now be deleted.
-envoy envoy.out
-* cmp envoy.out envoy4.expected
+* envoy/cmp envoy4.expected
 
 # ---------------------------------------------
 
@@ -162,18 +158,201 @@ SVC: ID=3 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterI
 SVC: ID=4 ADDR=10.96.50.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 SVC: ID=4 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 -- envoy1.expected --
-policy-trigger-count: 1
-update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: listeners=<nil> endpoints=<nil>
+policy-trigger-count:
+  1
+endpoints:test/echo:
+  cluster_name: "test/echo"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/echo:*:
+  cluster_name: "test/echo:*"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/envoy-lb-listener/envoy-lb-listener:
+  name: "test/envoy-lb-listener/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
 -- envoy2.expected --
-policy-trigger-count: 1
-update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: listeners=<nil> endpoints=<nil>
+policy-trigger-count:
+  1
+listener:test/envoy-lb-listener/envoy-lb-listener:
+  name: "test/envoy-lb-listener/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
 -- envoy3.expected --
-policy-trigger-count: 1
-update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: listeners=<nil> endpoints=<nil>
+policy-trigger-count:
+  1
+endpoints:test/echo:
+  cluster_name: "test/echo"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/echo:*:
+  cluster_name: "test/echo:*"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/envoy-lb-listener/envoy-lb-listener:
+  name: "test/envoy-lb-listener/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
 -- envoy4.expected --
-policy-trigger-count: 2
-update: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
-delete: listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+policy-trigger-count:
+  2

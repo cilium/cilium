@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hmarr/codeowners"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -22,7 +21,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
-	owners_util "github.com/cilium/cilium/cilium-cli/utils/codeowners"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -97,14 +96,16 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		var owners codeowners.Ruleset
+		var owners *codeowners.Ruleset
 		if params.LogCodeOwners {
 			var err error
 
-			owners, err = owners_util.Load(params.CodeOwners)
+			owners, err = codeowners.Load(params.CodeOwners)
 			if err != nil {
 				return fmt.Errorf("❗ Failed to load code owners: %w", err)
 			}
+
+			owners = owners.WithExcludedOwners(params.ExcludeCodeOwners)
 		}
 
 		logger := check.NewConcurrentLogger(params.Writer)
@@ -158,13 +159,17 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show informational messages and don't buffer any lines")
 	cmd.Flags().BoolVarP(&params.Timestamp, "timestamp", "t", false, "Show timestamp in messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
+	cmd.Flags().BoolVar(&params.ExternalTargetIPv6Capable, "external-target-ipv6-capable", false, "External target is IPv6 capable")
 	cmd.Flags().StringVar(&params.ExternalTarget, "external-target", "one.one.one.one.", "Domain name to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ExternalOtherTarget, "external-other-target", "k8s.io.", "Domain name to use as a second external target in connectivity tests")
-	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-namespace", "", "Namespace of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
-	cmd.Flags().StringVar(&params.ExternalTargetCAName, "external-target-ca-name", "cabundle", "Name of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
-	cmd.Flags().StringVar(&params.ExternalCIDR, "external-cidr", "1.0.0.0/8", "CIDR to use as external target in connectivity tests")
-	cmd.Flags().StringVar(&params.ExternalIP, "external-ip", "1.1.1.1", "IP to use as external target in connectivity tests")
-	cmd.Flags().StringVar(&params.ExternalOtherIP, "external-other-ip", "1.0.0.1", "Other IP to use as external target in connectivity tests")
+	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-namespace", "", "Namespace of the CA secret for the external target.")
+	cmd.Flags().StringVar(&params.ExternalTargetCAName, "external-target-ca-name", "cabundle", "Name of the CA secret for the external target.")
+	cmd.Flags().StringVar(&params.ExternalCIDRv4, "external-cidr", "1.0.0.0/8", "IPv4 CIDR to use as external target in connectivity tests")
+	cmd.Flags().StringVar(&params.ExternalCIDRv6, "external-cidrv6", "2606:4700:4700::/96", "IPv6 CIDR to use as external target in connectivity tests")
+	cmd.Flags().StringVar(&params.ExternalIPv4, "external-ip", "1.1.1.1", "IPv4 to use as external target in connectivity tests")
+	cmd.Flags().StringVar(&params.ExternalIPv6, "external-ipv6", "2606:4700:4700::1111", "IPv6 to use as external target in connectivity tests")
+	cmd.Flags().StringVar(&params.ExternalOtherIPv4, "external-other-ip", "1.0.0.1", "Other IPv4 to use as external target in connectivity tests")
+	cmd.Flags().StringVar(&params.ExternalOtherIPv6, "external-other-ipv6", "2606:4700:4700::1001", "Other IPv6 to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "NodePort", "Type of Kubernetes Services created for connectivity tests")
 	cmd.Flags().StringSliceVar(&params.NodeCIDRs, "node-cidr", nil, "one or more CIDRs that cover all nodes in the cluster")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
@@ -314,7 +319,7 @@ func newConnectivityTests(
 	params check.Parameters,
 	hooks api.Hooks,
 	logger *check.ConcurrentLogger,
-	owners codeowners.Ruleset,
+	owners *codeowners.Ruleset,
 ) ([]*check.ConnectivityTest, error) {
 	if params.TestConcurrency < 1 {
 		fmt.Printf("--test-concurrency parameter value is invalid [%d], using 1 instead\n", params.TestConcurrency)

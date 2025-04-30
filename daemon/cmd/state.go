@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -113,7 +114,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		// which the endpoint manager will begin processing the events off the
 		// queue.
 		ep.InitEventQueue()
-		ep.RunRestoredMetadataResolver(d.bwManager, d.fetchK8sMetadataForEndpoint)
+		ep.RunRestoredMetadataResolver(d.fetchK8sMetadataForEndpoint)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
@@ -181,7 +182,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d.endpointCreator, dir, eptsID)
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, logging.DefaultSlogLogger, d.endpointCreator, dir, eptsID)
 
 	if len(state.possible) == 0 {
 		log.Info("No old endpoints found.")
@@ -228,18 +229,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 			scopedLog = scopedLog.WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName())
 		}
 
-		// We have to set the allocator for identities here during the Endpoint
-		// lifecycle, because the identity allocator has been initialized *after*
-		// endpoints are restored from disk. This is because we have to reserve
-		// IPs for the endpoints that are restored via IPAM. Reserving of IPs
-		// affects the allocation of IPs w.r.t. node addressing, which we need
-		// to know before the identity allocator is initialized. We need to
-		// know the node addressing because when adding a reference to the
-		// kvstore because the local node's IP is used as a suffix for the key
-		// in the key-value store.
-		ep.SetAllocator(d.identityAllocator)
-		ep.SetCtMapGC(d.ctMapGC)
-
 		restore, err := d.validateEndpoint(ep)
 		if err != nil {
 			// Disconnected EPs are not failures, clean them silently below
@@ -258,7 +247,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		ep.SetDefaultConfiguration()
-		ep.SetProxy(d.l7Proxy)
 		ep.SkipStateClean()
 
 		state.restored = append(state.restored, ep)
@@ -318,10 +306,40 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		}
 	}
 
+	if option.Config.EnableIPSec {
+		// To support v1.18 VinE upgrades, we need to restore the host
+		// endpoint before any other endpoint, to ensure a drop-less upgrade.
+		// This is because in v1.18 'bpf_lxc' programs stop issuing IPsec hooks
+		// which trigger encryption.
+		//
+		// Instead, 'bpf_host' is responsible for performing IPsec hooks.
+		// Therefore, we want 'bpf_host' to regenerate BEFORE 'bpf_lxc' so the
+		// IPsec hooks are always present while 'bpf_lxc' programs regen,
+		// ensuring no IPsec leaks occur.
+		//
+		// This can be removed in v1.19.
+		for _, ep := range state.restored {
+			if ep.IsHost() {
+				log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
+				if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.fetchK8sMetadataForEndpoint); err != nil {
+					log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating restored host endpoint")
+					epRegenerated <- false
+				} else {
+					epRegenerated <- true
+				}
+				break
+			}
+		}
+	}
+
 	for _, ep := range state.restored {
+		if ep.IsHost() && option.Config.EnableIPSec {
+			// The host endpoint was handled above.
+			continue
+		}
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.bwManager, d.fetchK8sMetadataForEndpoint); err != nil {
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.fetchK8sMetadataForEndpoint); err != nil {
 				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return

@@ -732,7 +732,7 @@ func (p *wrapperController) Run(stopCh <-chan struct{}) {
 
 func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, r.opts.indexers)
-	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}
+	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState, EmitDeltaTypeReplaced: true}
 	fifo := cache.NewDeltaFIFOWithOptions(opts)
 	transformer := r.opts.transform
 	cacheMutationDetector := cache.NewCacheMutationDetector(fmt.Sprintf("%T", r))
@@ -741,7 +741,6 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 		ListerWatcher:    r.lw,
 		ObjectType:       r.opts.sourceObj(),
 		FullResyncPeriod: 0,
-		RetryOnError:     false,
 		Process: func(obj any, isInInitialList bool) error {
 			// Processing of the deltas is done under the resource mutex. This
 			// avoids emitting double events for new subscribers that list the
@@ -771,7 +770,7 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 				key := NewKey(obj)
 
 				switch d.Type {
-				case cache.Sync, cache.Added, cache.Updated:
+				case cache.Sync, cache.Added, cache.Updated, cache.Replaced:
 					metric := resources.MetricCreate
 					if d.Type != cache.Added {
 						metric = resources.MetricUpdate

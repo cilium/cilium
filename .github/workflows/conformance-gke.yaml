@@ -62,7 +62,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 517.0.0
+  gcloud_version: 519.0.0
 
 jobs:
   echo-inputs:
@@ -130,7 +130,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}
@@ -255,7 +255,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}

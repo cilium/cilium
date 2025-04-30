@@ -62,7 +62,7 @@ var Cell = cell.Module(
 		// Create a endpoints DiffStore
 		store.NewDiffStore[*k8s.Endpoints],
 		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
-		store.NewBGPCPResourceStore[*v2alpha1.CiliumLoadBalancerIPPool],
+		store.NewBGPCPResourceStore[*v2.CiliumLoadBalancerIPPool],
 		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2alpha1.CiliumPodIPPool],
 
@@ -125,16 +125,16 @@ func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *opti
 		), resource.WithMetric("CiliumBGPPeeringPolicy"))
 }
 
-func newLoadBalancerIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumLoadBalancerIPPool] {
+func newLoadBalancerIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2.CiliumLoadBalancerIPPool] {
 	if !dc.BGPControlPlaneEnabled() {
 		return nil
 	}
 	if !c.IsEnabled() {
 		return nil
 	}
-	return resource.New[*v2alpha1.CiliumLoadBalancerIPPool](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumLoadBalancerIPPoolList](
-			c.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
+	return resource.New[*v2.CiliumLoadBalancerIPPool](
+		lc, utils.ListerWatcherFromTyped(
+			c.CiliumV2().CiliumLoadBalancerIPPools(),
 		), resource.WithMetric("CiliumLoadBalancerIPPool"))
 }
 

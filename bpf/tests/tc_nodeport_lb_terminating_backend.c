@@ -6,8 +6,6 @@
 #define ENABLE_NODEPORT		1
 #define ENABLE_HOST_ROUTING	1
 
-#define DISABLE_LOOPBACK_LB	1
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -85,8 +83,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

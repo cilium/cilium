@@ -93,8 +93,10 @@ const (
 	// IngressClass is the identifier of an ingress class object
 	IngressClass = "ingressClass"
 
-	// OldIdentity is a previously used security identity
-	OldIdentity = "oldIdentity"
+	// IdentityOld is a previously used security identity
+	IdentityOld = "old-" + Identity
+
+	IdentityNew = "new-" + Identity
 
 	// PolicyKey is a policy map key
 	PolicyKey = "policyKey"
@@ -1528,4 +1530,84 @@ const (
 	Args = "args"
 
 	Candidates = "candidates"
+
+	DNSRulesV2 = "dnsRulesV2"
+
+	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"
+
+	DumpedPolicyMap = "dumpedPolicyMap"
+
+	DumpedDiffs = "dumpedDiffs"
+
+	NewDirectory = "newDirectory"
+
+	TmpDirectory = "tmpDirectory"
+
+	Code = "code"
+
+	EndpointStateFrom = "endpointStateFrom"
+
+	EndpointStateTo = "endpointStateTo"
+
+	BandwidthLimit = "bandwidthLimit"
+
+	PolicyRevisionNext = "policyRevisionNext"
+
+	PolicyRevisionRepo = "policyRevisionRepo"
+
+	PolicyChanged = "policyChanged"
+
+	CEPUIDOld = "old-" + CEPUID
+
+	HubbleCLIVersion = "hubble-cli-version"
+
+	HubbleRelayVersion = "hubble-relay-version"
+
+	HubbleServerVersion = "hubble-server-version"
+
+	Resources = "resources"
+
+	LastModifiedVersion = "lastModifiedVersion"
+
+	ReturningResources = "returningResources"
+
+	RequestedResources = "requestedResources"
+
+	ResponseNonce = "responseNonce"
+
+	ResourceWatcherVersion = "resourceWatcherVersion"
+
+	WaitVersion = "waitVersion"
+
+	CurrentVersion = "currentVersion"
+
+	PendingCompletions = "pendingCompletions"
+
+	Exists = "exists"
+
+	MulticastAddr = "multicastAddr"
+
+	IPRules = "ipRules"
+
+	Rules = "rules"
+
+	SecID = "secID"
+
+	WrittenBytes = "writtenBytes"
+
+	TotalBytes = "totalBytes"
+
+	Destination = "destination"
+
+	LenEntries = "lenEntries"
+
+	FQDNSelector = "fqdnSelector"
+
+	MatchName = "matchName"
+
+	LenPrefixes = "lenPrefixes"
+
+	LookupIPAddrs = "lookupIPAddrs"
+
+	MatchPattern = "matchPattern"
 )

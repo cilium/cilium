@@ -13,7 +13,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define ENABLE_HOST_ROUTING
 
-#define DISABLE_LOOPBACK_LB
 #define ENABLE_SKIP_FIB		1
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
@@ -57,8 +56,6 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -237,10 +234,15 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
+	fraginfo_t fraginfo;
 	int l4_off, ret;
 
+	fraginfo = ipv6_get_fraginfo(ctx, l3);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
 	ret = lb6_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				&l4_off, &tuple);
+				fraginfo, &l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;

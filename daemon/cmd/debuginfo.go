@@ -15,8 +15,8 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/debug"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -30,7 +30,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 		dr.KernelVersion = kver.String()
 	}
 
-	status := d.getStatus(false, true)
+	status := d.statusCollector.GetStatus(false, true)
 	dr.CiliumStatus = &status
 
 	var p endpoint.GetEndpointParams

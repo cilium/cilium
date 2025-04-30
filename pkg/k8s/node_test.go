@@ -345,14 +345,14 @@ func Test_ParseNodeAddressType(t *testing.T) {
 func TestParseNodeWithService(t *testing.T) {
 	oldAnnotateK8sNode := option.Config.AnnotateK8sNode
 	oldDefaultLbMode := option.Config.NodePortMode
-	oldDefaultLbAlg := option.Config.NodePortAlg
+
+	var lbConfig loadbalancer.Config
 	option.Config.AnnotateK8sNode = false
 	option.Config.NodePortMode = option.NodePortModeSNAT
-	option.Config.NodePortAlg = option.NodePortAlgRandom
+	lbConfig.LBAlgorithm = loadbalancer.LBAlgorithmRandom
 	defer func() {
 		option.Config.AnnotateK8sNode = oldAnnotateK8sNode
 		option.Config.NodePortMode = oldDefaultLbMode
-		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 
 	k8sNode := &slim_corev1.Node{
@@ -406,7 +406,7 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc := ParseService(hivetest.Logger(t), lbConfig, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,

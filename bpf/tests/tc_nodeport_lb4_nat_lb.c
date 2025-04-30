@@ -13,8 +13,6 @@
 #define ENABLE_EGRESS_GATEWAY	1
 #define ENABLE_MASQUERADE_IPV4	1
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_IP_2		v4_ext_two
@@ -153,8 +151,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw_policy.h"
 #include "lib/endpoint.h"

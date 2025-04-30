@@ -25,18 +25,18 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 const (
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
-	k8sAPIGroupCiliumCIDRGroupV2Alpha1          = "cilium/v2alpha1::CiliumCIDRGroup"
+	k8sAPIGroupCiliumCIDRGroupV2                = "cilium/v2::CiliumCIDRGroup"
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
@@ -76,8 +76,8 @@ type policyManager interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
-	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
-	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
+	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.LegacySVC, bool)
+	UpsertService(*loadbalancer.LegacySVC) (bool, loadbalancer.ID, error)
 }
 
 type redirectPolicyManager interface {
@@ -226,7 +226,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.BGPNCOName):         {skip, ""},                                            // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName):       {skip, ""},                                            // Handled in LB IPAM
 	synced.CRDResourceName(v2alpha1.CNCName):            {skip, ""},                                            // Handled by init directly
-	synced.CRDResourceName(v2alpha1.CCGName):            {waitOnly, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
+	synced.CRDResourceName(cilium_v2.CCGName):           {waitOnly, k8sAPIGroupCiliumCIDRGroupV2},
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 }
@@ -270,7 +270,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 	go func() {
 		k.logger.Info("Waiting until all pre-existing resources have been received")
 		allResources := append(resources, cachesOnly...)
-		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
+		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(ctx, option.Config.K8sSyncTimeout, allResources...); err != nil {
 			logging.Fatal(k.logger, "Timed out waiting for pre-existing resources to be received; exiting", logfields.Error, err)
 		}
 		close(cachesSynced)

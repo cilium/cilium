@@ -1650,88 +1650,6 @@ func init() {
             "description": "Service not found"
           }
         }
-      },
-      "put": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Create or update service",
-        "parameters": [
-          {
-            "$ref": "#/parameters/service-id"
-          },
-          {
-            "$ref": "#/parameters/service-config"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Updated"
-          },
-          "201": {
-            "description": "Created"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "460": {
-            "description": "Invalid frontend in service configuration",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "InvalidFrontend"
-          },
-          "461": {
-            "description": "Invalid backend in service configuration",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "InvalidBackend"
-          },
-          "500": {
-            "description": "Error while creating service",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "Failure"
-          },
-          "501": {
-            "description": "Error while updating backend states",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "UpdateBackendFailure"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Delete a service",
-        "parameters": [
-          {
-            "$ref": "#/parameters/service-id"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Service not found"
-          },
-          "500": {
-            "description": "Service deletion failed",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "Failure"
-          }
-        }
       }
     }
   },
@@ -2642,6 +2560,10 @@ func init() {
         },
         "egress-multi-home-ip-rule-compat": {
           "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
+        },
+        "enableBBRHostNamespaceOnly": {
+          "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {
@@ -7353,102 +7275,6 @@ func init() {
             "description": "Service not found"
           }
         }
-      },
-      "put": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Create or update service",
-        "parameters": [
-          {
-            "type": "integer",
-            "description": "ID of service",
-            "name": "id",
-            "in": "path",
-            "required": true
-          },
-          {
-            "description": "Service configuration",
-            "name": "config",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ServiceSpec"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Updated"
-          },
-          "201": {
-            "description": "Created"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "460": {
-            "description": "Invalid frontend in service configuration",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "InvalidFrontend"
-          },
-          "461": {
-            "description": "Invalid backend in service configuration",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "InvalidBackend"
-          },
-          "500": {
-            "description": "Error while creating service",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "Failure"
-          },
-          "501": {
-            "description": "Error while updating backend states",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "UpdateBackendFailure"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Delete a service",
-        "parameters": [
-          {
-            "type": "integer",
-            "description": "ID of service",
-            "name": "id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Service not found"
-          },
-          "500": {
-            "description": "Service deletion failed",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "Failure"
-          }
-        }
       }
     }
   },
@@ -8411,6 +8237,10 @@ func init() {
         },
         "egress-multi-home-ip-rule-compat": {
           "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
+        },
+        "enableBBRHostNamespaceOnly": {
+          "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {

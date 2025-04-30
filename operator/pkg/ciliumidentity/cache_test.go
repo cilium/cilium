@@ -28,7 +28,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	logger := slog.New(slog.DiscardHandler)
+	labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 
 	os.Exit(m.Run())
 }

@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -257,43 +258,43 @@ func (s *xdsServer) start() error {
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
-	ldsCache := xds.NewCache()
-	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache, s.config.metrics)
+	ldsCache := xds.NewCache(s.logger)
+	ldsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, ldsCache, s.config.metrics)
 	ldsConfig := &xds.ResourceTypeConfiguration{
 		Source:      ldsCache,
 		AckObserver: ldsMutator,
 	}
 
-	rdsCache := xds.NewCache()
-	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache, s.config.metrics)
+	rdsCache := xds.NewCache(s.logger)
+	rdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, rdsCache, s.config.metrics)
 	rdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      rdsCache,
 		AckObserver: rdsMutator,
 	}
 
-	cdsCache := xds.NewCache()
-	cdsMutator := xds.NewAckingResourceMutatorWrapper(cdsCache, s.config.metrics)
+	cdsCache := xds.NewCache(s.logger)
+	cdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, cdsCache, s.config.metrics)
 	cdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      cdsCache,
 		AckObserver: cdsMutator,
 	}
 
-	edsCache := xds.NewCache()
-	edsMutator := xds.NewAckingResourceMutatorWrapper(edsCache, s.config.metrics)
+	edsCache := xds.NewCache(s.logger)
+	edsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, edsCache, s.config.metrics)
 	edsConfig := &xds.ResourceTypeConfiguration{
 		Source:      edsCache,
 		AckObserver: edsMutator,
 	}
 
-	sdsCache := xds.NewCache()
-	sdsMutator := xds.NewAckingResourceMutatorWrapper(sdsCache, s.config.metrics)
+	sdsCache := xds.NewCache(s.logger)
+	sdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, sdsCache, s.config.metrics)
 	sdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      sdsCache,
 		AckObserver: sdsMutator,
 	}
 
-	npdsCache := xds.NewCache()
-	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache, s.config.metrics)
+	npdsCache := xds.NewCache(s.logger)
+	npdsMutator := xds.NewAckingResourceMutatorWrapper(s.logger, npdsCache, s.config.metrics)
 	npdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      npdsCache,
 		AckObserver: npdsMutator,
@@ -943,6 +944,7 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
+		IpcacheName:              ipcache.Name,
 	}
 
 	if lingerConfig >= 0 {
@@ -1585,11 +1587,11 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *policy.L4Policy,
+func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, names []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS bool, policySecretsNamespace string,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
-		EndpointIps:      ips,
+		EndpointIps:      names,
 		EndpointId:       ep.GetID(),
 		ConntrackMapName: "global",
 	}
@@ -1645,13 +1647,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	var ips []string
-	if ipv6 := ep.GetIPv6Address(); ipv6 != "" {
-		ips = append(ips, ipv6)
-	}
-	if ipv4 := ep.GetIPv4Address(); ipv4 != "" {
-		ips = append(ips, ipv4)
-	}
+	ips := ep.GetPolicyNames()
 	if len(ips) == 0 {
 		// It looks like the "host EP" (identity == 1) has no IPs, so it is possible to find
 		// there are no IPs here. In this case just skip without updating a policy, as
@@ -1659,7 +1655,8 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		//
 		// TODO: When L7 policy support for the host is needed, all host IPs should be
 		// considered here?
-		s.logger.Debug("Endpoint has no IP addresses",
+		s.logger.Debug("Endpoint has no IP addresses or name",
+			logfields.Name, ips,
 			logfields.EndpointID, ep.GetID(),
 		)
 		return nil, func() error { return nil }
@@ -1670,7 +1667,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %w", ep.GetID(), err), nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil
 	}
 
 	// If there are no listeners configured, the local node's Envoy proxy won't

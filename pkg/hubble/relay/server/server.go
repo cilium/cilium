@@ -98,11 +98,11 @@ func New(options ...Option) (*Server, error) {
 
 	var serverOpts []grpc.ServerOption
 
-	for _, interceptor := range opts.grpcUnaryInterceptors {
-		serverOpts = append(serverOpts, grpc.UnaryInterceptor(interceptor))
+	if len(opts.grpcUnaryInterceptors) > 0 {
+		serverOpts = append(serverOpts, grpc.ChainUnaryInterceptor(opts.grpcUnaryInterceptors...))
 	}
-	for _, interceptor := range opts.grpcStreamInterceptors {
-		serverOpts = append(serverOpts, grpc.StreamInterceptor(interceptor))
+	if len(opts.grpcStreamInterceptors) > 0 {
+		serverOpts = append(serverOpts, grpc.ChainStreamInterceptor(opts.grpcStreamInterceptors...))
 	}
 
 	if opts.serverTLSConfig != nil {

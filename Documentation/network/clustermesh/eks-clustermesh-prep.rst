@@ -42,7 +42,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.1.0/24 \
             --availability-zone ${AWS_REGION}a \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_1}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_1},{Key=kubernetes.io/role/elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text 
         )
@@ -51,7 +51,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.2.0/24 \
             --availability-zone ${AWS_REGION}b \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_2}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Public_Subnet_2},{Key=kubernetes.io/role/elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text 
         )
@@ -61,7 +61,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.3.0/24 \
             --availability-zone ${AWS_REGION}a \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_1}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_1},{Key=kubernetes.io/role/internal-elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text 
         )
@@ -70,7 +70,7 @@ Install cluster one
             --vpc-id ${Cluster_1_VPC} \
             --cidr-block 10.0.4.0/24 \
             --availability-zone ${AWS_REGION}b \
-            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_2}]" \
+            --tag-specifications "ResourceType=subnet, Tags=[{Key=Name,Value=Cluster_1_Private_Subnet_2},{Key=kubernetes.io/role/internal-elb,Value=1}]" \
             --query 'Subnet.{SubnetId:SubnetId}' \
             --output text
         )
@@ -119,7 +119,7 @@ Install cluster one
 
         Cluster_1_NGW_2=$(aws ec2 create-nat-gateway \
             --subnet-id $Cluster_1_Public_Subnet_2 \
-            --allocation-id ${EIP_ALLOCATION_ID_2} \
+            --allocation-id ${Cluster_1_EIP_2} \
             --tag-specifications "ResourceType=natgateway, Tags=[{Key=Name,Value=Cluster_1_NGW_2}]" \
             --query 'NatGateway.{NatGatewayId:NatGatewayId}' \
             --output text
@@ -151,7 +151,7 @@ Install cluster one
 
         aws ec2 associate-route-table \
             --subnet-id ${Cluster_1_Public_Subnet_2} \
-            --route-table-id ${ROUTE_TABLE_ID_1}
+            --route-table-id ${Cluster_1_Public_RT}
 
         # Create private route tables
         export Cluster_1_Private_RT_1=$(aws ec2 create-route-table \

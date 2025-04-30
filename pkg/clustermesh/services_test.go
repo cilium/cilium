@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -90,7 +90,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	err = db.RegisterTable(nodeAddrs)
 	require.NoError(tb, err)
 
-	s.svcCache = k8s.NewServiceCache(hivetest.Logger(tb), db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	s.svcCache = k8s.NewServiceCache(hivetest.Logger(tb), loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.

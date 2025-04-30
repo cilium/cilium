@@ -11,16 +11,20 @@ k8s/add cec_a.yaml cec_b.yaml
 
 # CEC with foo=a should be selected.
 db/cmp ciliumenvoyconfigs cec_a.table
-envoy envoy.out
-* cmp envoy.out envoy_a.expected
+db/cmp envoy-resources envoy-resources-a.table
+
+# Envoy should be updated
+* envoy/cmp envoy_a.expected
 
 # Update the node labels to flip the selected CECs
 set-node-labels foo=b
 
 # CEC with foo=b should be selected.
 db/cmp ciliumenvoyconfigs cec_b.table
-envoy envoy.out
-* cmp envoy.out envoy_b.expected
+db/cmp envoy-resources envoy-resources-b.table
+
+# Envoy should be updated
+* envoy/cmp envoy_b.expected
 
 # ---------------------------------------------
 
@@ -70,11 +74,78 @@ spec:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       name: envoy-lb-listener
 
+
+-- envoy-resources-a.table --
+Name                       Listeners                                  Endpoints                                          References             Status   Error
+backendsync:test/a                                                                                                       test/envoy-a           Done     
+cec:test/envoy-a           test/envoy-a/envoy-lb-listener                                                                                       Done     
+
+-- envoy-resources-b.table --
+Name                       Listeners                                  Endpoints                                          References             Status   Error
+backendsync:test/b                                                                                                       test/envoy-b           Done
+cec:test/envoy-b           test/envoy-b/envoy-lb-listener                                                                                       Done
+
 -- envoy_a.expected --
-policy-trigger-count: 1
-update: listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=
-delete: listeners=<nil> endpoints=<nil>
+policy-trigger-count:
+  1
+listener:test/envoy-a/envoy-lb-listener:
+  name: "test/envoy-a/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
 -- envoy_b.expected --
-policy-trigger-count: 3
-update: listeners=test/envoy-b/envoy-lb-listener/1000 endpoints=
-delete: listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=
+policy-trigger-count:
+  3
+listener:test/envoy-b/envoy-lb-listener:
+  name: "test/envoy-b/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  

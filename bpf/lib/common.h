@@ -42,6 +42,12 @@
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
 #endif
 
+#ifdef NO_COMMON_MEM_MAPS
+#define LRU_MEM_FLAVOR BPF_F_NO_COMMON_LRU
+#else
+#define LRU_MEM_FLAVOR 0
+#endif
+
 #if defined(ENABLE_EGRESS_GATEWAY)
 #define ENABLE_EGRESS_GATEWAY_COMMON
 #endif
@@ -70,68 +76,6 @@ enum {
 
 /* FIB errors from BPF neighbor map. */
 #define BPF_FIB_MAP_NO_NEIGH	100
-
-#define CILIUM_CALL_DROP_NOTIFY			1
-#define CILIUM_CALL_ERROR_NOTIFY		2
-/*
- * A gap in the macro numbering sequence was created by #24921.
- * It can be reused for a new macro in the future, but caution is needed when
- * backporting changes as it may conflict with older versions of the code.
- */
-#define CILIUM_CALL_HANDLE_ICMP6_NS		4
-#define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
-#define CILIUM_CALL_ARP				6
-#define CILIUM_CALL_IPV4_FROM_LXC		7
-#define CILIUM_CALL_IPV4_FROM_NETDEV		CILIUM_CALL_IPV4_FROM_LXC
-#define CILIUM_CALL_IPV4_FROM_OVERLAY		CILIUM_CALL_IPV4_FROM_LXC
-#define CILIUM_CALL_IPV46_RFC6052		8
-#define CILIUM_CALL_IPV64_RFC6052		9
-#define CILIUM_CALL_IPV6_FROM_LXC		10
-#define CILIUM_CALL_IPV6_FROM_NETDEV		CILIUM_CALL_IPV6_FROM_LXC
-#define CILIUM_CALL_IPV6_FROM_OVERLAY		CILIUM_CALL_IPV6_FROM_LXC
-#define CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY	11
-#define CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY
-#define CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY	12
-#define CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY
-#define CILIUM_CALL_IPV4_TO_ENDPOINT		13
-#define CILIUM_CALL_IPV6_TO_ENDPOINT		14
-#define CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS	15
-#define CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS	16
-#define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
-#define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
-#define CILIUM_CALL_IPV4_NODEPORT_NAT_FWD	19
-#define CILIUM_CALL_IPV4_NODEPORT_DSR		20
-#define CILIUM_CALL_IPV6_NODEPORT_DSR		21
-#define CILIUM_CALL_IPV4_FROM_HOST		22
-#define CILIUM_CALL_IPV6_FROM_HOST		23
-#define CILIUM_CALL_IPV6_NODEPORT_NAT_FWD	24
-#define CILIUM_CALL_IPV4_FROM_LXC_CONT		25
-#define CILIUM_CALL_IPV6_FROM_LXC_CONT		26
-#define CILIUM_CALL_IPV4_CT_INGRESS		27
-#define CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY	28
-#define CILIUM_CALL_IPV4_CT_EGRESS		29
-#define CILIUM_CALL_IPV6_CT_INGRESS		30
-#define CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY	31
-#define CILIUM_CALL_IPV6_CT_EGRESS		32
-#define CILIUM_CALL_SRV6_ENCAP			33
-#define CILIUM_CALL_SRV6_DECAP			34
-/* Unused CILIUM_CALL_SRV6_REPLY		35 */
-#define CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS	36
-#define CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS	37
-#define CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD	38
-#define CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD	39
-/* Unused CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS	40
- * Unused CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS	41
- */
-#define CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT	42
-#define CILIUM_CALL_IPV4_CONT_FROM_HOST		43
-#define CILIUM_CALL_IPV4_CONT_FROM_NETDEV	44
-#define CILIUM_CALL_IPV6_CONT_FROM_HOST		45
-#define CILIUM_CALL_IPV6_CONT_FROM_NETDEV	46
-#define CILIUM_CALL_IPV4_NO_SERVICE		47
-#define CILIUM_CALL_IPV6_NO_SERVICE		48
-#define CILIUM_CALL_MULTICAST_EP_DELIVERY       49
-#define CILIUM_CALL_SIZE			50
 
 typedef __u64 mac_t;
 
@@ -280,36 +224,6 @@ struct endpoint_key {
 	__u16 cluster_id;
 } __packed;
 
-struct tunnel_key {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 pad;
-	__u16 cluster_id;
-} __packed;
-
-struct tunnel_value {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 key;
-	__u16 pad;
-} __packed;
-
 #define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
 #define ENDPOINT_F_ATHOSTNS		2 /* Endpoint located at the host networking namespace */
 #define ENDPOINT_MASK_HOST_DELIVERY	(ENDPOINT_F_HOST | ENDPOINT_F_ATHOSTNS)
@@ -350,11 +264,21 @@ struct edt_info {
 
 struct remote_endpoint_info {
 	__u32		sec_identity;
-	__u32		tunnel_endpoint;
+	union {
+		struct {
+			__u32	ip4;
+			__u32	pad1;
+			__u32	pad2;
+			__u32	pad3;
+		};
+		union v6addr	ip6;
+	} tunnel_endpoint;
 	__u16		pad;
 	__u8		key;
 	__u8		flag_skip_tunnel:1,
-			pad2:7;
+			flag_has_tunnel_ep:1,
+			flag_ipv6_tunnel_ep:1,
+			pad2:5;
 };
 
 /*
@@ -707,6 +631,13 @@ enum metric_dir {
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
 #define MARK_MAGIC_OVERLAY		0x0400 /* mark carries identity */
+/* used to indicate encrypted traffic was tunnel encapsulated
+ * this is useful in the IPsec code paths where we need to know if overlay
+ * traffic is encrypted or not.
+ *
+ * the SPI bit can be reused since this magic mark is only used POST encryption.
+ */
+#define MARK_MAGIC_OVERLAY_ENCRYPTED	(MARK_MAGIC_OVERLAY | 0x1000)
 #define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
@@ -1143,7 +1074,7 @@ struct lb_affinity_match {
 
 struct ct_state {
 	__u16 rev_nat_index;
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	__u16 loopback:1,
 #else
 	__u16 loopback_disabled:1,
@@ -1189,41 +1120,6 @@ struct lb6_src_range_key {
 	__u16 pad;
 	union v6addr addr;
 };
-
-static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
-				       int ifindex __maybe_unused,
-				       bool needs_backlog __maybe_unused,
-				       bool from_tunnel)
-{
-	/* Going via CPU backlog queue (aka needs_backlog) is required
-	 * whenever we cannot do a fast ingress -> ingress switch but
-	 * instead need an ingress -> egress netns traversal or vice
-	 * versa.
-	 *
-	 * This is also the case if BPF host routing is disabled, or if
-	 * we are currently on egress which is indicated by ingress_ifindex
-	 * being 0. The latter is cleared upon skb scrubbing.
-	 *
-	 * In case of netkit, we're on the egress side and need a regular
-	 * redirect to the peer device's ifindex. In case of veth we're
-	 * on ingress and need a redirect peer to get to the target. Both
-	 * only traverse the CPU backlog queue once. In case of phys ->
-	 * Pod, the ingress_ifindex is > 0 and in both device types we
-	 * do want a redirect peer into the target Pod's netns.
-	 */
-	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING) ||
-	    ctx_get_ingress_ifindex(ctx) == 0) {
-		return (int)ctx_redirect(ctx, ifindex, 0);
-	}
-
-	/* When coming from overlay, we need to set packet type
-	 * to HOST as otherwise we might get dropped in IP layer.
-	 */
-	if (from_tunnel)
-		ctx_change_type(ctx, PACKET_HOST);
-
-	return ctx_redirect_peer(ctx, ifindex, 0);
-}
 
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {

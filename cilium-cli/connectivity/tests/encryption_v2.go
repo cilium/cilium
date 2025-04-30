@@ -297,6 +297,10 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters4(ctx context.Context) (clie
 	return s.nativeTCPDumpFilters4(ctx)
 }
 
+// icmpv6NAFilter filters ipv6 packets with icmpv6 type 136 (neighbor advertisement).
+// These are sent unencrypted when node encryption and wireguard is enabled.
+const icmpv6NAFilter = "not (icmp6 and ip6[40] = 136)"
+
 // tunnelTCPDumpFilters6 is equivalent to tunnelTCPDumpFilters4 but for IPv6.
 func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clientFilter string, serverFilter string, err error) {
 	if ctx.Err() != nil {
@@ -348,6 +352,7 @@ func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clien
 
 	clientFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter, clientInnerIPv6Src, clientInnerIPv6Dst)
 	serverFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter, serverInnerIPv6Dst, serverInnerIPv6Src)
+
 	return clientFilter, serverFilter, nil
 }
 
@@ -379,10 +384,22 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters6(ctx context.Context) (clie
 	}
 
 	if s.tunnelMode.Enabled {
-		return s.tunnelTCPDumpFilters6(ctx)
+		clientFilter, serverFilter, err = s.tunnelTCPDumpFilters6(ctx)
+	} else {
+		clientFilter, serverFilter, err = s.nativeTCPDumpFilters6(ctx)
 	}
 
-	return s.nativeTCPDumpFilters6(ctx)
+	if err == nil {
+		// If we have node encryption enabled with wireguard, filter out icmpv6 packets
+		// that are neighbor broadcast messages as these are not sent to the WG device.
+		encNode, ok := s.ct.Feature(features.EncryptionNode)
+		if ok && encNode.Enabled && s.encryptMode.Mode == "wireguard" {
+			clientFilter = fmt.Sprintf("(%s) and (%s)", clientFilter, icmpv6NAFilter)
+			serverFilter = fmt.Sprintf("(%s) and (%s)", serverFilter, icmpv6NAFilter)
+		}
+	}
+
+	return clientFilter, serverFilter, err
 }
 
 // startSniffers will start TCPdump on both the client and the server pod's host

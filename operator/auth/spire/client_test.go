@@ -224,7 +224,7 @@ func TestClient_Upsert(t *testing.T) {
 				cfg:   cfg,
 				entry: tt.fields.entry,
 			}
-			if err := c.Upsert(context.Background(), tt.args.id); (err != nil) != tt.wantErr {
+			if err := c.Upsert(t.Context(), tt.args.id); (err != nil) != tt.wantErr {
 				t.Errorf("Upsert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -405,7 +405,7 @@ func TestClient_Delete(t *testing.T) {
 				cfg:   cfg,
 				entry: tt.fields.entry,
 			}
-			if err := c.Delete(context.Background(), tt.args.id); (err != nil) != tt.wantErr {
+			if err := c.Delete(t.Context(), tt.args.id); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -414,7 +414,7 @@ func TestClient_Delete(t *testing.T) {
 
 func Test_resolvedK8sService(t *testing.T) {
 	_, c := client.NewFakeClientset(hivetest.Logger(t))
-	_, _ = c.CoreV1().Services("dummy-namespace").Create(context.Background(), &corev1.Service{
+	_, _ = c.CoreV1().Services("dummy-namespace").Create(t.Context(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "valid-service",
 		},
@@ -474,7 +474,7 @@ func Test_resolvedK8sService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := resolvedK8sService(context.Background(), tt.args.client, tt.args.address)
+			got, err := resolvedK8sService(t.Context(), tt.args.client, tt.args.address)
 			if tt.wantedErr != nil && (err == nil || !reflect.DeepEqual(err.Error(), tt.wantedErr.Error())) {
 				t.Errorf("resolvedK8sService() error = %v, wantErr %v", err, tt.wantedErr)
 				return

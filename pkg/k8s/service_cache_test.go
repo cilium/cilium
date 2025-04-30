@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
@@ -29,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -147,7 +147,7 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	cache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	cache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
@@ -292,7 +292,7 @@ func testServiceCache(t *testing.T,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup)) {
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -457,7 +457,7 @@ func testServiceCache(t *testing.T,
 
 func TestForEachService(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc1 := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -568,7 +568,7 @@ func TestServiceMutators(t *testing.T) {
 	var m1, m2 int
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
 		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
@@ -591,7 +591,7 @@ func TestServiceMutators(t *testing.T) {
 
 func TestExternalServiceMerging(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -914,7 +914,7 @@ func TestExternalServiceMerging(t *testing.T) {
 		return true
 	}, 2*time.Second))
 
-	k8sSvcID, _ := ParseService(hivetest.Logger(t), k8sSvc, nil)
+	k8sSvcID, _ := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, k8sSvc, nil)
 	addresses := svcCache.getServiceIP(k8sSvcID)
 	require.Equal(t, loadbalancer.NewL3n4Addr(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.0.0.1"), 80, loadbalancer.ScopeExternal), addresses)
 
@@ -952,7 +952,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	swg := lock.NewStoppableWaitGroup()
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	// Store the service with the non-cluster-aware ID
 	svcCache.services[id1] = &svc
@@ -1013,7 +1013,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 func TestNonSharedService(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1138,7 +1138,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	})
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1357,7 +1357,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	})
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1572,6 +1572,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	}})
 	db, nodeAddrs := newDB(t)
 	svcCache := newServiceCache(hivetest.Logger(t), hivetest.Lifecycle(t),
+		loadbalancer.DefaultConfig,
 		ServiceCacheConfig{EnableServiceTopology: true}, store,
 		db, nodeAddrs, NewSVCMetricsNoop())
 
@@ -1647,7 +1648,7 @@ func BenchmarkCorrelateEndpoints(b *testing.B) {
 	const epsPerSlice = 100
 
 	db, nodeAddrs := newDB(b)
-	cache := NewServiceCache(hivetest.Logger(b), db, nodeAddrs, NewSVCMetricsNoop())
+	cache := NewServiceCache(hivetest.Logger(b), loadbalancer.DefaultConfig, db, nodeAddrs, NewSVCMetricsNoop())
 
 	var swg lock.StoppableWaitGroup
 	id := ServiceID{Name: "foo", Namespace: "bar"}

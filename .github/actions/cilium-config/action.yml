@@ -19,6 +19,9 @@ inputs:
   ipv6:
     description: 'Enable IPv6'
     default: 'true'
+  underlay:
+    description: 'Underlay protocol for the VXLAN or GENEVE tunnels'
+    default: 'ipv4'
   kpr:
     description: 'Enable kube-proxy replacement'
     default: 'false'
@@ -33,9 +36,6 @@ inputs:
     default: ''
   encryption-node:
     description: 'Enable node-to-node encryption (WireGuard only)'
-    default: 'false'
-  encryption-overlay:
-    description: 'Encrypt the overlay itself (IPsec only)'
     default: 'false'
   encryption-strict-mode:
     description: 'Enable strict mode encryption (WireGuard only)'
@@ -137,6 +137,9 @@ runs:
           IPV6=""
           if [ "${{ inputs.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
+            if [ "${{ inputs.underlay }}" == "ipv6" ]; then
+              IPV6+=" --helm-set=underlayProtocol=ipv6"
+            fi
           fi
 
           MASQ=""
@@ -160,9 +163,6 @@ runs:
             ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ inputs.encryption }}"
             if [ "${{ inputs.encryption-node }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ inputs.encryption-node }}"
-            fi
-            if [ "${{ inputs.encryption-overlay }}" != "" ]; then
-              ENCRYPT+=" --helm-set=encryption.ipsec.encryptedOverlay=${{ inputs.encryption-overlay }}"
             fi
             if [ "${{ inputs.encryption-strict-mode }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.strictMode.enabled=${{ inputs.encryption-strict-mode }}"

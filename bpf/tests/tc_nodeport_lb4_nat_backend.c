@@ -11,8 +11,6 @@
 #define ENABLE_NODEPORT
 #define ENABLE_HOST_ROUTING
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -56,8 +54,6 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

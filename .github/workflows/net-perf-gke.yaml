@@ -65,7 +65,7 @@ env:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 517.0.0
+  gcloud_version: 519.0.0
 
 jobs:
   echo-inputs:
@@ -157,42 +157,29 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./install/kubernetes/cilium
+          debug: false
+
       - name: Set up job variables
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ ${{ github.event.pull_request }} ] ; then
-            SHA="${{ inputs.SHA }}"
             OWNER="${{ inputs.PR-number }}"
           else
-            SHA="${{ github.sha }}"
             OWNER="${{ github.ref_name }}"
             OWNER="${OWNER//[.\/]/-}"
           fi
 
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
-            --wait=false"
-
-          # only add SHA to the image tags if it was set
-          if [ -n "${SHA}" ]; then
-            echo sha=${SHA} >> $GITHUB_OUTPUT
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${SHA} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
-            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
-            --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false"
-          fi
-
-          CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=${{ matrix.mode }}"
+            --wait=false \
+            --datapath-mode=${{ matrix.mode }}"
 
           if [ "${{ matrix.encryption }}" = "ipsec" ] ; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
@@ -209,7 +196,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
@@ -266,7 +253,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ steps.vars.outputs.sha }}
+          image-tag: ${{ steps.default_vars.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
@@ -327,7 +314,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}

@@ -179,7 +179,7 @@ jobs:
           # Needed so that Cilium can allocate LoadBalancer service IPs
           # needed for the tests
           kubectl apply -f - <<EOF
-          apiVersion: "cilium.io/v2alpha1"
+          apiVersion: "cilium.io/v2"
           kind: CiliumLoadBalancerIPPool
           metadata:
             name: "test-lb-pool"
@@ -236,10 +236,28 @@ jobs:
       # Sequentially kill kube-apiserver pods to verify cilium agent pods fail over to an active instance.
       - name: Test kube-apiserver high availability
         run: |
-          pods=$(kubectl get pods -n kube-system -l component=kube-apiserver --no-headers | awk '{print $1}')
-          echo "kube-apiserver pods $pods"
-          for pod in $pods; do
-            kubectl delete pod -n kube-system "$pod"
+          PORT=6443
+          NAMESPACE="kube-system"
+          # Get kube-apiserver pods.
+          declare -A pods
+          entries=$(kubectl -n "$NAMESPACE" get pods -l component=kube-apiserver -o json | jq -r '.items[] | "\(.metadata.name) \(.status.podIP)"')
+          while read -r pod ip; do
+            pods["$pod"]="$ip"
+            done <<< "$entries"
+          for pod in "${!pods[@]}"; do
+            echo "$pod => ${pods[$pod]}"
+          done
+          # Sequentially delete kube-apiserver pods by connecting via an active kube-apiserver instance.
+          for pod in "${!pods[@]}"; do
+            # Find an active kube-apiserver pod
+            for active_pod in "${!pods[@]}"; do
+              if [[ "$active_pod" != "$pod" ]]; then
+                active_ip="${pods[$active_pod]}"
+                break
+              fi
+            done
+            echo "Deleting $pod"
+            kubectl -n "$NAMESPACE" --server "https://${active_ip}:${PORT}" delete pod "$pod"
             sleep 120
           done
           cilium status --wait --wait-duration=5m

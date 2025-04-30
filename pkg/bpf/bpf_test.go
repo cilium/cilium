@@ -11,16 +11,22 @@ import (
 )
 
 func TestDefaultMapFlags(t *testing.T) {
-	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetPreAllocateMapFlags(ebpf.LPMTrie))
-	require.Equal(t, uint32(0), GetPreAllocateMapFlags(ebpf.Array))
-	require.Equal(t, uint32(0), GetPreAllocateMapFlags(ebpf.LRUHash))
+	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetMapMemoryFlags(ebpf.Hash))
+	require.Equal(t, uint32(0), GetMapMemoryFlags(ebpf.LRUHash))
+	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetMapMemoryFlags(ebpf.LPMTrie))
+	require.Equal(t, uint32(0), GetMapMemoryFlags(ebpf.Array))
 
-	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetPreAllocateMapFlags(ebpf.Hash))
 	EnableMapPreAllocation()
-	require.Equal(t, uint32(0), GetPreAllocateMapFlags(ebpf.Hash))
-
-	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetPreAllocateMapFlags(ebpf.LPMTrie))
-	require.Equal(t, uint32(0), GetPreAllocateMapFlags(ebpf.Array))
-	require.Equal(t, uint32(0), GetPreAllocateMapFlags(ebpf.LRUHash))
+	require.Equal(t, uint32(0), GetMapMemoryFlags(ebpf.Hash))
+	require.Equal(t, uint32(0), GetMapMemoryFlags(ebpf.LRUHash))
+	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetMapMemoryFlags(ebpf.LPMTrie))
+	require.Equal(t, uint32(0), GetMapMemoryFlags(ebpf.Array))
 	DisableMapPreAllocation()
+
+	EnableMapDistributedLRU()
+	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetMapMemoryFlags(ebpf.Hash))
+	require.Equal(t, uint32(BPF_F_NO_COMMON_LRU), GetMapMemoryFlags(ebpf.LRUHash))
+	require.Equal(t, uint32(BPF_F_NO_PREALLOC), GetMapMemoryFlags(ebpf.LPMTrie))
+	require.Equal(t, uint32(0), GetMapMemoryFlags(ebpf.Array))
+	DisableMapDistributedLRU()
 }

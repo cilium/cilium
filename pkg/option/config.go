@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -23,6 +22,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/cilium/ebpf"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mackerelio/go-osstat/memory"
@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/util"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -249,10 +250,6 @@ const (
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode = "node-port-mode"
 
-	// NodePortAlg indicates which algorithm is used for backend selection
-	// ("random" or "maglev")
-	NodePortAlg = "node-port-algorithm"
-
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
@@ -273,15 +270,8 @@ const (
 	// Alias to DSR/IPIP IPv6 source CIDR
 	LoadBalancerRSSv6CIDR = "bpf-lb-rss-ipv6-src-cidr"
 
-	// Alias to NodePortAlg
-	LoadBalancerAlgorithm = "bpf-lb-algorithm"
-
 	// LoadBalancerNat46X64 enables NAT46 and NAT64 for services
 	LoadBalancerNat46X64 = "bpf-lb-nat46x64"
-
-	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
-	// level annotation for configuring bpf loadbalancing algorithm.
-	LoadBalancerAlgorithmAnnotation = "bpf-lb-algorithm-annotation"
 
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
@@ -298,9 +288,6 @@ const (
 
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection = "node-port-bind-protection"
-
-	// NodePortRange defines a custom range where to look up NodePort services
-	NodePortRange = "node-port-range"
 
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
@@ -641,10 +628,6 @@ const (
 	// reconciliation of the endpoint policy map.
 	PolicyMapFullReconciliationIntervalName = "bpf-policy-map-full-reconciliation-interval"
 
-	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
-	// entries.
-	SockRevNatEntriesName = "bpf-sock-rev-map-max"
-
 	// EgressGatewayPolicyMapEntriesName configures max entries for egress gateway's policy
 	// map.
 	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
@@ -835,9 +818,6 @@ const (
 	// EnableEndpointHealthChecking is the name of the EnableEndpointHealthChecking option
 	EnableEndpointHealthChecking = "enable-endpoint-health-checking"
 
-	// EnableHealthCheckNodePort is the name of the EnableHealthCheckNodePort option
-	EnableHealthCheckNodePort = "enable-health-check-nodeport"
-
 	// EnableHealthCheckLoadBalancerIP is the name of the EnableHealthCheckLoadBalancerIP option
 	EnableHealthCheckLoadBalancerIP = "enable-health-check-loadbalancer-ip"
 
@@ -981,36 +961,16 @@ const (
 	// IPv4 fragments tracking for L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragment-tracking"
 
+	// EnableIPv6FragmentsTrackingName is the name of the option to enable
+	// IPv6 fragments tracking for L4-based lookups. Needs LRU map support.
+	EnableIPv6FragmentsTrackingName = "enable-ipv6-fragment-tracking"
+
 	// FragmentsMapEntriesName configures max entries for BPF fragments
 	// tracking map.
 	FragmentsMapEntriesName = "bpf-fragments-map-max"
 
 	// K8sEnableAPIDiscovery enables Kubernetes API discovery
 	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
-
-	// LBMapEntriesName configures max entries for BPF lbmap.
-	LBMapEntriesName = "bpf-lb-map-max"
-
-	// LBServiceMapMaxEntries configures max entries of bpf map for services.
-	LBServiceMapMaxEntries = "bpf-lb-service-map-max"
-
-	// LBBackendMapMaxEntries configures max entries of bpf map for service backends.
-	LBBackendMapMaxEntries = "bpf-lb-service-backend-map-max"
-
-	// LBRevNatMapMaxEntries configures max entries of bpf map for reverse NAT.
-	LBRevNatMapMaxEntries = "bpf-lb-rev-nat-map-max"
-
-	// LBAffinityMapMaxEntries configures max entries of bpf map for session affinity.
-	LBAffinityMapMaxEntries = "bpf-lb-affinity-map-max"
-
-	// LBSourceRangeAllTypes configures service source ranges for all service types.
-	LBSourceRangeAllTypes = "bpf-lb-source-range-all-types"
-
-	// LBSourceRangeMapMaxEntries configures max entries of bpf map for service source ranges.
-	LBSourceRangeMapMaxEntries = "bpf-lb-source-range-map-max"
-
-	// LBMaglevMapMaxEntries configures max entries of bpf map for Maglev.
-	LBMaglevMapMaxEntries = "bpf-lb-maglev-map-max"
 
 	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
 	// store rules and routes under ENI and Azure IPAM modes, if false.
@@ -1027,10 +987,6 @@ const (
 
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace = "bgp-secrets-namespace"
-
-	// ExternalClusterIPName is the name of the option to enable
-	// cluster external access to ClusterIP services.
-	ExternalClusterIPName = "bpf-lb-external-clusterip"
 
 	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
 	VLANBPFBypass = "vlan-bpf-bypass"
@@ -1193,12 +1149,6 @@ const (
 )
 
 const (
-	// NodePortMinDefault is the minimal port to listen for NodePort requests
-	NodePortMinDefault = 30000
-
-	// NodePortMaxDefault is the maximum port to listen for NodePort requests
-	NodePortMaxDefault = 32767
-
 	// NodePortModeSNAT is for SNATing requests to remote nodes
 	NodePortModeSNAT = "snat"
 
@@ -1207,12 +1157,6 @@ const (
 
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
-
-	// NodePortAlgRandom is for randomly selecting a backend
-	NodePortAlgRandom = "random"
-
-	// NodePortAlgMaglev is for using maglev consistent hashing for backend selection
-	NodePortAlgMaglev = "maglev"
 
 	// DSR dispatch mode to encode service into IP option or extension header
 	DSRDispatchOption = "opt"
@@ -1242,9 +1186,6 @@ const (
 	// KubeProxyReplacementFalse specifies to enable only selected kube-proxy
 	// replacement features (might panic).
 	KubeProxyReplacementFalse = "false"
-
-	// KubeProxyReplacement healthz server bind address
-	KubeProxyReplacementHealthzBindAddr = "kube-proxy-replacement-healthz-bind-address"
 
 	// PprofAddressAgent is the default value for pprof in the agent
 	PprofAddressAgent = "localhost"
@@ -1499,10 +1440,6 @@ type DaemonConfig struct {
 	// PolicyMapFullReconciliationInterval is the interval at which to perform
 	// the full reconciliation of the endpoint policy map.
 	PolicyMapFullReconciliationInterval time.Duration
-
-	// SockRevNatEntries is the maximum number of sock rev nat mappings
-	// allowed in the BPF rev nat table
-	SockRevNatEntries int
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
@@ -1775,10 +1712,6 @@ type DaemonConfig struct {
 	// health endpoints
 	EnableEndpointHealthChecking bool
 
-	// EnableHealthCheckNodePort enables health checking of NodePort by
-	// cilium
-	EnableHealthCheckNodePort bool
-
 	// EnableHealthCheckLoadBalancerIP enables health checking of LoadBalancerIP
 	// by cilium
 	EnableHealthCheckLoadBalancerIP bool
@@ -1876,14 +1809,6 @@ type DaemonConfig struct {
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark bool
 
-	// NodePortAlg indicates which backend selection algorithm is used
-	// ("random" or "maglev")
-	NodePortAlg string
-
-	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
-	// level annotation for configuring bpf load balancing algorithm.
-	LoadBalancerAlgorithmAnnotation bool
-
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt" or "ipip")
 	LoadBalancerDSRDispatch string
@@ -1936,9 +1861,6 @@ type DaemonConfig struct {
 	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
 	CgroupPathMKE string
 
-	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
-	KubeProxyReplacementHealthzBindAddr string
-
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs bool
 
@@ -1947,12 +1869,6 @@ type DaemonConfig struct {
 
 	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
 	EnableLocalRedirectPolicy bool
-
-	// NodePortMin is the minimum port address for the NodePort range
-	NodePortMin int
-
-	// NodePortMax is the maximum port address for the NodePort range
-	NodePortMax int
 
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity bool
@@ -2029,6 +1945,10 @@ type DaemonConfig struct {
 	// L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTracking bool
 
+	// EnableIPv6FragmentsTracking enables IPv6 fragments tracking for
+	// L4-based lookups. Needs LRU map support.
+	EnableIPv6FragmentsTracking bool
+
 	// FragmentsMapEntries is the maximum number of fragmented datagrams
 	// that can simultaneously be tracked in order to retrieve their L4
 	// ports for all fragments.
@@ -2056,31 +1976,6 @@ type DaemonConfig struct {
 	// This is only enabled for cilium-operator
 	K8sEnableLeasesFallbackDiscovery bool
 
-	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
-	LBMapEntries int
-
-	// LBServiceMapEntries is the maximum number of entries allowed in BPF lbmap for services.
-	LBServiceMapEntries int
-
-	// LBBackendMapEntries is the maximum number of entries allowed in BPF lbmap for service backends.
-	LBBackendMapEntries int
-
-	// LBRevNatEntries is the maximum number of entries allowed in BPF lbmap for reverse NAT.
-	LBRevNatEntries int
-
-	// LBAffinityMapEntries is the maximum number of entries allowed in BPF lbmap for session affinities.
-	LBAffinityMapEntries int
-
-	// LBSourceRangeAllTypes enables propagation of loadbalancerSourceRanges to all Kubernetes
-	// service types which were created from the LoadBalancer service.
-	LBSourceRangeAllTypes bool
-
-	// LBSourceRangeMapEntries is the maximum number of entries allowed in BPF lbmap for source ranges.
-	LBSourceRangeMapEntries int
-
-	// LBMaglevMapEntries is the maximum number of entries allowed in BPF lbmap for maglev.
-	LBMaglevMapEntries int
-
 	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
@@ -2104,10 +1999,6 @@ type DaemonConfig struct {
 
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace string
-
-	// ExternalClusterIP enables routing to ClusterIP services from outside
-	// the cluster. This mirrors the behaviour of kube-proxy.
-	ExternalClusterIP bool
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
@@ -2261,7 +2152,6 @@ var (
 		EnableHealthChecking:            defaults.EnableHealthChecking,
 		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
 		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
-		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
 		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
 		EnableIPv4:                      defaults.EnableIPv4,
 		EnableIPv6:                      defaults.EnableIPv6,
@@ -2290,7 +2180,6 @@ var (
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
-		ExternalClusterIP:                    defaults.ExternalClusterIP,
 		EnableVTEP:                           defaults.EnableVTEP,
 		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
@@ -2372,12 +2261,12 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
-		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSecEncryptedOverlay
+		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
-// NeedBPFHostOnWireGuardDevice returns true if the agent needs to attach
-// cil_from_netdev on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
+// NeedIngressOnWireGuardDevice returns true if the agent needs to attach
+// cil_from_wireguard on the Ingress of Cilium's WireGuard device
+func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 	if !c.EnableWireguard {
 		return false
 	}
@@ -2873,7 +2762,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
-	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)
 	c.EnableHealthCheckLoadBalancerIP = vp.GetBool(EnableHealthCheckLoadBalancerIP)
 	c.HealthCheckICMPFailureThreshold = vp.GetInt(HealthCheckICMPFailureThreshold)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
@@ -2961,6 +2849,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
 	c.PolicyAccounting = vp.GetBool(PolicyAccountingArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
+	c.EnableIPv6FragmentsTracking = vp.GetBool(EnableIPv6FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
@@ -2970,7 +2859,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
-	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
@@ -2985,7 +2873,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
-	c.LBSourceRangeAllTypes = vp.GetBool(LBSourceRangeAllTypes)
 	c.BootIDFile = vp.GetString(BootIDFilename)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
@@ -3145,11 +3032,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 	c.IPv6PodSubnets = subnets
 
-	err = c.populateNodePortRange(vp)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to populate NodePortRange")
-	}
-
 	monitorAggregationFlags := vp.GetStringSlice(MonitorAggregationFlags)
 	var ctMonitorReportFlags uint16
 	for i := range monitorAggregationFlags {
@@ -3287,7 +3169,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		// Default to the same value as IPAMDefaultIPPool
 		c.IPAMMultiPoolPreAllocation = map[string]string{c.IPAMDefaultIPPool: "8"}
 	}
-	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)
@@ -3349,8 +3230,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
 	c.LoadBalancerModeAnnotation = vp.GetBool(LoadBalancerModeAnnotation)
-	c.NodePortAlg = vp.GetString(LoadBalancerAlgorithm)
-	c.LoadBalancerAlgorithmAnnotation = vp.GetBool(LoadBalancerAlgorithmAnnotation)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
 	if vp.IsSet(NodePortAcceleration) {
@@ -3369,47 +3248,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 				LoadBalancerMode, NodePortMode, LoadBalancerMode)
 		}
 	}
-	if vp.IsSet(NodePortAlg) {
-		prior := c.NodePortAlg
-		c.NodePortAlg = vp.GetString(NodePortAlg)
-		if vp.IsSet(LoadBalancerAlgorithm) && prior != c.NodePortAlg {
-			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerAlgorithm, NodePortAlg, LoadBalancerAlgorithm)
-		}
-	}
-}
-
-func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
-	nodePortRange := vp.GetStringSlice(NodePortRange)
-	// When passed via configmap, we might not get a slice but single
-	// string instead, so split it if needed.
-	if len(nodePortRange) == 1 {
-		nodePortRange = strings.Split(nodePortRange[0], ",")
-	}
-	switch len(nodePortRange) {
-	case 2:
-		var err error
-
-		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
-		if err != nil {
-			return fmt.Errorf("Unable to parse min port value for NodePort range: %w", err)
-		}
-		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
-		if err != nil {
-			return fmt.Errorf("Unable to parse max port value for NodePort range: %w", err)
-		}
-		if c.NodePortMax <= c.NodePortMin {
-			return errors.New("NodePort range min port must be smaller than max port")
-		}
-	case 0:
-		if vp.IsSet(NodePortRange) {
-			log.Warning("NodePort range was set but is empty.")
-		}
-	default:
-		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
-	}
-
-	return nil
 }
 
 func (c *DaemonConfig) checkMapSizeLimits() error {
@@ -3447,15 +3285,6 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 		}
 	}
 
-	if c.SockRevNatEntries < LimitTableMin {
-		return fmt.Errorf("specified Socket Reverse NAT table size %d must be greater or equal to %d",
-			c.SockRevNatEntries, LimitTableMin)
-	}
-	if c.SockRevNatEntries > LimitTableMax {
-		return fmt.Errorf("specified Socket Reverse NAT tables size %d must not exceed maximum %d",
-			c.SockRevNatEntries, LimitTableMax)
-	}
-
 	if c.FragmentsMapEntries < FragmentsMapMin {
 		return fmt.Errorf("specified max entries %d for fragment-tracking map must be greater or equal to %d",
 			c.FragmentsMapEntries, FragmentsMapMin)
@@ -3465,25 +3294,6 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 			c.FragmentsMapEntries, FragmentsMapMax)
 	}
 
-	if c.LBMapEntries <= 0 {
-		return fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", c.LBMapEntries)
-	}
-
-	if c.LBServiceMapEntries < 0 ||
-		c.LBBackendMapEntries < 0 ||
-		c.LBRevNatEntries < 0 ||
-		c.LBAffinityMapEntries < 0 ||
-		c.LBSourceRangeMapEntries < 0 ||
-		c.LBMaglevMapEntries < 0 {
-		return fmt.Errorf("specified LB Service Map max entries must not be a negative value"+
-			"(Service Map: %d, Service Backend: %d, Reverse NAT: %d, Session Affinity: %d, Source Range: %d, Maglev: %d)",
-			c.LBServiceMapEntries,
-			c.LBBackendMapEntries,
-			c.LBRevNatEntries,
-			c.LBAffinityMapEntries,
-			c.LBSourceRangeMapEntries,
-			c.LBMaglevMapEntries)
-	}
 	return nil
 }
 
@@ -3570,14 +3380,6 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)
 	c.NeighMapEntriesGlobal = vp.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapFullReconciliationInterval = vp.GetDuration(PolicyMapFullReconciliationIntervalName)
-	c.SockRevNatEntries = vp.GetInt(SockRevNatEntriesName)
-	c.LBMapEntries = vp.GetInt(LBMapEntriesName)
-	c.LBServiceMapEntries = vp.GetInt(LBServiceMapMaxEntries)
-	c.LBBackendMapEntries = vp.GetInt(LBBackendMapMaxEntries)
-	c.LBRevNatEntries = vp.GetInt(LBRevNatMapMaxEntries)
-	c.LBAffinityMapEntries = vp.GetInt(LBAffinityMapMaxEntries)
-	c.LBSourceRangeMapEntries = vp.GetInt(LBSourceRangeMapMaxEntries)
-	c.LBMaglevMapEntries = vp.GetInt(LBMaglevMapMaxEntries)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).
@@ -3597,8 +3399,10 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 		if err != nil || vms == nil {
 			log.WithError(err).Fatal("Failed to get system memory")
 		}
-		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
 		c.BPFMapsDynamicSizeRatio = dynamicSizeRatio
+		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
+	} else if c.BPFDistributedLRU {
+		return fmt.Errorf("distributed LRU is only valid with a specified dynamic map size ratio")
 	} else if dynamicSizeRatio < 0.0 {
 		return fmt.Errorf("specified dynamic map size ratio %f must be > 0.0", dynamicSizeRatio)
 	} else if dynamicSizeRatio > 1.0 {
@@ -3621,7 +3425,21 @@ func (c *DaemonConfig) SetMapElementSizes(
 	c.SizeofSockRevElement = sizeofSockRevElement
 }
 
-func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory uint64, dynamicSizeRatio float64) {
+func (c *DaemonConfig) GetDynamicSizeCalculator() func(def, min, max int) int {
+	vms, err := memory.Get()
+	if err != nil || vms == nil {
+		log.WithError(err).Fatal("Failed to get system memory")
+	}
+
+	return c.getDynamicSizeCalculator(c.BPFMapsDynamicSizeRatio, vms.Total)
+}
+
+func (c *DaemonConfig) getDynamicSizeCalculator(dynamicSizeRatio float64, totalMemory uint64) func(def, min, max int) int {
+	if 0.0 >= dynamicSizeRatio || dynamicSizeRatio > 1.0 {
+		return func(def int, min int, max int) int { return def }
+	}
+
+	possibleCPUs := 1
 	// Heuristic:
 	// Distribute relative to map default entries among the different maps.
 	// Cap each map size by the maximum. Map size provided by the user will
@@ -3636,6 +3454,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 	//    1GB    66280   33140    66280
 	//    4GB   265121  132560   265121
 	//   16GB  1060485  530242  1060485
+
 	memoryAvailableForMaps := int(float64(totalMemory) * dynamicSizeRatio)
 	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio*100, totalMemory, memoryAvailableForMaps)
 	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.SizeofCTElement +
@@ -3646,16 +3465,35 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 		SockRevNATMapEntriesDefault*c.SizeofSockRevElement
 	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
 
-	getEntries := func(entriesDefault, min, max int) int {
+	// In case of distributed LRU, we need to round up to the number of possible CPUs
+	// since this is also what the kernel does internally, see htab_map_alloc()'s:
+	//
+	//   htab->map.max_entries = roundup(attr->max_entries,
+	//				     num_possible_cpus());
+	//
+	// Thus, if we would not round up from agent side, then Cilium would constantly
+	// try to replace maps due to property mismatch!
+	if c.BPFDistributedLRU {
+		cpus, err := ebpf.PossibleCPU()
+		if err != nil {
+			log.Fatal("Failed to get number of possible CPUs needed for the distributed LRU")
+		}
+		possibleCPUs = cpus
+	}
+	return func(entriesDefault, min, max int) int {
 		entries := (entriesDefault * memoryAvailableForMaps) / totalMapMemoryDefault
+		entries = util.RoundUp(entries, possibleCPUs)
 		if entries < min {
-			entries = min
+			entries = util.RoundUp(min, possibleCPUs)
 		} else if entries > max {
-			log.Debugf("clamped from %d to %d", entries, max)
-			entries = max
+			entries = util.RoundDown(max, possibleCPUs)
 		}
 		return entries
 	}
+}
+
+func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory uint64, dynamicSizeRatio float64) {
+	getEntries := c.getDynamicSizeCalculator(dynamicSizeRatio, totalMemory)
 
 	// If value for a particular map was explicitly set by an
 	// option, disable dynamic sizing for this map and use the
@@ -3700,14 +3538,6 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
 	} else {
 		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
-	}
-	if !vp.IsSet(SockRevNatEntriesName) {
-		c.SockRevNatEntries =
-			getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v",
-			SockRevNatEntriesName, c.SockRevNatEntries)
-	} else {
-		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
 }
 

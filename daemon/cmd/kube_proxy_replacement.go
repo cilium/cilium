@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mountinfo"
@@ -39,7 +40,7 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.Config) error {
+func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config) error {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
 		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
@@ -132,11 +133,6 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, option.DSRDispatchIPIP)
 		}
 
-		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
-			option.Config.NodePortAlg != option.NodePortAlgMaglev {
-			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
-		}
-
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.EnableWireguard && option.Config.EncryptNode {
 			log.WithField(logfields.Hint,
@@ -150,8 +146,9 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
-		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
-			return fmt.Errorf("BPF NodePort cannot be used over an IPv6 underlay")
+		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 &&
+			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
+			return fmt.Errorf("XDP acceleration cannot be used with an IPv6 underlay")
 		}
 
 		if option.Config.TunnelingEnabled() && tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
@@ -208,18 +205,18 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(sysctl)
+	return probeKubeProxyReplacementOptions(lbConfig, sysctl)
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
-func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
+func probeKubeProxyReplacementOptions(lbConfig loadbalancer.Config, sysctl sysctl.Sysctl) error {
 	if option.Config.EnableNodePort {
 		if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
 
-		if err := checkNodePortAndEphemeralPortRanges(sysctl); err != nil {
+		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
 		}
 
@@ -486,7 +483,7 @@ func markHostExtension() {
 // making cilium-agent to stop.
 // Otherwise, if EnableAutoProtectNodePortRange == true, then append the nodeport
 // range to ip_local_reserved_ports.
-func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
+func checkNodePortAndEphemeralPortRanges(lbConfig loadbalancer.Config, sysctl sysctl.Sysctl) error {
 	ephemeralPortRangeStr, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
 	if err != nil {
 		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range: %w", err)
@@ -506,15 +503,15 @@ func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
 			ephemeralPortRange[1], err)
 	}
 
-	if option.Config.NodePortMax < ephemeralPortMin {
+	if lbConfig.NodePortMax < uint16(ephemeralPortMin) {
 		// ephemeral port range does not clash with nodeport range
 		return nil
 	}
 
-	nodePortRangeStr := fmt.Sprintf("%d-%d", option.Config.NodePortMin,
-		option.Config.NodePortMax)
+	nodePortRangeStr := fmt.Sprintf("%d-%d", lbConfig.NodePortMin,
+		lbConfig.NodePortMax)
 
-	if option.Config.NodePortMin > ephemeralPortMax {
+	if lbConfig.NodePortMin > uint16(ephemeralPortMax) {
 		return fmt.Errorf("NodePort port range (%s) is not allowed to be after ephemeral port range (%s)",
 			nodePortRangeStr, ephemeralPortRangeStr)
 	}
@@ -542,12 +539,12 @@ func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
 			}
 		}
 
-		if from <= option.Config.NodePortMin && to >= option.Config.NodePortMax {
+		if uint16(from) <= lbConfig.NodePortMin && uint16(to) >= lbConfig.NodePortMax {
 			// nodeport range is protected by reserved port range
 			return nil
 		}
 
-		if from > option.Config.NodePortMax {
+		if uint16(from) > lbConfig.NodePortMax {
 			break
 		}
 	}
@@ -564,7 +561,7 @@ func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
 	if reservedPortsStr != "" {
 		reservedPortsStr += ","
 	}
-	reservedPortsStr += fmt.Sprintf("%d-%d", option.Config.NodePortMin, option.Config.NodePortMax)
+	reservedPortsStr += fmt.Sprintf("%d-%d", lbConfig.NodePortMin, lbConfig.NodePortMax)
 	if err := sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, reservedPortsStr); err != nil {
 		return fmt.Errorf("Unable to addend nodeport range (%s) to net.ipv4.ip_local_reserved_ports: %w",
 			nodePortRangeStr, err)

@@ -25,6 +25,10 @@ type CiliumBGPNodeConfigOverrideListerExpansion interface{}
 // CiliumBGPPeerConfigLister.
 type CiliumBGPPeerConfigListerExpansion interface{}
 
+// CiliumCIDRGroupListerExpansion allows custom methods to be added to
+// CiliumCIDRGroupLister.
+type CiliumCIDRGroupListerExpansion interface{}
+
 // CiliumClusterwideEnvoyConfigListerExpansion allows custom methods to be added to
 // CiliumClusterwideEnvoyConfigLister.
 type CiliumClusterwideEnvoyConfigListerExpansion interface{}
@@ -56,6 +60,10 @@ type CiliumEnvoyConfigNamespaceListerExpansion interface{}
 // CiliumIdentityListerExpansion allows custom methods to be added to
 // CiliumIdentityLister.
 type CiliumIdentityListerExpansion interface{}
+
+// CiliumLoadBalancerIPPoolListerExpansion allows custom methods to be added to
+// CiliumLoadBalancerIPPoolLister.
+type CiliumLoadBalancerIPPoolListerExpansion interface{}
 
 // CiliumLocalRedirectPolicyListerExpansion allows custom methods to be added to
 // CiliumLocalRedirectPolicyLister.

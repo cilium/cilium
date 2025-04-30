@@ -50,6 +50,9 @@ func slogLevel(l logrus.Level) slog.Level {
 func initializeSlog(logOpts LogOptions, loggers []string) {
 	opts := *slogHandlerOpts
 	opts.Level = slogLevel(logOpts.GetLogLevel())
+	if opts.Level == slog.LevelDebug {
+		opts.AddSource = true
+	}
 
 	logFormat := logOpts.GetLogFormat()
 	switch logFormat {
@@ -80,6 +83,10 @@ func initializeSlog(logOpts LogOptions, loggers []string) {
 			&opts,
 		))
 	}
+}
+
+func ReplaceAttrFn(groups []string, a slog.Attr) slog.Attr {
+	return replaceAttrFn(groups, a)
 }
 
 func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {

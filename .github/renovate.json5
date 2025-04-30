@@ -336,7 +336,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.24",
+      "allowedVersions": "<1.25",
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
@@ -469,6 +469,18 @@
         "cilium/little-vm-helper",
         "quay.io/lvh-images/complexity-test",
         "quay.io/lvh-images/kind"
+      ],
+      "matchBaseBranches": [
+        "main"
+      ],
+    },
+    // group updating renovate versions together (config validator/self hosted renovate)
+    {
+      "groupName": "renovate dependencies",
+      "groupSlug": "renovate-dependencies",
+      "matchDepNames": [
+        "renovatebot/renovate",
+        "ghcr.io/renovatebot/renovate",
       ],
       "matchBaseBranches": [
         "main"
@@ -761,7 +773,7 @@
         "^.github/workflows/renovate-config-validator\\.yaml$"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+        "# renovate: datasource=(?<datasource>.*?)\\s+export RENOVATE_IMAGE=\"?(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"?"
       ]
     },
     {

@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
@@ -29,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 // ServiceCacheCell initializes the service cache holds the list of known services
@@ -244,8 +244,9 @@ type ServiceCache interface {
 // ServiceCacheImpl is a list of services correlated with the matching endpoints.
 // The Events member will receive events as services.
 type ServiceCacheImpl struct {
-	logger *slog.Logger
-	config ServiceCacheConfig
+	logger   *slog.Logger
+	config   ServiceCacheConfig
+	lbConfig loadbalancer.Config
 
 	// Events may only be read by single consumer. The consumer must acknowledge
 	// every event by calling Done() on the ServiceEvent.SWG.
@@ -280,7 +281,7 @@ type ServiceCacheImpl struct {
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(logger *slog.Logger, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], svcMetrics SVCMetrics) *ServiceCacheImpl {
+func NewServiceCache(logger *slog.Logger, lbConfig loadbalancer.Config, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], svcMetrics SVCMetrics) *ServiceCacheImpl {
 	events := make(chan ServiceEvent, option.Config.K8sServiceCacheSize)
 	notifications, emitNotifications, completeNotifications := stream.Multicast[ServiceNotification]()
 
@@ -297,11 +298,12 @@ func NewServiceCache(logger *slog.Logger, db *statedb.DB, nodeAddrs statedb.Tabl
 		emitNotifications:     emitNotifications,
 		completeNotifications: completeNotifications,
 		metrics:               svcMetrics,
+		lbConfig:              lbConfig,
 	}
 }
 
-func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
-	sc := NewServiceCache(logger, db, nodeAddrs, metrics)
+func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, lbConfig loadbalancer.Config, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
+	sc := NewServiceCache(logger, lbConfig, db, nodeAddrs, metrics)
 	sc.config = cfg
 
 	var wg sync.WaitGroup
@@ -437,7 +439,7 @@ func (s *ServiceCacheImpl) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.
 		)
 	}
 
-	svcID, newService := ParseService(s.logger, k8sSvc, addrs)
+	svcID, newService := ParseService(s.logger, s.lbConfig, k8sSvc, addrs)
 	if newService == nil {
 		return svcID
 	}
@@ -882,9 +884,24 @@ func (s *ServiceCacheImpl) mergeExternalServiceDeleteLocked(service *serviceStor
 // ability
 func (s *ServiceCacheImpl) DebugStatus() string {
 	s.mutex.RLock()
-	str := spew.Sdump(s)
-	s.mutex.RUnlock()
-	return str
+	defer s.mutex.RUnlock()
+	// Create a temporary struct excluding the fields we want to ignore.
+	dumpable := struct {
+		Config            ServiceCacheConfig
+		Services          map[ServiceID]*Service
+		Endpoints         map[ServiceID]*EndpointSlices
+		ExternalEndpoints map[ServiceID]externalEndpoints
+		SelfNodeZoneLabel string
+	}{
+		Config:            s.config,
+		Services:          s.services,
+		Endpoints:         s.endpoints,
+		ExternalEndpoints: s.externalEndpoints,
+		SelfNodeZoneLabel: s.selfNodeZoneLabel,
+	}
+
+	// Dump the temporary structure.
+	return spew.Sdump(dumpable)
 }
 
 func (s *ServiceCacheImpl) updateSelfNodeLabels(labels map[string]string) {

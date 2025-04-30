@@ -35,19 +35,17 @@ lb/maps-dump lbmaps.out
 * cmp lbmaps.out lbmaps.expected
 
 # Check that right updates towards Envoy happened.
-envoy envoy.out
-* cmp envoy.out envoy1.expected
+* envoy/cmp envoy1.expected
 
 # Cleanup
 k8s/delete cec.yaml
 
 # Proxy redirect should be gone and CEC table should be empty
 db/cmp services services.table
-* db/empty ciliumenvoyconfigs
+* db/empty ciliumenvoyconfigs envoy-resources
 
 # The listener should now be deleted.
-envoy envoy.out
-* cmp envoy.out envoy2.expected
+* envoy/cmp envoy2.expected
 
 # ---------------------------------------------
 
@@ -84,8 +82,11 @@ Address            Type        ServiceName                PortName   Backends   
 3.0.0.1:9080/TCP   ClusterIP   test/backend_unnamed_port             3.1.0.1:9080/TCP                    Done
 
 -- envoy-resources.table --
-Name           Listeners             Endpoints                                                                                               Status   Error
-test/ingress   test/ingress/listener test/backend:9080: 2.1.0.1, 2.1.0.2, test/backend_unnamed_port:9080: 3.1.0.1, test/frontend:80: 1.1.0.1 Done
+Name                                         Listeners                   Endpoints                                    References    Status   Error
+backendsync:test/backend                                                 test/backend:9080: 2.1.0.1, 2.1.0.2          test/ingress  Done
+backendsync:test/backend_unnamed_port                                    test/backend_unnamed_port:9080: 3.1.0.1      test/ingress  Done
+backendsync:test/frontend                                                test/frontend:80: 1.1.0.1                    test/ingress  Done
+cec:test/ingress                             test/ingress/listener                                                                  Done
 
 -- cec.table --
 Name           Services        BackendServices
@@ -284,10 +285,92 @@ SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+n
 SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- envoy1.expected --
-policy-trigger-count: 1
-update: listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
-delete: listeners=<nil> endpoints=<nil>
+policy-trigger-count:
+  1
+endpoints:test/backend:9080:
+  cluster_name: "test/backend:9080"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "2.1.0.1"
+            port_value: 9080
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "2.1.0.2"
+            port_value: 9080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/backend_unnamed_port:9080:
+  cluster_name: "test/backend_unnamed_port:9080"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "3.1.0.1"
+            port_value: 9080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/frontend:80:
+  cluster_name: "test/frontend:80"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "1.1.0.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/ingress/listener:
+  name: "test/ingress/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
 -- envoy2.expected --
-policy-trigger-count: 2
-update: listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
-delete: listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
+policy-trigger-count:
+  2

@@ -41,11 +41,12 @@ var (
 
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct {
-	maglev *maglev.Maglev
+	lbConfig loadbalancer.Config
+	maglev   *maglev.Maglev
 }
 
-func New(maglev *maglev.Maglev) *LBBPFMap {
-	return &LBBPFMap{maglev}
+func New(lbConfig loadbalancer.Config, maglev *maglev.Maglev) *LBBPFMap {
+	return &LBBPFMap{lbConfig, maglev}
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
@@ -71,7 +72,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	slot := 1
 
 	// start off with #backends = 0 for updateMasterService()
-	backends := make(map[string]*loadbalancer.Backend)
+	backends := make(map[string]*loadbalancer.LegacyBackend)
 	if backendsOk {
 		backends = p.ActiveBackends
 		if len(p.PreferredBackends) > 0 {
@@ -103,7 +104,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 						"Unable to update element for LB bpf map: "+
 						"You can resize it with the flag \"--%s\". "+
 						"The resizing might break existing connections to services",
-						svcKey, svcVal, option.LBMapEntriesName)
+						svcKey, svcVal, loadbalancer.LBMapEntriesName)
 				}
 
 				return fmt.Errorf("Unable to update service entry %+v => %+v: %w", svcKey, svcVal, err)
@@ -120,7 +121,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
+	if err := updateMasterService(lbmap.lbConfig, svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
 		p.SourceRangesPolicy, p.CheckSourceRange, p.ProxyDelegation, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
 		deleteRevNatLocked(revNATKey)
@@ -175,7 +176,7 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.LegacyBackend, ipv6 bool) error {
 	if len(backends) == 0 {
 		deleteMaglevTable(ipv6, svcID)
 		return nil
@@ -254,7 +255,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 
 // AddBackend adds a backend into a BPF map. ipv6 indicates if the backend needs
 // to be added in the v4 or v6 backend map.
-func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(b *loadbalancer.LegacyBackend, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -273,7 +274,7 @@ func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 // UpdateBackendWithState updates the state for the given backend.
 //
 // This function should only be called to update backend's state.
-func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
+func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.LegacyBackend) error {
 	var (
 		backend Backend
 		err     error
@@ -437,7 +438,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 }
 
 // DumpServiceMaps dumps the services from the BPF maps.
-func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
+func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error) {
 	newSVCMap := svcMap{}
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
@@ -540,7 +541,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 	}
 
-	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
+	newSVCList := make([]*loadbalancer.LegacySVC, 0, len(newSVCMap))
 	for hash := range newSVCMap {
 		svc := newSVCMap[hash]
 		key := svc.Frontend.String()
@@ -555,9 +556,9 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 }
 
 // DumpBackendMaps dumps the backend entries from the BPF maps.
-func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
+func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.LegacyBackend, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
-	lbBackends := []*loadbalancer.Backend{}
+	lbBackends := []*loadbalancer.LegacyBackend{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		// No need to deep copy the key because we are using the ID which
@@ -604,7 +605,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
+func updateMasterService(lbConfig loadbalancer.Config, fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
 	revNATID int, svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy,
@@ -612,7 +613,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	loopbackHostport bool, loadBalancingAlgorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
-		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+		(svcType != loadbalancer.SVCTypeClusterIP || lbConfig.ExternalClusterIP)
 	if sessionAffinity && l7lbProxyPort != 0 {
 		log.Warn("Failure in updating master service entry: Service session affinity incompatible with L7 proxy feature")
 		return fmt.Errorf("invalid feature combination")
@@ -659,7 +660,7 @@ func deleteServiceLocked(key ServiceKey) error {
 	return err
 }
 
-func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
+func getBackend(backend *loadbalancer.LegacyBackend, ipv6 bool) (Backend, error) {
 	var (
 		lbBackend Backend
 		err       error
@@ -726,16 +727,16 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	return nil
 }
 
-type svcMap map[string]loadbalancer.SVC
+type svcMap map[string]loadbalancer.LegacySVC
 
 // addFE adds the give 'fe' to the svcMap without any backends. If it does not
 // yet exist, an entry is created. Otherwise, the existing entry is left
 // unchanged.
-func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.SVC {
+func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.LegacySVC {
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
-		lbsvc = loadbalancer.SVC{Frontend: *fe}
+		lbsvc = loadbalancer.LegacySVC{Frontend: *fe}
 		svcs[hash] = lbsvc
 	}
 	return &lbsvc
@@ -747,26 +748,26 @@ func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.SVC {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backend, beIndex int) *loadbalancer.SVC {
+func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.LegacyBackend, beIndex int) *loadbalancer.LegacySVC {
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
-		var bes []*loadbalancer.Backend
+		var bes []*loadbalancer.LegacyBackend
 		if beIndex == 0 {
-			bes = make([]*loadbalancer.Backend, 1)
+			bes = make([]*loadbalancer.LegacyBackend, 1)
 			bes[0] = be
 		} else {
-			bes = make([]*loadbalancer.Backend, beIndex)
+			bes = make([]*loadbalancer.LegacyBackend, beIndex)
 			bes[beIndex-1] = be
 		}
-		lbsvc = loadbalancer.SVC{
+		lbsvc = loadbalancer.LegacySVC{
 			Frontend: *fe,
 			Backends: bes,
 		}
 	} else {
-		var bes []*loadbalancer.Backend
+		var bes []*loadbalancer.LegacyBackend
 		if len(lbsvc.Backends) < beIndex {
-			bes = make([]*loadbalancer.Backend, beIndex)
+			bes = make([]*loadbalancer.LegacyBackend, beIndex)
 			copy(bes, lbsvc.Backends)
 			lbsvc.Backends = bes
 		}

@@ -40,26 +40,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  has-credentials:
-    name: Check for Quay secrets
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
-    timeout-minutes: 2
-    outputs:
-      present: ${{ steps.secrets.outputs.present }}
-    steps:
-      - name: Check for secrets
-        id: secrets
-        env:
-          has_credentials: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 && secrets.QUAY_BASE_RELEASE_PASSWORD_202411 && 1 }}
-        if: ${{ env.has_credentials }}
-        run:
-          echo 'present=1' >> "$GITHUB_OUTPUT"
-
   build-and-push:
-    needs: has-credentials
     # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is pull_request_target
-    if: ${{ needs.has-credentials.outputs.present && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
+    if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 45
     environment: ${{ inputs.environment || 'release-base-images' }}
@@ -99,7 +82,7 @@ jobs:
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -139,7 +122,7 @@ jobs:
 
       - name: Release build cilium-runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         id: docker_build_release_runtime
         with:
           provenance: false
@@ -158,7 +141,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        uses: anchore/sbom-action@9f7302141466aa6482940f15371237e9d9f4c34a # v0.19.0
         with:
           artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
@@ -228,7 +211,7 @@ jobs:
 
       - name: Release build cilium-builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         id: docker_build_release_builder
         with:
           provenance: false
@@ -246,7 +229,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        uses: anchore/sbom-action@9f7302141466aa6482940f15371237e9d9f4c34a # v0.19.0
         with:
           artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
@@ -334,19 +317,13 @@ jobs:
           git diff HEAD^
           git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref
 
-  image-digests:
-    name: Display Digests
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
-    needs: build-and-push
-    steps:
-      - name: Downloading Image Digests
+      - name: Prepare for Image Digests
         shell: bash
         run: |
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: image-digest/
           pattern: "*image-digest *"

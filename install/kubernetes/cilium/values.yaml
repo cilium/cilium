@@ -444,6 +444,8 @@ bandwidthManager:
   enabled: false
   # -- Activate BBR TCP congestion control for Pods
   bbr: false
+  # -- Activate BBR TCP congestion control for Pods in the host namespace only.
+  bbrHostNamespaceOnly: false
 # -- Configure standalone NAT46/NAT64 gateway
 nat46x64Gateway:
   # -- Enable RFC6052-prefixed translation
@@ -1326,11 +1328,11 @@ hubble:
         # Switch to false if you want to self maintain the file content.
         createConfigMap: true
         # ---- Exporters configuration in YAML format.
-        content:
-          - name: all
-            contextOptions: []
-            includeFilters: []
-            excludeFilters: []
+        content: []
+        # - name: dns
+        #   contextOptions: []
+        #   includeFilters: []
+        #   excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
   # -- Enables network policy correlation of Hubble flows, i.e. populating `egress_allowed_by`, `ingress_denied_by` fields with policy information.
@@ -1410,7 +1412,7 @@ hubble:
       #
       #   --set hubble.redact.enabled="true"
       #   --set hubble.redact.kafka.apiKey="true"
-      apiKey: false
+      apiKey: true
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
@@ -2127,8 +2129,12 @@ maglev: {}
 # -- hashSeed is the cluster-wide base64 encoded seed for the hashing
 # hashSeed:
 
-# -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
-enableIPv4Masquerade: true
+# @schema
+# type: [null, boolean]
+# @schema
+# -- (bool) Enables masquerading of IPv4 traffic leaving the node from endpoints.
+# @default -- `true` unless ipam eni mode is active 
+enableIPv4Masquerade: ~
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
 # -- Enables masquerading to the source of the route for traffic leaving the node from endpoints.
@@ -2218,7 +2224,7 @@ loadBalancer:
 
   # -- experimental enables support for the experimental load-balancing
   # control-plane.
-  experimental: false
+  experimental: true
   # -- L7 LoadBalancer
   l7:
     # -- Enable L7 service load balancing via envoy proxy.
@@ -2440,9 +2446,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.33.2-1743993934-6e55b1412ae5976fb0c8fdc87a5e53942f70b0fc"
+    tag: "v1.33.2-1745918087-cdc076d75812476bcac9d0e21681e9b6cc18323b"
     pullPolicy: "Always"
-    digest: "sha256:b8f10a6769013b589725f95b99b990a07eeec6d6b34d5ea748f816dd671d04ca"
+    digest: "sha256:39221ef34c94579981243031a995dc4da6e18caab55eed746ec05a12128e1da9"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []

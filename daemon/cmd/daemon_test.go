@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -96,7 +96,9 @@ func TestMain(m *testing.M) {
 func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	testutils.IntegrationTest(tb)
 
-	ds := &DaemonSuite{}
+	ds := &DaemonSuite{
+		log: hivetest.Logger(tb),
+	}
 	ctx := context.Background()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
@@ -115,8 +117,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },
 			k8sSynced.RejectedCRDSyncPromise,
-			func() *experimental.TestConfig {
-				return &experimental.TestConfig{}
+			func() *loadbalancer.TestConfig {
+				return &loadbalancer.TestConfig{}
 			},
 		),
 		fakeDatapath.Cell,
@@ -148,7 +150,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	option.Config.RunDir = testRunDir
 	option.Config.StateDir = testRunDir
 
-	ds.log = hivetest.Logger(tb)
 	err := ds.hive.Start(ds.log, ctx)
 	require.NoError(tb, err)
 
@@ -200,7 +201,7 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	// GetConfig the default labels prefix filter
-	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(ds.log, nil, nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}

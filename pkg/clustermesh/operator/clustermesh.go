@@ -17,10 +17,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 // clusterMesh is a cache of multiple remote clusters

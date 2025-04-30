@@ -281,9 +281,6 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 
 	// gather compile options for bpf_overlay.c
 	opts := []string{}
-	if option.Config.EnableNodePort {
-		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
-	}
 
 	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
@@ -316,7 +313,7 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return nil
 	}
 	for _, dev := range devices {
-		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
+		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach cil_from_wireguard
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
 		// is enabled, otherwise we will get "operation not supported" error.
@@ -493,7 +490,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
 	}
 	// Validate alignments of C and Go equivalent structs
-	alignchecker.RegisterLbStructsToCheck(option.Config.LoadBalancerAlgorithmAnnotation)
+	alignchecker.RegisterLbStructsToCheck(lnc.LBConfig.AlgorithmAnnotation)
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}

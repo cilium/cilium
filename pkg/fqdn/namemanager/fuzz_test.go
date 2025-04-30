@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -18,6 +19,7 @@ func FuzzMapSelectorsToNamesLocked(f *testing.F) {
 		fqdnSelector := api.FQDNSelector{}
 		ff.FuzzMap(fqdnSelector)
 		nameManager := New(ManagerParams{
+			Logger: hivetest.Logger(f),
 			Config: NameManagerConfig{
 				MinTTL:            1,
 				DNSProxyLockCount: defaults.DNSProxyLockCount,

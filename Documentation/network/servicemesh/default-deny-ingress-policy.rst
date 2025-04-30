@@ -11,6 +11,7 @@ Default Deny Ingress Policy
 Let's apply a `CiliumClusterwideNetworkPolicy` to deny all traffic by default:
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/policy/default-deny.yaml
+     :language: yaml
 
 .. parsed-literal::
 
@@ -55,6 +56,7 @@ Now let's check if in-cluster traffic to the same endpoint is denied:
 The next step is to allow ingress traffic to the ``/details`` endpoint:
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/policy/allow-ingress-cluster.yaml
+     :language: yaml
 
 .. parsed-literal::
 

@@ -6,6 +6,7 @@ package api
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
 
@@ -13,8 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
-func setUpSuite(_ testing.TB) {
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+func setUpSuite(b testing.TB) {
+	re.InitRegexCompileLRU(hivetest.Logger(b), defaults.FQDNRegexCompileLRUSize)
 }
 
 func TestHTTPEqual(t *testing.T) {

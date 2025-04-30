@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 func init() {
@@ -50,10 +49,6 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 		if tunnelEndpoint == nil {
 			Usagef(cmd, "Invalid tunnel endpoint. "+usage)
 		}
-		if tunnelEndpoint.To4() == nil {
-			Usagef(cmd, "Invalid tunnel endpoint, must be an IPv4. "+usage)
-		}
-		tunnelEndpoint = tunnelEndpoint.To4()
 
 		identity, err := cmd.Flags().GetUint32("identity")
 		if err != nil {
@@ -81,12 +76,7 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 		ip := net.IP(prefix.Addr().AsSlice())
 		mask := net.CIDRMask(prefix.Bits(), 32)
 		key := ipcache.NewKey(ip, mask, clusterID)
-		value := ipcache.RemoteEndpointInfo{
-			SecurityIdentity: identity,
-			TunnelEndpoint:   types.IPv4(tunnelEndpoint),
-			Key:              encryptKey,
-			Flags:            flags,
-		}
+		value := ipcache.NewValue(identity, tunnelEndpoint, encryptKey, flags)
 		if err := ipcache.IPCacheMap().Update(&key, &value); err != nil {
 			fmt.Fprintf(os.Stderr, "Error updating entry %s: %v\n", key, err)
 			os.Exit(1)

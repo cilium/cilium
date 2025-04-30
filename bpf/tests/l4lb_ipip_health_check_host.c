@@ -15,8 +15,6 @@
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 #define ENABLE_HEALTH_CHECK	1
 
-#define DISABLE_LOOPBACK_LB
-
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -72,8 +70,6 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #define TO_NETDEV	0
 

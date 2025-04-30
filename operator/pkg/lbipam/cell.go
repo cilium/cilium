@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -66,7 +67,7 @@ type lbipamCellParams struct {
 	Health   cell.Health
 
 	Clientset    k8sClient.Clientset
-	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	PoolResource resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool]
 	SvcResource  resource.Resource[*slim_core_v1.Service]
 
 	DaemonConfig *option.DaemonConfig
@@ -75,6 +76,8 @@ type lbipamCellParams struct {
 
 	Config       lbipamConfig
 	SharedConfig SharedConfig
+
+	TestCounters *testCounters `optional:"true"`
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
@@ -100,11 +103,12 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
 		lbProtoDiff:  option.Config.LBProtoDiffEnabled(),
-		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
+		poolClient:   params.Clientset.CiliumV2().CiliumLoadBalancerIPPools(),
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
 		config:       params.Config,
 		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == DefaultLBClassLBIPAM,
+		testCounters: params.TestCounters,
 	})
 
 	lbIPAM.jobGroup.Add(

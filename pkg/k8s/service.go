@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -23,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
@@ -37,8 +37,8 @@ func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.
 	return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), nil
 }
 
-func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
-	return GetAnnotationServiceLoadBalancingAlgorithm(svc.Annotations, loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg))
+func getAnnotationServiceLoadBalancingAlgorithm(cfg loadbalancer.Config, svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
+	return GetAnnotationServiceLoadBalancingAlgorithm(svc.Annotations, loadbalancer.ToSVCLoadBalancingAlgorithm(cfg.LBAlgorithm))
 }
 
 func GetAnnotationServiceLoadBalancingAlgorithm(ann map[string]string, defaultAlg loadbalancer.SVCLoadBalancingAlgorithm) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
@@ -148,7 +148,7 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
+func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
 	scopedLog := logger.With(
 		logfields.K8sSvcName, svc.ObjectMeta.Name,
 		logfields.K8sNamespace, svc.ObjectMeta.Namespace,
@@ -255,7 +255,7 @@ func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs [
 	svcInfo.Shared = annotation.GetAnnotationShared(svc)
 
 	svcInfo.ForwardingMode = loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode)
-	if option.Config.LoadBalancerAlgorithmAnnotation {
+	if cfg.AlgorithmAnnotation {
 		var err error
 
 		svcInfo.ForwardingMode, err = getAnnotationServiceForwardingMode(svc)
@@ -269,11 +269,11 @@ func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs [
 		}
 	}
 
-	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
-	if option.Config.LoadBalancerAlgorithmAnnotation {
+	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(cfg.LBAlgorithm)
+	if cfg.AlgorithmAnnotation {
 		var err error
 
-		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(svc)
+		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(cfg, svc)
 		if err != nil {
 			scopedLog.Warn(
 				"Ignoring annotation, applying global configuration",

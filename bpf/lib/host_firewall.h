@@ -13,6 +13,7 @@
 #if defined(ENABLE_HOST_FIREWALL)
 
 #include "auth.h"
+#include "eps.h"
 #include "policy.h"
 #include "proxy.h"
 #include "trace.h"
@@ -72,7 +73,7 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		return true;
 	}
 	ct_buffer->l4_off = l3_off + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ct_buffer->l4_off,
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, ct_buffer->l4_off,
 				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 	return true;
 }
@@ -105,9 +106,9 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 
 	/* Retrieve destination identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-	if (info && info->sec_identity) {
+	if (info) {
 		dst_sec_identity = info->sec_identity;
-		tunnel_endpoint = info->tunnel_endpoint;
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   ip6->daddr.s6_addr32[3], dst_sec_identity);
@@ -190,7 +191,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Retrieve destination identity. */
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	info = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
-	if (info && info->sec_identity)
+	if (info)
 		dst_sec_identity = info->sec_identity;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   tuple->daddr.p4, dst_sec_identity);
@@ -208,7 +209,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return true;
 	}
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ct_buffer->l4_off,
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, ct_buffer->l4_off,
 				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 
 	return true;
@@ -227,6 +228,8 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	struct remote_endpoint_info *info;
+	fraginfo_t fraginfo __maybe_unused;
+	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 
 	trace->monitor = ct_buffer->monitor;
@@ -234,9 +237,9 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 	/* Retrieve source identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
-	if (info && info->sec_identity) {
+	if (info) {
 		*src_sec_identity = info->sec_identity;
-		tunnel_endpoint = info->tunnel_endpoint;
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   ip6->saddr.s6_addr32[3], *src_sec_identity);
@@ -245,10 +248,20 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		goto out;
 
+#  ifndef ENABLE_IPV6_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+#  endif
+
 	/* Perform policy lookup */
 	verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, ct_buffer->l4_off,
-				      *src_sec_identity, HOST_ID, &policy_match_type, &audited,
-				      ext_err, &proxy_port);
+				      is_untracked_fragment, *src_sec_identity, HOST_ID,
+				      &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
@@ -390,9 +403,9 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (info && info->sec_identity) {
+	if (info) {
 		dst_sec_identity = info->sec_identity;
-		tunnel_endpoint = info->tunnel_endpoint;
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->daddr, dst_sec_identity);
@@ -473,7 +486,7 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (info && info->sec_identity)
+	if (info)
 		dst_sec_identity = info->sec_identity;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->daddr, dst_sec_identity);
@@ -515,9 +528,9 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 	/* Retrieve source identity. */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-	if (info && info->sec_identity) {
+	if (info) {
 		*src_sec_identity = info->sec_identity;
-		tunnel_endpoint = info->tunnel_endpoint;
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->saddr, *src_sec_identity);

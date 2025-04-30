@@ -24,11 +24,11 @@ body:
         **NOTE: If your version is NOT listed then please upgrade before opening the GH issue. Thank you**
       options:
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'equal or higher than v1.17.2 and lower than v1.18.0'
+        - 'equal or higher than v1.17.3 and lower than v1.18.0'
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'equal or higher than v1.16.8 and lower than v1.17.0'
+        - 'equal or higher than v1.16.9 and lower than v1.17.0'
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'equal or higher than v1.15.15 and lower than v1.16.0'
+        - 'equal or higher than v1.15.16 and lower than v1.16.0'
     validations:
       required: true
   - type: textarea

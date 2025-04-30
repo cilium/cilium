@@ -19,7 +19,6 @@ import (
 )
 
 type MaglevSuite struct {
-	prevNodePortAlg string
 }
 
 func setupMaglevSuite(tb testing.TB) *MaglevSuite {
@@ -27,26 +26,17 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 
 	s := &MaglevSuite{}
 
-	s.prevNodePortAlg = option.Config.NodePortAlg
-
 	// Otherwise opening the map might fail with EPERM
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
-
-	option.Config.LBMapEntries = DefaultMaxEntries
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
 
 	Init(InitParams{
 		IPv4: option.Config.EnableIPv4,
 		IPv6: option.Config.EnableIPv6,
 
-		ServiceMapMaxEntries: option.Config.LBMapEntries,
-		RevNatMapMaxEntries:  option.Config.LBMapEntries,
-		MaglevMapMaxEntries:  option.Config.LBMapEntries,
-	})
-
-	tb.Cleanup(func() {
-		option.Config.NodePortAlg = s.prevNodePortAlg
+		ServiceMapMaxEntries: DefaultMaxEntries,
+		RevNatMapMaxEntries:  DefaultMaxEntries,
+		MaglevMapMaxEntries:  DefaultMaxEntries,
 	})
 
 	return s
@@ -80,12 +70,12 @@ func TestInitMaps(t *testing.T) {
 		MaglevHashSeed:  maglev.DefaultHashSeed,
 	}, hivetest.Lifecycle(t))
 	require.NoError(t, err, "maglev.New")
-	lbm := New(ml)
+	lbm := New(loadbalancer.DefaultConfig, ml)
 	params := &datapathTypes.UpsertServiceParams{
 		ID:   1,
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 8080,
-		ActiveBackends: map[string]*loadbalancer.Backend{"backend-1": {
+		ActiveBackends: map[string]*loadbalancer.LegacyBackend{"backend-1": {
 			ID:     1,
 			Weight: 1,
 		}},

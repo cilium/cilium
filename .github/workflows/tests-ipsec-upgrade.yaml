@@ -92,17 +92,17 @@ jobs:
 
       - name: Convert YAML to JSON
         run: |
-          work_dir=".github/actions/ipsec"
+          work_dir=".github/actions/e2e"
           destination_directory="/tmp/generated/ipsec"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/configs.json"
 
       - name: Generate Matrix
         id: generate-matrix
         run: |
           cd /tmp/generated/ipsec
-          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/ipsec/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
@@ -213,7 +213,6 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
@@ -235,7 +234,6 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
@@ -377,22 +375,22 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-precheck
 
       - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*'
 
       - name: Run concurrent tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}
+          job-name: cilium-upgrade-${{ matrix.name }}-concurrent
           tests: '!seq-.*'
-          extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
+          test-concurrency: ${{ env.test_concurrency }}
 
       - name: Assert that no unencrypted packets are leaked during Cilium upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -434,22 +432,22 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-precheck
 
       - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*'
 
       - name: Run concurrent tests after downgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}
+          job-name: cilium-downgrade-${{ matrix.name }}-concurrent
           tests: '!seq-.*'
-          extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
+          test-concurrency: ${{ env.test_concurrency }}
 
       - name: Assert that no unencrypted packets are leaked during Cilium downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}

@@ -6,6 +6,8 @@ package ctmap
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -20,6 +22,10 @@ type gcStats struct {
 	// deleted is the number of keys deleted
 	deleted uint32
 
+	// entries that where marked for deletion but skipped (i.e. due to
+	// LRU evictions, etc).
+	skipped uint32
+
 	// family is the address family
 	family gcFamily
 
@@ -28,6 +34,10 @@ type gcStats struct {
 
 	// dumpError records any error that occurred during the dump.
 	dumpError error
+
+	// if enabled we emit regular logs about result of gc pass.
+	// disabled when run from dbg CLI (i.e. in bpf ct flush ...).
+	logResults bool
 }
 
 type gcFamily int
@@ -66,9 +76,10 @@ func (g gcProtocol) String() string {
 	}
 }
 
-func statStartGc(m *Map) gcStats {
+func statStartGc(m *Map, logResults bool) gcStats {
 	result := gcStats{
-		DumpStats: bpf.NewDumpStats(&m.Map),
+		DumpStats:  bpf.NewDumpStats(&m.Map),
+		logResults: logResults,
 	}
 	if m.mapType.isIPv6() {
 		result.family = gcFamilyIPv6
@@ -106,6 +117,16 @@ func (s *gcStats) finish() {
 			scopedLog = scopedLog.WithError(s.dumpError)
 		}
 		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
+	}
+
+	if s.logResults {
+		log.WithFields(logrus.Fields{
+			"family":       s.family,
+			"proto":        s.proto,
+			"deleted":      s.deleted,
+			"skipped":      s.skipped,
+			"aliveEntries": s.aliveEntries,
+		}).Info("completed ctmap gc pass")
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()

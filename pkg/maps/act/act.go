@@ -16,8 +16,9 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 const (
@@ -67,6 +68,7 @@ func newActiveConnectionTrackingMap(in struct {
 
 	Lifecycle cell.Lifecycle
 	Conf      Config
+	LBConfig  loadbalancer.Config
 }) (out struct {
 	cell.Out
 
@@ -76,10 +78,7 @@ func newActiveConnectionTrackingMap(in struct {
 	if !in.Conf.EnableActiveConnectionTracking {
 		return
 	}
-	svcSize := option.Config.LBMapEntries
-	if option.Config.LBServiceMapEntries > 0 {
-		svcSize = option.Config.LBServiceMapEntries
-	}
+	svcSize := in.LBConfig.LBServiceMapEntries
 	zoneSize := len(option.Config.FixedZoneMapping)
 	size := svcSize * zoneSize
 	if size == 0 {

@@ -10,12 +10,11 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"regexp"
 	"runtime"
 	"syscall"
 	"time"
 
-	"github.com/hmarr/codeowners"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 )
 
 const (
@@ -81,16 +80,7 @@ func (ct *ConnectivityTest) Log(a ...any) {
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
-// ownedScenario represents a piece of logic in the testsuite with a
-// corresponding filepath that indicates ownership (via CODEOWNERS).
-// It is used to inform developers who they may consult in the event that a
-// test fails without a clear indication why.
-type ownedScenario interface {
-	Name() string
-	FilePath() string
-}
-
-var defaultTestOwners ownedScenario
+var defaultTestOwners codeowners.Scenario
 
 func init() {
 	// Initialize in an init func to ensure that NewScenarioBase() can look
@@ -113,75 +103,25 @@ func (s defaultScenario) Name() string {
 	return "cli-test-framework"
 }
 
-var ghWorkflowRegexp = regexp.MustCompile("^(?:.+?)/(?:.+?)/(.+?)@.*$")
-
-func (ct *ConnectivityTest) GetOwners(scenarios ...ownedScenario) []string {
-	if !ct.params.LogCodeOwners {
-		return nil
+func (ct *ConnectivityTest) LogOwners(scenarios ...codeowners.Scenario) {
+	owners, err := ct.CodeOwners.Owners(true, scenarios...)
+	if err != nil {
+		ct.Logf("Failed to find CODEOWNERS for test scenario: %s", err)
 	}
-
-	rules := make(map[ownedScenario]*codeowners.Rule)
-	for _, scenario := range scenarios {
-		rule, err := ct.CodeOwners.Match(scenario.FilePath())
-		if err != nil || rule == nil || rule.Owners == nil {
-			ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?"+
-				"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
-			return nil
-		}
-		rules[scenario] = rule
-	}
-
-	var workflowOwners []codeowners.Owner
-	var ghWorkflow string
-	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
-	ghWorkflowRef := os.Getenv("GITHUB_WORKFLOW_REF")
-	matches := ghWorkflowRegexp.FindStringSubmatch(ghWorkflowRef)
-	// here matches should either be nil (no match) or a slice with two values:
-	// the full match and the capture.
-	if len(matches) == 2 {
-		ghWorkflow = matches[1]
-	}
-	if ghWorkflow != "" {
-		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
-		if err != nil || workflowRule == nil || workflowRule.Owners == nil {
-			ct.Warnf("Failed to find CODEOWNERS for workflow %s: %s", ghWorkflow, err)
-		}
-		workflowOwners = workflowRule.Owners
-	}
-
-	excludeOwners := make(map[string]struct{})
-	for _, owner := range ct.Params().ExcludeCodeOwners {
-		excludeOwners[owner] = struct{}{}
-	}
-
-	var owners []string
-	for scenario, rule := range rules {
-		for _, o := range rule.Owners {
-			owner := o.String()
-			if _, ok := excludeOwners[owner]; ok {
-				continue
-			}
-			owners = append(owners, fmt.Sprintf("%s (%s)", owner, scenario.Name()))
-		}
-		for _, o := range workflowOwners {
-			owner := o.String()
-			if _, ok := excludeOwners[owner]; ok {
-				continue
-			}
-			owners = append(owners, fmt.Sprintf("%s (%s)", owner, ghWorkflow))
-		}
-	}
-	return owners
-}
-
-func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
-	owners := ct.GetOwners(scenarios...)
 	if len(owners) == 0 {
 		return
 	}
 
 	ct.Log("    ⛑️ The following owners are responsible for reliability of the testsuite: ")
 	for _, o := range owners {
+		ct.Log("        - " + o)
+	}
+
+	workflowOwners, err := ct.CodeOwners.WorkflowOwners(true)
+	if err != nil {
+		ct.Logf("Failed to find CODEOWNERS for github workflow: %s", err)
+	}
+	for _, o := range workflowOwners {
 		ct.Log("        - " + o)
 	}
 }

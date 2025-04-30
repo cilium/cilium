@@ -16,6 +16,8 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
@@ -24,7 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
@@ -45,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -52,7 +57,6 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/recorder"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -429,6 +433,8 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		serveroption.WithObserverService(hubbleObserver),
 		serveroption.WithPeerService(peerSvc),
 		serveroption.WithInsecure(),
+		serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
+		serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
 	)
 
 	if h.agentConfig.EnableRecorder && h.config.EnableRecorderAPI {
@@ -481,6 +487,8 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 			serveroption.WithHealthService(),
 			serveroption.WithPeerService(peerSvc),
 			serveroption.WithObserverService(hubbleObserver),
+			serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
+			serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
 		}
 
 		// Hubble TLS/mTLS setup.
@@ -558,4 +566,21 @@ func getPort(addr string) (int, error) {
 		return 0, fmt.Errorf("parse port number: %w", err)
 	}
 	return portNum, nil
+}
+
+var serverVersionHeader = metadata.Pairs(defaults.GRPCMetadataServerVersionKey, build.ServerVersion.SemVer())
+
+func serverVersionUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		resp, err := handler(ctx, req)
+		grpc.SetHeader(ctx, serverVersionHeader)
+		return resp, err
+	}
+}
+
+func serverVersionStreamInterceptor() grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ss.SetHeader(serverVersionHeader)
+		return handler(srv, ss)
+	}
 }

@@ -19,12 +19,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
 var (
@@ -53,7 +54,7 @@ var Cell = cell.Module(
 		func(m Metrics) k8s.SVCMetrics {
 			return m
 		},
-		func(m Metrics) ciliumenvoyconfig.CECMetrics {
+		func(m Metrics) ciliumenvoyconfig.FeatureMetrics {
 			return m
 		},
 		func(m Metrics) k8s2.CNPMetrics {
@@ -81,6 +82,7 @@ type featuresParams struct {
 	ConfigPromise promise.Promise[*option.DaemonConfig]
 	Metrics       featureMetrics
 
+	LBConfig            loadbalancer.Config
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
 	MutualAuth          auth.MeshAuthConfig

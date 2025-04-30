@@ -511,7 +511,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-clustermesh-apiserver-image","Build docker image for Cilium clustermesh APIServer")
 	$(call print_help_line,"docker-operator-image","Build cilium-operator docker image")
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
-	$(call print_help_line,"docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
+	$(call print_help_line,"dev-docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder
@@ -523,16 +523,22 @@ BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS=--privileged RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "run" "BPF_TEST_FILE=$(BPF_TEST_FILE)" "BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" "V=$(BPF_TEST_VERBOSE)"
+		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
+			"BPF_TEST_FILE=$(BPF_TEST_FILE)" \
+			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
+			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
+			"JUNIT_PATH=$(JUNIT_PATH)" \
+			"V=$(BPF_TEST_VERBOSE)"
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS=-it contrib/scripts/builder.sh bash
 
 .PHONY: renovate-local
 renovate-local: ## Run a local linter for the renovate configuration
-	$(CONTAINER_ENGINE) run --rm -ti \
+	@echo "Running renovate --platform=local"
+	@$(CONTAINER_ENGINE) run --rm -ti \
 		-e LOG_LEVEL=debug \
-		-e GITHUB_COM_TOKEN="$(gh auth token)" \
+		-e GITHUB_COM_TOKEN="$(RENOVATE_GITHUB_COM_TOKEN)" \
 		-v /tmp:/tmp \
 		-v $(ROOT_DIR):/usr/src/app \
 		docker.io/renovate/renovate:slim \

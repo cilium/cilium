@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
@@ -93,8 +92,10 @@ func init() {
 			srv6map.SIDKey{},
 		},
 		"macaddr":           {neighborsmap.Value{}},
-		"ipv4_frag_id":      {fragmap.FragmentKey{}},
-		"ipv4_frag_l4ports": {fragmap.FragmentValue{}},
+		"ipv4_frag_id":      {fragmap.FragmentKey4{}},
+		"ipv4_frag_l4ports": {fragmap.FragmentValue4{}},
+		"ipv6_frag_id":      {fragmap.FragmentKey6{}},
+		"ipv6_frag_l4ports": {fragmap.FragmentValue6{}},
 		"capture4_wcard":    {recorder.CaptureWcard4{}},
 		"capture6_wcard":    {recorder.CaptureWcard6{}},
 		"capture_rule":      {recorder.CaptureRule4{}},
@@ -113,12 +114,12 @@ func init() {
 		"edt_info":                {bwmap.EdtInfo{}},
 		"egress_gw_policy_key":    {egressmap.EgressPolicyKey4{}},
 		"egress_gw_policy_entry":  {egressmap.EgressPolicyVal4{}},
+		"egress_gw_policy_key6":   {egressmap.EgressPolicyKey6{}},
+		"egress_gw_policy_entry6": {egressmap.EgressPolicyVal6{}},
 		"srv6_vrf_key4":           {srv6map.VRFKey4{}},
 		"srv6_vrf_key6":           {srv6map.VRFKey6{}},
 		"srv6_policy_key4":        {srv6map.PolicyKey4{}},
 		"srv6_policy_key6":        {srv6map.PolicyKey6{}},
-		"tunnel_key":              {tunnel.TunnelKey{}},
-		"tunnel_value":            {tunnel.TunnelValue{}},
 		"vtep_key":                {vtep.Key{}},
 		"vtep_value":              {vtep.VtepEndpointInfo{}},
 		"auth_key":                {authmap.AuthKey{}},

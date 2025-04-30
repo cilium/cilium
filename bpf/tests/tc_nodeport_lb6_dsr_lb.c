@@ -12,8 +12,6 @@
 #define ENABLE_DSR
 #define DSR_ENCAP_GENEVE	3
 
-#define DISABLE_LOOPBACK_LB
-
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
@@ -53,8 +51,6 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 }
 
 #include <bpf_host.c>
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

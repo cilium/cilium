@@ -42,7 +42,7 @@ func (mg mapGetterImpl) GetMap(name string) (eventsDumper, bool) {
 func getFlusher(w http.ResponseWriter) (http.Flusher, error) {
 	wrapper, ok := w.(*metrics.ResponderWrapper)
 	if !ok {
-		return nil, fmt.Errorf("expected ResponseWriter to be of type *metrics.ResponseWrapper: %T", w)
+		return nil, fmt.Errorf("expected ResponseWriter to be of type *metrics.ResponderWrapper: %T", w)
 	}
 
 	f, ok := wrapper.ResponseWriter.(http.Flusher)
@@ -83,7 +83,7 @@ func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) 
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		flusher, err := getFlusher(w)
 		if err != nil {
-			h.logger.WithError(err).Error("BUG: could not get flushed from ResponseWriter")
+			h.logger.WithError(err).Error("BUG: could not get flusher from ResponseWriter")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

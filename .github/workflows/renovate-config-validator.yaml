@@ -3,7 +3,8 @@ name: Validate Renovate configuration
 on:
   pull_request:
     paths:
-      - '.github/renovate.json5'
+      # Run on any renovate.json5, not just .github/renovate.json5
+      - '**renovate.json5'
 
 jobs:
   validate:
@@ -17,7 +18,7 @@ jobs:
       - name: Validate configuration
         run: |
           # renovate: datasource=docker
-          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:39.98.0@sha256:43e35242449741dab5e60510ba39704a720422f83fdaa495709bc1e0f141625d
+          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:39.259.0@sha256:9090f91e0f3f4212001a2faf2c89921d0016778c2d55e143d826c08c1bbb062e
           docker run --rm --entrypoint "renovate-config-validator" \
             -v "${{ github.workspace }}/.github/renovate.json5":"/renovate.json5" \
             ${RENOVATE_IMAGE} "/renovate.json5"

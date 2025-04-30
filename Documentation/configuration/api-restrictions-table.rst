@@ -27,7 +27,6 @@ DeleteIPAMIP          -
 DeletePolicy          -
 DeletePrefilter       -
 DeleteRecorderID      -
-DeleteServiceID       -
 GetBGPPeers           Retrieves current operational state of BGP peers created by
                       Cilium BGP virtual router. This includes session state,
                       uptime, information per address family, etc.
@@ -95,7 +94,6 @@ PostIPAMIP            -
 PutEndpointID         Creates a new endpoint
 PutPolicy             -
 PutRecorderID         -
-PutServiceID          -
 ===================== ====================
 
 Cilium Agent Clusterwide Health API

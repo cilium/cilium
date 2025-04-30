@@ -80,6 +80,9 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * which resulted in neigh entry not being created due to
 		 * IFF_POINTOPOINT | IFF_NOARP set on cilium_wg0. Therefore,
 		 * NA should not be sent over WG.
+		 *
+		 * Note: We account for this in connectivity tests leak checks
+		 * by filtering out icmpv6 NA.
 		 */
 		if (ip6->nexthdr == IPPROTO_ICMPV6) {
 			__u8 icmp_type;
@@ -226,8 +229,7 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 #if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
 		/* Allow pod to remote-node communication */
 		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (dest_info && dest_info->sec_identity &&
-		    identity_is_node(dest_info->sec_identity))
+		if (dest_info && identity_is_node(dest_info->sec_identity))
 			return true;
 #endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
 		return !in_strict_cidr;

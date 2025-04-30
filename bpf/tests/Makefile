@@ -53,7 +53,7 @@ clean:
 	rm -f $(wildcard *.i)
 	rm -f $(wildcard *.d)
 
-BPF_TEST_FLAGS:=
+BPF_TEST_FLAGS:= $(GO_TEST_FLAGS)
 ifneq ($(shell id -u), 0)
 		BPF_TEST_FLAGS += -exec "sudo -E"
 endif
@@ -83,6 +83,9 @@ ifdef BPF_TEST_FILE
 endif
 
 run: $(TEST_OBJECTS)
-	$(QUIET)$(GO) test ./bpftest -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
+	$(QUIET)$(GO) test ./bpftest \
+		-bpf-test-path $(ROOT_DIR)/bpf/tests \
+		$(BPF_TEST_FLAGS) \
+	| $(GOTEST_FORMATTER)
 
 -include $(TEST_OBJECTS:.o=.d)

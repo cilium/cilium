@@ -5,6 +5,7 @@ package check
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"maps"
@@ -573,8 +574,8 @@ func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
 					},
 				},
 			},
-			DestinationCIDRs: []ciliumv2.IPv4CIDR{"0.0.0.0/0"},
-			ExcludedCIDRs:    []ciliumv2.IPv4CIDR{},
+			DestinationCIDRs: []ciliumv2.CIDR{"0.0.0.0/0"},
+			ExcludedCIDRs:    []ciliumv2.CIDR{},
 			EgressGateway: &ciliumv2.EgressGateway{
 				NodeSelector: &slimmetav1.LabelSelector{
 					MatchLabels: map[string]slimmetav1.MatchLabelsValue{
@@ -1277,6 +1278,37 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	return nil
 }
 
+func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
+	if ct.Params().ExternalTargetCAName != "cabundle" && ct.Params().ExternalTargetCANamespace != ct.Params().TestNamespace {
+		caSecret, err := ct.client.GetSecret(ctx, ct.Params().ExternalTargetCANamespace, ct.Params().ExternalTargetCAName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to get CA secret %s/%s: %w", ct.Params().ExternalTargetCANamespace, ct.Params().ExternalTargetCAName, err)
+		}
+		ct.Logf("✨ [%s] Adding %s external target CA to client root CAs...", ct.clients.src.ClusterName(), caSecret.Name)
+
+		cert, found := caSecret.Data["ca.crt"]
+		if !found {
+			return fmt.Errorf("unable to find ca.crt in secret %s", ct.Params().ExternalTargetCAName)
+		}
+		encodedCert := base64.StdEncoding.EncodeToString(cert)
+
+		clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
+		if err != nil {
+			return fmt.Errorf("unable to list client pods: %w", err)
+		}
+
+		for _, pod := range clientPods.Items {
+			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, "",
+				[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)})
+			if err != nil {
+				return fmt.Errorf("unable to add CA to pod %s: %w", pod.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.Context, deployName, kind string, replicas int, svcName, appLabel string,
 	isExternal bool, cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy) error {
 	_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
@@ -1519,7 +1551,7 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 
 }
 
-func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) net.IP {
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) net.IP {
 	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
 	if !ok {
 		return nil
@@ -1531,11 +1563,14 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) n
 		}
 
 		ip := net.ParseIP(addr.Address)
-		if ip == nil || ip.To4() == nil {
+		if ip == nil {
 			continue
 		}
 
-		return ip
+		isIPv6 := ip.To4() == nil
+		if isIPv6 == ipv6 {
+			return ip
+		}
 	}
 
 	return nil
@@ -1574,7 +1609,7 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 		return nil, err
 	}
 
-	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode)
+	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode, false)
 	if gatewayIP == nil {
 		return nil, nil
 	}

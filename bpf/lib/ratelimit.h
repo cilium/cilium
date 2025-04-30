@@ -29,6 +29,7 @@ struct {
 	__type(value, struct ratelimit_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1024);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ratelimit __section_maps_btf;
 
 struct ratelimit_metrics_key {
@@ -57,8 +58,8 @@ struct ratelimit_settings {
 	__u64 topup_interval_ns;
 };
 
-static inline bool ratelimit_check_and_take(struct ratelimit_key *key,
-					    const struct ratelimit_settings *settings)
+static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
+						     const struct ratelimit_settings *settings)
 {
 	struct ratelimit_value *value;
 	struct ratelimit_value new_value;

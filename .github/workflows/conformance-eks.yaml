@@ -63,7 +63,7 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.207.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.32.3
+  kubectl_version: v1.33.0
 
 jobs:
   echo-inputs:
@@ -375,6 +375,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
+          job-name: ${{ env.job_name }}-${{ matrix.version }}-post-rotate
           full-test: 'true'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 

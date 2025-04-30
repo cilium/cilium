@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -28,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/promise"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 type Config struct {

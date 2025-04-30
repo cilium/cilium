@@ -61,6 +61,7 @@ struct {
 	__type(value, struct lb_affinity_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_affinity __section_maps_btf;
 #endif
 
@@ -82,6 +83,7 @@ struct {
 	__type(value, struct lb6_health);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_health __section_maps_btf;
 #endif
 
@@ -148,6 +150,7 @@ struct {
 	__type(value, struct lb_affinity_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_affinity __section_maps_btf;
 #endif
 
@@ -169,6 +172,7 @@ struct {
 	__type(value, struct lb4_health);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_health __section_maps_btf;
 #endif
 
@@ -493,23 +497,14 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct ipv6_ct_tuple *tuple,
-					 struct lb6_reverse_nat *nat)
+					 struct lb6_reverse_nat *nat,
+					 bool has_l4_header)
 {
-	struct csum_offset csum_off = {};
 	union v6addr old_saddr __align_stack_8;
 	__be32 sum;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
-
-	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-	if (nat->port) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, tuple->dport,
-					  nat->port, l4_off, &csum_off);
-		if (IS_ERR(ret))
-			return ret;
-	}
 
 	ipv6_addr_copy(&old_saddr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &nat->address);
@@ -518,10 +513,23 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
-	if (csum_off.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (has_l4_header) {
+		struct csum_offset csum_off = {};
+
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+		if (nat->port) {
+			ret = reverse_map_l4_port(ctx, tuple->nexthdr, tuple->dport,
+						  nat->port, l4_off, &csum_off);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
+		sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
+		if (csum_off.offset &&
+		    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return 0;
 }
@@ -540,8 +548,8 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
-static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       __u16 index, struct ipv6_ct_tuple *tuple)
+static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16 index,
+				       struct ipv6_ct_tuple *tuple, bool has_l4_header)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -549,7 +557,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, nat);
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header);
 }
 
 static __always_inline void
@@ -573,6 +581,7 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  * @arg ctx		Packet
  * @arg ip6		Pointer to L3 header
  * @arg l3_off		Offset to L3 header
+ * @arg fraginfo	fraginfo, as returned by ipv6_get_fraginfo
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
  *
@@ -585,7 +594,7 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  */
 static __always_inline int
 lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
-		  int *l4_off, struct ipv6_ct_tuple *tuple)
+		  fraginfo_t fraginfo, int *l4_off, struct ipv6_ct_tuple *tuple)
 {
 	int ret;
 
@@ -594,16 +603,8 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
 	ret = ipv6_hdrlen_offset(ctx, &tuple->nexthdr, l3_off);
-	if (ret < 0) {
-		/* Make sure *l4_off is always initialized on return, because
-		 * Clang can spill it from a register to the stack even in error
-		 * flows where this value is no longer used, and this pattern is
-		 * rejected by the verifier.
-		 * Use a prominent value (-1) to highlight any potential misuse.
-		 */
-		*l4_off = -1;
-		return ret;
-	}
+	if (ret < 0)
+		goto err;
 
 	*l4_off = l3_off + ret;
 
@@ -613,14 +614,23 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		if (l4_load_ports(ctx, *l4_off, &tuple->dport) < 0)
-			return DROP_CT_INVALID_HDR;
-		return 0;
+		return ipv6_load_l4_ports(ctx, ip6, fraginfo, *l4_off,
+					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMPV6:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
+
+err:
+	/* Make sure *l4_off is always initialized on return, because
+	 * Clang can spill it from a register to the stack even in error
+	 * flows where this value is no longer used, and this pattern is
+	 * rejected by the verifier.
+	 * Use a prominent value (-1) to highlight any potential misuse.
+	 */
+	*l4_off = -1;
+	return ret;
 }
 
 static __always_inline
@@ -814,12 +824,14 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     const struct lb6_key *key,
-				     const struct lb6_backend *backend)
+				     const struct lb6_backend *backend,
+				     bool has_l4_header)
 {
 	const union v6addr *new_dst = &backend->address;
 	struct csum_offset csum_off = {};
 
-	csum_l4_offset_and_flags(nexthdr, &csum_off);
+	if (has_l4_header)
+		csum_l4_offset_and_flags(nexthdr, &csum_off);
 
 	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
@@ -831,6 +843,9 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
+
+	if (!has_l4_header)
+		return CTX_ACT_OK;
 
 	return lb_l4_xlate(ctx, nexthdr, l4_off, &csum_off, key->dport,
 			   backend->port);
@@ -977,7 +992,7 @@ lb6_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
-				     int l3_off, int l4_off,
+				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
@@ -1000,7 +1015,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	state->rev_nat_index = svc->rev_nat_index;
 
 	/* See lb4_local comments re svc endpoint lookup process */
-	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, CT_SERVICE,
+	ret = ct_lazy_lookup6(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
 			      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
 	if (ret < 0)
 		goto drop_err;
@@ -1099,12 +1114,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
-	if (lb6_svc_is_l7_punt_proxy(svc)) {
-		if (__lookup_ip6_endpoint(&backend->address)) {
-			ctx_skip_nodeport_set(ctx);
-			ret = LB_PUNT_TO_STACK;
-			goto drop_err;
-		}
+	if (lb6_svc_is_l7_punt_proxy(svc) &&
+	    __lookup_ip6_endpoint(&backend->address)) {
+		ctx_skip_nodeport_set(ctx);
+		return LB_PUNT_TO_STACK;
 	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
@@ -1112,7 +1125,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key, backend);
+	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key,
+			 backend, ipfrag_has_l4_header(fraginfo));
 no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
@@ -1204,7 +1218,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 
 	tuple->saddr = nat->address;
 
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	if (loopback) {
 		/* The packet was looped back to the sending endpoint on the
 		 * forward service translation. This implies that the original
@@ -1311,6 +1325,7 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  * @arg ctx		Packet
  * @arg ip4		Pointer to L3 header
  * @arg l3_off		Offset to L3 header
+ * @arg fraginfo	fraginfo, as returned by ipfrag_encode_ipv4
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
  *
@@ -1320,13 +1335,9 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
-		  struct ipv4_ct_tuple *tuple)
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off,
+		  fraginfo_t fraginfo, int *l4_off, struct ipv4_ct_tuple *tuple)
 {
-	fraginfo_t fraginfo;
-
-	fraginfo = ipfrag_encode_ipv4(ip4);
-
 	tuple->nexthdr = ip4->protocol;
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
@@ -1559,7 +1570,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 		return DROP_WRITE_ERROR;
 
 	sum = csum_diff(&key->address, 4, new_daddr, 4, 0);
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	if (new_saddr && *new_saddr) {
 		cilium_dbg_lb(ctx, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
 
@@ -1570,7 +1581,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 
 		sum = csum_diff(old_saddr, 4, new_saddr, 4, sum);
 	}
-#endif /* DISABLE_LOOPBACK_LB */
+#endif /* USE_LOOPBACK_LB */
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 	if (csum_off.offset) {
@@ -1862,8 +1873,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 
-#if !defined(DISABLE_LOOPBACK_LB) || \
-	(defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE))
+#if defined(USE_LOOPBACK_LB) || \
+    (defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE))
 	if (saddr == backend->address) {
 	#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
 		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
@@ -1878,24 +1889,22 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * received on a loopback device. Perform NAT on the source address
 		 * to make it appear from an outside address.
 		 */
-	#ifndef DISABLE_LOOPBACK_LB
+	#ifdef USE_LOOPBACK_LB
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
 	#endif
 	}
 #endif
 
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	if (!state->loopback)
 #endif
 		tuple->daddr = backend->address;
 
-	if (lb4_svc_is_l7_punt_proxy(svc)) {
-		if (__lookup_ip4_endpoint(backend->address)) {
-			ctx_skip_nodeport_set(ctx);
-			ret = LB_PUNT_TO_STACK;
-			goto drop_err;
-		}
+	if (lb4_svc_is_l7_punt_proxy(svc) &&
+	    __lookup_ip4_endpoint(backend->address)) {
+		ctx_skip_nodeport_set(ctx);
+		return LB_PUNT_TO_STACK;
 	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
@@ -1927,7 +1936,7 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 		       state->loopback);
 #else
 		       0);
@@ -1947,7 +1956,7 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 {
 	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
 			     ctx_load_meta(ctx, CB_CT_STATE);
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	if (meta & 1)
 		state->loopback = 1;
 #endif

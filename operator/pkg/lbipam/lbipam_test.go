@@ -4,7 +4,6 @@
 package lbipam
 
 import (
-	"context"
 	"net"
 	"net/netip"
 	"strings"
@@ -13,10 +12,21 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	operator_k8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // TestConflictResolution tests that, upon initialization, LB IPAM will detect conflicts between pools,
@@ -48,9 +58,9 @@ func TestConflictResolution(t *testing.T) {
 	// Phase 2, resolving the conflict
 
 	// Remove the conflicting range
-	poolB.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolB.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
-			Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR("FF::0/48"),
+			Cidr: cilium_api_v2.IPv4orIPv6CIDR("FF::0/48"),
 		},
 	}
 	fixture.UpsertPool(t, poolB)
@@ -74,7 +84,7 @@ func TestPoolInternalConflict(t *testing.T) {
 		t.Fatal("Pool A should be conflicting")
 	}
 
-	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.10.0/24",
 		},
@@ -479,7 +489,7 @@ func TestSharingKey(t *testing.T) {
 
 	svcIP2 := svcC.Status.LoadBalancer.Ingress[0].IP
 
-	err := fixture.svcClient.Services("default").Delete(context.Background(), "service-a", meta_v1.DeleteOptions{})
+	err := fixture.svcClient.Services("default").Delete(t.Context(), "service-a", meta_v1.DeleteOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1303,7 +1313,7 @@ func TestChangeServiceType(t *testing.T) {
 // TestAllowFirstLastIPs tests that first and last IPs are assigned when we set .spec.allowFirstLastIPs to yes.
 func TestAllowFirstLastIPs(t *testing.T) {
 	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
-	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
+	pool.Spec.AllowFirstLastIPs = cilium_api_v2.AllowFirstLastIPYes
 	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, pool)
 
@@ -1348,7 +1358,7 @@ func TestAllowFirstLastIPs(t *testing.T) {
 func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Add pool which does not allow first and last IPs
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
-	poolA.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPNo
+	poolA.Spec.AllowFirstLastIPs = cilium_api_v2.AllowFirstLastIPNo
 	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
@@ -1393,7 +1403,7 @@ func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Then update the pool and confirm that the service got the first IP.
 
 	poolA = fixture.GetPool("pool-a")
-	poolA.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
+	poolA.Spec.AllowFirstLastIPs = cilium_api_v2.AllowFirstLastIPYes
 	fixture.UpsertPool(t, poolA)
 
 	svcA = fixture.GetSvc("default", "service-a")
@@ -1687,7 +1697,7 @@ func TestAddRange(t *testing.T) {
 	}
 
 	poolA = fixture.GetPool("pool-a")
-	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	fixture.UpsertPool(t, poolA)
@@ -1849,7 +1859,7 @@ func TestRangeDelete(t *testing.T) {
 
 	poolA = fixture.GetPool("pool-a")
 	// Add a new CIDR, this should not have any effect on the existing service.
-	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	fixture.UpsertPool(t, poolA)
@@ -1866,7 +1876,7 @@ func TestRangeDelete(t *testing.T) {
 
 	poolA = fixture.GetPool("pool-a")
 	// Remove the existing range, this should trigger the re-allocation of the existing service
-	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.20.0/24",
 		},
@@ -2360,4 +2370,149 @@ func TestRangeFromPrefix(t *testing.T) {
 			}
 		})
 	}
+}
+
+// This test starts LBIPAM as part of a minimal hive to exercise the lifecycle logic.
+// LBIPAM starts in a "dormant" state, and only wakes up when at least one pool exists.
+// It can go back to sleep when that pool goes away and re-awaken.
+// We want to test that this works correctly, and that we properly shutdown in any
+// state.
+func TestLBIPAMStartupRestartShutdown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	var (
+		fakeClientset *client.FakeClientset
+		counters      *testCounters
+	)
+	testHive := hive.New(
+		// Cell under test
+		Cell,
+
+		// Dependencies
+		client.FakeClientCell,
+		cell.Provide(func() *option.DaemonConfig {
+			return &option.DaemonConfig{
+				EnableBGPControlPlane: true,
+			}
+		}),
+		cell.Config(k8s.DefaultConfig),
+		cell.Provide(
+			k8s.ServiceResource,
+			operator_k8s.LBIPPoolsResource,
+		),
+
+		// Expose cells for testing
+		cell.Provide(func() *testCounters {
+			return &testCounters{}
+		}),
+		cell.Invoke(func(
+			tc *testCounters,
+			cf *client.FakeClientset,
+		) {
+			counters = tc
+			fakeClientset = cf
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	err := testHive.Start(tlog, t.Context())
+	require.NoError(t, err)
+
+	// Create a service which shouldn't be processed
+	fakeK8s := fakeClientset.SlimFakeClientset.CoreV1()
+	fakePools := fakeClientset.CiliumFakeClientset.CiliumV2().CiliumLoadBalancerIPPools()
+	_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name: "service-a",
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+		},
+	}, meta_v1.CreateOptions{})
+	require.NoError(t, err)
+
+	// We should be initializing
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		assert.Equal(collect, int64(1), counters.initializing.Load())
+	}, 5*time.Second, 100*time.Millisecond)
+	// But never finish initializing or processing any service events
+	require.Never(t, func() bool {
+		return counters.initialized.Load() != 0 || counters.serviceEvents.Load() != 0
+	}, 3*time.Second, 100*time.Millisecond)
+
+	// Create a pool, this should wake up LBIPAM
+	_, err = fakePools.Create(t.Context(), &cilium_api_v2.CiliumLoadBalancerIPPool{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "pool-a",
+		},
+		Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
+				{
+					Cidr: "10.0.0.0/24",
+				},
+			},
+		},
+	}, meta_v1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		// We should now finish initializing
+		assert.Equal(collect, int64(1), counters.initialized.Load())
+		// Processed the pool event
+		assert.GreaterOrEqual(collect, counters.poolEvents.Load(), int64(1))
+		// And the service event
+		assert.GreaterOrEqual(collect, counters.serviceEvents.Load(), int64(1))
+	}, 5*time.Second, 100*time.Millisecond)
+
+	svc1, err := fakeK8s.Services("default").Get(t.Context(), "service-a", meta_v1.GetOptions{})
+	require.NoError(t, err)
+
+	require.Len(t, svc1.Status.LoadBalancer.Ingress, 1)
+
+	require.Equal(t, int64(0), counters.restarted.Load())
+
+	// Now delete the pool, this should cause LBIPAM to go dormant
+	err = fakePools.Delete(t.Context(), "pool-a", meta_v1.DeleteOptions{})
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		// Assert the IP has been removed from service-a
+		svc1, err := fakeK8s.Services("default").Get(t.Context(), "service-a", meta_v1.GetOptions{})
+		assert.NoError(collect, err)
+		assert.Empty(collect, svc1.Status.LoadBalancer.Ingress)
+		// Assert we restarted
+		assert.Equal(collect, int64(1), counters.restarted.Load())
+		// And are initialing again
+		assert.Equal(collect, int64(2), counters.initializing.Load())
+	}, 5*time.Second, 100*time.Millisecond)
+
+	// But we do not initialize for a second time
+	require.Never(t, func() bool {
+		return counters.initialized.Load() > 1
+	}, 3*time.Second, 100*time.Millisecond)
+
+	curServiceEvents := counters.serviceEvents.Load()
+
+	// Create a second service
+	_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name: "service-b",
+		},
+	}, meta_v1.CreateOptions{})
+	require.NoError(t, err)
+
+	// We should not process the new service
+	require.Never(t, func() bool {
+		return counters.serviceEvents.Load() > curServiceEvents
+	}, 3*time.Second, 100*time.Millisecond)
+
+	err = testHive.Stop(tlog, t.Context())
+	require.NoError(t, err)
+
+	// Assert we did not process any services during shutdown
+	require.Never(t, func() bool {
+		return counters.serviceEvents.Load() > curServiceEvents
+	}, 3*time.Second, 100*time.Millisecond)
 }

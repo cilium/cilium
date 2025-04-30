@@ -135,7 +135,7 @@ func (ep *epInfoCache) GetEndpointNetNsCookie() uint64 {
 
 // Logger returns the logger for the endpoint that is being cached.
 func (ep *epInfoCache) Logger(subsystem string) *slog.Logger {
-	return ep.endpoint.SLogger(subsystem)
+	return ep.endpoint.Logger(subsystem)
 }
 
 // IPv4Address returns the cached IPv4 address for the endpoint.

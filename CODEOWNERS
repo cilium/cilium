@@ -242,7 +242,7 @@
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/bpftrace/ @cilium/sig-encryption @cilium/github-sec @cilium/ci-structure
-/.github/actions/ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/actions/e2e/*ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
@@ -363,7 +363,6 @@ Makefile* @cilium/build
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
-/daemon/cmd/health* @cilium/sig-agent
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
@@ -613,12 +612,11 @@ Makefile* @cilium/build
 /pkg/rate/ @cilium/sig-agent
 /pkg/rate/metrics @cilium/metrics
 /pkg/recorder @cilium/sig-datapath
-/pkg/redirectpolicy @cilium/sig-lb
 /pkg/resiliency @cilium/sig-agent
 /pkg/revert/ @cilium/sig-agent
 /pkg/safeio @cilium/sig-agent
 /pkg/safetime/ @cilium/sig-agent
-/pkg/service @cilium/sig-lb
+/pkg/shell @cilium/sig-foundations
 /pkg/shortener @cilium/sig-foundations @cilium/sig-k8s
 /pkg/signal @cilium/sig-datapath
 /pkg/slices @cilium/sig-foundations
@@ -632,9 +630,10 @@ Makefile* @cilium/build
 /pkg/tuple @cilium/sig-datapath
 /pkg/types/ @cilium/sig-datapath
 /pkg/u8proto/ @cilium/sig-agent
-/pkg/wireguard @cilium/wireguard
+/pkg/util/ @cilium/sig-datapath
 /pkg/version/ @cilium/sig-agent
 /pkg/versioncheck/ @cilium/sig-agent
+/pkg/wireguard @cilium/wireguard
 /pkg/xds/ @cilium/envoy
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker

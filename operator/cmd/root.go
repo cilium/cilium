@@ -71,6 +71,8 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	shellclient "github.com/cilium/cilium/pkg/shell/client"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -122,6 +124,9 @@ var (
 				EnableMetrics: operatorCfg.EnableMetrics,
 			}
 		}),
+
+		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
+		shell.Cell,
 	)
 
 	// ControlPlane implements the control functions.
@@ -317,6 +322,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		MetricsCmd,
 		StatusCmd,
 		troubleshoot.Cmd,
+		shellclient.ShellCmd,
 		h.Command(),
 	)
 
@@ -732,7 +738,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() {
-		if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
+		if err := labelsfilter.ParseLabelPrefixCfg(legacy.logger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
 			log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 		}
 	}

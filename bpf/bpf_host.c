@@ -27,7 +27,6 @@
 #include "lib/config_map.h"
 #include "lib/edt.h"
 #include "lib/arp.h"
-#include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
@@ -37,8 +36,8 @@
 #include "lib/policy.h"
 #include "lib/trace.h"
 #include "lib/identity.h"
-#include "lib/l3.h"
 #include "lib/l4.h"
+#include "lib/local_delivery.h"
 #include "lib/drop.h"
 #include "lib/encap.h"
 #include "lib/nat.h"
@@ -49,10 +48,10 @@
 #include "lib/host_firewall.h"
 #include "lib/egress_gateway.h"
 #include "lib/srv6.h"
+#include "lib/tailcall.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
-#include "lib/vxlan.h"
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
 
@@ -83,12 +82,6 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 
 	return CTX_ACT_OK;
 }
-
-#define SECCTX_FROM_IPCACHE_OK	2
-static __always_inline bool identity_from_ipcache_ok(void)
-{
-	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;
-}
 #endif
 
 #ifdef ENABLE_IPV6
@@ -107,18 +100,17 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
 			*sec_identity = info->sec_identity;
-			if (*sec_identity) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "srcid_from_proxy"
-				 * (passed into this function) reports the src as
-				 * the host. So we can ignore the ipcache if it
-				 * reports the source as HOST_ID.
-				 */
-				if (*sec_identity != HOST_ID)
-					srcid_from_ipcache = *sec_identity;
-			}
+
+			/* When SNAT is enabled on traffic ingressing
+			 * into Cilium, all traffic from the world will
+			 * have a source IP of the host. It will only
+			 * actually be from the host if "srcid_from_proxy"
+			 * (passed into this function) reports the src as
+			 * the host. So we can ignore the ipcache if it
+			 * reports the source as HOST_ID.
+			 */
+			if (*sec_identity != HOST_ID)
+				srcid_from_ipcache = *sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
@@ -126,7 +118,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 	if (from_host)
 		src_id = srcid_from_ipcache;
-	else if (identity_from_ipcache_ok())
+	else if (CONFIG(secctx_from_ipcache))
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
@@ -152,10 +144,19 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo __maybe_unused;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
 
 	if (is_defined(ENABLE_HOST_FIREWALL) || !from_host) {
 		__u8 nexthdr = ip6->nexthdr;
@@ -247,7 +248,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct remote_endpoint_info *info = NULL;
 	struct endpoint_info *ep;
 	int ret __maybe_unused;
-	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
 
@@ -358,19 +358,13 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	dst = (union v6addr *) &ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
 
-#ifdef ENABLE_IPSEC
-	/* See IPv4 comment. */
-	if (from_proxy && info)
-		encrypt_key = get_min_encrypt_key(info->key);
-#endif
-
 #ifdef TUNNEL_MODE
 	if (info && info->flag_skip_tunnel)
 		goto skip_tunnel;
 
-	if (info && info->tunnel_endpoint != 0) {
-		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      encrypt_key, secctx, info->sec_identity,
+	if (info && info->flag_has_tunnel_ep) {
+		return encap_and_redirect_with_nodeid(ctx, info, secctx,
+						      info->sec_identity,
 						      &trace);
 	}
 skip_tunnel:
@@ -383,11 +377,6 @@ skip_tunnel:
 	}
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	/* See IPv4 comment. */
-	if (from_proxy && info->tunnel_endpoint && encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true, false);
-
 	if (from_proxy && !identity_is_cluster(info->sec_identity))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
@@ -544,18 +533,16 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (info != NULL) {
 			*sec_identity = info->sec_identity;
 
-			if (*sec_identity) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "srcid_from_proxy"
-				 * (passed into this function) reports the src as
-				 * the host. So we can ignore the ipcache if it
-				 * reports the source as HOST_ID.
-				 */
-				if (*sec_identity != HOST_ID)
-					srcid_from_ipcache = *sec_identity;
-			}
+			/* When SNAT is enabled on traffic ingressing
+			 * into Cilium, all traffic from the world will
+			 * have a source IP of the host. It will only
+			 * actually be from the host if "srcid_from_proxy"
+			 * (passed into this function) reports the src as
+			 * the host. So we can ignore the ipcache if it
+			 * reports the source as HOST_ID.
+			 */
+			if (*sec_identity != HOST_ID)
+				srcid_from_ipcache = *sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, srcid_from_ipcache);
@@ -566,7 +553,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 	/* If we could not derive the secctx from the packet itself but
 	 * from the ipcache instead, then use the ipcache identity.
 	 */
-	else if (identity_from_ipcache_ok())
+	else if (CONFIG(secctx_from_ipcache))
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
@@ -685,7 +672,6 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct remote_endpoint_info *info;
 	struct endpoint_info *ep;
 	int ret __maybe_unused;
-	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
 
@@ -794,6 +780,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	 */
 #ifdef ENABLE_VTEP
 	{
+		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
@@ -805,7 +792,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
+			fake_info.flag_has_tunnel_ep = true;
+			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								secctx, WORLD_IPV4_ID,
 								WORLD_IPV4_ID, &trace);
 		}
@@ -815,19 +804,13 @@ skip_vtep:
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
-#ifdef ENABLE_IPSEC
-	/* We encrypt host to remote pod packets only if they are from proxy. */
-	if (from_proxy && info)
-		encrypt_key = get_min_encrypt_key(info->key);
-#endif
-
 #ifdef TUNNEL_MODE
 	if (info && info->flag_skip_tunnel)
 		goto skip_tunnel;
 
-	if (info && info->tunnel_endpoint != 0) {
-		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      encrypt_key, secctx, info->sec_identity,
+	if (info && info->flag_has_tunnel_ep) {
+		return encap_and_redirect_with_nodeid(ctx, info, secctx,
+						      info->sec_identity,
 						      &trace);
 	}
 skip_tunnel:
@@ -852,11 +835,6 @@ skip_tunnel:
 	}
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	/* We encrypt host to remote pod packets only if they are from proxy. */
-	if (from_proxy && info->tunnel_endpoint && encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true, false);
-
 	if (from_proxy && !identity_is_cluster(info->sec_identity))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
@@ -1017,13 +995,12 @@ do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 		break;
 # endif /* ENABLE_IPV4 */
 	}
-	if (!ep || !ep->tunnel_endpoint)
+	if (!ep || !ep->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	ctx->mark = 0;
 
-	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, 0,
-					      src_id, 0, &trace);
+	return encap_and_redirect_with_nodeid(ctx, ep, src_id, 0, &trace);
 }
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
@@ -1207,13 +1184,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
  * managed by Cilium (e.g., eth0). This program is only attached when:
  * - the host firewall is enabled, or
  * - BPF NodePort is enabled, or
- * - L2 announcements are enabled, or
- * - WireGuard's host-to-host encryption and BPF NodePort are enabled
+ * - L2 announcements are enabled
  */
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
-	enum trace_point obs_point = TRACE_FROM_NETWORK;
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
@@ -1221,15 +1196,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
 	int ret;
-
-#ifdef ENABLE_WIREGUARD
-	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
-	 * BPF NodePort enabled, we should change the obs point to FROM_CRYPTO.
-	 * Therefore, we check THIS_INTERFACE_IFINDEX value to be set to WG_IFINDEX.
-	 */
-	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
-		obs_point = TRACE_FROM_CRYPTO;
-#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
@@ -1284,7 +1250,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 #endif
 
-	return do_netdev(ctx, proto, UNKNOWN_ID, obs_point, false);
+	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
 
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, METRIC_INGRESS);
@@ -1517,7 +1483,7 @@ skip_host_firewall:
 				src_sec_identity = src_ep->sec_id;
 
 			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-			if (info && info->sec_identity)
+			if (info)
 				dst_sec_identity = info->sec_identity;
 
 			/* lower-level code expects CT tuple to be flipped: */
@@ -1533,6 +1499,12 @@ skip_host_firewall:
 				goto drop_err;
 			}
 
+			fraginfo = ipv6_get_fraginfo(ctx, ip6);
+			if (fraginfo < 0) {
+				ret = (int)fraginfo;
+				goto drop_err;
+			}
+
 			tuple6.nexthdr = ip6->nexthdr;
 			ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
 			ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
@@ -1543,7 +1515,8 @@ skip_host_firewall:
 				goto drop_err;
 			}
 
-			ret = ct_extract_ports6(ctx, l4_off, &tuple6);
+			ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
+						CT_EGRESS, &tuple6);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CT_UNKNOWN_PROTO)
 					goto skip_egress_gateway;
@@ -1560,7 +1533,7 @@ skip_host_firewall:
 				src_sec_identity = src_ep->sec_id;
 
 			info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-			if (info && info->sec_identity)
+			if (info)
 				dst_sec_identity = info->sec_identity;
 
 			/* lower-level code expects CT tuple to be flipped: */
@@ -1592,26 +1565,16 @@ skip_egress_gateway:
 	}
 #endif
 
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
-	if (ctx_is_overlay(ctx) && get_identity(ctx) == ENCRYPTED_OVERLAY_ID) {
-		/* This is overlay traffic that should be recirculated
-		 * to the stack for XFRM encryption.
-		 */
-		ret = encrypt_overlay_and_redirect(ctx);
-		if (ret == CTX_ACT_REDIRECT) {
-			/* we are redirecting back into the stack, so TRACE_TO_STACK
-			 * for tracepoint
-			 */
-			send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity,
-					  dst_sec_identity,
-					  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-					  TRACE_REASON_ENCRYPT_OVERLAY, 0);
+#if defined(ENABLE_IPSEC)
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT) {
+		ret =  ipsec_maybe_redirect_to_encrypt(ctx, proto,
+						       src_sec_identity);
+		if (ret == CTX_ACT_REDIRECT)
 			return ret;
-		}
-		if (IS_ERR(ret))
+		else if (IS_ERR(ret))
 			goto drop_err;
 	}
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
+#endif /* ENABLE_IPSEC */
 
 #ifdef ENABLE_WIREGUARD
 	/* Redirect the packet to the WireGuard tunnel device for encryption
@@ -1734,6 +1697,41 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * to mark as PACKET_OTHERHOST and drop.
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
+#if !defined(TUNNEL_MODE)
+	/* Since v1.18 Cilium performs IPsec encryption at the native device,
+	 * before the packet leaves the host.
+	 *
+	 * A special case exists for L7 egress proxy packets when native routing
+	 * mode is enabled.
+	 *
+	 * Because L7 egress proxy packets are generated in the host-namespace
+	 * and generated packets MUST adjust their MTU for ESP encapsulation
+	 * an IP route MTU adjustment exists for L7 egress proxy packets.
+	 *
+	 * When the L7 egress proxy generates packets an 'ip rule' in the host
+	 * namespace routes these packets into table 2005 which has a route
+	 * toward 'cilium_host' and adjusts the MTU correctly for ESP encap.
+	 *
+	 * When 'cil_from_host@cilium_host' is reached the skb's mark is zeroed
+	 * and the packet is pushed toward 'cil_to_host@cilium_net'.
+	 *
+	 * If we simply let this packet drop to the stack, an iptables rule
+	 * exists which will mark the packet with 0x200 and trigger a local
+	 * delivery as part of L7 Proxy TPROXY mechanism.
+	 *
+	 * This iptables rule, created by
+	 * iptables.Manager.inboundProxyRedirectRule() is ignored by the mark
+	 * MARK_MAGIC_PROXY_TO_WORLD, in the control plane.
+	 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
+	 * this mark breaks further processing as its used in the XFRM subsystem.
+	 *
+	 * Therefore, if the packet's mark is zero, indicating it was forwarded
+	 * from 'cilium_host', mark the packet with MARK_MAGIC_PROXY_TO_WORLD
+	 * and allow it to enter the foward path once punted to stack.
+	 */
+	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX)
+		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+#endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT)

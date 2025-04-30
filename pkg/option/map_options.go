@@ -13,7 +13,9 @@ type Validator func(val string) (string, error)
 
 // MapOptions holds a map of values and a validation function.
 type MapOptions struct {
-	vals      map[string]string
+	vals map[string]string
+	// Validator must validate individual "key=value" entries
+	// within the map.
 	validator Validator
 }
 
@@ -58,21 +60,28 @@ func (opts *MapOptions) Type() string {
 	return "map"
 }
 
-// Set validates, if needed, the input value and adds it to the internal map,
-// by splitting on '='.
+// Set validates, if needed, the input value and adds it to the internal map.
+// It splits the input string by ',' and then by '=' to create key-value pairs.
 func (opts *MapOptions) Set(value string) error {
 	if opts.validator != nil {
-		v, err := opts.validator(value)
-		if err != nil {
-			return err
+		var kvs []string
+		for _, kv := range strings.Split(value, ",") {
+			v, err := opts.validator(kv)
+			if err != nil {
+				return err
+			}
+
+			kvs = append(kvs, v)
 		}
-		value = v
+		value = strings.Join(kvs, ",")
 	}
-	vals := strings.SplitN(value, "=", 2)
-	if len(vals) == 1 {
-		(opts.vals)[vals[0]] = ""
-	} else {
-		(opts.vals)[vals[0]] = vals[1]
+	for _, kv := range strings.Split(value, ",") {
+		vals := strings.SplitN(kv, "=", 2)
+		if len(vals) == 1 {
+			opts.vals[vals[0]] = ""
+		} else {
+			opts.vals[vals[0]] = vals[1]
+		}
 	}
 	return nil
 }

@@ -1,0 +1,62 @@
+#! --enable-experimental-lb --bpf-lb-external-clusterip --bpf-lb-algorithm=maglev
+# Test the handling of the external ClusterIP support.
+
+# Start the test application
+hive start
+
+# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
+db/initialized
+
+k8s/add service.yaml endpointslice.yaml
+
+# Check the BPF maps. The service should not be marked as "non-routable"
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+! grep "non-routable" lbmaps.actual
+
+#####
+
+-- lbmaps.expected --
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+

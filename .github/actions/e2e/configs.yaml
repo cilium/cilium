@@ -1,6 +1,6 @@
 - name: '1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'rhel8.6-20250409.090442'
+  kernel: 'rhel8.6-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -8,7 +8,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.4-20250409.090442'
+  kernel: '5.4-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -16,7 +16,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: '3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250409.090442'
+  kernel: '5.10-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -24,7 +24,7 @@
   kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250409.090442'
+  kernel: '5.10-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -36,7 +36,7 @@
   ingress-controller: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250409.090442'
+  kernel: '5.15-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -49,7 +49,7 @@
   ingress-controller: 'true'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20250409.090442'
+  kernel: '6.1-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -61,8 +61,8 @@
   ingress-controller: 'true'
   bgp-control-plane: 'true'
 - name: '7'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-next-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -76,8 +76,8 @@
   node-local-dns: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 - name: '8'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-next-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -87,7 +87,7 @@
   node-local-dns: 'true'
 - name: '9'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250409.090442'
+  kernel: '5.10-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -101,7 +101,7 @@
   ingress-controller: 'true'
 - name: '10'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250409.090442'
+  kernel: '5.15-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -114,7 +114,7 @@
   kvstore: 'true'
 - name: '11'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20250409.090442'
+  kernel: '6.1-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -129,8 +129,8 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
 - name: '12'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-next-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -144,7 +144,7 @@
   ingress-controller: 'true'
 - name: '13'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'rhel8.6-20250409.090442'
+  kernel: 'rhel8.6-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -155,7 +155,7 @@
   # explains why 5.4 might cause north-south-loadbalancing tests to
   # fail.
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250409.090442'
+  kernel: '5.15-20250424.080122'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -166,8 +166,8 @@
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
 - name: '15'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-next-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -179,7 +179,7 @@
   ciliumendpointslice: 'true'
 - name: '16'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250409.090442'
+  kernel: '5.15-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -192,8 +192,8 @@
   ciliumendpointslice: 'true'
   ingress-controller: 'true'
 - name: '17'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -203,8 +203,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
 - name: '18'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -214,8 +214,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
 - name: '19'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -225,8 +225,8 @@
   ingress-controller: 'true'
   kvstore: 'true'
 - name: '20'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -235,8 +235,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
 - name: '21'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -245,8 +245,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
 - name: '22'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -255,8 +255,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
 - name: '23'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -267,8 +267,8 @@
   ingress-controller: 'true'
   host-fw: 'true'
 - name: '24'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-net-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -278,8 +278,8 @@
   endpoint-routes: 'true'
   ingress-controller: 'true'
 - name: '25'
-  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-  kernel: 'bpf-net-20250110.013326'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250424.080122'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -290,7 +290,7 @@
   ingress-controller: 'true'
 - name: '26'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250409.090442'
+  kernel: '6.6-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -301,7 +301,7 @@
   ingress-controller: 'true'
 - name: '27'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250409.090442'
+  kernel: '6.6-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -312,7 +312,7 @@
   ingress-controller: 'true'
 - name: '28'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250409.090442'
+  kernel: '6.6-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -324,7 +324,7 @@
   ingress-controller: 'true'
 - name: '29'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250409.090442'
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -335,7 +335,7 @@
   ingress-controller: 'true'
 - name: '30'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250409.090442'
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -346,7 +346,7 @@
   ingress-controller: 'true'
 - name: '31'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250409.090442'
+  kernel: '6.12-20250424.080122'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -358,10 +358,11 @@
   ingress-controller: 'true'
 - name: '32'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250409.090442'
-  kube-proxy: 'iptables'
-  kpr: 'false'
+  kernel: '5.15-20250424.080122'
+  kube-proxy: 'none'
+  kpr: 'true'
   ipv6: 'true'
   ipv4: 'false'
-  tunnel: 'disabled'
+  tunnel: 'vxlan'
+  underlay: 'ipv6'
   skip-upgrade: 'true'

@@ -37,17 +37,16 @@ A basic IP Pools with both an IPv4 and IPv6 range looks like this:
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
     spec:
       blocks:
       - cidr: "10.0.10.0/24"
-      - cidr: "2004::0/64"
+      - cidr: "2004::0/112"
       - start: "20.0.20.100"
         stop: "20.0.20.200"
-      - start: "1.2.3.4"
 
 After adding the pool to the cluster, it appears like so.
 
@@ -55,7 +54,7 @@ After adding the pool to the cluster, it appears like so.
 
     $ kubectl get ippools                           
     NAME        DISABLED   CONFLICTING   IPS AVAILABLE   AGE
-    blue-pool   false      False         65788           2s
+    blue-pool   false      False         65892           2s
 
 CIDRs, Ranges and reserved IPs
 ------------------------------
@@ -94,7 +93,7 @@ The pool will allocate to any service if no service selector is specified.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -105,7 +104,7 @@ The pool will allocate to any service if no service selector is specified.
         matchExpressions:
           - {key: color, operator: In, values: [blue, cyan]}
     ---
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "red-pool"
@@ -130,7 +129,7 @@ For example:
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -194,7 +193,7 @@ an administrator to slowly drain pool or reserve a pool for future use.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -252,7 +251,7 @@ Or human readable output like so
     Namespace:    
     Labels:       <none>
     Annotations:  <none>
-    API Version:  cilium.io/v2alpha1
+    API Version:  cilium.io/v2
     Kind:         CiliumLoadBalancerIPPool
     #[...]
     Status:

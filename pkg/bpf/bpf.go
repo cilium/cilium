@@ -16,11 +16,13 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
 
 	preAllocateMapSetting uint32 = BPF_F_NO_PREALLOC
+	noCommonLRUMapSetting uint32 = 0
 )
 
 const (
 	// Flags for BPF_MAP_CREATE. Must match values from linux/bpf.h
-	BPF_F_NO_PREALLOC = 1 << 0
+	BPF_F_NO_PREALLOC   = 1 << 0
+	BPF_F_NO_COMMON_LRU = 1 << 1
 )
 
 // EnableMapPreAllocation enables BPF map pre-allocation on map types that
@@ -38,9 +40,22 @@ func DisableMapPreAllocation() {
 	atomic.StoreUint32(&preAllocateMapSetting, BPF_F_NO_PREALLOC)
 }
 
-// GetPreAllocateMapFlags returns the map flags for map which use conditional
-// pre-allocation.
-func GetPreAllocateMapFlags(t ebpf.MapType) uint32 {
+// EnableMapDistributedLRU enables the LRU map no-common-LRU feature which
+// splits backend memory pools among CPUs to avoid sharing a common backend
+// pool where frequent allocation/frees might content on internal spinlocks.
+func EnableMapDistributedLRU() {
+	atomic.StoreUint32(&noCommonLRUMapSetting, BPF_F_NO_COMMON_LRU)
+}
+
+// DisableMapDistributedLRU disables the LRU map no-common-LRU feature which
+// is the default case.
+func DisableMapDistributedLRU() {
+	atomic.StoreUint32(&noCommonLRUMapSetting, 0)
+}
+
+// GetMapMemoryFlags returns relevant map memory allocation flags which
+// the user requested.
+func GetMapMemoryFlags(t ebpf.MapType) uint32 {
 	switch t {
 	// LPM Tries don't support preallocation.
 	case ebpf.LPMTrie:
@@ -48,6 +63,9 @@ func GetPreAllocateMapFlags(t ebpf.MapType) uint32 {
 	// Support disabling preallocation for these map types.
 	case ebpf.Hash, ebpf.PerCPUHash, ebpf.HashOfMaps:
 		return atomic.LoadUint32(&preAllocateMapSetting)
+	// Support no-common LRU backend memory
+	case ebpf.LRUHash, ebpf.LRUCPUHash:
+		return atomic.LoadUint32(&noCommonLRUMapSetting)
 	}
 
 	return 0

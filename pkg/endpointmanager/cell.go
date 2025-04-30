@@ -5,6 +5,7 @@ package endpointmanager
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"sync"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -179,29 +179,31 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle           cell.Lifecycle
-	Config              EndpointManagerConfig
-	Clientset           client.Clientset
-	MetricsRegistry     *metrics.Registry
-	Health              cell.Health
-	EPSynchronizer      EndpointResourceSynchronizer
-	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
-	LocalNodeStore      *node.LocalNodeStore
-	MonitorAgent        monitoragent.Agent
+	Logger *slog.Logger
+
+	Lifecycle       cell.Lifecycle
+	Config          EndpointManagerConfig
+	Clientset       client.Clientset
+	MetricsRegistry *metrics.Registry
+	Health          cell.Health
+	EPSynchronizer  EndpointResourceSynchronizer
+	LocalNodeStore  *node.LocalNodeStore
+	MonitorAgent    monitoragent.Agent
 }
 
 type endpointManagerOut struct {
 	cell.Out
 
-	Lookup  EndpointsLookup
-	Modify  EndpointsModify
-	Manager EndpointManager
+	Lookup   EndpointsLookup
+	Modify   EndpointsModify
+	Manager  EndpointManager
+	Callback PolicyUpdateCallbackManager
 }
 
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(p.EPSynchronizer, p.KVStoreSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent)
+	mgr := New(p.Logger, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{
@@ -221,9 +223,10 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	mgr.InitMetrics(p.MetricsRegistry)
 
 	return endpointManagerOut{
-		Lookup:  mgr,
-		Modify:  mgr,
-		Manager: mgr,
+		Lookup:   mgr,
+		Modify:   mgr,
+		Manager:  mgr,
+		Callback: mgr,
 	}
 }
 

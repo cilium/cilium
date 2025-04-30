@@ -24,6 +24,7 @@ Deploy the Cilium Gateway
 You'll find the example Gateway and HTTPRoute definition in ``basic-http.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/basic-http.yaml
+   :language: yaml
 
 .. parsed-literal::
 

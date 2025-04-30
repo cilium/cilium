@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -53,7 +52,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
-	symbolToWireguard = "cil_to_wireguard"
+	symbolToWireguard   = "cil_to_wireguard"
+	symbolFromWireguard = "cil_from_wireguard"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
@@ -62,11 +62,6 @@ const (
 
 	dirIngress = "ingress"
 	dirEgress  = "egress"
-)
-
-const (
-	secctxFromIpcacheDisabled = iota + 1
-	secctxFromIpcacheEnabled
 )
 
 // loader is a wrapper structure around operations related to compiling,
@@ -189,9 +184,8 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.EthHeaderLength = 0
 	}
 
-	cfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
-	if option.Config.EnableHostLegacyRouting {
-		cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+	if !option.Config.EnableHostLegacyRouting {
+		cfg.SecctxFromIPCache = true
 	}
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
@@ -349,8 +343,6 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
 
-	cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
-
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	renames := map[string]string{
@@ -421,9 +413,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	}
 	cfg.InterfaceMAC = em.As8()
 
-	cfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
-	if option.Config.EnableHostLegacyRouting {
-		cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+	if !option.Config.EnableHostLegacyRouting {
+		cfg.SecctxFromIPCache = true
 	}
 
 	ifindex := link.Attrs().Index
@@ -480,11 +471,6 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	devices := lnc.DeviceNames()
 
-	// Selectively attach bpf_host to cilium_wg0.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
-		devices = append(devices, wgTypes.IfaceName)
-	}
-
 	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
 	// service lookup after IPIP termination. Do not attach in case of the
 	// devices being created via health datapath (see Reinitialize()) since
@@ -535,15 +521,10 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 		}
 
 		if option.Config.AreDevicesRequired() {
-			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
-			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
-			// the rev-NAT xlations.
-			if device != wgTypes.IfaceName {
-				// Attach cil_to_netdev to egress.
-				if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
-					linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-					return fmt.Errorf("interface %s egress: %w", device, err)
-				}
+			// Attach cil_to_netdev to egress.
+			if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
+				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+				return fmt.Errorf("interface %s egress: %w", device, err)
 			}
 		} else {
 			// Remove any previously attached device from egress path if BPF
@@ -759,11 +740,15 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	cfg := config.NewBPFWireguard(nodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	if !option.Config.EnableHostLegacyRouting {
+		cfg.SecctxFromIPCache = true
+	}
+
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
+			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
 		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
@@ -790,16 +775,33 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 			)
 		}
 	}
-	// Selectively detach cil_from_netdev from ingress.
-	if !option.Config.NeedBPFHostOnWireGuardDevice() {
-		if err := detachSKBProgram(logger, device, symbolFromHostNetdevEp,
+	// Attach/detach cil_from_wireguard to/from ingress.
+	if option.Config.NeedIngressOnWireGuardDevice() {
+		if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
+			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+			return fmt.Errorf("interface %s ingress: %w", device, err)
+		}
+	} else {
+		if err := detachSKBProgram(logger, device, symbolFromWireguard,
 			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
 			logger.Error("",
 				logfields.Error, err,
-				logfields.Device, wgTypes.IfaceName,
+				logfields.Device, device,
 			)
 		}
 	}
+	// Cleanup previous cil_from_netdev from v1.17.
+	// TODO: remove this in v1.19/v1.18.1.
+	if err := detachSKBProgram(logger, device, symbolFromHostNetdevEp,
+		linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+		logger.Error("",
+			logfields.Error, err,
+			logfields.Device, device,
+		)
+	}
+	// Cleanup previous calls map from v1.17.
+	// TODO: remove this in v1.19/v1.18.1.
+	cleanCallsMaps(fmt.Sprintf("cilium_calls_wireguard_%d", identity.ReservedIdentityWorld))
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}

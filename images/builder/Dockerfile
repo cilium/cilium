@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:f51ffb467692a59696b144dfe2f1ddeae1bb6bca@sha256:32f5f098d74db46c9d0405e25236828d22b7e3d7006387f9287b4aee48bc85c6
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:e446d5aea1d17f5343757a012ffdb3056bd6e346@sha256:9c11e1e27ec6de121f10385bd3c00bc635bd9d6378fb4756be9eca4b13b3c400
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:65fa0b0a5e0cd4fbd4b243d8f2aba5751fc0eeff@sha256:8ddea1434c9e407ecf6f212b9cd06fdb6955e4895581d8bb100533f9f1f2de99
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:0a7ee27812441d95926aec83929d97e93ce96aae@sha256:e96542b4f71dbc9cbe77feaf5b1fa9bd5e13122ee6418094731212f1c5667c67
-ARG GOLANG_IMAGE=docker.io/library/golang:1.24.2@sha256:18a1f2d1e1d3c49f27c904e9182375169615c65852ace724987929b910195b2c
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.2@sha256:d9db32125db0c3a680cfb7a1afcaefb89c898a075ec148fdc2f0f646cc2ed509
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1732033893-de666b6@sha256:ee005bd47b20f78a727c06fdf2275861848be7acd242603c82f86ca8faaeda90
 
 FROM ${COMPILERS_IMAGE} AS compilers-image
@@ -75,6 +75,10 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/b
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
     ./install-protoplugins.sh
+
+WORKDIR /go/src/github.com/cilium/cilium/images/builder
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
+    ./install-test-formatters.sh
 
 # used to facilitate the verifier tests
 COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /bin/

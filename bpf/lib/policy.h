@@ -8,7 +8,6 @@
 #include "drop.h"
 #include "dbg.h"
 #include "eps.h"
-#include "maps.h"
 
 /* Global policy stats map */
 struct {
@@ -308,13 +307,14 @@ policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 
 
 static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const void *map,
 					       const struct ipv6_ct_tuple *tuple,
-					       int l4_off,  __u32 src_id, __u32 dst_id,
+					       int l4_off, bool is_untracked_fragment,
+					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
 					       __s8 *ext_err, __u16 *proxy_port)
 {
 	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
-				 tuple->nexthdr, l4_off, false, match_type, audited,
-				 ext_err, proxy_port);
+				 tuple->nexthdr, l4_off, is_untracked_fragment,
+				 match_type, audited, ext_err, proxy_port);
 }
 
 static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,

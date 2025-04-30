@@ -15,6 +15,7 @@
 {{- $defaultK8sClientQPS := 5 -}}
 {{- $defaultK8sClientBurst := 10 -}}
 {{- $defaultDNSProxyEnableTransparentMode := "false" -}}
+{{- $defaultEnableIPv4Masquerade := "true" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 {{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
 {{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
@@ -61,6 +62,14 @@
   {{- $defaultKubeProxyReplacement = "false" -}}
 {{- end -}}
 
+{{- /* Default values when 1.18 was initially deployed */ -}}
+{{- if semverCompare ">=1.18" (default "1.18" .Values.upgradeCompatibility) -}}
+  {{- /* defaultIPv4Masquerad in ENI mode for 1.18 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
+  {{- if .Values.eni.enabled }}
+    {{- $defaultEnableIPv4Masquerade = "false" -}}
+    # Will also do this for ipv6 when ENI mode works with ipv6.
+  {{- end }}
+{{- end -}}
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
@@ -493,7 +502,7 @@ data:
   preallocate-bpf-maps: "{{ .Values.bpf.preallocateMaps }}"
 
   # Name of the cluster. Only relevant when building a mesh of clusters.
-  cluster-name: {{ .Values.cluster.name }}
+  cluster-name: {{ .Values.cluster.name | quote }}
 
 {{- if hasKey .Values.cluster "id" }}
   # Unique ID of the cluster. Must be unique across all conneted clusters and
@@ -626,7 +635,11 @@ data:
 {{- end }}
 {{- end }}
 
-  enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+{{- if (not (kindIs "invalid" .Values.enableIPv4Masquerade)) }}
+  enable-ipv4-masquerade: {{.Values.enableIPv4Masquerade | quote }}
+{{- else }}
+  enable-ipv4-masquerade: {{ $defaultEnableIPv4Masquerade | quote }}
+{{- end }}
   enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
@@ -710,6 +723,7 @@ data:
 {{- if .Values.bandwidthManager.enabled }}
   enable-bandwidth-manager: {{ .Values.bandwidthManager.enabled | quote }}
   enable-bbr: {{ .Values.bandwidthManager.bbr | quote }}
+  enable-bbr-hostns-only: {{ .Values.bandwidthManager.bbrHostNamespaceOnly | quote }}
 {{- end }}
 {{- end }}
 
@@ -985,6 +999,7 @@ data:
   hubble-metrics-server-tls-client-ca-files: /var/lib/cilium/tls/hubble-metrics/client-ca.crt
   {{- end }}
   {{- end }}
+  enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 {{- if .Values.hubble.metrics.enabled }}
   # A space separated list of metrics to enable. See [0] for available metrics.
@@ -993,10 +1008,10 @@ data:
   hubble-metrics: {{- range .Values.hubble.metrics.enabled }}
     {{.}}
   {{- end}}
+{{- end }}
+
 {{- if .Values.hubble.metrics.dynamic.enabled }}
   hubble-dynamic-metrics-config-path: /dynamic-metrics-config/dynamic-metrics.yaml
-{{- end }}
-  enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 
 {{- if hasKey .Values.hubble.networkPolicyCorrelation "enabled" }}

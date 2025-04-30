@@ -713,13 +713,12 @@ func (l Labels) LabelArray() LabelArray {
 
 // FindReserved locates all labels with reserved source in the labels and
 // returns a copy of them. If there are no reserved labels, returns nil.
-// TODO: return LabelArray as it is likely faster
-func (l Labels) FindReserved() Labels {
-	lbls := Labels{}
+func (l Labels) FindReserved() LabelArray {
+	lbls := make(LabelArray, 0)
 
-	for k, lbl := range l {
+	for _, lbl := range l {
 		if lbl.Source == LabelSourceReserved {
-			lbls[k] = lbl
+			lbls = append(lbls, lbl)
 		}
 	}
 

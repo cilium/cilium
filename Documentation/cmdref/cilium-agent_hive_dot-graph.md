@@ -20,11 +20,17 @@ cilium-agent hive dot-graph [flags]
       --agent-labels strings                                      Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                   Interval at which the agent updates liveness time for the datapath (default 1s)
       --api-rate-limit string                                     API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
+      --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
+      --bpf-lb-algorithm-annotation                               Enable service-level annotation for configuring BPF load balancing algorithm
+      --bpf-lb-external-clusterip                                 Enable external access to ClusterIP services (default false)
       --bpf-lb-maglev-hash-seed string                            Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
       --bpf-lb-maglev-table-size uint                             Maglev per service backend table size (parameter M, one of: [251 509 1021 2039 4093 8191 16381 32749 65521 131071]) (default 16381)
+      --bpf-lb-map-max int                                        Maximum number of entries in Cilium BPF lbmap (default 65536)
+      --bpf-lb-source-range-all-types                             Propagate loadbalancerSourceRanges to all corresponding service types
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-policy-stats-map-max int                              Maximum number of entries in bpf policy stats map (default 65536)
+      --bpf-sock-rev-map-max int                                  Maximum number of entries for the SockRevNAT BPF map
       --certificates-directory string                             Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cluster-id uint32                                         Unique identifier of the cluster
       --cluster-name string                                       Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
@@ -47,6 +53,7 @@ cilium-agent hive dot-graph [flags]
       --enable-active-connection-tracking                         Count open and active connections to services, grouped by zones defined in fixed-zone-mapping.
       --enable-bandwidth-manager                                  Enable BPF bandwidth manager
       --enable-bbr                                                Enable BBR for the bandwidth manager
+      --enable-bbr-hostns-only                                    Enable BBR only in the host network namespace.
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings            List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-drift-checker                                      Enables support for config drift checker (default true)
@@ -54,6 +61,7 @@ cilium-agent hive dot-graph [flags]
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                               Enable gops server (default true)
+      --enable-health-check-nodeport                              Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-hubble                                             Enable hubble server
       --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
@@ -68,6 +76,7 @@ cilium-agent hive dot-graph [flags]
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                   Enable support for service topology aware hints
+      --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
@@ -143,6 +152,7 @@ cilium-agent hive dot-graph [flags]
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
+      --kube-proxy-replacement-healthz-bind-address string        The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous arp messages
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --mesh-auth-enabled                                         Enable authentication processing & garbage collection (beta) (default true)
@@ -159,6 +169,7 @@ cilium-agent hive dot-graph [flags]
       --multicast-enabled                                         Enables multicast in Cilium
       --nat-map-stats-entries int                                 Number k top stats entries to store locally in statedb (default 32)
       --nat-map-stats-interval duration                           Interval upon which nat maps are iterated for stats (default 30s)
+      --node-port-range strings                                   Set the min/max NodePort port range (default [30000,32767])
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --policy-queue-size uint                                    Size of queue for policy-related events (default 100)
       --policy-secrets-namespace string                           PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
@@ -184,7 +195,13 @@ cilium-agent hive dot-graph [flags]
       --proxy-xff-num-trusted-hops-ingress uint32                 Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restored-proxy-ports-age-limit uint                       Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
+      --standalone-dns-proxy-server-port int                      Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
       --static-cnp-path string                                    Directory path to watch and load static cilium network policy yaml files.
+      --status-collector-failure-threshold duration               The duration after which a probe is considered failed (default 1m0s)
+      --status-collector-interval duration                        The interval between probe invocations (default 5s)
+      --status-collector-probe-check-timeout duration             The timeout after which all probes should have finished at least once (default 5m0s)
+      --status-collector-stackdump-path string                    The path where probe stackdumps should be written to (default "/run/cilium/state/agent.stack.gz")
+      --status-collector-warning-threshold duration               The duration after which a probe is declared as stale (default 15s)
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --tunnel-source-port-range string                           Tunnel source port range hint (default 0-0) (default "0-0")

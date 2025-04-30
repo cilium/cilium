@@ -17,16 +17,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/api/v1/models"
-	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/clustermesh"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -39,7 +34,7 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
+	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -52,13 +47,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -68,11 +63,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -90,29 +82,20 @@ type Daemon struct {
 	logger    *slog.Logger
 	clientset k8sClient.Clientset
 	db        *statedb.DB
-	l7Proxy   *proxy.Proxy
 	svc       service.ServiceManager
 	policy    policy.PolicyRepository
 	idmgr     identitymanager.IDManager
 
-	statusCollectMutex lock.RWMutex
-	statusResponse     models.StatusResponse
-	statusCollector    *status.Collector
-
 	monitorAgent monitoragent.Agent
-	ciliumHealth *health.CiliumHealth
 
 	directRoutingDev datapathTables.DirectRoutingDevice
 	routes           statedb.Table[*datapathTables.Route]
 	devices          statedb.Table[*datapathTables.Device]
 	nodeAddrs        statedb.Table[datapathTables.NodeAddress]
 
-	clusterInfo cmtypes.ClusterInfo
 	clustermesh *clustermesh.ClusterMesh
 
 	mtuConfig mtu.MTU
-
-	loader datapath.Loader
 
 	nodeAddressing datapath.NodeAddressing
 
@@ -122,8 +105,6 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
-
-	policyMapFactory policymap.Factory
 
 	endpointCreator endpointcreator.EndpointCreator
 	endpointManager endpointmanager.EndpointManager
@@ -145,6 +126,8 @@ type Daemon struct {
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
+	ciliumHealth health.CiliumHealthManager
+
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
@@ -158,31 +141,22 @@ type Daemon struct {
 	controllers *controller.Manager
 	jobGroup    job.Group
 
-	// BIG-TCP config values
-	bigTCPConfig *bigtcp.Configuration
-
 	// just used to tie together some status reporting
 	cniConfigManager cni.CNIConfigManager
-
-	// authManager for reporting the status of the auth system certificate provider
-	authManager *auth.AuthManager
 
 	// read-only map of all the hive settings
 	settings cellSettings
 
-	// Tunnel-related configuration
-	tunnelConfig tunnel.Config
-	bwManager    datapath.BandwidthManager
+	bwManager datapath.BandwidthManager
 
 	wireguardAgent *wireguard.Agent
 	orchestrator   datapath.Orchestrator
-	hubble         hubblecell.HubbleIntegration
 
 	lrpManager   *redirectpolicy.Manager
-	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
 
-	explbConfig experimental.Config
+	statusCollector status.StatusCollector
+	lbConfig        loadbalancer.Config
 }
 
 func (d *Daemon) init() error {
@@ -301,7 +275,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig); err != nil {
+	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig, params.LBConfig); err != nil {
 		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
@@ -312,31 +286,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		IPv4: option.Config.EnableIPv4,
 		IPv6: option.Config.EnableIPv6,
 
-		MaxSockRevNatMapEntries:  option.Config.SockRevNatEntries,
-		ServiceMapMaxEntries:     option.Config.LBMapEntries,
-		BackEndMapMaxEntries:     option.Config.LBMapEntries,
-		RevNatMapMaxEntries:      option.Config.LBMapEntries,
-		AffinityMapMaxEntries:    option.Config.LBMapEntries,
-		SourceRangeMapMaxEntries: option.Config.LBMapEntries,
-		MaglevMapMaxEntries:      option.Config.LBMapEntries,
-	}
-	if option.Config.LBServiceMapEntries > 0 {
-		lbmapInitParams.ServiceMapMaxEntries = option.Config.LBServiceMapEntries
-	}
-	if option.Config.LBBackendMapEntries > 0 {
-		lbmapInitParams.BackEndMapMaxEntries = option.Config.LBBackendMapEntries
-	}
-	if option.Config.LBRevNatEntries > 0 {
-		lbmapInitParams.RevNatMapMaxEntries = option.Config.LBRevNatEntries
-	}
-	if option.Config.LBAffinityMapEntries > 0 {
-		lbmapInitParams.AffinityMapMaxEntries = option.Config.LBAffinityMapEntries
-	}
-	if option.Config.LBSourceRangeMapEntries > 0 {
-		lbmapInitParams.SourceRangeMapMaxEntries = option.Config.LBSourceRangeMapEntries
-	}
-	if option.Config.LBMaglevMapEntries > 0 {
-		lbmapInitParams.MaglevMapMaxEntries = option.Config.LBMaglevMapEntries
+		MaxSockRevNatMapEntries:  params.LBConfig.LBSockRevNatEntries,
+		ServiceMapMaxEntries:     params.LBConfig.LBServiceMapEntries,
+		BackEndMapMaxEntries:     params.LBConfig.LBBackendMapEntries,
+		RevNatMapMaxEntries:      params.LBConfig.LBRevNatEntries,
+		AffinityMapMaxEntries:    params.LBConfig.LBAffinityMapEntries,
+		SourceRangeMapMaxEntries: params.LBConfig.LBSourceRangeMapEntries,
+		MaglevMapMaxEntries:      params.LBConfig.LBMaglevMapEntries,
 	}
 	lbmap.Init(lbmapInitParams)
 
@@ -352,7 +308,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		db:                params.DB,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
-		loader:            params.Loader,
 		nodeAddressing:    params.NodeAddressing,
 		routes:            params.Routes,
 		devices:           params.Devices,
@@ -371,17 +326,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policy:            params.Policy,
 		idmgr:             params.IdentityManager,
 		cniConfigManager:  params.CNIConfigManager,
-		clusterInfo:       params.ClusterInfo,
 		clustermesh:       params.ClusterMesh,
 		monitorAgent:      params.MonitorAgent,
 		svc:               params.ServiceManager,
-		l7Proxy:           params.L7Proxy,
-		authManager:       params.AuthManager,
 		settings:          params.Settings,
-		bigTCPConfig:      params.BigTCPConfig,
-		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
-		policyMapFactory:  params.PolicyMapFactory,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
@@ -389,11 +338,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
-		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
-		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
-		explbConfig:       params.ExpLBConfig,
+		lbConfig:          params.LBConfig,
+		ciliumHealth:      params.CiliumHealth,
+		statusCollector:   params.StatusCollector,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

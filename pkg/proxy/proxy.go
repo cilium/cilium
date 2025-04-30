@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -163,6 +162,10 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 		dir = "ingress"
 	}
 	return fmt.Errorf("unrecognized %s proxy type for %s: %s", dir, listener, proxyType)
+}
+
+func (p *Proxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
+	p.dnsIntegration.sdpPolicyUpdater.UpdatePolicyRules(rules, true)
 }
 
 func (p *Proxy) createNewRedirect(
@@ -337,7 +340,7 @@ func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
-func (p *Proxy) ChangeLogLevel(level logrus.Level) {
+func (p *Proxy) ChangeLogLevel(level slog.Level) {
 	if err := p.envoyIntegration.changeLogLevel(level); err != nil {
 		p.logger.Debug("failed to change log level in Envoy proxy", logfields.Error, err)
 	}

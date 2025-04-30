@@ -299,13 +299,20 @@ communicating via the proxy must reconnect to re-establish connections.
   ``spec.transport.localPort`` in ``CiliumBGPPeerConfig`` has been removed and will be ignored if it was configured in the ``v2alpha1`` version.
 * The ``CiliumBGPPeeringPolicy`` CRD is deprecated and will be removed in a future release. Please migrate to ``cilium.io/v2``
   BGP CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) to configure BGP.
+* The ``v2alpha1`` version of ``CiliumCIDRGroup`` CRD was deprecated in favor of the ``v2`` version. Change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` for all ``CiliumCIDRGroup`` resources.
 * The check for connectivity to the Kubernetes apiserver has been removed from the cilium-agent liveness probe. This can be turned back on
   by setting the helm option ``livenessProbe.requireK8sConnectivity`` to ``true``.
 * The label ``io.cilium.k8s.policy.serviceaccount`` will be included in the default label list. If you configure your own identity-relevant labels 
   on your cluster, the number of identities will temporarily increase during the upgrade, which will result in increased drops. If you would like 
   to disable this new behavior, you can add ``!io\.cilium\.k8s\.policy\.serviceaccount`` to your identity-relevant labels to 
   exclude the ``io.cilium.k8s.policy.serviceaccount`` label.
-
+* If using IPsec encryption the upgrade from v1.17 to v1.18 requires special attention.
+  Please reference :ref:`encryption_ipsec`.
+* The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
+  To keep the ``enableIPv4Masquerade`` enabled, explicitly set the value for
+  this option to ``true``, or use a value strictly lower than 1.18 for
+  ``upgradeCompatibility``.  
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -338,6 +345,8 @@ Deprecated Options
   feature is enabled by default.
 * The custom calls feature (``--enable-custom-calls``) has been deprecated, and will
   be removed in Cilium 1.19.
+* The flag ``--bpf-lb-proto-diff`` has been deprecated and will be removed in Cilium 1.19.
+  Service protocol differentiation will be unconditionally enabled.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -360,6 +369,7 @@ Helm Options
 * ``eni.updateEC2AdapterLimitViaAPI`` is removed since the operator will only and always use the EC2API to update the EC2 instance limit.
 * The Helm option ``l2PodAnnouncements.interface`` has been deprecated in favor of ``l2PodAnnouncements.interfacePattern``
   and will be removed in Cilium 1.19.
+* The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
 
 Agent Options
 ~~~~~~~~~~~~~
@@ -677,9 +687,9 @@ and one where the source of truth comes from CRDs (``--identity-allocation-mode=
 The high-level migration plan looks as follows:
 
 #. Starting state: Cilium is running in KVStore mode.
-#. Switch Cilium to “Double Write” mode with all reads happening from the KVStore. This is almost the same as the
+#. Switch Cilium to "Double Write" mode with all reads happening from the KVStore. This is almost the same as the
    pure KVStore mode with the only difference being that all identities are duplicated as CRDs but are not used.
-#. Switch Cilium to “Double Write” mode with all reads happening from CRDs. This is equivalent to Cilium running in
+#. Switch Cilium to "Double Write" mode with all reads happening from CRDs. This is equivalent to Cilium running in
    pure CRD mode but identities will still be updated in the KVStore to allow for the possibility of a fast rollback.
 #. Switch Cilium to CRD mode. The KVStore will no longer be used and will be ready for decommission.
 

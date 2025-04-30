@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 )
 
 func TestLRPConfig(t *testing.T) {
@@ -139,12 +139,12 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			metrics := NewMetrics(true)
-			metrics.AddCEC(&tt.args.cec)
+			metrics.AddCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumEnvoyConfigIngested different")
 			assert.Equalf(t, float64(0), metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumEnvoyConfigIngested different")
 
-			metrics.DelCEC(&tt.args.cec)
+			metrics.DelCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumEnvoyConfigIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumEnvoyConfigIngested different")
@@ -184,12 +184,12 @@ func TestCiliumClusterwideEnvoyConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			metrics := NewMetrics(true)
-			metrics.AddCCEC(&tt.args.cec)
+			metrics.AddCCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
 			assert.Equalf(t, float64(0), metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
 
-			metrics.DelCCEC(&tt.args.cec)
+			metrics.DelCCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")

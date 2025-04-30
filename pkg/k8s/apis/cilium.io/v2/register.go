@@ -40,6 +40,17 @@ const (
 	// CCNPName is the full name of Cilium Cluster wide Network Policy
 	CCNPName = CCNPPluralName + "." + CustomResourceDefinitionGroup
 
+	// CiliumCIDRGroup (CCG)
+
+	// CCGPluralName is the plural name of Cilium CIDR Group
+	CCGPluralName = "ciliumcidrgroups"
+
+	// CCGKindDefinition is the kind name for Cilium CIDR Group
+	CCGKindDefinition = "CiliumCIDRGroup"
+
+	// CCGName is the full name of Cilium CIDR Group
+	CCGName = CCGPluralName + "." + CustomResourceDefinitionGroup
+
 	// Cilium Egress Gateway Policy (CEGP)
 
 	// CEGPPluralName is the plural name of Cilium Egress Gateway Policy
@@ -154,6 +165,17 @@ const (
 	BGPNCOPluralName     = "ciliumbgpnodeconfigoverrides"
 	BGPNCOKindDefinition = "CiliumBGPNodeConfigOverride"
 	BGPNCOName           = BGPNCOPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Load Balancer IP Pool (IPPool)
+
+	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
+	PoolPluralName = "ciliumloadbalancerippools"
+
+	// PoolKindDefinition is the kind name of Cilium Peering Policy
+	PoolKindDefinition = "CiliumLoadBalancerIPPool"
+
+	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
+	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -201,6 +223,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkPolicyList{},
 		&CiliumClusterwideNetworkPolicy{},
 		&CiliumClusterwideNetworkPolicyList{},
+		&CiliumCIDRGroup{},
+		&CiliumCIDRGroupList{},
 		&CiliumEgressGatewayPolicy{},
 		&CiliumEgressGatewayPolicyList{},
 		&CiliumEndpoint{},
@@ -227,6 +251,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPNodeConfigList{},
 		&CiliumBGPNodeConfigOverride{},
 		&CiliumBGPNodeConfigOverrideList{},
+		&CiliumLoadBalancerIPPool{},
+		&CiliumLoadBalancerIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

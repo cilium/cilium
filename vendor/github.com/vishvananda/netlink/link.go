@@ -1059,6 +1059,8 @@ type Geneve struct {
 	FlowBased         bool
 	InnerProtoInherit bool
 	Df                GeneveDf
+	PortLow           int
+	PortHigh          int
 }
 
 func (geneve *Geneve) Attrs() *LinkAttrs {

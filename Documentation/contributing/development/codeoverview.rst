@@ -217,9 +217,6 @@ pkg/policy
 pkg/proxy
   Layer 7 proxy abstraction
 
-pkg/service
-  Representation of a load-balancing service
-
 pkg/trigger
   Implementation of trigger functionality to implement event-driven
   functionality

@@ -117,6 +117,7 @@ to allow that traffic.
 Apply a default-deny policy:
 
 .. literalinclude:: ../../examples/minikube/sw_deny_policy.yaml
+     :language: yaml
 
 CiliumNetworkPolicies match on pod labels using an ``endpointSelector`` to identify
 the sources and destinations to which the policy applies. The above policy denies
@@ -175,6 +176,7 @@ expect this traffic to arrive at the deathstar, we can form a policy to match
 the traffic:
 
 .. literalinclude:: ../../examples/minikube/sw_l3_l4_policy.yaml
+     :language: yaml
 
 To apply this L3/L4 policy, run:
 

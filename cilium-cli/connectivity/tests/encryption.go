@@ -145,10 +145,15 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		// - Any pkt client <-> server with a given proto. This might be useful
 		//   to catch any regression in the DP which makes the pkt to bypass
 		//   the VXLAN tunnel.
-		filter := fmt.Sprintf("(%s and host %s and host %s) or (host %s and host %s and %s)",
+		filter := fmt.Sprintf("((%s and host %s and host %s) or (host %s and host %s and %s))",
 			tunnelFilter,
 			clientHost.Address(features.IPFamilyV4), serverHost.Address(features.IPFamilyV4),
 			client.Address(ipFam), server.Address(ipFam), protoFilter)
+
+		// Exclude icmpv6 neighbor broadcast packets, as these are intentionally not encrypted:
+		// Ref[0]: https://github.com/cilium/cilium/blob/e8543eef/bpf/lib/wireguard.h#L95
+		// See Issue: #38688
+		filter = fmt.Sprintf("(%s) and (%s)", filter, icmpv6NAFilter)
 
 		return filter
 
@@ -157,7 +162,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
 	dstIP := server.Address(ipFam)
 
-	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
+	if tunnelEnabled {
 		cmd := []string{
 			"/bin/sh", "-c",
 			fmt.Sprintf("ip -o route get %s | grep -oE 'src [^ ]*' | cut -d' ' -f2",
@@ -182,6 +187,11 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	// as IPsec recirculates replies to the iface netdev, which would
 	// make tcpdump to capture the pkts (false positive).
 	filter = fmt.Sprintf("%s and dst host %s", filter, dstIP)
+
+	// Exclude icmpv6 neighbor broadcast packets, as these are intentionally not encrypted:
+	// Ref[0]: https://github.com/cilium/cilium/blob/e8543eef/bpf/lib/wireguard.h#L95
+	// See Issue: #38688
+	filter = fmt.Sprintf("(%s) and (%s)", filter, icmpv6NAFilter)
 
 	return filter
 }

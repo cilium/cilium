@@ -11,8 +11,6 @@
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
 
-#define DISABLE_LOOPBACK_LB
-
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 

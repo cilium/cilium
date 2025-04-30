@@ -17,8 +17,6 @@
 #define SECLABEL_IPV4 WORLD_IPV4_ID
 #define SECLABEL_IPV6 WORLD_IPV6_ID
 
-#define SKIP_POLICY_MAP 1
-
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * bpf_lxc object file.
  */
@@ -40,10 +38,10 @@
 #undef ENABLE_HEALTH_CHECK
 
 #include "lib/common.h"
-#include "lib/maps.h"
 #include "lib/eps.h"
 #include "lib/events.h"
 #include "lib/nodeport.h"
+#include "lib/tailcall.h"
 
 #ifdef ENABLE_PREFILTER
 #ifdef CIDR4_FILTER

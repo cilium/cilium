@@ -24,6 +24,9 @@ on:
       - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 3/8 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -189,13 +192,10 @@ jobs:
           # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
           # RuntimeAgentFQDNPolicies CNAME follow
           # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
-          # RuntimeAgentFQDNPolicies Enforces L3 policy even when no IPs are inserted
-          # RuntimeAgentFQDNPolicies Implements matchPattern: *
           # RuntimeAgentFQDNPolicies Interaction with other ToCIDR rules
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) L3-dependent L7/HTTP with toFQDN updates proxy policy
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) Policy addition after DNS lookup
           # RuntimeAgentFQDNPolicies Validate dns-proxy monitor information
-          # RuntimeAgentFQDNPolicies With verbose policy logs Validates DNSSEC responses
           # RuntimeAgentKVStoreTest KVStore tests Etcd KVStore
           # RuntimeAgentPolicies Init Policy Default Drop Test tests egress
           # RuntimeAgentPolicies Init Policy Default Drop Test tests ingress
@@ -263,7 +263,7 @@ jobs:
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "bpf-next-20250110.013326"
+          image-version: "6.12-20241218.004849"
           host-mount: ./
           images-folder-parent: "/tmp"
           cpu: 4
@@ -384,8 +384,11 @@ jobs:
             # install the same Go toolchain version as current HEAD.
             go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
+            # renovate: datasource=github-releases depName=mfridman/tparse
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
-            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 tests-privileged GO=go${{ env.go-version }}
+            # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+            go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
+            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged GO=go${{ env.go-version }}
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
@@ -429,7 +432,6 @@ jobs:
             test_results-*.tar.gz
 
       - name: Fetch JUnits
-        if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -442,7 +444,6 @@ jobs:
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
       - name: Upload JUnits [junit]
-        if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.focus }}
@@ -456,7 +457,6 @@ jobs:
           path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
-        if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"

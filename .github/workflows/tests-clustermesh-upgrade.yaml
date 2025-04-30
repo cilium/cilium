@@ -422,7 +422,7 @@ jobs:
           done
 
 
-      - name: Install Cilium in cluster1
+      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} in cluster1
         id: install-cilium-cluster1
         env:
           KVSTORE_ID: 1
@@ -733,7 +733,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - stress-test"
 
 
-      - name: Downgrade Cilium in cluster1 and enable kvstoremesh again
+      - name: Downgrade Cilium in cluster1 to ${{ steps.vars.outputs.downgrade_version }} and enable kvstoremesh again
         env:
           KVSTORE_ID: 1
         run: |

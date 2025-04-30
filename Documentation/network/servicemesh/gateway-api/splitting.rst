@@ -24,6 +24,7 @@ Deploy the Cilium Gateway
 You can find an example Gateway and HTTPRoute definition in ``splitting.yaml``:
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/splitting.yaml
+     :language: yaml
 
 Notice the even 50/50 split between the two Services.
 

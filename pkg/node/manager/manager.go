@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -36,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
@@ -148,6 +150,8 @@ type manager struct {
 	// conf is the configuration of the caller passed in via NewManager.
 	// This field is immutable after NewManager()
 	conf *option.DaemonConfig
+
+	underlay tunnel.UnderlayProtocol
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
@@ -304,6 +308,7 @@ func NewNodeMetrics() *nodeMetrics {
 // New returns a new node manager
 func New(
 	c *option.DaemonConfig,
+	tunnelConf tunnel.Config,
 	ipCache IPCache,
 	ipsetMgr ipset.Manager,
 	ipsetFilter IPSetFilterFn,
@@ -321,6 +326,7 @@ func New(
 		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
 		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                   c,
+		underlay:               tunnelConf.UnderlayProtocol(),
 		controllerManager:      controller.NewManager(),
 		nodeHandlers:           map[datapath.NodeHandler]struct{}{},
 		ipcache:                ipCache,
@@ -805,7 +811,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	nodeIdentifier := n.Identity()
 	dpUpdate := true
 	var nodeIP netip.Addr
-	if nIP := n.GetNodeIP(false); nIP != nil {
+	if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP != nil {
 		// GH-24829: Support IPv6-only nodes.
 
 		// Skip returning the error here because at this level, we assume that
@@ -1392,7 +1398,7 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 					}
 
 					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
-					hr := sc.NewScope(e.node.Name)
+					hr := sc.NewScope(strings.ReplaceAll(e.node.Name, ".", "-"))
 					if err := nh.NodeNeighborRefresh(ctx, *e.node); err != nil {
 						hr.Degraded("Failed node neighbor link update", err)
 						errs = errors.Join(errs, err)

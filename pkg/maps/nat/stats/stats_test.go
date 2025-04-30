@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -107,6 +108,7 @@ func Test_countNat(t *testing.T) {
 		cell.Provide(func(jg job.Registry) job.Group {
 			return jg.NewGroup(nil)
 		}),
+		cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 		cell.Provide(func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6], Config, natMetrics) {
 			r4, p4 := promise.New[nat.NatMap4]()
 			r6, p6 := promise.New[nat.NatMap6]()

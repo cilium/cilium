@@ -4,13 +4,12 @@
 package health
 
 import (
-	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/index"
-
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/metrics"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 )
 
 var Cell = cell.Module(
@@ -21,10 +20,11 @@ var Cell = cell.Module(
 		newHealthV2Provider,
 		statedb.RWTable[types.Status].ToTable,
 	),
-
 	// Module health metrics.
 	cell.Invoke(metricPublisher),
 	metrics.Metric(newMetrics),
+
+	cell.Provide(healthCommands),
 )
 
 var (

@@ -247,6 +247,14 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
 }
 
+static __always_inline bool ctx_is_overlay_encrypted(const struct __sk_buff *ctx)
+{
+	if (!is_defined(HAVE_ENCAP))
+		return false;
+
+	return (ctx->mark & MARK_MAGIC_KEY_MASK) == MARK_MAGIC_OVERLAY_ENCRYPTED;
+}
+
 static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
 {
 	if (!is_defined(ENABLE_WIREGUARD))
@@ -264,10 +272,10 @@ static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
-ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
-		   __be16 src_port __maybe_unused, __u32 tunnel_endpoint,
-		   __u32 seclabel, __u32 vni __maybe_unused,
-		   void *opt, __u32 opt_len)
+ctx_set_encap_info4(struct __sk_buff *ctx, __u32 src_ip,
+		    __be16 src_port __maybe_unused, __u32 tunnel_endpoint,
+		    __u32 seclabel, __u32 vni __maybe_unused,
+		    void *opt, __u32 opt_len)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
@@ -288,6 +296,34 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 	key.tunnel_ttl = IPDEFTTL;
 
 	ret = ctx_set_tunnel_key(ctx, &key, key_size, BPF_F_ZERO_CSUM_TX);
+	if (unlikely(ret < 0))
+		return DROP_WRITE_ERROR;
+
+	if (opt && opt_len > 0) {
+		ret = ctx_set_tunnel_opt(ctx, opt, opt_len);
+		if (unlikely(ret < 0))
+			return DROP_WRITE_ERROR;
+	}
+
+	return CTX_ACT_REDIRECT;
+}
+
+static __always_inline __maybe_unused int
+ctx_set_encap_info6(struct __sk_buff *ctx, const union v6addr *tunnel_endpoint,
+		    __u32 seclabel, void *opt, __u32 opt_len)
+{
+	struct bpf_tunnel_key key = {};
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+	int ret;
+
+	key.tunnel_id = get_tunnel_id(seclabel);
+	key.remote_ipv6[0] = tunnel_endpoint->p1;
+	key.remote_ipv6[1] = tunnel_endpoint->p2;
+	key.remote_ipv6[2] = tunnel_endpoint->p3;
+	key.remote_ipv6[3] = tunnel_endpoint->p4;
+	key.tunnel_ttl = IPDEFTTL;
+
+	ret = ctx_set_tunnel_key(ctx, &key, key_size, BPF_F_TUNINFO_IPV6);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 

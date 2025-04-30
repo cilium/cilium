@@ -281,7 +281,10 @@ func TestNodesPodCIDRManager_Resync(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				time.Sleep(2 * time.Millisecond)
+				// Trigger is async, so until we have synctest testing we have
+				// to resort to Eventually.
+				require.Eventually(t, func() bool { return reSyncCalls.Load() >= 1 },
+					time.Second*2, time.Millisecond)
 				require.Equal(t, int32(1), reSyncCalls.Load())
 			},
 		},

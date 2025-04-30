@@ -30,7 +30,7 @@ can talk to each other. Layer 3 policies can be specified using the following me
   the cluster.
 
 * `Node based`: This is an extension of ``remote-node`` entity. Optionally nodes
-   can have unique identity that can be used to allow/block access only from specific ones.
+  can have unique identity that can be used to allow/block access only from specific ones.
 
 * `CIDR based`: This is used to describe the relationship to or from external
   services if the remote peer is not an endpoint. This requires to hardcode either
@@ -44,7 +44,7 @@ can talk to each other. Layer 3 policies can be specified using the following me
 
 .. _Endpoints based:
 
-Endpoints Based
+Endpoints based
 ---------------
 
 Endpoints-based L3 policy is used to establish rules between endpoints inside
@@ -79,6 +79,7 @@ the label ``role=backend``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3.json
@@ -100,6 +101,7 @@ all ingress traffic to an endpoint may be done as follows:
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
@@ -134,6 +136,7 @@ the label ``role=frontend``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.json
@@ -157,6 +160,7 @@ following rule allows all egress traffic from endpoints with the label
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.json
@@ -187,6 +191,7 @@ egress.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.json
@@ -243,6 +248,7 @@ be only accessible if the source endpoint also has the label ``env=prod``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/requires/requires.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/requires/requires.json
@@ -263,6 +269,7 @@ accessible from endpoints that have both labels ``env=prod`` and
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.json
@@ -298,7 +305,7 @@ as an :ref:`endpoint selector <endpoints based>` within the policy.
 
 
 This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
+to talk to all endpoints of Kubernetes Service ``myservice`` in kubernetes
 namespace ``default`` as well as all services with label ``env=staging`` in
 namespace ``another-namespace``.
 
@@ -308,6 +315,7 @@ namespace ``another-namespace``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/service/service.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/service/service.json
@@ -319,7 +327,7 @@ namespace ``another-namespace``.
 
 .. _Entities based:
 
-Entities Based
+Entities based
 --------------
 
 ``fromEntities`` is used to describe the entities that can access the selected
@@ -391,6 +399,7 @@ Allow all endpoints with the label ``env=dev`` to access the kube-apiserver.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.json
@@ -416,6 +425,7 @@ serving the particular endpoint.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/host.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/host.json
@@ -438,6 +448,7 @@ in the cluster that Cilium is running on.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/nodes.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
@@ -458,6 +469,7 @@ endpoints that have the label ``role=public``.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/world.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/world.json
@@ -496,6 +508,7 @@ traffic **only** from control plane (labeled
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.json
@@ -576,6 +589,7 @@ but not CIDR prefix ``10.96.0.0/12``
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
@@ -670,7 +684,7 @@ IPs to be allowed are selected via:
 
 The example below allows all DNS traffic on port 53 to the DNS service and
 intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
-a DNS application behind a Kubernetes service, the port must match the backend
+a DNS application behind a Kubernetes Service, the port must match the backend
 port. When the application makes a request for my-remote-service.com, Cilium
 learns the IP address and will allow traffic due to the match on the name under
 the ``toFQDNs.matchName`` rule.
@@ -684,6 +698,7 @@ Example
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
@@ -766,6 +781,7 @@ only be able to emit packets using TCP on port 80, to any layer 3 destination:
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/l4.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/l4.json
@@ -786,6 +802,7 @@ only be able to emit packets using TCP on ports 80-444, to any layer 3 destinati
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/l4_port_range.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
@@ -814,6 +831,7 @@ endpoints with the label ``role=frontend`` will not be able to communicate with
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.json
@@ -839,6 +857,7 @@ ports other than port 80.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.json
@@ -1046,9 +1065,12 @@ latter rule will have no effect.
           When Envoy is embedded in the agent pod, Layer 7 traffic targeted by policies
           will therefore depend on the availability of the Cilium agent pod.
 
-.. note:: L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) are `broken <https://github.com/cilium/cilium/issues/37932#issuecomment-2730287932>`__
-          and waiting for the `kernel fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__.
+.. note:: L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) require a kernel with the `fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__ applied.
+          The stable kernel versions with the fix are 6.14.1, 6.12.22, 6.6.86, 6.1.133, 5.15.180, 5.10.236, 5.4.292. See :gh-issue:`37932` for the reference.
 
+.. note:: :ref:`EnableDefaultDeny <policy_mode_default>` does not apply to layer-7 rules.
+   If using a layer 7 rule in concert with ``EnableDefaultDeny``, the rule should
+   allow all layer-7 traffic. See :gh-issue:`38676`. 
 
 HTTP
 ----
@@ -1094,6 +1116,7 @@ be rejected. Requests on ports other than port 80 will be dropped.
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.json
@@ -1117,6 +1140,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/http/http.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/http/http.json
@@ -1201,6 +1225,7 @@ Allow producing to topic empire-announce using Role
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.json
@@ -1218,6 +1243,7 @@ Allow producing to topic empire-announce using apiKeys
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.json
@@ -1281,6 +1307,7 @@ allowed but connections to the returned IPs are not, as there is no L3
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns.json
@@ -1338,6 +1365,7 @@ DNS Proxy
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.yaml
+          :language: yaml
      .. group-tab:: JSON
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
@@ -1432,10 +1460,12 @@ as this policy is allowing traffic from everywhere except from "world".
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
+          :language: yaml
 
 Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
@@ -1516,10 +1546,12 @@ the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
      .. group-tab:: k8s YAML
 
         .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
+          :language: yaml
 
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
+          :language: yaml
 
 To reuse this policy, replace the ``port:`` values with ports used in your
 environment.

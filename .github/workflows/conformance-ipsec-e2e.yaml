@@ -92,11 +92,11 @@ jobs:
 
       - name: Convert YAML to JSON
         run: |
-          work_dir=".github/actions/ipsec"
+          work_dir=".github/actions/e2e"
           destination_directory="/tmp/generated/ipsec"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/matrix.json"
+          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/matrix.json"
 
       - name: Generate Matrix
         id: generate-matrix
@@ -189,7 +189,6 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
@@ -302,7 +301,7 @@ jobs:
 
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-file "cilium-junits/${{ env.job_name }}-sequential-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --test 'seq-.*'
 
@@ -313,7 +312,7 @@ jobs:
 
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-file "cilium-junits/${{ env.job_name }}-concurrent-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --test '!seq-.*' \
             --test-concurrency=${{ env.test_concurrency }}
@@ -351,6 +350,8 @@ jobs:
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
 
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
@@ -365,7 +366,7 @@ jobs:
 
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-file "cilium-junits/${{ env.job_name }}-sequential-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --test 'seq-.*'
 
@@ -375,7 +376,7 @@ jobs:
           mkdir -p cilium-junits
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-file "cilium-junits/${{ env.job_name }}-concurrent-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --test "!seq-.*" \
             --test-concurrency=${{ env.test_concurrency }}

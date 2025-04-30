@@ -50,7 +50,6 @@ cilium-agent [flags]
       --bpf-lb-map-max int                                        Maximum number of entries in Cilium BPF lbmap (default 65536)
       --bpf-lb-mode string                                        BPF load balancing mode ("snat", "dsr", "hybrid") (default "snat")
       --bpf-lb-mode-annotation                                    Enable service-level annotation for configuring BPF load balancing mode
-      --bpf-lb-proto-diff                                         Enable support for service protocol differentiation (TCP, UDP, SCTP) (default true)
       --bpf-lb-rss-ipv4-src-cidr string                           BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP
       --bpf-lb-rss-ipv6-src-cidr string                           BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP
       --bpf-lb-sock                                               Enable socket-based LB for E/W traffic
@@ -63,7 +62,7 @@ cilium-agent [flags]
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-policy-stats-map-max int                              Maximum number of entries in bpf policy stats map (default 65536)
       --bpf-root string                                           Path to BPF filesystem
-      --bpf-sock-rev-map-max int                                  Maximum number of entries for the SockRevNAT BPF map (default 262144)
+      --bpf-sock-rev-map-max int                                  Maximum number of entries for the SockRevNAT BPF map
       --certificates-directory string                             Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                                        Path to Cgroup2 filesystem
       --cluster-health-port int                                   TCP port for cluster-wide network connectivity health API (default 4240)
@@ -109,6 +108,7 @@ cilium-agent [flags]
       --enable-auto-protect-node-port-range                       Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
       --enable-bandwidth-manager                                  Enable BPF bandwidth manager
       --enable-bbr                                                Enable BBR for the bandwidth manager
+      --enable-bbr-hostns-only                                    Enable BBR only in the host network namespace.
       --enable-bgp-control-plane                                  Enable the BGP control plane.
       --enable-bgp-control-plane-status-report                    Enable the BGP control plane status reporting (default true)
       --enable-bpf-clock-probe                                    Enable BPF clock source probing for more efficient tick retrieval
@@ -152,6 +152,7 @@ cilium-agent [flags]
       --enable-ipv4-masquerade                                    Masquerade IPv4 traffic from endpoints leaving the host (default true)
       --enable-ipv6                                               Enable IPv6 support (default true)
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
+      --enable-ipv6-fragment-tracking                             Enable IPv6 fragments tracking for L4-based lookups (default true)
       --enable-ipv6-masquerade                                    Masquerade IPv6 traffic from endpoints leaving the host (default true)
       --enable-ipv6-ndp                                           Enable IPv6 NDP support
       --enable-k8s                                                Enable the k8s clientset (default true)
@@ -175,6 +176,7 @@ cilium-agent [flags]
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
+      --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-svc-source-range-check                             Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tcx                                                Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                            Enable tracing while determining policy (debugging)
@@ -374,8 +376,14 @@ cilium-agent [flags]
       --routing-mode string                                       Routing mode ("native" or "tunnel") (default "tunnel")
       --service-no-backend-response string                        Response to traffic for a service without backends (default "reject")
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
+      --standalone-dns-proxy-server-port int                      Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")
       --static-cnp-path string                                    Directory path to watch and load static cilium network policy yaml files.
+      --status-collector-failure-threshold duration               The duration after which a probe is considered failed (default 1m0s)
+      --status-collector-interval duration                        The interval between probe invocations (default 5s)
+      --status-collector-probe-check-timeout duration             The timeout after which all probes should have finished at least once (default 5m0s)
+      --status-collector-stackdump-path string                    The path where probe stackdumps should be written to (default "/run/cilium/state/agent.stack.gz")
+      --status-collector-warning-threshold duration               The duration after which a probe is declared as stale (default 15s)
       --tofqdns-dns-reject-response-code string                   DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-dns-compression                            Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-endpoint-max-ip-per-hostname int                  Maximum number of IPs to maintain per FQDN name for each endpoint (default 1000)
@@ -406,4 +414,5 @@ cilium-agent [flags]
 
 * [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-agent hive](cilium-agent_hive.md)	 - Inspect the hive
+* [cilium-agent shell](cilium-agent_shell.md)	 - Connect to the Cilium shell
 

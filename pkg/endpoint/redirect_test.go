@@ -119,6 +119,10 @@ func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, po
 // RemoveNetworkPolicy does nothing.
 func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
 
+// UpdateSDP does nothing.
+func (r *RedirectSuiteProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
+}
+
 // DummyIdentityAllocatorOwner implements
 // pkg/identity/cache/IdentityAllocatorOwner. It is used for unit testing.
 type DummyIdentityAllocatorOwner struct{}
@@ -159,7 +163,7 @@ const (
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	model := newTestEndpointModel(12345, StateRegenerating)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), model)
+	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), nil, model)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))

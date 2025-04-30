@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -29,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics/metric"
-	"github.com/cilium/cilium/pkg/service/store"
 )
 
 const (

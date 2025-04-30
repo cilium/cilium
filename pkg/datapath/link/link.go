@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -18,16 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-var (
-	// linkCache is the singleton instance of the LinkCache, only needed to
-	// ensure that the single controller used to update the LinkCache is
-	// triggered exactly once and the same instance is handed to all users.
-	linkCache LinkCache
-	once      sync.Once
-
-	linkCacheControllerGroup = controller.NewGroup("link-cache")
 )
 
 // DeleteByName deletes the interface with the name ifName.
@@ -87,69 +77,29 @@ var Cell = cell.Module(
 	"Provides a cache of link names to ifindex mappings",
 
 	cell.Provide(newLinkCache),
-	cell.Invoke(registerLinkCacheHooks),
 )
 
 type linkCacheParams struct {
 	cell.In
-	Lifecycle cell.Lifecycle
-}
-
-func registerLinkCacheHooks(params linkCacheParams, cache *LinkCache) {
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			// Start the controller when the application starts
-			cache.manager.UpdateController("link-cache",
-				controller.ControllerParams{
-					Group:       linkCacheControllerGroup,
-					RunInterval: 15 * time.Second,
-					DoFunc: func(ctx context.Context) error {
-						return cache.syncCache()
-					},
-				},
-			)
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			cache.Stop()
-			return nil
-		},
-	})
-}
-
-func newLinkCache() *LinkCache {
-	once.Do(func() {
-		linkCache = LinkCache{
-			indexToName: make(map[int]string),
-			manager:     controller.NewManager(),
-		}
-	})
-
-	return &linkCache
+	JobGroup job.Group
 }
 
 func NewLinkCache() *LinkCache {
-	lc := newLinkCache()
+	return &LinkCache{
+		indexToName: make(map[int]string),
+		manager:     controller.NewManager(),
+	}
+}
 
-	lc.manager.UpdateController("link-cache",
-		controller.ControllerParams{
-			Group:       linkCacheControllerGroup,
-			RunInterval: 15 * time.Second,
-			DoFunc: func(ctx context.Context) error {
-				return linkCache.syncCache()
-			},
-		},
-	)
+func newLinkCache(params linkCacheParams) *LinkCache {
+	lc := NewLinkCache()
+
+	params.JobGroup.Add(job.Timer("sync", lc.SyncCache, 15*time.Second))
 
 	return lc
 }
 
-// Stop terminates the link cache controller
-func (c *LinkCache) Stop() {
-	c.manager.RemoveController("link-cache")
-}
-
-func (c *LinkCache) syncCache() error {
+func (c *LinkCache) SyncCache(_ context.Context) error {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		return err

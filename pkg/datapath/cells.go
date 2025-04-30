@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps"
@@ -78,12 +78,12 @@ var Cell = cell.Module(
 
 	cell.Provide(newWireguardAgent),
 
-	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev) types.LBMap {
-		if expConfig.EnableExperimentalLB {
+	cell.Provide(func(lbConfig loadbalancer.Config, maglev *maglev.Maglev) types.LBMap {
+		if lbConfig.EnableExperimentalLB {
 			// The experimental control-plane comes with its own LBMap implementation.
 			return nil
 		}
-		return lbmap.New(maglev)
+		return lbmap.New(lbConfig, maglev)
 	}),
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
@@ -129,6 +129,9 @@ var Cell = cell.Module(
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
 
+	// Synchronizes load-balancing backends with the neighbor table.
+	linuxdatapath.BackendNeighborSyncCell,
+
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,
 
@@ -149,6 +152,9 @@ var Cell = cell.Module(
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed
 	// connections (from ctmap's GC).
 	act.Cell,
+
+	// Provides a cache of link names to ifindex mappings
+	link.Cell,
 )
 
 func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {

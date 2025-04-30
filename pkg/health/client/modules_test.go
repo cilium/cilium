@@ -21,11 +21,10 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 		v  bool
 	}{
 		"happy": {
-			e: "Modules Health:\tStopped(0) Degraded(2) OK(2)",
+			e: "Stopped(0) Degraded(2) OK(2)",
 		},
 		"happy-verbose": {
-			e: `Modules Health:
-		agent
+			e: `agent
 		├── a
 		│   └── b
 		│       └── c
@@ -43,7 +42,7 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 		u := uu[k]
 		t.Run(k, func(t *testing.T) {
 			w := bytes.NewBufferString("")
-			client.GetAndFormatModulesHealth(w, getHealth(), u.v)
+			client.GetAndFormatModulesHealth(w, getHealth(), u.v, "\t\t")
 			assert.Equal(t, u.e, strings.TrimSpace(w.String()))
 		})
 	}

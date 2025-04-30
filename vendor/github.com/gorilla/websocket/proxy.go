@@ -6,9 +6,10 @@ package websocket
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,26 +18,40 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-type netDialerFunc func(network, addr string) (net.Conn, error)
+type netDialerFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
 func (fn netDialerFunc) Dial(network, addr string) (net.Conn, error) {
-	return fn(network, addr)
+	return fn(context.Background(), network, addr)
 }
 
-func init() {
-	proxy.RegisterDialerType("http", func(proxyURL *url.URL, forwardDialer proxy.Dialer) (proxy.Dialer, error) {
-		return &httpProxyDialer{proxyURL: proxyURL, forwardDial: forwardDialer.Dial}, nil
-	})
+func (fn netDialerFunc) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return fn(ctx, network, addr)
+}
+
+func proxyFromURL(proxyURL *url.URL, forwardDial netDialerFunc) (netDialerFunc, error) {
+	if proxyURL.Scheme == "http" || proxyURL.Scheme == "https" {
+		return (&httpProxyDialer{proxyURL: proxyURL, forwardDial: forwardDial}).DialContext, nil
+	}
+	dialer, err := proxy.FromURL(proxyURL, forwardDial)
+	if err != nil {
+		return nil, err
+	}
+	if d, ok := dialer.(proxy.ContextDialer); ok {
+		return d.DialContext, nil
+	}
+	return func(ctx context.Context, net, addr string) (net.Conn, error) {
+		return dialer.Dial(net, addr)
+	}, nil
 }
 
 type httpProxyDialer struct {
 	proxyURL    *url.URL
-	forwardDial func(network, addr string) (net.Conn, error)
+	forwardDial netDialerFunc
 }
 
-func (hpd *httpProxyDialer) Dial(network string, addr string) (net.Conn, error) {
+func (hpd *httpProxyDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
 	hostPort, _ := hostPortNoPort(hpd.proxyURL)
-	conn, err := hpd.forwardDial(network, hostPort)
+	conn, err := hpd.forwardDial(ctx, network, hostPort)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +64,6 @@ func (hpd *httpProxyDialer) Dial(network string, addr string) (net.Conn, error) 
 			connectHeader.Set("Proxy-Authorization", "Basic "+credential)
 		}
 	}
-
 	connectReq := &http.Request{
 		Method: http.MethodConnect,
 		URL:    &url.URL{Opaque: addr},
@@ -58,27 +72,31 @@ func (hpd *httpProxyDialer) Dial(network string, addr string) (net.Conn, error) 
 	}
 
 	if err := connectReq.Write(conn); err != nil {
-		if err := conn.Close(); err != nil {
-			log.Printf("httpProxyDialer: failed to close connection: %v", err)
-		}
+		conn.Close()
 		return nil, err
 	}
 
-	// Read response. It's OK to use and discard buffered reader here becaue
+	// Read response. It's OK to use and discard buffered reader here because
 	// the remote server does not speak until spoken to.
 	br := bufio.NewReader(conn)
 	resp, err := http.ReadResponse(br, connectReq)
 	if err != nil {
-		if err := conn.Close(); err != nil {
-			log.Printf("httpProxyDialer: failed to close connection: %v", err)
-		}
+		conn.Close()
 		return nil, err
 	}
 
-	if resp.StatusCode != 200 {
-		if err := conn.Close(); err != nil {
-			log.Printf("httpProxyDialer: failed to close connection: %v", err)
-		}
+	// Close the response body to silence false positives from linters. Reset
+	// the buffered reader first to ensure that Close() does not read from
+	// conn.
+	// Note: Applications must call resp.Body.Close() on a response returned
+	// http.ReadResponse to inspect trailers or read another response from the
+	// buffered reader. The call to resp.Body.Close() does not release
+	// resources.
+	br.Reset(bytes.NewReader(nil))
+	_ = resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_ = conn.Close()
 		f := strings.SplitN(resp.Status, " ", 2)
 		return nil, errors.New(f[1])
 	}

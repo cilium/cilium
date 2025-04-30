@@ -2,7 +2,7 @@
 
 ## cilium-dbg bpf frag list
 
-List IPv4 datagram fragments
+List IPv4 and IPv6 fragments
 
 ```
 cilium-dbg bpf frag list [flags]

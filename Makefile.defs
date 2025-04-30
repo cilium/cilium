@@ -80,6 +80,7 @@ SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(RO
 # as non-immediate variables
 GO_BUILD_FLAGS ?=
 GO_TEST_FLAGS ?=
+GO_TEST_OUT ?= /dev/null
 GO_CLEAN_FLAGS ?=
 GO_BUILD_LDFLAGS ?=
 # go build/test -tags values
@@ -89,29 +90,50 @@ GO_TAGS_FLAGS += osusergo
 # RACE is specified.
 GOTEST_COVER_OPTS =
 
-CODEOWNERS_PATH ?= CODEOWNERS
+CODEOWNERS_PATH ?= $(ROOT_DIR)/CODEOWNERS
 
 # By default, just print go test output immediately to the terminal. If tparse
 # is installed, use it to format the output. Use -progress instead of -follow,
 # as the latter is too verbose for most of the test suite.
 GOTEST_FORMATTER ?= cat
 ifneq ($(shell command -v tparse),)
-	GOTEST_COVER_OPTS += -json
 	GOTEST_FORMATTER_FLAGS :=
 ifneq ($(V),0)
 	GOTEST_FORMATTER_FLAGS += -follow
 endif
 ifneq ($(LOG_CODEOWNERS),)
-	GOTEST_FORMATTER = tee >($(GO) run ./tools/testowners --code-owners=$(CODEOWNERS_PATH)) >(tparse $(GOTEST_FORMATTER_FLAGS)) >/dev/null
+ifneq ($(shell command -v go-junit-report),)
+	JUNIT_PATH ?= junit_results.xml
+	GOTEST_FORMATTER = tee \
+		>(go-junit-report -parser gojson \
+			-code-owners=$(CODEOWNERS_PATH) \
+			-code-owners-prefix github.com/cilium/cilium/ \
+			-out "$(JUNIT_PATH)") \
+		>($(GO) run $(ROOT_DIR)/tools/testowners \
+			--code-owners=$(CODEOWNERS_PATH)) \
+		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
+		>$(GO_TEST_OUT) \
+		| cat
+else
+	GOTEST_FORMATTER = tee \
+		>($(GO) run $(ROOT_DIR)/tools/testowners \
+			--code-owners=$(CODEOWNERS_PATH)) \
+		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
+		>$(GO_TEST_OUT) \
+		| cat
+endif
 else
 	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
 endif
 endif
+ifneq ($(GOTEST_FORMATTER),cat)
+	GO_TEST_FLAGS += -json
+endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v2.0.2
-GOLANGCILINT_IMAGE_SHA = sha256:d55581f7797e7a0877a7c3aaa399b01bdc57d2874d6412601a046cc4062cb62e
-GOLANGCILINT_VERSION = $(shell golangci-lint version --format short 2>/dev/null)
+GOLANGCILINT_WANT_VERSION = v2.1.5
+GOLANGCILINT_IMAGE_SHA = sha256:88a8cc6bd17bc81a0cc97f401d25427b47394d664f16e5ca15d4156563d32154
+GOLANGCILINT_VERSION = $(shell golangci-lint version --short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
 VERSION_MAJOR = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION | cut -d. -f1)
@@ -227,3 +249,5 @@ CURRENT_GO_MODULE = $(shell go list -m)
 define ASSERT_CILIUM_MODULE
 	$(if $(filter $(CILIUM_GO_MODULE), $(CURRENT_GO_MODULE)) ,, $(error "Could not locate Cilium's go.mod file, are you in Cilium's repository?"))
 endef
+
+RENOVATE_GITHUB_COM_TOKEN ?= $(shell gh auth token)

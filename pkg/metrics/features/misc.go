@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 )
 
 func (m Metrics) AddLRPConfig(_ *redirectpolicy.LRPConfig) {
@@ -30,19 +30,19 @@ func (m Metrics) DelService(svc *k8s.Service) {
 	}
 }
 
-func (m Metrics) AddCEC(_ *v2.CiliumEnvoyConfigSpec) {
+func (m Metrics) AddCEC() {
 	m.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionAdd).Inc()
 }
 
-func (m Metrics) DelCEC(_ *v2.CiliumEnvoyConfigSpec) {
+func (m Metrics) DelCEC() {
 	m.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionDel).Inc()
 }
 
-func (m Metrics) AddCCEC(_ *v2.CiliumEnvoyConfigSpec) {
+func (m Metrics) AddCCEC() {
 	m.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionAdd).Inc()
 }
 
-func (m Metrics) DelCCEC(_ *v2.CiliumEnvoyConfigSpec) {
+func (m Metrics) DelCCEC() {
 	m.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionDel).Inc()
 }
 

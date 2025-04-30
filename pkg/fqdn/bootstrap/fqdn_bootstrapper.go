@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -41,7 +42,7 @@ type fqdnProxyBootstrapper struct {
 	policyRepo        policy.PolicyRepository
 	ipcache           *ipcache.IPCache
 	endpointManager   endpointmanager.EndpointManager
-	dnsRequestHandler DNSRequestHandler
+	dnsMessageHandler messagehandler.DNSMessageHandler
 }
 
 var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
@@ -79,7 +80,7 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		}
 	}
 
-	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
+	if err := re.InitRegexCompileLRU(b.logger, option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
@@ -92,7 +93,7 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
 	}
-	dnsProxy := dnsproxy.NewDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsRequestHandler.NotifyOnDNSMsg)
+	dnsProxy := dnsproxy.NewDNSProxy(b.logger, dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsMessageHandler.NotifyOnDNSMsg)
 	b.proxyInstance.Set(dnsProxy)
 
 	if err := dnsProxy.Listen(); err != nil {

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/netip"
 	"strings"
@@ -386,7 +385,7 @@ func withLocked(m *lock.Mutex, f func()) {
 }
 
 func TestOpsPruneEnabled(t *testing.T) {
-	fakeLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fakeLogger := slog.New(slog.DiscardHandler)
 
 	db := statedb.New()
 	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
@@ -437,6 +436,82 @@ func TestOpsPruneEnabled(t *testing.T) {
 	iter = table.All(db.ReadTxn())
 	assert.NoError(t, ops.Prune(context.TODO(), db.ReadTxn(), iter))
 	assert.True(t, nCalled.Load())
+}
+
+func TestOpsRetry(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	var (
+		db    *statedb.DB
+		table statedb.RWTable[*tables.IPSetEntry]
+	)
+
+	shouldFail := true
+
+	hive := hive.New(
+		cell.Provide(func() config {
+			return config{NodeIPSetNeeded: true}
+		}),
+
+		cell.Provide(
+			tables.NewIPSetTable,
+			newOps,
+			newReconciler,
+		),
+		cell.Provide(func(logger *slog.Logger) *ipset {
+			return &ipset{
+				executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
+					// fail the operation at the first attempt
+					if shouldFail {
+						shouldFail = false
+						return nil, errors.New("test error")
+					}
+					return nil, nil
+				}),
+				log: logger,
+			}
+		}),
+
+		cell.Invoke(
+			func(db_ *statedb.DB, table_ statedb.RWTable[*tables.IPSetEntry], reconciler_ reconciler.Reconciler[*tables.IPSetEntry]) {
+				db = db_
+				table = table_
+				_ = reconciler_ // to start the reconciler
+			},
+		),
+	)
+
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+
+	require.NoError(t, hive.Start(log, t.Context()))
+
+	obj := &tables.IPSetEntry{
+		Name:   CiliumNodeIPSetV4,
+		Family: string(INetFamily),
+		Addr:   netip.MustParseAddr("1.1.1.1"),
+		Status: reconciler.StatusPending(),
+	}
+
+	txn := db.WriteTxn(table)
+	_, _, err := table.Insert(txn, obj)
+	require.NoError(t, err)
+	txn.Commit()
+
+	for {
+		queryObj, _, watch, found := table.GetWatch(db.ReadTxn(), tables.IPSetEntryIndex.QueryFromObject(obj))
+		require.True(t, found)
+
+		if queryObj.Status.Kind == reconciler.StatusKindDone {
+			require.Equal(t, CiliumNodeIPSetV4, queryObj.Name)
+			require.Equal(t, netip.MustParseAddr("1.1.1.1"), queryObj.Addr)
+			require.Equal(t, string(INetFamily), queryObj.Family)
+			break
+		}
+
+		<-watch
+	}
+
+	require.NoError(t, hive.Stop(log, t.Context()))
 }
 
 func TestIPSetList(t *testing.T) {

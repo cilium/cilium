@@ -6,13 +6,13 @@ package namemanager
 import (
 	"context"
 	"hash/fnv"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -35,6 +35,8 @@ import (
 
 // The implementation of the NameManager interface.
 type manager struct {
+	logger *slog.Logger
+
 	lock.RWMutex
 
 	// params is a copy from when this instance was initialized.
@@ -70,6 +72,7 @@ func New(params ManagerParams) *manager {
 	cache.DisableCleanupTrack()
 
 	n := &manager{
+		logger:       params.Logger,
 		params:       params,
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        cache,
@@ -95,13 +98,18 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
 
 	_, exists := n.allSelectors[selector]
 	if exists {
-		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates.")
+		n.logger.Warn("FQDNSelector was already registered for updates.",
+			logfields.FQDNSelector, selector,
+		)
 	} else {
 		// This error should never occur since the FQDNSelector has already been
 		// validated, but account for it for good measure.
 		regex, err := selector.ToRegex()
 		if err != nil {
-			log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
+			n.logger.Error("FQDNSelector did not compile to valid regex",
+				logfields.Error, err,
+				logfields.FQDNSelector, selector,
+			)
 			return
 		}
 
@@ -145,11 +153,12 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 
 	// Update IPs in n
 	updated, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record)
-	if updated && log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			"matchName": name,
-			"IPs":       record.IPs,
-		}).Debug("Updated FQDN with new IPs")
+	if updated {
+		n.logger.Debug(
+			"Updated FQDN with new IPs",
+			logfields.MatchName, name,
+			logfields.IPAddrs, record.IPs,
+		)
 	}
 
 	c := make(chan error)
@@ -165,7 +174,10 @@ func (n *manager) CompleteBootstrap() {
 
 	n.bootstrapCompleted = true
 	if len(n.restoredPrefixes) > 0 {
-		log.WithField("prefixes", len(n.restoredPrefixes)).Debug("Removing restored IPCache labels")
+		n.logger.Debug(
+			"Removing restored IPCache labels",
+			logfields.LenPrefixes, len(n.restoredPrefixes),
+		)
 
 		// The following logic needs to match the restoration logic in RestoreCaches
 		ipcacheUpdates := make([]ipcache.MU, 0, len(n.restoredPrefixes))
@@ -184,8 +196,11 @@ func (n *manager) CompleteBootstrap() {
 
 		checkpointPath := filepath.Join(n.params.Config.StateDir, checkpointFile)
 		if err := os.Remove(checkpointPath); err != nil {
-			log.WithError(err).WithField(logfields.Path, checkpointPath).
-				Debug("Failed to remove checkpoint file")
+			n.logger.Debug(
+				"Failed to remove checkpoint file",
+				logfields.Error, err,
+				logfields.Path, checkpointPath,
+			)
 		}
 	}
 }
@@ -197,23 +212,21 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 
 	// The IPs didn't change. No more to be done for this dnsName
 	if !updated && n.bootstrapCompleted {
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				"dnsName":   dnsName,
-				"lookupIPs": lookupIPs,
-			}).Debug("FQDN: IPs didn't change for DNS name")
-		}
+		n.logger.Debug(
+			"FQDN: IPs didn't change for DNS name",
+			logfields.DNSName, dnsName,
+			logfields.LookupIPAddrs, lookupIPs,
+		)
 		return
 	}
 
 	// accumulate the new labels affected by new IPs
 	if len(n.allSelectors) == 0 {
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				"dnsName":   dnsName,
-				"lookupIPs": lookupIPs,
-			}).Debug("FQDN: No selectors registered for updates")
-		}
+		n.logger.Debug(
+			"FQDN: No selectors registered for updates",
+			logfields.DNSName, dnsName,
+			logfields.LookupIPAddrs, lookupIPs,
+		)
 		return
 	}
 
@@ -282,13 +295,12 @@ func (n *manager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcach
 		var updates []ipcache.MU
 		resource := ipcacheResource(dnsName)
 
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				"name":     dnsName,
-				"prefixes": metadata.addrs,
-				"labels":   metadata.labels,
-			}).Debug("Updating prefix labels in IPCache")
-		}
+		n.logger.Debug(
+			"Updating prefix labels in IPCache",
+			logfields.Name, dnsName,
+			logfields.IPAddrs, metadata.addrs,
+			logfields.Labels, metadata.labels,
+		)
 
 		for _, addr := range metadata.addrs {
 			updates = append(updates, ipcache.MU{
@@ -420,13 +432,12 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 		dnsName := prepareMatchName(fqdnSelector.MatchName)
 		lookupIPs := n.cache.Lookup(dnsName)
 		if len(lookupIPs) > 0 {
-			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-				log.WithFields(logrus.Fields{
-					"DNSName":   dnsName,
-					"IPs":       lookupIPs,
-					"matchName": fqdnSelector.MatchName,
-				}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-			}
+			n.logger.Debug(
+				"Emitting matching DNS Name -> IPs for FQDNSelector",
+				logfields.DNSName, dnsName,
+				logfields.IPAddrs, lookupIPs,
+				logfields.MatchName, fqdnSelector.MatchName,
+			)
 			namesIPMapping[dnsName] = lookupIPs
 		}
 	}
@@ -441,20 +452,19 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 		)
 
 		if patternRE, err = re.CompileRegex(patternREStr); err != nil {
-			log.WithError(err).Error("Error compiling matchPattern")
+			n.logger.Error("Error compiling matchPattern", logfields.Error, err)
 			return namesIPMapping
 		}
 		lookupIPs := n.cache.LookupByRegexp(patternRE)
 
 		for dnsName, ips := range lookupIPs {
 			if len(ips) > 0 {
-				if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-					log.WithFields(logrus.Fields{
-						"DNSName":      dnsName,
-						"IPs":          ips,
-						"matchPattern": fqdnSelector.MatchPattern,
-					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-				}
+				n.logger.Debug(
+					"Emitting matching DNS Name -> IPs for FQDNSelector",
+					logfields.DNSName, dnsName,
+					logfields.IPAddrs, ips,
+					logfields.MatchPattern, fqdnSelector.MatchPattern,
+				)
 				namesIPMapping[dnsName] = append(namesIPMapping[dnsName], ips...)
 			}
 		}

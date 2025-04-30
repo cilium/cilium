@@ -76,15 +76,15 @@ var bpfMapsPath = []string{
 	"tc/globals/cilium_auth_map",
 	"tc/globals/cilium_call_policy",
 	"tc/globals/cilium_calls_overlay_2",
-	"tc/globals/cilium_calls_wireguard_2",
-	"tc/globals/cilium_calls_xdp",
+	"tc/globals/cilium_calls_wireguard*",
+	"tc/globals/cilium_calls_xdp*",
 	"tc/globals/cilium_capture_cache",
 	"tc/globals/cilium_runtime_config",
 	"tc/globals/cilium_lxc",
 	"tc/globals/cilium_metrics",
-	"tc/globals/cilium_tunnel_map",
 	"tc/globals/cilium_ktime_cache",
 	"tc/globals/cilium_ipcache",
+	"tc/globals/cilium_ipcache_v2",
 	"tc/globals/cilium_events",
 	"tc/globals/cilium_signals",
 	"tc/globals/cilium_capture4_rules",
@@ -104,6 +104,7 @@ var bpfMapsPath = []string{
 	"tc/globals/cilium_ipmasq_v4",
 	"tc/globals/cilium_ipmasq_v6",
 	"tc/globals/cilium_ipv4_frag_datagrams",
+	"tc/globals/cilium_ipv6_frag_datagrams",
 	"tc/globals/cilium_throttle",
 	"tc/globals/cilium_encrypt_state",
 	"tc/globals/cilium_egress_gw_policy_v4",
@@ -218,6 +219,7 @@ func miscSystemCommands() []string {
 		// tc
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
+		"find /sys/fs/bpf -ls",
 	}
 }
 
@@ -235,15 +237,19 @@ func bpfCgroupCommands() []string {
 	return commands
 }
 
-func bpfMapDumpCommands(mapPaths []string) []string {
+func bpfMapDumpCommands(mapPathsPatterns []string) []string {
 	bpffsMountpoint := bpffsMountpoint()
 	if bpffsMountpoint == "" {
 		return nil
 	}
 
-	commands := make([]string, 0, len(mapPaths))
-	for _, mapPath := range mapPaths {
-		commands = append(commands, "bpftool map dump pinned "+filepath.Join(bpffsMountpoint, mapPath))
+	commands := make([]string, 0, len(mapPathsPatterns))
+	for _, pattern := range mapPathsPatterns {
+		if matches, err := filepath.Glob(filepath.Join(bpffsMountpoint, pattern)); err == nil {
+			for _, match := range matches {
+				commands = append(commands, "bpftool map dump pinned "+match)
+			}
+		}
 	}
 
 	return commands
@@ -409,7 +415,6 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg ip list -n -o json",
 		"cilium-dbg map list --verbose",
 		"cilium-dbg map events cilium_ipcache -o json",
-		"cilium-dbg map events cilium_tunnel_map -o json",
 		"cilium-dbg map events cilium_lb4_services_v2 -o json",
 		"cilium-dbg map events cilium_lb4_backends_v2 -o json",
 		"cilium-dbg map events cilium_lb4_backends_v3 -o json",

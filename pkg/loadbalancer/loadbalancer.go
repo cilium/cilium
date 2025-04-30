@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/netip"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -19,7 +18,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -101,10 +99,10 @@ func (d SVCLoadBalancingAlgorithm) String() string {
 }
 
 func ToSVCLoadBalancingAlgorithm(s string) SVCLoadBalancingAlgorithm {
-	if s == option.NodePortAlgMaglev {
+	if s == LBAlgorithmMaglev {
 		return SVCLoadBalancingAlgorithmMaglev
 	}
-	if s == option.NodePortAlgRandom {
+	if s == LBAlgorithmRandom {
 		return SVCLoadBalancingAlgorithmRandom
 	}
 	return SVCLoadBalancingAlgorithmUndef
@@ -152,6 +150,7 @@ const (
 	serviceFlagFwdModeDSR      = 1 << 15
 )
 
+// +k8s:deepcopy-gen=true
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
@@ -473,6 +472,7 @@ type ServiceID uint16
 
 // ServiceName represents the fully-qualified reference to the service by name,
 // including both the namespace and name of the service (and optionally the cluster).
+// +k8s:deepcopy-gen=true
 type ServiceName struct {
 	Namespace string
 	Name      string
@@ -551,110 +551,6 @@ type ID uint32
 
 // BackendState is the state of a backend for load-balancing service traffic.
 type BackendState uint8
-
-// Preferred indicates if this backend is preferred to be load balanced.
-type Preferred bool
-
-// Backend represents load balancer backend.
-type Backend struct {
-	// FEPortName is the frontend port name. This is used to filter backends sending to EDS.
-	FEPortName string
-	// ID of the backend
-	ID BackendID
-	// Weight of backend
-	Weight uint16
-	// Node hosting this backend. This is used to determine backends local to
-	// a node.
-	NodeName string
-	// Zone where backend is located.
-	ZoneID uint8
-	L3n4Addr
-	// State of the backend for load-balancing service traffic
-	State BackendState
-	// Preferred indicates if the healthy backend is preferred
-	Preferred Preferred
-}
-
-func (b *Backend) String() string {
-	state, _ := b.State.String()
-	return "[" + b.L3n4Addr.String() + "," + "State:" + state + "]"
-}
-
-// SVC is a structure for storing service details.
-type SVC struct {
-	Frontend                  L3n4AddrID        // SVC frontend addr and an allocated ID
-	Backends                  []*Backend        // List of service backends
-	Type                      SVCType           // Service type
-	ForwardingMode            SVCForwardingMode // Service mode (DSR vs SNAT)
-	ExtTrafficPolicy          SVCTrafficPolicy  // Service external traffic policy
-	IntTrafficPolicy          SVCTrafficPolicy  // Service internal traffic policy
-	NatPolicy                 SVCNatPolicy      // Service NAT 46/64 policy
-	SourceRangesPolicy        SVCSourceRangesPolicy
-	ProxyDelegation           SVCProxyDelegation
-	SessionAffinity           bool
-	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16                    // Service health check node port
-	Name                      ServiceName               // Fully qualified service name
-	LoadBalancerAlgorithm     SVCLoadBalancingAlgorithm // Service LB algorithm (random or maglev)
-	LoadBalancerSourceRanges  []*cidr.CIDR
-	L7LBProxyPort             uint16 // Non-zero for L7 LB services
-	LoopbackHostport          bool
-	Annotations               map[string]string
-}
-
-func (s *SVC) GetModel() *models.Service {
-	var natPolicy string
-	type backendPlacement struct {
-		pos int
-		id  BackendID
-	}
-
-	if s == nil {
-		return nil
-	}
-
-	id := int64(s.Frontend.ID)
-	if s.NatPolicy != SVCNatPolicyNone {
-		natPolicy = string(s.NatPolicy)
-	}
-	spec := &models.ServiceSpec{
-		ID:               id,
-		FrontendAddress:  s.Frontend.GetModel(),
-		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
-		Flags: &models.ServiceSpecFlags{
-			Type:                string(s.Type),
-			TrafficPolicy:       string(s.ExtTrafficPolicy),
-			ExtTrafficPolicy:    string(s.ExtTrafficPolicy),
-			IntTrafficPolicy:    string(s.IntTrafficPolicy),
-			NatPolicy:           natPolicy,
-			HealthCheckNodePort: s.HealthCheckNodePort,
-
-			Name:      s.Name.Name,
-			Namespace: s.Name.Namespace,
-		},
-	}
-
-	if s.Name.Cluster != option.Config.ClusterName {
-		spec.Flags.Cluster = s.Name.Cluster
-	}
-
-	placements := make([]backendPlacement, len(s.Backends))
-	for i, be := range s.Backends {
-		placements[i] = backendPlacement{pos: i, id: be.ID}
-	}
-	sort.Slice(placements,
-		func(i, j int) bool { return placements[i].id < placements[j].id })
-	for i, placement := range placements {
-		spec.BackendAddresses[i] = s.Backends[placement.pos].GetBackendModel()
-	}
-
-	return &models.Service{
-		Spec: spec,
-		Status: &models.ServiceStatus{
-			Realized: spec,
-		},
-	}
-}
 
 func IsValidStateTransition(old, new BackendState) bool {
 	if old == new {
@@ -751,6 +647,7 @@ func NewL4TypeFromNumber(proto uint8) L4Type {
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
 // the Port number.
 //
+// +k8s:deepcopy-gen=true
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type L4Addr struct {
@@ -794,6 +691,7 @@ func (l *L4Addr) String() string {
 //
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
+// +k8s:deepcopy-gen=true
 type L3n4Addr struct {
 	AddrCluster cmtypes.AddrCluster
 	L4Addr
@@ -940,74 +838,6 @@ func L3n4AddrFromString(key string) (index.Key, error) {
 	return index.Key(out), nil
 }
 
-// NewBackend creates the Backend struct instance from given params.
-// The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16) *Backend {
-	return NewBackendWithState(id, protocol, addrCluster, portNumber, 0, BackendStateActive)
-}
-
-// NewBackendWithState creates the Backend struct instance from given params.
-func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, zone uint8,
-	state BackendState) *Backend {
-	lbport := NewL4Addr(protocol, portNumber)
-	b := Backend{
-		ID:       id,
-		L3n4Addr: L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport},
-		State:    state,
-		Weight:   DefaultBackendWeight,
-		ZoneID:   zone,
-	}
-
-	return &b
-}
-
-func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
-	if base.IP == nil {
-		return nil, fmt.Errorf("missing IP address")
-	}
-
-	l4addr := NewL4Addr(base.Protocol, base.Port)
-	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
-	if err != nil {
-		return nil, err
-	}
-	state, err := GetBackendState(base.State)
-	if err != nil {
-		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
-	}
-
-	b := &Backend{
-		NodeName:  base.NodeName,
-		ZoneID:    option.Config.GetZoneID(base.Zone),
-		L3n4Addr:  L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr},
-		State:     state,
-		Preferred: Preferred(base.Preferred),
-	}
-
-	if base.Weight != nil {
-		b.Weight = *base.Weight
-	}
-
-	if b.Weight == 0 {
-		b.State = BackendStateMaintenance
-	}
-
-	return b, nil
-}
-
-func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
-	if base.IP == nil {
-		return nil, fmt.Errorf("missing IP address")
-	}
-
-	l4addr := NewL4Addr(base.Protocol, base.Port)
-	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
-	if err != nil {
-		return nil, err
-	}
-	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
-}
-
 func (l *L3n4Addr) ParseFromString(s string) error {
 	formatError := fmt.Errorf(
 		"bad address %q, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"",
@@ -1080,25 +910,6 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		Protocol: a.Protocol,
 		Port:     a.Port,
 		Scope:    scope,
-	}
-}
-
-func (b *Backend) GetBackendModel() *models.BackendAddress {
-	if b == nil {
-		return nil
-	}
-
-	addrClusterStr := b.AddrCluster.String()
-	stateStr, _ := b.State.String()
-	return &models.BackendAddress{
-		IP:        &addrClusterStr,
-		Protocol:  b.Protocol,
-		Port:      b.Port,
-		NodeName:  b.NodeName,
-		Zone:      option.Config.GetZone(b.ZoneID),
-		State:     stateStr,
-		Preferred: bool(b.Preferred),
-		Weight:    &b.Weight,
 	}
 }
 
@@ -1193,6 +1004,7 @@ func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
 // KVStore.
 //
+// +k8s:deepcopy-gen=true
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type L3n4AddrID struct {

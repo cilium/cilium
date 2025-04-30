@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -29,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 type fakePolicyImporter struct {

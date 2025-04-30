@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -31,7 +32,8 @@ func fakeCheck(ep *endpoint.Endpoint) error {
 func TestMarkAndSweep(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	// Open-code WithPeriodicGC() to avoid running the controller
-	mgr := New(&dummyEpSyncher{}, nil, nil, nil, nil)
+	logger := hivetest.Logger(t)
+	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	mgr.checkHealth = fakeCheck
 	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
 
@@ -44,7 +46,7 @@ func TestMarkAndSweep(t *testing.T) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+		ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 		require.NoError(t, err)
 
 		ep.Start(uint16(model.ID))

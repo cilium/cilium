@@ -2130,6 +2130,42 @@ type ClientLoginBannerResponseOptions struct {
 	noSmithyDocumentSerde
 }
 
+// Client route enforcement is a feature of the Client VPN service that helps
+// enforce administrator defined routes on devices connected through the VPN. T his
+// feature helps improve your security posture by ensuring that network traffic
+// originating from a connected client is not inadvertently sent outside the VPN
+// tunnel.
+//
+// Client route enforcement works by monitoring the route table of a connected
+// device for routing policy changes to the VPN connection. If the feature detects
+// any VPN routing policy modifications, it will automatically force an update to
+// the route table, reverting it back to the expected route configurations.
+type ClientRouteEnforcementOptions struct {
+
+	// Enable or disable the client route enforcement feature.
+	//
+	// Valid values: true | false
+	//
+	// Default value: false
+	Enforced *bool
+
+	noSmithyDocumentSerde
+}
+
+// The current status of client route enforcement. The state will either be true
+// (enabled) or false (disabled).
+type ClientRouteEnforcementResponseOptions struct {
+
+	// Status of the client route enforcement feature.
+	//
+	// Valid values: true | false
+	//
+	// Default value: false
+	Enforced *bool
+
+	noSmithyDocumentSerde
+}
+
 // Describes the authentication methods used by a Client VPN endpoint. For more
 // information, see [Authentication]in the Client VPN Administrator Guide.
 //
@@ -2274,6 +2310,18 @@ type ClientVpnEndpoint struct {
 	// Options for enabling a customizable text banner that will be displayed on
 	// Amazon Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *ClientLoginBannerResponseOptions
+
+	// Client route enforcement is a feature of the Client VPN service that helps
+	// enforce administrator defined routes on devices connected through the VPN. T his
+	// feature helps improve your security posture by ensuring that network traffic
+	// originating from a connected client is not inadvertently sent outside the VPN
+	// tunnel.
+	//
+	// Client route enforcement works by monitoring the route table of a connected
+	// device for routing policy changes to the VPN connection. If the feature detects
+	// any VPN routing policy modifications, it will automatically force an update to
+	// the route table, reverting it back to the expected route configurations.
+	ClientRouteEnforcementOptions *ClientRouteEnforcementResponseOptions
 
 	// The ID of the Client VPN endpoint.
 	ClientVpnEndpointId *string
@@ -19979,11 +20027,15 @@ type TransitGatewayOptions struct {
 	AutoAcceptSharedAttachments AutoAcceptSharedAttachmentsValue
 
 	// Indicates whether resource attachments are automatically associated with the
-	// default association route table.
+	// default association route table. Enabled by default. If
+	// defaultRouteTableAssociation is set to enable , Amazon Web Services Transit
+	// Gateway will create the default transit gateway route table.
 	DefaultRouteTableAssociation DefaultRouteTableAssociationValue
 
 	// Indicates whether resource attachments automatically propagate routes to the
-	// default propagation route table.
+	// default propagation route table. Enabled by default. If
+	// defaultRouteTablePropagation is set to enable , Amazon Web Services Transit
+	// Gateway will create the default transit gateway route table.
 	DefaultRouteTablePropagation DefaultRouteTablePropagationValue
 
 	// Indicates whether DNS support is enabled.
