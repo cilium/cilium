@@ -89,8 +89,12 @@ func (p *Proxy) ReleaseProxyPort(name string) error {
 	return p.proxyPorts.ReleaseProxyPort(name)
 }
 
-func (p *Proxy) ReinstallRoutingRules(mtu int) error {
-	return ReinstallRoutingRules(p.logger, mtu)
+func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int) error {
+	ln, err := p.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve local node: %w", err)
+	}
+	return ReinstallRoutingRules(p.logger, ln, mtu)
 }
 
 // GetProxyPort() returns the fixed listen port for a proxy, if any.

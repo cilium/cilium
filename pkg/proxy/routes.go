@@ -54,7 +54,7 @@ var (
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
 // to route packets to and from the L7 proxy.
-func ReinstallRoutingRules(logger *slog.Logger, mtu int) error {
+func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu int) error {
 	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
 
 	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
@@ -68,7 +68,7 @@ func ReinstallRoutingRules(logger *slog.Logger, mtu int) error {
 		}
 
 		if fromIngressProxy || fromEgressProxy {
-			if err := installFromProxyRoutesIPv4(logger, node.GetInternalIPv4Router(), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if err := installFromProxyRoutesIPv4(logger, localNode.GetCiliumInternalIP(false), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
