@@ -303,16 +303,19 @@ communicating via the proxy must reconnect to re-establish connections.
   to ``apiVersion: cilium.io/v2`` for all ``CiliumCIDRGroup`` resources.
 * The check for connectivity to the Kubernetes apiserver has been removed from the cilium-agent liveness probe. This can be turned back on
   by setting the helm option ``livenessProbe.requireK8sConnectivity`` to ``true``.
-* The label ``io.cilium.k8s.policy.serviceaccount`` will be included in the default label list. If you configure your own identity-relevant labels 
-  on your cluster, the number of identities will temporarily increase during the upgrade, which will result in increased drops. If you would like 
-  to disable this new behavior, you can add ``!io\.cilium\.k8s\.policy\.serviceaccount`` to your identity-relevant labels to 
+* The label ``io.cilium.k8s.policy.serviceaccount`` will be included in the default label list. If you configure your own identity-relevant labels
+  on your cluster, the number of identities will temporarily increase during the upgrade, which will result in increased drops. If you would like
+  to disable this new behavior, you can add ``!io\.cilium\.k8s\.policy\.serviceaccount`` to your identity-relevant labels to
   exclude the ``io.cilium.k8s.policy.serviceaccount`` label.
 * If using IPsec encryption the upgrade from v1.17 to v1.18 requires special attention.
   Please reference :ref:`encryption_ipsec`.
 * The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
   To keep the ``enableIPv4Masquerade`` enabled, explicitly set the value for
   this option to ``true``, or use a value strictly lower than 1.18 for
-  ``upgradeCompatibility``.  
+  ``upgradeCompatibility``.
+* The ``--enable-ipv4-egress-gateway`` flag has been deprecated in favor of the new ``--enable-egress-gateway`` flag.
+  The new flag enables egress gateway functionality for both IPv4 and IPv6, while the old flag only supported IPv4.
+  The old flag will continue to work for backward compatibility but will be removed in a future release.
 
 Removed Options
 ~~~~~~~~~~~~~~~

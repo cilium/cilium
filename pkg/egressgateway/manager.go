@@ -185,8 +185,8 @@ func NewEgressGatewayManager(p Params) (out struct {
 }, err error) {
 	dcfg := p.DaemonConfig
 
-	// TODO: deprecate --enable-ipv4-egress-gateway, create new --enable-egress-gateway
-	if !dcfg.EnableIPv4EgressGateway {
+	// Check if either IPv4 or IPv6 egress gateway is enabled
+	if !dcfg.EnableIPv4EgressGateway && !dcfg.EnableEgressGateway {
 		return out, nil
 	}
 
@@ -198,10 +198,19 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
-	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
-	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
-	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
-		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	// Check if the environment supports egress gateway policies for IPv4 and/or IPv6
+	if dcfg.EnableIPv4EgressGateway || dcfg.EnableEgressGateway {
+		// IPv4 egress gateway requires IPv4 masquerade
+		if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
+			return out, fmt.Errorf("IPv4 egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+		}
+	}
+
+	// IPv6 egress gateway requires IPv6 masquerade
+	if dcfg.EnableEgressGateway && dcfg.EnableIPv6 {
+		if !dcfg.EnableIPv6Masquerade || !dcfg.EnableBPFMasquerade {
+			return out, fmt.Errorf("IPv6 egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
+		}
 	}
 
 	out.Manager, err = newEgressGatewayManager(p)
