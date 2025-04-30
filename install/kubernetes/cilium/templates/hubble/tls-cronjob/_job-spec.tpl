@@ -21,6 +21,10 @@ spec:
               drop:
               - ALL
             allowPrivilegeEscalation: false
+          {{- with .Values.certgen.resources }}
+          resources:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           command:
             - "/usr/bin/cilium-certgen"
           # Because this is executed as a job, we pass the values as command
