@@ -29,7 +29,6 @@ type policyGatewayConfig struct {
 	nodeSelector api.EndpointSelector
 	iface        string
 	egressIP     netip.Addr
-	v6needed     bool
 }
 
 // gatewayConfig is the gateway configuration derived at runtime from a policy.
@@ -68,6 +67,8 @@ type PolicyConfig struct {
 
 	matchedEndpoints map[endpointID]*endpointMetadata
 	gatewayConfig    gatewayConfig
+
+	v6Needed bool
 }
 
 // PolicyID includes policy name and namespace
@@ -135,7 +136,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 		gwc.gatewayIP = addr
 
 		if node.IsLocal() {
-			err := gwc.deriveFromPolicyGatewayConfig(manager.logger, policyGwc)
+			err := gwc.deriveFromPolicyGatewayConfig(manager.logger, policyGwc, config.v6Needed)
 			if err != nil {
 				manager.logger.Error(
 					"Failed to derive policy gateway configuration",
@@ -155,7 +156,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 // deriveFromPolicyGatewayConfig retrieves all the missing gateway configuration
 // data (such as egress IP or interface) given a policy egress gateway config
-func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc *policyGatewayConfig) error {
+func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc *policyGatewayConfig, v6Needed bool) error {
 	var err error
 	var egressIP4, egressIP6 netip.Addr
 
@@ -173,7 +174,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 
-		if gc.v6needed {
+		if v6Needed {
 			egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gc.iface)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
@@ -185,7 +186,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		egressIP4 = gc.egressIP
 
 		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
-		if gc.v6needed {
+		if v6Needed {
 			egressIP6 = EgressIPNotFoundIPv6
 		}
 
@@ -208,7 +209,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 
-		if gc.v6needed {
+		if v6Needed {
 			iface, err := route.NodeDeviceWithDefaultRoute(logger, false, true)
 			if err != nil {
 				return fmt.Errorf("failed to find interface with IPv6 default route: %w", err)
@@ -227,7 +228,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	}
 
 	gwc.egressIP4 = egressIP4
-	if gc.v6needed {
+	if v6Needed {
 		gwc.egressIP6 = egressIP6
 	}
 	gwc.localNodeConfiguredAsGateway = true
@@ -264,6 +265,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	var nodeSelectorList []api.EndpointSelector
 	var dstCidrList []netip.Prefix
 	var excludedCIDRs []netip.Prefix
+	var v6Needed bool
 
 	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
 		Key:      k8sConst.PodNamespaceLabel,
@@ -311,7 +313,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		}
 		dstCidrList = append(dstCidrList, cidr)
 		if cidr.Addr().Is6() {
-			policyGwc.v6needed = true
+			v6Needed = true
 		}
 	}
 
@@ -372,6 +374,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		excludedCIDRs:     excludedCIDRs,
 		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
 		policyGwConfig:    policyGwc,
+		v6Needed:          v6Needed,
 		id: types.NamespacedName{
 			Name: name,
 		},
