@@ -27,8 +27,11 @@ var Cell = cell.Module(
 	"maglev",
 	"Maglev table computations",
 
-	cell.Config(DefaultConfig),
-	cell.Provide(New),
+	cell.Config(DefaultUserConfig),
+	cell.Provide(
+		New,
+		UserConfig.ToConfig,
+	),
 )
 
 const (
@@ -45,32 +48,72 @@ var (
 	maglevSupportedTableSizes = []uint{251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071}
 )
 
+// UserConfig is the user-facing configuration, i.e. the command-line flags.
+type UserConfig struct {
+	// Maglev backend table size (M) per service. Must be prime number.
+	// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
+	// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
+	// backends." (from Maglev paper, page 6)
+	TableSize uint `mapstructure:"bpf-lb-maglev-table-size"`
+
+	// HashSeed contains the cluster-wide seed for the hash(es).
+	HashSeed string `mapstructure:"bpf-lb-maglev-hash-seed"`
+}
+
+func (def UserConfig) Flags(flags *pflag.FlagSet) {
+	flags.Uint(MaglevTableSizeName, def.TableSize, fmt.Sprintf("Maglev per service backend table size (parameter M, one of: %v)", maglevSupportedTableSizes))
+	flags.String(MaglevHashSeedName, def.HashSeed, "Maglev cluster-wide hash seed (base64 encoded)")
+}
+
+func (userCfg UserConfig) ToConfig() (Config, error) {
+	if !slices.Contains(maglevSupportedTableSizes, userCfg.TableSize) {
+		return Config{}, fmt.Errorf("Invalid value for --%s: %d, supported values are: %v",
+			MaglevTableSizeName, userCfg.TableSize, maglevSupportedTableSizes)
+	}
+
+	seed := userCfg.HashSeed
+	d, err := base64.StdEncoding.DecodeString(seed)
+	if err != nil {
+		return Config{}, fmt.Errorf("cannot decode base64 Maglev hash seed %q: %w", seed, err)
+	}
+	if len(d) != 12 {
+		return Config{}, fmt.Errorf("decoded hash seed is %d bytes (not 12 bytes)", len(d))
+	}
+	return Config{
+		TableSize:  userCfg.TableSize,
+		HashSeed:   userCfg.HashSeed,
+		SeedMurmur: uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3]),
+		SeedJhash0: uint32(d[4])<<24 | uint32(d[5])<<16 | uint32(d[6])<<8 | uint32(d[7]),
+		SeedJhash1: uint32(d[8])<<24 | uint32(d[9])<<16 | uint32(d[10])<<8 | uint32(d[11]),
+	}, nil
+}
+
+var DefaultUserConfig = UserConfig{
+	TableSize: DefaultTableSize,
+	HashSeed:  DefaultHashSeed,
+}
+
+// DefaultConfig is the default maglev configuration for testing.
+var DefaultConfig, _ = DefaultUserConfig.ToConfig()
+
+// Config is the maglev configuration derived from the user configuration.
 type Config struct {
 	// Maglev backend table size (M) per service. Must be prime number.
 	// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
 	// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
 	// backends." (from Maglev paper, page 6)
-	MaglevTableSize uint `mapstructure:"bpf-lb-maglev-table-size"`
+	TableSize uint
 
-	// MaglevHashSeed contains the cluster-wide seed for the hash(es).
-	MaglevHashSeed string `mapstructure:"bpf-lb-maglev-hash-seed"`
-}
+	// HashSeed contains the cluster-wide seed for the hash(es).
+	HashSeed string
 
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Uint(MaglevTableSizeName, def.MaglevTableSize, fmt.Sprintf("Maglev per service backend table size (parameter M, one of: %v)", maglevSupportedTableSizes))
-	flags.String(MaglevHashSeedName, def.MaglevHashSeed, "Maglev cluster-wide hash seed (base64 encoded)")
-}
-
-var DefaultConfig = Config{
-	MaglevTableSize: DefaultTableSize,
-	MaglevHashSeed:  DefaultHashSeed,
+	SeedJhash0 uint32
+	SeedJhash1 uint32
+	SeedMurmur uint32
 }
 
 type Maglev struct {
 	Config
-	SeedJhash0 uint32
-	SeedJhash1 uint32
-	seedMurmur uint32
 
 	// mu protects the fields below
 	mu lock.Mutex
@@ -85,33 +128,12 @@ type Maglev struct {
 }
 
 // New constructs a new Maglev computation object.
-func New(cfg Config, lc cell.Lifecycle) (*Maglev, error) {
-	if !slices.Contains(maglevSupportedTableSizes, cfg.MaglevTableSize) {
-		return nil, fmt.Errorf("Invalid value for --%s: %d, supported values are: %v",
-			MaglevTableSizeName, cfg.MaglevTableSize, maglevSupportedTableSizes)
-	}
-
-	seed := cfg.MaglevHashSeed
-	d, err := base64.StdEncoding.DecodeString(seed)
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode base64 Maglev hash seed %q: %w", seed, err)
-	}
-	if len(d) != 12 {
-		return nil, fmt.Errorf("decoded hash seed is %d bytes (not 12 bytes)", len(d))
-	}
-
-	seedMurmur := uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
-	SeedJhash0 := uint32(d[4])<<24 | uint32(d[5])<<16 | uint32(d[6])<<8 | uint32(d[7])
-	SeedJhash1 := uint32(d[8])<<24 | uint32(d[9])<<16 | uint32(d[10])<<8 | uint32(d[11])
-
+func New(cfg Config, lc cell.Lifecycle) *Maglev {
 	ml := &Maglev{
-		Config:     cfg,
-		seedMurmur: seedMurmur,
-		SeedJhash0: SeedJhash0,
-		SeedJhash1: SeedJhash1,
+		Config: cfg,
 	}
 	lc.Append(ml)
-	return ml, nil
+	return ml
 }
 
 func (ml *Maglev) Start(cell.HookContext) error {
@@ -130,12 +152,12 @@ func (ml *Maglev) getPermutation(backends []BackendInfo, numCPU int) []uint64 {
 		return nil
 	}
 
-	m := int(ml.MaglevTableSize)
+	m := int(ml.TableSize)
 
 	if size := len(backends) * int(m); size > len(ml.permutations) {
 		// As the permutations array is large and often used, we'll keep a single
 		// instance around and reuse it.
-		minSize := derivePermutationSliceLen(uint64(ml.Config.MaglevTableSize))
+		minSize := derivePermutationSliceLen(uint64(ml.Config.TableSize))
 		ml.permutations = make([]uint64, max(minSize, size))
 	}
 
@@ -163,7 +185,7 @@ func (ml *Maglev) getPermutation(backends []BackendInfo, numCPU int) []uint64 {
 		}
 		ml.wp.Submit("", func(_ context.Context) error {
 			for i := from; i < to; i++ {
-				offset, skip := getOffsetAndSkip([]byte(backends[i].hashString), uint64(m), ml.seedMurmur)
+				offset, skip := getOffsetAndSkip([]byte(backends[i].hashString), uint64(m), ml.SeedMurmur)
 				start := i * m
 				ml.permutations[start] = offset
 				for j := 1; j < m; j++ {
@@ -269,7 +291,7 @@ func (ml *Maglev) GetLookupTable(backends iter.Seq[BackendInfo]) []loadbalancer.
 
 func (ml *Maglev) computeLookupTable() []loadbalancer.BackendID {
 	backends := ml.backendInfosBuffer
-	m := uint64(ml.MaglevTableSize)
+	m := uint64(ml.TableSize)
 
 	l := len(backends)
 	weightSum := uint64(0)

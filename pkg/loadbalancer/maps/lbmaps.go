@@ -301,7 +301,7 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(lbmap.MaglevInnerKey{})),
 		MaxEntries: 1,
-		ValueSize:  lbmap.MaglevBackendLen * uint32(r.MaglevCfg.MaglevTableSize),
+		ValueSize:  lbmap.MaglevBackendLen * uint32(r.MaglevCfg.TableSize),
 	}
 
 	mapsToCreate, mapsToDelete := r.allMaps()

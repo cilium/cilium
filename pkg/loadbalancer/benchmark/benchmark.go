@@ -54,10 +54,10 @@ var (
 	//go:embed testdata/endpointslice.yaml
 	endpointSliceYaml []byte
 
-	maglevConfig = maglev.Config{
-		MaglevTableSize: 1021,
-		MaglevHashSeed:  maglev.DefaultHashSeed,
-	}
+	maglevConfig, _ = maglev.UserConfig{
+		TableSize: 1021,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
 )
 
 func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bool) {
@@ -564,9 +564,9 @@ func testHive(maps lbmaps.LBMaps,
 					return maps
 				},
 
-				func(lc cell.Lifecycle) (*maglev.Maglev, maglev.Config, error) {
-					m, err := maglev.New(maglevConfig, lc)
-					return m, maglevConfig, err
+				func(lc cell.Lifecycle) (*maglev.Maglev, maglev.Config) {
+					m := maglev.New(maglevConfig, lc)
+					return m, maglevConfig
 				},
 			),
 

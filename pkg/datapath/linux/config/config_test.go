@@ -392,13 +392,12 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	setupConfigSuite(t)
 
 	lc := hivetest.Lifecycle(t)
-	magl, err := maglev.New(maglev.DefaultConfig, lc)
-	require.NoError(t, err, "maglev.New")
+	magl := maglev.New(maglev.DefaultConfig, lc)
 
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err = NewHeaderfileWriter(WriterParams{
+	_, err := NewHeaderfileWriter(WriterParams{
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,

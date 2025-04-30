@@ -65,11 +65,12 @@ func TestInitMaps(t *testing.T) {
 	// Now insert the entry, so that the map should not be removed
 	err = InitMaglevMaps(true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
-	ml, err := maglev.New(maglev.Config{
-		MaglevTableSize: maglevTableSize,
-		MaglevHashSeed:  maglev.DefaultHashSeed,
-	}, hivetest.Lifecycle(t))
-	require.NoError(t, err, "maglev.New")
+	cfg, err := maglev.UserConfig{
+		TableSize: maglevTableSize,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	ml := maglev.New(cfg, hivetest.Lifecycle(t))
 	lbm := New(loadbalancer.DefaultConfig, ml)
 	params := &datapathTypes.UpsertServiceParams{
 		ID:   1,
