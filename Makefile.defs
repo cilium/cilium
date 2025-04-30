@@ -249,3 +249,5 @@ CURRENT_GO_MODULE = $(shell go list -m)
 define ASSERT_CILIUM_MODULE
 	$(if $(filter $(CILIUM_GO_MODULE), $(CURRENT_GO_MODULE)) ,, $(error "Could not locate Cilium's go.mod file, are you in Cilium's repository?"))
 endef
+
+RENOVATE_GITHUB_COM_TOKEN ?= $(shell gh auth token)
