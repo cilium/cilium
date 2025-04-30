@@ -1594,6 +1594,8 @@ const (
 
 	Root = "root"
 
+	LenConfigPairs = "lenConfigPairs"
+
 	Exists = "exists"
 
 	MulticastAddr = "multicastAddr"

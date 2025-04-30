@@ -21,6 +21,7 @@ import (
 )
 
 func TestWriteConfigurations(t *testing.T) {
+	logger := hivetest.Logger(t)
 	dir := t.TempDir()
 
 	out := map[string]string{
@@ -28,7 +29,7 @@ func TestWriteConfigurations(t *testing.T) {
 		"B": "b",
 	}
 
-	err := WriteConfigurations(context.Background(), dir, out)
+	err := WriteConfigurations(context.Background(), logger, dir, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,9 +51,10 @@ func TestWriteConfigurations(t *testing.T) {
 // - label selected CNC
 // - specific CNC name
 func TestResolveConfigurations(t *testing.T) {
+	logger := hivetest.Logger(t)
 	testNS := "test-ns"
 	g := gomega.NewWithT(t)
-	clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
+	clients, _ := k8sClient.NewFakeClientset(logger)
 
 	fakeNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -141,7 +143,7 @@ func TestResolveConfigurations(t *testing.T) {
 	_, err = clients.CiliumV2().CiliumNodeConfigs(testNS).Create(context.Background(), &nameCnc, metav1.CreateOptions{})
 	g.Expect(err).To(gomega.BeNil())
 
-	config, err := ResolveConfigurations(context.Background(), clients, "nodename",
+	config, err := ResolveConfigurations(context.Background(), logger, clients, "nodename",
 		[]ConfigSource{
 			{
 				Kind:      KindConfigMap,
@@ -182,9 +184,10 @@ func TestResolveConfigurations(t *testing.T) {
 }
 
 func TestWithBlockedFields(t *testing.T) {
+	logger := hivetest.Logger(t)
 	testNS := "test-ns"
 	g := gomega.NewWithT(t)
-	clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
+	clients, _ := k8sClient.NewFakeClientset(logger)
 
 	fakeNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -241,8 +244,7 @@ func TestWithBlockedFields(t *testing.T) {
 	}
 
 	// Test that only allowed-key is allowed
-	config, err := ResolveConfigurations(context.Background(), clients, "nodename",
-		sources, []string{"allowed-key"}, nil)
+	config, err := ResolveConfigurations(context.Background(), logger, clients, "nodename", sources, []string{"allowed-key"}, nil)
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(config).To(gomega.Equal(map[string]string{
 		"cm-key":                   "cm-val",
@@ -253,8 +255,7 @@ func TestWithBlockedFields(t *testing.T) {
 
 	// Test that blocked-key is blocked
 	// but that the first source is privileged
-	config, err = ResolveConfigurations(context.Background(), clients, "nodename",
-		sources, nil, []string{"blocked-key", "cm-key"})
+	config, err = ResolveConfigurations(context.Background(), logger, clients, "nodename", sources, nil, []string{"blocked-key", "cm-key"})
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(config).To(gomega.Equal(map[string]string{
 		"cm-key":                   "cm-val",
@@ -266,6 +267,7 @@ func TestWithBlockedFields(t *testing.T) {
 }
 
 func TestReadNodeConfigs(t *testing.T) {
+	logger := hivetest.Logger(t)
 	testNS := "test-ns"
 
 	for _, tc := range []struct {
@@ -348,7 +350,7 @@ func TestReadNodeConfigs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 
-			clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
+			clients, _ := k8sClient.NewFakeClientset(logger)
 
 			fakeNode := corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -371,7 +373,7 @@ func TestReadNodeConfigs(t *testing.T) {
 				g.Expect(err).To(gomega.BeNil())
 			}
 
-			configs, _, err := readNodeConfigsAllVersions(context.Background(), clients, tc.name, testNS, "")
+			configs, _, err := readNodeConfigsAllVersions(context.Background(), logger, clients, tc.name, testNS, "")
 			g.Expect(err).To(gomega.BeNil())
 
 			g.Expect(configs).To(gomega.Equal(tc.expected))
@@ -381,6 +383,7 @@ func TestReadNodeConfigs(t *testing.T) {
 
 // TODO remove me when CiliumNodeConfig v2alpha1 will be deprecated
 func TestReadNodeConfigsAlpha(t *testing.T) {
+	logger := hivetest.Logger(t)
 	testNS := "test-ns"
 
 	for _, tc := range []struct {
@@ -463,7 +466,7 @@ func TestReadNodeConfigsAlpha(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 
-			clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
+			clients, _ := k8sClient.NewFakeClientset(logger)
 
 			fakeNode := corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -486,7 +489,7 @@ func TestReadNodeConfigsAlpha(t *testing.T) {
 				g.Expect(err).To(gomega.BeNil())
 			}
 
-			configs, _, err := readNodeConfigsAllVersions(context.Background(), clients, tc.name, testNS, "")
+			configs, _, err := readNodeConfigsAllVersions(context.Background(), logger, clients, tc.name, testNS, "")
 			g.Expect(err).To(gomega.BeNil())
 
 			g.Expect(configs).To(gomega.Equal(tc.expected))
