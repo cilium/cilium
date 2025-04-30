@@ -1583,6 +1583,8 @@ const (
 
 	PendingCompletions = "pendingCompletions"
 
+	Root = "root"
+
 	Exists = "exists"
 
 	MulticastAddr = "multicastAddr"
