@@ -1042,12 +1042,12 @@ func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
 
-	maglevCfg := maglev.Config{
-		MaglevTableSize: 1021,
-		MaglevHashSeed:  maglev.DefaultHashSeed,
-	}
-	maglev, err := maglev.New(maglevCfg, lc)
-	require.NoError(t, err, "maglev.New")
+	maglevCfg, err := maglev.UserConfig{
+		TableSize: 1021,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	maglev := maglev.New(maglevCfg, lc)
 
 	// Enable features.
 	extCfg := loadbalancer.ExternalConfig{
