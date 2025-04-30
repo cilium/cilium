@@ -175,7 +175,11 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 	policy := policyParams{
 		name:             "",
 		destinationCIDRs: []string{destCIDR},
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
 	}
 
 	cegp, _ := newCEGP(&policy)
@@ -184,8 +188,12 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 
 	// catch nil DestinationCIDR field
 	policy = policyParams{
-		name:  "policy-1",
-		iface: testInterface1,
+		name: "policy-1",
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
 	}
 
 	cegp, _ = newCEGP(&policy)
@@ -195,8 +203,12 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 
 	// must specify at least one DestinationCIDR
 	policy = policyParams{
-		name:  "policy-1",
-		iface: testInterface1,
+		name: "policy-1",
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
 	}
 
 	cegp, _ = newCEGP(&policy)
@@ -207,10 +219,34 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 	policy = policyParams{
 		name:             "policy-1",
 		destinationCIDRs: []string{destCIDR},
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
 	}
 
 	cegp, _ = newCEGP(&policy)
+	cegp.Spec.EgressGateway = nil
+	_, err = ParseCEGP(cegp)
+	require.Error(t, err)
+
+	// Catch EgressGateways that don't contain EgressGateway or EgressGateways fields.
+	policy = policyParams{
+		name:             "policy-1",
+		destinationCIDRs: []string{destCIDR},
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+			{
+				iface: testInterface2,
+			},
+		},
+	}
+
+	cegp, _ = newCEGP(&policy)
+	cegp.Spec.EgressGateways = nil
 	cegp.Spec.EgressGateway = nil
 	_, err = ParseCEGP(cegp)
 	require.Error(t, err)
@@ -219,7 +255,11 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 	policy = policyParams{
 		name:             "policy-1",
 		destinationCIDRs: []string{destCIDR},
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
 	}
 
 	cegp, _ = newCEGP(&policy)
@@ -232,8 +272,16 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 	policy = policyParams{
 		name:             "policy-1",
 		destinationCIDRs: []string{destCIDR},
-		iface:            testInterface1,
-		egressIP:         egressIP1,
+		policyGwParams: []policyGatewayParams{
+			{
+				iface:    testInterface1,
+				egressIP: egressIP1,
+			},
+			{
+				iface:    testInterface2,
+				egressIP: egressIP2,
+			},
+		},
 	}
 
 	cegp, _ = newCEGP(&policy)
@@ -277,8 +325,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
 	}
 
 	addPolicy(t, k.policies, &policy1)
@@ -345,8 +397,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		name:             "policy-2",
 		endpointLabels:   ep2Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
-		nodeLabels:       nodeGroup2Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup2Labels,
+				iface:      testInterface1,
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -377,8 +433,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
 		excludedCIDRs:    []string{excludedCIDR1, excludedCIDR1v6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -399,8 +459,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
 		excludedCIDRs:    []string{excludedCIDR1, excludedCIDR2, excludedCIDR1v6, excludedCIDR2v6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -423,8 +487,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
 		excludedCIDRs:    []string{excludedCIDR2, excludedCIDR2v6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -444,8 +512,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -463,8 +535,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
-		nodeLabels:       nodeGroupNotFoundLabels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroupNotFoundLabels,
+				iface:      testInterface1,
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -482,8 +558,12 @@ func TestEgressGatewayManager(t *testing.T) {
 		name:             "policy-3",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR3, destCIDR3v6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            "no_interface",
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      "no_interface",
+			},
+		},
 	})
 	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -544,9 +624,13 @@ func TestNodeSelector(t *testing.T) {
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
-		nodeSelectors:    nodeGroup2Labels,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
+		nodeSelectors: nodeGroup2Labels,
 	}
 
 	addPolicy(t, k.policies, &policy1)
@@ -620,8 +704,12 @@ func TestEndpointDataStore(t *testing.T) {
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		policyGwParams: []policyGatewayParams{
+			{
+				nodeLabels: nodeGroup1Labels,
+				iface:      testInterface1,
+			},
+		},
 	}
 
 	addPolicy(t, k.policies, &policy1)
