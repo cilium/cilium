@@ -10,7 +10,7 @@ on:
     inputs:
       renovate_log_level_debug:
         type: boolean
-        description: "Rune Renovate With Debug Log Levels"
+        description: "Run Renovate With Debug Log Levels"
         default: true
 
 jobs:
