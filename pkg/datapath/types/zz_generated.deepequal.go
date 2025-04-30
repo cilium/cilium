@@ -275,5 +275,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
+	if in.MaglevConfig != other.MaglevConfig {
+		return false
+	}
+
 	return true
 }
