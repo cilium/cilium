@@ -715,7 +715,7 @@ func (m *manager) checkpoint() error {
 	return f.CloseAtomicallyReplace()
 }
 
-func (m *manager) nodeAddressShouldUseTunnel(address nodeTypes.Address) bool {
+func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 	// If the host firewall is enabled, all traffic to remote nodes must go
 	// through the tunnel to preserve the source identity as part of the
 	// encapsulation. In encryption case we also want to use vxlan device
@@ -840,13 +840,9 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			ipsetEntries = append(ipsetEntries, prefix)
 		}
 
-		// Always set the tunnelIP so it can be used for metadata like DSR info
-		var tunnelIP netip.Addr = nodeIP
-
-		// Inform datapath not to use tunnelling for directly reachable endpoints
-		endpointFlags := ipcacheTypes.EndpointFlags{}
-		if !m.nodeAddressShouldUseTunnel(address) {
-			endpointFlags.SetSkipTunnel(true)
+		var tunnelIP netip.Addr
+		if m.nodeAddressHasTunnelIP(address) {
+			tunnelIP = nodeIP
 		}
 
 		var key uint8
@@ -885,8 +881,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			lbls,
 			ipcacheTypes.TunnelPeer{Addr: tunnelIP},
-			ipcacheTypes.EncryptKey(key),
-			endpointFlags)
+			ipcacheTypes.EncryptKey(key))
 		if nodeIdentityOverride {
 			m.ipcache.OverrideIdentity(prefixCluster, nodeLabels, n.Source, resource)
 		}
@@ -1120,11 +1115,9 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			}
 		}
 
-		var oldTunnelIP netip.Addr = oldNodeIP
-
-		oldEndpointFlags := ipcacheTypes.EndpointFlags{}
-		if !m.nodeAddressShouldUseTunnel(address) {
-			oldEndpointFlags.SetSkipTunnel(true)
+		var oldTunnelIP netip.Addr
+		if m.nodeAddressHasTunnelIP(address) {
+			oldTunnelIP = oldNodeIP
 		}
 
 		var oldKey uint8
@@ -1135,8 +1128,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		m.ipcache.RemoveMetadata(oldPrefixCluster, resource,
 			oldNodeLabels,
 			ipcacheTypes.TunnelPeer{Addr: oldTunnelIP},
-			ipcacheTypes.EncryptKey(oldKey),
-			oldEndpointFlags)
+			ipcacheTypes.EncryptKey(oldKey))
 		if oldNodeIdentityOverride {
 			m.ipcache.RemoveIdentityOverride(oldPrefixCluster, oldNodeLabels, resource)
 		}
