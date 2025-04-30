@@ -133,6 +133,63 @@ func (m *Map) Type() ebpf.MapType {
 	return ebpf.UnspecifiedMap
 }
 
+type nopDecoder []struct{}
+
+func (nopDecoder) UnmarshalBinary(data []byte) error {
+	return nil
+}
+
+// BatchCount the number of elements in the map using a batch lookup.
+// Only usable for hash, lru-hash and lpm-trie maps.
+func (m *Map) BatchCount() (count int, err error) {
+	switch m.Type() {
+	case ebpf.Hash, ebpf.LRUHash, ebpf.LPMTrie:
+		break
+	default:
+		return 0, fmt.Errorf("unsupported map type %s, must be one either hash or lru-hash types", m.Type())
+	}
+	chunkSize := startingChunkSize(int(m.MaxEntries()))
+
+	// Since we don't care about the actual data we just use a no-op binary
+	// decoder.
+	keys := make(nopDecoder, chunkSize)
+	vals := make(nopDecoder, chunkSize)
+	maxRetries := defaultBatchedRetries
+
+	var cursor ebpf.MapBatchCursor
+	for {
+		for retry := range maxRetries {
+			// Attempt to read batch into buffer.
+			c, batchErr := m.BatchLookup(&cursor, keys, vals, nil)
+			count += c
+
+			switch {
+			// Lookup batch on LRU hash map may fail if the buffer passed is not big enough to
+			// accommodate the largest bucket size in the LRU map. See full comment in
+			// [BatchIterator.IterateAll]
+			case errors.Is(batchErr, unix.ENOSPC):
+				if retry == maxRetries-1 {
+					err = batchErr
+				} else {
+					chunkSize *= 2
+				}
+				keys = make(nopDecoder, chunkSize)
+				vals = make(nopDecoder, chunkSize)
+				continue
+			case errors.Is(batchErr, ebpf.ErrKeyNotExist):
+				return
+			case batchErr != nil:
+				// If we're not done, and we didn't hit a ENOSPC then stop iteration and record
+				// the error.
+				err = fmt.Errorf("failed to iterate map: %w", batchErr)
+				return
+			}
+			// Do the next batch
+			break
+		}
+	}
+}
+
 func (m *Map) KeySize() uint32 {
 	if m.m != nil {
 		return m.m.KeySize()
