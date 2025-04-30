@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/link"
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -34,6 +35,7 @@ func mustCgroupProgram(t *testing.T) *ebpf.Program {
 // Attach a program to a clean cgroup hook, no replacing necessary.
 func TestAttachCgroup(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	coll := &ebpf.Collection{
 		Programs: map[string]*ebpf.Program{"test": mustCgroupProgram(t)},
@@ -41,11 +43,11 @@ func TestAttachCgroup(t *testing.T) {
 	linkPath := testutils.TempBPFFS(t)
 	cgroupPath := testutils.TempCgroup(t)
 
-	if err := attachCgroup(coll, "test", cgroupPath, linkPath); err != nil {
+	if err := attachCgroup(logger, coll, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := detachCgroup("test", cgroupPath, linkPath); err != nil {
+	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -54,6 +56,7 @@ func TestAttachCgroup(t *testing.T) {
 // this will attempt to replace a PROG_ATTACH with a bpf_link.
 func TestAttachCgroupWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	prog := mustCgroupProgram(t)
 	coll := &ebpf.Collection{
@@ -76,11 +79,11 @@ func TestAttachCgroupWithPreviousAttach(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := attachCgroup(coll, "test", cgroupPath, linkPath); err != nil {
+	if err := attachCgroup(logger, coll, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := detachCgroup("test", cgroupPath, linkPath); err != nil {
+	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -88,6 +91,7 @@ func TestAttachCgroupWithPreviousAttach(t *testing.T) {
 // On kernels that support it, update a bpf_link attachment by opening a pin.
 func TestAttachCgroupWithExistingLink(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	prog := mustCgroupProgram(t)
 	coll := &ebpf.Collection{
@@ -118,11 +122,11 @@ func TestAttachCgroupWithExistingLink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := attachCgroup(coll, "test", cgroupPath, linkPath); err != nil {
+	if err := attachCgroup(logger, coll, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := detachCgroup("test", cgroupPath, linkPath); err != nil {
+	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -130,6 +134,7 @@ func TestAttachCgroupWithExistingLink(t *testing.T) {
 // Detach an existing PROG_ATTACH.
 func TestDetachCGroupWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	prog := mustCgroupProgram(t)
 	linkPath := testutils.TempBPFFS(t)
@@ -148,7 +153,7 @@ func TestDetachCGroupWithPreviousAttach(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := detachCgroup("test", cgroupPath, linkPath); err != nil {
+	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -156,6 +161,7 @@ func TestDetachCGroupWithPreviousAttach(t *testing.T) {
 // Detach an existing bpf_link.
 func TestDetachCGroupWithExistingLink(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	prog := mustCgroupProgram(t)
 	linkPath := testutils.TempBPFFS(t)
@@ -181,7 +187,7 @@ func TestDetachCGroupWithExistingLink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := detachCgroup("test", cgroupPath, linkPath); err != nil {
+	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -6,6 +6,7 @@ package socketlb
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -14,8 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -37,8 +36,6 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
-
 	cgroupProgs = []string{
 		Connect4, SendMsg4, RecvMsg4, GetPeerName4,
 		PostBind4, PreBind4, Connect6, SendMsg6,
@@ -56,7 +53,7 @@ func cgroupLinkPath() string {
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(sysctl sysctl.Sysctl) error {
+func Enable(logger *slog.Logger, sysctl sysctl.Sysctl) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -130,12 +127,12 @@ func Enable(sysctl sysctl.Sysctl) error {
 
 	for p, s := range enabled {
 		if s {
-			if err := attachCgroup(coll, p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
+			if err := attachCgroup(logger, coll, p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
 				return fmt.Errorf("cgroup attach: %w", err)
 			}
 			continue
 		}
-		if err := detachCgroup(p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
+		if err := detachCgroup(logger, p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
 			return fmt.Errorf("cgroup detach: %w", err)
 		}
 	}
@@ -148,9 +145,9 @@ func Enable(sysctl sysctl.Sysctl) error {
 }
 
 // Disable detaches all bpf programs for socketlb.
-func Disable() error {
+func Disable(logger *slog.Logger) error {
 	for _, p := range cgroupProgs {
-		if err := detachCgroup(p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
+		if err := detachCgroup(logger, p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
 			return fmt.Errorf("detach cgroup: %w", err)
 		}
 	}

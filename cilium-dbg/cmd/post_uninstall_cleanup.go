@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 )
@@ -377,7 +378,7 @@ func revertCNIBackup() error {
 }
 
 func removeSocketLBPrograms() error {
-	if err := socketlb.Disable(); err != nil {
+	if err := socketlb.Disable(logging.DefaultSlogLogger); err != nil {
 		return fmt.Errorf("Failed to detach all socketlb bpf programs from %s: %w", defaults.DefaultCgroupRoot, err)
 	}
 	fmt.Println("removed all socketlb bpf programs")
