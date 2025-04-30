@@ -474,6 +474,18 @@
         "main"
       ],
     },
+    // group updating renovate versions together (config validator/self hosted renovate)
+    {
+      "groupName": "renovate dependencies",
+      "groupSlug": "renovate-dependencies",
+      "matchDepNames": [
+        "renovatebot/renovate",
+        "ghcr.io/renovatebot/renovate",
+      ],
+      "matchBaseBranches": [
+        "main"
+      ],
+    },
     {
       // Separate major minor and patch so that renovate can update the patch
       // versions of the images.
