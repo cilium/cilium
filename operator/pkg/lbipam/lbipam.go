@@ -296,7 +296,12 @@ func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, pool *cilium_api_v2.Cilium
 	pool = pool.DeepCopy()
 
 	var err error
-	if _, exists := ipam.pools[pool.GetName()]; exists {
+	if existingPool, exists := ipam.pools[pool.GetName()]; exists {
+		// Spec hasn't changed, nothing to do
+		if existingPool.Spec.DeepEqual(&pool.Spec) {
+			return nil
+		}
+
 		err = ipam.handlePoolModified(ctx, pool)
 		if err != nil {
 			return fmt.Errorf("handlePoolModified: %w", err)
