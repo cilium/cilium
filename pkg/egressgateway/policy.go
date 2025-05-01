@@ -5,8 +5,10 @@ package egressgateway
 
 import (
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"net/netip"
+	"slices"
 
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
@@ -235,22 +237,43 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	return nil
 }
 
+func computeEndpointHash(endpointUID types.UID) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(endpointUID))
+	return h.Sum32()
+}
+
 // forEachEndpointAndCIDR iterates through each combination of endpoints and
 // destination/excluded CIDRs of the receiver policy, and for each of them it
 // calls the f callback function passing the given endpoint and CIDR, together
 // with a boolean value indicating if the CIDR belongs to the excluded ones and
-// the gatewayConfig of the receiver policy
+// the gatewayConfig of the receiver policy.
+// For multigateway policies the gateways are ordered by IP and paired with each
+// endpoint using the hash of the endpoint UID.
 func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Prefix, bool, *gatewayConfig)) {
+	// Sort gateways to get consistent assignments across nodes.
+	slices.SortFunc(config.gatewayConfigs, func(a, b gatewayConfig) int {
+		return a.gatewayIP.Compare(b.gatewayIP)
+	})
+
 	for _, endpoint := range config.matchedEndpoints {
+		var gateway *gatewayConfig
+		if len(config.gatewayConfigs) > 1 {
+			index := computeEndpointHash(endpoint.id) % uint32(len(config.gatewayConfigs))
+			gateway = &config.gatewayConfigs[index]
+		} else {
+			gateway = &config.gatewayConfigs[0]
+		}
+
 		for _, endpointIP := range endpoint.ips {
 			isExcludedCIDR := false
 			for _, dstCIDR := range config.dstCIDRs {
-				f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfigs[0])
+				f(endpointIP, dstCIDR, isExcludedCIDR, gateway)
 			}
 
 			isExcludedCIDR = true
 			for _, excludedCIDR := range config.excludedCIDRs {
-				f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfigs[0])
+				f(endpointIP, excludedCIDR, isExcludedCIDR, gateway)
 			}
 		}
 	}
