@@ -785,6 +785,20 @@ func Test_sectionNameMatched(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "GAMMA Service with same name as Gateway should not match",
+			args: args{
+				listener: httpListener,
+				refs: []gatewayv1.ParentReference{
+					{
+						Kind:  (*gatewayv1.Kind)(ptr.To("Service")),
+						Group: (*gatewayv1.Group)(ptr.To("")),
+						Name:  "valid-gateway",
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
