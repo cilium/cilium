@@ -95,7 +95,7 @@ corresponding image pull tags and their release notes where applicable:
 +----------------------------------------------------------------------------+------------+-----------------------------------------+---------------------------------------------------------------------------------+
 | `main <https://github.com/cilium/cilium/commits/main>`__                   | daily      | ``quay.io/cilium/cilium-ci:latest``     | N/A                                                                             |
 +----------------------------------------------------------------------------+------------+-----------------------------------------+---------------------------------------------------------------------------------+
-| `v1.18.0-pre.1 <https://github.com/cilium/cilium/commits/v1.18.0-pre.1>`__ | 2025-03-31 | ``quay.io/cilium/cilium:v1.18.0-pre.1`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.18.0-pre.1>`__ |
+| `v1.18.0-pre.2 <https://github.com/cilium/cilium/commits/v1.18.0-pre.2>`__ | 2025-05-01 | ``quay.io/cilium/cilium:v1.18.0-pre.2`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.18.0-pre.2>`__ |
 +----------------------------------------------------------------------------+------------+-----------------------------------------+---------------------------------------------------------------------------------+
 
 Functionality Overview
