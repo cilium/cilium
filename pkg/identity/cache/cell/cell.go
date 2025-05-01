@@ -126,8 +126,11 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 			params.Config.IdentityManagementMode == option.IdentityManagementModeBoth,
 		)
 
+		isPolicyControllerEnabled := params.Config.IdentityManagementMode == option.IdentityManagementModePolicyController
+
 		allocatorConfig := cache.AllocatorConfig{
-			EnableOperatorManageCIDs: isOperatorManageCIDsEnabled,
+			EnableOperatorManageCIDs:         isOperatorManageCIDsEnabled,
+			EnablePolicyControllerManageCIDs: isPolicyControllerEnabled,
 		}
 
 		// Allocator: allocates local and cluster-wide security identities.

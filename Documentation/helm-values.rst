@@ -2349,7 +2349,7 @@
      - string
      - ``"5s"``
    * - :spelling:ignore:`identityManagementMode`
-     - Control whether CiliumIdentities are created by the agent ("agent"), the operator ("operator") or both ("both"). "Both" should be used only to migrate between "agent" and "operator". Operator-managed identities is a beta feature.
+     - Control whether CiliumIdentities are created by the agent ("agent"), the operator ("operator"), both ("both"), or a policy-controller ("policy-controller"). "Both" should be used only to migrate between "agent" and "operator". The "policy-controller" mode means the policy-controller is responsible for managing CiliumIdentity, while the agent only watches and reconciles. Operator-managed identities is a beta feature.
      - string
      - ``"agent"``
    * - :spelling:ignore:`image`

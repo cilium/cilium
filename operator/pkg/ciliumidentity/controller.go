@@ -96,9 +96,14 @@ func registerController(p params) {
 		p.Config.IdentityManagementMode == option.IdentityManagementModeBoth,
 	)
 
+	// In policy-controller mode, the policy-controller is responsible for managing CiliumIdentity,
+	// so the operator should not attempt to manage identities
+	isPolicyControllerMode := p.Config.IdentityManagementMode == option.IdentityManagementModePolicyController
+
 	if cmp.Or(
 		!p.Clientset.IsEnabled(),
 		!isOperatorManageCIDsEnabled,
+		isPolicyControllerMode,
 		p.SharedCfg.DisableNetworkPolicy,
 	) {
 		return

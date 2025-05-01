@@ -98,8 +98,9 @@ type CachingIdentityAllocator struct {
 }
 
 type AllocatorConfig struct {
-	EnableOperatorManageCIDs bool
-	maxAllocAttempts         int
+	EnableOperatorManageCIDs         bool
+	EnablePolicyControllerManageCIDs bool
+	maxAllocAttempts                 int
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -346,7 +347,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, config AllocatorC
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
 		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
-		operatorIDManagement:               config.EnableOperatorManageCIDs,
+		operatorIDManagement:               config.EnableOperatorManageCIDs || config.EnablePolicyControllerManageCIDs,
 		maxAllocAttempts:                   config.maxAllocAttempts,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
