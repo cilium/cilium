@@ -680,10 +680,6 @@ The "Double Write" Identity Allocation Mode allows Cilium to allocate identities
 same time. This mode also has two versions: one where the source of truth comes from the kvstore (``--identity-allocation-mode=doublewrite-readkvstore``),
 and one where the source of truth comes from CRDs (``--identity-allocation-mode=doublewrite-readcrd``).
 
-.. note::
-
-    "Double Write" mode is not compatible with Consul as the KVStore
-
 The high-level migration plan looks as follows:
 
 #. Starting state: Cilium is running in KVStore mode.
