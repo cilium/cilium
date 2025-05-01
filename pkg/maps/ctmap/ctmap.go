@@ -379,7 +379,7 @@ func newMap(mapName string, m mapType) *Map {
 }
 
 func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(GCEvent)) error {
-	err := m.Delete(key)
+	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
 	}
@@ -492,7 +492,7 @@ func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 }
 
 func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent)) error {
-	err := m.Delete(key)
+	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
 	}
@@ -734,12 +734,12 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		log.WithError(err).Error("NATmap dump failed during GC")
 	} else {
 		for _, key := range egressEntriesToDelete {
-			if deleted, _ := natMap.Delete(key); deleted {
+			if err := natMap.DeleteLocked(key); err == nil {
 				stats.EgressDeleted++
 			}
 		}
 		for _, key := range ingressEntriesToDelete {
-			if deleted, _ := natMap.Delete(key); deleted {
+			if err := natMap.DeleteLocked(key); err == nil {
 				stats.IngressDeleted++
 			}
 		}
