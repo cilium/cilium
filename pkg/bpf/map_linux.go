@@ -1307,6 +1307,16 @@ func (m *Map) Delete(key MapKey) error {
 	return err
 }
 
+// DeleteLocked deletes the map entry for the given key.
+//
+// This method must be called from within a DumpCallback to avoid deadlocks,
+// as it assumes the m.lock is already acquired.
+func (m *Map) DeleteLocked(key MapKey) error {
+	_, err := m.delete(key, false)
+
+	return err
+}
+
 // DeleteAll deletes all entries of a map by traversing the map and deleting individual
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
