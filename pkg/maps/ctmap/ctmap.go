@@ -381,7 +381,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 }
 
 func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
-	err := m.Delete(key)
+	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
 	}
