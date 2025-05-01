@@ -126,6 +126,7 @@ jobs:
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'enabled'
+            identity-management-mode: 'operator'
 
           - name: '2'
             tunnel: 'disabled'
@@ -138,6 +139,7 @@ jobs:
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
+            identity-management-mode: 'operator'
 
           - name: '3'
             tunnel: 'disabled'
@@ -150,6 +152,7 @@ jobs:
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
+            identity-management-mode: 'operator'
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
