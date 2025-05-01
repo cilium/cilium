@@ -1,8 +1,8 @@
-name: 100 Nodes Scale Test (scale-100)
+name: 5 Nodes Scale Test (scale-5)
 
 on:
   schedule:
-    - cron: '39 0 * * 1-5'
+    - cron: '22 5 * * 1-5' # Every weekday at 05:22 AM
 
   workflow_dispatch:
     inputs:
@@ -57,10 +57,12 @@ concurrency:
 env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.3
-  test_name: scale-100
+  # Adding k8s.local to the end makes kops happy-
+  # has stricter DNS naming requirements.
+  test_name: scale-5
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 524.0.0
+  gcloud_version: 520.0.0
 
 jobs:
   echo-inputs:
@@ -150,7 +152,7 @@ jobs:
           done
 
       - name: Install Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -286,7 +288,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: 100
+          node_count: 5
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -312,7 +314,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 40
+        timeout-minutes: 60
         env:
           CL2_ENABLE_PVS: "false"
           CL2_ENABLE_NETWORKPOLICIES: "true"
@@ -326,11 +328,11 @@ jobs:
           ./clusterloader \
             -v=2 \
             --testconfig=./testing/load/config.yaml \
-            --testconfig=./testing/custom/netpol/config.yaml \
+            --testconfig=./testing/custom/lbipam/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=5 \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
@@ -340,12 +342,33 @@ jobs:
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
-      - name: Run common post steps
-        if: ${{ always() }}
-        uses: ./.github/actions/post-logic
+      - name: Features tested
+        uses: ./.github/actions/feature-status
         with:
-          artifacts_suffix: "${{ env.job_name }}"
-          job_status: "${{ job.status }}"
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
+      - name: Get sysdump
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+          sudo chmod +r cilium-sysdump-final.zip
+
+      - name: Upload sysdump
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-sysdump
+          path: cilium-sysdump-final.zip
+          retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: features-tested
+          path: ${{ env.job_name }}*.json
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
