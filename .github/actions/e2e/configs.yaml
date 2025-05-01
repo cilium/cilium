@@ -6,6 +6,7 @@
   tunnel: 'vxlan'
   host-fw: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
+  identity-management-mode: 'operator'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20250507.063028'
@@ -14,6 +15,7 @@
   tunnel: 'disabled'
   host-fw: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
+  identity-management-mode: 'operator'
 - name: '3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20250507.063028'
@@ -22,6 +24,7 @@
   tunnel: 'disabled'
   endpoint-routes: 'true'
   kvstore: 'true'
+  identity-management-mode: 'operator'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20250507.063028'
@@ -34,6 +37,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20250507.063028'
@@ -47,6 +51,7 @@
   egress-gateway: 'true'
   host-fw: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.1-20250507.063028'
@@ -60,6 +65,7 @@
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
   bgp-control-plane: 'true'
+  identity-management-mode: 'operator'
 - name: '7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -75,6 +81,7 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
+  identity-management-mode: 'operator'
 - name: '8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -85,6 +92,7 @@
   misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
+  identity-management-mode: 'operator'
 - name: '9'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20250507.063028'
@@ -99,6 +107,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '10'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20250507.063028'
@@ -112,6 +121,7 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   kvstore: 'true'
+  identity-management-mode: 'operator'
 - name: '11'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.1-20250507.063028'
@@ -128,6 +138,7 @@
   misc: 'socketLB.hostNamespaceOnly=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
+  identity-management-mode: 'operator'
 - name: '12'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -142,6 +153,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '13'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: 'rhel8.6-20250507.063028'
@@ -149,6 +161,7 @@
   kpr: 'false'
   tunnel: 'vxlan'
   misc: 'policyCIDRMatchMode=nodes'
+  identity-management-mode: 'operator'
 - name: '14'
   # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
   # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
@@ -165,6 +178,7 @@
   egress-gateway: 'true'
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '15'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -177,6 +191,7 @@
   ingress-controller: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
   ciliumendpointslice: 'true'
+  identity-management-mode: 'operator'
 - name: '16'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20250507.063028'
@@ -191,6 +206,7 @@
   host-fw: 'true'
   ciliumendpointslice: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '17'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -202,6 +218,7 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '18'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -213,6 +230,7 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '19'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -224,6 +242,7 @@
   secondary-network: 'true'
   ingress-controller: 'true'
   kvstore: 'true'
+  identity-management-mode: 'operator'
 - name: '20'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -234,6 +253,7 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '21'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -244,6 +264,7 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '22'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -254,6 +275,7 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '23'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -266,6 +288,7 @@
   secondary-network: 'true'
   ingress-controller: 'true'
   host-fw: 'true'
+  identity-management-mode: 'operator'
 - name: '24'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -277,6 +300,7 @@
   ciliumendpointslice: 'true'
   endpoint-routes: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '25'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -288,6 +312,7 @@
   ciliumendpointslice: 'true'
   endpoint-routes: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '26'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20250507.063028'
@@ -299,6 +324,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '27'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20250507.063028'
@@ -310,6 +336,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '28'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20250507.063028'
@@ -322,6 +349,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '29'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -333,6 +361,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '30'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -344,6 +373,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '31'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'
@@ -356,6 +386,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  identity-management-mode: 'operator'
 - name: '32'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20250507.063028'
@@ -366,6 +397,7 @@
   tunnel: 'vxlan'
   underlay: 'ipv6'
   skip-upgrade: 'true'
+  identity-management-mode: 'operator'
 - name: '33'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'

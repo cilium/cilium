@@ -193,6 +193,7 @@ jobs:
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
           mutual-auth: false
+          identity-management-mode: ${{ matrix.identity-management-mode }}
           misc: ${{ matrix.misc }}
 
       - name: Set Kind params
