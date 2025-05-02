@@ -645,6 +645,9 @@ type ReleaseAction struct {
 
 	// IPsToRelease is the list of IPs to release
 	IPsToRelease []string
+
+	// IPPrefixes is the list of prefixes to release
+	IPPrefixesToRelease []string
 }
 
 // maintenanceAction represents the resources available for allocation for a
@@ -878,7 +881,15 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			logfields.Releasing, ipsToRelease,
 			logfields.SelectedInterface, a.release.InterfaceID,
 			logfields.SelectedPoolID, a.release.PoolID)
-		scopedLog.Info("Releasing excess IPs from node")
+		// Unassign IPPrefixes instead of IPs
+		if len(a.release.IPPrefixesToRelease) > 0 {
+			err := n.ops.ReleaseIPPrefixes(ctx, a.release)
+			if err != nil {
+				n.logger.Load().Warn("Unable to unassign IP prefixes from interface", logfields.Error, err)
+				return false, err
+			}
+			return false, err
+		}
 		start := time.Now()
 		err := n.ops.ReleaseIPs(ctx, a.release)
 		if err == nil {
