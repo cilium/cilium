@@ -1448,7 +1448,6 @@ var daemonCell = cell.Module(
 	cell.ProvidePrivate(daemonSettings),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
-	endpointBPFrogWatchdogCell,
 )
 
 type daemonParams struct {
@@ -1512,7 +1511,6 @@ type daemonParams struct {
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
-	Orchestrator        datapath.Orchestrator
 	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
 	LBConfig            loadbalancer.Config

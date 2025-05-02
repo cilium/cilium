@@ -138,7 +138,6 @@ type Daemon struct {
 	bwManager datapath.BandwidthManager
 
 	wireguardAgent *wireguard.Agent
-	orchestrator   datapath.Orchestrator
 
 	lrpManager   *redirectpolicy.Manager
 	maglevConfig maglev.Config
@@ -323,7 +322,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
-		orchestrator:      params.Orchestrator,
 		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
