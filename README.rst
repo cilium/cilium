@@ -108,7 +108,7 @@ If you're new to Cilium or want to explore its full capabilities, we recommend v
 * `Architecture and Concepts`_
 * `Installing Cilium`_
 * `Frequently Asked Questions`_
-* `Contributing_
+* Contributing_
 
 Community
 =========
@@ -176,8 +176,8 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#
 .. _`APAC Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#
 .. _`Cilium`: https://cilium.io/
-.. _`cilium.io`_: https://cilium.io/
-.. _`use cases`_: https://cilium.io/#networking
+.. _cilium.io: https://cilium.io/
+.. _use cases: https://cilium.io/#networking
 .. _`case studies`: https://cilium.io/industries/financial-services/
 .. _`production deployments`: https://cilium.io/adopters/
 .. _`interactive labs`: https://cilium.io/labs/categories/getting-started/
