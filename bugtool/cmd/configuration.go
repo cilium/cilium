@@ -403,7 +403,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg bpf egress list",
 		"cilium-dbg bpf vtep list",
 		"cilium-dbg bpf endpoint list",
-		"cilium-dbg bpf ct list global",
+		"cilium-dbg bpf ct list global --time-diff",
 		"cilium-dbg bpf nat list",
 		"cilium-dbg bpf nat retries list",
 		"cilium-dbg bpf ipmasq list",
