@@ -124,6 +124,23 @@ func configMapReflector(name string, namespace string, cs k8sClient.Clientset, t
 				},
 			)
 		},
+		Diff: func(txn statedb.ReadTxn, t statedb.Table[DynamicConfig], o any) []DynamicConfig {
+			// Return the rows in t which are not in the configmap.
+			cm := o.(*v1.ConfigMap).DeepCopy()
+			var keySet = make(map[DynamicConfig]struct{}, len(cm.Data))
+			for k, v := range cm.Data {
+				priority := getPriorityForKey(k, overrides, index, sourceLen)
+				dc := DynamicConfig{Key: Key{Name: k, Source: cm.Name}, Value: v, Priority: priority}
+				keySet[dc] = struct{}{}
+			}
+			var toDelete = make([]DynamicConfig, 0)
+			for obj := range t.All(txn) {
+				if _, ok := keySet[obj]; !ok {
+					toDelete = append(toDelete, obj)
+				}
+			}
+			return toDelete
+		},
 	}
 }
 func ciliumNodeConfigReflector(name string, namespace string, cs k8sClient.Clientset, t statedb.RWTable[DynamicConfig], index int, sourceLen int, overrides resolver.ConfigOverride) k8s.ReflectorConfig[DynamicConfig] {
