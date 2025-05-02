@@ -250,9 +250,3 @@ func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
 	ds.PolicyImporter.UpdatePolicy(upd)
 	<-dc
 }
-
-func TestMemoryMap(t *testing.T) {
-	pid := os.Getpid()
-	m := memoryMap(pid)
-	require.NotEmpty(t, m)
-}
