@@ -63,9 +63,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/resiliency"
-	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
-	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 const (
@@ -132,18 +130,12 @@ type Daemon struct {
 	controllers *controller.Manager
 	jobGroup    job.Group
 
-	// read-only map of all the hive settings
-	settings cellSettings
-
 	bwManager datapath.BandwidthManager
-
-	wireguardAgent *wireguard.Agent
 
 	lrpManager   *redirectpolicy.Manager
 	maglevConfig maglev.Config
 
-	statusCollector status.StatusCollector
-	lbConfig        loadbalancer.Config
+	lbConfig loadbalancer.Config
 }
 
 func (d *Daemon) init() error {
@@ -313,7 +305,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		clustermesh:       params.ClusterMesh,
 		monitorAgent:      params.MonitorAgent,
 		svc:               params.ServiceManager,
-		settings:          params.Settings,
 		bwManager:         params.BandwidthManager,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
@@ -321,12 +312,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
-		wireguardAgent:    params.WGAgent,
 		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
 		ciliumHealth:      params.CiliumHealth,
-		statusCollector:   params.StatusCollector,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
 
-	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -18,8 +17,6 @@ import (
 
 type handlersOut struct {
 	cell.Out
-
-	DaemonGetDebuginfoHandler daemon.GetDebuginfoHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -51,8 +48,5 @@ func wrapAPIHandler[Params any](dp promise.Promise[*Daemon], handler func(d *Dae
 // individual handlers. Since NewDaemon() is side-effectful, we can only get a promise for
 // *Daemon, and thus the handlers will need to Await() for it to be ready.
 func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig) (out handlersOut) {
-	// /debuginfo
-	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
-
 	return
 }
