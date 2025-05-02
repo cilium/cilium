@@ -5,6 +5,7 @@ package watchdog
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -85,20 +86,18 @@ type endpointBPFProgWatchdog struct {
 }
 
 func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchdogParams) error {
-	var (
-		loaded = true
-		err    error
-		eps    = r.endpointManager.GetEndpoints()
-	)
+	eps := r.endpointManager.GetEndpoints()
 	for _, ep := range eps {
 		if ep.GetState() != endpoint.StateReady {
 			continue
 		}
+
 		if ep.IsProperty(endpoint.PropertyWithouteBPFDatapath) {
 			// Skip Endpoints without BPF datapath
 			continue
 		}
-		loaded, err = loader.DeviceHasSKBProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
+
+		loaded, err := loader.DeviceHasSKBProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
 			r.logger.Warn("Unable to assert if endpoint BPF programs need to be reloaded",
 				logfields.Endpoint, ep.HostInterface(),
@@ -107,28 +106,31 @@ func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context, 
 				logfields.Error, err,
 			)
 
-			return err
+			return fmt.Errorf("failed to assert if endpoint BPF programs need to be reloaded: %w", err)
 		}
+
 		// We've detected missing bpf progs for this endpoint.
-		// Break and trigger bpf progs reload.
+		// Trigger bpf progs reload.
 		if !loaded {
-			break
+			return r.reloadBPFPrograms(ctx, len(eps))
 		}
-	}
-	if loaded {
-		return nil
 	}
 
+	return nil
+}
+
+func (r *endpointBPFProgWatchdog) reloadBPFPrograms(ctx context.Context, endpointCount int) error {
 	r.logger.Warn(
 		"Detected unexpected endpoint BPF program removal. "+
 			"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. "+
 			"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
-		logfields.Count, len(eps),
+		logfields.Count, endpointCount,
 	)
 
-	if err = r.orchestrator.Reinitialize(ctx); err != nil {
+	if err := r.orchestrator.Reinitialize(ctx); err != nil {
 		r.logger.Error("Failed to reload Cilium endpoints BPF programs", logfields.Error, err)
+		return fmt.Errorf("failed to reload Cilium endpoints BPF programs: %w", err)
 	}
 
-	return err
+	return nil
 }
