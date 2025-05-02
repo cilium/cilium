@@ -7,7 +7,7 @@
 
 |cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |gateway-api| |codespaces|
 
-Cilium is a networking, observability, and security solution with an eBPF-based
+`Cilium`_ is a networking, observability, and security solution with an eBPF-based
 dataplane. It provides a simple flat Layer 3 network with the ability to span
 multiple clusters in either a native routing or overlay mode. It is L7-protocol
 aware and can enforce network policies on L3-L7 using an identity based security
@@ -173,6 +173,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`eBPF.io`: https://ebpf.io
 .. _`Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#
 .. _`APAC Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#
+.. _`Cilium`: https://cilium.io/
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card
