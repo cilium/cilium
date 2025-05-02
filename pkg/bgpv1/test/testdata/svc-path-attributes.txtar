@@ -31,33 +31,33 @@ gobgp/wait-state fd00::bb:cc:dd:102 ESTABLISHED
 gobgp/peers -o peers.actual
 * cmp gobgp-peers.expected peers.actual
 
-# Validate IPv4 PodCIDR routes
+# Validate IPv4 service routes
 gobgp/routes -o routes.actual ipv4 unicast
 * cmp gobgp-routes-99-ipv4.expected routes.actual
 
-# Validate IPv6 PodCIDR routes
+# Validate IPv6 service routes
 gobgp/routes -o routes.actual ipv6 unicast
 * cmp gobgp-routes-99-ipv6.expected routes.actual
 
 # Configure advertisement with communities ending with 101
 k8s/update bgp-advertisement-101.yaml
 
-# Validate IPv4 PodCIDR routes
+# Validate IPv4 service routes
 gobgp/routes -o routes.actual ipv4 unicast
 * cmp gobgp-routes-101-ipv4.expected routes.actual
 
-# Validate IPv6 PodCIDR routes
+# Validate IPv6 service routes
 gobgp/routes -o routes.actual ipv6 unicast
 * cmp gobgp-routes-101-ipv6.expected routes.actual
 
 # Configure advertisement with overlapping advertisements
 k8s/update bgp-advertisement-overlapping.yaml
 
-# Validate IPv4 PodCIDR routes
+# Validate IPv4 service routes
 gobgp/routes -o routes.actual ipv4 unicast
 * cmp gobgp-routes-overlapping-ipv4.expected routes.actual
 
-# Validate IPv6 PodCIDR routes
+# Validate IPv6 service routes
 gobgp/routes -o routes.actual ipv6 unicast
 * cmp gobgp-routes-overlapping-ipv6.expected routes.actual
 
