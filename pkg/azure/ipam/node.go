@@ -59,6 +59,13 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	return &ipam.ReleaseAction{}
 }
 
+// ReleaseIPPrefixes is a no-op on Azure since Azure ENIs don't
+// support prefix delegation.
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	// nothing to do
+	return nil
+}
+
 // ReleaseIPs performs the IP release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return fmt.Errorf("not implemented")

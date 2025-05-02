@@ -162,6 +162,12 @@ func (n *nodeOperationsMock) releaseIP(ip string) error {
 	return fmt.Errorf("IP %s not found", ip)
 }
 
+func (m *nodeOperationsMock) ReleaseIPPrefixes(ctx context.Context, release *ReleaseAction) error {
+	fmt.Println("Printing release object", release)
+	// no-op stub for tests
+	return nil
+}
+
 func (n *nodeOperationsMock) ReleaseIPs(ctx context.Context, release *ReleaseAction) error {
 	for _, ipToDelete := range release.IPsToRelease {
 		if err := n.releaseIP(ipToDelete); err != nil {

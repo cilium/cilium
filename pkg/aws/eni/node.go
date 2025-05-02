@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"strings"
@@ -153,9 +154,44 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	// addresses available for release
 	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
 		e := n.enis[eniId]
-
-		// IP release for prefixes is not currently supported. Will skip releasing from this ENI
-		if len(e.Prefixes) > 0 {
+		ipPrefixes := e.Prefixes
+		if len(ipPrefixes) > 0 {
+			// Prevents a newly added node's IPPrefix from being unassigned.
+			if len(ipPrefixes) > 1 {
+				usedIPs := n.k8sObj.Status.IPAM.Used
+				unusedIPPrefixes := []string{}
+				matchedIPs := []string{}
+				// Check each prefix to determine if at least one IP is used in IPAM.
+				for _, prefix := range ipPrefixes {
+					_, ipNet, err := net.ParseCIDR(prefix)
+					if err != nil {
+						continue
+					}
+					found := false
+					for ip := range usedIPs {
+						if ipNet.Contains(net.ParseIP(ip)) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						unusedIPPrefixes = append(unusedIPPrefixes, prefix)
+						for _, ipStr := range e.Addresses {
+							ip := net.ParseIP(ipStr)
+							if ip != nil && ipNet.Contains(ip) {
+								matchedIPs = append(matchedIPs, ipStr)
+							}
+						}
+					}
+				}
+				if len(unusedIPPrefixes) > 0 {
+					r.InterfaceID = eniId
+					r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
+					r.IPsToRelease = matchedIPs
+					r.IPPrefixesToRelease = unusedIPPrefixes
+					return r
+				}
+			}
 			continue
 		}
 		scopedLog.Debug(
@@ -205,6 +241,16 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	}
 
 	return r
+}
+
+// ReleaseIPPrefixes performs the ENI IPPrefixes release operation
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	if err := n.manager.api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // ReleaseIPs performs the ENI IP release operation

@@ -7,23 +7,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
-	log              = logging.DefaultLogger.WithField(logfields.LogSubsys, "rate")
 	ErrWaitCancelled = errors.New("request cancelled while waiting for rate limiting slot")
 )
 
@@ -95,6 +93,7 @@ const (
 // parallel API calls to stay as close as possible to an estimated processing
 // time.
 type APILimiter struct {
+	logger *slog.Logger
 	// name is the name of the API call. This field is immutable after
 	// NewAPILimiter()
 	name string
@@ -235,7 +234,7 @@ func (p APILimiterParameters) MergeUserConfig(config string) (APILimiterParamete
 }
 
 // NewAPILimiter returns a new APILimiter based on the parameters and metrics implementation
-func NewAPILimiter(name string, p APILimiterParameters, metrics MetricsObserver) *APILimiter {
+func NewAPILimiter(logger *slog.Logger, name string, p APILimiterParameters, metrics MetricsObserver) *APILimiter {
 	if p.MeanOver == 0 {
 		p.MeanOver = defaultMeanOver
 	}
@@ -257,6 +256,7 @@ func NewAPILimiter(name string, p APILimiterParameters, metrics MetricsObserver)
 	}
 
 	l := &APILimiter{
+		logger:                logger,
 		name:                  name,
 		params:                p,
 		parallelRequests:      p.ParallelRequests,
@@ -272,14 +272,14 @@ func NewAPILimiter(name string, p APILimiterParameters, metrics MetricsObserver)
 }
 
 // NewAPILimiterFromConfig returns a new APILimiter based on user configuration
-func NewAPILimiterFromConfig(name, config string, metrics MetricsObserver) (*APILimiter, error) {
+func NewAPILimiterFromConfig(logger *slog.Logger, name, config string, metrics MetricsObserver) (*APILimiter, error) {
 	p := &APILimiterParameters{}
 
 	if err := p.mergeUserConfig(config); err != nil {
 		return nil, err
 	}
 
-	return NewAPILimiter(name, *p, metrics), nil
+	return NewAPILimiter(logger, name, *p, metrics), nil
 }
 
 func (p *APILimiterParameters) mergeUserConfigKeyValue(key, value string) error {
@@ -475,16 +475,16 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error, code int) {
 
 	totalDuration := time.Since(r.scheduleTime)
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logAPICallName:        l.name,
-		logUUID:               r.uuid,
-		logProcessingDuration: processingDuration,
-		logTotalDuration:      totalDuration,
-		logWaitDurationTotal:  r.waitDuration,
-	})
+	scopedLog := l.logger.With(
+		logAPICallName, l.name,
+		logUUID, r.uuid,
+		logProcessingDuration, processingDuration,
+		logTotalDuration, totalDuration,
+		logWaitDurationTotal, r.waitDuration,
+	)
 
 	if err != nil {
-		scopedLog = scopedLog.WithError(err)
+		scopedLog = scopedLog.With(logfields.Error, err)
 	}
 
 	if l.params.Log {
@@ -637,24 +637,24 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 
 	l.requestsScheduled++
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logAPICallName:      l.name,
-		logUUID:             req.uuid,
-		logParallelRequests: l.parallelRequests,
-	})
+	scopedLog := l.logger.With(
+		logAPICallName, l.name,
+		logUUID, req.uuid,
+		logParallelRequests, l.parallelRequests,
+	)
 
 	if l.params.MaxWaitDuration > 0 {
-		scopedLog = scopedLog.WithField(logMaxWaitDuration, l.params.MaxWaitDuration)
+		scopedLog = scopedLog.With(logMaxWaitDuration, l.params.MaxWaitDuration)
 	}
 
 	if l.params.MinWaitDuration > 0 {
-		scopedLog = scopedLog.WithField(logMinWaitDuration, l.params.MinWaitDuration)
+		scopedLog = scopedLog.With(logMinWaitDuration, l.params.MinWaitDuration)
 	}
 
 	select {
 	case <-ctx.Done():
 		if l.params.Log {
-			scopedLog.Warning("Not processing API request due to cancelled context")
+			scopedLog.Warn("Not processing API request due to cancelled context")
 		}
 		l.mutex.Unlock()
 		req.outcome = outcomeReqCancelled
@@ -665,7 +665,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 
 	skip := l.params.SkipInitial > 0 && l.requestsScheduled <= int64(l.params.SkipInitial)
 	if skip {
-		scopedLog = scopedLog.WithField(logSkipped, skip)
+		scopedLog = scopedLog.With(logSkipped, skip)
 	}
 
 	parallelRequests := l.parallelRequests
@@ -693,7 +693,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		err2 := l.parallelWaitSemaphore.Acquire(waitCtx, w)
 		if err2 != nil {
 			if l.params.Log {
-				scopedLog.WithError(err2).Warning("Not processing API request. Wait duration for maximum parallel requests exceeds maximum")
+				scopedLog.Warn("Not processing API request. Wait duration for maximum parallel requests exceeds maximum", logfields.Error, err2)
 			}
 			req.outcome = outcomeParallelMaxWait
 			err = fmt.Errorf("timed out while waiting to be served with %d parallel requests: %w", parallelRequests, err2)
@@ -708,12 +708,12 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		r = l.limiter.Reserve()
 		limitWaitDuration = r.Delay()
 
-		scopedLog = scopedLog.WithFields(logrus.Fields{
-			logLimit:                  fmt.Sprintf("%.2f/s", l.limiter.Limit()),
-			logBurst:                  l.limiter.Burst(),
-			logWaitDurationLimit:      limitWaitDuration,
-			logMaxWaitDurationLimiter: l.params.MaxWaitDuration - req.waitDuration,
-		})
+		scopedLog = scopedLog.With(
+			logLimit, fmt.Sprintf("%.2f/s", l.limiter.Limit()),
+			logBurst, l.limiter.Burst(),
+			logWaitDurationLimit, limitWaitDuration,
+			logMaxWaitDurationLimiter, l.params.MaxWaitDuration-req.waitDuration,
+		)
 	}
 	l.mutex.Unlock()
 
@@ -723,7 +723,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 
 	if (l.params.MaxWaitDuration > 0 && (limitWaitDuration+req.waitDuration) > l.params.MaxWaitDuration) || limitWaitDuration == rate.InfDuration {
 		if l.params.Log {
-			scopedLog.Warning("Not processing API request. Wait duration exceeds maximum")
+			scopedLog.Warn("Not processing API request. Wait duration exceeds maximum")
 		}
 
 		// The rate limiter should only consider a reservation valid if
@@ -752,7 +752,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		case <-time.After(limitWaitDuration):
 		case <-ctx.Done():
 			if l.params.Log {
-				scopedLog.Warning("Not processing API request due to cancelled context while waiting")
+				scopedLog.Warn("Not processing API request due to cancelled context while waiting")
 			}
 			// The rate limiter should only consider a reservation
 			// valid if the request is actually processed.
@@ -774,7 +774,7 @@ skipRateLimiter:
 	l.currentRequestsInFlight++
 	l.mutex.Unlock()
 
-	scopedLog = scopedLog.WithField(logWaitDurationTotal, req.waitDuration)
+	scopedLog = scopedLog.With(logWaitDurationTotal, req.waitDuration)
 
 	if l.params.Log {
 		scopedLog.Info("API request released by rate limiter")
@@ -852,7 +852,7 @@ type MetricsObserver interface {
 // configurations and the default configuration. Any rate limiter that is
 // configured in the config OR the defaults will be configured and made
 // available via the Limiter(name) and Wait() function.
-func NewAPILimiterSet(config map[string]string, defaults map[string]APILimiterParameters, metrics MetricsObserver) (*APILimiterSet, error) {
+func NewAPILimiterSet(logger *slog.Logger, config map[string]string, defaults map[string]APILimiterParameters, metrics MetricsObserver) (*APILimiterSet, error) {
 	limiters := map[string]*APILimiter{}
 
 	for name, p := range defaults {
@@ -865,12 +865,12 @@ func NewAPILimiterSet(config map[string]string, defaults map[string]APILimiterPa
 			p = combinedParams
 		}
 
-		limiters[name] = NewAPILimiter(name, p, metrics)
+		limiters[name] = NewAPILimiter(logger, name, p, metrics)
 	}
 
 	for name, c := range config {
 		if _, ok := defaults[name]; !ok {
-			l, err := NewAPILimiterFromConfig(name, c, metrics)
+			l, err := NewAPILimiterFromConfig(logger, name, c, metrics)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse rate limiting configuration %s=%s: %w", name, c, err)
 			}
