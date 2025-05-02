@@ -516,7 +516,10 @@ func (n *manager) allocateIdentity(_ []string) {
 		for _, ls := range lbls {
 			_, _, err := n.params.IdentityAllocator.AllocateIdentity(ctx, ls, true, identity.InvalidIdentity)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Selector, sel).Error("Failed to pre-allocate identity for FQDN selector.")
+				n.logger.Error("Failed to pre-allocate identity for FQDN selector",
+					logfields.Error, err,
+					logfields.Selector, sel,
+				)
 			}
 		}
 	}
