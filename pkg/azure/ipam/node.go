@@ -59,6 +59,13 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	return &ipam.ReleaseAction{}
 }
 
+// ReleaseIPPrefixes is a no-op on Azure since Azure ENIs don't
+// support prefix delegation.
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	// nothing to do
+	return nil
+}
+
 // ReleaseIPs performs the IP release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return fmt.Errorf("not implemented")
@@ -223,13 +230,6 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 
 func (n *Node) IsPrefixDelegated() bool {
 	return false
-}
-
-func (n *Node) GetUsedIPWithPrefixes() int {
-	if n.k8sObj == nil {
-		return 0
-	}
-	return len(n.k8sObj.Status.IPAM.Used)
 }
 
 // isAvailableInterface returns whether interface is available and the number of available IPs to allocate in interface
