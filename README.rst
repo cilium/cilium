@@ -101,12 +101,14 @@ corresponding image pull tags and their release notes where applicable:
 Getting Started
 ===============
 
+If you're new to Cilium or want to explore its full capabilities, we recommend visiting `cilium.io`_ for an overview of `use cases`_, `case studies`_, and `production deployments`_. You can also get hands-on experience via `interactive labs`_.
+
 * `Why Cilium?`_
 * `Getting Started`_
 * `Architecture and Concepts`_
 * `Installing Cilium`_
 * `Frequently Asked Questions`_
-* Contributing_
+* `Contributing_
 
 Community
 =========
@@ -174,6 +176,11 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#
 .. _`APAC Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#
 .. _`Cilium`: https://cilium.io/
+.. _`cilium.io`_: https://cilium.io/
+.. _`use cases`_: https://cilium.io/#networking
+.. _`case studies`: https://cilium.io/industries/financial-services/
+.. _`production deployments`: https://cilium.io/adopters/
+.. _`interactive labs`: https://cilium.io/labs/categories/getting-started/
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card
