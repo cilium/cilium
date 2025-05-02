@@ -121,9 +121,6 @@ var (
 		server.Cell,
 		cell.Invoke(configureAPIServer),
 
-		// Cilium API handlers
-		cell.Provide(ciliumAPIHandlers),
-
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
