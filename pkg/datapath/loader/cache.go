@@ -85,6 +85,11 @@ func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguratio
 
 		return err
 	}
+	// Unlock all objects so that race detector doesn't complain about potential
+	// deadlocks.
+	for _, obj := range o.objects {
+		obj.Unlock()
+	}
 
 	o.baseHash = newHash
 	o.objects = make(map[string]*cachedSpec)
