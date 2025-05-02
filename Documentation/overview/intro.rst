@@ -13,15 +13,11 @@ Introduction to Cilium & Hubble
 What is Cilium?
 ===============
 
-Cilium is open source software for transparently securing the network
-connectivity between application services deployed using Linux container
-management platforms like Docker and Kubernetes.
+Cilium began as a container networking project. With the growth of Kubernetes and container orchestration, Cilium became a CNI, providing basic things like configuring container network interfaces and pod to pod connectivity. From the beginning, Cilium based its networking on eBPF rather than iptables or IPVS, betting that eBPF would become the future of cloud native networking.
 
-At the foundation of Cilium is a new Linux kernel technology called eBPF, which
-enables the dynamic insertion of powerful security visibility and control logic
-within Linux itself.  Because eBPF runs inside the Linux kernel, Cilium
-security policies can be applied and updated without any changes to the
-application code or container configuration.
+Cilium’s eBPF based dataplane provides a simple flat Layer 3 network with the ability to span multiple clusters in either a native routing or overlay mode with Cilium Cluster Mesh. It is Layer 7-protocol aware and can enforce network policies on Layer 3 to Layer 7 and with FQDN using an identity based security model that is decoupled from network addressing.
+
+Cilium implements distributed load balancing for traffic between pods and to external services, and is able to fully replace kube-proxy, using efficient hash tables in eBPF. It also supports advanced functionality like integrated ingress and egress gateways, bandwidth management, a stand alone load balancer, and service mesh.
 
 .. admonition:: Video
   :class: attention
@@ -130,10 +126,3 @@ to providing traditional Layer 3 and Layer 4 segmentation.
 
 The use of eBPF enables Cilium to achieve all of this in a way that is highly
 scalable even for large-scale environments.
-
-Functionality Overview
-======================
-
-.. include:: ../../README.rst
-     :start-after: begin-functionality-overview
-     :end-before: end-functionality-overview
