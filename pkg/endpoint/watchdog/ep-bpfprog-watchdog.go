@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package watchdog
 
 import (
 	"context"
@@ -12,7 +12,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -32,36 +35,42 @@ func (c epBPFProgWatchdogConfig) Flags(flags *pflag.FlagSet) {
 type epBPFProgWatchdogParams struct {
 	cell.In
 
-	Config        epBPFProgWatchdogConfig
-	Logger        logrus.FieldLogger
-	Lifecycle     cell.Lifecycle
-	DaemonPromise promise.Promise[*Daemon]
-	Health        cell.Health
+	Config    epBPFProgWatchdogConfig
+	Logger    logrus.FieldLogger
+	Lifecycle cell.Lifecycle
+	Health    cell.Health
+
+	RestorerPromise promise.Promise[endpointstate.Restorer]
+
+	EndpointManager endpointmanager.EndpointManager
+	Orchestrator    datapath.Orchestrator
 }
 
-var (
-	// endpointBPFrogWatchdogCell triggers a job to ensure device tc programs remain loaded.
-	endpointBPFrogWatchdogCell = cell.Module(
-		epBPFProgWatchdog,
-		"Periodically checks that endpoint BPF programs remain loaded",
+// Cell triggers a job to ensure device tc programs remain loaded.
+var Cell = cell.Module(
+	epBPFProgWatchdog,
+	"Periodically checks that endpoint BPF programs remain loaded",
 
-		cell.Config(epBPFProgWatchdogConfigDefault),
-		cell.Invoke(registerEndpointBPFProgWatchdog),
-	)
-
-	epBPFProgWatchdogConfigDefault = epBPFProgWatchdogConfig{
+	cell.Config(epBPFProgWatchdogConfig{
 		EndpointBPFProgWatchdogInterval: 30 * time.Second,
-	}
+	}),
+	cell.Invoke(registerEndpointBPFProgWatchdog),
 )
 
 func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 	if p.Config.EndpointBPFProgWatchdogInterval == 0 {
 		return
 	}
-	var (
-		ctx, cancel = context.WithCancel(context.Background())
-		mgr         = controller.NewManager()
-	)
+
+	watchdog := &endpointBPFProgWatchdog{
+		logger:          p.Logger,
+		endpointManager: p.EndpointManager,
+		orchestrator:    p.Orchestrator,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	mgr := controller.NewManager()
+
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			mgr.UpdateController(
@@ -70,11 +79,11 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 					Group:  controller.NewGroup(epBPFProgWatchdog),
 					Health: p.Health.NewScope(epBPFProgWatchdog),
 					DoFunc: func(ctx context.Context) error {
-						d, err := p.DaemonPromise.Await(ctx)
+						_, err := p.RestorerPromise.Await(ctx)
 						if err != nil {
 							return err
 						}
-						return d.checkEndpointBPFPrograms(ctx, p)
+						return watchdog.checkEndpointBPFPrograms(ctx, p)
 					},
 					RunInterval: p.Config.EndpointBPFProgWatchdogInterval,
 					Context:     ctx,
@@ -92,11 +101,18 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 	)
 }
 
-func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchdogParams) error {
+type endpointBPFProgWatchdog struct {
+	logger logrus.FieldLogger
+
+	endpointManager endpointmanager.EndpointManager
+	orchestrator    datapath.Orchestrator
+}
+
+func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchdogParams) error {
 	var (
 		loaded = true
 		err    error
-		eps    = d.endpointManager.GetEndpoints()
+		eps    = r.endpointManager.GetEndpoints()
 	)
 	for _, ep := range eps {
 		if ep.GetState() != endpoint.StateReady {
@@ -108,7 +124,7 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		}
 		loaded, err = loader.DeviceHasSKBProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
-			log.WithField(logfields.Endpoint, ep.HostInterface()).
+			r.logger.WithField(logfields.Endpoint, ep.HostInterface()).
 				WithField(logfields.EndpointID, ep.ID).
 				WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName()).
 				WithError(err).
@@ -125,15 +141,14 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		return nil
 	}
 
-	log.WithField(logfields.Count, len(eps)).
+	r.logger.WithField(logfields.Count, len(eps)).
 		Warn(
 			"Detected unexpected endpoint BPF program removal. " +
 				"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. " +
 				"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
 		)
-	err = d.orchestrator.Reinitialize(d.ctx)
-	if err != nil {
-		log.WithError(err).Error("Failed to reload Cilium endpoints BPF programs")
+	if err = r.orchestrator.Reinitialize(ctx); err != nil {
+		r.logger.WithError(err).Error("Failed to reload Cilium endpoints BPF programs")
 	}
 
 	return err
