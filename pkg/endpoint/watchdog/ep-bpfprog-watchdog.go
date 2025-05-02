@@ -8,9 +8,9 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -35,10 +35,9 @@ func (c epBPFProgWatchdogConfig) Flags(flags *pflag.FlagSet) {
 type epBPFProgWatchdogParams struct {
 	cell.In
 
-	Config    epBPFProgWatchdogConfig
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
-	Health    cell.Health
+	Config   epBPFProgWatchdogConfig
+	Logger   *slog.Logger
+	JobGroup job.Group
 
 	RestorerPromise promise.Promise[endpointstate.Restorer]
 
@@ -68,37 +67,14 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 		orchestrator:    p.Orchestrator,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	mgr := controller.NewManager()
+	p.JobGroup.Add(job.Timer(epBPFProgWatchdog, func(ctx context.Context) error {
+		_, err := p.RestorerPromise.Await(ctx)
+		if err != nil {
+			return err
+		}
 
-	p.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			mgr.UpdateController(
-				epBPFProgWatchdog,
-				controller.ControllerParams{
-					Group:  controller.NewGroup(epBPFProgWatchdog),
-					Health: p.Health.NewScope(epBPFProgWatchdog),
-					DoFunc: func(ctx context.Context) error {
-						_, err := p.RestorerPromise.Await(ctx)
-						if err != nil {
-							return err
-						}
-						return watchdog.checkEndpointBPFPrograms(ctx, p)
-					},
-					RunInterval: p.Config.EndpointBPFProgWatchdogInterval,
-					Context:     ctx,
-				},
-			)
-
-			return nil
-		},
-		OnStop: func(cell.HookContext) error {
-			cancel()
-			mgr.RemoveAllAndWait()
-			return nil
-		},
-	},
-	)
+		return watchdog.checkEndpointBPFPrograms(ctx, p)
+	}, p.Config.EndpointBPFProgWatchdogInterval))
 }
 
 type endpointBPFProgWatchdog struct {
