@@ -17,7 +17,7 @@ func TestGaugeWithThreshold(t *testing.T) {
 	threshold := 1.0
 	underThreshold := threshold - 0.5
 	overThreshold := threshold + 0.5
-	reg := NewRegistry(RegistryParams{
+	reg := NewAgentRegistry(RegistryParams{
 		Logger:       logger,
 		DaemonConfig: &option.DaemonConfig{},
 	})
