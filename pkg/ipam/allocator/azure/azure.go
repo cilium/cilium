@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
@@ -27,14 +26,14 @@ type AllocatorAzure struct {
 }
 
 // Init in Azure implementation doesn't need to do anything
-func (a *AllocatorAzure) Init(ctx context.Context, logger *slog.Logger) error {
+func (a *AllocatorAzure) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
 	a.rootLogger = logger
 	a.logger = a.rootLogger.With(logfields.LogSubsys, "ipam-allocator-azure")
 	return nil
 }
 
 // Start kicks of the Azure IP allocation
-func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
 
 	var (
 		azMetrics azureAPI.MetricsAPI
@@ -72,8 +71,8 @@ func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNod
 	}
 
 	if operatorOption.Config.EnableMetrics {
-		azMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "azure", operatorMetrics.Registry)
-		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, operatorMetrics.Registry)
+		azMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "azure", reg)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, reg)
 	} else {
 		azMetrics = &apiMetrics.NoOpMetrics{}
 		iMetrics = &ipamMetrics.NoOpMetrics{}
