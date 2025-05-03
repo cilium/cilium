@@ -305,6 +305,43 @@ setting the ``--devices`` agent option accordingly.
    gateway node's network configuration (for example if an IP address is added or deleted). You can force a fresh selection by re-applying the
    Egress Gateway policy.
 
+Selecting multiple gateway nodes
+--------------------------------
+
+It's possible to select multiple gateway nodes in the same policy. In this case, the gateway nodes
+can be configured using the ``egressGateways`` list field. Entries on this list have the exact same
+configuration options as the ``egressGateway`` field:
+
+.. code-block:: yaml
+
+  egressGateways:
+  - nodeSelector:
+      matchLabels:
+        testLabel: testVal1
+  - nodeSelector:
+      matchLabels:
+        testLabel: testVal2
+
+.. note::
+
+    The same restrictions as with the ``egressGateway`` field apply to each item of the
+    ``egressGateways`` list.
+
+.. note::
+
+    When using multiple gateways the source endpoints matched by the policy will still egress traffic
+    through a single gateway, not all of them. The endpoints will be assigned to a gateway based on
+    its CiliumEndpoint's UID. Hence, an endpoint should use the same gateway during its lifetime
+    as long as the gateway nodes matched by the ``nodeSelector`` fields don't change. If a
+    ``nodeSelector`` field is added, removed, or modified, or if a node matching one of the
+    ``nodeSelector`` fields is added or removed, the list of gateways will change and the endpoints
+    will be reassigned.
+
+.. warning::
+
+    As with single-gateway policies, changing the gateway node will break existing egress connections.
+    Please read the following :gh-issue:`39245` which tracks this issue.
+
 Example policy
 --------------
 
