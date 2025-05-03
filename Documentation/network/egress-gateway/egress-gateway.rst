@@ -303,6 +303,40 @@ setting the ``--devices`` agent option accordingly.
    gateway node's network configuration (for example if an IP address is added or deleted). You can force a fresh selection by re-applying the
    Egress Gateway policy.
 
+Selecting multiple gateway nodes
+--------------------------------
+
+It's possible to select multiple gateway nodes in the same policy. In this case, the gateway nodes
+can be configured using the ``egressGateways`` list field. Entries on this list have the exact same
+configuration options as the ``egressGateway`` field:
+
+.. code-block:: yaml
+
+  egressGateway:
+  - nodeSelector:
+      matchLabels:
+        testLabel: testVal1
+  egressGateways:
+  - nodeSelector:
+      matchLabels:
+        testLabel: testVal1
+  - nodeSelector:
+      matchLabels:
+        testLabel: testVal2
+    
+.. note::
+
+    The same restrictions as with the ``egressGateway`` field apply to each item of the
+    ``egressGateways`` list.
+
+.. note::
+
+    When using multiple gateways the source endpoints matched by the policy will still egress traffic
+    through a single gateway, not all of them. The endpoints will be distributed across the gateways
+    in a way that balances the number of endpoints per gateway. The endpoints will be redistributed
+    every time the endpoints or gateways covered by the policy change. This includes when new endpoints
+    or gateway nodes with the labels specified in the policy are added or removed.
+
 Example policy
 --------------
 
