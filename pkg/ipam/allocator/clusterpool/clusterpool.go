@@ -31,7 +31,7 @@ type AllocatorOperator struct {
 }
 
 // Init sets up Cilium allocator based on given options
-func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error {
+func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 	if option.Config.EnableIPv4 {
@@ -66,7 +66,7 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error
 }
 
 // Start kicks of Operator allocation.
-func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater, _ *metrics.Registry) (allocator.NodeEventHandler, error) {
 	a.logger.Info(
 		"Starting ClusterPool IP allocator",
 		logfields.IPv4CIDRs, operatorOption.Config.ClusterPoolIPv4CIDR,
