@@ -17,7 +17,8 @@ import (
 // Cell provides metrics registry and the 'metrics*' shell commands.
 var Cell = cell.Module("metrics", "Metrics",
 	// Provide registry to hive, but also invoke if case no cells decide to use as dependency
-	cell.Provide(NewRegistry),
+	cell.Provide(NewAgentRegistry),
+	Metric(NewLegacyMetrics),
 	cell.Config(defaultRegistryConfig),
 	cell.Config(defaultSamplerConfig),
 	cell.Provide(
@@ -31,7 +32,6 @@ var Cell = cell.Module("metrics", "Metrics",
 // and without pulling in the legacy metrics.
 var AgentCell = cell.Group(
 	Cell,
-	Metric(NewLegacyMetrics),
 	cell.Invoke(
 		func(logger *slog.Logger, reg *Registry) {
 			// Register the agent status and BPF metrics.
@@ -49,6 +49,12 @@ var AgentCell = cell.Group(
 
 		},
 	),
+)
+
+var OperatorCell = cell.Module("operator-metrics", "Operator Metrics",
+	cell.Config(defaultSamplerConfig),
+	cell.Provide(NewRegistry),
+	cell.Provide(metricsCommands, newSampler),
 )
 
 // Metric constructs a new metric cell.
