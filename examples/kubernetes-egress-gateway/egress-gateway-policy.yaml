@@ -34,3 +34,25 @@ spec:
     # b) omit both egressIP and interface.
     # In this case the first IPv4 assigned to the interface with the default
     # route will be used as egressIP
+  egressGateways:
+    # It's possible to specify multiple egress gateways. In this case the source
+    # endpoints will egress traffic through one of the gateways listed below.
+    #
+    # If this field is used the contents of the egressGateway field above will
+    # be ignored.
+    # 
+    # Entries on this list have the exact same configuration options as the
+    # EgressGateway field above.
+  - egressGateway:
+    nodeSelector:
+      matchLabels:
+        egress-node: true
+    egressIP: "192.168.60.100"
+  - nodeSelector:
+      matchLabels:
+        egress-node-2: true
+    egressIP: "192.168.60.101"
+  - nodeSelector:
+      matchLabels:
+        egress-node-3: true
+    egressIP: "192.168.60.102"
