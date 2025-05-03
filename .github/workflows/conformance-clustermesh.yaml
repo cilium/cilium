@@ -285,8 +285,12 @@ jobs:
       - name: Set up job variables for GHA environment
         id: vars
         run: |
+          # GitHub workflows run on non-LTS kernel that is missing an upstream
+          # fix (c43272299488) for IPsec + BPF Host Routing, thus we need to
+          # fallback to legacy host routing if IPsec is enabled.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --helm-set=bpf.hostLegacyRouting=${{ matrix.kube-proxy != 'none' || matrix.encryption == 'ipsec' }} \
             --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
