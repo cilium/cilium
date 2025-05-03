@@ -540,6 +540,7 @@ type params struct {
 	SvcResolver              *dial.ServiceResolver
 	CfgClusterMeshPolicy     cmtypes.PolicyConfig
 	Metrics                  *UnmanagedPodsMetric
+	MetricsRegistry          *metrics.Registry
 	Logger                   *slog.Logger
 	WorkQueueMetricsProvider workqueue.MetricsProvider
 }
@@ -555,6 +556,7 @@ func registerLegacyOnLeader(p params) {
 		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
 		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
 		metrics:                  p.Metrics,
+		metricsRegistry:          p.MetricsRegistry,
 		logger:                   p.Logger,
 	}
 	p.Lifecycle.Append(cell.Hook{
@@ -572,9 +574,9 @@ type legacyOnLeader struct {
 	resources                operatorK8s.Resources
 	cfgClusterMeshPolicy     cmtypes.PolicyConfig
 	metrics                  *UnmanagedPodsMetric
+	metricsRegistry          *metrics.Registry
 	workqueueMetricsProvider workqueue.MetricsProvider
-
-	logger *slog.Logger
+	logger                   *slog.Logger
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -631,7 +633,7 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 			logging.Fatal(legacy.logger, fmt.Sprintf("%s allocator is not supported by this version of %s", ipamMode, binaryName))
 		}
 
-		if err := alloc.Init(legacy.ctx, legacy.logger); err != nil {
+		if err := alloc.Init(legacy.ctx, legacy.logger, legacy.metricsRegistry); err != nil {
 			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to init %s allocator", ipamMode), logfields.Error, err)
 		}
 
@@ -642,7 +644,7 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 				watcherLogger)
 		}
 
-		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
+		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset}, legacy.metricsRegistry)
 		if err != nil {
 			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to start %s allocator", ipamMode), logfields.Error, err)
 		}
