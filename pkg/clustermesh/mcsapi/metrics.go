@@ -11,13 +11,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-func registerMCSAPICollector(logger *slog.Logger, client client.Client) {
-	operatorMetrics.Registry.MustRegister(&mcsAPICollector{
+func registerMCSAPICollector(registry *metrics.Registry, logger *slog.Logger, client client.Client) {
+	registry.MustRegister(&mcsAPICollector{
 		logger: logger,
 		client: client,
 

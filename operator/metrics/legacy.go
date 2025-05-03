@@ -4,29 +4,21 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/cilium/cilium/api/v1/operator/models"
+	"github.com/cilium/cilium/pkg/metrics"
 )
-
-// Registry is the global prometheus registry for cilium-operator metrics.
-var Registry RegisterGatherer
-
-type RegisterGatherer interface {
-	prometheus.Registerer
-	prometheus.Gatherer
-}
 
 // DumpMetrics gets the current Cilium operator metrics and dumps all into a
 // Metrics structure. If metrics cannot be retrieved, returns an error.
-func DumpMetrics() ([]*models.Metric, error) {
+func DumpMetrics(reg *metrics.Registry) ([]*models.Metric, error) {
 	result := []*models.Metric{}
-	if Registry == nil {
+	if reg == nil {
 		return result, nil
 	}
 
-	currentMetrics, err := Registry.Gather()
+	currentMetrics, err := reg.Gather()
 	if err != nil {
 		return result, err
 	}
