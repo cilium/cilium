@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var Cell = cell.Module(
@@ -50,8 +51,9 @@ type mcsAPIParams struct {
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
-	Logger   *slog.Logger
-	JobGroup job.Group
+	Logger          *slog.Logger
+	JobGroup        job.Group
+	MetricsRegistry *metrics.Registry
 }
 
 var requiredGVK = []schema.GroupVersionKind{
@@ -123,7 +125,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 
 	params.Logger.Info("Multi-Cluster Services API support enabled")
 
-	registerMCSAPICollector(params.Logger, params.CtrlRuntimeManager.GetClient())
+	registerMCSAPICollector(params.MetricsRegistry, params.Logger, params.CtrlRuntimeManager.GetClient())
 
 	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: params.Logger}
 	params.ClusterMesh.RegisterClusterServiceExportUpdateHook(remoteClusterServiceSource.onClusterServiceExportEvent)
