@@ -733,6 +733,7 @@ sid
 sig
 skb
 snat
+socknat
 spinlock
 srv
 ssl
