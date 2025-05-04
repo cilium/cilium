@@ -319,6 +319,8 @@ const (
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
+	ClusterNameIllegal = "clusterName.illegal"
+
 	// ClusterID is the ID of the cluster
 	ClusterID = "clusterID"
 

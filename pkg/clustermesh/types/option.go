@@ -22,6 +22,9 @@ const (
 
 	// OptMaxConnectedClusters is the name of the OptMaxConnectedClusters option
 	OptMaxConnectedClusters = "max-connected-clusters"
+
+	// OptEnableDefaultRestrictLocalClusterPolicy is the name of the OptEnableDefaultRestrictLocalClusterPolicy option
+	OptEnableDefaultRestrictLocalClusterPolicy = "enable-default-restrict-local-cluster-policy"
 )
 
 // ClusterInfo groups together the ClusterID and the ClusterName

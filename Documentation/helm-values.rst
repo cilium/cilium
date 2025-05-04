@@ -904,6 +904,10 @@
      - Enable the Clustermesh explicit configuration.
      - bool
      - ``false``
+   * - :spelling:ignore:`clustermesh.enableDefaultRestrictLocalClusterPolicy`
+     - Control whether policy rules assume by default the local cluster if not explicitly selected
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.enableEndpointSliceSynchronization`
      - Enable the synchronization of Kubernetes EndpointSlices corresponding to the remote endpoints of appropriately-annotated global services through ClusterMesh
      - bool

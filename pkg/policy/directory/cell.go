@@ -11,6 +11,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
@@ -33,13 +35,15 @@ type DirectoryWatcherReadStatus interface {
 type PolicyWatcherParams struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Logger    *slog.Logger
-	Importer  policycell.PolicyImporter
+	Lifecycle   cell.Lifecycle
+	Logger      *slog.Logger
+	Importer    policycell.PolicyImporter
+	ClusterInfo cmtypes.ClusterInfo
 }
 
 type Config struct {
-	StaticCNPPath string
+	StaticCNPPath                           string
+	EnableDefaultRestrictLocalClusterPolicy bool
 }
 
 const (
@@ -48,11 +52,16 @@ const (
 )
 
 var defaultConfig = Config{
-	StaticCNPPath: "", // Disabled
+	StaticCNPPath:                           "", // Disabled
+	EnableDefaultRestrictLocalClusterPolicy: defaults.EnableDefaultRestrictLocalClusterPolicy,
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(staticCNPPath, defaultConfig.StaticCNPPath, "Directory path to watch and load static cilium network policy yaml files.")
+	flags.Bool(
+		cmtypes.OptEnableDefaultRestrictLocalClusterPolicy, defaultConfig.EnableDefaultRestrictLocalClusterPolicy,
+		"Control whether policy rules assume by default the local cluster if not explicitly selected",
+	)
 }
 
 func providePolicyWatcher(p PolicyWatcherParams, cfg Config) DirectoryWatcherReadStatus {
@@ -79,10 +88,15 @@ func providePolicyWatcher(p PolicyWatcherParams, cfg Config) DirectoryWatcherRea
 
 // newPolicyWatcher constructs a new policy watcher.
 func newPolicyWatcher(p PolicyWatcherParams, cfg Config) *policyWatcher {
+	clusterName := p.ClusterInfo.Name
+	if !cfg.EnableDefaultRestrictLocalClusterPolicy {
+		clusterName = ""
+	}
 	w := &policyWatcher{
 		log:                p.Logger,
 		policyImporter:     p.Importer,
 		config:             cfg,
+		clusterName:        clusterName,
 		fileNameToCnpCache: make(map[string]*cilium_v2.CiliumNetworkPolicy),
 	}
 	w.synced.Add(1)
