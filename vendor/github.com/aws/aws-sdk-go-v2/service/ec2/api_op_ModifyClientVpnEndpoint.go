@@ -74,7 +74,7 @@ type ModifyClientVpnEndpointInput struct {
 	// Indicates whether the client VPN session is disconnected after the maximum
 	// timeout specified in sessionTimeoutHours is reached. If true , users are
 	// prompted to reconnect client VPN. If false , client VPN attempts to reconnect
-	// automatically. The default value is false .
+	// automatically. The default value is true .
 	DisconnectOnSessionTimeout *bool
 
 	// Information about the DNS servers to be used by Client VPN connections. A

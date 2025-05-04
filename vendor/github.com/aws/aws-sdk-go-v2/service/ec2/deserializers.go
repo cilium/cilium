@@ -99489,6 +99489,19 @@ func awsEc2query_deserializeDocumentIpam(v **types.Ipam, decoder smithyxml.NodeD
 				sv.IpamRegion = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("meteredAccount", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MeteredAccount = types.IpamMeteredAccount(xtv)
+			}
+
 		case strings.EqualFold("operatingRegionSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentIpamOperatingRegionSet(&sv.OperatingRegions, nodeDecoder); err != nil {

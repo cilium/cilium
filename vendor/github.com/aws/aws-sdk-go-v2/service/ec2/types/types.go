@@ -2130,19 +2130,19 @@ type ClientLoginBannerResponseOptions struct {
 	noSmithyDocumentSerde
 }
 
-// Client route enforcement is a feature of the Client VPN service that helps
-// enforce administrator defined routes on devices connected through the VPN. T his
-// feature helps improve your security posture by ensuring that network traffic
-// originating from a connected client is not inadvertently sent outside the VPN
-// tunnel.
+// Client Route Enforcement is a feature of Client VPN that helps enforce
+// administrator defined routes on devices connected through the VPN. This feature
+// helps improve your security posture by ensuring that network traffic originating
+// from a connected client is not inadvertently sent outside the VPN tunnel.
 //
-// Client route enforcement works by monitoring the route table of a connected
+// Client Route Enforcement works by monitoring the route table of a connected
 // device for routing policy changes to the VPN connection. If the feature detects
 // any VPN routing policy modifications, it will automatically force an update to
 // the route table, reverting it back to the expected route configurations.
 type ClientRouteEnforcementOptions struct {
 
-	// Enable or disable the client route enforcement feature.
+	// Enable or disable Client Route Enforcement. The state can either be true
+	// (enabled) or false (disabled). The default is false .
 	//
 	// Valid values: true | false
 	//
@@ -2152,11 +2152,11 @@ type ClientRouteEnforcementOptions struct {
 	noSmithyDocumentSerde
 }
 
-// The current status of client route enforcement. The state will either be true
-// (enabled) or false (disabled).
+// The current status of Client Route Enforcement.
 type ClientRouteEnforcementResponseOptions struct {
 
-	// Status of the client route enforcement feature.
+	// Status of the client route enforcement feature, indicating whether Client Route
+	// Enforcement is true (enabled) or false (disabled).
 	//
 	// Valid values: true | false
 	//
@@ -2342,7 +2342,7 @@ type ClientVpnEndpoint struct {
 	// Indicates whether the client VPN session is disconnected after the maximum
 	// sessionTimeoutHours is reached. If true , users are prompted to reconnect client
 	// VPN. If false , client VPN attempts to reconnect automatically. The default
-	// value is false .
+	// value is true .
 	DisconnectOnSessionTimeout *bool
 
 	// The DNS name to be used by clients when connecting to the Client VPN endpoint.
@@ -5385,10 +5385,10 @@ type FleetEbsBlockDeviceRequest struct {
 	// Encrypted volumes can only be attached to instances that support Amazon EBS
 	// encryption. For more information, see [Supported instance types].
 	//
-	// This parameter is not returned by .
+	// This parameter is not returned by [DescribeImageAttribute].
 	//
-	// For and , whether you can include this parameter, and the allowed values differ
-	// depending on the type of block device mapping you are creating.
+	// For [CreateImage] and [RegisterImage], whether you can include this parameter, and the allowed values
+	// differ depending on the type of block device mapping you are creating.
 	//
 	//   - If you are creating a block device mapping for a new (empty) volume, you
 	//   can include this parameter, and specify either true for an encrypted volume,
@@ -5411,7 +5411,10 @@ type FleetEbsBlockDeviceRequest struct {
 	//   parameter.
 	//
 	// [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
+	// [DescribeImageAttribute]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImageAttribute
+	// [RegisterImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RegisterImage
 	// [Supported instance types]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption-requirements.html#ebs-encryption_supported_instances
+	// [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage
 	Encrypted *bool
 
 	// The number of I/O operations per second (IOPS). For gp3 , io1 , and io2
@@ -8330,6 +8333,8 @@ type InstanceRequirements struct {
 	//
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
+	//   - For instance types with Inference accelerators, specify inference .
+	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
 
@@ -8698,6 +8703,8 @@ type InstanceRequirementsRequest struct {
 	//   - For instance types with FPGA accelerators, specify fpga .
 	//
 	//   - For instance types with GPU accelerators, specify gpu .
+	//
+	//   - For instance types with Inference accelerators, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -9417,6 +9424,21 @@ type Ipam struct {
 
 	// The Amazon Web Services Region of the IPAM.
 	IpamRegion *string
+
+	// A metered account is an Amazon Web Services account that is charged for active
+	// IP addresses managed in IPAM. For more information, see [Enable cost distribution]in the Amazon VPC IPAM
+	// User Guide.
+	//
+	// Possible values:
+	//
+	//   - ipam-owner (default): The Amazon Web Services account which owns the IPAM is
+	//   charged for all active IP addresses managed in IPAM.
+	//
+	//   - resource-owner : The Amazon Web Services account that owns the IP address is
+	//   charged for the active IP address.
+	//
+	// [Enable cost distribution]: https://docs.aws.amazon.com/vpc/latest/ipam/ipam-enable-cost-distro.html
+	MeteredAccount IpamMeteredAccount
 
 	// The operating Regions for an IPAM. Operating Regions are Amazon Web Services
 	// Regions where the IPAM is allowed to manage IP address CIDRs. IPAM only
@@ -14227,10 +14249,15 @@ type PerformanceFactorReference struct {
 	// families.
 	//
 	// If you specify an unsupported instance family as a value for baseline
-	// performance, the API returns an empty response for and an exception for , , ,
-	// and .
+	// performance, the API returns an empty response for [GetInstanceTypesFromInstanceRequirements]and an exception for [CreateFleet], [RequestSpotFleet], [ModifyFleet],
+	// and [ModifySpotFleetRequest].
 	//
+	// [GetInstanceTypesFromInstanceRequirements]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements
+	// [ModifySpotFleetRequest]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySpotFleetRequest
+	// [CreateFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet
 	// [Amazon EC2 instance type naming conventions]: https://docs.aws.amazon.com/ec2/latest/instancetypes/instance-type-names.html
+	// [RequestSpotFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestSpotFleet
+	// [ModifyFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyFleet
 	InstanceFamily *string
 
 	noSmithyDocumentSerde
@@ -14275,10 +14302,15 @@ type PerformanceFactorReferenceRequest struct {
 	// families.
 	//
 	// If you specify an unsupported instance family as a value for baseline
-	// performance, the API returns an empty response for and an exception for , , ,
-	// and .
+	// performance, the API returns an empty response for [GetInstanceTypesFromInstanceRequirements]and an exception for [CreateFleet], [RequestSpotFleet], [ModifyFleet],
+	// and [ModifySpotFleetRequest].
 	//
+	// [GetInstanceTypesFromInstanceRequirements]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements
+	// [ModifySpotFleetRequest]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySpotFleetRequest
+	// [CreateFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet
 	// [Amazon EC2 instance type naming conventions]: https://docs.aws.amazon.com/ec2/latest/instancetypes/instance-type-names.html
+	// [RequestSpotFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestSpotFleet
+	// [ModifyFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyFleet
 	InstanceFamily *string
 
 	noSmithyDocumentSerde
