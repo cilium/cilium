@@ -17,12 +17,7 @@ import (
 // a specific instance type for a period of time.
 //
 // To search for an available Capacity Block offering, you specify a reservation
-// duration and instance count. You must select one of the following options.
-//
-//   - For reservation durations 1-day increments up 14 days and 7-day increments
-//     up to 182 days total
-//
-//   - For instance count 1, 2, 4, 8, 16, 32, or 64 instances
+// duration and instance count.
 func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *DescribeCapacityBlockOfferingsInput, optFns ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeCapacityBlockOfferingsInput{}
@@ -40,7 +35,8 @@ func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *Des
 
 type DescribeCapacityBlockOfferingsInput struct {
 
-	// The number of hours for which to reserve Capacity Block.
+	// The reservation duration for the Capacity Block, in hours. You must specify the
+	// duration in 1-day increments up 14 days, and in 7-day increments up to 182 days.
 	//
 	// This member is required.
 	CapacityDurationHours *int32
@@ -54,7 +50,9 @@ type DescribeCapacityBlockOfferingsInput struct {
 	// The latest end date for the Capacity Block offering.
 	EndDateRange *time.Time
 
-	// The number of instances for which to reserve capacity.
+	// The number of instances for which to reserve capacity. Each Capacity Block can
+	// have up to 64 instances, and you can have up to 256 instances across Capacity
+	// Blocks.
 	InstanceCount *int32
 
 	// The type of instance for which the Capacity Block offering reserves capacity.

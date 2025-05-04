@@ -11,8 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Shuts down the specified instances. This operation is idempotent; if you
-// terminate an instance more than once, each call succeeds.
+// Shuts down the specified instances. This operation is [idempotent]; if you terminate an
+// instance more than once, each call succeeds.
 //
 // If you specify multiple instances and the request fails (for example, because
 // of a single incorrect instance ID), none of the instances are terminated.
@@ -55,17 +55,18 @@ import (
 //
 // You can stop, start, and terminate EBS-backed instances. You can only terminate
 // instance store-backed instances. What happens to an instance differs if you stop
-// it or terminate it. For example, when you stop an instance, the root device and
-// any other devices attached to the instance persist. When you terminate an
-// instance, any attached EBS volumes with the DeleteOnTermination block device
-// mapping parameter set to true are automatically deleted. For more information
-// about the differences between stopping and terminating instances, see [Instance lifecycle]in the
-// Amazon EC2 User Guide.
+// or terminate it. For example, when you stop an instance, the root device and any
+// other devices attached to the instance persist. When you terminate an instance,
+// any attached EBS volumes with the DeleteOnTermination block device mapping
+// parameter set to true are automatically deleted. For more information about the
+// differences between stopping and terminating instances, see [Amazon EC2 instance state changes]in the Amazon EC2
+// User Guide.
 //
-// For more information about troubleshooting, see [Troubleshooting terminating your instance] in the Amazon EC2 User Guide.
+// For information about troubleshooting, see [Troubleshooting terminating your instance] in the Amazon EC2 User Guide.
 //
-// [Instance lifecycle]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
+// [idempotent]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 // [Troubleshooting terminating your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesShuttingDown.html
+// [Amazon EC2 instance state changes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
 func (c *Client) TerminateInstances(ctx context.Context, params *TerminateInstancesInput, optFns ...func(*Options)) (*TerminateInstancesOutput, error) {
 	if params == nil {
 		params = &TerminateInstancesInput{}
