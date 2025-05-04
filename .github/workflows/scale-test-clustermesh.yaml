@@ -58,9 +58,9 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 519.0.0
+  gcloud_version: 520.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: f0bb787b8300176c512debb4ee6c8c98f9da0c94
+  cmapisrv_mock_ref: 0d9c6ef254d0fbe1520e6bfe70cefdff43595db2
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
