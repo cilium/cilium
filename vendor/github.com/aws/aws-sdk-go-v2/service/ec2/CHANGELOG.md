@@ -1,3 +1,7 @@
+# v1.213.0 (2025-04-30)
+
+* **Feature**: Launch of cost distribution feature for IPAM owners to distribute costs to internal teams.
+
 # v1.212.0 (2025-04-22)
 
 * **Feature**: Added support for  ClientRouteEnforcementOptions flag in CreateClientVpnEndpoint and ModifyClientVpnEndpoint requests and DescribeClientVpnEndpoints responses
