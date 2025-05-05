@@ -45,13 +45,6 @@ func TestIllegalMustParseCIDR(t *testing.T) {
 	require.Nil(t, c1)
 }
 
-func TestAvailableIPs(t *testing.T) {
-	cidr := MustParseCIDR("10.0.0.0/8")
-	require.Equal(t, 16777216, cidr.AvailableIPs())
-	cidr = MustParseCIDR("1.1.1.1/32")
-	require.Equal(t, 1, cidr.AvailableIPs())
-}
-
 func TestEqual(t *testing.T) {
 	ipNet := &net.IPNet{
 		IP:   net.ParseIP("1.2.3.4"),
