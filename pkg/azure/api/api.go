@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -24,7 +24,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -335,10 +334,10 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 				if ip.Properties.Subnet != nil {
 					addr.Subnet = *ip.Properties.Subnet.ID
 					if subnet, ok := subnets[addr.Subnet]; ok {
-						if subnet.CIDR != nil {
+						if subnet.CIDR.IsValid() {
 							i.CIDR = subnet.CIDR.String()
 						}
-						if gateway := deriveGatewayIP(subnet.CIDR.IP); gateway != "" {
+						if gateway := deriveGatewayIP(subnet.CIDR.Addr()); gateway != "" {
 							i.GatewayIP = gateway
 							i.Gateway = gateway
 						}
@@ -356,9 +355,8 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 // deriveGatewayIP finds the default gateway for a given Azure subnet.
 // inspired by pkg/ipam/crd.go (as AWS, Azure reserves the first subnet IP for the gw).
 // Ref: https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets
-func deriveGatewayIP(subnetIP net.IP) string {
-	addr := subnetIP.To4()
-	return net.IPv4(addr[0], addr[1], addr[2], addr[3]+1).String()
+func deriveGatewayIP(subnetIP netip.Addr) string {
+	return subnetIP.Next().String()
 }
 
 // GetInstances returns the list of all instances including all attached
@@ -437,24 +435,31 @@ func parseSubnet(subnet *armnetwork.Subnet) (s *ipamTypes.Subnet) {
 	}
 
 	if subnet.Properties.AddressPrefix != nil {
-		c, err := cidr.ParseCIDR(*subnet.Properties.AddressPrefix)
+		cidr, err := netip.ParsePrefix(*subnet.Properties.AddressPrefix)
 		if err != nil {
 			return nil
 		}
-		s.CIDR = c
+		s.CIDR = cidr
 		if subnet.Properties.IPConfigurations != nil {
-			s.AvailableAddresses = c.AvailableIPs() - len(subnet.Properties.IPConfigurations)
+			s.AvailableAddresses = availableIPs(cidr) - len(subnet.Properties.IPConfigurations)
 		} else {
 			// Azure currently returns nil for subnet IPConfigs if the subnet has a large number of existing IPConfigs.
 			// API / SDK is supposed to return a IpConfigurationsNextLink which can be used to make an additional
 			// call to get all IPConfigs. This field however seems to be missing from the API spec.
 			// Since we cannot fall back to other subnets anyway, assume all IPs are available.
 			// TODO: Update this once azure-sdk-for-go supports ipConfigurationsNextLink
-			s.AvailableAddresses = c.AvailableIPs()
+			s.AvailableAddresses = availableIPs(cidr)
 		}
 	}
 
 	return
+}
+
+// availableIPs returns the number of IPs available in a CIDR
+func availableIPs(p netip.Prefix) int {
+	ones := p.Bits()
+	bits := p.Addr().BitLen()
+	return 1 << (bits - ones)
 }
 
 // GetVpcsAndSubnets retrieves and returns all Vpcs
