@@ -211,7 +211,6 @@ func connDisruptTests(ct *check.ConnectivityTest) error {
 // Each test should be run in a separate namespace.
 func concurrentTests(connTests []*check.ConnectivityTest) error {
 	tests := []testBuilder{
-		noUnexpectedPacketDrops{},
 		noPolicies{},
 		noPoliciesFromOutside{},
 		noPoliciesExtra{},
@@ -306,7 +305,10 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 
 // finalTests injects the all connectivity tests that must be run as the last tests sequentially.
 func finalTests(ct *check.ConnectivityTest) error {
-	return injectTests([]testBuilder{checkLogErrors{}}, ct)
+	return injectTests([]testBuilder{
+		noUnexpectedPacketDrops{},
+		checkLogErrors{},
+	}, ct)
 }
 
 func renderTemplates(clusterName string, param check.Parameters) (map[string]string, error) {
