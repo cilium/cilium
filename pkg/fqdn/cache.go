@@ -16,8 +16,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
@@ -1124,21 +1122,13 @@ func (zombies *DNSZombieMappings) NextCTGCUpdate() time.Time {
 func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
 	zombies.Lock()
 	defer zombies.Unlock()
-	return zombies.forceExpireLocked(expireLookupsBefore, nameMatch, nil)
-}
 
-func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *netip.Prefix) (namesAffected []string) {
 	var toDelete []*DNSZombieMapping
 
 	for _, zombie := range zombies.deletes {
 		// Do not expire zombies that were enqueued after expireLookupsBefore, but
 		// only if the value is non-zero
 		if !expireLookupsBefore.IsZero() && zombie.DeletePendingAt.After(expireLookupsBefore) {
-			continue
-		}
-
-		// If cidr is provided, skip zombies with IPs outside the range
-		if cidr != nil && !cidr.Contains(zombie.IP) {
 			continue
 		}
 
@@ -1168,24 +1158,29 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 	return namesAffected
 }
 
-// ForceExpireByNameIP wraps ForceExpire to simplify clearing all IPs from a
-// new DNS lookup.
-// The error return is for errors compiling the internal regexp. This should
-// never happen.
-func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...netip.Addr) error {
-	reStr := matchpattern.ToAnchoredRegexp(name)
-	re, err := re.CompileRegex(reStr)
-	if err != nil {
-		return err
-	}
-
+// ForceExpireByNameIP clears all zombie enties for a given (name, []ip) lookup. Call this
+// when learning a new set of A records.
+func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...netip.Addr) {
 	zombies.Lock()
 	defer zombies.Unlock()
+
 	for _, ip := range ips {
-		cidr := netip.PrefixFrom(ip, ip.BitLen())
-		zombies.forceExpireLocked(expireLookupsBefore, re, &cidr)
+		zombie, ok := zombies.deletes[ip]
+		if !ok {
+			continue
+		}
+
+		if !expireLookupsBefore.IsZero() && zombie.DeletePendingAt.After(expireLookupsBefore) {
+			continue
+		}
+
+		// Remove the specified name (if extant) and, if it was
+		// the last one, delete the entry entirely
+		zombie.Names = slices.DeleteFunc(zombie.Names, func(s string) bool { return s == name })
+		if len(zombie.Names) == 0 {
+			delete(zombies.deletes, ip)
+		}
 	}
-	return nil
 }
 
 // PrefixMatcherFunc is a function passed to (*DNSZombieMappings).DumpAlive,
