@@ -1,7 +1,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../Makefile.defs
+CURR_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
+
+include $(CURR_DIR)/../Makefile.defs
 
 TARGET := cilium-bugtool
 
