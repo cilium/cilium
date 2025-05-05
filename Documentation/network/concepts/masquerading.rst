@@ -31,6 +31,17 @@ Setting the routable CIDR
   10.0.0.0/8`` (or ``ipv6-native-routing-cidr: fd00::/100`` for IPv6 addresses)
   in which case all destinations within that CIDR will **not** be masqueraded.
 
+.. note::
+
+  In the public cloud environment, if you don't configure ``ipv4-native-routing-cidr``, 
+  Cilium will automatically detect the VPC CIDR range as the native routing range. 
+  It then generates rules to skip masquerading for traffic within this range. 
+  This is because pods can receive any IP address within the VPC CIDR. 
+  As a result, if masquerading is enabled, traffic from pods to other 
+  non-cluster resources within the same VPC (e.g., virtual machines) will perform 
+  native routing instead of being masqueraded.
+
+
 Setting the masquerading interface
   See :ref:`masq_modes` for configuring the masquerading interfaces.
 
