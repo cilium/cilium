@@ -184,12 +184,6 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			if err != nil {
 				return fmt.Errorf("decode: %w", err)
 			}
-
-			// Also try decoding using the kubernetes schema instead
-			// of the slim schema so that we get an object that the "kubernetes"
-			// tracker accepts.
-			kobj, _ := testutils.DecodeKubernetesObject(b)
-
 			gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
 			objMeta, err := meta.Accessor(obj)
 			if err != nil {
@@ -212,14 +206,8 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				switch action {
 				case "add":
 					trackerErr = tracker.Add(obj)
-					if trackerErr != nil && kobj != nil {
-						trackerErr = tracker.Add(kobj)
-					}
 				case "update":
 					trackerErr = tracker.Update(gvr, obj, ns)
-					if trackerErr != nil && kobj != nil {
-						trackerErr = tracker.Update(gvr, kobj, ns)
-					}
 				case "delete":
 					trackerErr = tracker.Delete(gvr, ns, name)
 				}
