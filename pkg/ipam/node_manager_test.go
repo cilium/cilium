@@ -163,7 +163,6 @@ func (n *nodeOperationsMock) releaseIP(ip string) error {
 }
 
 func (m *nodeOperationsMock) ReleaseIPPrefixes(ctx context.Context, release *ReleaseAction) error {
-	fmt.Println("Printing release object", release)
 	// no-op stub for tests
 	return nil
 }

@@ -885,7 +885,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 		if len(a.release.IPPrefixesToRelease) > 0 {
 			err := n.ops.ReleaseIPPrefixes(ctx, a.release)
 			if err != nil {
-				n.logger.Load().Warn("Unable to unassign IP prefixes from interface", logfields.Error, err)
+				scopedLog.Warn("Unable to unassign IP prefixes from interface", logfields.Error, err)
 				return false, err
 			}
 			return false, err
