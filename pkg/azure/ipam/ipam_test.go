@@ -6,6 +6,7 @@ package ipam
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -29,13 +29,13 @@ var (
 	testSubnet = &ipamTypes.Subnet{
 		ID:               "subnet-1",
 		VirtualNetworkID: "vpc-1",
-		CIDR:             cidr.MustParseCIDR("1.1.0.0/16"),
+		CIDR:             netip.MustParsePrefix("1.1.0.0/16"),
 	}
 
 	testSubnets = []*ipamTypes.Subnet{
-		{ID: "s-1", CIDR: cidr.MustParseCIDR("1.1.0.0/16"), VirtualNetworkID: "vpc-1"},
-		{ID: "s-2", CIDR: cidr.MustParseCIDR("2.2.0.0/16"), VirtualNetworkID: "vpc-1"},
-		{ID: "s-3", CIDR: cidr.MustParseCIDR("3.3.3.3/16"), VirtualNetworkID: "vpc-1"},
+		{ID: "s-1", CIDR: netip.MustParsePrefix("1.1.0.0/16"), VirtualNetworkID: "vpc-1"},
+		{ID: "s-2", CIDR: netip.MustParsePrefix("2.2.0.0/16"), VirtualNetworkID: "vpc-1"},
+		{ID: "s-3", CIDR: netip.MustParsePrefix("3.3.3.3/16"), VirtualNetworkID: "vpc-1"},
 	}
 
 	testVnet = &ipamTypes.VirtualNetwork{

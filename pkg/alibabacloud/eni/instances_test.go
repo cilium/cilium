@@ -4,18 +4,17 @@
 package eni
 
 import (
-	"net"
+	"net/netip"
 
 	apimock "github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 var (
-	_, subnet0, _ = net.ParseCIDR("1.1.0.0/24")
-	_, subnet1, _ = net.ParseCIDR("1.1.1.0/24")
+	subnet0 = netip.MustParsePrefix("1.1.0.0/24")
+	subnet1 = netip.MustParsePrefix("1.1.1.0/24")
 
 	vpcs = []*ipamTypes.VirtualNetwork{
 		{
@@ -27,7 +26,7 @@ var (
 	subnets = []*ipamTypes.Subnet{
 		{
 			ID:                 "vsw-1",
-			CIDR:               cidr.NewCIDR(subnet0),
+			CIDR:               subnet0,
 			AvailableAddresses: 30,
 			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "cn-hangzhou-i",
@@ -36,7 +35,7 @@ var (
 			},
 		}, {
 			ID:                 "vsw-2",
-			CIDR:               cidr.NewCIDR(subnet1),
+			CIDR:               subnet1,
 			AvailableAddresses: 40,
 			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "cn-hangzhou-h",

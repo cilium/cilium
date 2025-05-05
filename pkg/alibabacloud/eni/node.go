@@ -158,7 +158,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	scopedLog.Info("Created new ENI", fieldENIID, eniID)
 
-	if bestSubnet.CIDR != nil {
+	if bestSubnet.CIDR.IsValid() {
 		eni.VSwitch.CIDRBlock = bestSubnet.CIDR.String()
 	}
 
