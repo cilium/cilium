@@ -72,17 +72,19 @@ func DecodeObject(bytes []byte) (runtime.Object, error) {
 
 func DecodeObjectGVK(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
 	obj, gvk, err := Decoder().Decode(bytes, nil, nil)
-	return obj, gvk, err
+	if err == nil {
+		return obj, gvk, err
+	}
+	return DecodeKubernetesObject(bytes)
 }
 
-func DecodeKubernetesObject(bytes []byte) (runtime.Object, error) {
+func DecodeKubernetesObject(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
 	kubernetesDecoderOnce.Do(func() {
 		scheme := runtime.NewScheme()
 		fake.AddToScheme(scheme)
 		kubernetesDecoder = serializer.NewCodecFactory(scheme).UniversalDeserializer()
 	})
-	obj, _, err := kubernetesDecoder.Decode(bytes, nil, nil)
-	return obj, err
+	return kubernetesDecoder.Decode(bytes, nil, nil)
 }
 
 func DecodeFile(path string) (runtime.Object, error) {
