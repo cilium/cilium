@@ -220,27 +220,27 @@ kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium
 
 .PHONY: build-cli
 build-cli: ## Build cilium cli binary
-	$(QUIET)$(MAKE) -C cilium-dbg GOOS=linux
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/cilium-dbg GOOS=linux
 
 .PHONY: build-agent
 build-agent: ## Build cilium daemon binary
-	$(QUIET)$(MAKE) -C daemon GOOS=linux
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/daemon GOOS=linux
 
 .PHONY: build-operator
 build-operator: ## Build cilium operator binary
-	$(QUIET)$(MAKE) -C operator cilium-operator-generic GOOS=linux
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/operator cilium-operator-generic GOOS=linux
 
 .PHONY: build-clustermesh-apiserver
 build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
-	$(QUIET)$(MAKE) -C clustermesh-apiserver  GOOS=linux
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/clustermesh-apiserver  GOOS=linux
 
 .PHONY: build-hubble-cli
 build-hubble-cli: ## Build hubble cli binary
-	$(QUIET)$(MAKE) -C hubble GOOS=linux
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/hubble GOOS=linux
 
 .PHONY: build-bugtool
 build-bugtool: ## Build bugtool binary
-	$(QUIET)$(MAKE) -C bugtool GOOS=linux
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/bugtool GOOS=linux
 
 .PHONY: kind-image-fast-agent
 kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli build-bugtool ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
@@ -255,19 +255,19 @@ kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli build-b
 			docker exec $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
 			\
 			docker exec $${node_name} rm -f "${dst}/cilium-dbg"; \
-			docker cp "./cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
+			docker cp "$(CILIUM_BUILD_DIR)/cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-dbg"; \
 			\
 			docker exec $${node_name} rm -f "${dst}/cilium-agent"; \
-			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
+			docker cp "$(CILIUM_BUILD_DIR)/daemon/cilium-agent" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-agent"; \
 			\
 			docker exec $${node_name} rm -f "${dst}/hubble"; \
-			docker cp "./hubble/hubble" $${node_name}:"${dst}"; \
+			docker cp "$(CILIUM_BUILD_DIR)/hubble/hubble" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/hubble"; \
 			\
 			docker exec $${node_name} rm -f "${dst}/cilium-bugtool"; \
-			docker cp "./bugtool/cilium-bugtool" $${node_name}:"${dst}"; \
+			docker cp "$(CILIUM_BUILD_DIR)/bugtool/cilium-bugtool" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-bugtool"; \
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
@@ -281,7 +281,7 @@ kind-image-fast-operator: kind-ready build-operator ## Build cilium operator bin
 			docker exec $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec $${node_name} rm -f "${dst}/cilium-operator-generic"; \
-			docker cp "./operator/cilium-operator-generic" $${node_name}:"${dst}"; \
+			docker cp "$(CILIUM_BUILD_DIR)/operator/cilium-operator-generic" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
 		done; \
 	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
@@ -295,7 +295,7 @@ kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ##
 			docker exec $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
-			docker cp "./clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
+			docker cp "$(CILIUM_BUILD_DIR)/clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/clustermesh-apiserver"; \
 		done; \
 	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=clustermesh-apiserver --force; \
