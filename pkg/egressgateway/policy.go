@@ -175,7 +175,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 			gwc.egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gc.iface)
 			if err != nil {
 				gwc.egressIP6 = EgressIPNotFoundIPv6
-				return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
+				return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
 			}
 		}
 	case gc.egressIP.IsValid():
