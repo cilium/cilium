@@ -509,7 +509,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	scopedLog.Info("Created new ENI", fieldEniID, eniID)
 
-	if subnet.CIDR != nil {
+	if subnet.CIDR.IsValid() {
 		eni.Subnet.CIDR = subnet.CIDR.String()
 	}
 

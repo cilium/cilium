@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -21,7 +21,6 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	"github.com/cilium/cilium/pkg/api/helpers"
-	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -138,14 +137,14 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 		}
 
 		for _, v := range resp.VSwitches.VSwitch {
-			_, ipnet, err := net.ParseCIDR(v.CidrBlock)
+			cidr, err := netip.ParsePrefix(v.CidrBlock)
 			if err != nil {
 				return nil, err
 			}
 			result[v.VSwitchId] = &ipamTypes.Subnet{
 				ID:                 v.VSwitchId,
 				Name:               v.VSwitchName,
-				CIDR:               cidr.NewCIDR(ipnet),
+				CIDR:               cidr,
 				AvailabilityZone:   v.ZoneId,
 				VirtualNetworkID:   v.VpcId,
 				AvailableAddresses: int(v.AvailableIpAddressCount),
@@ -658,7 +657,7 @@ func parseENI(iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, 
 	}
 
 	subnet, ok := subnets[iface.VSwitchId]
-	if ok && subnet.CIDR != nil {
+	if ok && subnet.CIDR.IsValid() {
 		eni.VSwitch.CIDRBlock = subnet.CIDR.String()
 	}
 	return iface.InstanceId, eni

@@ -99,12 +99,6 @@ func (in *CIDR) DeepCopyInto(out *CIDR) {
 	}
 }
 
-// AvailableIPs returns the number of IPs available in a CIDR
-func (n *CIDR) AvailableIPs() int {
-	ones, bits := n.Mask.Size()
-	return 1 << (bits - ones)
-}
-
 // Equal returns true if the receiver's CIDR equals the other CIDR.
 func (n *CIDR) Equal(o *CIDR) bool {
 	if n == nil || o == nil {
