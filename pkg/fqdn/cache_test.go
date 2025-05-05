@@ -975,8 +975,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "test.com")
 
 	// Don't expire if the IP doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -984,8 +983,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Expire 1 name for this IP but leave other names
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -993,8 +991,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Don't remove if the name doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -1002,8 +999,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Clear everything
-	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	require.Empty(t, alive)
