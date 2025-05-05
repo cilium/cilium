@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Hubble
 
-include ../Makefile.defs
+CURR_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
+
+include $(CURR_DIR)/../Makefile.defs
 # Add the ability to override variables
 -include Makefile.override
 
@@ -29,7 +31,7 @@ $(TARGET):
 	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) -o $(TARGET_DIR)/$(@)$(EXT) $(SUBDIRS_HUBBLE_CLI)
 
 release:
-	cd ../ && \
+	cd $(CURR_DIR)/../ && \
 	$(CONTAINER_ENGINE) run --rm --workdir /cilium --volume `pwd`:/cilium --user "$(shell id -u):$(shell id -g)" \
 		$(CILIUM_BUILDER_IMAGE) sh -c "$(MAKE) -C $(TARGET) local-release"
 
