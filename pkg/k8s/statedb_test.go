@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -220,11 +221,14 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 	var transformManyFunc k8s.TransformManyFunc[*testObject]
 	if p.doTransformMany {
-		transformManyFunc = func(_ statedb.ReadTxn, a any) (objs []*testObject) {
+		transformManyFunc = func(_ statedb.ReadTxn, deleted bool, a any) (toInsert, toDelete iter.Seq[*testObject]) {
 			transformCalled.Store(true)
 			obj := a.(*testObject).DeepCopy()
 			obj.Transform = "transform-many"
-			return []*testObject{obj}
+			if deleted {
+				return nil, slices.Values([]*testObject{obj})
+			}
+			return slices.Values([]*testObject{obj}), nil
 		}
 	}
 
