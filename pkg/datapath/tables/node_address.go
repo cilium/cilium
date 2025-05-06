@@ -65,10 +65,6 @@ func (n *NodeAddress) DeepEqual(other *NodeAddress) bool {
 		n.DeviceName == other.DeviceName
 }
 
-func (n *NodeAddress) IP() net.IP {
-	return n.Addr.AsSlice()
-}
-
 func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
