@@ -29,8 +29,8 @@ func TestNewConnectivityTests(t *testing.T) {
 				ExternalTargetCANamespace: "",
 			},
 			expectedCount:                     1,
-			expectedTestNamespaces:            []string{"cilium-test-1"},
-			expectedExternalTargetCANamespace: []string{"cilium-test-1"},
+			expectedTestNamespaces:            []string{"cilium-test"},
+			expectedExternalTargetCANamespace: []string{"cilium-test"},
 		},
 		{
 			params: check.Parameters{
@@ -39,7 +39,7 @@ func TestNewConnectivityTests(t *testing.T) {
 				ExternalTargetCANamespace: "cilium-test",
 			},
 			expectedCount:                     1,
-			expectedTestNamespaces:            []string{"cilium-test-1"},
+			expectedTestNamespaces:            []string{"cilium-test"},
 			expectedExternalTargetCANamespace: []string{"cilium-test"},
 		},
 		{
@@ -50,7 +50,7 @@ func TestNewConnectivityTests(t *testing.T) {
 				TestConcurrency:           -1,
 			},
 			expectedCount:                     1,
-			expectedTestNamespaces:            []string{"cilium-test-1"},
+			expectedTestNamespaces:            []string{"cilium-test"},
 			expectedExternalTargetCANamespace: []string{"cilium-test"},
 		},
 		{
