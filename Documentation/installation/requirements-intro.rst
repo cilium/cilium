@@ -4,7 +4,7 @@ Requirements
 Make sure your Kubernetes environment is meeting the requirements:
 
 * Kubernetes >= 1.16
-* Linux kernel >= 5.4 or equivalent
+* Linux kernel >= 5.10 or equivalent
 * Kubernetes in CNI mode
 * Mounted eBPF filesystem mounted on all worker nodes
 * Recommended: Enable PodCIDR allocation (``--allocate-node-cidrs``) in the ``kube-controller-manager`` (recommended)
