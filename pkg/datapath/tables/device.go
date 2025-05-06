@@ -108,9 +108,9 @@ func (d *Device) DeepCopy() *Device {
 	return &copy
 }
 
-func (d *Device) HasIP(ip net.IP) bool {
+func (d *Device) HasIP(ip netip.Addr) bool {
 	for _, addr := range d.Addrs {
-		if addr.AsIP().Equal(ip) {
+		if addr.Addr == ip {
 			return true
 		}
 	}
