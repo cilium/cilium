@@ -14,8 +14,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/test/helpers"
 )
 
 func TestCompareFlowLogConfigs(t *testing.T) {
@@ -356,7 +356,7 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	for _, expected := range expectedConfigs {
 		config, ok := configs[expected.Name].(*FlowLogConfig)
 		assert.True(t, ok, "parsed config should be of type FlowLogConfig")
-		helpers.AssertProtoEqual(t, &expected, config)
+		testutils.AssertProtoEqual(t, &expected, config)
 	}
 }
 
