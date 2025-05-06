@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/pkg/hubble/testutils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -67,7 +67,7 @@ func TestParseFlowFilters(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			helpers.AssertProtoEqual(t, tc.want, got)
+			testutils.AssertProtoEqual(t, tc.want, got)
 		})
 	}
 }
