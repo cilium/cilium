@@ -530,7 +530,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				return fmt.Errorf("IPv6 direct routing device IP not found")
 			}
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip))
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip.AsSlice()))
 			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 	} else {
@@ -964,11 +964,11 @@ func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalN
 	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
 }
 
-func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) net.IP {
-	var ip net.IP
+func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) netip.Addr {
+	var ip netip.Addr
 	for _, addr := range deviceAddresses {
 		if addr.Addr.Is6() {
-			ip = addr.AsIP()
+			ip = addr.Addr
 			if !ip.IsLinkLocalUnicast() {
 				break
 			}
