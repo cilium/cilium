@@ -585,17 +585,6 @@ func NewLabelsFromSortedList(list string) Labels {
 	return NewLabelsFromModel(strings.Split(list, ";"))
 }
 
-// NewSelectLabelArrayFromModel parses a slice of strings and converts them
-// into an array of selecting labels, sorted by the key.
-func NewSelectLabelArrayFromModel(base []string) LabelArray {
-	lbls := make(LabelArray, 0, len(base))
-	for i := range base {
-		lbls = append(lbls, ParseSelectLabel(base[i]))
-	}
-
-	return lbls.Sort()
-}
-
 // NewFrom creates a new Labels from the given labels by creating a copy.
 func NewFrom(l Labels) Labels {
 	nl := make(Labels, len(l))
