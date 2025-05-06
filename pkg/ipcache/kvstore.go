@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"path"
 	"sort"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 
@@ -50,7 +51,7 @@ type backend interface {
 
 // IPIdentitySynchronizer handles the synchronization of ipcache entries into the kvstore.
 type IPIdentitySynchronizer struct {
-	client  backend
+	client  atomic.Value // backend
 	tracker lock.Map[string, []byte]
 }
 
@@ -61,9 +62,7 @@ func NewIPIdentitySynchronizer() *IPIdentitySynchronizer {
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
 func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
 	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
-	if s.client == nil {
-		s.client = kvstore.Client()
-	}
+	s.client.CompareAndSwap(nil, backend(kvstore.Client()))
 
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
@@ -102,7 +101,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 		logfields.Modification: Upsert,
 	}).Debug("Upserting IP->ID mapping to kvstore")
 
-	_, err = s.client.UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
+	_, err = s.client.Load().(backend).UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
 		s.tracker.Store(ipKey, marshaledIPIDPair)
 	}
@@ -113,13 +112,11 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
-	if s.client == nil {
-		s.client = kvstore.Client()
-	}
+	s.client.CompareAndSwap(nil, backend(kvstore.Client()))
 
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	s.tracker.Delete(ipKey)
-	return s.client.Delete(ctx, ipKey)
+	return s.client.Load().(backend).Delete(ctx, ipKey)
 }
 
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
@@ -404,7 +401,7 @@ func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 	key := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	if m, ok := iw.syncer.tracker.Load(key); ok {
 		iw.log.WithField(logfields.IPAddr, ip).Warning("Received kvstore delete notification for alive ipcache entry")
-		_, err := iw.syncer.client.UpdateIfDifferent(context.TODO(), key, m, true)
+		_, err := iw.syncer.client.Load().(backend).UpdateIfDifferent(context.TODO(), key, m, true)
 		if err != nil {
 			iw.log.WithError(err).WithField(logfields.IPAddr, ip).Warning("Unable to re-create alive ipcache entry")
 		}
