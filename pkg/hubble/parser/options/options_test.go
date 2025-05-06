@@ -55,3 +55,20 @@ func TestEnableNetworkPolicyCorrelation(t *testing.T) {
 	assert.True(t, opts.EnableNetworkPolicyCorrelation)
 	assert.Equal(t, want, buf.String())
 }
+
+func TestSkipUnknownCGroupIDs(t *testing.T) {
+	want := "level=info msg=\"configured Hubble to skip events with unknown CGroup IDs\" options=false\n"
+	var buf bytes.Buffer
+	logger := slog.New(
+		slog.NewTextHandler(&buf,
+			&slog.HandlerOptions{
+				ReplaceAttr: logging.ReplaceAttrFnWithoutTimestamp,
+			},
+		),
+	)
+	opt := WithSkipUnknownCGroupIDs(logger, false)
+	opts := Options{SkipUnknownCGroupIDs: true}
+	opt(&opts)
+	assert.False(t, opts.SkipUnknownCGroupIDs)
+	assert.Equal(t, want, buf.String())
+}

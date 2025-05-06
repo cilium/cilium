@@ -48,7 +48,6 @@ func noopParser(t *testing.T) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
-		true,
 	)
 	require.NoError(t, err)
 	return pp
@@ -785,7 +784,6 @@ func Benchmark_TrackNamespaces(b *testing.B) {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
-		true,
 	)
 	if err != nil {
 		b.Fatal(err)

@@ -66,7 +66,14 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 			params.Log,
 			params.Config.EnableNetworkPolicyCorrelation,
 		))
-	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, params.Config.SkipUnknownCGroupIDs, parserOpts...)
+	parserOpts = append(
+		parserOpts,
+		parserOptions.WithSkipUnknownCGroupIDs(
+			params.Log,
+			params.Config.SkipUnknownCGroupIDs,
+		),
+	)
+	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
 }
 
 type payloadParserParams struct {

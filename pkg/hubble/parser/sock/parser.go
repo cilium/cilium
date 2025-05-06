@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -42,8 +43,16 @@ func New(log *slog.Logger,
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
 	cgroupGetter getters.PodMetadataGetter,
-	skipUnknownCGroupIDs bool,
+	opts ...options.Option,
 ) (*Parser, error) {
+	args := &options.Options{
+		SkipUnknownCGroupIDs: true,
+	}
+
+	for _, opt := range opts {
+		opt(args)
+	}
+
 	return &Parser{
 		log:                  log,
 		endpointGetter:       endpointGetter,
@@ -53,7 +62,7 @@ func New(log *slog.Logger,
 		serviceGetter:        serviceGetter,
 		cgroupGetter:         cgroupGetter,
 		epResolver:           common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		skipUnknownCGroupIDs: skipUnknownCGroupIDs,
+		skipUnknownCGroupIDs: args.SkipUnknownCGroupIDs,
 	}, nil
 }
 
