@@ -20,6 +20,7 @@ import (
 var Cell = cell.Module(
 	"ratelimitmap",
 	"eBPF Ratelimit Map",
+	cell.Provide(newRatelimitMap),
 	cell.Invoke(RegisterCollector),
 )
 
@@ -42,26 +43,17 @@ type ratelimitMap struct {
 	*bpf.Map
 }
 
-var (
-	// ratelimitMetrics is the bpf ratelimit metrics map.
-	ratelimitMetrics = ratelimitMetricsMap{bpf.NewMap(
-		MetricsMapName,
-		ebpf.Hash,
-		&MetricsKey{},
-		&MetricsValue{},
-		MaxMetricsEntries,
-		0,
-	)}
-	// ratelimit is the bpf ratelimit map.
-	ratelimit = ratelimitMap{bpf.NewMap(
-		MapName,
-		ebpf.LRUHash,
-		&Key{},
-		&Value{},
-		MaxEntries,
-		0,
-	)}
-)
+// ratelimitMetrics is the bpf ratelimit metrics map.
+var ratelimitMetrics = ratelimitMetricsMap{bpf.NewMap(
+	MetricsMapName,
+	ebpf.Hash,
+	&MetricsKey{},
+	&MetricsValue{},
+	MaxMetricsEntries,
+	0,
+)}
+
+// ratelimit is the bpf ratelimit map.
 
 const (
 	// MetricsMapName for ratelimit metrics map.
@@ -230,9 +222,34 @@ func RegisterCollector(logger *slog.Logger) {
 	}
 }
 
+func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
+	ratelimitMap := &ratelimitMap{bpf.NewMap(
+		MapName,
+		ebpf.LRUHash,
+		&Key{},
+		&Value{},
+		MaxEntries,
+		0,
+	)}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
+			if err := ratelimitMap.OpenOrCreate(); err != nil {
+				return fmt.Errorf("failed to init bpf map: %w", err)
+			}
+			return nil
+		},
+		OnStop: func(context cell.HookContext) error {
+			if err := ratelimitMap.Close(); err != nil {
+				return fmt.Errorf("failed to close bpf map: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return bpf.NewMapOut(ratelimitMap)
+}
+
 func InitMaps() error {
-	if err := ratelimit.OpenOrCreate(); err != nil {
-		return err
-	}
 	return ratelimitMetrics.OpenOrCreate()
 }
