@@ -313,6 +313,7 @@ communicating via the proxy must reconnect to re-establish connections.
   To keep the ``enableIPv4Masquerade`` enabled, explicitly set the value for
   this option to ``true``, or use a value strictly lower than 1.18 for
   ``upgradeCompatibility``.  
+* This Cilium version now requires a v5.10 Linux kernel or newer.
 
 Removed Options
 ~~~~~~~~~~~~~~~

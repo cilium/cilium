@@ -20,7 +20,7 @@ When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
 - Hosts with either AMD64 or AArch64 architecture
-- `Linux kernel`_ >= 5.4 or equivalent (e.g., 4.18 on RHEL 8.6)
+- `Linux kernel`_ >= 5.10 or equivalent (e.g., 4.18 on RHEL 8.6)
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -37,7 +37,7 @@ must be met:
 ======================== ============================== ===================
 Requirement              Minimum Version                In cilium container
 ======================== ============================== ===================
-`Linux kernel`_          >= 5.4 or >= 4.18 on RHEL 8.6  no
+`Linux kernel`_          >= 5.10 or >= 4.18 on RHEL 8.6 no
 Key-Value store (etcd)   >= 3.1.0                       no
 clang+LLVM               >= 18.1                        yes
 ======================== ============================== ===================
@@ -144,7 +144,7 @@ subsystems which integrate with eBPF. Therefore, host systems are required to
 run a recent Linux kernel to run a Cilium agent. More recent kernels may
 provide additional eBPF functionality that Cilium will automatically detect and
 use on agent start. For this version of Cilium, it is recommended to use kernel
-5.4 or later (or equivalent such as 4.18 on RHEL8). For a list of features
+5.10 or later (or equivalent such as 4.18 on RHEL8). For a list of features
 that require newer kernels, see :ref:`advanced_features`.
 
 In order for the eBPF feature to be enabled properly, the following kernel
