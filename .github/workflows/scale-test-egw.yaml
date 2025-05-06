@@ -162,6 +162,7 @@ jobs:
             --set=prometheus.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
             ${{ matrix.test_type == 'egw' && env.EGRESS_GATEWAY_HELM_VALUES || '' }} \
+            --set=enableIPv4Masquerade=true \
             --set=bpf.masquerade=true \
             --set=kubeProxyReplacement=true \
             --set=l7Proxy=false \
