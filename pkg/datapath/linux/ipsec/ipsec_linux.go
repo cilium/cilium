@@ -655,8 +655,8 @@ func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
 func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	val := decryptBit | (uint32(nodeID) << 16)
 	return &netlink.XfrmMark{
-		Value: val,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
+		Value: val | 0x42,
+		Mask:  linux_defaults.IPsecMarkMaskIn, // 0xffff0f00
 	}
 }
 
@@ -676,6 +676,7 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
+	policy.Mark.Value |= 0x42
 	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
 	return netlink.XfrmPolicyUpdate(policy)
 }
