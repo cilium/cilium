@@ -9,14 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -315,7 +313,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 	testCases := []struct {
 		name    string
 		devices []tables.DeviceAddress
-		want    net.IP
+		want    netip.Addr
 	}{
 		{
 			name: "link_local_only",
@@ -324,7 +322,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
 				},
 			},
-			want: net.ParseIP("fe80::4001:aff:fe35:a805"),
+			want: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
 		},
 		{
 			name: "global_only",
@@ -333,7 +331,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 		{
 			name: "local_first",
@@ -345,7 +343,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 		{
 			name: "global_first",
@@ -357,7 +355,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 		{
 			name: "select_first_global",
@@ -369,14 +367,13 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:3::"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := preferredIPv6Address(tc.devices)
-			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("preferredIPv6Address() mismatch (-want +got):\n%s", diff)
+			if got := preferredIPv6Address(tc.devices); got != tc.want {
+				t.Errorf("preferredIPv6Address() mismatch, got %s want %s", got, tc.want)
 			}
 		})
 	}
