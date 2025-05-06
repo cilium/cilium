@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -153,10 +152,6 @@ func (d *Daemon) initMaps() error {
 
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return fmt.Errorf("initializing metrics map: %w", err)
-	}
-
-	if err := ratelimitmap.InitMaps(); err != nil {
-		return fmt.Errorf("initializing ratelimit maps: %w", err)
 	}
 
 	// Tunnel map is no longer used, not even in tunnel routing mode.
