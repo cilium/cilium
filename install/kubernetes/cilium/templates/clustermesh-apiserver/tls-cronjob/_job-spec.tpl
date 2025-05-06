@@ -9,10 +9,18 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: certgen
           image: {{ include "cilium.image" .Values.certgen.image | quote }}
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            allowPrivilegeEscalation: false
           {{- with .Values.certgen.resources }}
           resources:
           {{- toYaml . | nindent 10 }}
@@ -84,7 +92,7 @@ spec:
           volumeMounts:
           {{- toYaml . | nindent 10 }}
           {{- end }}
-      hostNetwork: true
+      hostNetwork: false
       {{- with .Values.certgen.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
