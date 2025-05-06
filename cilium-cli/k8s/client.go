@@ -228,8 +228,8 @@ func (c *Client) GetService(ctx context.Context, namespace, name string, opts me
 	return c.Clientset.CoreV1().Services(namespace).Get(ctx, name, opts)
 }
 
-func (c *Client) GetEndpoints(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Endpoints, error) {
-	return c.Clientset.CoreV1().Endpoints(namespace).Get(ctx, name, opts)
+func (c *Client) GetEndpointSlice(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*discoveryv1.EndpointSlice, error) {
+	return c.Clientset.DiscoveryV1().EndpointSlices(namespace).Get(ctx, name, opts)
 }
 
 func (c *Client) CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error) {
