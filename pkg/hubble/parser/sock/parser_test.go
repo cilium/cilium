@@ -21,6 +21,7 @@ import (
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -399,7 +400,8 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 
-	p, err := New(hivetest.Logger(t), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
+	logger := hivetest.Logger(t)
+	p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, options.WithSkipUnknownCGroupIDs(logger, false))
 	assert.NoError(t, err)
 
 	for _, tc := range tt {
