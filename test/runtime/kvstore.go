@@ -26,7 +26,6 @@ var _ = Describe("RuntimeAgentKVStoreTest", func() {
 	containers := func(option string) {
 		switch option {
 		case helpers.Create:
-			vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 			res := vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 			res.ExpectSuccess("failed to create client container")
 		case helpers.Delete:

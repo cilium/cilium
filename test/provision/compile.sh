@@ -151,9 +151,4 @@ else
     # Add group explicitly to avoid the case where the group was not added yet
     getent group cilium >/dev/null || sudo groupadd -r cilium
     sudo adduser ${VMUSER} cilium
-
-    # Download all images needed for runtime tests.
-    if [ -z "${SKIP_TEST_IMAGE_DOWNLOAD}" ]; then
-	./test/provision/container-images.sh test_images test/helpers
-    fi
 fi

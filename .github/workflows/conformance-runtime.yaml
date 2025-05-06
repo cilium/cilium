@@ -335,13 +335,13 @@ jobs:
             cp -r /host/test/provision /tmp
             git config --global --add safe.directory /host
             export CILIUM_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
-            export CILIUM_DOCKER_PLUGIN_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docker-plugin-ci:${{ steps.vars.outputs.sha }}
             export PROVISION_EXTERNAL_WORKLOAD=false
             export VMUSER=root
+            echo '127.0.0.1 kind-6.12' >> /etc/hosts
             echo '127.0.0.1 localhost' >> /etc/hosts
             echo '::1 localhost' >> /etc/hosts
             /tmp/provision/runtime_install.sh ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
-            service docker restart
+            service containerd restart
 
       - name: Runtime tests
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}

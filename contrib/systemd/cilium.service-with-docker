@@ -1,10 +1,10 @@
 [Unit]
 Description=cilium
 Documentation=http://docs.cilium.io
-Requires=docker.service
+Requires=containerd.service
 
 [Service]
-Type=oneshot
+Type=simple
 RemainAfterExit=yes
 TimeoutStartSec=0
 LimitCORE=infinity

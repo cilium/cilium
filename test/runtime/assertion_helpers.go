@@ -25,11 +25,7 @@ func ExpectCiliumReady(vm *helpers.SSHMeta) {
 	err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "Cilium-agent cannot be started")
 
-	vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-	res := vm.NetworkGet(helpers.CiliumDockerNetwork)
-	ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Cilium docker network is not created")
-
-	res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+	res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 	ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Cannot set policy enforcement default")
 }
 
