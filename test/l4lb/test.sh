@@ -77,13 +77,17 @@ docker exec -t lb-node \
 
 IFIDX=$(docker exec -i lb-node \
     /bin/sh -c 'echo $(( $(ip -o l show eth0 | awk "{print $1}" | cut -d: -f1) ))')
-LB_VETH_HOST=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
-ip l set dev $LB_VETH_HOST xdp obj bpf_xdp_veth_host.o
+LB_VETH_HOSTS=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
+for veth in $LB_VETH_HOSTS; do
+    ip l set dev $veth xdp obj bpf_xdp_veth_host.o
+done
 ip l set dev l4lb-veth0 xdp obj bpf_xdp_veth_host.o
 
 # Disable TX and RX csum offloading, as veth does not support it. Otherwise,
 # the forwarded packets by the LB to the worker node will have invalid csums.
-ethtool -K $LB_VETH_HOST rx off tx off
+for veth in $LB_VETH_HOSTS; do
+    ethtool -K $veth rx off tx off
+done
 ethtool -K l4lb-veth0 rx off tx off
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
