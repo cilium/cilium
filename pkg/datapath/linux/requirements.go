@@ -60,6 +60,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_skb_adjust_room with BPF_ADJ_ROOM_MAC mode (Linux 5.2 or newer)")
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {
+			return errors.New("Require support for bpf_csum_level() (Linux 5.8.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectNeigh) != nil {
 			return errors.New("Require support for bpf_redirect_neigh() (Linux 5.10.0 or newer)")
 		}

@@ -1120,11 +1120,7 @@ struct lb6_src_range_key {
 
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {
-#ifdef HAVE_CSUM_LEVEL
 	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
-#else
-	return 0;
-#endif
 }
 
 struct lpm_v4_key {

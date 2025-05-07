@@ -692,7 +692,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
-		{ebpf.SchedCLS, asm.FnCsumLevel},
 
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
@@ -724,9 +723,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 
 // writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
-	featuresSkb := map[string]bool{
-		"HAVE_CSUM_LEVEL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
-	}
+	featuresSkb := map[string]bool{}
 
 	return writeFeatureHeader(writer, featuresSkb, false)
 }
