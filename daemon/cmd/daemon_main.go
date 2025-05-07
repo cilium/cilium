@@ -1827,16 +1827,11 @@ func initClockSourceOption() {
 	}
 
 	if option.Config.EnableBPFClockProbe {
-		if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.XDP, asm.FnJiffies64) == nil {
-			t, err := probes.Jiffies()
-			if err == nil && t > 0 {
-				option.Config.ClockSource = option.ClockSourceJiffies
-			} else {
-				log.WithError(err).Warningf("Auto-disabling %q feature since kernel doesn't expose jiffies", option.EnableBPFClockProbe)
-				option.Config.EnableBPFClockProbe = false
-			}
+		t, err := probes.Jiffies()
+		if err == nil && t > 0 {
+			option.Config.ClockSource = option.ClockSourceJiffies
 		} else {
-			log.WithError(err).Warningf("Auto-disabling %q feature since kernel support is missing (Linux 5.5 or later required).", option.EnableBPFClockProbe)
+			log.WithError(err).Warningf("Auto-disabling %q feature since kernel doesn't expose jiffies", option.EnableBPFClockProbe)
 			option.Config.EnableBPFClockProbe = false
 		}
 	}
