@@ -4,13 +4,17 @@
 package timeafter
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"strings"
 
+	"golang.org/x/mod/semver"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
+
+	"github.com/cilium/linters/analysisutil"
 )
 
 const (
@@ -44,9 +48,28 @@ func (v visitor) Visit(node ast.Node) ast.Visitor {
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
+	if !analysisutil.ImportsPackage(pass.Pkg, "time") {
+		return nil, nil // doesn't directly import time package
+	}
+
 	inspct, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	if !ok {
-		return nil, fmt.Errorf("analyzer is not type *inspector.Inspector")
+		return nil, errors.New("analyzer is not type *inspector.Inspector")
+	}
+
+	var goVersion string
+	if pass.Module != nil {
+		goVersion = pass.Module.GoVersion
+		if !strings.HasPrefix(goVersion, "v") {
+			goVersion = "v" + goVersion
+		}
+	}
+	if semver.Compare(goVersion, "v1.23.0") >= 0 {
+		// Go version ≥ 1.23 no longer has the issue of not collecting unstopped Timers and
+		// time.After can safely be used in loops. Also see
+		// https://go.dev/doc/go1.23#timer-changes and
+		// https://cs.opensource.google/go/go/+/refs/tags/go1.23.2:src/time/sleep.go;l=196-201
+		return nil, nil
 	}
 
 	ignoreMap := make(map[string]struct{})

@@ -4,6 +4,7 @@
 package ioreadall
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
+
+	"github.com/cilium/linters/analysisutil"
 )
 
 const (
@@ -36,9 +39,13 @@ func init() {
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
+	if !analysisutil.ImportsPackage(pass.Pkg, "io") {
+		return nil, nil // doesn't directly import io package
+	}
+
 	inspct, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	if !ok {
-		return nil, fmt.Errorf("analyzer is not type *inspector.Inspector")
+		return nil, errors.New("analyzer is not type *inspector.Inspector")
 	}
 
 	ignoreMap := make(map[string]struct{})
