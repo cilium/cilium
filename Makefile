@@ -16,10 +16,6 @@ SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount 
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
 
-ifdef LIBNETWORK_PLUGIN
-SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
-endif
-
 # Add the ability to override variables
 -include Makefile.override
 
@@ -359,13 +355,6 @@ check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterro
 vps: ## List all the running vagrant VMs.
 	VBoxManage list runningvms
 
-reload: ## Reload cilium-agent and cilium-docker systemd service after installing built binaries.
-	sudo systemctl stop cilium cilium-docker
-	sudo $(MAKE) install
-	sudo systemctl start cilium cilium-docker
-	sleep 6
-	cilium status
-
 release: ## Perform a Git release for Cilium.
 	@echo "Visit https://github.com/cilium/release/issues/new/choose to initiate the release process."
 
@@ -506,7 +495,6 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-cilium-image","Build cilium-agent docker image")
 	$(call print_help_line,"dev-docker-image","Build cilium-agent development docker image")
 	$(call print_help_line,"dev-docker-image-debug","Build cilium-agent development docker debug image")
-	$(call print_help_line,"docker-plugin-image","Build cilium-docker plugin image")
 	$(call print_help_line,"docker-hubble-relay-image","Build hubble-relay docker image")
 	$(call print_help_line,"docker-clustermesh-apiserver-image","Build docker image for Cilium clustermesh APIServer")
 	$(call print_help_line,"docker-operator-image","Build cilium-operator docker image")

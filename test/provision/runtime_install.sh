@@ -3,10 +3,6 @@ set -e
 
 CILIUM_EXTRA_OPTS=${@}
 
-if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then
-    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_LOGIN}" --password-stdin
-fi
-
 HOST=$(hostname)
 PROVISIONSRC="/tmp/provision"
 
@@ -29,8 +25,17 @@ rm /run/systemd/resolve/stub-resolv.conf || true
 echo "nameserver 1.1.1.1" > /etc/resolv.conf
 cat /etc/resolv.conf
 
-# Restarting docker to use correct nameserver
-service docker restart
+# Ensure default config file exists
+sudo apt-get update
+sudo apt-get install containerd -y
+sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+
+# Set bin_dir and conf_dir for the CNI plugin
+sudo sed -i 's|^#* *\(bin_dir = \).*|\1"/opt/cni/bin"|' /etc/containerd/config.toml
+sudo sed -i 's|^#* *\(conf_dir = \).*|\1"/etc/cni/net.d"|' /etc/containerd/config.toml
+
+sudo mkdir -p /etc/cni/net.d
 
 "${PROVISIONSRC}"/compile.sh ${CILIUM_EXTRA_OPTS}
-"${PROVISIONSRC}"/wait-cilium-in-docker.sh
+sudo systemctl restart containerd.service

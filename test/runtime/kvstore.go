@@ -26,7 +26,6 @@ var _ = Describe("RuntimeAgentKVStoreTest", func() {
 	containers := func(option string) {
 		switch option {
 		case helpers.Create:
-			vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 			res := vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 			res.ExpectSuccess("failed to create client container")
 		case helpers.Delete:
@@ -65,11 +64,6 @@ var _ = Describe("RuntimeAgentKVStoreTest", func() {
 			By("Starting Cilium with etcd as kvstore")
 			err := vm.SetUpCiliumWithOptions("--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
 			Expect(err).Should(BeNil(), "Cilium failed to start")
-
-			By("Restarting cilium-docker service")
-			vm.Exec("sudo systemctl restart cilium-docker")
-			Expect(vm.WaitDockerPluginReady()).Should(BeTrue(), "Docker plugin is not ready after timeout")
-			ExpectCiliumReady(vm)
 
 			containers(helpers.Create)
 

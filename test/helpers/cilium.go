@@ -653,8 +653,7 @@ func (s *SSHMeta) DumpCiliumCommandOutput() {
 // to the directory testResultsPath
 func (s *SSHMeta) GatherLogs() {
 	ciliumLogCommands := map[string]string{
-		fmt.Sprintf("sudo journalctl -au %s --no-pager", DaemonName):             "cilium.log",
-		fmt.Sprintf("sudo journalctl -au %s --no-pager", CiliumDockerDaemonName): "cilium-docker.log",
+		fmt.Sprintf("sudo journalctl -au %s --no-pager", DaemonName): "cilium.log",
 	}
 
 	testPath, err := CreateReportDirectory()

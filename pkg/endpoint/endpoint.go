@@ -191,16 +191,6 @@ type Endpoint struct {
 	// this on endpoint creation.
 	containerID atomic.Pointer[string]
 
-	// dockerNetworkID is the network ID of the libnetwork network if the
-	// endpoint is a docker managed container which uses libnetwork
-	// Constant after endpoint creation / restoration.
-	dockerNetworkID string
-
-	// dockerEndpointID is the Docker network endpoint ID if managed by
-	// libnetwork.
-	// immutable.
-	dockerEndpointID string
-
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
 	ifName string

@@ -105,11 +105,6 @@ func (e *Endpoint) GetShortContainerID() string {
 
 }
 
-func (e *Endpoint) GetDockerEndpointID() string {
-	// const after creation
-	return e.dockerEndpointID
-}
-
 // Identifiers fetches the set of attributes that uniquely identify the endpoint.
 func (e *Endpoint) Identifiers() id.Identifiers {
 	refs := make(id.Identifiers, 8)
@@ -119,10 +114,6 @@ func (e *Endpoint) Identifiers() id.Identifiers {
 
 	if !e.disableLegacyIdentifiers && e.GetContainerID() != "" {
 		refs[id.ContainerIdPrefix] = e.GetContainerID()
-	}
-
-	if e.dockerEndpointID != "" {
-		refs[id.DockerEndpointPrefix] = e.dockerEndpointID
 	}
 
 	if e.IPv4.IsValid() {

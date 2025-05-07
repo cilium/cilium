@@ -118,14 +118,6 @@ then
     # Download all images needed for k8s tests.
     ./test/provision/container-images.sh test_images test/k8s
 else
-    echo "Installing docker-plugin..."
-    if [[ "${CILIUM_DOCKER_PLUGIN_IMAGE}" == "" ]]; then
-      make -C plugins/cilium-docker
-      sudo make -C plugins/cilium-docker install
-    else
-      ${PROVISIONSRC}/docker-run-cilium-docker-plugin.sh
-    fi
-
     if [[ "${CILIUM_IMAGE}" == "" ]]; then
 	export CILIUM_IMAGE=cilium/cilium:latest
 	echo "Building Cilium..."
@@ -159,9 +151,4 @@ else
     # Add group explicitly to avoid the case where the group was not added yet
     getent group cilium >/dev/null || sudo groupadd -r cilium
     sudo adduser ${VMUSER} cilium
-
-    # Download all images needed for runtime tests.
-    if [ -z "${SKIP_TEST_IMAGE_DOWNLOAD}" ]; then
-	./test/provision/container-images.sh test_images test/helpers
-    fi
 fi

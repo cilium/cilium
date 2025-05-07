@@ -11,37 +11,36 @@ func FromStatusCode(err error, statusCode int) error {
 	}
 	switch statusCode {
 	case http.StatusNotFound:
-		return NotFound(err)
+		err = NotFound(err)
 	case http.StatusBadRequest:
-		return InvalidParameter(err)
+		err = InvalidParameter(err)
 	case http.StatusConflict:
-		return Conflict(err)
+		err = Conflict(err)
 	case http.StatusUnauthorized:
-		return Unauthorized(err)
+		err = Unauthorized(err)
 	case http.StatusServiceUnavailable:
-		return Unavailable(err)
+		err = Unavailable(err)
 	case http.StatusForbidden:
-		return Forbidden(err)
+		err = Forbidden(err)
 	case http.StatusNotModified:
-		return NotModified(err)
+		err = NotModified(err)
 	case http.StatusNotImplemented:
-		return NotImplemented(err)
+		err = NotImplemented(err)
 	case http.StatusInternalServerError:
-		if IsCancelled(err) || IsSystem(err) || IsUnknown(err) || IsDataLoss(err) || IsDeadline(err) {
-			return err
+		if !IsSystem(err) && !IsUnknown(err) && !IsDataLoss(err) && !IsDeadline(err) && !IsCancelled(err) {
+			err = System(err)
 		}
-		return System(err)
 	default:
 		switch {
 		case statusCode >= 200 && statusCode < 400:
 			// it's a client error
-			return err
 		case statusCode >= 400 && statusCode < 500:
-			return InvalidParameter(err)
+			err = InvalidParameter(err)
 		case statusCode >= 500 && statusCode < 600:
-			return System(err)
+			err = System(err)
 		default:
-			return Unknown(err)
+			err = Unknown(err)
 		}
 	}
+	return err
 }

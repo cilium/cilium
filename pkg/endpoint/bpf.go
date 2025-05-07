@@ -121,10 +121,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
-	if cid := e.GetContainerID(); cid == "" {
-		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.dockerNetworkID)
-		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.dockerEndpointID)
-	} else {
+	if cid := e.GetContainerID(); cid != "" {
 		fmt.Fprintf(fw, " * Container ID: %s\n", cid)
 		fmt.Fprintf(fw, " * Container Interface: %s\n", e.containerIfName)
 	}

@@ -8,23 +8,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/containerd/log"
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/go-connections/tlsconfig"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // HostCertsDir returns the config directory for a specific host.
-//
-// Deprecated: this function was only used internally, and will be removed in a future release.
 func HostCertsDir(hostname string) string {
-	return hostCertsDir(hostname)
-}
-
-// hostCertsDir returns the config directory for a specific host.
-func hostCertsDir(hostname string) string {
 	return filepath.Join(CertsDir(), cleanPath(hostname))
 }
 
@@ -32,10 +25,11 @@ func hostCertsDir(hostname string) string {
 func newTLSConfig(hostname string, isSecure bool) (*tls.Config, error) {
 	// PreferredServerCipherSuites should have no effect
 	tlsConfig := tlsconfig.ServerDefault()
+
 	tlsConfig.InsecureSkipVerify = !isSecure
 
-	if isSecure {
-		hostDir := hostCertsDir(hostname)
+	if isSecure && CertsDir() != "" {
+		hostDir := HostCertsDir(hostname)
 		log.G(context.TODO()).Debugf("hostDir: %s", hostDir)
 		if err := ReadCertsDirectory(tlsConfig, hostDir); err != nil {
 			return nil, err
@@ -64,8 +58,7 @@ func ReadCertsDirectory(tlsConfig *tls.Config, directory string) error {
 	}
 
 	for _, f := range fs {
-		switch filepath.Ext(f.Name()) {
-		case ".crt":
+		if strings.HasSuffix(f.Name(), ".crt") {
 			if tlsConfig.RootCAs == nil {
 				systemPool, err := tlsconfig.SystemCertPool()
 				if err != nil {
@@ -73,17 +66,17 @@ func ReadCertsDirectory(tlsConfig *tls.Config, directory string) error {
 				}
 				tlsConfig.RootCAs = systemPool
 			}
-			fileName := filepath.Join(directory, f.Name())
-			log.G(context.TODO()).Debugf("crt: %s", fileName)
-			data, err := os.ReadFile(fileName)
+			log.G(context.TODO()).Debugf("crt: %s", filepath.Join(directory, f.Name()))
+			data, err := os.ReadFile(filepath.Join(directory, f.Name()))
 			if err != nil {
 				return err
 			}
 			tlsConfig.RootCAs.AppendCertsFromPEM(data)
-		case ".cert":
+		}
+		if strings.HasSuffix(f.Name(), ".cert") {
 			certName := f.Name()
 			keyName := certName[:len(certName)-5] + ".key"
-			log.G(context.TODO()).Debugf("cert: %s", filepath.Join(directory, certName))
+			log.G(context.TODO()).Debugf("cert: %s", filepath.Join(directory, f.Name()))
 			if !hasFile(fs, keyName) {
 				return invalidParamf("missing key %s for client certificate %s. CA certificates must use the extension .crt", keyName, certName)
 			}
@@ -92,10 +85,11 @@ func ReadCertsDirectory(tlsConfig *tls.Config, directory string) error {
 				return err
 			}
 			tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
-		case ".key":
+		}
+		if strings.HasSuffix(f.Name(), ".key") {
 			keyName := f.Name()
 			certName := keyName[:len(keyName)-4] + ".cert"
-			log.G(context.TODO()).Debugf("key: %s", filepath.Join(directory, keyName))
+			log.G(context.TODO()).Debugf("key: %s", filepath.Join(directory, f.Name()))
 			if !hasFile(fs, certName) {
 				return invalidParamf("missing client certificate %s for key %s", certName, keyName)
 			}
@@ -121,7 +115,7 @@ func Headers(userAgent string, metaHeaders http.Header) []transport.RequestModif
 
 // newTransport returns a new HTTP transport. If tlsConfig is nil, it uses the
 // default TLS configuration.
-func newTransport(tlsConfig *tls.Config) http.RoundTripper {
+func newTransport(tlsConfig *tls.Config) *http.Transport {
 	if tlsConfig == nil {
 		tlsConfig = tlsconfig.ServerDefault()
 	}
@@ -131,14 +125,12 @@ func newTransport(tlsConfig *tls.Config) http.RoundTripper {
 		KeepAlive: 30 * time.Second,
 	}
 
-	return otelhttp.NewTransport(
-		&http.Transport{
-			Proxy:               http.ProxyFromEnvironment,
-			DialContext:         direct.DialContext,
-			TLSHandshakeTimeout: 10 * time.Second,
-			TLSClientConfig:     tlsConfig,
-			// TODO(dmcgowan): Call close idle connections when complete and use keep alive
-			DisableKeepAlives: true,
-		},
-	)
+	return &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         direct.DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     tlsConfig,
+		// TODO(dmcgowan): Call close idle connections when complete and use keep alive
+		DisableKeepAlives: true,
+	}
 }
