@@ -214,6 +214,7 @@ jobs:
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
+          identity-management-mode: ${{ matrix.identity-management-mode }}
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -241,6 +242,7 @@ jobs:
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
+          identity-management-mode: ${{ matrix.identity-management-mode }}
 
       - name: Set Kind params
         id: kind-params
