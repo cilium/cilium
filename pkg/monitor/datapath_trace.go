@@ -195,9 +195,13 @@ func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 }
 
 func (n *TraceNotify) encryptReasonString() string {
-	if n.IsEncrypted() {
-		return "encrypted "
+	switch {
+	case n.IsIPSec():
+		return "encrypted ipsec esp"
+	case n.IsWireguard():
+		return "encrypted wireguard"
 	}
+
 	return ""
 }
 

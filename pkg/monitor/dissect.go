@@ -172,10 +172,6 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 		case layers.LayerTypeSCTP:
 			c.Proto = "sctp"
 			c.SrcPort, c.DstPort = uint16(cache.sctp.SrcPort), uint16(cache.sctp.DstPort)
-		case layers.LayerTypeIPSecAH:
-			c.Proto = "IPsecAH"
-		case layers.LayerTypeIPSecESP:
-			c.Proto = "IPsecESP"
 		case layers.LayerTypeICMPv4:
 			c.Proto = "icmp"
 			c.IcmpCode = cache.icmp4.TypeCode.String()
@@ -216,10 +212,6 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 		case layers.LayerTypeSCTP:
 			c.Encap.Proto = "sctp"
 			c.Encap.SrcPort, c.Encap.DstPort = uint16(cache.encap.sctp.SrcPort), uint16(cache.encap.sctp.DstPort)
-		case layers.LayerTypeIPSecAH:
-			c.Encap.Proto = "IPsecAH"
-		case layers.LayerTypeIPSecESP:
-			c.Encap.Proto = "IPsecESP"
 		case layers.LayerTypeICMPv4:
 			c.Encap.Proto = "icmp"
 			c.Encap.IcmpCode = cache.encap.icmp6.TypeCode.String()
@@ -292,8 +284,6 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 		switch {
 		case c.Encap.Proto == "icmp":
 			str += fmt.Sprintf("%s -> %s %s %s", c.Encap.SrcIP, c.Encap.DstIP, c.Encap.Proto, c.Encap.IcmpCode)
-		case c.Encap.Proto == "esp":
-			str += c.Encap.Proto
 		case c.Encap.Proto != "":
 			str += fmt.Sprintf("%s -> %s %s",
 				net.JoinHostPort(c.Encap.SrcIP.String(), strconv.Itoa(int(c.Encap.SrcPort))),
@@ -319,8 +309,6 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	switch {
 	case c.Proto == "icmp":
 		str += fmt.Sprintf("%s -> %s %s %s", c.SrcIP, c.DstIP, c.Proto, c.IcmpCode)
-	case c.Proto == "esp":
-		str += c.Proto
 	case c.Proto != "":
 		s := fmt.Sprintf("%s -> %s %s",
 			net.JoinHostPort(c.SrcIP.String(), strconv.Itoa(int(c.SrcPort))),
