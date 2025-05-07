@@ -79,18 +79,12 @@ static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 {
-#ifdef HAVE_NETNS_COOKIE
 	__net_cookie own_cookie = get_netns_cookie(ctx);
 
 	if (cookie)
 		*cookie = own_cookie;
 	return own_cookie == HOST_NETNS_COOKIE ||
 	       task_in_extended_hostns();
-#else
-	if (cookie)
-		*cookie = 0;
-	return true;
-#endif
 }
 
 static __always_inline __maybe_unused
@@ -317,7 +311,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		/* TC level eBPF datapath does not handle node local traffic,
 		 * but we need to redirect for L7 LB also in that case.
 		 */
-		if (is_defined(HAVE_NETNS_COOKIE) && in_hostns) {
+		if (in_hostns) {
 			/* Use the L7 LB proxy port as a backend. Normally this
 			 * would cause policy enforcement to be done before the
 			 * L7 LB (which should not be done), but in this case
@@ -1005,16 +999,16 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
 	if (lb6_svc_is_localredirect(svc) &&
 	    lb6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx), orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE*/
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */
 	if (lb6_svc_is_l7_loadbalancer(svc)) {
-		if (is_defined(HAVE_NETNS_COOKIE) && in_hostns) {
+		if (in_hostns) {
 			union v6addr loopback = { .addr[15] = 1, };
 
 			l7backend.address = loopback;

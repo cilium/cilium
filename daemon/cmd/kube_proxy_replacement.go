@@ -243,8 +243,7 @@ func probeKubeProxyReplacementOptions(lbConfig loadbalancer.Config, sysctl sysct
 		probes.HaveIPv6Support()
 
 		if option.Config.EnableMKE {
-			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
-				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil {
 				log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 			}
 		}
@@ -278,25 +277,6 @@ func probeKubeProxyReplacementOptions(lbConfig loadbalancer.Config, sysctl sysct
 			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
 				option.Config.EnableSocketLBTracing = false
 				log.Info("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
-			}
-		}
-
-		if option.Config.EnableSessionAffinity {
-			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
-				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
-					"to work properly when accessed from inside cluster: the same service endpoint " +
-					"will be selected from all network namespaces on the host.")
-			}
-		}
-
-		if option.Config.BPFSocketLBHostnsOnly {
-			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				option.Config.BPFSocketLBHostnsOnly = false
-				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
-					"cannot distinguish root and non-root namespace, skipping socket-level " +
-					"loadbalancing will not work. Istio routing chains will be missed. " +
-					"Needs kernel version >= 5.7")
 			}
 		}
 	} else {
