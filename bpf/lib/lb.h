@@ -675,41 +675,43 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 }
 
 static __always_inline
-struct lb6_service *lb6_lookup_service(struct lb6_key *key,
-				       const bool scope_switch)
+struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
 	struct lb6_service *svc;
-	__u8 orig_proto = key->proto;
 
-	key->scope = LB_LOOKUP_SCOPE_EXT;
-	key->backend_slot = 0;
 	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 
 #if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != 0) {
-		key->proto = 0;
+	if (!svc && key->proto != IPPROTO_ANY) {
+		key->proto = IPPROTO_ANY;
 		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 	}
 #endif
-
-	if (svc) {
-		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
-			return svc;
-		key->scope = LB_LOOKUP_SCOPE_INT;
-		key->proto = orig_proto;
-		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
-		/* Also check for ANY protocol for internal scope lookups */
-		if (!svc && key->proto != 0) {
-			key->proto = 0;
-			svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-		}
-#endif
-	}
 
 	return svc;
+}
+
+static __always_inline
+struct lb6_service *lb6_lookup_service(struct lb6_key *key,
+				       const bool scope_switch)
+{
+	__u8 orig_proto = key->proto;
+	struct lb6_service *svc;
+
+	key->backend_slot = 0;
+
+	key->scope = LB_LOOKUP_SCOPE_EXT;
+	svc = __lb6_lookup_service(key);
+	if (!svc)
+		return NULL;
+
+	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
+		return svc;
+
+	key->proto = orig_proto;
+	key->scope = LB_LOOKUP_SCOPE_INT;
+	return __lb6_lookup_service(key);
 }
 
 static __always_inline struct lb6_backend *__lb6_lookup_backend(__u32 backend_id)
@@ -1408,41 +1410,43 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 }
 
 static __always_inline
-struct lb4_service *lb4_lookup_service(struct lb4_key *key,
-				       const bool scope_switch)
+struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
 	struct lb4_service *svc;
-	__u8 orig_proto = key->proto;
 
-	key->scope = LB_LOOKUP_SCOPE_EXT;
-	key->backend_slot = 0;
 	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 
 #if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != 0) {
-		key->proto = 0;
+	if (!svc && key->proto != IPPROTO_ANY) {
+		key->proto = IPPROTO_ANY;
 		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 	}
 #endif
-
-	if (svc) {
-		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
-			return svc;
-		key->scope = LB_LOOKUP_SCOPE_INT;
-		key->proto = orig_proto;
-		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
-		/* Also check for ANY protocol for internal scope lookups */
-		if (!svc && key->proto != 0) {
-			key->proto = 0;
-			svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-		}
-#endif
-	}
 
 	return svc;
+}
+
+static __always_inline
+struct lb4_service *lb4_lookup_service(struct lb4_key *key,
+				       const bool scope_switch)
+{
+	__u8 orig_proto = key->proto;
+	struct lb4_service *svc;
+
+	key->backend_slot = 0;
+
+	key->scope = LB_LOOKUP_SCOPE_EXT;
+	svc = __lb4_lookup_service(key);
+	if (!svc)
+		return NULL;
+
+	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
+		return svc;
+
+	key->proto = orig_proto;
+	key->scope = LB_LOOKUP_SCOPE_INT;
+	return __lb4_lookup_service(key);
 }
 
 static __always_inline struct lb4_backend *__lb4_lookup_backend(__u32 backend_id)
