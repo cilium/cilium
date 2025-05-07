@@ -5,7 +5,7 @@ package option
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -252,11 +252,11 @@ func TestLocalAddressExclusion(t *testing.T) {
 	err := d.parseExcludedLocalAddresses([]string{"1.1.1.1/32", "3.3.3.0/24", "f00d::1/128"})
 	require.NoError(t, err)
 
-	require.True(t, d.IsExcludedLocalAddress(net.ParseIP("1.1.1.1")))
-	require.False(t, d.IsExcludedLocalAddress(net.ParseIP("1.1.1.2")))
-	require.True(t, d.IsExcludedLocalAddress(net.ParseIP("3.3.3.1")))
-	require.True(t, d.IsExcludedLocalAddress(net.ParseIP("f00d::1")))
-	require.False(t, d.IsExcludedLocalAddress(net.ParseIP("f00d::2")))
+	require.True(t, d.IsExcludedLocalAddress(netip.MustParseAddr("1.1.1.1")))
+	require.False(t, d.IsExcludedLocalAddress(netip.MustParseAddr("1.1.1.2")))
+	require.True(t, d.IsExcludedLocalAddress(netip.MustParseAddr("3.3.3.1")))
+	require.True(t, d.IsExcludedLocalAddress(netip.MustParseAddr("f00d::1")))
+	require.False(t, d.IsExcludedLocalAddress(netip.MustParseAddr("f00d::2")))
 }
 
 func TestCheckMapSizeLimits(t *testing.T) {

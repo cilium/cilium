@@ -143,14 +143,13 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 		if addr.DeviceName == tables.WildcardDeviceName {
 			continue
 		}
-		ip := addr.Addr.AsSlice()
 		if (!option.Config.EnableIPv4 && addr.Addr.Is4()) || (!option.Config.EnableIPv6 && addr.Addr.Is6()) {
 			continue
 		}
-		if option.Config.IsExcludedLocalAddress(ip) {
+		if option.Config.IsExcludedLocalAddress(addr.Addr) {
 			continue
 		}
-		addIdentity(ip, nil, identity.ReservedIdentityHost, labels.LabelHost)
+		addIdentity(addr.Addr.AsSlice(), nil, identity.ReservedIdentityHost, labels.LabelHost)
 	}
 
 	if option.Config.EnableIPv6 {
