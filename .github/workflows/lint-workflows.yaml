@@ -214,12 +214,12 @@ jobs:
           for FILE in *.yaml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.name == null) | "  " + .key' $FILE)
             STEPS=$(yq '.jobs | to_entries | .[] as $job | $job.value.steps[] | {"key": $job.key, "name": .name} | select(.name == null) | "  "+.key' $FILE)
-            if [ "${JOBS}" != "" ];then
+            if [[ ${JOBS} =~ [^[:space:]] ]];then
               echo Jobs are missing name field, in file $FILE
               echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
               EXIT=1
             fi
-            if [ "${STEPS}" != "" ];then
+            if [[ ${STEPS} =~ [^[:space:]] ]];then
               echo Steps are missing name field, under these Jobs in file $FILE
               echo "${STEPS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
               EXIT=1
@@ -274,7 +274,7 @@ jobs:
           cd src/github.com/cilium/cilium/.github/workflows
           for FILE in *.yaml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.runs-on == "ubuntu-latest") | "  " + .key' $FILE)
-            if [ "${JOBS}" != "" ];then
+            if [[ ${JOBS} =~ [^[:space:]] ]];then
               echo Jobs are using floating runner tag 'ubuntu-latest', in file $FILE
               echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
               EXIT=1
