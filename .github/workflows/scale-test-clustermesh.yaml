@@ -221,16 +221,21 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+          debug: false
+
       - name: Install Cilium
         id: install-cilium
         run: |
           # * Increase the node BPF map size to account for the total number of nodes.
           # * Disable health checking, as mocked nodes are unreachable.
           cilium install \
-            --chart-directory=untrusted/install/kubernetes/cilium \
-            --set image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.SHA }} \
-            --set operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.SHA }} \
-            --set clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${{ steps.vars.outputs.SHA }} \
+            ${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --set ipam.mode=kubernetes \
             --set kubeProxyReplacement=true \
             --set k8sServiceHost=api.internal.${{ steps.vars.outputs.CLUSTER_NAME }} \
