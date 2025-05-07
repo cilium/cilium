@@ -1886,7 +1886,7 @@ type DaemonConfig struct {
 
 	// ExcludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
-	ExcludeLocalAddresses []*net.IPNet
+	ExcludeLocalAddresses []netip.Prefix
 
 	// IPv4PodSubnets available subnets to be assign IPv4 addresses to pods from
 	IPv4PodSubnets []*net.IPNet
@@ -2206,13 +2206,12 @@ var (
 
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
-func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
-	for _, ipnet := range c.ExcludeLocalAddresses {
-		if ipnet.Contains(ip) {
+func (c *DaemonConfig) IsExcludedLocalAddress(addr netip.Addr) bool {
+	for _, prefix := range c.ExcludeLocalAddresses {
+		if prefix.Contains(addr) {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -2679,14 +2678,12 @@ func ReplaceDeprecatedFields(m map[string]any) {
 
 func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 	for _, ipString := range s {
-		_, ipnet, err := net.ParseCIDR(ipString)
+		prefix, err := netip.ParsePrefix(ipString)
 		if err != nil {
 			return fmt.Errorf("unable to parse excluded local address %s: %w", ipString, err)
 		}
-
-		c.ExcludeLocalAddresses = append(c.ExcludeLocalAddresses, ipnet)
+		c.ExcludeLocalAddresses = append(c.ExcludeLocalAddresses, prefix)
 	}
-
 	return nil
 }
 
