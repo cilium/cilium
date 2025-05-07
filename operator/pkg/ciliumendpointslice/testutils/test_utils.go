@@ -9,6 +9,14 @@ import (
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
+var (
+	NodeIPs = map[string]string{
+		"node1": "10.0.0.0",
+		"node2": "10.0.0.1",
+		"node3": "10.0.0.2",
+	}
+)
+
 func CreateManagerEndpoint(name string, identity int64) capi_v2a1.CoreCiliumEndpoint {
 	return capi_v2a1.CoreCiliumEndpoint{
 		Name:       name,

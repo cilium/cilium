@@ -6,7 +6,6 @@ package ciliumidentity
 import (
 	"context"
 	"fmt"
-	"maps"
 	"reflect"
 	"testing"
 	"time"
@@ -19,15 +18,14 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/operator/k8s"
+	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
-	idbackend "github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -96,63 +94,6 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 	return reconciler, queueOps, fakeClient, cleanupFunc
 }
 
-func testCreateCIDObj(id string, lbs map[string]string) *capi_v2.CiliumIdentity {
-	secLbs := make(map[string]string)
-	maps.Copy(secLbs, lbs)
-
-	k := key.GetCIDKeyFromLabels(secLbs, labels.LabelSourceK8s)
-	secLbs = k.GetAsMap()
-	selectedLabels := idbackend.SelectK8sLabels(secLbs)
-
-	return &capi_v2.CiliumIdentity{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   id,
-			Labels: selectedLabels,
-		},
-		SecurityLabels: secLbs,
-	}
-}
-
-func testCreateCIDObjNs(id string, pod *slim_corev1.Pod, namespace *slim_corev1.Namespace) *capi_v2.CiliumIdentity {
-	lbs := k8sUtils.SanitizePodLabels(pod.ObjectMeta.Labels, namespace, "", "")
-	secLbs := key.GetCIDKeyFromLabels(lbs, labels.LabelSourceK8s).GetAsMap()
-	selectedLabels := idbackend.SelectK8sLabels(secLbs)
-
-	return &capi_v2.CiliumIdentity{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   id,
-			Labels: selectedLabels,
-		},
-		SecurityLabels: secLbs,
-	}
-}
-
-func testCreatePodObj(name, namespace string, lbs, annotations map[string]string) *slim_corev1.Pod {
-	return &slim_corev1.Pod{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Labels:      lbs,
-			Annotations: annotations,
-		},
-	}
-}
-
-func testCreateNSObj(name string, lbs map[string]string) *slim_corev1.Namespace {
-	if lbs == nil {
-		lbs = make(map[string]string)
-	}
-
-	lbs["kubernetes.io/metadata.name"] = name
-
-	return &slim_corev1.Namespace{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:   name,
-			Labels: lbs,
-		},
-	}
-}
-
 func testVerifyCIDUsageInPods(t *testing.T, usage *CIDUsageInPods, expectedCIDs, expectedPods int) {
 	if expectedCIDs != len(usage.cidUsageCount) {
 		t.Errorf("Unexpected number of unique CIDs. Expected: %d, Got: %d", expectedCIDs, len(usage.cidUsageCount))
@@ -189,7 +130,7 @@ func TestReconcileCID(t *testing.T) {
 		{
 			name:              "default",
 			cidKey:            cidResourceKey(cidName),
-			initialStoreState: testCreateCIDObj(cidName, testLbsA),
+			initialStoreState: cidtest.NewCID(cidName, testLbsA),
 			usedInPods:        false,
 			expectedQueueSize: 0, // TODO queue size should be 1 if OP deletes CID
 		},
@@ -198,22 +139,22 @@ func TestReconcileCID(t *testing.T) {
 			cidKey:         cidResourceKey(cidName),
 			desiredState:   testLbsA,
 			usedInPods:     true,
-			expectedCreate: testCreateCIDObj(cidName, testLbsA), // CID is created
+			expectedCreate: cidtest.NewCID(cidName, testLbsA), // CID is created
 		},
 		{
 			name:              "cid_in_desired_and_store",
 			cidKey:            cidResourceKey(cidName),
-			initialStoreState: testCreateCIDObj(cidName, testLbsA),
+			initialStoreState: cidtest.NewCID(cidName, testLbsA),
 			desiredState:      testLbsA,
 			usedInPods:        true,
 		},
 		{
 			name:              "cid_store_different_labels_than_desired",
 			cidKey:            cidResourceKey(cidName),
-			initialStoreState: testCreateCIDObj(cidName, testLbsB),
+			initialStoreState: cidtest.NewCID(cidName, testLbsB),
 			desiredState:      testLbsA,
 			usedInPods:        true,
-			expectedUpdate:    testCreateCIDObj(cidName, testLbsA),
+			expectedUpdate:    cidtest.NewCID(cidName, testLbsA),
 		},
 		{
 			name:   "cid_not_in_store",
@@ -222,13 +163,13 @@ func TestReconcileCID(t *testing.T) {
 		{
 			name:              "cid_used_in_pods_no_desired",
 			cidKey:            cidResourceKey(cidName),
-			initialStoreState: testCreateCIDObj(cidName, testLbsA),
+			initialStoreState: cidtest.NewCID(cidName, testLbsA),
 			usedInPods:        true,
 		},
 		{
 			name:              "cid_in_store_not_used",
 			cidKey:            cidResourceKey(cidName),
-			initialStoreState: testCreateCIDObj(cidName, testLbsA),
+			initialStoreState: cidtest.NewCID(cidName, testLbsA),
 			usedInPods:        false,
 			desiredState:      testLbsA,
 			expectedQueueSize: 0, // TODO queue size should be 1 if OP deletes CID
@@ -309,10 +250,10 @@ func TestReconcileCID(t *testing.T) {
 }
 
 func TestReconcilePod(t *testing.T) {
-	ns1 := testCreateNSObj("ns1", nil)
+	ns1 := cidtest.NewNamespace("ns1", nil)
 
-	pod1 := testCreatePodObj("pod1", ns1.Name, testLbsA, nil)
-	pod2 := testCreatePodObj("pod2", ns1.Name, testLbsA, nil)
+	pod1 := cidtest.NewPod("pod1", ns1.Name, testLbsA, "node1")
+	pod2 := cidtest.NewPod("pod2", ns1.Name, testLbsA, "node1")
 
 	cidName := "1000"
 
@@ -354,7 +295,7 @@ func TestReconcilePod(t *testing.T) {
 			name:         "pod_in_store_with_cid_not_in_mapping",
 			newPod:       pod1,
 			existingPods: []*slim_corev1.Pod{pod1},
-			existingCIDs: []*capi_v2.CiliumIdentity{testCreateCIDObjNs(cidName, pod1, ns1)},
+			existingCIDs: []*capi_v2.CiliumIdentity{cidtest.NewCIDWithNamespace(cidName, pod1, ns1)},
 			expected: expectedState{
 				queueSize:           0,
 				numDesiredCIDLabels: 1,
@@ -367,7 +308,7 @@ func TestReconcilePod(t *testing.T) {
 			name:            "pod_in_store_with_cid_and_mapping",
 			newPod:          pod1,
 			existingPods:    []*slim_corev1.Pod{pod1},
-			existingCIDs:    []*capi_v2.CiliumIdentity{testCreateCIDObjNs(cidName, pod1, ns1)},
+			existingCIDs:    []*capi_v2.CiliumIdentity{cidtest.NewCIDWithNamespace(cidName, pod1, ns1)},
 			initialPodToCID: map[resource.Key]string{podResourceKey(pod1.Name, ns1.Name): cidName},
 			expected: expectedState{
 				queueSize:           0,
@@ -381,7 +322,7 @@ func TestReconcilePod(t *testing.T) {
 			name:            "multiple_pods_same_cid",
 			newPod:          pod2,
 			existingPods:    []*slim_corev1.Pod{pod1, pod2},
-			existingCIDs:    []*capi_v2.CiliumIdentity{testCreateCIDObjNs(cidName, pod1, ns1)},
+			existingCIDs:    []*capi_v2.CiliumIdentity{cidtest.NewCIDWithNamespace(cidName, pod1, ns1)},
 			initialPodToCID: map[resource.Key]string{podResourceKey(pod1.Name, ns1.Name): cidName},
 			expected: expectedState{
 				queueSize:           0,
@@ -393,9 +334,9 @@ func TestReconcilePod(t *testing.T) {
 		},
 		{
 			name:            "pod_with_different_labels",
-			newPod:          testCreatePodObj("pod1", ns1.Name, testLbsB, nil),
-			existingPods:    []*slim_corev1.Pod{testCreatePodObj("pod1", ns1.Name, testLbsB, nil)},
-			existingCIDs:    []*capi_v2.CiliumIdentity{testCreateCIDObjNs(cidName, pod1, ns1)},
+			newPod:          cidtest.NewPod("pod1", ns1.Name, testLbsB, "node1"),
+			existingPods:    []*slim_corev1.Pod{cidtest.NewPod("pod1", ns1.Name, testLbsB, "node1")},
+			existingCIDs:    []*capi_v2.CiliumIdentity{cidtest.NewCIDWithNamespace(cidName, pod1, ns1)},
 			initialPodToCID: map[resource.Key]string{podResourceKey(pod1.Name, ns1.Name): cidName},
 			expected: expectedState{
 				queueSize:           1, // TODO queue size should be 2 if OP deletes CID
@@ -408,7 +349,7 @@ func TestReconcilePod(t *testing.T) {
 			name:            "pod_in_store_with_cid_and_different_mapping",
 			newPod:          pod1,
 			existingPods:    []*slim_corev1.Pod{pod1},
-			existingCIDs:    []*capi_v2.CiliumIdentity{testCreateCIDObjNs(cidName, pod1, ns1)},
+			existingCIDs:    []*capi_v2.CiliumIdentity{cidtest.NewCIDWithNamespace(cidName, pod1, ns1)},
 			initialPodToCID: map[resource.Key]string{podResourceKey(pod1.Name, ns1.Name): "2000"},
 			expected: expectedState{
 				queueSize:           0, // TODO queue size should be 1 if OP deletes CID
@@ -427,7 +368,7 @@ func TestReconcilePod(t *testing.T) {
 			defer cleanupFunc()
 
 			for _, pod := range tc.existingPods {
-				_ = reconciler.nsStore.CacheStore().Add(testCreateNSObj(pod.GetNamespace(), nil))
+				_ = reconciler.nsStore.CacheStore().Add(cidtest.NewNamespace(pod.GetNamespace(), nil))
 				_ = reconciler.podStore.CacheStore().Add(pod)
 			}
 			for _, cid := range tc.existingCIDs {
@@ -477,10 +418,10 @@ func TestReconcilePod(t *testing.T) {
 }
 
 func TestReconcileNS(t *testing.T) {
-	ns1 := testCreateNSObj("ns1", nil)
+	ns1 := cidtest.NewNamespace("ns1", nil)
 
-	pod1 := testCreatePodObj("pod1", ns1.Name, testLbsA, nil)
-	pod2 := testCreatePodObj("pod2", ns1.Name, testLbsA, nil)
+	pod1 := cidtest.NewPod("pod1", ns1.Name, testLbsA, "node1")
+	pod2 := cidtest.NewPod("pod2", ns1.Name, testLbsA, "node1")
 
 	testCases := []struct {
 		name              string
@@ -517,7 +458,7 @@ func TestReconcileNS(t *testing.T) {
 			reconciler, queueOps, _, cleanupFunc := testNewReconciler(t, ctx, false)
 			defer cleanupFunc()
 
-			if err := reconciler.nsStore.CacheStore().Add(testCreateNSObj(tc.nsName, nil)); err != nil {
+			if err := reconciler.nsStore.CacheStore().Add(cidtest.NewNamespace(tc.nsName, nil)); err != nil {
 				t.Errorf("Unexpected error behavior: got error %v", err)
 			}
 
