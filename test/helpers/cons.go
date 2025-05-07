@@ -234,7 +234,6 @@ const (
 	delMissingService          = "Deleting no longer present service"                                    // cf. https://github.com/cilium/cilium/issues/29679
 	podCIDRUnavailable         = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
 	unableGetNode              = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
-	sessionAffinitySocketLB    = "Session affinity for host reachable services needs kernel"             // cf. https://github.com/cilium/cilium/issues/29736
 	objectHasBeenModified      = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
 	legacyBGPFeature           = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
 	etcdTimeout                = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
@@ -310,7 +309,7 @@ var badLogMessages = map[string][]string{
 		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, podCIDRUnavailable,
-		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, legacyBGPFeature,
+		unableGetNode, objectHasBeenModified, legacyBGPFeature,
 		etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
 		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},

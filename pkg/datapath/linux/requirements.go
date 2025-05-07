@@ -87,6 +87,11 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_skb_adjust_room with BPF_ADJ_ROOM_MAC mode (Linux 5.2 or newer)")
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			return errors.New("Require support for bpf_get_netns_cookie() (Linux 5.7.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {
 			return errors.New("Require support for bpf_csum_level() (Linux 5.8.0 or newer)")
 		}
