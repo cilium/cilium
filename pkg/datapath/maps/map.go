@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -35,6 +36,14 @@ type endpointManager interface {
 	EndpointExists(endpointID uint16) bool
 	RemoveDatapathMapping(endpointID uint16) error
 	RemoveMapPath(path string)
+	ListMapsDir(path string) []string
+}
+
+// PrefixedMap describes a pattern for filtering map files.
+// It specifies which files to match via Prefix and which to exclude via Excludes.
+type PrefixedMap struct {
+	Prefix   string
+	Excludes []string
 }
 
 // MapSweeper is responsible for checking stale map paths on the filesystem
@@ -119,7 +128,13 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 // been disabled. The maps may still be in use in which case they will continue
 // to live until the BPF program using them is being replaced.
 func (ms *MapSweeper) RemoveDisabledMaps() {
-	maps := []string{"cilium_proxy4", "cilium_proxy6"}
+	var (
+		mapsDir      = bpf.TCGlobalsPath()
+		maps         = []string{"cilium_proxy4", "cilium_proxy6"}
+		prefixedMaps = []PrefixedMap{
+			{"cilium_policy_", []string{policymap.MapName}},
+		}
+	)
 
 	if !option.Config.EnableIPv6 {
 		maps = append(maps, []string{
@@ -222,10 +237,33 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	for _, m := range maps {
-		p := path.Join(bpf.TCGlobalsPath(), m)
-		if _, err := os.Stat(p); !os.IsNotExist(err) {
-			ms.RemoveMapPath(p)
+	// helper func to check if a map name match any excludes
+	containsExcluded := func(mapName string, excludes []string) bool {
+		for _, ex := range excludes {
+			if strings.Contains(mapName, ex) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// helper func to check if map name matches any prefixedMaps and does not match excludes
+	matchesPrefixedMap := func(mapName string) bool {
+		for _, pm := range prefixedMaps {
+			if !strings.HasPrefix(mapName, pm.Prefix) {
+				continue
+			}
+			if containsExcluded(mapName, pm.Excludes) {
+				continue
+			}
+			return true
+		}
+		return false
+	}
+
+	for _, m := range ms.ListMapsDir(mapsDir) {
+		if slices.Contains(maps, m) || matchesPrefixedMap(m) {
+			ms.RemoveMapPath(path.Join(mapsDir, m))
 		}
 	}
 }
