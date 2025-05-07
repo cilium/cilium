@@ -681,10 +681,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 
 	progHelpers := []ProgramHelper{
 		// common probes
-		{ebpf.CGroupSock, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnJiffies64},
-		{ebpf.SchedCLS, asm.FnJiffies64},
-		{ebpf.XDP, asm.FnJiffies64},
 		{ebpf.CGroupSock, asm.FnSetRetval},
 
 		// xdp related probes
@@ -702,10 +698,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_JIFFIES": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
 		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 	}
 
