@@ -38,17 +38,17 @@ type localEndpointCache interface {
 type params struct {
 	cell.In
 
-	Logger              *slog.Logger
-	Lifecycle           cell.Lifecycle
-	JobGroup            job.Group
-	Health              cell.Health
-	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
-	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
-	Clientset           k8sClient.Clientset
-	RestorerPromise     promise.Promise[endpointstate.Restorer]
-	EndpointsCache      localEndpointCache
-	Cfg                 Config
-	DaemonCfg           *option.DaemonConfig
+	Logger                   *slog.Logger
+	Lifecycle                cell.Lifecycle
+	JobGroup                 job.Group
+	Health                   cell.Health
+	CiliumEndpoint           resource.Resource[*types.CiliumEndpoint]
+	CiliumEndpointSlice      resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	Clientset                k8sClient.Clientset
+	EndpointsRestoredPromise promise.Promise[endpointstate.EndpointsRestored]
+	EndpointsCache           localEndpointCache
+	Cfg                      Config
+	DaemonCfg                *option.DaemonConfig
 }
 
 type cleanup struct {
@@ -56,7 +56,7 @@ type cleanup struct {
 	ciliumEndpoint             resource.Resource[*types.CiliumEndpoint]
 	ciliumEndpointSlice        resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	ciliumClient               cilium_v2.CiliumV2Interface
-	restorerPromise            promise.Promise[endpointstate.Restorer]
+	endpointsRestoredPromise   promise.Promise[endpointstate.EndpointsRestored]
 	endpointsCache             localEndpointCache
 	ciliumEndpointSliceEnabled bool
 }
@@ -82,7 +82,7 @@ func registerCleanup(p params) {
 		ciliumEndpoint:             p.CiliumEndpoint,
 		ciliumEndpointSlice:        p.CiliumEndpointSlice,
 		ciliumClient:               p.Clientset.CiliumV2(),
-		restorerPromise:            p.RestorerPromise,
+		endpointsRestoredPromise:   p.EndpointsRestoredPromise,
 		endpointsCache:             p.EndpointsCache,
 		ciliumEndpointSliceEnabled: p.DaemonCfg.EnableCiliumEndpointSlice,
 	}
@@ -101,11 +101,9 @@ func (c *cleanup) run(ctx context.Context) error {
 	// This must wait for both K8s watcher caches to be synced and local endpoint restoration to be complete.
 	// Note: Synchronization of endpoints to their CEPs may not be complete at this point, but we only have to
 	// know what endpoints exist post-restoration in our endpointManager cache to perform cleanup.
-	restorer, err := c.restorerPromise.Await(ctx)
-	if err != nil {
+	if _, err := c.endpointsRestoredPromise.Await(ctx); err != nil {
 		return err
 	}
-	restorer.WaitForEndpointRestore(ctx)
 
 	var (
 		retries int
@@ -117,7 +115,7 @@ func (c *cleanup) run(ctx context.Context) error {
 			Cap:      0,
 		}
 	)
-	err = wait.ExponentialBackoffWithContext(ctx, bo, func(ctx context.Context) (done bool, err error) {
+	if err := wait.ExponentialBackoffWithContext(ctx, bo, func(ctx context.Context) (done bool, err error) {
 		if c.ciliumEndpointSliceEnabled {
 			err = c.cleanStaleCESs(ctx)
 		} else {
@@ -136,11 +134,12 @@ func (c *cleanup) run(ctx context.Context) error {
 			return true, err
 		}
 		return true, nil
-	})
-	if err != nil {
+	}); err != nil {
 		c.log.Error("Failed to clean up stale CEPs after multiple attempts", logfields.Error, err)
+		return fmt.Errorf("Failed to clean up stale CEPs after multiple attempts: %w", err)
 	}
-	return err
+
+	return nil
 }
 
 func (c *cleanup) cleanStaleCEPs(ctx context.Context) error {

@@ -1447,10 +1447,11 @@ var daemonCell = cell.Module(
 		newSyncHostIPs,
 	),
 	cell.Provide(
-		promise.New[endpointstate.Restorer],
+		promise.New[endpointstate.EndpointsRestored],
+		promise.New[endpointstate.InitialPoliciesComputed],
 		newEndpointRestorer,
 	),
-	cell.Invoke(registerEndpointStateResolver),
+	cell.Invoke(registerEndpointStateResolvers),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -1795,24 +1796,47 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	return nil
 }
 
-func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
-	var wg sync.WaitGroup
+func registerEndpointStateResolvers(lc cell.Lifecycle, endpointRestorer *endpointRestorer, endpointsRestoredResolver promise.Resolver[endpointstate.EndpointsRestored], initialPoliciesComputedResolver promise.Resolver[endpointstate.InitialPoliciesComputed]) {
+	var wgEndpointsRestored sync.WaitGroup
+	var wgInitialPoliciesComputed sync.WaitGroup
+
+	ctx, cancelCtx := context.WithCancel(context.Background())
 
 	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			wg.Add(1)
+		OnStart: func(_ cell.HookContext) error {
+			wgEndpointsRestored.Add(1)
 			go func() {
-				defer wg.Done()
-				if _, err := daemonPromise.Await(context.Background()); err != nil {
-					resolver.Reject(err)
+				defer wgEndpointsRestored.Done()
+				if err := endpointRestorer.WaitForEndpointRestore(ctx); err != nil {
+					endpointsRestoredResolver.Reject(err)
 				} else {
-					resolver.Resolve(endpointRestorer)
+					endpointsRestoredResolver.Resolve(endpointstate.EndpointsRestored{})
 				}
 			}()
 			return nil
 		},
-		OnStop: func(ctx cell.HookContext) error {
-			wg.Wait()
+		OnStop: func(_ cell.HookContext) error {
+			wgEndpointsRestored.Wait()
+			return nil
+		},
+	})
+
+	lc.Append(cell.Hook{
+		OnStart: func(_ cell.HookContext) error {
+			wgInitialPoliciesComputed.Add(1)
+			go func() {
+				defer wgInitialPoliciesComputed.Done()
+				if err := endpointRestorer.WaitForInitialPolicy(ctx); err != nil {
+					initialPoliciesComputedResolver.Reject(err)
+				} else {
+					initialPoliciesComputedResolver.Resolve(endpointstate.InitialPoliciesComputed{})
+				}
+			}()
+			return nil
+		},
+		OnStop: func(_ cell.HookContext) error {
+			cancelCtx()
+			wgInitialPoliciesComputed.Wait()
 			return nil
 		},
 	})
