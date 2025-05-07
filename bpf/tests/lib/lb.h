@@ -3,6 +3,21 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
+lb_v4_delete_service(__be32 addr, __be16 port, __u8 proto)
+{
+	struct lb4_key svc_key = {
+		.address = addr,
+		.dport = port,
+		.proto = proto,
+		.scope = LB_LOOKUP_SCOPE_EXT,
+	};
+
+	map_delete_elem(&cilium_lb4_services_v2, &svc_key);
+	svc_key.scope = LB_LOOKUP_SCOPE_INT;
+	map_delete_elem(&cilium_lb4_services_v2, &svc_key);
+}
+
+static __always_inline void
 __lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
 		       __u16 backend_count, __u16 rev_nat_index, __u8 flags, __u8 flags2,
 		       bool session_affinity, __u32 affinity_timeout)
