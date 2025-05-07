@@ -52,8 +52,10 @@ cilium_install \
 # the forwarded packets by the LB to the worker node will have invalid csums.
 IFIDX=$(docker exec -i lb-node \
     /bin/sh -c 'echo $(( $(ip -o l show eth0 | awk "{print $1}" | cut -d: -f1) ))')
-LB_VETH_HOST=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
-ethtool -K $LB_VETH_HOST rx off tx off
+LB_VETH_HOSTS=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
+for veth in $LB_VETH_HOSTS; do
+    ethtool -K "$veth" rx off tx off
+done
 
 NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
 WORKER_IP4=$(nsenter -t $NGINX_PID -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
