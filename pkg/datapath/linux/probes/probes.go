@@ -489,9 +489,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
 
-		// skb related probes
-		{ebpf.SchedCLS, asm.FnSkbChangeTail},
-
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
 		{ebpf.XDP, asm.FnXdpLoadBytes},

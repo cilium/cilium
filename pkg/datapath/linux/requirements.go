@@ -59,6 +59,10 @@ func CheckRequirements(log *slog.Logger) error {
 			}
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkbChangeTail) != nil {
+			return errors.New("Require support for bpf_skb_change_tail() (Linux 4.9.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
 		}
