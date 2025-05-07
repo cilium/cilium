@@ -3,8 +3,8 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
-__lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-		       __u16 rev_nat_index, __u8 flags, __u8 flags2,
+__lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
+		       __u16 backend_count, __u16 rev_nat_index, __u8 flags, __u8 flags2,
 		       bool session_affinity, __u32 affinity_timeout)
 {
 	struct lb4_key svc_key = {
@@ -29,26 +29,27 @@ __lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count
 
 	if (lb4_svc_is_two_scopes(&svc_value)) {
 		/* Register with both scopes: */
+		svc_key.proto = proto_int;
 		svc_key.scope = LB_LOOKUP_SCOPE_INT;
 		map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
 	}
 }
 
 static __always_inline void
-lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto,
-		     __u16 backend_count, __u16 rev_nat_index)
+lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+		     __u16 rev_nat_index)
 {
-	__lb_v4_upsert_service(addr, port, proto, backend_count, rev_nat_index,
+	__lb_v4_upsert_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			       SVC_FLAG_ROUTABLE, 0, false, 0);
 }
 
 static __always_inline void
-__lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-		    __u16 rev_nat_index, __u8 flags, __u8 flags2,
-		    bool session_affinity, __u32 affinity_timeout)
+__lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
+		    __u16 backend_count, __u16 rev_nat_index, __u8 flags,
+		    __u8 flags2, bool session_affinity, __u32 affinity_timeout)
 {
 	/* Register with both scopes: */
-	__lb_v4_upsert_service(addr, port, proto, backend_count, rev_nat_index,
+	__lb_v4_upsert_service(addr, port, proto, proto_int, backend_count, rev_nat_index,
 			       flags, flags2, session_affinity, affinity_timeout);
 
 	/* Insert a reverse NAT entry for the above service */
@@ -63,7 +64,7 @@ static __always_inline void
 lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 		  __u16 rev_nat_index)
 {
-	__lb_v4_add_service(addr, port, proto, backend_count, rev_nat_index,
+	__lb_v4_add_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			    SVC_FLAG_ROUTABLE, 0, false, 0);
 }
 
@@ -71,7 +72,16 @@ static __always_inline void
 lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 			     __u16 rev_nat_index, __u8 flags, __u8 flags2)
 {
-	__lb_v4_add_service(addr, port, proto, backend_count, rev_nat_index,
+	__lb_v4_add_service(addr, port, proto, proto, backend_count, rev_nat_index,
+			    flags, flags2, false, 0);
+}
+
+static __always_inline void
+lb_v4_add_mixed_proto_service_with_flags(__be32 addr, __be16 port, __u8 proto,
+					 __u8 proto_int, __u16 backend_count,
+					 __u16 rev_nat_index, __u8 flags, __u8 flags2)
+{
+	__lb_v4_add_service(addr, port, proto, proto_int, backend_count, rev_nat_index,
 			    flags, flags2, false, 0);
 }
 
