@@ -141,38 +141,9 @@ type SystemConfig struct {
 	ConfigKernelHz               KernelParam `json:"CONFIG_HZ"`
 }
 
-// MapTypes contains bools indicating which types of BPF maps the currently
-// running kernel supports.
-type MapTypes struct {
-	HaveHashMapType                bool `json:"have_hash_map_type"`
-	HaveArrayMapType               bool `json:"have_array_map_type"`
-	HaveProgArrayMapType           bool `json:"have_prog_array_map_type"`
-	HavePerfEventArrayMapType      bool `json:"have_perf_event_array_map_type"`
-	HavePercpuHashMapType          bool `json:"have_percpu_hash_map_type"`
-	HavePercpuArrayMapType         bool `json:"have_percpu_array_map_type"`
-	HaveStackTraceMapType          bool `json:"have_stack_trace_map_type"`
-	HaveCgroupArrayMapType         bool `json:"have_cgroup_array_map_type"`
-	HaveLruHashMapType             bool `json:"have_lru_hash_map_type"`
-	HaveLruPercpuHashMapType       bool `json:"have_lru_percpu_hash_map_type"`
-	HaveLpmTrieMapType             bool `json:"have_lpm_trie_map_type"`
-	HaveArrayOfMapsMapType         bool `json:"have_array_of_maps_map_type"`
-	HaveHashOfMapsMapType          bool `json:"have_hash_of_maps_map_type"`
-	HaveDevmapMapType              bool `json:"have_devmap_map_type"`
-	HaveSockmapMapType             bool `json:"have_sockmap_map_type"`
-	HaveCpumapMapType              bool `json:"have_cpumap_map_type"`
-	HaveXskmapMapType              bool `json:"have_xskmap_map_type"`
-	HaveSockhashMapType            bool `json:"have_sockhash_map_type"`
-	HaveCgroupStorageMapType       bool `json:"have_cgroup_storage_map_type"`
-	HaveReuseportSockarrayMapType  bool `json:"have_reuseport_sockarray_map_type"`
-	HavePercpuCgroupStorageMapType bool `json:"have_percpu_cgroup_storage_map_type"`
-	HaveQueueMapType               bool `json:"have_queue_map_type"`
-	HaveStackMapType               bool `json:"have_stack_map_type"`
-}
-
 // Features contains BPF feature checks returned by bpftool.
 type Features struct {
 	SystemConfig `json:"system_config"`
-	MapTypes     `json:"map_types"`
 }
 
 // ProbeManager is a manager of BPF feature checks.
