@@ -32,24 +32,25 @@ const (
 const TraceSockNotifyFlagIPv6 uint8 = 0x1
 
 const (
-	TraceSockNotifyLen = 38
+	TraceSockNotifyLen = 40
 )
 
 // TraceSockNotify is message format for socket trace notifications sent from datapath.
 // Keep this in sync to the datapath structure (trace_sock_notify) defined in
 // bpf/lib/trace_sock.h
 type TraceSockNotify struct {
-	Type       uint8
-	XlatePoint uint8
-	DstIP      types.IPv6
-	DstPort    uint16
-	SockCookie uint64
-	CgroupId   uint64
-	L4Proto    uint8
-	Flags      uint8
+	Type       uint8      // 1 byte
+	XlatePoint uint8      // 1 byte
+	DstIP      types.IPv6 // 16 bytes
+	DstPort    uint16     // 2 bytes
+	L4Proto    uint8      // 1 byte
+	Flags      uint8      // 1 byte
+	_          [2]byte    // 2 bytes (explicit padding to avoid automatic padding)
+	SockCookie uint64     // 8 bytes
+	CgroupId   uint64     // 8 bytes
 }
 
-// DecodeTraceSockNotify will decode 'data' into the provided TraceSocNotify structure
+// DecodeTraceSockNotify will decode 'data' into the provided TraceSockNotify structure
 func DecodeTraceSockNotify(data []byte, sock *TraceSockNotify) error {
 	return sock.decodeTraceSockNotify(data)
 }
@@ -63,10 +64,10 @@ func (t *TraceSockNotify) decodeTraceSockNotify(data []byte) error {
 	t.XlatePoint = data[1]
 	copy(t.DstIP[:], data[2:18])
 	t.DstPort = byteorder.Native.Uint16(data[18:20])
-	t.SockCookie = byteorder.Native.Uint64(data[20:28])
-	t.CgroupId = byteorder.Native.Uint64(data[28:36])
-	t.L4Proto = data[36]
-	t.Flags = data[37]
+	t.L4Proto = data[20]
+	t.Flags = data[21]
+	t.SockCookie = byteorder.Native.Uint64(data[24:32])
+	t.CgroupId = byteorder.Native.Uint64(data[32:40])
 
 	return nil
 }
