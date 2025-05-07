@@ -279,7 +279,7 @@ func (r *reconciler) cidIsUsedInCEPOrCES(cidName string) bool {
 // 1. CID exists: No action.
 // 2. CID doesn't exist: Create CID.
 func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
-	k8sLabels, err := r.getRelevantLabelsForPod(pod)
+	k8sLabels, err := GetRelevantLabelsForPod(r.logger, pod, r.nsStore)
 	if err != nil {
 		return fmt.Errorf("failed to get relevant labels for pod: %w", err)
 	}
@@ -345,18 +345,19 @@ func (r *reconciler) allocateCID(cidKey *key.GlobalIdentity) (string, bool, erro
 	return allocatedID.String(), true, nil
 }
 
-func (r *reconciler) getRelevantLabelsForPod(pod *slim_corev1.Pod) (map[string]string, error) {
-	ns, err := r.getNamespace(pod.Namespace)
+// GetRelevantLabelsForPod returns the pod and namespace labels for a given pod
+func GetRelevantLabelsForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource.Store[*slim_corev1.Namespace]) (map[string]string, error) {
+	ns, err := getNamespace(pod.Namespace, nsStore)
 	if err != nil {
 		return nil, err
 	}
 
-	_, labelsMap := k8s.GetPodMetadata(r.logger, ns, pod)
+	_, labelsMap := k8s.GetPodMetadata(logger, ns, pod)
 	return labelsMap, nil
 }
 
-func (r *reconciler) getNamespace(namespace string) (*slim_corev1.Namespace, error) {
-	ns, exists, err := r.nsStore.GetByKey(resource.Key{Name: namespace})
+func getNamespace(namespace string, nsStore resource.Store[*slim_corev1.Namespace]) (*slim_corev1.Namespace, error) {
+	ns, exists, err := nsStore.GetByKey(resource.Key{Name: namespace})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get namespace %q, error: %w", namespace, err)
 	}
