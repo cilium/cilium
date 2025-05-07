@@ -1017,8 +1017,8 @@ github.com/google/shlex
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.3.1
-## explicit; go 1.22.0
+# github.com/gopacket/gopacket v1.3.2-0.20250413013317-2b39da4e3de0
+## explicit; go 1.23.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
 # github.com/gorilla/mux v1.8.1

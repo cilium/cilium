@@ -195,9 +195,13 @@ func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 }
 
 func (n *TraceNotify) encryptReasonString() string {
-	if n.IsEncrypted() {
-		return "encrypted "
+	switch {
+	case n.IsIPSec():
+		return "encrypted ipsec esp"
+	case n.IsWireguard():
+		return "encrypted wireguard"
 	}
+
 	return ""
 }
 
@@ -317,7 +321,7 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
+		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -66,12 +67,42 @@ func TestConnectionSummaryTcp(t *testing.T) {
 			} else {
 				data = slices.Concat(l2Data, l3Data)
 			}
-			summary := GetConnectionSummary(data, &decodeOpts{c.IsL3Device, false})
+			summary := GetConnectionSummary(data, &decodeOpts{IsL3Device: c.IsL3Device})
 
 			expect := fmt.Sprintf("%s -> %s %s",
 				net.JoinHostPort(srcIP, sport),
 				net.JoinHostPort(dstIP, dport),
 				"tcp SYN")
+			require.Equal(t, expect, summary)
+		})
+	}
+
+	srcIPOuter := "1.1.1.1"
+	dstIPOuter := "2.2.2.2"
+
+	sportOuter := "8472"
+	dportOuter := "9999"
+
+	for _, c := range []struct {
+		Name string
+		Data []byte
+	}{
+		// Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="1.1.1.1",dst="2.2.2.2")/UDP(sport=8472,dport=9999)/VXLAN(vni=2)
+		{"VXLAN", []byte{17, 18, 19, 20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0, 0, 36, 0, 1, 0, 0, 64, 17, 116, 195, 1, 1, 1, 1, 2, 2, 2, 2, 33, 24, 39, 15, 0, 16, 167, 161, 8, 0, 0, 0, 0, 0, 2, 0}},
+		// Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="1.1.1.1",dst="2.2.2.2")/UDP(sport=8472,dport=9999)/GENEVE(vni=2,proto=0x6558)
+		{"Geneve", []byte{17, 18, 19, 20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0, 0, 36, 0, 1, 0, 0, 64, 17, 116, 195, 1, 1, 1, 1, 2, 2, 2, 2, 33, 24, 39, 15, 0, 16, 74, 73, 0, 0, 101, 88, 0, 0, 2, 0}},
+	} {
+		t.Run(c.Name, func(t *testing.T) {
+			data := slices.Concat(c.Data, l2Data, l3Data)
+			summary := GetConnectionSummary(data, &decodeOpts{IsVXLAN: c.Name == "VXLAN", IsGeneve: c.Name == "Geneve"})
+
+			expect := fmt.Sprintf("%s -> %s %s [tunnel %s -> %s %s]",
+				net.JoinHostPort(srcIP, sport),
+				net.JoinHostPort(dstIP, dport),
+				"tcp SYN",
+				net.JoinHostPort(srcIPOuter, sportOuter),
+				net.JoinHostPort(dstIPOuter, dportOuter),
+				strings.ToLower(c.Name))
 			require.Equal(t, expect, summary)
 		})
 	}
