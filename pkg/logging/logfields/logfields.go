@@ -1664,6 +1664,10 @@ const (
 
 	Flags = "flags"
 
+	Total = "total"
+
+	Regenerated = "regenerated"
+
 	ExitCode = "exitCode"
 
 	NumBufferedEvents = "numBufferedEvents"
