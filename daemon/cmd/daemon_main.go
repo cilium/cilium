@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	"github.com/cilium/cilium/pkg/endpoint/restoration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1446,12 +1447,6 @@ var daemonCell = cell.Module(
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 	),
-	cell.Provide(
-		promise.New[endpointstate.EndpointsRestored],
-		promise.New[endpointstate.InitialPoliciesComputed],
-		newEndpointRestorer,
-	),
-	cell.Invoke(registerEndpointStateResolvers),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -1479,7 +1474,8 @@ type daemonParams struct {
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
-	EndpointRestorer    *endpointRestorer
+	EndpointRestorer    *restoration.EndpointRestorer
+	EPsRestoredPromise  promise.Promise[endpointstate.EndpointsRestored]
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1604,7 +1600,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(d *Daemon, restoredEndpoints *restoration.EndpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1628,7 +1624,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Error("Failed to wait for initial IPCache revision")
 	}
 
-	params.EndpointRestorer.initRestore(d.ctx, restoredEndpoints, params.EndpointRegenerator)
+	bootstrapStats.restore.Start()
+	params.EndpointRestorer.InitRestore(d.ctx, restoredEndpoints, params.EndpointRegenerator)
+	bootstrapStats.restore.End(true)
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
@@ -1698,7 +1696,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	go func() {
-		if err := params.EndpointRestorer.WaitForEndpointRestore(d.ctx); err != nil {
+		if _, err := params.EPsRestoredPromise.Await(d.ctx); err != nil {
 			return
 		}
 
@@ -1794,52 +1792,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		})
 
 	return nil
-}
-
-func registerEndpointStateResolvers(lc cell.Lifecycle, endpointRestorer *endpointRestorer, endpointsRestoredResolver promise.Resolver[endpointstate.EndpointsRestored], initialPoliciesComputedResolver promise.Resolver[endpointstate.InitialPoliciesComputed]) {
-	var wgEndpointsRestored sync.WaitGroup
-	var wgInitialPoliciesComputed sync.WaitGroup
-
-	ctx, cancelCtx := context.WithCancel(context.Background())
-
-	lc.Append(cell.Hook{
-		OnStart: func(_ cell.HookContext) error {
-			wgEndpointsRestored.Add(1)
-			go func() {
-				defer wgEndpointsRestored.Done()
-				if err := endpointRestorer.WaitForEndpointRestore(ctx); err != nil {
-					endpointsRestoredResolver.Reject(err)
-				} else {
-					endpointsRestoredResolver.Resolve(endpointstate.EndpointsRestored{})
-				}
-			}()
-			return nil
-		},
-		OnStop: func(_ cell.HookContext) error {
-			wgEndpointsRestored.Wait()
-			return nil
-		},
-	})
-
-	lc.Append(cell.Hook{
-		OnStart: func(_ cell.HookContext) error {
-			wgInitialPoliciesComputed.Add(1)
-			go func() {
-				defer wgInitialPoliciesComputed.Done()
-				if err := endpointRestorer.WaitForInitialPolicy(ctx); err != nil {
-					initialPoliciesComputedResolver.Reject(err)
-				} else {
-					initialPoliciesComputedResolver.Resolve(endpointstate.InitialPoliciesComputed{})
-				}
-			}()
-			return nil
-		},
-		OnStop: func(_ cell.HookContext) error {
-			cancelCtx()
-			wgInitialPoliciesComputed.Wait()
-			return nil
-		},
-	})
 }
 
 func initClockSourceOption() {

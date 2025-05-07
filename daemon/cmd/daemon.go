@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpoint/restoration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/identity"
@@ -206,7 +207,7 @@ func removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRou
 }
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
-func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointRestoreState, error) {
+func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *restoration.EndpointRestoreState, error) {
 	var err error
 
 	bootstrapStats.daemonInit.Start()
@@ -438,14 +439,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	restoredEndpoints, err := params.EndpointRestorer.fetchOldEndpoints(d.ctx, option.Config.StateDir)
+	restoredEndpoints, err := params.EndpointRestorer.FetchOldEndpoints(d.ctx, option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
 	}
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.Possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
@@ -617,7 +618,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	params.EndpointRestorer.restoreOldEndpoints(restoredEndpoints)
+	params.EndpointRestorer.RestoreOldEndpoints(restoredEndpoints)
 	bootstrapStats.restore.End(true)
 
 	// We must do this after IPAM because we must wait until the

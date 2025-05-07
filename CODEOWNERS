@@ -366,7 +366,6 @@ Makefile* @cilium/build
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
-/daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/cells*.go @cilium/sig-foundations
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure

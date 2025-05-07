@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package restoration
 
 import (
 	"context"
@@ -42,6 +42,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-restore")
+
 var syncLBMapsControllerGroup = controller.NewGroup("sync-lb-maps-with-k8s-services")
 
 type endpointRestorerParams struct {
@@ -59,7 +61,7 @@ type endpointRestorerParams struct {
 	K8sWatcher       *watchers.K8sWatcher
 }
 
-type endpointRestorer struct {
+type EndpointRestorer struct {
 	params      endpointRestorerParams
 	controllers *controller.Manager
 
@@ -67,8 +69,8 @@ type endpointRestorer struct {
 	endpointInitialPolicyComplete chan struct{}
 }
 
-func newEndpointRestorer(lifecycle cell.Lifecycle, params endpointRestorerParams) *endpointRestorer {
-	restorer := &endpointRestorer{
+func newEndpointRestorer(lifecycle cell.Lifecycle, params endpointRestorerParams) *EndpointRestorer {
+	restorer := &EndpointRestorer{
 		params:      params,
 		controllers: controller.NewManager(),
 	}
@@ -91,7 +93,7 @@ func newEndpointRestorer(lifecycle cell.Lifecycle, params endpointRestorerParams
 	return restorer
 }
 
-func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+func (r *EndpointRestorer) waitForEndpointRestore(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -104,7 +106,7 @@ func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
-func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
+func (r *EndpointRestorer) waitForInitialPolicy(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -118,10 +120,10 @@ func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	return nil
 }
 
-type endpointRestoreState struct {
-	possible map[uint16]*endpoint.Endpoint
-	restored []*endpoint.Endpoint
-	toClean  []*endpoint.Endpoint
+type EndpointRestoreState struct {
+	Possible map[uint16]*endpoint.Endpoint
+	Restored []*endpoint.Endpoint
+	ToClean  []*endpoint.Endpoint
 }
 
 // checkLink returns an error if a link with linkName does not exist.
@@ -136,7 +138,7 @@ func checkLink(linkName string) error {
 //
 // Returns true to indicate that the endpoint is valid to restore, and an
 // optional error.
-func (r *endpointRestorer) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error) {
+func (r *EndpointRestorer) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error) {
 	if ep.IsProperty(endpoint.PropertyFakeEndpoint) {
 		return true, nil
 	}
@@ -186,7 +188,7 @@ func (r *endpointRestorer) validateEndpoint(ep *endpoint.Endpoint) (valid bool, 
 	return true, nil
 }
 
-func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
+func (r *EndpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 	var (
 		pod *slim_corev1.Pod
 		err error
@@ -218,11 +220,11 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 //
 // 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
 //   - recreate endpoint's policy, as well as bpf programs and maps
-func (r *endpointRestorer) fetchOldEndpoints(ctx context.Context, dir string) (*endpointRestoreState, error) {
-	state := &endpointRestoreState{
-		possible: nil,
-		restored: []*endpoint.Endpoint{},
-		toClean:  []*endpoint.Endpoint{},
+func (r *EndpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) (*EndpointRestoreState, error) {
+	state := &EndpointRestoreState{
+		Possible: nil,
+		Restored: []*endpoint.Endpoint{},
+		ToClean:  []*endpoint.Endpoint{},
 	}
 
 	if !option.Config.RestoreState {
@@ -238,9 +240,9 @@ func (r *endpointRestorer) fetchOldEndpoints(ctx context.Context, dir string) (*
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(ctx, logging.DefaultSlogLogger, r.params.EndpointCreator, dir, eptsID)
+	state.Possible = endpoint.ReadEPsFromDirNames(ctx, logging.DefaultSlogLogger, r.params.EndpointCreator, dir, eptsID)
 
-	if len(state.possible) == 0 {
+	if len(state.Possible) == 0 {
 		log.Info("No old endpoints found.")
 	}
 	return state, nil
@@ -251,10 +253,10 @@ func (r *endpointRestorer) fetchOldEndpoints(ctx context.Context, dir string) (*
 // endpoints into the endpoints list. It needs to be followed by a call to
 // regenerateRestoredEndpoints() once the endpoint builder is ready.
 // Endpoints which cannot be associated with a container workload are deleted.
-func (r *endpointRestorer) restoreOldEndpoints(state *endpointRestoreState) {
+func (r *EndpointRestorer) RestoreOldEndpoints(state *EndpointRestoreState) {
 	failed := 0
 	defer func() {
-		state.possible = nil
+		state.Possible = nil
 	}()
 
 	if !option.Config.RestoreState {
@@ -276,7 +278,7 @@ func (r *endpointRestorer) restoreOldEndpoints(state *endpointRestoreState) {
 		}
 	}
 
-	for _, ep := range state.possible {
+	for _, ep := range state.Possible {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		if r.params.Clientset.IsEnabled() {
 			scopedLog = scopedLog.WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName())
@@ -292,7 +294,7 @@ func (r *endpointRestorer) restoreOldEndpoints(state *endpointRestoreState) {
 			}
 		}
 		if !restore {
-			state.toClean = append(state.toClean, ep)
+			state.ToClean = append(state.ToClean, ep)
 			continue
 		}
 
@@ -302,7 +304,7 @@ func (r *endpointRestorer) restoreOldEndpoints(state *endpointRestoreState) {
 		ep.SetDefaultConfiguration()
 		ep.SkipStateClean()
 
-		state.restored = append(state.restored, ep)
+		state.Restored = append(state.Restored, ep)
 
 		if existingEndpoints != nil {
 			delete(existingEndpoints, ep.GetIPv4Address())
@@ -311,7 +313,7 @@ func (r *endpointRestorer) restoreOldEndpoints(state *endpointRestoreState) {
 	}
 
 	log.WithFields(logrus.Fields{
-		"restored": len(state.restored),
+		"restored": len(state.Restored),
 		"failed":   failed,
 	}).Info("Endpoints restored")
 
@@ -326,8 +328,8 @@ func (r *endpointRestorer) restoreOldEndpoints(state *endpointRestoreState) {
 	}
 }
 
-func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
-	log.WithField("numRestored", len(state.restored)).Info("Regenerating restored endpoints")
+func (r *EndpointRestorer) regenerateRestoredEndpoints(state *EndpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
+	log.WithField("numRestored", len(state.Restored)).Info("Regenerating restored endpoints")
 
 	// Before regenerating, check whether the CT map has properties that
 	// match this Cilium userspace instance. If not, it must be removed
@@ -335,7 +337,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 
 	// we need to signalize when the endpoints are regenerated, i.e., when
 	// they have finished to rebuild after being restored.
-	epRegenerated := make(chan bool, len(state.restored))
+	epRegenerated := make(chan bool, len(state.Restored))
 
 	// Insert all endpoints into the endpoint list first before starting
 	// the regeneration. This is required to ensure that if an individual
@@ -344,8 +346,8 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	// account for the new identity during the grace period. For this
 	// purpose, all endpoints being restored must already be in the
 	// endpoint list.
-	for i := len(state.restored) - 1; i >= 0; i-- {
-		ep := state.restored[i]
+	for i := len(state.Restored) - 1; i >= 0; i-- {
+		ep := state.Restored[i]
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
@@ -355,7 +357,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		if err := r.params.EndpointManager.RestoreEndpoint(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
-			state.restored = slices.Delete(state.restored, i, i+1)
+			state.Restored = slices.Delete(state.Restored, i, i+1)
 		}
 	}
 
@@ -371,7 +373,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		// ensuring no IPsec leaks occur.
 		//
 		// This can be removed in v1.19.
-		for _, ep := range state.restored {
+		for _, ep := range state.Restored {
 			if ep.IsHost() {
 				log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 				if err := ep.RegenerateAfterRestore(endpointsRegenerator, r.params.EndpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
@@ -385,7 +387,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		}
 	}
 
-	for _, ep := range state.restored {
+	for _, ep := range state.Restored {
 		if ep.IsHost() && option.Config.EnableIPSec {
 			// The host endpoint was handled above.
 			continue
@@ -402,7 +404,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	}
 
 	var endpointCleanupCompleted sync.WaitGroup
-	for _, ep := range state.toClean {
+	for _, ep := range state.ToClean {
 		endpointCleanupCompleted.Add(1)
 		go func(ep *endpoint.Endpoint) {
 			// The IP was not allocated yet so does not need to be free.
@@ -420,7 +422,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	endpointCleanupCompleted.Wait()
 
 	go func() {
-		for _, ep := range state.restored {
+		for _, ep := range state.Restored {
 			<-ep.InitialEnvoyPolicyComputed
 		}
 		close(r.endpointInitialPolicyComplete)
@@ -428,13 +430,13 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 
 	go func() {
 		regenerated, total := 0, 0
-		if len(state.restored) > 0 {
+		if len(state.Restored) > 0 {
 			for buildSuccess := range epRegenerated {
 				if buildSuccess {
 					regenerated++
 				}
 				total++
-				if total >= len(state.restored) {
+				if total >= len(state.Restored) {
 					break
 				}
 			}
@@ -449,7 +451,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	}()
 }
 
-func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
+func (r *EndpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 	if option.Config.EnableIPv6 && ep.IPv6.IsValid() {
 		ipv6Pool := ipam.PoolOrDefault(ep.IPv6IPAMPool)
 		_, err = r.params.IPAM.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanString()+" [restored]", ipv6Pool)
@@ -496,8 +498,7 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	return nil
 }
 
-func (r *endpointRestorer) initRestore(ctx context.Context, restoredEndpoints *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
-	bootstrapStats.restore.Start()
+func (r *EndpointRestorer) InitRestore(ctx context.Context, restoredEndpoints *EndpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed that we have
 		// received the full list of policies present at the time the daemon
@@ -569,5 +570,4 @@ func (r *endpointRestorer) initRestore(ctx context.Context, restoredEndpoints *e
 	} else {
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
 	}
-	bootstrapStats.restore.End(true)
 }
