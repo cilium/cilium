@@ -15,4 +15,6 @@
 /* Legacy node config rendered at agent runtime. */
 #include <node_config.h>
 
+NODE_CONFIG(union v4addr, loopback_ipv4, "IPv4 loopback address")
+#define IPV4_LOOPBACK (*(__be32 *)(&CONFIG(loopback_ipv4)))  /* Backwards compatibility */
 NODE_CONFIG(union v6addr, router_ipv6, "Internal IPv6 router address assigned to the cilium_host interface")
