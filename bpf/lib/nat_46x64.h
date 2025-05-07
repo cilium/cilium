@@ -158,7 +158,7 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 			icmp6.icmp6_code = ICMPV6_ADM_PROHIBITED;
 			break;
 		default:
-			return DROP_UNKNOWN_ICMP_CODE;
+			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 		break;
 	case ICMP_TIME_EXCEEDED:
@@ -170,7 +170,7 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 		icmp6.icmp6_pointer = 6;
 		break;
 	default:
-		return DROP_UNKNOWN_ICMP_TYPE;
+		return DROP_UNKNOWN_ICMP4_TYPE;
 	}
 	if (ctx_store_bytes(ctx, nh_off, &icmp6, sizeof(icmp6), 0) < 0)
 		return DROP_WRITE_ERROR;
