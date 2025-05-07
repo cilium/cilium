@@ -96,7 +96,7 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer], metrics Metrics) *Server {
+func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, initialPoliciesComputedPromise promise.Promise[endpointstate.InitialPoliciesComputed], metrics Metrics) *Server {
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
@@ -105,7 +105,7 @@ func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfig
 		watchers[typeURL] = w
 
 		if resType.AckObserver != nil {
-			if restorerPromise != nil {
+			if initialPoliciesComputedPromise != nil {
 				resType.AckObserver.MarkRestorePending()
 			}
 			ackObservers[typeURL] = resType.AckObserver

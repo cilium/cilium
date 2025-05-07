@@ -33,7 +33,7 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 	grpcServer := grpc.NewServer()
 
 	// xdsServer optionally pauses serving any resources until endpoints have been restored
-	xdsServer := xds.NewServer(s.logger, config, s.restorerPromise, s.config.metrics)
+	xdsServer := xds.NewServer(s.logger, config, s.initialPoliciesComputedPromise, s.config.metrics)
 	dsServer := (*xdsGRPCServer)(xdsServer)
 
 	// TODO: https://github.com/cilium/cilium/issues/5051
@@ -51,13 +51,9 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.policyRestoreTimeout)
 	go func() {
-		if s.restorerPromise != nil {
-			s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
-			restorer, err := s.restorerPromise.Await(ctx)
-			if err == nil && restorer != nil {
-				s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
-				err = restorer.WaitForInitialPolicy(ctx)
-			}
+		if s.initialPoliciesComputedPromise != nil {
+			s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+			_, err := s.initialPoliciesComputedPromise.Await(ctx)
 			if errors.Is(err, context.Canceled) {
 				s.logger.Debug("Envoy: xDS server stopped before started serving")
 				return

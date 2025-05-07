@@ -24,17 +24,17 @@ import (
 )
 
 type DeletionQueue struct {
-	logger                 *slog.Logger
-	lf                     *lockfile.Lockfile
-	endpointRestorePromise promise.Promise[endpointstate.Restorer]
-	endpointAPIManager     EndpointAPIManager
-	processed              chan struct{}
+	logger                   *slog.Logger
+	lf                       *lockfile.Lockfile
+	endpointsRestoredPromise promise.Promise[endpointstate.EndpointsRestored]
+	endpointAPIManager       EndpointAPIManager
+	processed                chan struct{}
 }
 
 func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error {
-	if _, err := dq.endpointRestorePromise.Await(ctx); err != nil {
-		dq.logger.Error("deletionQueue: restorer promise failed", logfields.Error, err)
-		return fmt.Errorf("restorer promise failed: %w", err)
+	if _, err := dq.endpointsRestoredPromise.Await(ctx); err != nil {
+		dq.logger.Error("deletionQueue: waiting for endpoint restore failed", logfields.Error, err)
+		return fmt.Errorf("waiting for endpoint restore failed: %w", err)
 	}
 
 	if err := dq.lock(ctx); err != nil {
@@ -57,18 +57,18 @@ func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error 
 type deletionQueueParams struct {
 	cell.In
 
-	Logger             *slog.Logger
-	JobGroup           job.Group
-	Restorer           promise.Promise[endpointstate.Restorer]
-	EndpointAPIManager EndpointAPIManager
+	Logger                   *slog.Logger
+	JobGroup                 job.Group
+	EndpointsRestoredPromise promise.Promise[endpointstate.EndpointsRestored]
+	EndpointAPIManager       EndpointAPIManager
 }
 
 func newDeletionQueue(params deletionQueueParams) *DeletionQueue {
 	dq := &DeletionQueue{
-		logger:                 params.Logger,
-		endpointRestorePromise: params.Restorer,
-		endpointAPIManager:     params.EndpointAPIManager,
-		processed:              make(chan struct{}),
+		logger:                   params.Logger,
+		endpointsRestoredPromise: params.EndpointsRestoredPromise,
+		endpointAPIManager:       params.EndpointAPIManager,
+		processed:                make(chan struct{}),
 	}
 
 	params.JobGroup.Add(job.OneShot("cni-deletion-queue", dq.Process))
