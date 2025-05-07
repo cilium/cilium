@@ -267,12 +267,11 @@ jobs:
 
   build-commits-bpf:
     # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
+    if: always() && needs.compute-vars.outputs.build-bpf == 'true' && vars.ENABLE_CILIUM_CI == 'true'
     name: Check if bpf builds for every commit
     runs-on: ubuntu-22.04
     needs: [compute-vars]
     # Runs only if code under bpf/ is changed.
-    if: needs.compute-vars.outputs.build-bpf == 'true'
     timeout-minutes: 180
     steps:
       - name: Collect Workflow Telemetry
@@ -362,12 +361,11 @@ jobs:
 
   build-commits-test:
     # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
+    if: always() && needs.compute-vars.outputs.build-test == 'true' && vars.ENABLE_CILIUM_CI == 'true'
     name: Check if test builds for every commit
     runs-on: ubuntu-22.04
     needs: [compute-vars]
     # Runs only if code under test/ is changed.
-    if: needs.compute-vars.outputs.build-test == 'true'
     timeout-minutes: 180
     steps:
       - name: Collect Workflow Telemetry
