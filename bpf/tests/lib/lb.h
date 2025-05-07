@@ -26,9 +26,12 @@ __lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count
 		svc_value.affinity_timeout = affinity_timeout;
 	}
 	map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
-	/* Register with both scopes: */
-	svc_key.scope = LB_LOOKUP_SCOPE_INT;
-	map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
+
+	if (lb4_svc_is_two_scopes(&svc_value)) {
+		/* Register with both scopes: */
+		svc_key.scope = LB_LOOKUP_SCOPE_INT;
+		map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
+	}
 }
 
 static __always_inline void
