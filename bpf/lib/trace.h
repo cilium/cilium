@@ -216,7 +216,10 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u16 line, __u8 file)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
+	__u64 cap_len = min_t(__u64,
+				  monitor && monitor != TRACE_PAYLOAD_LEN
+				     ? monitor
+					 : ctx_monitor_from_classifiers(flags),
 			      ctx_len);
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,

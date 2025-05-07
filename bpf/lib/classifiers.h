@@ -23,6 +23,11 @@
 # define CLASSIFIERS_DEVICE
 #endif
 
+/* Non-default TRACE_PAYLOAD_LEN is possible only if we can detect overlay traffic */
+#if defined(HAVE_ENCAP) && (defined(CLASSIFIERS_TO_NETDEV) || defined(CLASSIFIERS_FROM_NETDEV))
+# define CLASSIFIERS_OVERLAY_MONITOR
+#endif
+
 typedef __u8 cls_flags_t;
 
 enum {
@@ -157,3 +162,20 @@ ctx_to_netdev_classifiers(struct __ctx_buff *ctx)
 #else
 #define ctx_to_netdev_classifiers(ctx) ((cls_flags_t)0)
 #endif /* CLASSIFIERS_TO_NETDEV */
+
+#ifdef CLASSIFIERS_OVERLAY_MONITOR
+/* Compute payload length from the given classifiers:
+ * - TRACE_PAYLOAD_LEN_OVERLAY, when CLS_FLAG_{VXLAN,GENEVE} is set
+ * - TRACE_PAYLOAD_LEN, otherwise.
+ */
+static __always_inline __u64
+ctx_monitor_from_classifiers(cls_flags_t flags)
+{
+	if  (flags & (CLS_FLAG_VXLAN | CLS_FLAG_GENEVE))
+		return CONFIG(trace_payload_len_overlay);
+
+	return CONFIG(trace_payload_len);
+}
+#else
+#define ctx_monitor_from_classifiers(flags) CONFIG(trace_payload_len)
+#endif /* CLASSIFIERS_OVERLAY_MONITOR */

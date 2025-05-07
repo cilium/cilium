@@ -20,6 +20,9 @@
 #include "common.h"
 #include "pktgen.h"
 
+ASSIGN_CONFIG(__u64, trace_payload_len, 128ULL);
+ASSIGN_CONFIG(__u64, trace_payload_len_overlay, 192ULL);
+
 /* Remove the L2 layer to simulate packet in an L3 device. */
 static __always_inline void
 adjust_l2(struct __ctx_buff *ctx)
@@ -86,6 +89,7 @@ int ctx_device_classifiers_check(struct __ctx_buff *ctx)
 	cls_flags_t flags = ctx_device_classifiers(ctx);
 	cls_flags_t flags4 = ctx_device_classifiers4(ctx);
 	cls_flags_t flags6 = ctx_device_classifiers6(ctx);
+	__u32 monitor = ctx_monitor_from_classifiers(flags);
 
 	assert(flags4 == flags);
 
@@ -94,6 +98,8 @@ int ctx_device_classifiers_check(struct __ctx_buff *ctx)
 	assert(flags6 == (flags | CLS_FLAG_IPV6));
 
 	assert(((flags & CLS_FLAG_L3_DEV) != 0) == is_defined(IS_BPF_WIREGUARD));
+
+	assert(monitor == CONFIG(trace_payload_len));
 
 	test_finish();
 }
@@ -115,12 +121,17 @@ int ctx_from_netdev_classifiers4_check(struct __ctx_buff *ctx)
 	struct iphdr *ip4;
 	struct udphdr *udp;
 	cls_flags_t flags;
+	__u32 monitor;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
 
 	flags = ctx_from_netdev_classifiers4(ctx, ip4);
 
 	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
+
+	monitor = ctx_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len));
 
 	udp = (void *)ip4 + sizeof(struct iphdr);
 	if ((void *)udp + sizeof(struct udphdr) > data_end)
@@ -131,6 +142,10 @@ int ctx_from_netdev_classifiers4_check(struct __ctx_buff *ctx)
 	flags = ctx_from_netdev_classifiers4(ctx, ip4);
 
 	assert(flags & CLS_FLAG_VXLAN);
+
+	monitor = ctx_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len_overlay));
 
 	test_finish();
 }
@@ -152,6 +167,7 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	struct udphdr *udp;
 	cls_flags_t flags;
+	__u32 monitor;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip6));
 
@@ -160,6 +176,10 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 	assert(flags & CLS_FLAG_IPV6);
 
 	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
+
+	monitor = ctx_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len));
 
 	udp = (void *)ip6 + sizeof(struct ipv6hdr);
 	if ((void *)udp + sizeof(struct udphdr) > data_end)
@@ -170,6 +190,10 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 	flags = ctx_from_netdev_classifiers6(ctx, ip6);
 
 	assert(flags & CLS_FLAG_VXLAN);
+
+	monitor = ctx_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len_overlay));
 
 	test_finish();
 }
@@ -188,6 +212,7 @@ int ctx_to_netdev_classifiers_check(struct __ctx_buff *ctx)
 	adjust_l2(ctx);
 
 	cls_flags_t flags;
+	__u32 monitor;
 
 	ctx->mark = MARK_MAGIC_WG_ENCRYPTED;
 
@@ -195,11 +220,19 @@ int ctx_to_netdev_classifiers_check(struct __ctx_buff *ctx)
 
 	assert(((flags & CLS_FLAG_WIREGUARD) != 0) == is_defined(IS_BPF_HOST));
 
+	monitor = ctx_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len));
+
 	ctx->mark = MARK_MAGIC_OVERLAY;
 
 	flags = ctx_to_netdev_classifiers(ctx);
 
 	assert(flags & CLS_FLAG_VXLAN);
+
+	monitor = ctx_monitor_from_classifiers(flags);
+
+	assert(monitor == CONFIG(trace_payload_len_overlay));
 
 	test_finish();
 }

@@ -11,6 +11,8 @@
 #include <bpf/config/node.h>
 #include "lib/common.h"
 
+ASSIGN_CONFIG(__u64, trace_payload_len, 128);
+
 static __u64 __now;
 
 #define ktime_get_ns()	(__now * NSEC_PER_SEC)
@@ -107,7 +109,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 			test_fatal("ct entry lookup failed");
 
 		union tcp_flags seen_flags = {0};
-		__u32 monitor;
+		__u32 monitor = 0;
 
 		seen_flags.value |= TCP_FLAG_SYN;
 
@@ -219,7 +221,7 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 		struct ipv4_ct_tuple tuple = {};
 		struct ct_state ct_state = {};
 		union tcp_flags seen_flags = {0};
-		__u32 monitor;
+		__u32 monitor = 0;
 
 		tuple.nexthdr = IPPROTO_TCP;
 		tuple.flags = CT_SERVICE;

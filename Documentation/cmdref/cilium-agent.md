@@ -392,7 +392,8 @@ cilium-agent [flags]
       --tofqdns-pre-cache string                                  DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                                    Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --tofqdns-proxy-response-max-delay duration                 The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
-      --trace-payloadlen int                                      Length of payload to capture when tracing (default 128)
+      --trace-payloadlen int                                      Length of payload to capture when tracing native packets. (default 128)
+      --trace-payloadlen-overlay int                              Length of payload to capture when tracing overlay packets. (default 192)
       --trace-sock                                                Enable tracing for socket-based LB (default true)
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")

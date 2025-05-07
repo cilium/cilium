@@ -63,8 +63,9 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 {
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
+	__u8 flags = (__u8)(error >> 16);
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	__u64 cap_len = min_t(__u64, ctx_monitor_from_classifiers(flags), ctx_len);
 	__u32 meta4 = ctx_load_meta(ctx, 4);
 	__u16 line = (__u16)(meta4 >> 16);
 	__u8 file = (__u8)(meta4 >> 8);
@@ -94,7 +95,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
-		.flags          = (__u8)(error >> 16),
+		.flags          = flags,
 	};
 
 	ctx_event_output(ctx, &cilium_events,

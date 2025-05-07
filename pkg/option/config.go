@@ -399,8 +399,11 @@ const (
 	// StateDir is the directory path to store runtime state
 	StateDir = "state-dir"
 
-	// TracePayloadlen length of payload to capture when tracing
+	// TracePayloadlen length of payload to capture when tracing native packets.
 	TracePayloadlen = "trace-payloadlen"
+
+	// TracePayloadlenOverlay length of payload to capture when tracing overlay packets.
+	TracePayloadlenOverlay = "trace-payloadlen-overlay"
 
 	// Version prints the version information
 	Version = "version"
@@ -1679,6 +1682,7 @@ type DaemonConfig struct {
 	IPv4NodeAddr            string
 	SocketPath              string
 	TracePayloadlen         int
+	TracePayloadlenOverlay  int
 	Version                 string
 	PrometheusServeAddr     string
 	ToFQDNsMinTTL           int
@@ -2959,6 +2963,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ExternalEnvoyProxy = vp.GetBool(ExternalEnvoyProxy)
 	c.SocketPath = vp.GetString(SocketPath)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
+	c.TracePayloadlenOverlay = vp.GetInt(TracePayloadlenOverlay)
 	c.Version = vp.GetString(Version)
 	c.PolicyTriggerInterval = vp.GetDuration(PolicyTriggerInterval)
 	c.CTMapEntriesTimeoutTCP = vp.GetDuration(CTMapEntriesTimeoutTCPName)
