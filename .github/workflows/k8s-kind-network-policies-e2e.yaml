@@ -25,8 +25,6 @@ env:
 
 jobs:
   kubernetes-e2e-net:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: K8s Network Policy E2E tests
     runs-on: ubuntu-24.04
     timeout-minutes: 45
