@@ -104,17 +104,9 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ; then
-            SHA="${{ inputs.SHA }}"
-          else
-            SHA="${{ github.sha }}"
-          fi
-
           # Adding k8s.local to the end makes kops happy
           # has stricter DNS naming requirements.
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
-
-          echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
       - name: Wait for images
@@ -213,7 +205,7 @@ jobs:
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ steps.vars.outputs.SHA }}
+          ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
           path: untrusted
           sparse-checkout: |
