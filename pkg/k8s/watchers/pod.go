@@ -15,11 +15,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +30,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -543,19 +539,6 @@ func (k *K8sPodWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	return err
 }
 
-var (
-	_netnsCookieSupported     bool
-	_netnsCookieSupportedOnce sync.Once
-)
-
-func netnsCookieSupported(logger *slog.Logger) bool {
-	_netnsCookieSupportedOnce.Do(func() {
-		_netnsCookieSupported = probes.HaveProgramHelper(logger, ebpf.CGroupSock, asm.FnGetNetnsCookie) == nil &&
-			probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) == nil
-	})
-	return _netnsCookieSupported
-}
-
 func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, logger *slog.Logger) []loadbalancer.LegacySVC {
 	var (
 		svcs       []loadbalancer.LegacySVC
@@ -574,14 +557,6 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				logger.Warn(
 					fmt.Sprintf("The requested hostPort %d is colliding with the configured NodePort range [%d, %d]. Ignoring.",
 						p.HostPort, k.lbConfig.NodePortMin, k.lbConfig.NodePortMax))
-				continue
-			}
-
-			feIP, err := netip.ParseAddr(p.HostIP)
-			if err == nil && feIP.IsLoopback() && !netnsCookieSupported(logger) {
-				logger.Warn(
-					fmt.Sprintf("The requested loopback address for hostIP (%s) is not supported for kernels which don't provide netns cookies. Ignoring.",
-						feIP))
 				continue
 			}
 
@@ -617,6 +592,7 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 			// on this address but not via other addresses. When it's not set,
 			// then expose via all local addresses. Same when the user provides
 			// an unspecified address (0.0.0.0 / [::]).
+			feIP, _ := netip.ParseAddr(p.HostIP)
 			if feIP.IsValid() && !feIP.IsUnspecified() {
 				// Migrate the loopback address into a 0.0.0.0 / [::]
 				// surrogate, thus internal datapath handling can be
