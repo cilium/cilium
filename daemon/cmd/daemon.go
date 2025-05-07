@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/health"
@@ -47,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -105,17 +103,12 @@ type Daemon struct {
 	endpointCreator endpointcreator.EndpointCreator
 	endpointManager endpointmanager.EndpointManager
 
-	endpointRestoreComplete       chan struct{}
-	endpointInitialPolicyComplete chan struct{}
-
 	identityAllocator identitycell.CachingIdentityAllocator
 	identityRestorer  *identityrestoration.LocalIdentityRestorer
 	ipcache           *ipcache.IPCache
 
 	k8sWatcher  *watchers.K8sWatcher
 	k8sSvcCache k8s.ServiceCache
-
-	endpointMetadata endpointmetadata.EndpointMetadataFetcher
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
@@ -129,7 +122,6 @@ type Daemon struct {
 
 	bwManager datapath.BandwidthManager
 
-	lrpManager   *redirectpolicy.Manager
 	maglevConfig maglev.Config
 
 	lbConfig loadbalancer.Config
@@ -306,22 +298,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bwManager:         params.BandwidthManager,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
-		endpointMetadata:  params.EndpointMetadata,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
-		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
 		ciliumHealth:      params.CiliumHealth,
-	}
-
-	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
-	// can wait on it to get closed and not block forever if they happen so start
-	// waiting when it is not yet initialized (which causes them to block forever).
-	if option.Config.RestoreState {
-		d.endpointRestoreComplete = make(chan struct{})
-		d.endpointInitialPolicyComplete = make(chan struct{})
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
@@ -456,7 +438,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
+	restoredEndpoints, err := params.EndpointRestorer.fetchOldEndpoints(d.ctx, option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
 	}
@@ -635,7 +617,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	d.restoreOldEndpoints(restoredEndpoints)
+	params.EndpointRestorer.restoreOldEndpoints(restoredEndpoints)
 	bootstrapStats.restore.End(true)
 
 	// We must do this after IPAM because we must wait until the

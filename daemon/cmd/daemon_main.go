@@ -51,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -75,7 +74,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1445,9 +1443,12 @@ var daemonCell = cell.Module(
 
 	cell.Provide(
 		newDaemonPromise,
-		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
+	),
+	cell.Provide(
+		promise.New[endpointstate.Restorer],
+		newEndpointRestorer,
 	),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
@@ -1477,7 +1478,7 @@ type daemonParams struct {
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
-	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	EndpointRestorer    *endpointRestorer
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1514,7 +1515,6 @@ type daemonParams struct {
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
-	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
 	LBConfig            loadbalancer.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
@@ -1627,7 +1627,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Error("Failed to wait for initial IPCache revision")
 	}
 
-	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+	params.EndpointRestorer.initRestore(d.ctx, restoredEndpoints, params.EndpointRegenerator)
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
@@ -1697,13 +1697,10 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	go func() {
-		if d.endpointRestoreComplete != nil {
-			select {
-			case <-d.endpointRestoreComplete:
-			case <-d.ctx.Done():
-				return
-			}
+		if err := params.EndpointRestorer.WaitForEndpointRestore(d.ctx); err != nil {
+			return
 		}
+
 		params.DNSProxy.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(params.Logger, &EndpointMapManager{
@@ -1798,7 +1795,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	return nil
 }
 
-func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
+func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
 	var wg sync.WaitGroup
 
 	lc.Append(cell.Hook{
@@ -1806,11 +1803,10 @@ func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Prom
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				daemon, err := daemonPromise.Await(context.Background())
-				if err != nil {
+				if _, err := daemonPromise.Await(context.Background()); err != nil {
 					resolver.Reject(err)
 				} else {
-					resolver.Resolve(daemon)
+					resolver.Resolve(endpointRestorer)
 				}
 			}()
 			return nil
