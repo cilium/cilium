@@ -805,11 +805,13 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
+#define IPPROTO_ANY	0	/* For service lookup with ANY L4 protocol */
+
 struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, 0 indicates any protocol */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
 };
@@ -869,7 +871,7 @@ struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, 0 indicates any protocol */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
 };
