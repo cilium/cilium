@@ -486,7 +486,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnJiffies64},
 		{ebpf.SchedCLS, asm.FnJiffies64},
 		{ebpf.XDP, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
 
 		// xdp related probes
@@ -510,7 +509,6 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
-		"HAVE_CGROUP_ID":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
 		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 	}
 
