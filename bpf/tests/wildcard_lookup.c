@@ -17,8 +17,6 @@
 
 #define ENABLE_NODEPORT 1
 
-#define HAVE_NETNS_COOKIE 1
-
 /* Hardcode the host netns cookie to 0 */
 #define HOST_NETNS_COOKIE 0
 
