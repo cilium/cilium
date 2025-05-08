@@ -101,8 +101,6 @@ type FeatureProbes struct {
 // SystemConfig contains kernel configuration and sysctl parameters related to
 // BPF functionality.
 type SystemConfig struct {
-	ConfigBpf           KernelParam `json:"CONFIG_BPF"`
-	ConfigBpfSyscall    KernelParam `json:"CONFIG_BPF_SYSCALL"`
 	ConfigHaveEbpfJit   KernelParam `json:"CONFIG_HAVE_EBPF_JIT"`
 	ConfigBpfJit        KernelParam `json:"CONFIG_BPF_JIT"`
 	ConfigCgroupBpf     KernelParam `json:"CONFIG_CGROUP_BPF"`
@@ -205,16 +203,6 @@ func (p *ProbeManager) GetRequiredConfig() map[KernelParam]kernelOption {
 	coreInfraDescription := "Essential eBPF infrastructure"
 	kernelParams := make(map[KernelParam]kernelOption)
 
-	kernelParams["CONFIG_BPF"] = kernelOption{
-		Enabled:     config.ConfigBpf.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_BPF_SYSCALL"] = kernelOption{
-		Enabled:     config.ConfigBpfSyscall.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
 	kernelParams["CONFIG_NET_SCH_INGRESS"] = kernelOption{
 		Enabled:     config.ConfigNetSchIngress.Enabled() || config.ConfigNetSchIngress.Module(),
 		Description: coreInfraDescription,
@@ -294,7 +282,7 @@ func (p *ProbeManager) KernelConfigAvailable() bool {
 }
 
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
-// check if a certain BPF program/helper copmbination is supported by the kernel.
+// check if a certain BPF program/helper combination is supported by the kernel.
 // On unexpected probe results this function will terminate with log.Fatal().
 func HaveProgramHelper(logger *slog.Logger, pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	err := features.HaveProgramHelper(pt, helper)
@@ -374,17 +362,36 @@ func HaveV3ISA(logger *slog.Logger) error {
 	return nil
 }
 
-// HaveTCX returns nil if the running kernel supports attaching bpf programs to
-// tcx hooks.
-var HaveTCX = sync.OnceValue(func() error {
+func newProgram(progType ebpf.ProgramType) (*ebpf.Program, error) {
 	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Type: ebpf.SchedCLS,
+		Type: progType,
 		Instructions: asm.Instructions{
 			asm.Mov.Imm(asm.R0, 0),
 			asm.Return(),
 		},
 		License: "Apache-2.0",
 	})
+	if err != nil {
+		return nil, fmt.Errorf("loading bpf program: %w: %w", err, ErrNotSupported)
+	}
+	return prog, nil
+}
+
+// HaveBPF returns nil if the running kernel supports loading BPF programs.
+var HaveBPF = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SocketFilter)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	return nil
+})
+
+// HaveTCX returns nil if the running kernel supports attaching bpf programs to
+// tcx hooks.
+var HaveTCX = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SchedCLS)
 	if err != nil {
 		return err
 	}
@@ -419,14 +426,7 @@ var HaveTCX = sync.OnceValue(func() error {
 // HaveNetkit returns nil if the running kernel supports attaching bpf programs
 // to netkit devices.
 var HaveNetkit = sync.OnceValue(func() error {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Type: ebpf.SchedCLS,
-		Instructions: asm.Instructions{
-			asm.Mov.Imm(asm.R0, 0),
-			asm.Return(),
-		},
-		License: "Apache-2.0",
-	})
+	prog, err := newProgram(ebpf.SchedCLS)
 	if err != nil {
 		return err
 	}
