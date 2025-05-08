@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -864,11 +863,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 	orphanSourceRanges := prevSourceRanges.Clone()
 	srcRangeValue := &lbmap.SourceRangeValue{}
-	for _, cidr := range fe.Service.SourceRanges {
-		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+	for _, prefix := range fe.Service.SourceRanges {
+		if prefix.Addr().Is6() != fe.Address.IsIPv6() {
 			continue
 		}
-		prefix := cidrToPrefix(cidr)
 
 		err := ops.LBMaps.UpdateSourceRange(
 			srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
@@ -1427,10 +1425,4 @@ func srcRangeKey(cidr netip.Prefix, revNATID uint16, ipv6 bool) lbmap.SourceRang
 		copy(key.Address[:], as4[:])
 		return key
 	}
-}
-
-func cidrToPrefix(cidr cidr.CIDR) netip.Prefix {
-	cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
-	ones, _ := cidr.Mask.Size()
-	return netip.PrefixFrom(cidrAddr, ones)
 }
