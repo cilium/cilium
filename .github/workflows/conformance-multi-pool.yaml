@@ -104,8 +104,13 @@ jobs:
         include:
           - name: 'Direct Routing'
             tunnel: 'disabled'
+            encryption: 'disabled'
           - name: 'Tunnel Mode'
             tunnel: 'vxlan'
+            encryption: 'disabled'
+          - name: 'Tunnel Mode with IPSec Encryption'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
 
     name: Install and Connectivity Test
     env:
@@ -181,6 +186,11 @@ jobs:
             --helm-set=autoDirectNodeRoutes=true"
           fi
 
+          CILIUM_INSTALL_ENCRYPTION=""
+          if [ "${{ matrix.encryption }}" != "disabled" ]; then
+            CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
             --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
@@ -195,7 +205,7 @@ jobs:
                 \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
             }'"
 
-          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL}" >> $GITHUB_OUTPUT
+          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -226,6 +236,12 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Create the IPSec secret
+        if: matrix.encryption == 'ipsec'
+        run: |
+          SECRET="3+ rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
+          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
 
       - name: Install Cilium
         id: install-cilium
