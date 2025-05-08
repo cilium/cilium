@@ -120,6 +120,37 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
           Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
+    .. group-tab:: Kubespray
+
+       `Kubespray <https://github.com/kubernetes-sigs/kubespray>`_ requires Python ≥ 3.9 for recent versions. 
+       For environment setup and dependencies installation, see the `Kubespray Ansible documentation <https://github.com/kubernetes-sigs/kubespray/blob/master/docs/ansible/ansible.md#installing-ansible>`_.
+
+       **Configure cluster:**
+
+       .. code-block:: bash
+
+           # Copy sample inventory
+           cp -rfp inventory/sample inventory/mycluster
+           
+           # Configure your inventory
+           vi inventory/mycluster/inventory.ini
+           
+           # Configure to use CNI without any network plugin
+           sed -i 's/^kube_network_plugin:.*$/kube_network_plugin: cni/' inventory/mycluster/group_vars/k8s_cluster.yml
+
+       Setting ``kube_network_plugin: cni`` ensures the cluster deploys without any network plugin, allowing Cilium to be installed separately afterward.
+
+       **Deploy cluster:**
+
+       .. code-block:: bash
+
+           ansible-playbook -i inventory/mycluster/inventory.ini cluster.yml -b -v \
+             --private-key=~/.ssh/private_key
+
+       .. note::
+
+          For more detailed configuration options, please refer to the `Kubespray documentation <https://github.com/kubernetes-sigs/kubespray/blob/master/docs/ansible/vars.md>`_.
+
     .. group-tab:: kind
 
        Install ``kind`` >= v0.7.0 per kind documentation:
