@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/google/uuid"
@@ -135,21 +136,31 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 	s.streams.Store(stream, cancel)
 
 	ackRecvStream := make(chan struct{}, 1)
+	errChan := make(chan error)
 	// Start a goroutine to receive the DNS policies ACKs
 	go func() {
 		if err := s.receiveDNSPolicyACKs(stream, ackRecvStream); err != nil {
 			s.log.Error("Error receiving DNS policies ACK", logfields.Error, err)
 			cancel() // Cancel the context to close the stream
 			s.deleteStream(stream)
+			errChan <- err
 			return
 		}
 	}()
-
-	// Wait for the ACK to be received
-	<-ackRecvStream
+	// Wait for the ACK channel to be closed
+	select {
+	case <-ackRecvStream:
+		// ACK channel is closed, we can proceed
+	case err := <-errChan:
+		// Error receiving the ACK
+		if err != nil {
+			s.log.Error("Error receiving DNS policies ACK", logfields.Error, err)
+			return err
+		}
+	}
 	s.log.Debug("Received ACK for DNS policies")
 
-	//Send the current state of the DNS policies to the client
+	// Send the current state of the DNS policies to the client
 	s.log.Debug("Sending current state of DNS policies to the client")
 	if err := s.UpdatePolicyRules(nil, false); err != nil {
 		s.log.Error("Error sending current state of DNS rules", logfields.Error, err)
@@ -161,9 +172,7 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 	s.log.Debug("Waiting for context to be done for streaming DNS policies")
 	<-streamCtx.Done()
 	err := streamCtx.Err()
-	if err == nil {
-		s.log.Error("Context done for streaming DNS policies", logfields.Error, err)
-	}
+	s.log.Warn("Context done for streaming DNS policies", logfields.Error, err)
 	s.deleteStream(stream)
 	return err
 }
@@ -179,7 +188,7 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 // 5. If the response code is not NO_ERROR, send cancel signal to the channel
 // 6. Delete the request from the map
 func (s *FQDNDataServer) receiveDNSPolicyACKs(stream pb.FQDNData_StreamPolicyStateServer, ack chan struct{}) error {
-	close(ack)
+	var once sync.Once
 
 	for {
 		select {
@@ -189,9 +198,11 @@ func (s *FQDNDataServer) receiveDNSPolicyACKs(stream pb.FQDNData_StreamPolicySta
 		default:
 			// Continue receiving the DNS policies ACKs
 		}
+		once.Do(func() {
+			close(ack)
+		})
 		response, err := stream.Recv()
 		if err != nil {
-			s.log.Error("Error receiving DNS policies ACK", logfields.Error, err)
 			return err
 		}
 		s.log.Debug("Received DNS policies ACK", logfields.Response, response)
