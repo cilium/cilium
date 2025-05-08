@@ -38,7 +38,9 @@ func CheckRequirements(log *slog.Logger) error {
 
 	// bpftool checks
 	if !option.Config.DryMode {
-		probeManager := probes.NewProbeManager(log)
+		if probes.HaveBPF() != nil {
+			return errors.New("Require support for bpf() (CONFIG_BPF_SYSCALL=y)")
+		}
 
 		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
@@ -68,9 +70,8 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_redirect_peer() (Linux 5.10.0 or newer)")
 		}
 
+		probeManager := probes.NewProbeManager(log)
 		if err := probeManager.SystemConfigProbes(); err != nil {
-			// TODO(vincentmli): revisit log when GH#14314 has been resolved
-			// Warn missing required kernel config option
 			log.Warn("BPF system config check: NOT OK.", logfields.Error, err)
 		}
 	}
