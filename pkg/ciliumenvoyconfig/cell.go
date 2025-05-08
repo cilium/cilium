@@ -17,7 +17,7 @@ var (
 	// Cell implements handling of the Cilium(Clusterwide)EnvoyConfig handling
 	// and backend synchronization towards Envoy.
 	Cell = cell.Module(
-		"ciliumenvoycnofig",
+		"ciliumenvoyconfig",
 		"CiliumEnvoyConfig handling",
 
 		cell.Config(CECConfig{}),
