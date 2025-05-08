@@ -177,10 +177,8 @@ func (m *Map) OpenOrCreate() error {
 // IterateWithCallback iterates through all the keys/values of a map, passing
 // each key/value pair to the cb callback.
 func (m *Map) IterateWithCallback(key, value interface{}, cb IterateCallback) error {
-	if m.Map == nil {
-		if err := m.OpenOrCreate(); err != nil {
-			return err
-		}
+	if err := m.OpenOrCreate(); err != nil {
+		return err
 	}
 
 	m.lock.RLock()
