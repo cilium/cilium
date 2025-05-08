@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -310,40 +311,26 @@ func TestExecuteHeaderProbes(t *testing.T) {
 func TestSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "5.2", "BPF_ADJ_ROOM_MAC mode support in bpf_skb_adjust_room")
-
-	if err := HaveSKBAdjustRoomL2RoomMACSupport(hivetest.Logger(t)); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, HaveSKBAdjustRoomL2RoomMACSupport(hivetest.Logger(t)))
 }
 
 func TestIPv6Support(t *testing.T) {
-	if err := HaveIPv6Support(); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, HaveIPv6Support())
 }
 
 func TestHaveDeadCodeElimSupport(t *testing.T) {
 	testutils.PrivilegedTest(t)
-
-	if err := HaveDeadCodeElim(); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, HaveDeadCodeElim())
 }
 
 func TestHaveTCX(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.6", "tcx bpf_link")
-
-	if err := HaveTCX(); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, HaveTCX())
 }
 
 func TestHaveNetkit(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.7", "netkit bpf_link")
-
-	if err := HaveNetkit(); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, HaveNetkit())
 }
