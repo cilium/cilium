@@ -1,0 +1,252 @@
+name: Conformance Kubespray (ci-kubespray)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    paths:
+      - '.github/workflows/conformance-kubespray.yaml'
+  schedule:
+    - cron: '0 0 * * 0'
+
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName: kubespray-ci-${{ github.run_id }}-${{ github.run_attempt }}
+  KUBESPRAY_SHA: 63cdf87915421dda5955281f38401fd1b55b230b # v2.28.0
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+          images: cilium-ci operator-generic-ci
+
+  installation-and-connectivity:
+    name: Installation and Connectivity Test
+    runs-on: ubuntu-24.04
+    needs: wait-for-images
+    timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.10'
+
+      - name: Checkout Kubespray
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: kubernetes-sigs/kubespray
+          ref: ${{ env.KUBESPRAY_SHA }}
+          path: kubespray
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Kubespray
+        run: |
+          python -m venv kubespray-venv
+          source kubespray-venv/bin/activate
+          cd kubespray
+          pip install -r requirements.txt
+
+      - name: Configure inventory
+        run: |
+          cd kubespray/
+          cp -rfp inventory/sample inventory/mycluster
+
+          cat > inventory/mycluster/inventory.ini << EOF
+          [all]
+          localhost ansible_connection=local
+
+          [kube_control_plane]
+          localhost
+
+          [etcd]
+          localhost
+
+          [kube_node]
+          localhost
+
+          [k8s_cluster:children]
+          kube_control_plane
+          kube_node
+          EOF
+
+      - name: Deploy Kubernetes cluster
+        run: |
+          source kubespray-venv/bin/activate
+          cd kubespray/
+          ansible-playbook -i inventory/mycluster/inventory.ini cluster.yml -b -v \
+            -e '{"container_manager":"docker","docker_package_info":{"pkgs":[]}}' \
+            -e '{"kube_network_plugin":"cni","kube_owner":"root"}'
+
+          mkdir -p $HOME/.kube
+          sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+          sudo chown "$(id -u)":"$(id -g)" $HOME/.kube/config
+
+          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=cluster.name=${{ env.clusterName }}"
+          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --test='!/pod-to-world'"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=2m
+          kubectl get pods --all-namespaces -o wide
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+      sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}
