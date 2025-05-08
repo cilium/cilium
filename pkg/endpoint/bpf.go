@@ -444,16 +444,15 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapath
 	}
 
+	if err := e.lockAlive(); err != nil {
+		return 0, err
+	}
 	dir := datapathRegenCtxt.currentDir
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
 		if err := e.writeHeaderfile(datapathRegenCtxt.nextDir); err != nil {
 			return 0, fmt.Errorf("write endpoint header file: %w", err)
 		}
 		dir = datapathRegenCtxt.nextDir
-	}
-
-	if err := e.lockAlive(); err != nil {
-		return 0, err
 	}
 	datapathRegenCtxt.epInfoCache = e.createEpInfoCache(dir)
 	e.unlock()
