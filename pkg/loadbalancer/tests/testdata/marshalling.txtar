@@ -7,7 +7,6 @@
 #
 
 hive/start
-db/initialized
 
 # Add our test service and backends. To avoid undeterministic ID allocation
 # add the IPv4 endpoints first.

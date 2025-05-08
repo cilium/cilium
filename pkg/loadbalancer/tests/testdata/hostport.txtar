@@ -13,7 +13,6 @@ db/cmp node-addresses nodeaddrs.table
 
 # Start the test application
 hive start
-db/initialized
 
 # Add a pod with 'hostPort'. A synthetic service, frontend and backend will
 # be created for it.
@@ -173,7 +172,7 @@ spec:
       hostPort: 4444
       protocol: TCP
     resources: {}
-  nodeName: kind-worker
+  nodeName: testnode
   restartPolicy: Always
   schedulerName: default-scheduler
   securityContext: {}

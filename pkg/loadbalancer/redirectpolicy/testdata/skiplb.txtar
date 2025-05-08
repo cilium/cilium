@@ -3,7 +3,6 @@
 # the load-balancing in datapath for packets originating from the backend.
 
 hive start
-db/initialized
 
 ### Case 1: 1) cookie, 2) pod,service,eps, 3) LRP
 
