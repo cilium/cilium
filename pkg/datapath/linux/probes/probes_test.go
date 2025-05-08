@@ -21,8 +21,6 @@ func TestSystemConfigProbes(t *testing.T) {
 	}{
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -36,8 +34,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "m",
 				ConfigNetClsBpf:     "m",
 				ConfigNetClsAct:     "y",
@@ -52,8 +48,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		// Disable options which generate errors
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "n",
-				ConfigBpfSyscall:    "n",
 				ConfigNetSchIngress: "n",
 				ConfigNetClsBpf:     "n",
 				ConfigNetClsAct:     "n",
@@ -67,8 +61,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "n",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -82,8 +74,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "n",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -97,8 +87,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "n",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -112,8 +100,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "n",
 				ConfigNetClsAct:     "y",
@@ -127,8 +113,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "n",
@@ -142,8 +126,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -157,8 +139,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -173,8 +153,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		// Disable options which generate warnings
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -188,8 +166,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -203,8 +179,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -218,8 +192,6 @@ func TestSystemConfigProbes(t *testing.T) {
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigBpf:           "y",
-				ConfigBpfSyscall:    "y",
 				ConfigNetSchIngress: "y",
 				ConfigNetClsBpf:     "y",
 				ConfigNetClsAct:     "y",
@@ -316,6 +288,11 @@ func TestSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
 
 func TestIPv6Support(t *testing.T) {
 	assert.NoError(t, HaveIPv6Support())
+}
+
+func TestHaveBPF(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	assert.NoError(t, HaveBPF())
 }
 
 func TestHaveDeadCodeElimSupport(t *testing.T) {
