@@ -137,10 +137,6 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 		case layers.LayerTypeSCTP:
 			c.Proto = "sctp"
 			c.SrcPort, c.DstPort = uint16(cache.sctp.SrcPort), uint16(cache.sctp.DstPort)
-		case layers.LayerTypeIPSecAH:
-			c.Proto = "IPsecAH"
-		case layers.LayerTypeIPSecESP:
-			c.Proto = "IPsecESP"
 		case layers.LayerTypeICMPv4:
 			c.Proto = "icmp"
 			c.IcmpCode = cache.icmp4.TypeCode.String()
@@ -194,16 +190,10 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	case icmpCode != "":
 		return fmt.Sprintf("%s -> %s %s %s", srcIP, dstIP, proto, icmpCode)
 	case proto != "":
-		var s string
-
-		if proto == "esp" {
-			s = proto
-		} else {
-			s = fmt.Sprintf("%s -> %s %s",
-				net.JoinHostPort(srcIP.String(), srcPort),
-				net.JoinHostPort(dstIP.String(), dstPort),
-				proto)
-		}
+		s := fmt.Sprintf("%s -> %s %s",
+			net.JoinHostPort(srcIP.String(), srcPort),
+			net.JoinHostPort(dstIP.String(), dstPort),
+			proto)
 		if proto == "tcp" {
 			s += " " + getTCPInfo()
 		}
