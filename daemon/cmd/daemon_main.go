@@ -1345,10 +1345,8 @@ func initEnv(vp *viper.Viper) {
 		log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM)
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMMultiPool {
-		if option.Config.EnableIPSec {
-			log.Fatalf("Cannot specify IPAM mode %s with %s.", option.Config.IPAM, option.EnableIPSecName)
-		}
+	if option.Config.IPAM == ipamOption.IPAMMultiPool && option.Config.EnableIPSec && !option.Config.TunnelingEnabled() {
+		log.Fatalf("IPAM mode %s with %s is supported only in tunnel mode.", option.Config.IPAM, option.EnableIPSecName)
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
