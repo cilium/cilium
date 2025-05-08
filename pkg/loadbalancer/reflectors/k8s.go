@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -27,7 +28,6 @@ import (
 
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/ip"
@@ -423,11 +423,11 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 	}
 
 	for _, srcRange := range svc.Spec.LoadBalancerSourceRanges {
-		cidr, err := cidr.ParseCIDR(srcRange)
+		prefix, err := netip.ParsePrefix(srcRange)
 		if err != nil {
 			continue
 		}
-		s.SourceRanges = append(s.SourceRanges, *cidr)
+		s.SourceRanges = append(s.SourceRanges, prefix)
 	}
 
 	switch svc.Spec.ExternalTrafficPolicy {
