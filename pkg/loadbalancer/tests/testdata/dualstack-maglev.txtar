@@ -10,9 +10,6 @@ db/cmp node-addresses nodeaddrs.table
 # Start the test application
 hive start
 
-# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-db/initialized
-
 # For determinism, add the endpoints first and then services.
 k8s/add endpointslice-ipv4.yaml endpointslice-ipv6.yaml
 db/cmp backends backends.table
