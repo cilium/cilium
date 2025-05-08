@@ -1348,6 +1348,10 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	else if (magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
 #endif
+#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
+	else if (magic == MARK_MAGIC_PROXY_TO_WORLD)
+		trace.flags = CLS_FLAG_IPSEC;
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1668,6 +1672,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
 		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+		trace.flags = CLS_FLAG_IPSEC;
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
@@ -1720,8 +1725,10 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * from 'cilium_host', mark the packet with MARK_MAGIC_PROXY_TO_WORLD
 	 * and allow it to enter the foward path once punted to stack.
 	 */
-	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX)
+	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX) {
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		trace.flags = CLS_FLAG_IPSEC;
+	}
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT

@@ -13,10 +13,11 @@
 # define ENABLE_ETH_HDR_CLASSIFIERS 1
 /* Given the additional complexity, selectively enable classifiers
  * requiring packet processing logic based on the observed traffic:
- * - bpf_host      -> WireGuard/Overlay
+ * - bpf_host      -> WireGuard/IPSec/Overlay
  * - bpf_wireguard -> Overlay
  */
-# if (defined(IS_BPF_HOST) && (defined(ENABLE_WIREGUARD) || defined(HAVE_ENCAP))) || \
+# if (defined(IS_BPF_HOST) && \
+		(defined(ENABLE_WIREGUARD) || defined(ENABLE_IPSEC) || defined(HAVE_ENCAP))) || \
 	 (defined(IS_BPF_WIREGUARD) && defined(HAVE_ENCAP))
 # define ENABLE_PKT_HDR_CLASSIFIERS 1
 # define ENABLE_PKT_MARK_CLASSIFIERS 1
@@ -89,6 +90,12 @@ ctx_classify_by_pkt_mark(struct __ctx_buff *ctx __maybe_unused)
 	if (is_defined(IS_BPF_HOST) && ctx_is_wireguard(ctx))
 		return CLS_FLAG_WIREGUARD;
 
+	if (is_defined(ENABLE_IPSEC) &&
+	    ((ctx->mark & MARK_MAGIC_OVERLAY_ENCRYPTED) == MARK_MAGIC_OVERLAY_ENCRYPTED ||
+		 (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT ||
+		 (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT))
+		return CLS_FLAG_IPSEC;
+
 	if (ctx_is_overlay(ctx))
 		switch (TUNNEL_PROTOCOL) {
 		case TUNNEL_PROTOCOL_VXLAN:
@@ -120,6 +127,11 @@ ctx_classify_by_pkt_hdr(struct __ctx_buff *ctx __maybe_unused,
 	} l4;
 
 	switch (protocol) {
+	case IPPROTO_ESP:
+		if (is_defined(ENABLE_IPSEC))
+			return CLS_FLAG_IPSEC;
+
+		break;
 	case IPPROTO_UDP:
 		if (!is_defined(ENABLE_WIREGUARD) && !is_defined(HAVE_ENCAP))
 			break;

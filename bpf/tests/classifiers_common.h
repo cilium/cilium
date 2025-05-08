@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #define ENABLE_IPV4 1
+#define ENABLE_IPSEC 1
 #define ENABLE_WIREGUARD 1
 #define HAVE_ENCAP 1
 #define ENCAP_IFINDEX 1
@@ -125,6 +126,12 @@ int ctx_classify_by_pkt_mark_check(struct __ctx_buff *ctx)
 
 	assert(flags & CLS_FLAG_VXLAN);
 
+	ctx->mark = MARK_MAGIC_ENCRYPT;
+
+	flags = ctx_classify_by_pkt_mark(ctx);
+
+	assert(flags & CLS_FLAG_IPSEC);
+
 	test_finish();
 }
 
@@ -161,6 +168,12 @@ int ctx_classify_by_pkt_hdr4_check(struct __ctx_buff *ctx)
 	flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
 
 	assert(flags & CLS_FLAG_VXLAN);
+
+	ip4->protocol = IPPROTO_ESP;
+
+	flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
+
+	assert(flags & CLS_FLAG_IPSEC);
 
 	test_finish();
 }
@@ -200,6 +213,12 @@ int ctx_classify_by_pkt_hdr6_check(struct __ctx_buff *ctx)
 	flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
 
 	assert(flags & CLS_FLAG_VXLAN);
+
+	ip6->nexthdr = IPPROTO_ESP;
+
+	flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
+
+	assert(flags & CLS_FLAG_IPSEC);
 
 	test_finish();
 }
