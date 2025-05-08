@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -365,4 +366,79 @@ func TestSocketTermination_Datapath(t *testing.T) {
 	params.ExtConfig.BPFSocketLBHostnsOnly = false
 	terminateUDPConnectionsToBackend(params, *l4a)
 	assertForceClose(true, conn3)
+}
+
+// BenchmarkChangeIteration_TCP validates the CPU cost of processing unrelevant backend changes
+// to judge whether the separation of this logic from the reconciler is worthwhile considering
+// that we have to look at each changed Backend object.
+func BenchmarkChangeIteration_TCP(b *testing.B) {
+	benchmarkChangeIteration(b, loadbalancer.TCP)
+}
+
+// BenchmarkChangeIteration_UDP is the same as BenchmarkChangeIteration_TCP but
+// each backend is a UDP backend, thus hitting the more costly "IsAlive()" check.
+func BenchmarkChangeIteration_UDP(b *testing.B) {
+	benchmarkChangeIteration(b, loadbalancer.UDP)
+}
+
+func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
+	// Skip the test by default as it uses fair bit of memory.
+	b.Skip()
+
+	db := statedb.New()
+	backends, err := loadbalancer.NewBackendsTable(db)
+	require.NoError(b, err)
+
+	const numBackends = 1000000
+
+	// Add some backends to iterate over
+	wtxn := db.WriteTxn(backends)
+	for i := range numBackends {
+		addr := [4]byte{1, byte(i / (256 * 256)), byte(i / 256), byte(i % 256)}
+		be := loadbalancer.Backend{}
+		be.Address.AddrCluster = cmtypes.AddrClusterFrom(netip.AddrFrom4(addr), 0)
+		be.Address.L4Addr.Protocol = proto
+		be.Instances = be.Instances.Set(
+			loadbalancer.BackendInstanceKey{
+				ServiceName:    loadbalancer.ServiceName{Namespace: "foo", Name: "bar"},
+				SourcePriority: 0,
+			}, loadbalancer.BackendParams{
+				Address:   be.Address,
+				Source:    source.Kubernetes,
+				State:     loadbalancer.BackendStateActive,
+				Unhealthy: false,
+			})
+		backends.Insert(wtxn, &be)
+	}
+	wtxn.Commit()
+
+	b.ResetTimer()
+
+	for b.Loop() {
+		// Create the change iterator. This adds a bit of overhead, but since
+		// we're doing massive amount of backends it won't change the result.
+		wtxn := db.WriteTxn(backends)
+		changeIter, err := backends.Changes(wtxn)
+		require.NoError(b, err)
+		wtxn.Commit()
+
+		changes, _ := changeIter.Next(wtxn)
+		total, dead := 0, 0
+		for change := range changes {
+			backend := change.Object
+			total++
+			if change.Object.Address.L4Addr.Protocol != loadbalancer.UDP {
+				continue
+			}
+			if change.Deleted || !backend.IsAlive() {
+				dead++
+			}
+		}
+
+		require.Equal(b, numBackends, total)
+		require.Equal(b, 0, dead)
+	}
+
+	b.ReportMetric(float64(b.N*numBackends)/b.Elapsed().Seconds(), "backends/sec")
+	b.ReportMetric(float64(b.Elapsed())/float64(b.N*numBackends), "ns/backend")
 }
