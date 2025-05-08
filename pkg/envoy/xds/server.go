@@ -18,9 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 const (
@@ -96,7 +94,7 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, initialPoliciesComputedPromise promise.Promise[endpointstate.InitialPoliciesComputed], metrics Metrics) *Server {
+func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, metrics Metrics) *Server {
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
@@ -105,9 +103,7 @@ func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfig
 		watchers[typeURL] = w
 
 		if resType.AckObserver != nil {
-			if initialPoliciesComputedPromise != nil {
-				resType.AckObserver.MarkRestorePending()
-			}
+			resType.AckObserver.MarkRestorePending()
 			ackObservers[typeURL] = resType.AckObserver
 		}
 	}
