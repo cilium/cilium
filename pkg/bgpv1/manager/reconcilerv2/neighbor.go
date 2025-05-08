@@ -73,8 +73,8 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 		job.Observer("default-gateway-tracker", func(ctx context.Context, event statedb.Change[*tables.Route]) error {
 			route := event.Object
 			// check for default route change
-			if route.Dst == netip.PrefixFrom(netip.IPv4Unspecified(), 0) ||
-				route.Dst == netip.PrefixFrom(netip.IPv6Unspecified(), 0) {
+			if route.Dst == ipv4Default ||
+				route.Dst == ipv6Default {
 				// trigger reconciliation for default route changes
 				params.Signaler.Event(struct{}{})
 				params.Logger.Debug("Default gateway change detected, triggering BGP reconciliation")
