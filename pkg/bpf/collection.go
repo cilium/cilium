@@ -312,12 +312,16 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
 
-	if err := renameMaps(spec, opts.MapRenames); err != nil {
+	if err := renameMaps(logger, spec, opts.MapRenames); err != nil {
 		return nil, nil, err
 	}
 
 	if err := applyConstants(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
+	}
+
+	if err := RemoveUnusedMaps(spec); err != nil {
+		return nil, nil, err
 	}
 
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
@@ -343,6 +347,16 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err != nil {
 		return nil, nil, err
+	}
+
+	_, unusedMaps, err := getUnusedMaps(coll)
+	if err != nil {
+		logger.Warn("Error while checking for unused maps: %w", err)
+	}
+	if len(unusedMaps) > 0 {
+		// TODO gate behind hidden flag, only enabled in CI
+		return nil, nil, fmt.Errorf("unused maps found: %v, these were not removed by our dead code elimination logic, "+
+			"yet turn out to be unused after kernel verification", unusedMaps)
 	}
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
@@ -417,11 +431,13 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 }
 
 // renameMaps applies renames to coll.
-func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
+func renameMaps(logger *slog.Logger, coll *ebpf.CollectionSpec, renames map[string]string) error {
 	for name, rename := range renames {
 		mapSpec := coll.Maps[name]
 		if mapSpec == nil {
-			return fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
+			// This can happen due to unused map pruning.
+			logger.Debug("Map not found, skipping rename", "map", name)
+			continue
 		}
 
 		mapSpec.Name = rename
