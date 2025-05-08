@@ -42,6 +42,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf() (CONFIG_BPF_SYSCALL=y)")
 		}
 
+		if probes.HaveBPFJIT() != nil {
+			return errors.New("Require support for the eBPF JIT (CONFIG_HAVE_EBPF_JIT=y and CONFIG_BPF_JIT=y)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
 		}
