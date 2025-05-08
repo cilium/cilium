@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -24,7 +25,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/statedb"
 )
 
 type checks struct {
@@ -666,19 +666,19 @@ func setupStateDB(routes []*tables.Route) (*statedb.DB, error) {
 	}
 	routeTable, err := tables.NewRouteTable()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create default gateway table: %v", err)
+		return nil, fmt.Errorf("failed to create default gateway table: %w", err)
 	}
 	deviceTable, err := tables.NewDeviceTable()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create device table: %v", err)
+		return nil, fmt.Errorf("failed to create device table: %w", err)
 	}
 	err = db.RegisterTable(routeTable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register default gateway table: %v", err)
+		return nil, fmt.Errorf("failed to register default gateway table: %w", err)
 	}
 	err = db.RegisterTable(deviceTable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register device table: %v", err)
+		return nil, fmt.Errorf("failed to register device table: %w", err)
 	}
 	txn := db.WriteTxn(routeTable, deviceTable)
 	for _, r := range routes {

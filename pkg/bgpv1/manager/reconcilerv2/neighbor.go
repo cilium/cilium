@@ -192,7 +192,12 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			case string(v2.BGPDefaultGatewayMode):
 				defaultGateway, err := r.getDefaultGateway(n.AutoDiscovery.DefaultGateway)
 				if err != nil {
-					r.logger.Debug("failed to get default gateway", "error", err)
+					const logKeyError = "error"
+					r.logger.Debug("failed to get default gateway, skipping",
+						types.PeerLogField,
+						n.Name,
+						logKeyError,
+						err)
 					continue
 				}
 				newNeigh[i].PeerAddress = &defaultGateway
