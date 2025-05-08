@@ -1,5 +1,4 @@
 hive start
-db/initialized
 
 # Add a pod and an address-based redirection. Add IPv4 first then
 # IPv6 for consistent ordering.

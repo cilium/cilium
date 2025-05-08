@@ -3,9 +3,7 @@
 # Test service node exposure
 #
 
-# Start and wait for watchers
 hive start
-db/initialized
 
 # Add the endpoints and service
 k8s/add endpointslice.yaml

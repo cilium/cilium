@@ -3,9 +3,7 @@
 # Add a node address.
 db/insert node-addresses addrv4.yaml
 
-# Start and wait for initialization.
 hive start
-db/initialized
 
 env HEALTHPORT1=40000
 env HEALTHPORT2=40001
