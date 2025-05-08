@@ -4,8 +4,6 @@
 package probes
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"text/template"
 
@@ -27,18 +24,12 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
-var (
-	once         sync.Once
-	probeManager *ProbeManager
-	tpl          = template.New("headerfile")
-)
+var tpl = template.New("headerfile")
 
 func init() {
 	const content = `
@@ -69,27 +60,6 @@ func init() {
 // ErrNotSupported indicates that a feature is not supported by the current kernel.
 var ErrNotSupported = errors.New("not supported")
 
-// KernelParam is a type based on string which represents CONFIG_* kernel
-// parameters which usually have values "y", "n" or "m".
-type KernelParam string
-
-// Enabled checks whether the kernel parameter is enabled.
-func (kp KernelParam) Enabled() bool {
-	return kp == "y"
-}
-
-// Module checks whether the kernel parameter is enabled as a module.
-func (kp KernelParam) Module() bool {
-	return kp == "m"
-}
-
-// kernelOption holds information about kernel parameters to probe.
-type kernelOption struct {
-	Description string
-	Enabled     bool
-	CanBeModule bool
-}
-
 type ProgramHelper struct {
 	Program ebpf.ProgramType
 	Helper  asm.BuiltinFunc
@@ -97,137 +67,6 @@ type ProgramHelper struct {
 
 type FeatureProbes struct {
 	ProgramHelpers map[ProgramHelper]bool
-}
-
-// SystemConfig contains kernel configuration and sysctl parameters related to
-// BPF functionality.
-type SystemConfig struct {
-	ConfigCgroupBpf   KernelParam `json:"CONFIG_CGROUP_BPF"`
-	ConfigBpfEvents   KernelParam `json:"CONFIG_BPF_EVENTS"`
-	ConfigLwtunnelBpf KernelParam `json:"CONFIG_LWTUNNEL_BPF"`
-}
-
-// Features contains BPF feature checks returned by bpftool.
-type Features struct {
-	SystemConfig `json:"system_config"`
-}
-
-// ProbeManager is a manager of BPF feature checks.
-type ProbeManager struct {
-	logger   *slog.Logger
-	features Features
-}
-
-// NewProbeManager returns a new instance of ProbeManager - a manager of BPF
-// feature checks.
-func NewProbeManager(logger *slog.Logger) *ProbeManager {
-	newProbeManager := func() {
-		probeManager = &ProbeManager{
-			logger: logger,
-		}
-		probeManager.features = probeManager.Probe()
-	}
-	once.Do(newProbeManager)
-	return probeManager
-}
-
-// Probe probes the underlying kernel for features.
-func (p *ProbeManager) Probe() Features {
-	var features Features
-	out, err := exec.WithTimeout(
-		defaults.ExecTimeout,
-		"bpftool", "-j", "feature", "probe",
-	).CombinedOutput(p.logger, true)
-	if err != nil {
-		logging.Fatal(p.logger, "could not run bpftool", logfields.Error, err)
-	}
-	if err := json.Unmarshal(out, &features); err != nil {
-		logging.Fatal(p.logger, "could not parse bpftool output", logfields.Error, err)
-	}
-	return features
-}
-
-// SystemConfigProbes performs a check of kernel configuration parameters. It
-// returns an error when parameters required by Cilium are not enabled. It logs
-// warnings when optional parameters are not enabled.
-//
-// When kernel config file is not found, bpftool can't probe kernel configuration
-// parameter real setting, so only return error log when kernel config file exists
-// and kernel configuration parameter setting is disabled
-func (p *ProbeManager) SystemConfigProbes() error {
-	var notFound bool
-	if !p.KernelConfigAvailable() {
-		notFound = true
-		p.logger.Info("Kernel config file not found: if the agent fails to start, check the system requirements at https://docs.cilium.io/en/stable/operations/system_requirements")
-	}
-
-	optionalParams := p.GetOptionalConfig()
-	for param, kernelOption := range optionalParams {
-		if !kernelOption.Enabled && !notFound {
-			module := ""
-			if kernelOption.CanBeModule {
-				module = " or module"
-			}
-			p.logger.Warn("optional kernel parameters is not in kernel",
-				logfields.OptionalParameter,
-				[]any{
-					logfields.Param, param,
-					logfields.Module, module,
-					logfields.NeedFor, kernelOption.Description,
-				},
-			)
-		}
-	}
-	return nil
-}
-
-// GetOptionalConfig performs a check of *optional* kernel configuration options. It
-// returns a map indicating which optional/non-mandatory kernel parameters are enabled.
-// GetOptionalConfig is being used by CLI "cilium kernel-check".
-func (p *ProbeManager) GetOptionalConfig() map[KernelParam]kernelOption {
-	config := p.features.SystemConfig
-	kernelParams := make(map[KernelParam]kernelOption)
-
-	kernelParams["CONFIG_CGROUP_BPF"] = kernelOption{
-		Enabled:     config.ConfigCgroupBpf.Enabled(),
-		Description: "Host Reachable Services and Sockmap optimization",
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_LWTUNNEL_BPF"] = kernelOption{
-		Enabled:     config.ConfigLwtunnelBpf.Enabled(),
-		Description: "Lightweight Tunnel hook for IP-in-IP encapsulation",
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_BPF_EVENTS"] = kernelOption{
-		Enabled:     config.ConfigBpfEvents.Enabled(),
-		Description: "Visibility and congestion management with datapath",
-		CanBeModule: false,
-	}
-
-	return kernelParams
-}
-
-// KernelConfigAvailable checks if the Kernel Config is available on the
-// system or not.
-func (p *ProbeManager) KernelConfigAvailable() bool {
-	// Check Kernel Config is available or not.
-	// We are replicating BPFTools logic here to check if kernel config is available
-	// https://elixir.bootlin.com/linux/v5.7/source/tools/bpf/bpftool/feature.c#L390
-	info := unix.Utsname{}
-	err := unix.Uname(&info)
-	if err != nil {
-		return false
-	}
-	release := strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
-
-	// Any error checking these files will return Kernel config not found error
-	if _, err := os.Stat(fmt.Sprintf("/boot/config-%s", release)); err != nil {
-		if _, err = os.Stat("/proc/config.gz"); err != nil {
-			return false
-		}
-	}
-
-	return true
 }
 
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to

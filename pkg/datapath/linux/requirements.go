@@ -36,7 +36,6 @@ func CheckRequirements(log *slog.Logger) error {
 		}
 	}
 
-	// bpftool checks
 	if !option.Config.DryMode {
 		if probes.HaveBPF() != nil {
 			return errors.New("Require support for bpf() (CONFIG_BPF_SYSCALL=y)")
@@ -86,11 +85,6 @@ func CheckRequirements(log *slog.Logger) error {
 
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
 			return errors.New("Require support for bpf_redirect_peer() (Linux 5.10.0 or newer)")
-		}
-
-		probeManager := probes.NewProbeManager(log)
-		if err := probeManager.SystemConfigProbes(); err != nil {
-			log.Warn("BPF system config check: NOT OK.", logfields.Error, err)
 		}
 	}
 	return nil
