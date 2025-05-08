@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -57,6 +58,11 @@ type configModifyApiHandlerParams struct {
 	cell.In
 
 	Logger logrus.FieldLogger
+
+	// Depend on DaemonInitialization to wait until legacy daemon initialization is finished. This blocks the
+	// API server from starting and is required to prevent panics when accessing node globals that are
+	// initialized in that phase.
+	legacy.DaemonInitialization
 
 	DB              *statedb.DB
 	Devices         statedb.Table[*datapathTables.Device]
