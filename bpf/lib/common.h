@@ -650,6 +650,11 @@ enum metric_dir {
  */
 #define MARK_MAGIC_WG_ENCRYPTED		0x1E00
 
+/* The mark is used to indicate that the WireGuard tunnel device is done
+ * decrypting a packet.
+ */
+#define MARK_MAGIC_WG_DECRYPTED		0x1D00
+
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
  * probe packets to ipip tunnel device & to avoid looping back.
