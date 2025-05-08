@@ -21,157 +21,115 @@ func TestSystemConfigProbes(t *testing.T) {
 	}{
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: false,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "m",
-				ConfigNetClsBpf:     "m",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: false,
 		},
 		// Disable options which generate errors
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "n",
-				ConfigNetClsBpf:     "n",
-				ConfigNetClsAct:     "n",
-				ConfigCgroupBpf:     "n",
-				ConfigLwtunnelBpf:   "n",
-				ConfigBpfEvents:     "n",
+				ConfigCgroupBpf:   "n",
+				ConfigLwtunnelBpf: "n",
+				ConfigBpfEvents:   "n",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "n",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "n",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "n",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: true,
 		},
 		// Disable options which generate warnings
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "n",
-				ConfigLwtunnelBpf:   "n",
-				ConfigBpfEvents:     "n",
+				ConfigCgroupBpf:   "n",
+				ConfigLwtunnelBpf: "n",
+				ConfigBpfEvents:   "n",
 			},
 			expectErr: false,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "n",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "n",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: false,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "n",
-				ConfigBpfEvents:     "y",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "n",
+				ConfigBpfEvents:   "y",
 			},
 			expectErr: false,
 		},
 		{
 			systemConfig: SystemConfig{
-				ConfigNetSchIngress: "y",
-				ConfigNetClsBpf:     "y",
-				ConfigNetClsAct:     "y",
-				ConfigCgroupBpf:     "y",
-				ConfigLwtunnelBpf:   "y",
-				ConfigBpfEvents:     "n",
+				ConfigCgroupBpf:   "y",
+				ConfigLwtunnelBpf: "y",
+				ConfigBpfEvents:   "n",
 			},
 			expectErr: false,
 		},
@@ -275,6 +233,11 @@ func TestHaveBPFJIT(t *testing.T) {
 func TestHaveDeadCodeElimSupport(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, HaveDeadCodeElim())
+}
+
+func TestHaveTCBPF(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	assert.NoError(t, HaveTCBPF())
 }
 
 func TestHaveTCX(t *testing.T) {

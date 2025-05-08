@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -101,13 +102,9 @@ type FeatureProbes struct {
 // SystemConfig contains kernel configuration and sysctl parameters related to
 // BPF functionality.
 type SystemConfig struct {
-	ConfigCgroupBpf     KernelParam `json:"CONFIG_CGROUP_BPF"`
-	ConfigBpfEvents     KernelParam `json:"CONFIG_BPF_EVENTS"`
-	ConfigLwtunnelBpf   KernelParam `json:"CONFIG_LWTUNNEL_BPF"`
-	ConfigNetActBpf     KernelParam `json:"CONFIG_NET_ACT_BPF"`
-	ConfigNetClsBpf     KernelParam `json:"CONFIG_NET_CLS_BPF"`
-	ConfigNetClsAct     KernelParam `json:"CONFIG_NET_CLS_ACT"`
-	ConfigNetSchIngress KernelParam `json:"CONFIG_NET_SCH_INGRESS"`
+	ConfigCgroupBpf   KernelParam `json:"CONFIG_CGROUP_BPF"`
+	ConfigBpfEvents   KernelParam `json:"CONFIG_BPF_EVENTS"`
+	ConfigLwtunnelBpf KernelParam `json:"CONFIG_LWTUNNEL_BPF"`
 }
 
 // Features contains BPF feature checks returned by bpftool.
@@ -163,16 +160,7 @@ func (p *ProbeManager) SystemConfigProbes() error {
 		notFound = true
 		p.logger.Info("Kernel config file not found: if the agent fails to start, check the system requirements at https://docs.cilium.io/en/stable/operations/system_requirements")
 	}
-	requiredParams := p.GetRequiredConfig()
-	for param, kernelOption := range requiredParams {
-		if !kernelOption.Enabled && !notFound {
-			module := ""
-			if kernelOption.CanBeModule {
-				module = " or module"
-			}
-			return fmt.Errorf("%s kernel parameter%s is required (needed for: %s)", param, module, kernelOption.Description)
-		}
-	}
+
 	optionalParams := p.GetOptionalConfig()
 	for param, kernelOption := range optionalParams {
 		if !kernelOption.Enabled && !notFound {
@@ -191,33 +179,6 @@ func (p *ProbeManager) SystemConfigProbes() error {
 		}
 	}
 	return nil
-}
-
-// GetRequiredConfig performs a check of mandatory kernel configuration options. It
-// returns a map indicating which required kernel parameters are enabled - and which are not.
-// GetRequiredConfig is being used by CLI "cilium kernel-check".
-func (p *ProbeManager) GetRequiredConfig() map[KernelParam]kernelOption {
-	config := p.features.SystemConfig
-	coreInfraDescription := "Essential eBPF infrastructure"
-	kernelParams := make(map[KernelParam]kernelOption)
-
-	kernelParams["CONFIG_NET_SCH_INGRESS"] = kernelOption{
-		Enabled:     config.ConfigNetSchIngress.Enabled() || config.ConfigNetSchIngress.Module(),
-		Description: coreInfraDescription,
-		CanBeModule: true,
-	}
-	kernelParams["CONFIG_NET_CLS_BPF"] = kernelOption{
-		Enabled:     config.ConfigNetClsBpf.Enabled() || config.ConfigNetClsBpf.Module(),
-		Description: coreInfraDescription,
-		CanBeModule: true,
-	}
-	kernelParams["CONFIG_NET_CLS_ACT"] = kernelOption{
-		Enabled:     config.ConfigNetClsAct.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-
-	return kernelParams
 }
 
 // GetOptionalConfig performs a check of *optional* kernel configuration options. It
@@ -394,6 +355,53 @@ var HaveBPFJIT = sync.OnceValue(func() error {
 	}
 
 	return nil
+})
+
+// HaveTCBPF returns nil if the running kernel supports attaching a bpf filter
+// to a clsact qdisc.
+var HaveTCBPF = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SchedCLS)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	ns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("create netns: %w", err)
+	}
+	defer ns.Close()
+
+	qdisc := &netlink.Clsact{
+		QdiscAttrs: netlink.QdiscAttrs{
+			LinkIndex: 1, // lo
+			Handle:    netlink.MakeHandle(0xffff, 0),
+			Parent:    netlink.HANDLE_CLSACT,
+		},
+	}
+
+	filter := &netlink.BpfFilter{
+		FilterAttrs: netlink.FilterAttrs{
+			LinkIndex: 1, // lo
+			Parent:    netlink.HANDLE_MIN_INGRESS,
+			Handle:    1,
+			Protocol:  unix.ETH_P_ALL,
+		},
+		Fd:           prog.FD(),
+		DirectAction: true,
+	}
+
+	return ns.Do(func() error {
+		if err := netlink.QdiscReplace(qdisc); err != nil {
+			return fmt.Errorf("creating clsact qdisc: %w: %w", err, ErrNotSupported)
+		}
+
+		if err := netlink.FilterReplace(filter); err != nil {
+			return fmt.Errorf("attaching bpf tc filter: %w: %w", err, ErrNotSupported)
+		}
+
+		return nil
+	})
 })
 
 // HaveTCX returns nil if the running kernel supports attaching bpf programs to
