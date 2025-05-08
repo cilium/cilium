@@ -999,6 +999,10 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
 		// Default TCP chain, takes care of all parsers in proxylib
+		// The proxylib is deprecated and will be removed in the future
+		// https://github.com/cilium/cilium/issues/38224
+		s.logger.Warn("The support for Envoy Go Extensions (proxylib) has been deprecated due to lack of maintainers. If you are interested in helping to maintain, please reach out on GitHub or the official Cilium slack",
+			logfields.URL, "https://slack.cilium.io")
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
 
 		// Add a TLS variant
