@@ -101,8 +101,6 @@ type FeatureProbes struct {
 // SystemConfig contains kernel configuration and sysctl parameters related to
 // BPF functionality.
 type SystemConfig struct {
-	ConfigHaveEbpfJit   KernelParam `json:"CONFIG_HAVE_EBPF_JIT"`
-	ConfigBpfJit        KernelParam `json:"CONFIG_BPF_JIT"`
 	ConfigCgroupBpf     KernelParam `json:"CONFIG_CGROUP_BPF"`
 	ConfigBpfEvents     KernelParam `json:"CONFIG_BPF_EVENTS"`
 	ConfigLwtunnelBpf   KernelParam `json:"CONFIG_LWTUNNEL_BPF"`
@@ -215,16 +213,6 @@ func (p *ProbeManager) GetRequiredConfig() map[KernelParam]kernelOption {
 	}
 	kernelParams["CONFIG_NET_CLS_ACT"] = kernelOption{
 		Enabled:     config.ConfigNetClsAct.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_BPF_JIT"] = kernelOption{
-		Enabled:     config.ConfigBpfJit.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_HAVE_EBPF_JIT"] = kernelOption{
-		Enabled:     config.ConfigHaveEbpfJit.Enabled(),
 		Description: coreInfraDescription,
 		CanBeModule: false,
 	}
@@ -384,6 +372,26 @@ var HaveBPF = sync.OnceValue(func() error {
 		return err
 	}
 	defer prog.Close()
+
+	return nil
+})
+
+// HaveBPFJIT returns nil if the running kernel features a BPF JIT and if it is
+// enabled in the kernel configuration.
+var HaveBPFJIT = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SocketFilter)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	info, err := prog.Info()
+	if err != nil {
+		return fmt.Errorf("get prog info: %w", err)
+	}
+	if _, err := info.JitedSize(); err != nil {
+		return fmt.Errorf("get JITed prog size: %w", err)
+	}
 
 	return nil
 })
