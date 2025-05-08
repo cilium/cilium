@@ -40,7 +40,7 @@ jobs:
         with:
           cache-dependency-path: "src/github.com/cilium/cilium/*.sum"
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.8
+          go-version: 1.24.3
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
