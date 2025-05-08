@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/bits"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1293,6 +1294,7 @@ type L4PolicyMap interface {
 	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	ForEach(func(l4 *L4Filter) bool)
+	FinalizePerSelectorPolicies()
 	TestingOnlyEquals(bMap L4PolicyMap) bool
 	TestingOnlyDiff(expectedMap L4PolicyMap) string
 	Len() int
@@ -1482,6 +1484,31 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 			return
 		}
 	}
+}
+
+// Finalize removes duplicated HTTP and DNS rules
+func (l4M *l4PolicyMap) FinalizePerSelectorPolicies() {
+	l4M.ForEach(func(l4 *L4Filter) bool {
+		if l4 != nil {
+			for _, perSelectorPolicy := range l4.PerSelectorPolicies {
+				if perSelectorPolicy != nil {
+					slices.SortFunc(perSelectorPolicy.HTTP, func(a, b api.PortRuleHTTP) int {
+						return a.Compare(b)
+					})
+					perSelectorPolicy.HTTP = slices.CompactFunc(perSelectorPolicy.HTTP, func(a, b api.PortRuleHTTP) bool {
+						return a.Equal(b)
+					})
+					slices.SortFunc(perSelectorPolicy.DNS, func(a, b api.PortRuleDNS) int {
+						return a.Compare(b)
+					})
+					perSelectorPolicy.DNS = slices.CompactFunc(perSelectorPolicy.DNS, func(a, b api.PortRuleDNS) bool {
+						return a.Equal(b)
+					})
+				}
+			}
+		}
+		return true
+	})
 }
 
 // Equals returns true if both L4PolicyMaps are equal.

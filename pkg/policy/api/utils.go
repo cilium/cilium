@@ -4,6 +4,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -17,42 +18,66 @@ func (h *PortRuleHTTP) Exists(rules L7Rules) bool {
 
 // Equal returns true if both HTTP rules are equal
 func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
-	if h.Path != o.Path ||
-		h.Method != o.Method ||
-		h.Host != o.Host ||
-		len(h.Headers) != len(o.Headers) ||
-		len(h.HeaderMatches) != len(o.HeaderMatches) {
-		return false
-	}
+	return h.Compare(o) == 0
+}
 
-	for i, value := range h.Headers {
-		if o.Headers[i] != value {
-			return false
-		}
+func (h *PortRuleHTTP) Compare(o PortRuleHTTP) int {
+	if h == nil {
+		return -1
 	}
-
-	for i, value := range h.HeaderMatches {
-		if !o.HeaderMatches[i].Equal(value) {
-			return false
-		}
-	}
-	return true
+	return cmp.Or(
+		cmp.Compare(h.Path, o.Path),
+		cmp.Compare(h.Method, o.Method),
+		cmp.Compare(h.Host, o.Host),
+		slices.Compare(h.Headers, o.Headers),
+		slices.CompareFunc(h.HeaderMatches, o.HeaderMatches, func(a, b *HeaderMatch) int {
+			return a.Compare(b)
+		}),
+	)
 }
 
 // Equal returns true if both Secrets are equal
 func (a *Secret) Equal(b *Secret) bool {
-	return a == nil && b == nil || a != nil && b != nil && *a == *b
+	return a.Compare(b) == 0
+}
+
+func (a *Secret) Compare(b *Secret) int {
+	if a == nil && b == nil {
+		return 0
+	}
+	if a == nil {
+		return -1
+	}
+	if b == nil {
+		return +1
+	}
+	return cmp.Or(
+		cmp.Compare(a.Namespace, b.Namespace),
+		cmp.Compare(a.Name, b.Name),
+	)
 }
 
 // Equal returns true if both HeaderMatches are equal
 func (h *HeaderMatch) Equal(o *HeaderMatch) bool {
-	if h.Mismatch != o.Mismatch ||
-		h.Name != o.Name ||
-		h.Value != o.Value ||
-		!h.Secret.Equal(o.Secret) {
-		return false
+	return h.Compare(o) == 0
+}
+
+func (h *HeaderMatch) Compare(o *HeaderMatch) int {
+	if h == nil && o == nil {
+		return 0
 	}
-	return true
+	if h == nil {
+		return -1
+	}
+	if o == nil {
+		return +1
+	}
+	return cmp.Or(
+		cmp.Compare(h.Mismatch, o.Mismatch),
+		cmp.Compare(h.Name, o.Name),
+		h.Secret.Compare(o.Secret),
+		cmp.Compare(h.Value, o.Value),
+	)
 }
 
 // Exists returns true if the DNS rule already exists in the list of rules
@@ -67,7 +92,17 @@ func (h *PortRuleL7) Exists(rules L7Rules) bool {
 
 // Equal returns true if both rules are equal
 func (d *PortRuleDNS) Equal(o PortRuleDNS) bool {
-	return d != nil && d.MatchName == o.MatchName && d.MatchPattern == o.MatchPattern
+	return d.Compare(o) == 0
+}
+
+func (d *PortRuleDNS) Compare(o PortRuleDNS) int {
+	if d == nil {
+		return -1
+	}
+	return cmp.Or(
+		cmp.Compare(d.MatchName, o.MatchName),
+		cmp.Compare(d.MatchPattern, o.MatchPattern),
+	)
 }
 
 // Equal returns true if both L7 rules are equal

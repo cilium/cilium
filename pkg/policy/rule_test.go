@@ -150,7 +150,7 @@ func TestL4Policy(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
+					HTTP: []api.PortRuleHTTP{{}, {Path: "/", Method: "GET"}},
 				},
 			},
 		},
@@ -326,7 +326,7 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
+					HTTP: []api.PortRuleHTTP{{}, {Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorB: &PerSelectorPolicy{
@@ -530,7 +530,7 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
+					HTTP: []api.PortRuleHTTP{{}, {Path: "/public", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorB: &PerSelectorPolicy{
@@ -599,7 +599,7 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 					L7Parser: ParserTypeHTTP,
 					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
+						HTTP: []api.PortRuleHTTP{{}, {Path: "/public", Method: "GET"}},
 					},
 				},
 				td.cachedSelectorB: &PerSelectorPolicy{
@@ -2419,7 +2419,7 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Method: "GET"}, {Host: "foo"}},
+					HTTP: []api.PortRuleHTTP{{Host: "foo"}, {Method: "GET"}},
 				},
 			},
 		},

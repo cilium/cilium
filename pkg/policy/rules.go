@@ -44,6 +44,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext) (L4Policy
 		}
 		state.ruleID++
 	}
+	result.FinalizePerSelectorPolicies()
 
 	state.trace(len(rules), policyCtx)
 
@@ -83,6 +84,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext) (L4PolicyM
 		}
 		state.ruleID++
 	}
+	result.FinalizePerSelectorPolicies()
 
 	state.trace(len(rules), policyCtx)
 
