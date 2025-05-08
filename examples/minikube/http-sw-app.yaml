@@ -34,7 +34,8 @@ spec:
     spec:
       containers:
       - name: deathstar
-        image: quay.io/cilium/starwars:v2.1@sha256:833d915ec68fca3ce83668fc5dae97c455b2134d8f23ef96586f55b894cfb1e8
+        # renovate: datasource=docker depName=quay.io/cilium/starwars
+        image: quay.io/cilium/starwars@sha256:896dc536ec505778c03efedb73c3b7b83c8de11e74264c8c35291ff6d5fe8ada # v2.3
 ---
 apiVersion: v1
 kind: Pod
