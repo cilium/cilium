@@ -1461,3 +1461,238 @@ func TestSanitizeDefaultDeny(t *testing.T) {
 		assert.Equal(t, tc.wantIngress, *b.EnableDefaultDeny.Ingress, "Rule.EnableDefaultDeny.Ingress should match")
 	}
 }
+
+// TestSanitizeLabelKeySpecialCharacters verifies that the Sanitize function correctly.
+// Label keys with ':' are invalid.
+// This ensures compatibility with Kubernetes's label key format expectations.
+func TestSanitizeLabelKeySpecialCharacters(t *testing.T) {
+	tests := []struct {
+		name      string
+		before    Rule
+		want      Rule
+		wantError bool
+	}{
+		{
+			name: "Invalid label key with single ':' separator and source 'k8s'",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s:io.cilium.namespace": "backend"},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: true,
+		},
+		{
+			name: "Invalid label key with multiple ':' separators and source 'k8s'",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s:io.cilium:namespace": "backend"},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: true,
+		},
+		{
+			name: "Valid label key without ':' separator",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"io.cilium.namespace": "backend"},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			want: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"io.cilium.namespace": "backend"},
+				}},
+				Egress: []EgressRule{{
+					EgressCommonRule: EgressCommonRule{
+						aggregatedSelectors: make(EndpointSelectorSlice, 0),
+					},
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: false,
+		},
+		{
+			name: "Valid label key with ':' at the end",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s:": "backend"},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: true,
+		},
+		{
+			name: "Invalid MatchExpressions Cilium label key with single ':' separator and source 'k8s'",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s:io.cilium.namespace",
+							Values:   []string{"backend"},
+							Operator: slim_metav1.LabelSelectorOpIn,
+						},
+					},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			want: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.io.cilium.namespace",
+							Values:   []string{"backend"},
+							Operator: slim_metav1.LabelSelectorOpIn,
+						},
+					},
+				}},
+				Egress: []EgressRule{{
+					EgressCommonRule: EgressCommonRule{
+						aggregatedSelectors: make(EndpointSelectorSlice, 0),
+					},
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: true,
+		},
+		{
+			name: "Invalid MatchExpressions label key with multiple ':' separators and source 'k8s'",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s:io.cilium:namespace",
+							Values:   []string{"backend"},
+							Operator: slim_metav1.LabelSelectorOpIn,
+						},
+					},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: true,
+		},
+		{
+			name: "MatchExpressions label key without ':' separator",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "io.cilium.namespace",
+							Values:   []string{"backend"},
+							Operator: slim_metav1.LabelSelectorOpIn,
+						},
+					},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			want: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "io.cilium.namespace",
+							Values:   []string{"backend"},
+							Operator: slim_metav1.LabelSelectorOpIn,
+						},
+					},
+				}},
+				Egress: []EgressRule{{
+					EgressCommonRule: EgressCommonRule{
+						aggregatedSelectors: make(EndpointSelectorSlice, 0),
+					},
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: false,
+		},
+		{
+			name: "Invalid MatchExpressions label key with ':' at the end",
+			before: Rule{
+				EndpointSelector: EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s:",
+							Values:   []string{"backend"},
+							Operator: slim_metav1.LabelSelectorOpIn,
+						},
+					},
+				}},
+				Egress: []EgressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{
+							{Port: "443", Protocol: ProtoTCP},
+						},
+					}},
+				}},
+			},
+			wantError: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			b := tc.before
+			err := b.Sanitize()
+			if tc.wantError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, tc.before, "want and before rules should match")
+		})
+	}
+}

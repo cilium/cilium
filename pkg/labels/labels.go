@@ -493,7 +493,7 @@ func (l *Label) GetExtendedKey() string {
 	return l.Source + PathDelimiter + l.Key
 }
 
-// GetCiliumKeyFrom returns the label's source and key from the an extended key
+// GetCiliumKeyFrom returns the label's source and key from the extended key
 // in the format SOURCE:KEY.
 func GetCiliumKeyFrom(extKey string) string {
 	i := strings.IndexByte(extKey, PathDelimiter[0])
@@ -513,7 +513,7 @@ func GetExtendedKeyFrom(str string) string {
 	if src == "" {
 		src = LabelSourceAny
 	}
-	// Remove an eventually value
+	// Remove an eventual value
 	i := strings.IndexByte(next, '=')
 	if i >= 0 {
 		return src + PathDelimiter + next[:i]
@@ -546,7 +546,7 @@ func (l Labels) StringMap() map[string]string {
 	return o
 }
 
-// StringMap converts Labels into map[string]string
+// K8sStringMap converts Labels into map[string]string
 func (l Labels) K8sStringMap() map[string]string {
 	o := make(map[string]string, len(l))
 	for _, v := range l {
