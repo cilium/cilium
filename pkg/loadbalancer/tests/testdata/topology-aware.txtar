@@ -8,7 +8,6 @@ test/set-node-labels topology.kubernetes.io/zone=foo
 
 # Start and wait for watchers
 hive start
-db/initialized
 
 # Add the service (with topology-mode=auto) and endpoints
 # 10.244.1.1 (for zones foo & bar), 10.244.2.1 (for zone quux).

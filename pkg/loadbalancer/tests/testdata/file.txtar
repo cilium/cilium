@@ -4,7 +4,6 @@
 #
 
 hive/start
-db/initialized
 
 # Starting with a missing state file. Tables should be empty
 db/empty services backends frontends

@@ -7,7 +7,6 @@
 # Based on https://docs.cilium.io/en/stable/network/servicemesh/http/
 
 hive/start
-db/initialized
 
 # Add the service and endpoints
 k8s/add svc-ingress.yaml eps-ingress.yaml
