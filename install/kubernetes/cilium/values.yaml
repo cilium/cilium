@@ -48,6 +48,9 @@ debug:
   # type: [null, string]
   # @schema
   metricsSamplingInterval: "5m"
+  # -- Enable throwing errors instead of warning logs when Cilium loads maps that
+  # are not used by the agent. This is useful for debugging and testing purposes.
+  errorOnUnusedMaps: false
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
