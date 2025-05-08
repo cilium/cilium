@@ -8,7 +8,6 @@ db/cmp node-addresses nodeaddrs.table
 
 # Start the test application
 hive start
-db/initialized
 
 # Add the first service and endpoints
 k8s/add endpointslice.yaml
