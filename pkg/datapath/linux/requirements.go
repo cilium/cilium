@@ -46,6 +46,20 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for the eBPF JIT (CONFIG_HAVE_EBPF_JIT=y and CONFIG_BPF_JIT=y)")
 		}
 
+		if probes.HaveTCBPF() != nil {
+			// If tcx is (explicitly) disabled and there's no tc-bpf fallback, suggest
+			// a kernel with tc-bpf support.
+			if !option.Config.EnableTCX {
+				return errors.New("Require support for the clsact qdisc (CONFIG_NET_CLS_ACT=y), ingress classes (CONFIG_NET_SCH_INGRESS=y) and the bpf filter (CONFIG_NET_CLS_BPF=y)")
+			}
+
+			// If tcx is enabled but not supported, and there's no tc-bpf fallback,
+			// suggest a kernel with tcx support.
+			if probes.HaveTCX() != nil {
+				return errors.New("Require support for tcx links (Linux 6.6 or newer)")
+			}
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
 		}
