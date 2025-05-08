@@ -33,9 +33,38 @@ DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
 #define THIS_MTU CONFIG(device_mtu) /* Backwards compatibility */
 
-#define nodeport_nat_egress_ipv4_hook(ctx, ip4, info, tuple, l4_off, ext_err) CTX_ACT_OK
+#define nodeport_nat_egress_ipv4_hook(ctx, ip4, info, tuple, l4_off, ext_err) \
+({ \
+	/* Evaluate the input values for detecting compilation errors. \
+	 * Just blindly substituting this macro with the CTX_ACT_OK \
+	 * kills the C compile-time check against the input values \
+	 * (e.g. it can pass type mismatching, it can pass undefined \
+	 * variables, etc.). \
+	 * \
+	 */ \
+	struct __ctx_buff *_ctx __maybe_unused = ctx; \
+	struct iphdr *_ip4 __maybe_unused = ip4; \
+	__u32 _info __maybe_unused = info; \
+	struct ipv4_ct_tuple *_tuple __maybe_unused = tuple; \
+	int _l4_off __maybe_unused = l4_off; \
+	__s8 *_ext_err __maybe_unused = ext_err; \
+	/* \
+	 * This whole block is evaluated to CTX_ACT_OK (GNU extension) \
+	 */ \
+	CTX_ACT_OK; \
+})
+
 #define nodeport_rev_dnat_ipv4_hook(ctx, ip4, tuple, tunnel_endpoint, src_sec_identity, \
-		dst_sec_identity) -1
+		dst_sec_identity) \
+({ \
+	struct __ctx_buff *_ctx __maybe_unused = ctx; \
+	struct iphdr *_ip4 __maybe_unused = ip4; \
+	struct ipv4_ct_tuple *_tuple __maybe_unused = tuple; \
+	__u32 *_tunnel_endpoint __maybe_unused = tunnel_endpoint; \
+	__u32 *_src_sec_identity __maybe_unused = src_sec_identity; \
+	__u32 *_dst_sec_identity __maybe_unused = dst_sec_identity; \
+	-1; \
+})
 
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
