@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1512,7 +1513,7 @@ type daemonParams struct {
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 }
 
-func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
+func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
@@ -1589,7 +1590,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			return nil
 		},
 	})
-	return daemonPromise
+	return daemonPromise, legacy.DaemonInitialization{}
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
