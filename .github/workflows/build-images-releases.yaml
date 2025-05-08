@@ -170,7 +170,6 @@ jobs:
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
-          retention-days: 10
 
   image-digests:
     name: Display Digests
