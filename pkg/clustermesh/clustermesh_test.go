@@ -107,6 +107,7 @@ func TestClusterMesh(t *testing.T) {
 
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
+		Logger:  logger,
 	})
 	t.Cleanup(func() { ipc.Shutdown() })
 
