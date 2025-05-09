@@ -1448,6 +1448,7 @@ var daemonCell = cell.Module(
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 	),
+	cell.Provide(NewLocalIdentityRestorer),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
@@ -1480,6 +1481,7 @@ type daemonParams struct {
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
+	IdentityRestorer    *LocalIdentityRestorer
 	JobGroup            job.Group
 	Policy              policy.PolicyRepository
 	IPCache             *ipcache.IPCache
@@ -1713,7 +1715,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
 		// the normal allocation processes to finish, before releasing restored resources.
 		time.Sleep(option.Config.IdentityRestoreGracePeriod)
-		d.releaseRestoredIdentities()
+		d.identityRestorer.ReleaseRestoredIdentities()
 	}()
 
 	// Migrating the ENI datapath must happen before the API is served to

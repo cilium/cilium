@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/netip"
 	"sync"
 
 	"github.com/cilium/hive/job"
@@ -109,8 +108,8 @@ type Daemon struct {
 	endpointInitialPolicyComplete chan struct{}
 
 	identityAllocator identitycell.CachingIdentityAllocator
-
-	ipcache *ipcache.IPCache
+	identityRestorer  *LocalIdentityRestorer
+	ipcache           *ipcache.IPCache
 
 	k8sWatcher  *watchers.K8sWatcher
 	k8sSvcCache k8s.ServiceCache
@@ -122,9 +121,6 @@ type Daemon struct {
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	ciliumHealth health.CiliumHealthManager
-
-	// CIDRs for which identities were restored during bootstrap
-	restoredCIDRs map[netip.Prefix]identity.NumericIdentity
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
@@ -300,6 +296,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// allocator is initialized here.
 		identityAllocator: params.IdentityAllocator,
 		ipcache:           params.IPCache,
+		identityRestorer:  params.IdentityRestorer,
 		policy:            params.Policy,
 		idmgr:             params.IdentityManager,
 		clustermesh:       params.ClusterMesh,
@@ -331,7 +328,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.RestoreState && !option.Config.DryMode {
 		// this *must* be called before initMaps(), which will "hide"
 		// the "old" ipcache.
-		err := d.restoreLocalIdentities()
+		err := d.identityRestorer.RestoreLocalIdentities()
 		if err != nil {
 			log.WithError(err).Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.")
 		}
