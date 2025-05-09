@@ -226,11 +226,25 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 	case flowpb.Verdict_FORWARDED, flowpb.Verdict_REDIRECTED:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "ALLOWED"
+			if p.opts.policyNames {
+				if f.GetTrafficDirection() == flowpb.TrafficDirection_EGRESS {
+					msg += formatPolicyNames(f.GetEgressAllowedBy())
+				} else if f.GetTrafficDirection() == flowpb.TrafficDirection_INGRESS {
+					msg += formatPolicyNames(f.GetIngressAllowedBy())
+				}
+			}
 		}
 		return p.color.verdictForwarded(msg)
 	case flowpb.Verdict_DROPPED, flowpb.Verdict_ERROR:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "DENIED"
+			if p.opts.policyNames {
+				if f.GetTrafficDirection() == flowpb.TrafficDirection_EGRESS {
+					msg += formatPolicyNames(f.GetEgressDeniedBy())
+				} else if f.GetTrafficDirection() == flowpb.TrafficDirection_INGRESS {
+					msg += formatPolicyNames(f.GetIngressDeniedBy())
+				}
+			}
 		}
 		return p.color.verdictDropped(msg)
 	case flowpb.Verdict_AUDIT:
@@ -245,6 +259,24 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 	default:
 		return msg
 	}
+}
+
+func formatPolicyNames(policies []*flowpb.Policy) string {
+	msg := ""
+	i := 0
+	for _, policy := range policies {
+		if policy.GetKind() != "" && policy.GetName() != "" {
+			if i == 0 {
+				msg += " BY "
+			} else {
+				msg += ", "
+			}
+			msg += fmt.Sprintf("%s (%s)", policy.GetName(), policy.GetKind())
+			i += 1
+		}
+	}
+
+	return msg
 }
 
 func (p Printer) getSummary(f *flowpb.Flow) string {
