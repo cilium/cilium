@@ -137,8 +137,19 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 			logfields.K8sNodeIP:        k8sNodeIP,
 		}).Info("Received own node information from API server")
 
-		// If the host does not have an IPv6 address, return an error
-		if option.Config.EnableIPv6 && nodeIP6 == nil {
+		// error out in a dual-stack scenario without an IPv6 address set
+		//
+		// This is done to ensure that all nodes in a dual-stack cluster actually
+		// have IPv6 connectivity. The lack of this behaviour caused inconsistent
+		// fatal errors during certain migrations from single-stack IPv4 to dual-stack.
+		//
+		// We intentionally don't error out if only IPv6 is enabled since broken
+		// IPv6 connectivity would likely inhibit communication with the kube-apiserver
+		// in such a scenario. Instead we assume that the address is only unset
+		// temporarily and attempt to proceed anyways.
+		//
+		// See #28909 and #34861 for more information.
+		if option.Config.EnableIPv4 && option.Config.EnableIPv6 && nodeIP6 == nil {
 			log.WithFields(logrus.Fields{
 				logfields.NodeName:         n.Name,
 				logfields.IPAddr + ".ipv4": nodeIP4,
