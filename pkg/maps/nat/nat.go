@@ -261,7 +261,7 @@ func statStartGc(m *Map) gcStats {
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := (&m.Map).Delete(key)
+		err := (&m.Map).DeleteLocked(key)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
 		} else {
@@ -275,7 +275,7 @@ func doFlush4(m *Map) gcStats {
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := (&m.Map).Delete(key)
+		err := (&m.Map).DeleteLocked(key)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
 		} else {

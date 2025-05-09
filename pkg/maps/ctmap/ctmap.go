@@ -384,7 +384,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 }
 
 func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
-	err := m.Delete(key)
+	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
 	}
@@ -559,6 +559,8 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	}
 	stats := newNatGCStats(natMap, family)
 	defer stats.finish()
+	egressEntriesToDelete := make([]nat.NatKey, 0)
+	ingressEntriesToDelete := make([]nat.NatKey, 0)
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		natKey := key.(nat.NatKey)
@@ -574,9 +576,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 
 			if !ctEntryExist(ctMap, ctKey, nil) {
 				// No egress CT entry is found, delete the orphan ingress SNAT entry
-				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.IngressDeleted++
-				}
+				ingressEntriesToDelete = append(ingressEntriesToDelete, natKey)
 			} else {
 				stats.IngressAlive++
 			}
@@ -591,9 +591,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			if !ctEntryExist(ctMap, egressCTKey, nil) &&
 				!ctEntryExist(ctMap, dsrCTKey, checkDsr) {
 				// No relevant CT entries were found, delete the orphan egress NAT entry
-				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.EgressDeleted++
-				}
+				egressEntriesToDelete = append(egressEntriesToDelete, natKey)
 			} else {
 				stats.EgressAlive++
 			}
@@ -603,6 +601,16 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
 		log.WithError(err).Error("NATmap dump failed during GC")
 	} else {
+		for _, key := range egressEntriesToDelete {
+			if deleted, _ := natMap.Delete(key); deleted {
+				stats.EgressDeleted++
+			}
+		}
+		for _, key := range ingressEntriesToDelete {
+			if deleted, _ := natMap.Delete(key); deleted {
+				stats.IngressDeleted++
+			}
+		}
 		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
 	}
 
