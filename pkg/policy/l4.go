@@ -825,15 +825,6 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
 				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
-				// If Cilium is in dual-stack mode then the "World" identity
-				// needs to be split into two identities to represent World
-				// IPv6 and IPv4 traffic distinctly from one another.
-				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
-					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4
-					p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
-					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6
-					p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
-				}
 			}
 		}
 	}
