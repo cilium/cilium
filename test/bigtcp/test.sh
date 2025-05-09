@@ -9,7 +9,7 @@ set -eux
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
-HELM_CHART_DIR=${3:-/vagrant/kubernetes/cilium}
+HELM_CHART_DIR=${3:-install/kubernetes/cilium}
 
 # With Kind we create three nodes cluster:
 #
