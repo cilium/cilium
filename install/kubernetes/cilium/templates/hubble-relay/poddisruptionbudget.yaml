@@ -18,12 +18,7 @@ metadata:
     {{- end }}
 
 spec:
-  {{- with $component.maxUnavailable }}
-  maxUnavailable: {{ . }}
-  {{- end }}
-  {{- with $component.minAvailable }}
-  minAvailable: {{ . }}
-  {{- end }}
+{{- toYaml (omit $component.podDisruptionBudget "enabled") | indent 2 }}
   selector:
     matchLabels:
       k8s-app: hubble-relay
