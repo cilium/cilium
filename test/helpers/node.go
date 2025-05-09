@@ -70,10 +70,10 @@ func (s *SSHMeta) CloseSSHClient() {
 	}
 }
 
-// GetVagrantSSHMeta returns a SSHMeta initialized based on the provided
+// GetSSHMeta returns a SSHMeta initialized based on the provided
 // SSH-config target.
-func GetVagrantSSHMeta(vmName string) *SSHMeta {
-	config, err := GetVagrantSSHMetadata(vmName)
+func GetSSHMeta(vmName string) *SSHMeta {
+	config, err := GetSSHMetadata(vmName)
 	if err != nil {
 		return nil
 	}

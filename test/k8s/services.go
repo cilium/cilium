@@ -322,14 +322,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				yamls = append(yamls, path)
 			}
 
-			By(`Connectivity config:: helpers.DualStackSupported(): %v
-Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
-Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
-				helpers.DualStackSupported(), ni.PrivateIface,
-				ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
-				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4,
-				ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
-
 			// Wait for all pods to be in ready state.
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
