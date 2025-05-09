@@ -38,6 +38,7 @@ func TestPodCIDRAllocatorOverlap(t *testing.T) {
 }
 
 func podCIDRAllocatorOverlapTestRun(t *testing.T) {
+	logger := hivetest.Logger(t)
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -92,7 +93,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	}, nil, &ciliumNodeUpdateImplementation{clientset: fakeSet}, nil)
 
 	// start synchronization.
-	cns := newCiliumNodeSynchronizer(fakeSet, podCidrManager, false)
+	cns := newCiliumNodeSynchronizer(logger, fakeSet, podCidrManager, false)
 	if err := cns.Start(ctx, &wg, nil); err != nil {
 		t.Fatal(err)
 	}
