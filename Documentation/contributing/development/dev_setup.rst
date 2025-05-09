@@ -404,8 +404,7 @@ Minor version
 ~~~~~~~~~~~~~
 
 #. Check if it is possible to remove the last supported Kubernetes version from
-   :ref:`k8scompatibility`, :ref:`k8s_requirements`, :ref:`test_matrix`,
-   :ref:`running_k8s_tests`, :ref:`gsg_istio` and add the new Kubernetes
+   :ref:`k8scompatibility`, :ref:`k8s_requirements` and add the new Kubernetes
    version to that list.
 
 #. If the minimal supported version changed, leave a note in the upgrade guide
