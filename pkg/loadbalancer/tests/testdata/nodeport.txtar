@@ -8,11 +8,6 @@ db/cmp node-addresses nodeaddrs.table
 # Start the test application
 hive start
 
-# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-# (otherwise might miss events due to List() vs Watch() race in fake client).
-# NOTE: The 100ms delay you might see is from WaitForCacheSync polling at 100ms.
-db/initialized
-
 # Add the first service and endpoints
 k8s/add endpointslice.yaml
 db/cmp backends backends_only1.table

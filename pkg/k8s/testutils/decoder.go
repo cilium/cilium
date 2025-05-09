@@ -29,6 +29,9 @@ var (
 	// lazily constructed.
 	Scheme = runtime.NewScheme()
 
+	// KubernetesScheme is the core Kubernetes scheme.
+	KubernetesScheme = runtime.NewScheme()
+
 	decoderOnce sync.Once
 	decoder     runtime.Decoder
 
@@ -44,6 +47,13 @@ func Decoder() runtime.Decoder {
 		decoder = serializer.NewCodecFactory(Scheme).UniversalDeserializer()
 	})
 	return decoder
+}
+
+func KubernetesDecoder() runtime.Decoder {
+	kubernetesDecoderOnce.Do(func() {
+		kubernetesDecoder = serializer.NewCodecFactory(KubernetesScheme).UniversalDeserializer()
+	})
+	return kubernetesDecoder
 }
 
 func init() {
@@ -63,6 +73,8 @@ func init() {
 
 	// Add multiclusterv1alpha1
 	mcsapi_fake.AddToScheme(Scheme)
+
+	fake.AddToScheme(KubernetesScheme)
 }
 
 func DecodeObject(bytes []byte) (runtime.Object, error) {
@@ -76,12 +88,7 @@ func DecodeObjectGVK(bytes []byte) (runtime.Object, *schema.GroupVersionKind, er
 }
 
 func DecodeKubernetesObject(bytes []byte) (runtime.Object, error) {
-	kubernetesDecoderOnce.Do(func() {
-		scheme := runtime.NewScheme()
-		fake.AddToScheme(scheme)
-		kubernetesDecoder = serializer.NewCodecFactory(scheme).UniversalDeserializer()
-	})
-	obj, _, err := kubernetesDecoder.Decode(bytes, nil, nil)
+	obj, _, err := KubernetesDecoder().Decode(bytes, nil, nil)
 	return obj, err
 }
 

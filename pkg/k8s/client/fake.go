@@ -14,9 +14,11 @@ import (
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	apiext_fake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -39,8 +41,12 @@ var FakeClientCell = cell.Module(
 	"k8s-fake-client",
 	"Fake Kubernetes client",
 
+	cell.ProvidePrivate(
+		newStateDBObjectTracker,
+	),
+
 	cell.Provide(
-		NewFakeClientset,
+		NewFakeClientsetWithTracker,
 		func(fc *FakeClientset) hive.ScriptCmdsOut {
 			return hive.NewScriptCmds(FakeClientCommands(fc))
 		},
@@ -100,8 +106,12 @@ func (c *FakeClientset) RestConfig() *rest.Config {
 }
 
 func NewFakeClientset(log *slog.Logger) (*FakeClientset, Clientset) {
+	return NewFakeClientsetWithTracker(log, nil)
+}
+
+func NewFakeClientsetWithTracker(log *slog.Logger, ot *statedbObjectTracker) (*FakeClientset, Clientset) {
 	version := testutils.DefaultVersion
-	return NewFakeClientsetWithVersion(log, version)
+	return NewFakeClientsetWithVersion(log, ot, version)
 }
 
 // trackerPreference has the trackers in preference order,
@@ -116,10 +126,24 @@ var trackerPreference = []string{
 	"kubernetes",
 }
 
-func NewFakeClientsetWithVersion(log *slog.Logger, version string) (*FakeClientset, Clientset) {
+func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, version string) (*FakeClientset, Clientset) {
 	if version == "" {
 		version = testutils.DefaultVersion
 	}
+
+	if ot == nil {
+		// For easier use in tests we'll allow a nil [ot] and just create
+		// it from scratch here. We don't do that by default since we do
+		// want to use the main StateDB instance to make 'k8s-object-tracker'
+		// table inspectable.
+		db := statedb.New()
+		var err error
+		ot, err = newStateDBObjectTracker(db, log)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	resources, found := testutils.APIResources[version]
 	if !found {
 		panic("version " + version + " not found from testutils.APIResources")
@@ -136,12 +160,23 @@ func NewFakeClientsetWithVersion(log *slog.Logger, version string) (*FakeClients
 	client.SlimFakeClientset.Resources = resources
 	client.CiliumFakeClientset.Resources = resources
 	client.APIExtFakeClientset.Resources = resources
+
+	otc := ot.For("*", testutils.Scheme, testutils.Decoder())
+	augmentTracker(log, otc, client.SlimFakeClientset, &client.watchers)
+	augmentTracker(log, otc, client.CiliumFakeClientset, &client.watchers)
+	augmentTracker(log, otc, client.MCSAPIFakeClientset, &client.watchers)
+	augmentTracker(log, otc, client.APIExtFakeClientset, &client.watchers)
+
 	client.trackers = map[string]k8sTesting.ObjectTracker{
-		"slim":       augmentTracker(log, client.SlimFakeClientset, &client.watchers),
-		"cilium":     augmentTracker(log, client.CiliumFakeClientset, &client.watchers),
-		"mcs":        augmentTracker(log, client.MCSAPIFakeClientset, &client.watchers),
-		"kubernetes": augmentTracker(log, client.KubernetesFakeClientset, &client.watchers),
-		"apiext":     augmentTracker(log, client.APIExtFakeClientset, &client.watchers),
+		"*": otc,
+		"kubernetes": augmentTracker(
+			log,
+			// Use a separate object tracker domain for the "kubernetes" objects. This is needed
+			// to avoid overlap with the Slim clientset since they have the same GVR but different
+			// Go types.
+			ot.For("core", testutils.KubernetesScheme, testutils.KubernetesDecoder()),
+			client.KubernetesFakeClientset,
+			&client.watchers),
 	}
 
 	fd := client.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
@@ -151,10 +186,13 @@ func NewFakeClientsetWithVersion(log *slog.Logger, version string) (*FakeClients
 	return &client, &client
 }
 
-var FakeClientBuilderCell = cell.Provide(FakeClientBuilder)
+var FakeClientBuilderCell = cell.Group(
+	cell.ProvidePrivate(newStateDBObjectTracker),
+	cell.Provide(FakeClientBuilder),
+)
 
-func FakeClientBuilder(log *slog.Logger) ClientBuilderFunc {
-	fc, _ := NewFakeClientset(log)
+func FakeClientBuilder(log *slog.Logger, ot *statedbObjectTracker) ClientBuilderFunc {
+	fc, _ := NewFakeClientsetWithTracker(log, ot)
 	return func(_ string) (Clientset, error) {
 		return fc, nil
 	}
@@ -495,16 +533,20 @@ type fakeWithTracker interface {
 // ResourceVersion from whence to start the watch. As a consequence, when informers (or
 // reflectors) call ListAndWatch, they miss events which occur between the end of List and
 // the establishment of Watch.
-func augmentTracker[T fakeWithTracker](log *slog.Logger, f T, watchers *lock.Map[string, struct{}]) k8sTesting.ObjectTracker {
-	o := f.Tracker()
+func augmentTracker[T fakeWithTracker](log *slog.Logger, ot *statedbObjectTracker, f T, watchers *lock.Map[string, struct{}]) k8sTesting.ObjectTracker {
+	f.PrependReactor("*", "*", k8sTesting.ObjectReaction(ot))
 
 	f.PrependWatchReactor(
 		"*",
 		func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 			w := action.(k8sTesting.WatchAction)
+			var opts metav1.ListOptions
+			if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+				opts = watchAction.ListOptions
+			}
 			gvr := w.GetResource()
 			ns := w.GetNamespace()
-			watch, err := o.Watch(gvr, ns)
+			watch, err := ot.Watch(gvr, ns, opts)
 			if err != nil {
 				return false, nil, err
 			}
@@ -519,5 +561,5 @@ func augmentTracker[T fakeWithTracker](log *slog.Logger, f T, watchers *lock.Map
 			return true, watch, nil
 		})
 
-	return o
+	return ot
 }

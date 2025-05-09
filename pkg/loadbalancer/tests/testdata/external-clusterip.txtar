@@ -4,9 +4,6 @@
 # Start the test application
 hive start
 
-# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-db/initialized
-
 k8s/add service.yaml endpointslice.yaml
 
 # Check the BPF maps. The service should not be marked as "non-routable"
