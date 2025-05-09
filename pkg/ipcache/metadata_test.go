@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -547,6 +548,7 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.True(t, isNew)
 
 	ipc := NewIPCache(&Configuration{
+		Logger:            hivetest.Logger(t),
 		IdentityAllocator: allocator,
 		PolicyHandler:     newMockUpdater(),
 		DatapathHandler:   &mockTriggerer{},
@@ -811,7 +813,8 @@ func TestHandleLabelInjection(t *testing.T) {
 }
 
 func TestMetadataRevision(t *testing.T) {
-	m := newMetadata()
+	logger := hivetest.Logger(t)
+	m := newMetadata(logger)
 
 	p1 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
 	p2 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1::1/128"))
@@ -837,7 +840,8 @@ func TestMetadataRevision(t *testing.T) {
 }
 
 func TestMetadataWaitForRevision(t *testing.T) {
-	m := newMetadata()
+	logger := hivetest.Logger(t)
+	m := newMetadata(logger)
 
 	_, wantRev := m.dequeuePrefixUpdates()
 
@@ -1135,12 +1139,14 @@ func TestUpsertMetadataCIDRGroup(t *testing.T) {
 
 func setupTest(t *testing.T) (cleanup func()) {
 	t.Helper()
+	logger := hivetest.Logger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	Allocator = testidentity.NewMockIdentityAllocator(nil)
 	PolicyHandler = newMockUpdater()
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
+		Logger:            logger,
 		IdentityAllocator: Allocator,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
@@ -1157,12 +1163,14 @@ func setupTest(t *testing.T) (cleanup func()) {
 
 func setupTestExternalAPIServer(t *testing.T) (cleanup func()) {
 	t.Helper()
+	logger := hivetest.Logger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	Allocator = testidentity.NewMockIdentityAllocator(nil)
 	PolicyHandler = newMockUpdater()
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
+		Logger:            logger,
 		IdentityAllocator: Allocator,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
@@ -1325,7 +1333,8 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := newMetadata()
+			logger := hivetest.Logger(t)
+			m := newMetadata(logger)
 			for prefix, lbls := range tt.existing {
 				pfx := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix(prefix))
 				m.m[pfx] = prefixInfo{
@@ -1427,7 +1436,8 @@ func TestIPCachePodCIDREntries(t *testing.T) {
 }
 
 func BenchmarkManyResources(b *testing.B) {
-	m := newMetadata()
+	logger := hivetest.Logger(b)
+	m := newMetadata(logger)
 
 	prefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
 	lbls := labels.GetCIDRLabels(prefix.AsPrefix())
@@ -1439,6 +1449,7 @@ func BenchmarkManyResources(b *testing.B) {
 }
 
 func BenchmarkManyCIDREntries(b *testing.B) {
+	logger := hivetest.Logger(b)
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
@@ -1446,11 +1457,12 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 	allocator := testidentity.NewMockIdentityAllocator(nil)
 	PolicyHandler = newMockUpdater()
 	IPIdentityCache = NewIPCache(&Configuration{
+		Logger:            logger,
 		IdentityAllocator: allocator,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 	})
-	IPIdentityCache.metadata = newMetadata()
+	IPIdentityCache.metadata = newMetadata(logger)
 
 	cidrs := generateUniqueCIDRs(1000)
 	cidrLabels := make(map[cmtypes.PrefixCluster]labels.Labels, len(cidrs))

@@ -118,6 +118,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
+		Logger:  logger,
 	})
 	defer ipc.Shutdown()
 	store := store.NewFactory(logger, store.MetricsProvider())
