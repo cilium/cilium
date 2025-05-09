@@ -4,6 +4,8 @@
 package ciliumendpointslice
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -21,7 +23,7 @@ type CESToCEPMapping struct {
 	// cepNameToCESName is used to map CiliumEndpoint name to CiliumEndpointSlice name.
 	cepNameToCESName map[CEPName]CESName
 	// cesNameToCEPNameSet is used to map CiliumEndpointSlice name to all CiliumEndpoints names it contains.
-	cesNameToCEPNameSet map[CESName]map[CEPName]struct{}
+	cesNameToCEPNameSet map[CESName]sets.Set[CEPName]
 	cesData             map[CESName]CESData
 }
 
@@ -36,7 +38,7 @@ type CESData struct {
 func newCESToCEPMapping() *CESToCEPMapping {
 	return &CESToCEPMapping{
 		cepNameToCESName:    make(map[CEPName]CESName),
-		cesNameToCEPNameSet: make(map[CESName]map[CEPName]struct{}),
+		cesNameToCEPNameSet: make(map[CESName]sets.Set[CEPName]),
 		cesData:             make(map[CESName]CESData),
 	}
 }
@@ -46,14 +48,14 @@ func (c *CESToCEPMapping) insertCEP(cepName CEPName, cesName CESName) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.cepNameToCESName[cepName] = cesName
-	c.cesNameToCEPNameSet[cesName][cepName] = struct{}{}
+	c.cesNameToCEPNameSet[cesName].Insert(cepName)
 }
 
 // Remove the CEP entry from map
 func (c *CESToCEPMapping) deleteCEP(cepName CEPName) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	delete(c.cesNameToCEPNameSet[c.cepNameToCESName[cepName]], cepName)
+	c.cesNameToCEPNameSet[c.cepNameToCESName[cepName]].Delete(cepName)
 	delete(c.cepNameToCESName, cepName)
 }
 
@@ -83,25 +85,21 @@ func (c *CESToCEPMapping) countCEPs() int {
 func (c *CESToCEPMapping) countCEPsInCES(ces CESName) int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return len(c.cesNameToCEPNameSet[ces])
+	return c.cesNameToCEPNameSet[ces].Len()
 }
 
 // Return CEP Names mapped to the given CES
 func (c *CESToCEPMapping) getCEPsInCES(ces CESName) []CEPName {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	ceps := make([]CEPName, 0, len(c.cesNameToCEPNameSet[ces]))
-	for cep := range c.cesNameToCEPNameSet[ces] {
-		ceps = append(ceps, cep)
-	}
-	return ceps
+	return c.cesNameToCEPNameSet[ces].UnsortedList()
 }
 
 // Initializes mapping structure for CES
 func (c *CESToCEPMapping) insertCES(cesName CESName, ns string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.cesNameToCEPNameSet[cesName] = make(map[CEPName]struct{})
+	c.cesNameToCEPNameSet[cesName] = sets.New[CEPName]()
 	c.cesData[cesName] = CESData{
 		ns: ns,
 	}
