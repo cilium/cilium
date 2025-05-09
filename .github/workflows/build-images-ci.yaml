@@ -332,6 +332,7 @@ jobs:
         if: ${{ steps.check.outputs.build != '' }}
         run: |
           mkdir -p image-digest/
+          # shellcheck disable=SC2078
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi

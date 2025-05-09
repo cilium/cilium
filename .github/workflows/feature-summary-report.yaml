@@ -57,7 +57,7 @@ jobs:
             --metrics-directory=${{ inputs.SHA || github.sha }} \
             --anchor \
             --output-file=summary-features.md
-          echo "\n\nEnd Of Report" >> summary-features.md
+          printf "\n\nEnd Of Report\n" >> summary-features.md
 
       # There's a limitation with GITHUB_STEP_SUMMARY which only accepts 1024K
       # at a time, so we need to use split uploading the file into multiple

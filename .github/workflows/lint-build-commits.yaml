@@ -153,7 +153,7 @@ jobs:
           commits="${{ needs.compute-vars.outputs.commits }}"
           for commit in $commits; do
             git checkout $commit || exit 1
-            contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
+            contrib/scripts/builder.sh make CLANG="${CLANG}" build -j "$(nproc)" || exit 1
           done
 
       - name: Reset cache ownership to GitHub runners user
@@ -239,13 +239,13 @@ jobs:
           head_commit="${{ needs.compute-vars.outputs.head-commit }}"
           for commit in $commits; do
             git checkout $commit || exit 1
-            echo "Only run full build (with `local-release`) for head commit (i.e. last commit in sequence)"
+            echo "Only run full build (with \`local-release\`) for head commit (i.e. last commit in sequence)"
             target=hubble
             if [[ "$commit" == "$head_commit" ]]; then
               target=local-release
             fi
             echo "Running build: $target (commit: $commit)"
-            contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble $target -j $(nproc) || exit 1
+            contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble $target -j "$(nproc)" || exit 1
           done
 
       - name: Reset cache ownership to GitHub runners user
@@ -337,7 +337,7 @@ jobs:
             # If these filters are modified, also modify the step:
             # compute-vars: Check bpf code changes
             if ! git diff --quiet HEAD^ bpf/ ; then
-              contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
+              contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j "$(nproc)" || exit 1
             fi
           done
 
@@ -417,7 +417,7 @@ jobs:
             # If these filters are modified, also modify the step:
             # compute-vars: Check test code changes
             if ! git diff --quiet HEAD^ pkg/ test/ ; then
-              (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
+              (make -C test build -j "$(nproc)" && make -C test build-darwin -j "$(nproc)") || exit 1
             fi
           done
 
