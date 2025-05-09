@@ -138,7 +138,7 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
-	httpListeners := ingestion.GammaHTTPRoutes(ingestion.GammaInput{
+	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
 		HTTPRoutes:      []gatewayv1.HTTPRoute{*hr},
 		Services:        servicesList.Items,
 		ReferenceGrants: grants.Items,
