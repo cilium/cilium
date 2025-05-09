@@ -404,7 +404,7 @@ type ProgramOption func(p *prog) (*prog, error)
 // InterpretableDecorators can be used to inspect, alter, or replace the Program plan.
 func CustomDecorator(dec interpreter.InterpretableDecorator) ProgramOption {
 	return func(p *prog) (*prog, error) {
-		p.decorators = append(p.decorators, dec)
+		p.plannerOptions = append(p.plannerOptions, interpreter.CustomDecorator(dec))
 		return p, nil
 	}
 }
