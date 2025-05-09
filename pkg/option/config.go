@@ -1374,6 +1374,10 @@ type DaemonConfig struct {
 	// ClusterID is the unique identifier of the cluster
 	ClusterID uint32
 
+	// EnableDefaultRestrictLocalClusterPolicy control whether policy rules assume
+	// by default the local cluster if not explicitly selected
+	EnableDefaultRestrictLocalClusterPolicy bool
+
 	// CTMapEntriesGlobalTCP is the maximum number of conntrack entries
 	// allowed in each TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalTCP int
@@ -2140,69 +2144,68 @@ type DaemonConfig struct {
 	ConnectivityProbeFrequencyRatio float64
 }
 
-var (
-	// Config represents the daemon configuration
-	Config = &DaemonConfig{
-		CreationTime:                    time.Now(),
-		Opts:                            NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
-		IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
-		EnableHealthChecking:            defaults.EnableHealthChecking,
-		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
-		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
-		EnableIPv4:                      defaults.EnableIPv4,
-		EnableIPv6:                      defaults.EnableIPv6,
-		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
-		EnableSCTP:                      defaults.EnableSCTP,
-		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
-		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
-		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
-		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
-		FixedIdentityMapping:            make(map[string]string),
-		KVStoreOpt:                      make(map[string]string),
-		LogOpt:                          make(map[string]string),
-		LoopbackIPv4:                    defaults.LoopbackIPv4,
-		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
-		K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
-		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
-		IdentityAllocationMode:          IdentityAllocationModeKVstore,
-		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
-		AllocatorListTimeout:            defaults.AllocatorListTimeout,
-		EnableICMPRules:                 defaults.EnableICMPRules,
-		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
+// Config represents the daemon configuration
+var Config = &DaemonConfig{
+	CreationTime:                    time.Now(),
+	Opts:                            NewIntOptions(&DaemonOptionLibrary),
+	Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+	IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
+	IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
+	IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
+	EnableHealthChecking:            defaults.EnableHealthChecking,
+	EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
+	EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
+	HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
+	EnableIPv4:                      defaults.EnableIPv4,
+	EnableIPv6:                      defaults.EnableIPv6,
+	EnableIPv6NDP:                   defaults.EnableIPv6NDP,
+	EnableSCTP:                      defaults.EnableSCTP,
+	EnableL7Proxy:                   defaults.EnableL7Proxy,
+	DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
+	ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
+	KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
+	KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
+	IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
+	IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
+	FixedIdentityMapping:            make(map[string]string),
+	KVStoreOpt:                      make(map[string]string),
+	LogOpt:                          make(map[string]string),
+	LoopbackIPv4:                    defaults.LoopbackIPv4,
+	EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
+	AnnotateK8sNode:                 defaults.AnnotateK8sNode,
+	K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
+	AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
+	IdentityAllocationMode:          IdentityAllocationModeKVstore,
+	AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
+	AllocatorListTimeout:            defaults.AllocatorListTimeout,
+	EnableICMPRules:                 defaults.EnableICMPRules,
+	UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
 
-		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
+	K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
-		EnableVTEP:                           defaults.EnableVTEP,
-		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
-		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
-		EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
-		EnableCiliumClusterwideNetworkPolicy: defaults.EnableCiliumClusterwideNetworkPolicy,
-		PolicyCIDRMatchMode:                  defaults.PolicyCIDRMatchMode,
-		MaxConnectedClusters:                 defaults.MaxConnectedClusters,
+	EnableVTEP:                              defaults.EnableVTEP,
+	EnableBGPControlPlane:                   defaults.EnableBGPControlPlane,
+	EnableK8sNetworkPolicy:                  defaults.EnableK8sNetworkPolicy,
+	EnableCiliumNetworkPolicy:               defaults.EnableCiliumNetworkPolicy,
+	EnableCiliumClusterwideNetworkPolicy:    defaults.EnableCiliumClusterwideNetworkPolicy,
+	PolicyCIDRMatchMode:                     defaults.PolicyCIDRMatchMode,
+	MaxConnectedClusters:                    defaults.MaxConnectedClusters,
+	EnableDefaultRestrictLocalClusterPolicy: defaults.EnableDefaultRestrictLocalClusterPolicy,
 
-		BPFDistributedLRU:             defaults.BPFDistributedLRU,
-		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
-		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
-		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
-		BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
-		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
-		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
+	BPFDistributedLRU:             defaults.BPFDistributedLRU,
+	BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
+	BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
+	BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
+	BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
+	EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
+	EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
 
-		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
+	EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
-		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
+	EnableSourceIPVerification: defaults.EnableSourceIPVerification,
 
-		ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
-	}
-)
+	ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
+}
 
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
@@ -2727,6 +2730,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CGroupRoot = vp.GetString(CGroupRoot)
 	c.ClusterID = vp.GetUint32(clustermeshTypes.OptClusterID)
 	c.ClusterName = vp.GetString(clustermeshTypes.OptClusterName)
+	c.EnableDefaultRestrictLocalClusterPolicy = vp.GetBool(clustermeshTypes.OptEnableDefaultRestrictLocalClusterPolicy)
 	c.MaxConnectedClusters = vp.GetUint32(clustermeshTypes.OptMaxConnectedClusters)
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)

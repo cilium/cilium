@@ -313,7 +313,7 @@ func TestParseSpec(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	rules, err := expectedPolicyRule.Parse(logger)
+	rules, err := expectedPolicyRule.Parse(logger, "")
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 	require.Equal(t, *expectedSpecRule, *rules[0])
@@ -323,7 +323,7 @@ func TestParseSpec(t *testing.T) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse(logger)
+	expectedPolicyRuleUnmarshalled.Parse(logger, "")
 	require.Equal(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
 
 	cnpl := CiliumNetworkPolicy{}
@@ -338,7 +338,7 @@ func TestParseSpec(t *testing.T) {
 			UID:       uuidRule,
 		},
 	}
-	_, err = empty.Parse(logger)
+	_, err = empty.Parse(logger, "")
 	require.EqualValues(t, ErrEmptyCNP, err)
 
 	emptyCCNP := &CiliumClusterwideNetworkPolicy{
@@ -347,7 +347,7 @@ func TestParseSpec(t *testing.T) {
 			UID:  uuidRule,
 		},
 	}
-	_, err = emptyCCNP.Parse(logger)
+	_, err = emptyCCNP.Parse(logger, "")
 	require.EqualValues(t, ErrEmptyCCNP, err)
 }
 
@@ -405,7 +405,7 @@ func TestParseRules(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	rules, err := expectedPolicyRuleList.Parse(logger)
+	rules, err := expectedPolicyRuleList.Parse(logger, "")
 	require.NoError(t, err)
 	require.Len(t, rules, 2)
 	for i, rule := range rules {
@@ -417,7 +417,7 @@ func TestParseRules(t *testing.T) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse(logger)
+	expectedPolicyRuleUnmarshalled.Parse(logger, "")
 	require.Equal(t, *expectedPolicyRuleList, expectedPolicyRuleUnmarshalled)
 
 	cnpl := CiliumNetworkPolicy{}
@@ -488,7 +488,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 		},
 		Spec: &rule,
 	}
-	_, err := cnpl.Parse(logger)
+	_, err := cnpl.Parse(logger, "")
 	require.ErrorContains(t, err, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 
 	// CCNP parse is allowed to have a NodeSelector.
@@ -500,7 +500,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 		},
 		Spec: cnpl.Spec,
 	}
-	_, err = ccnpl.Parse(logger)
+	_, err = ccnpl.Parse(logger, "")
 	require.NoError(t, err)
 
 	// CCNPs are received as CNP and initially parsed as CNP. Create a CNP with
@@ -513,7 +513,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 		},
 		Spec: &rule,
 	}
-	_, err = ccnplAsCNP.Parse(logger)
+	_, err = ccnplAsCNP.Parse(logger, "")
 	require.NoError(t, err)
 
 	// Now test a CNP and CCNP with an EndpointSelector only.
@@ -521,11 +521,11 @@ func TestParseWithNodeSelector(t *testing.T) {
 	rule.NodeSelector = emptySelector
 
 	// CNP and CCNP parse is allowed to have an EndpointSelector.
-	_, err = cnpl.Parse(logger)
+	_, err = cnpl.Parse(logger, "")
 	require.NoError(t, err)
-	_, err = ccnpl.Parse(logger)
+	_, err = ccnpl.Parse(logger, "")
 	require.NoError(t, err)
-	_, err = ccnplAsCNP.Parse(logger)
+	_, err = ccnplAsCNP.Parse(logger, "")
 	require.NoError(t, err)
 }
 

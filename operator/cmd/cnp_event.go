@@ -35,7 +35,7 @@ func init() {
 
 // enableCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
 // garbage collects stale CiliumNetworkPolicy status field entries.
-func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
+func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, clusterName string) {
 	log.Info("Starting CNP derivative handler")
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
@@ -52,7 +52,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					groups.AddDerivativePolicyIfNeeded(logging.DefaultSlogLogger, clientset, cnpCpy.CiliumNetworkPolicy, false)
+					groups.AddDerivativePolicyIfNeeded(logging.DefaultSlogLogger, clientset, clusterName, cnpCpy.CiliumNetworkPolicy, false)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj any) {
@@ -69,7 +69,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 						newCNPCpy := newCNP.DeepCopy()
 						oldCNPCpy := oldCNP.DeepCopy()
 
-						groups.UpdateDerivativePolicyIfNeeded(logging.DefaultSlogLogger, clientset, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy, false)
+						groups.UpdateDerivativePolicyIfNeeded(logging.DefaultSlogLogger, clientset, clusterName, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy, false)
 					}
 				}
 			},
@@ -101,7 +101,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 		controller.ControllerParams{
 			Group: cnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				groups.UpdateCNPInformation(logging.DefaultSlogLogger, clientset)
+				groups.UpdateCNPInformation(logging.DefaultSlogLogger, clientset, clusterName)
 				return nil
 			},
 			RunInterval: 5 * time.Minute,

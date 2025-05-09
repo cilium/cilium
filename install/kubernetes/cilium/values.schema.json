@@ -1443,6 +1443,9 @@
           },
           "type": "object"
         },
+        "enableDefaultRestrictLocalClusterPolicy": {
+          "type": "boolean"
+        },
         "enableEndpointSliceSynchronization": {
           "type": "boolean"
         },

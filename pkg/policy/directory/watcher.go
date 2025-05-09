@@ -34,6 +34,7 @@ type policyWatcher struct {
 	log            *slog.Logger
 	config         Config
 	policyImporter policycell.PolicyImporter
+	clusterName    string
 	synced         sync.WaitGroup
 	// maps cnp file name to cnp object. this is required to retrieve data during delete.
 	fileNameToCnpCache map[string]*cilium_v2.CiliumNetworkPolicy
@@ -96,7 +97,7 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 	)
 
 	// convert to rules
-	rules, err := cnp.Parse(p.log)
+	rules, err := cnp.Parse(p.log, p.clusterName)
 	if err != nil {
 		return err
 	}
