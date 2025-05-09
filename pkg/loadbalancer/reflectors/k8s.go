@@ -252,7 +252,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initEndpoints(txn)
 
 		case resource.Upsert:
-			name, backends := convertEndpoints(p.ExtConfig, obj)
+			name, backends := convertEndpoints(p.Log, p.ExtConfig, obj)
 
 			if len(backends) > 0 {
 				err := p.Writer.UpsertBackends(

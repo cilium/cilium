@@ -62,7 +62,7 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 	eps := k8s.ParseEndpointSliceV1(logger, epSlice)
 
 	for b.Loop() {
-		convertEndpoints(benchmarkExternalConfig, eps)
+		convertEndpoints(logger, benchmarkExternalConfig, eps)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "endpoints/sec")
 }
