@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	identityrestoration "github.com/cilium/cilium/pkg/identity/restoration"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -108,7 +109,7 @@ type Daemon struct {
 	endpointInitialPolicyComplete chan struct{}
 
 	identityAllocator identitycell.CachingIdentityAllocator
-	identityRestorer  *LocalIdentityRestorer
+	identityRestorer  *identityrestoration.LocalIdentityRestorer
 	ipcache           *ipcache.IPCache
 
 	k8sWatcher  *watchers.K8sWatcher
