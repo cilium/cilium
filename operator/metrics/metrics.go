@@ -75,6 +75,13 @@ func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 // Note: metrics are always initialized so we have access to sampler ring buffer data
 // for debugging. However, actual prometheus server will be started depending on if
 // metrics are enabled.
+//
+// Note: Some metrics are not fully integrated with the operator, specifically k8s
+// controller runtime metrics register against their own global registry.
+// This registry is included as part of the (*metrics).Registry.Gather() call
+// but this data is not accessed from the sampler.
+// Therefore the metrics stored in the sampler ring buffer are not complete and will
+// miss any of the controll runtime metrics.
 func initializeMetrics(p params) {
 	p.Registry.MustRegister(collectors.NewGoCollector(
 		collectors.WithGoCollectorRuntimeMetrics(
