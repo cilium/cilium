@@ -17,14 +17,76 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/identity"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+type dummyOwner struct {
+	mutex lock.RWMutex
+	cache map[string]identity.IdentityMap
+}
+
+func newDummyOwner() *dummyOwner {
+	return &dummyOwner{
+		cache: make(map[string]identity.IdentityMap),
+	}
+}
+
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	for id, lbls := range added {
+		for _, lbl := range lbls {
+			m, ok := d.cache[lbl.Key]
+			if !ok {
+				m = make(identity.IdentityMap)
+				d.cache[lbl.Key] = m
+			}
+			m[id] = lbls
+		}
+	}
+	for id, lbls := range deleted {
+		for _, lbl := range lbls {
+			m, ok := d.cache[lbl.Key]
+			if ok {
+				delete(m, id)
+			}
+			if len(m) == 0 {
+				delete(d.cache, lbl.Key)
+			}
+		}
+	}
+}
+
+func (d *dummyOwner) GetIdentityByLabels(lbls labels.Labels) identity.NumericIdentity {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	for lblKey := range lbls {
+		m := d.cache[lblKey]
+	lbl_arr_check:
+		for id, lblArr := range m {
+			for _, lbl := range lblArr {
+				if _, ok := lbls[lbl.Key]; !ok {
+					continue lbl_arr_check
+				}
+			}
+			return id
+		}
+	}
+	return 0
+}
+
+func (d *dummyOwner) GetNodeSuffix() string {
+	return "foo"
+}
 
 var (
 	ciliumIOSel = api.FQDNSelector{
@@ -103,6 +165,17 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	ipc := newMockIPCache()
+	owner := newDummyOwner()
+
+	localIDMap := make(map[identity.NumericIdentity]labels.Labels)
+	mgr := identityCache.NewCachingIdentityAllocator(owner, identityCache.AllocatorConfig{EnableOperatorManageCIDs: false})
+	mgr.LocalIdentityChanges().Observe(context.Background(), func(idChange identityCache.IdentityChange) {
+		if idChange.ID.HasLocalScope() {
+			localIDMap[idChange.ID] = idChange.Labels
+		}
+	}, func(err error) {
+
+	})
 	nameManager := New(ManagerParams{
 		Logger: logger,
 		Config: NameManagerConfig{
@@ -110,28 +183,55 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 			DNSProxyLockCount: defaults.DNSProxyLockCount,
 			StateDir:          option.Config.StateDir,
 		},
-		IPCache: ipc,
+		IPCache:           ipc,
+		IdentityAllocator: mgr,
 	})
 
 	nameManager.RegisterFQDNSelector(ciliumIOSel)
-
+	// Wait for the namemanager to trigger allocation
+	// (it allocates on a Millisecond trigger).
+	time.Sleep(time.Millisecond * 50)
+	for _, lbls := range identityLabels(ciliumIOSel) {
+		id := owner.GetIdentityByLabels(lbls)
+		changeLbls, ok := localIDMap[id]
+		require.Truef(t, ok, "local ID changes not found for id %d in changes %+v", id, localIDMap)
+		require.Equal(t, lbls, changeLbls)
+	}
 	// Simulate lookup for single selector
 	prefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
 	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.AsPrefix().Addr()}})
-	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefix))
 
 	// Add match pattern
 	nameManager.RegisterFQDNSelector(ciliumIOSelMatchPattern)
-	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), ciliumIOSelMatchPattern.IdentityLabel()}))
+	// Wait for the namemanager to trigger allocation
+	// (it allocates on a Millisecond trigger).
+	time.Sleep(time.Millisecond * 50)
+	for _, lbls := range identityLabels(ciliumIOSelMatchPattern) {
+		id := owner.GetIdentityByLabels(lbls)
+		changeLbls, ok := localIDMap[id]
+		require.Truef(t, ok, "local ID changes not found for id %d in changes %+v", id, localIDMap)
+		require.Equal(t, lbls, changeLbls)
+	}
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), ciliumIOSelMatchPattern.IdentityLabel()}), ipc.labelsForPrefix(prefix))
 
 	// Remove cilium.io matchname, add github.com match name
 	nameManager.RegisterFQDNSelector(githubSel)
 	nameManager.UnregisterFQDNSelector(ciliumIOSel)
-	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
+	// Wait for the namemanager to trigger allocation
+	// (it allocates on a Millisecond trigger).
+	time.Sleep(time.Millisecond * 50)
+	for _, lbls := range identityLabels(githubSel) {
+		id := owner.GetIdentityByLabels(lbls)
+		changeLbls, ok := localIDMap[id]
+		require.Truef(t, ok, "local ID changes not found for id %d in changes %+v", id, localIDMap)
+		require.Equal(t, lbls, changeLbls)
+	}
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}), ipc.labelsForPrefix(prefix))
 
 	// Same IP matched by two selectors
 	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.AsPrefix().Addr()}})
-	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}), ipc.labelsForPrefix(prefix))
 
 	// Additional unique IPs for each selector
 	githubPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.0.0.2/32"))
@@ -139,15 +239,15 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	n := time.Now()
 	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{githubPrefix.AsPrefix().Addr()}})
 	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("awesomecilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{awesomePrefix.AsPrefix().Addr()}})
-	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
-	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
-	require.Equal(t, ipc.labelsForPrefix(awesomePrefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}), ipc.labelsForPrefix(prefix))
+	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}), ipc.labelsForPrefix(githubPrefix))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}), ipc.labelsForPrefix(awesomePrefix))
 
 	// Removing selector should remove from IPCache
 	nameManager.UnregisterFQDNSelector(ciliumIOSelMatchPattern)
 	require.NotContains(t, ipc.metadata, awesomePrefix)
-	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
-	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
+	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}), ipc.labelsForPrefix(prefix))
+	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}), ipc.labelsForPrefix(githubPrefix))
 }
 
 func Test_deriveLabelsForNames(t *testing.T) {
