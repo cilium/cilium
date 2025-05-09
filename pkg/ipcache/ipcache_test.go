@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -42,6 +43,7 @@ func setupIPCacheTestSuite(tb testing.TB) *IPCacheTestSuite {
 	}
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
+		Logger:            hivetest.Logger(tb),
 		IdentityAllocator: Allocator,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
@@ -237,6 +239,7 @@ func TestIPCache(t *testing.T) {
 }
 
 func TestIPCacheNamedPorts(t *testing.T) {
+	logger := hivetest.Logger(t)
 	endpointIP := "10.0.0.15"
 	identity := identityPkg.NumericIdentity(68)
 
@@ -484,7 +487,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		namedPortsChanged = IPIdentityCache.Delete(endpointIPs[index], source.KVStore)
 		npm = IPIdentityCache.GetNamedPorts()
 		require.NotNil(t, npm)
-		log.Infof("Named ports after Delete %d: %v", index, npm)
+		logger.Info(fmt.Sprintf("Named ports after Delete %d: %v", index, npm))
 		// 2nd delete removes named port mapping, as remaining IPs have an already deleted ID (29)
 		require.Equal(t, index == 1, namedPortsChanged)
 
@@ -521,6 +524,7 @@ func BenchmarkIPCacheUpsert10000(b *testing.B) {
 }
 
 func benchmarkIPCacheUpsert(b *testing.B, num int) {
+	logger := hivetest.Logger(b)
 	meta := K8sMetadata{
 		Namespace: "default",
 		PodName:   "app",
@@ -545,6 +549,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 		allocator := testidentity.NewMockIdentityAllocator(nil)
 		ipcache := NewIPCache(&Configuration{
 			Context:           ctx,
+			Logger:            logger,
 			IdentityAllocator: allocator,
 			PolicyHandler:     &mockUpdater{},
 			DatapathHandler:   &mockTriggerer{},

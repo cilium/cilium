@@ -6,12 +6,14 @@ package agent
 import (
 	"context"
 	"iter"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -187,7 +189,7 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 	return false
 }
 
-func newTestAgent(ctx context.Context, wgClient wireguardClient) (*Agent, *ipcache.IPCache) {
+func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient) (*Agent, *ipcache.IPCache) {
 	// Mimic the same condition in NewAgent.
 	var needIPCacheEvents bool
 	if !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback {
@@ -195,6 +197,7 @@ func newTestAgent(ctx context.Context, wgClient wireguardClient) (*Agent, *ipcac
 	}
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
+		Logger:  logger,
 	})
 	wgAgent := &Agent{
 		logger:           logging.DefaultSlogLogger.With(subsysLogAttr...),
@@ -279,7 +282,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
 			option.Config.WireguardTrackAllIPsFallback = c.Fallback
 
-			wgAgent, ipCache := newTestAgent(t.Context(), newFakeWgClient())
+			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), newFakeWgClient())
 			defer ipCache.Shutdown()
 
 			// Test that IPCache updates before UpdatePeer are handled correctly
@@ -496,7 +499,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				},
 			})
 
-			wgAgent, ipCache := newTestAgent(t.Context(), wgClient)
+			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), wgClient)
 			defer ipCache.Shutdown()
 
 			assertAllowedIPs := func(e expectation) {

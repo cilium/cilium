@@ -35,6 +35,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 	}
 	ipc := NewIPCache(&Configuration{
 		Context:           ctx,
+		Logger:            logger,
 		IdentityAllocator: alloc,
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},

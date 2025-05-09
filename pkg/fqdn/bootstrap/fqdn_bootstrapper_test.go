@@ -69,6 +69,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	d.endpointManager = endpointmanager.New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
+		Logger:            logger,
 		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
 		PolicyHandler:     d.policyRepo.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,

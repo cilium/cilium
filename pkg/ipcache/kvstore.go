@@ -7,13 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path"
 	"sort"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -51,12 +50,13 @@ type backend interface {
 
 // IPIdentitySynchronizer handles the synchronization of ipcache entries into the kvstore.
 type IPIdentitySynchronizer struct {
+	logger  *slog.Logger
 	client  atomic.Value // backend
 	tracker lock.Map[string, []byte]
 }
 
-func NewIPIdentitySynchronizer() *IPIdentitySynchronizer {
-	return &IPIdentitySynchronizer{}
+func NewIPIdentitySynchronizer(logger *slog.Logger) *IPIdentitySynchronizer {
+	return &IPIdentitySynchronizer{logger: logger}
 }
 
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
@@ -94,12 +94,13 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:       ipIDPair.IP,
-		logfields.Identity:     ipIDPair.ID,
-		logfields.Key:          ipIDPair.Key,
-		logfields.Modification: Upsert,
-	}).Debug("Upserting IP->ID mapping to kvstore")
+	s.logger.Debug(
+		"Upserting IP->ID mapping to kvstore",
+		logfields.IPAddr, ipIDPair.IP,
+		logfields.Identity, ipIDPair.ID,
+		logfields.Key, ipIDPair.Key,
+		logfields.Modification, Upsert,
+	)
 
 	_, err = s.client.Load().(backend).UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
@@ -122,6 +123,7 @@ func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore.
 type IPIdentityWatcher struct {
+	log     *slog.Logger
 	store   storepkg.WatchStore
 	ipcache IPCacher
 
@@ -136,7 +138,6 @@ type IPIdentityWatcher struct {
 
 	started bool
 	synced  chan struct{}
-	log     *logrus.Entry
 }
 
 type IPCacher interface {
@@ -146,7 +147,7 @@ type IPCacher interface {
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
 func NewIPIdentityWatcher(
-	clusterName string, ipc IPCacher, factory storepkg.Factory,
+	logger *slog.Logger, clusterName string, ipc IPCacher, factory storepkg.Factory,
 	source source.Source, opts ...storepkg.RWSOpt,
 ) *IPIdentityWatcher {
 	watcher := IPIdentityWatcher{
@@ -154,7 +155,7 @@ func NewIPIdentityWatcher(
 		clusterName: clusterName,
 		source:      source,
 		synced:      make(chan struct{}),
-		log:         log.WithField(logfields.ClusterName, clusterName),
+		log:         logger.With(logfields.ClusterName, clusterName),
 	}
 
 	watcher.store = factory.NewWatchStore(
@@ -238,8 +239,10 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 	}
 
 	if iw.started && iw.clusterID != iwo.clusterID {
-		iw.log.WithField(logfields.ClusterID, iwo.clusterID).
-			Info("ClusterID changed: draining all known ipcache entries")
+		iw.log.Info(
+			"ClusterID changed: draining all known ipcache entries",
+			logfields.ClusterID, iwo.clusterID,
+		)
 		iw.store.Drain()
 	}
 
@@ -306,12 +309,18 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		return
 	}
 
-	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed upsertion event")
+	iw.log.Debug(
+		"Observed upsertion event",
+		logfields.IPAddr, ip,
+	)
 
 	for _, validator := range iw.validators {
 		if err := validator(ipIDPair); err != nil {
-			log.WithError(err).WithField(logfields.IPAddr, ip).
-				Warning("Skipping invalid upsertion event")
+			iw.log.Warn(
+				"Skipping invalid upsertion event",
+				logfields.Error, err,
+				logfields.IPAddr, ip,
+			)
 			return
 		}
 	}
@@ -326,9 +335,11 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		for _, np := range ipIDPair.NamedPorts {
 			err := k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
 			if err != nil {
-				iw.log.WithFields(logrus.Fields{
-					logfields.IPAddr: ipIDPair,
-				}).WithError(err).Error("Parsing named port failed")
+				iw.log.Error(
+					"Parsing named port failed",
+					logfields.Error, err,
+					logfields.IPAddr, ipIDPair,
+				)
 			}
 		}
 	}
@@ -376,7 +387,10 @@ func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
 	ipIDPair := k.(*identity.IPIdentityPair)
 	ip := ipIDPair.PrefixString()
 
-	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed deletion event")
+	iw.log.Debug(
+		"Observed deletion event",
+		logfields.IPAddr, ip,
+	)
 
 	if iw.withSelfDeletionProtection && iw.selfDeletionProtection(ip) {
 		return
@@ -400,10 +414,17 @@ func (iw *IPIdentityWatcher) onSync(context.Context) {
 func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 	key := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	if m, ok := iw.syncer.tracker.Load(key); ok {
-		iw.log.WithField(logfields.IPAddr, ip).Warning("Received kvstore delete notification for alive ipcache entry")
+		iw.log.Warn(
+			"Received kvstore delete notification for alive ipcache entry",
+			logfields.IPAddr, ip,
+		)
 		_, err := iw.syncer.client.Load().(backend).UpdateIfDifferent(context.TODO(), key, m, true)
 		if err != nil {
-			iw.log.WithError(err).WithField(logfields.IPAddr, ip).Warning("Unable to re-create alive ipcache entry")
+			iw.log.Warn(
+				"Unable to re-create alive ipcache entry",
+				logfields.Error, err,
+				logfields.IPAddr, ip,
+			)
 		}
 		return true
 	}

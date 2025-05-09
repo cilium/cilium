@@ -90,17 +90,17 @@ func eventually(in <-chan event) event {
 }
 
 func TestIPIdentityWatcher(t *testing.T) {
+	logger := hivetest.Logger(t)
 	const src = source.Source("foo")
 
 	var synced bool
-	st := storepkg.NewFactory(hivetest.Logger(t), storepkg.MetricsProvider())
+	st := storepkg.NewFactory(logger, storepkg.MetricsProvider())
 	runnable := func(body func(t *testing.T, ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
 		return func(t *testing.T) {
 			synced = false
 			ipcache := NewFakeIPCache()
 			backend := NewFakeBackend()
-			watcher := NewIPIdentityWatcher("foo", ipcache, st, src,
-				storepkg.RWSWithOnSyncCallback(func(ctx context.Context) { synced = true }))
+			watcher := NewIPIdentityWatcher(logger, "foo", ipcache, st, src, storepkg.RWSWithOnSyncCallback(func(ctx context.Context) { synced = true }))
 
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
