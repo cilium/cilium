@@ -7,13 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	stdtime "time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -187,7 +188,7 @@ type controller struct {
 	group  Group
 	name   string
 	uuid   string
-	logger *logrus.Entry
+	logger *slog.Logger
 
 	// Channels written to and/or closed by the manager
 	stop    chan struct{}
@@ -241,7 +242,9 @@ func (c *controller) SetParams(params ControllerParams) {
 	// Enforce max controller interval
 	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
 	if maxInterval > 0 && params.RunInterval > maxInterval {
-		c.getLogger().Infof("Limiting interval to %s", maxInterval)
+		c.logger.Info("Limiting interval",
+			logfields.Interval, maxInterval,
+		)
 		params.RunInterval = maxInterval
 	}
 
@@ -314,7 +317,7 @@ func (c *controller) runController() {
 
 		c.mutex.Lock()
 		c.lastDuration = duration
-		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
+		c.logger.Debug("Controller func executed", logfields.Duration, c.lastDuration)
 
 		if err != nil {
 			if params.Context.Err() != nil {
@@ -332,12 +335,15 @@ func (c *controller) runController() {
 				// Don't exit the goroutine, since that only happens when the
 				// controller is explicitly stopped. Instead, just wait for
 				// the next update.
-				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
+				c.logger.Debug("Controller run succeeded; waiting for next controller update or stop")
 				interval = time.Duration(math.MaxInt64)
 
 			} else {
-				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-					WithError(err).Debug("Controller run failed")
+				c.logger.Debug(
+					"Controller run failed",
+					fieldConsecutiveErrors, errorRetries,
+					logfields.Error, err,
+				)
 				c.recordError(err, params.Health)
 
 				if !params.NoErrorRetry {
@@ -348,10 +354,11 @@ func (c *controller) runController() {
 					}
 
 					if params.MaxRetryInterval > 0 && interval > params.MaxRetryInterval {
-						c.getLogger().WithFields(logrus.Fields{
-							"calculatedInterval": interval,
-							"maxAllowedInterval": params.MaxRetryInterval,
-						}).Debug("Cap retry interval to max allowed value")
+						c.logger.Debug(
+							"Cap retry interval to max allowed value",
+							logfields.CalculatedInterval, interval,
+							logfields.MaxAllowedInterval, params.MaxRetryInterval,
+						)
 						interval = params.MaxRetryInterval
 					}
 
@@ -370,7 +377,7 @@ func (c *controller) runController() {
 				// Don't exit the goroutine, since that only happens when the
 				// controller is explicitly stopped. Instead, just wait for
 				// the next update.
-				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
+				c.logger.Debug("Controller run succeeded; waiting for next controller update or stop")
 				interval = time.Duration(math.MaxInt64)
 			}
 		}
@@ -400,29 +407,20 @@ func (c *controller) runController() {
 	}
 
 shutdown:
-	c.getLogger().Debug("Shutting down controller")
+	c.logger.Debug("Shutting down controller")
 
 	if err := params.StopFunc(context.TODO()); err != nil {
 		c.mutex.Lock()
 		c.recordError(err, params.Health)
 		c.mutex.Unlock()
-		c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-			WithError(err).Warn("Error on Controller stop")
+		c.logger.Warn(
+			"Error on Controller stop",
+			fieldConsecutiveErrors, errorRetries,
+			logfields.Error, err,
+		)
 	}
 
 	close(c.terminated)
-}
-
-// logger returns a logrus object with controllerName and UUID fields.
-func (c *controller) getLogger() *logrus.Entry {
-	if c.logger == nil {
-		c.logger = log.WithFields(logrus.Fields{
-			fieldControllerName: c.name,
-			fieldUUID:           c.uuid,
-		})
-	}
-
-	return c.logger
 }
 
 // recordError updates all statistic collection variables on error
