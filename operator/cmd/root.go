@@ -33,6 +33,8 @@ import (
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
+	"github.com/cilium/cilium/operator/metrics/node"
+	nodeWatcherMetrics "github.com/cilium/cilium/operator/metrics/node"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
@@ -187,7 +189,7 @@ var (
 		}),
 
 		api.HealthHandlerCell(
-			kvstoreEnabled,
+			operatorOption.Config.IsKVstoreEnabled,
 			isLeader.Load,
 		),
 		api.MetricsHandlerCell,
@@ -481,57 +483,61 @@ func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Cli
 	})
 }
 
-func kvstoreEnabled() bool {
-	if option.Config.KVStore == "" {
-		return false
-	}
-
-	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
-		operatorOption.Config.SyncK8sServices ||
-		operatorOption.Config.SyncK8sNodes
-}
-
 var legacyCell = cell.Module(
 	"legacy-cell",
 	"Cilium operator legacy cell",
 
 	cell.Invoke(registerLegacyOnLeader),
+	nodeWatcherMetrics.Cell,
 
 	// Provides the unamanged pods metric
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+type params struct {
+	cell.In
+	Lifecycle       cell.Lifecycle
+	Clientset       k8sClient.Clientset
+	Resources       operatorK8s.Resources
+	Factory         store.Factory
+	SvcResolver     *dial.ServiceResolver
+	CfgMCSAPI       cmoperator.MCSAPIConfig
+	Metrics         *UnmanagedPodsMetric
+	MetricsProvider *node.WorkqueuePrometheusMetricsProvider
+	Logger          *slog.Logger
+}
+
+func registerLegacyOnLeader(p params) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:          ctx,
-		cancel:       cancel,
-		clientset:    clientset,
-		resources:    resources,
-		storeFactory: factory,
-		svcResolver:  svcResolver,
-		cfgMCSAPI:    cfgMCSAPI,
-		metrics:      metrics,
-		logger:       logger,
+		ctx:             ctx,
+		cancel:          cancel,
+		clientset:       p.Clientset,
+		resources:       p.Resources,
+		storeFactory:    p.Factory,
+		svcResolver:     p.SvcResolver,
+		cfgMCSAPI:       p.CfgMCSAPI,
+		metrics:         p.Metrics,
+		logger:          p.Logger,
+		metricsProvider: p.MetricsProvider,
 	}
-	lc.Append(cell.Hook{
+	p.Lifecycle.Append(cell.Hook{
 		OnStart: legacy.onStart,
 		OnStop:  legacy.onStop,
 	})
 }
 
 type legacyOnLeader struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
-	clientset    k8sClient.Clientset
-	wg           sync.WaitGroup
-	resources    operatorK8s.Resources
-	storeFactory store.Factory
-	svcResolver  *dial.ServiceResolver
-	cfgMCSAPI    cmoperator.MCSAPIConfig
-	metrics      *UnmanagedPodsMetric
+	ctx             context.Context
+	cancel          context.CancelFunc
+	clientset       k8sClient.Clientset
+	wg              sync.WaitGroup
+	resources       operatorK8s.Resources
+	storeFactory    store.Factory
+	svcResolver     *dial.ServiceResolver
+	cfgMCSAPI       cmoperator.MCSAPIConfig
+	metrics         *UnmanagedPodsMetric
+	metricsProvider *node.WorkqueuePrometheusMetricsProvider
 
 	logger *slog.Logger
 }
@@ -576,12 +582,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
 	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
 
-	switch ipamMode := option.Config.IPAM; ipamMode {
-	case ipamOption.IPAMAzure,
-		ipamOption.IPAMENI,
-		ipamOption.IPAMClusterPool,
-		ipamOption.IPAMMultiPool,
-		ipamOption.IPAMAlibabaCloud:
+	ipamMode := option.Config.IPAM
+	if option.Config.IsNodeManagerEnabled() {
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
@@ -606,7 +608,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager = nm
 	}
 
-	if kvstoreEnabled() {
+	if operatorOption.Config.IsKVstoreEnabled() {
 		var goopts *kvstore.ExtraOptions
 		scopedLog := log.WithFields(logrus.Fields{
 			"kvstore": option.Config.KVStore,
@@ -680,7 +682,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
+	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, legacy.metricsProvider, withKVStore)
 
 	if legacy.clientset.IsEnabled() {
 		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge

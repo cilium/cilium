@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
+	"github.com/cilium/cilium/operator/metrics/node"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -61,9 +62,12 @@ type ciliumNodeSynchronizer struct {
 
 	k8sCiliumNodesCacheSynced    chan struct{}
 	ciliumNodeManagerQueueSynced chan struct{}
+
+	metricsProvider *node.WorkqueuePrometheusMetricsProvider
 }
 
-func newCiliumNodeSynchronizer(clientset k8sClient.Clientset, nodeManager allocator.NodeEventHandler, withKVStore bool) *ciliumNodeSynchronizer {
+func newCiliumNodeSynchronizer(clientset k8sClient.Clientset, nodeManager allocator.NodeEventHandler,
+	metricsProvider *node.WorkqueuePrometheusMetricsProvider, withKVStore bool) *ciliumNodeSynchronizer {
 	return &ciliumNodeSynchronizer{
 		clientset:   clientset,
 		nodeManager: nodeManager,
@@ -71,6 +75,8 @@ func newCiliumNodeSynchronizer(clientset k8sClient.Clientset, nodeManager alloca
 
 		k8sCiliumNodesCacheSynced:    make(chan struct{}),
 		ciliumNodeManagerQueueSynced: make(chan struct{}),
+
+		metricsProvider: metricsProvider,
 	}
 }
 
@@ -85,15 +91,12 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 	)
 
 	var ciliumNodeManagerQueueConfig = workqueue.TypedRateLimitingQueueConfig[string]{
-		Name: "node_manager",
+		Name:            "node_manager",
+		MetricsProvider: s.metricsProvider,
 	}
 	var kvStoreQueueConfig = workqueue.TypedRateLimitingQueueConfig[string]{
-		Name: "kvstore",
-	}
-
-	if operatorOption.Config.EnableMetrics {
-		ciliumNodeManagerQueueConfig.MetricsProvider = NewWorkqueuePrometheusMetricsProvider()
-		kvStoreQueueConfig.MetricsProvider = NewWorkqueuePrometheusMetricsProvider()
+		Name:            "kvstore",
+		MetricsProvider: s.metricsProvider,
 	}
 
 	var ciliumNodeManagerQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](workqueue.DefaultTypedControllerRateLimiter[string](), ciliumNodeManagerQueueConfig)

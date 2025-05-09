@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package metrics
 
 import (
 	"context"
@@ -41,8 +41,10 @@ func init() {
 	k8s_metrics.RateLimiterLatency = registerOps.RateLimiterLatency
 	k8s_metrics.RequestResult = registerOps.RequestResult
 
-	workqueue.SetProvider(workqueueMetricsProvider{})
+	workqueue.SetProvider(MetricsProvider)
 }
+
+var MetricsProvider = workqueueMetricsProvider{}
 
 type workqueueMetricsProvider struct{}
 

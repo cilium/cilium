@@ -19,6 +19,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 )
 
 var (
@@ -74,7 +75,10 @@ func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-
 	nodeSyncOnce.Do(func() {
 		nodeQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "node-queue"},
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name:            "node-queue",
+				MetricsProvider: metrics.MetricsProvider,
+			},
 		)
 		slimNodeStore, nodeController = informer.NewInformer(
 			utils.ListerWatcherFromTyped[*slim_corev1.NodeList](slimClient.CoreV1().Nodes()),

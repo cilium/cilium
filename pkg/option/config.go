@@ -3969,3 +3969,16 @@ func (d *DaemonConfig) GetZone(id uint8) string {
 func (d *DaemonConfig) GetZoneID(zone string) uint8 {
 	return d.FixedZoneMapping[zone]
 }
+
+func (d *DaemonConfig) IsNodeManagerEnabled() bool {
+	switch d.IPAM {
+	case ipamOption.IPAMAzure,
+		ipamOption.IPAMENI,
+		ipamOption.IPAMClusterPool,
+		ipamOption.IPAMMultiPool,
+		ipamOption.IPAMAlibabaCloud:
+		return true
+	default:
+		return false
+	}
+}

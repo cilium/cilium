@@ -5,8 +5,10 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/cilium/hive"
@@ -14,12 +16,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/lock"
 	metricpkg "github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
+
+	runtimeMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var defaultRegistryConfig = RegistryConfig{
@@ -68,33 +73,56 @@ type Registry struct {
 	params RegistryParams
 }
 
-func NewRegistry(params RegistryParams) *Registry {
-	reg := &Registry{
-		params: params,
+// Gather exposes metrics gather functionality, used by operator metrics command.
+func (reg *Registry) Gather() ([]*dto.MetricFamily, error) {
+	return multiRegistry{reg.inner, runtimeMetrics.Registry}.Gather()
+}
+
+type multiRegistry []prometheus.Gatherer
+
+func (mg multiRegistry) Gather() ([]*dto.MetricFamily, error) {
+	out := []*dto.MetricFamily{}
+	var errs error
+	for i, reg := range mg {
+		ms, err := reg.Gather()
+		if err != nil {
+			// Note: The Gatherer interface specifies that implementations should
+			// still try to return as many metrics even if an error is encountered.
+			errs = errors.Join(errs, fmt.Errorf("registry %d: %w", i, err))
+			continue
+		}
+		for _, m := range ms {
+			out = append(out, m)
+		}
 	}
+	slices.SortFunc(out, func(a, b *dto.MetricFamily) int {
+		return strings.Compare(a.GetName(), b.GetName())
+	})
+	return out, errs
+}
 
-	reg.Reinitialize()
-
-	// Resolve the global registry variable for as long as we still have global functions
-	registryResolver.Resolve(reg)
-
-	if params.Config.PrometheusServeAddr != "" {
+func (reg *Registry) AddServerRuntimeHooks() {
+	if reg.params.Config.PrometheusServeAddr != "" {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(reg.inner, promhttp.HandlerOpts{}))
+		rs := multiRegistry{
+			reg.inner,
+			runtimeMetrics.Registry,
+		}
+		mux.Handle("/metrics", promhttp.HandlerFor(rs, promhttp.HandlerOpts{}))
 		srv := http.Server{
-			Addr:    params.Config.PrometheusServeAddr,
+			Addr:    reg.params.Config.PrometheusServeAddr,
 			Handler: mux,
 		}
 
-		params.Lifecycle.Append(cell.Hook{
+		reg.params.Lifecycle.Append(cell.Hook{
 			OnStart: func(hc cell.HookContext) error {
 				go func() {
-					params.Logger.Infof("Serving prometheus metrics on %s", params.Config.PrometheusServeAddr)
+					reg.params.Logger.Infof("Serving prometheus metrics on %s", reg.params.Config.PrometheusServeAddr)
 					err := srv.ListenAndServe()
 					if err != nil && !errors.Is(err, http.ErrServerClosed) {
-						params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+						reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 					}
 				}()
 				return nil
@@ -104,6 +132,29 @@ func NewRegistry(params RegistryParams) *Registry {
 			},
 		})
 	}
+}
+
+// NewRegistry constructs a new registry that is not initalized with
+// hive/legacy metrics and has registered its runtime hooks yet.
+func NewRegistry(params RegistryParams) *Registry {
+	reg := &Registry{
+		params: params,
+		inner:  prometheus.NewPedanticRegistry(),
+	}
+	return reg
+}
+
+func NewAgentRegistry(params RegistryParams) *Registry {
+	reg := &Registry{
+		params: params,
+	}
+
+	reg.Reinitialize()
+
+	// Resolve the global registry variable for as long as we still have global functions
+	registryResolver.Resolve(reg)
+
+	reg.AddServerRuntimeHooks()
 
 	return reg
 }
@@ -124,6 +175,8 @@ func (r *Registry) Unregister(c prometheus.Collector) bool {
 var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 
 // Reinitialize creates a new internal registry and re-registers metrics to it.
+// Note: This is only currently used for testing as this will not recreate the prom metrics
+// endpoint server.
 func (r *Registry) Reinitialize() {
 	r.inner = prometheus.NewPedanticRegistry()
 

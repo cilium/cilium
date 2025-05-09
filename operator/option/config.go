@@ -513,3 +513,15 @@ var Config = &OperatorConfig{
 	ENITags:                        make(map[string]string),
 	ENIGarbageCollectionTags:       make(map[string]string),
 }
+
+func (c *OperatorConfig) IsKVstoreEnabled() bool {
+	if option.Config.KVStore == "" {
+		return false
+	}
+
+	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
+		c.SyncK8sServices ||
+		c.SyncK8sNodes
+}
