@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,14 @@ type endpointManager interface {
 	EndpointExists(endpointID uint16) bool
 	RemoveDatapathMapping(endpointID uint16) error
 	RemoveMapPath(path string)
+	ListMapsDir(path string) []string
+}
+
+// PrefixedMap describes a pattern for filtering map files.
+// It specifies which files to match via Prefix and which to exclude via Excludes.
+type PrefixedMap struct {
+	Prefix   string
+	Excludes []string
 }
 
 // MapSweeper is responsible for checking stale map paths on the filesystem
@@ -116,7 +125,13 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 // been disabled. The maps may still be in use in which case they will continue
 // to live until the BPF program using them is being replaced.
 func (ms *MapSweeper) RemoveDisabledMaps() {
-	maps := []string{"cilium_proxy4", "cilium_proxy6"}
+	var (
+		mapsDir      = bpf.TCGlobalsPath()
+		maps         = []string{"cilium_proxy4", "cilium_proxy6"}
+		prefixedMaps = []PrefixedMap{
+			{"cilium_policy_", []string{policymap.MapName}},
+		}
+	)
 
 	if !option.Config.EnableIPv6 {
 		maps = append(maps, []string{
@@ -219,10 +234,34 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
+	foundMaps := ms.ListMapsDir(mapsDir)
+
 	for _, m := range maps {
-		p := path.Join(bpf.TCGlobalsPath(), m)
-		if _, err := os.Stat(p); !os.IsNotExist(err) {
-			ms.RemoveMapPath(p)
+		if slices.Contains(foundMaps, m) {
+			ms.RemoveMapPath(path.Join(mapsDir, m))
+		}
+	}
+
+	for _, pm := range prefixedMaps {
+		containsExcluded := func(name string) bool {
+			for _, ex := range pm.Excludes {
+				if strings.Contains(name, ex) {
+					return true
+				}
+			}
+			return false
+		}
+
+		for _, m := range foundMaps {
+			if !strings.HasPrefix(m, pm.Prefix) {
+				continue
+			}
+
+			if containsExcluded(m) {
+				continue
+			}
+
+			ms.RemoveMapPath(path.Join(mapsDir, m))
 		}
 	}
 }
