@@ -715,6 +715,9 @@ func handleFlowArgs(writer io.Writer, ofilter *flowFilter, debug bool) (err erro
 	if formattingOpts.nodeName {
 		opts = append(opts, hubprinter.WithNodeName())
 	}
+	if formattingOpts.policyNames {
+		opts = append(opts, hubprinter.WithPolicyNames())
+	}
 	printer = hubprinter.New(opts...)
 	return nil
 }
