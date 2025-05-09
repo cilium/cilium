@@ -30,7 +30,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log).(*cesManager)
+	m := newCESManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
