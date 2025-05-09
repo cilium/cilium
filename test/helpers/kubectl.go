@@ -359,7 +359,7 @@ type Kubectl struct {
 // execute a `ls` on the virtual machine.
 func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	if config.CiliumTestConfig.Kubeconfig == "" {
-		node := GetVagrantSSHMeta(vmName)
+		node := GetSSHMeta(vmName)
 		if node == nil {
 			ginkgoext.Fail(fmt.Sprintf("Cannot connect to vmName  '%s'", vmName), 1)
 			return nil

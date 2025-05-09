@@ -222,7 +222,7 @@ func HoldEnvironment(description ...string) {
 	fmt.Fprintf(os.Stdout, "\n---\n%s", test.FullTestText)
 	fmt.Fprintf(os.Stdout, "\nat %s:%d", test.FileName, test.LineNumber)
 	fmt.Fprintf(os.Stdout, "\n\n%s", description)
-	fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
+	fmt.Fprintf(os.Stdout, "\n\nPausing test for debug.")
 	fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
 	unix.Kill(pid, unix.SIGSTOP)
 	time.Sleep(time.Millisecond)
@@ -726,7 +726,7 @@ func DualStackSupported() bool {
 		return false
 	}
 
-	// We only have DualStack enabled in Vagrant test env or on KIND.
+	// We only have DualStack enabled in KIND.
 	return (GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)) &&
 		supportedVersions(k8sVersion)
 }
