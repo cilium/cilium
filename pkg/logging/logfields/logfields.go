@@ -1673,4 +1673,10 @@ const (
 	EventEnqueueWaitTime = "eventEnqueueWaitTime"
 
 	EventConsumeOffQueueWaitTime = "eventConsumeOffQueueWaitTime"
+
+	Primary = "primary"
+
+	RTT = "rtt"
+
+	URI = "uri"
 )
