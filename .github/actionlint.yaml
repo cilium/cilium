@@ -1,0 +1,17 @@
+self-hosted-runner:
+  labels:
+    - "ubuntu-24.04-arm64"
+# Configuration for file paths. The keys are glob patterns to match to file
+# paths relative to the repository root. The values are the configurations for
+# the file paths. Note that the path separator is always '/'.
+# The following configurations are available.
+#
+# "ignore" is an array of regular expression patterns. Matched error messages
+# are ignored. This is similar to the "-ignore" command line option.
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+    - 'object filtering `.*`' # actionlint doesn't properly lint our usage of `${{ join(matrix.*, ', ') }}`
+  .github/workflows/conformance-runtime.yaml:
+    ignore:
+    - 'property "cliskip" is not defined in object type' # cliskip is not set in that workflow, but can be in the future to skip ginkgo tests, let's allow it
