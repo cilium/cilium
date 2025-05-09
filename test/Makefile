@@ -11,9 +11,6 @@ else
 	RUN_WITH_SUDO=
 endif
 
-PROVISION ?= true
-# If you set provision to false the test will run without bootstrapping the
-# cluster again.
 HOLD_ENVIRONMENT ?= true
 
 TEST_ARTIFACTS = ./tmp.yaml ./*_service_manifest.json ./*_manifest.yaml
@@ -28,7 +25,7 @@ GINKGO = $(QUIET) ginkgo
 
 REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
 
-.PHONY = all build test run k8s-test k8s-kind clean
+.PHONY: all build build-darwin test k8s-kind clean
 
 all: build
 
@@ -40,13 +37,11 @@ build-darwin:
 	@$(ECHO_GINKGO)$@
 	GOOS=darwin $(GINKGO) build
 
-test: run k8s-test
-
-run:
-	INTEGRATION_TESTS=true KERNEL=net-next ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
-
-k8s-test:
-	INTEGRATION_TESTS=true ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+test:
+	@echo "Running the legacy tests via the make target is no longer supported."
+	@echo ""
+	@echo "For now, use the following guide to invoke these tests:"
+	@echo "https://docs.cilium.io/en/latest/contributing/testing/e2e_legacy/#running-locally-ginkgo-tests-based-on-ginkgo-s-github-workflow"
 
 # Match kind-image target in parent directory
 k8s-kind: export DOCKER_REGISTRY=localhost:5000
