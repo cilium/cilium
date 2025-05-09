@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 )
 
-func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
+func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags := cmd.Flags()
 
 	flags.Int(operatorOption.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
@@ -143,7 +144,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		switch binaryName {
 		case "cilium-operator":
 			if recommendation := recommendInstead(); recommendation != "" {
-				log.Warnf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation)
+				logger.Warn(fmt.Sprintf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation))
 			}
 		case "cilium-operator-aws":
 			if ipamFlagValue != ipamOption.IPAMENI {

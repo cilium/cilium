@@ -1677,4 +1677,22 @@ const (
 	CachedSource = "cachedSource"
 
 	Info = "info"
+
+	OperatorID = "operatorID"
+
+	NewLeader = "newLeader"
+
+	KVStore = "kvstore"
+
+	LabelSelectorFlagOption = "label-selector"
+
+	RemoveCiliumNodeTaintsFlagOption = "remove-cilium-node-taints"
+
+	SetCiliumNodeTaintsFlagOption = "set-cilium-node-taints"
+
+	SetCiliumIsUpConditionFlagOption = "set-cilium-is-up-condition"
+
+	TimeSinceRestart = "timeSinceRestart"
+
+	TimeSincePodStarted = "timeSincePodStarted"
 )

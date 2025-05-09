@@ -4,6 +4,8 @@
 package option
 
 import (
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/spf13/viper"
@@ -11,11 +13,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
@@ -396,7 +395,7 @@ type OperatorConfig struct {
 }
 
 // Populate sets all options with the values from viper.
-func (c *OperatorConfig) Populate(vp *viper.Viper) {
+func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
@@ -474,31 +473,31 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMSubnetsTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMSubnetsTags, err))
 	} else {
 		c.IPAMSubnetsTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMInstanceTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMInstanceTags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMInstanceTags, err))
 	} else {
 		c.IPAMInstanceTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
-		log.Fatalf("unable to parse %s: %s", ENITags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", ENITags, err))
 	} else {
 		c.ENITags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, ENIGarbageCollectionTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", ENIGarbageCollectionTags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", ENIGarbageCollectionTags, err))
 	} else {
 		c.ENIGarbageCollectionTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err))
 	} else {
 		c.IPAMAutoCreateCiliumPodIPPools = m
 	}

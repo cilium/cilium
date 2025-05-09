@@ -5,6 +5,7 @@ package suite
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -49,6 +50,7 @@ type trackerAndDecoder struct {
 }
 
 type ControlPlaneTest struct {
+	logger            *slog.Logger
 	t                 *testing.T
 	tempDir           string
 	validationTimeout time.Duration
@@ -93,6 +95,7 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	}
 
 	return &ControlPlaneTest{
+		logger:              hivetest.Logger(t),
 		t:                   t,
 		nodeName:            nodeName,
 		clients:             clients,
@@ -107,7 +110,7 @@ func (cpt *ControlPlaneTest) SetupEnvironment() *ControlPlaneTest {
 	types.SetName(cpt.nodeName)
 
 	// Configure k8s and perform capability detection with the fake client.
-	version.Update(hivetest.Logger(cpt.t), cpt.clients, true)
+	version.Update(cpt.logger, cpt.clients, true)
 
 	cpt.tempDir = setupTestDirectories()
 
@@ -169,9 +172,10 @@ func (cpt *ControlPlaneTest) StartOperator(
 
 	mockCmd := &cobra.Command{}
 	h.RegisterFlags(mockCmd.Flags())
-	operatorCmd.InitGlobalFlags(mockCmd, h.Viper())
+	log := hivetest.Logger(cpt.t)
+	operatorCmd.InitGlobalFlags(log, mockCmd, h.Viper())
 
-	populateCiliumOperatorOptions(h.Viper(), modConfig, modCellConfig)
+	populateCiliumOperatorOptions(log, h.Viper(), modConfig, modCellConfig)
 
 	h.Viper().Set(apis.SkipCRDCreation, true)
 
@@ -180,7 +184,6 @@ func (cpt *ControlPlaneTest) StartOperator(
 	// election machinery in the controlplane tests.
 	version.DisableLeasesResourceLock()
 
-	log := hivetest.Logger(cpt.t)
 	err := startCiliumOperator(h, log)
 	if err != nil {
 		cpt.t.Fatalf("Failed to start operator: %s", err)
