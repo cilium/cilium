@@ -6,6 +6,7 @@ package policy
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
@@ -282,11 +283,13 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 			// We already know from the L7Parser.Merge() above that there are no
 			// conflicting parser types, and rule validation only allows one type of L7
 			// rules in a rule, so we can just merge the rules here.
-			for _, newRule := range newL7Rules.HTTP {
-				if !newRule.Exists(l7Rules.L7Rules) {
-					l7Rules.HTTP = append(l7Rules.HTTP, newRule)
-				}
-			}
+			l7Rules.HTTP = append(l7Rules.HTTP, newL7Rules.HTTP...)
+			slices.SortFunc(l7Rules.HTTP, func(a, b api.PortRuleHTTP) int {
+				return a.Compare(b)
+			})
+			l7Rules.HTTP = slices.CompactFunc(l7Rules.HTTP, func(a, b api.PortRuleHTTP) bool {
+				return a.Equal(b)
+			})
 			for _, newRule := range newL7Rules.Kafka {
 				if !newRule.Exists(l7Rules.L7Rules.Kafka) {
 					l7Rules.Kafka = append(l7Rules.Kafka, newRule)
