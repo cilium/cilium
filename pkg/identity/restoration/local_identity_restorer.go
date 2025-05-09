@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package restoration
 
 import (
 	"errors"
@@ -18,10 +18,22 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
+)
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-restoration")
+
+// Cell provides the LocalIdentityRestorer that is responsible to restore the local identities from
+// the IPCache.
+var Cell = cell.Module(
+	"identity-restoration",
+	"Restores local identities from the ipcache map at startup",
+
+	cell.Provide(newLocalIdentityRestorer),
 )
 
 var (
@@ -48,7 +60,7 @@ type LocalIdentityRestorer struct {
 	restoredCIDRs map[netip.Prefix]identity.NumericIdentity
 }
 
-func NewLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentityRestorer {
+func newLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentityRestorer {
 	return &LocalIdentityRestorer{
 		params:        params,
 		restoredCIDRs: nil, // will be initialized during restoration
