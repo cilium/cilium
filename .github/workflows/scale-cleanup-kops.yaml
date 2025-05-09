@@ -67,7 +67,7 @@ jobs:
           if ./kops get clusters --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} -o json > /tmp/clusters.json
           then
             echo "Clusters list fetched successfully"
-            date=`date -u +%Y-%m-%d'T'%H:%M'Z' -d "3 hour ago"`
+            date=$(date -u +%Y-%m-%d'T'%H:%M'Z' -d "3 hour ago")
             cat /tmp/clusters.json | jq -r --arg date "$date" '.[] | select(.metadata.creationTimestamp < $date) | .metadata.name' > /tmp/stale-clusters.txt
             # iterate through list of cluster names in /tmp/stale-clusters.txt
             while IFS= read -r cluster; do

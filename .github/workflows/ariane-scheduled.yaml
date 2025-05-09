@@ -53,7 +53,7 @@ jobs:
           SHA=$(git rev-parse ${REF})
           readarray workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml)
 
-          for workflow in ${workflows[@]}; do
+          for workflow in "${workflows[@]}"; do
             echo triggering ${workflow}
             gh workflow run ${workflow} \
               --ref ${REF} \

@@ -32,7 +32,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install Go
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           # renovate: datasource=golang-version depName=go
