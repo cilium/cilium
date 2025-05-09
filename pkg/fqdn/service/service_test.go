@@ -88,6 +88,7 @@ func TestFQDNDataServer(t *testing.T) {
 							pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 							return ipcache.NewIPCache(&ipcache.Configuration{
 								Context:           t.Context(),
+								Logger:            logger,
 								IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
 								PolicyHandler:     pr.GetSelectorCache(),
 								DatapathHandler:   em,

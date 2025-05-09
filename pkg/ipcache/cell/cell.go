@@ -5,6 +5,7 @@ package ipcachecell
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 
@@ -37,6 +38,7 @@ var Cell = cell.Module(
 type ipCacheParams struct {
 	cell.In
 
+	Logger                 *slog.Logger
 	Lifecycle              cell.Lifecycle
 	CacheIdentityAllocator cache.IdentityAllocator
 	PolicyRepository       policy.PolicyRepository
@@ -53,6 +55,7 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,
+		Logger:            params.Logger,
 		IdentityAllocator: params.CacheIdentityAllocator,
 		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
 		PolicyUpdater:     params.PolicyUpdater,
@@ -74,12 +77,13 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 func newIPIdentityWatcher(in struct {
 	cell.In
 
+	Logger      *slog.Logger
 	ClusterInfo cmtypes.ClusterInfo
 	IPCache     *ipcache.IPCache
 	Factory     store.Factory
 },
 ) *ipcache.IPIdentityWatcher {
-	return ipcache.NewIPIdentityWatcher(in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
+	return ipcache.NewIPIdentityWatcher(in.Logger, in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
 }
 
 type ipcacheAPIHandlerParams struct {

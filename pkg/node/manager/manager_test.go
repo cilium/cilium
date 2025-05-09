@@ -1306,6 +1306,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	allocator := testidentity.NewMockIdentityAllocator(nil)
 	ipcache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,
+		Logger:            hivetest.Logger(t),
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
