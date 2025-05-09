@@ -109,7 +109,7 @@ jobs:
         env:
           V: 0
         run: |
-          contrib/scripts/builder.sh make --quiet -C bpf build_all -j $(nproc) || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+          contrib/scripts/builder.sh make --quiet -C bpf build_all -j "$(nproc)" || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
 
   bpf_tests:
     needs: [check_changes]

@@ -172,6 +172,7 @@ jobs:
           kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"enable-cilium-endpoint-slice":"true"}}'
 
           kubectl rollout restart -n kube-system deployment cilium-operator
+          # shellcheck disable=SC2034
           for i in $(seq 1 6);
           do
             if [[ $(kubectl get crd ciliumendpointslices.cilium.io) != "" ]]; then

@@ -343,7 +343,7 @@ jobs:
           mkdir -p cilium-junits
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --sysdump-output-filename "cilium-sysdump-${{ join(matrix.*, '-') }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \

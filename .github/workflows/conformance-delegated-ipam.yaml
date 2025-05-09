@@ -145,7 +145,7 @@ jobs:
             --helm-set=ipv4NativeRoutingCIDR=10.244.0.0/16 \
             --helm-set=endpointRoutes.enabled=true \
             --helm-set=endpointHealthChecking.enabled=false \
-            --helm-set=extraArgs[0]="--local-router-ipv4=169.254.23.0" \
+            --helm-set=extraArgs[0]=\"--local-router-ipv4=169.254.23.0\" \
             --helm-set=enableIPv4Masquerade=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=ipMasqAgent.enabled=true \
@@ -155,7 +155,7 @@ jobs:
             CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} \
               --helm-set=ipv6.enabled=true \
               --helm-set=ipv6NativeRoutingCIDR=fd00:10:244::/56 \
-              --helm-set=extraArgs[1]="--local-router-ipv6=fe80::" \
+              --helm-set=extraArgs[1]=\"--local-router-ipv6=fe80::\" \
               --helm-set=enableIPv6Masquerade=true"
           fi
 

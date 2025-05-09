@@ -173,7 +173,7 @@ jobs:
             --set=k8sClientRateLimit.qps=100 \
             --set=extraConfig.cilium-endpoint-gc-interval=24h \
             --set-string=extraConfig.enable-stale-cilium-endpoint-cleanup=false \
-            --set=prometheus.metrics="{+cilium_datapath_nat_gc_entries}" \
+            --set=prometheus.metrics=\"{+cilium_datapath_nat_gc_entries}\" \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
             --values=values-dummy-health-server.yaml \
@@ -307,8 +307,8 @@ jobs:
       - name: Install eksctl CLI
         run: |
           curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
+          sudo tar xzvfC "eksctl_$(uname -s)_amd64.tar.gz" /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@f24d7193d98baebaeacc7e2227925dd47cc267f5 # v4.2.0
@@ -526,7 +526,9 @@ jobs:
               awk '{print $1}'  # Ignore the IPv6 address in dual stack clusters
           }
 
+          # shellcheck disable=SC2046
           echo CL2_EGW_GATEWAY_ADDRESS=$(get_node_internal_ip "role.scaffolding/egw-node=true") >> $GITHUB_ENV
+          # shellcheck disable=SC2046
           echo CL2_EGW_EXTERNAL_TARGET=$(get_node_internal_ip "cilium.io/no-schedule=true") >> $GITHUB_ENV
 
       - name: Run CL2

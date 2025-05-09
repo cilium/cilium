@@ -195,9 +195,9 @@ jobs:
           done
 
           echo "verify we got some flows"
-          test $(jq -r --slurp 'length' flows.json) -gt 0
+          test "$(jq -r --slurp 'length' flows.json)" -gt 0
           echo "test piping flows into the CLI"
-          test $(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length') -eq $(jq -r --slurp 'length' flows.json)
+          test "$(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length')" -eq "$(jq -r --slurp 'length' flows.json)"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -210,14 +210,14 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out-${{ join(matrix.*, '-') }}
+          cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cilium-sysdump-out-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
+          name: cilium-sysdump-out
           path: cilium-sysdump-out-*.zip
           retention-days: 5
 
@@ -225,7 +225,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: features-tested-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
+          name: features-tested
           path: ${{ env.job_name }}*.json
 
   commit-status-final:
