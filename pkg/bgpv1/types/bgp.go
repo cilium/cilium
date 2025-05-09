@@ -58,6 +58,7 @@ type Path struct {
 	AgeNanoseconds int64 // time duration in nanoseconds since the Path was created
 	Best           bool
 	UUID           []byte // path identifier in underlying implementation
+	SourceASN      uint32
 }
 
 // Neighbor is an object representing a single BGP neighbor. It is an analogue
