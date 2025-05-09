@@ -134,7 +134,7 @@ func registerReconciler(params ingressParams) error {
 		},
 	})
 
-	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)
+	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(params.Logger, cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)
 
 	reconciler := newIngressReconciler(
 		params.Logger,
