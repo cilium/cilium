@@ -5,6 +5,7 @@ package ingress
 
 import (
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,10 +29,12 @@ var _ translation.Translator = (*dedicatedIngressTranslator)(nil)
 type dedicatedIngressTranslator struct {
 	cecTranslator      translation.CECTranslator
 	hostNetworkEnabled bool
+	logger             *slog.Logger
 }
 
-func NewDedicatedIngressTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool) *dedicatedIngressTranslator {
+func NewDedicatedIngressTranslator(log *slog.Logger, cecTranslator translation.CECTranslator, hostNetworkEnabled bool) *dedicatedIngressTranslator {
 	return &dedicatedIngressTranslator{
+		logger:             log,
 		cecTranslator:      cecTranslator,
 		hostNetworkEnabled: hostNetworkEnabled,
 	}
@@ -123,8 +126,10 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 		case string(corev1.ServiceTypeLoadBalancer):
 			// Do nothing as the port number is allocated by the cloud provider.
 		default:
-			log.WithField(logfields.ServiceType, service.Type).
-				Warn("only LoadBalancer and NodePort are supported. Defaulting to LoadBalancer")
+			d.logger.Warn(
+				"only LoadBalancer and NodePort are supported. Defaulting to LoadBalancer",
+				logfields.ServiceType, service.Type,
+			)
 		}
 	}
 
