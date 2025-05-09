@@ -1672,6 +1672,10 @@ const (
 
 	EventEnqueueWaitTime = "eventEnqueueWaitTime"
 
+	CalculatedInterval = "calculatedInterval"
+
+	MaxAllowedInterval = "maxAllowedInterval"
+
 	EventConsumeOffQueueWaitTime = "eventConsumeOffQueueWaitTime"
 
 	CachedSource = "cachedSource"
