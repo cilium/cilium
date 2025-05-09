@@ -17,21 +17,6 @@ var (
 	sequentialLetters = []rune("bcdfghjklmnpqrstvwxyz2456789")
 )
 
-// operations is an interface to all operations that a CES manager can perform.
-type operations interface {
-	// External APIs to Insert/Remove CEP in local dataStore
-	UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey
-	RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey
-
-	initializeMappingForCES(ces *cilium_v2.CiliumEndpointSlice) CESName
-	initializeMappingCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ns string, ces CESName)
-
-	getCEPCountInCES(ces CESName) int
-	getCEPinCES(ces CESName) []CEPName
-	getCESData(ces CESName) CESData
-	isCEPinCES(cep CEPName, ces CESName) bool
-}
-
 // cesManager is used to batch CEP into a CES, based on FirstComeFirstServe. If a new CEP
 // is inserted, then the CEP is queued in any one of the available CES. CEPs are
 // inserted into CESs without any preference or any priority.
@@ -48,7 +33,7 @@ type cesManager struct {
 
 // newCESManager creates and initializes a new FirstComeFirstServe based CES
 // manager, in this mode CEPs are batched based on FirstComeFirtServe algorithm.
-func newCESManager(maxCEPsInCES int, logger *slog.Logger) operations {
+func newCESManager(maxCEPsInCES int, logger *slog.Logger) *cesManager {
 	return &cesManager{
 		logger:       logger,
 		mapping:      newCESToCEPMapping(),
