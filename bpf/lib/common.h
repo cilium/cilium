@@ -447,6 +447,16 @@ struct node_value {
 	__u8  pad;
 };
 
+struct device_key {
+	__u32           ifindex;
+};
+
+struct device_value {
+	union macaddr   mac;
+	__u8            l3;
+	__u8		pad[7];
+};
+
 enum {
 	POLICY_INGRESS = 1,
 	POLICY_EGRESS = 2,
@@ -563,6 +573,7 @@ enum {
 #define DROP_EP_NOT_READY	-203
 #define DROP_NO_EGRESS_IP	-204
 #define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
+#define DROP_NO_DEVICE		-206
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define LB_PUNT_TO_STACK	DROP_PUNT_PROXY
