@@ -1769,4 +1769,10 @@ const (
 	EndpointLXCID = "endpointLXCID"
 
 	Regenerated = "regenerated"
+
+	Primary = "primary"
+
+	RTT = "rtt"
+
+	URI = "uri"
 )

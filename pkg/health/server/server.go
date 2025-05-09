@@ -29,10 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
-)
-
 // Config stores the configuration data for a cilium-health server.
 type Config struct {
 	Debug         bool
@@ -53,6 +49,8 @@ type nodeMap map[ipString]healthNode
 // Server is the cilium-health daemon that is in charge of performing health
 // and connectivity checks periodically, and serving the cilium-health API.
 type Server struct {
+	logger *slog.Logger
+
 	healthApi.Server  // Server to provide cilium-health API
 	*ciliumPkg.Client // Client to "GET /healthz" on cilium daemon
 	Config
@@ -82,9 +80,9 @@ func (s *Server) DumpUptime() string {
 // getNodes fetches the nodes added and removed from the last time the server
 // made a request to the daemon.
 func (s *Server) getNodes() (nodeMap, nodeMap, error) {
-	scopedLog := log
+	scopedLog := s.logger
 	if s.CiliumURI != "" {
-		scopedLog = log.WithField("URI", s.CiliumURI)
+		scopedLog = s.logger.With(logfields.URI, s.CiliumURI)
 	}
 	scopedLog.Debug("Sending request for /cluster/nodes ...")
 
@@ -97,7 +95,7 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
 	}
-	log.Debug("Got cilium /cluster/nodes")
+	scopedLog.Debug("Got cilium /cluster/nodes")
 
 	if resp == nil || resp.Payload == nil {
 		return nil, nil, fmt.Errorf("received nil health response")
@@ -235,49 +233,49 @@ func (s *Server) collectNodeConnectivityMetrics(report *healthReport) {
 		s.nodesSeen[n.Name] = struct{}{}
 
 		// HTTP endpoint primary
-		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, endpointPathStatus.PrimaryAddress.IP,
 			location, metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
 
 		// HTTP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
-			collectConnectivityMetric(secondary.HTTP, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.HTTP, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
 				location, metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// HTTP node primary
-		collectConnectivityMetric(nodePathPrimaryAddress.HTTP, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, nodePathPrimaryAddress.HTTP, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, nodePathPrimaryAddress.IP,
 			location, metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
 
 		// HTTP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
-			collectConnectivityMetric(secondary.HTTP, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.HTTP, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
 				location, metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// ICMP endpoint primary
-		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.Icmp, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, endpointPathStatus.PrimaryAddress.Icmp, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, endpointPathStatus.PrimaryAddress.IP,
 			location, metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
 
 		// ICMP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
-			collectConnectivityMetric(secondary.Icmp, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.Icmp, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
 				location, metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// ICMP node primary
-		collectConnectivityMetric(nodePathPrimaryAddress.Icmp, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, nodePathPrimaryAddress.Icmp, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, nodePathPrimaryAddress.IP,
 			location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
 
 		// ICMP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
-			collectConnectivityMetric(secondary.Icmp, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.Icmp, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
 				location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
@@ -310,7 +308,7 @@ func (s *Server) collectNodeConnectivityMetrics(report *healthReport) {
 		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnknown]))
 }
 
-func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels ...string) {
+func collectConnectivityMetric(logger *slog.Logger, status *healthModels.ConnectivityStatus, labels ...string) {
 	// collect deprecated node_connectivity_latency_seconds
 	var metricValue float64 = -1
 	if status != nil {
@@ -323,7 +321,7 @@ func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels .
 		// node_health_connectivity_latency_seconds copies a subset of the labels
 		// of the deprecated metric for use when observing metrics
 		if len(labels) < 7 {
-			log.Warn("node_health_connectivity_latency_seconds metric is missing labels, could not be collected")
+			logger.Warn("node_health_connectivity_latency_seconds metric is missing labels, could not be collected")
 			return
 		}
 		healthLabels := make([]string, 5)
@@ -405,7 +403,7 @@ func (s *Server) runActiveServices() error {
 					// reset the cache by setting clientID to 0 and removing all current nodes
 					prober.server.clientID = 0
 					prober.setNodes(nil, prober.nodes)
-					log.WithError(err).Error("unable to get cluster nodes")
+					s.logger.Error("unable to get cluster nodes", logfields.Error, err)
 				} else {
 					// (1) setNodes implementation doesn't override results for existing nodes.
 					// (2) Remove stale nodes so we don't report them in metrics before updating results
@@ -452,9 +450,10 @@ func (s *Server) Shutdown() {
 
 // newServer instantiates a new instance of the health API server on the
 // defaults unix socket.
-func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
+func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi.Server {
+	logger = logger.With(logfields.LogSubsys, "cilium-health-api-server")
 	restAPI := restapi.NewCiliumHealthAPIAPI(spec.Document)
-	restAPI.Logger = log.Printf
+	restAPI.Logger = logger.Info
 
 	// Admin API
 	restAPI.GetHealthzHandler = NewGetHealthzHandler(s)
@@ -472,8 +471,9 @@ func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
 }
 
 // NewServer creates a server to handle health requests.
-func NewServer(config Config) (*Server, error) {
+func NewServer(logger *slog.Logger, config Config) (*Server, error) {
 	server := &Server{
+		logger:       logger,
 		startTime:    time.Now(),
 		Config:       config,
 		connectivity: &healthReport{},
@@ -486,7 +486,7 @@ func NewServer(config Config) (*Server, error) {
 	}
 
 	server.Client = cl
-	server.Server = *server.newServer(config.HealthAPISpec)
+	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
 	server.httpPathServer = responder.NewServers(getAddresses(logging.DefaultSlogLogger), config.HTTPPathPort)
 
