@@ -374,17 +374,26 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 type ExternalConfig struct {
 	ZoneMapper
 
-	EnableIPv4, EnableIPv6 bool
-	KubeProxyReplacement   bool
+	EnableIPv4, EnableIPv6                 bool
+	KubeProxyReplacement                   bool
+	NodePortMin, NodePortMax               uint16
+	NodePortAlg                            string
+	LoadBalancerAlgorithmAnnotation        bool
+	BPFSocketLBHostnsOnly                  bool
+	EnableSocketLB                         bool
+	EnableSocketLBPodConnectionTermination bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
 func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		ZoneMapper:           cfg,
-		EnableIPv4:           cfg.EnableIPv4,
-		EnableIPv6:           cfg.EnableIPv6,
-		KubeProxyReplacement: cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		ZoneMapper:                             cfg,
+		EnableIPv4:                             cfg.EnableIPv4,
+		EnableIPv6:                             cfg.EnableIPv6,
+		KubeProxyReplacement:                   cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
+		EnableSocketLB:                         cfg.EnableSocketLB,
+		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 	}
 }
 

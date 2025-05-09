@@ -124,6 +124,21 @@ func (be *Backend) GetInstanceFromSource(name ServiceName, src source.Source) *B
 	return nil
 }
 
+// IsAlive returns true if any of the instances are marked active or terminating and healthy.
+// This signals whether the backend should still be considered alive or not for the purposes
+// of terminating connections to it.
+func (be *Backend) IsAlive() bool {
+	for _, inst := range be.Instances.All() {
+		switch {
+		case inst.Unhealthy:
+			continue
+		case inst.State == BackendStateActive, inst.State == BackendStateTerminating:
+			return true
+		}
+	}
+	return false
+}
+
 func (be *Backend) String() string {
 	return strings.Join(be.TableRow(), " ")
 }
