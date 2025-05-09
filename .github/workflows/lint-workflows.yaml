@@ -113,9 +113,7 @@ jobs:
       - name: Checking diff Ginkgo Workflow
         shell: bash
         run: |
-          diff /tmp/ginkgo-workflow-comments.txt /tmp/ginkgo-tests.txt --suppress-common-lines
-
-          if [ $? -ne 0 ]; then
+          if ! diff /tmp/ginkgo-workflow-comments.txt /tmp/ginkgo-tests.txt --suppress-common-lines; then
             echo ""
             echo "Ginkgo tests out of sync with comments from GH workflow:"
             echo "$diff"
@@ -127,9 +125,7 @@ jobs:
       - name: Checking diff Runtime Workflow
         shell: bash
         run: |
-          diff /tmp/runtime-workflow-comments.txt /tmp/runtime-tests.txt --suppress-common-lines
-
-          if [ $? -ne 0 ]; then
+          if ! diff /tmp/runtime-workflow-comments.txt /tmp/runtime-tests.txt --suppress-common-lines; then
             echo ""
             echo "Ginkgo tests out of sync with comments from GH workflow:"
             echo "$diff"
@@ -160,7 +156,7 @@ jobs:
         run: |
           cd src/github.com/cilium/cilium/.github/actions/ginkgo/
           for type in focus k8s-versions prs scheduled; do
-            yamale -s ${type}-schema.yaml *-${type}.yaml;
+            yamale -s ${type}-schema.yaml ./*-${type}.yaml;
           done
 
   conformance-schema-validation:
@@ -213,6 +209,7 @@ jobs:
           cd src/github.com/cilium/cilium/.github/workflows
           for FILE in *.yaml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.name == null) | "  " + .key' $FILE)
+            # shellcheck disable=SC2016
             STEPS=$(yq '.jobs | to_entries | .[] as $job | $job.value.steps[] | {"key": $job.key, "name": .name} | select(.name == null) | "  "+.key' $FILE)
             if [[ ${JOBS} =~ [^[:space:]] ]];then
               echo Jobs are missing name field, in file $FILE
@@ -281,3 +278,18 @@ jobs:
             fi
           done
           exit ${EXIT}
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        name: checkout
+      - name: Setup actionlint matcher
+        run: echo "::add-matcher::.github/actionlint-matcher.json"
+      - name: Check workflow files
+        uses: docker://rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+        env:
+          SHELLCHECK_OPTS: --exclude=SC2086,SC2129,SC2185,SC2162,SC2090,SC2089,SC2001,SC2002
+        with:
+          args: -color
