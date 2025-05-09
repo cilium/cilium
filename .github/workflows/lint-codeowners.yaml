@@ -77,6 +77,7 @@ jobs:
           EXIT_STATUS=0
           # We go through the patterns in CODEOWNERS, and for each of them we
           # search for corresponding files in the repo.
+          # shellcheck disable=SC2046
           while read l; do
               case "${l}" in
                   /*)
@@ -96,6 +97,7 @@ jobs:
           done <<< $(awk '/^[^#][^ ]/ {print $1}' CODEOWNERS)
           # Just one final call to 'ls' with all /* patterns found. Catch
           # patterns with no corresponding files/directories from stderr.
+          # shellcheck disable=SC2012
           STALE_PATTERNS="$(ls -- ${LIST} 2>&1 >/dev/null | sed "s|.*'\(.*\)':.*|/\1|")"
           if [[ -n "${STALE_PATTERNS}" ]]; then
               echo "${STALE_PATTERNS}" | sed 's/ /\n/g'
@@ -117,6 +119,7 @@ jobs:
           # breaks, sort the results. Then grep for each team name among
           # CODEOWNERS's comments.
           cd src/github.com/cilium/cilium
+          # shellcheck disable=SC2013
           for team in $(sed -e '/^\(#\|$\)/d' -e '/^[^ ]*$/d' -e 's/^[^ #]\+ //' -e 's/ /\n/g' CODEOWNERS | sort -u); do
               if ! grep -q "^#[^@]*${team}" CODEOWNERS; then
                   echo "${team}";

@@ -135,6 +135,7 @@ jobs:
           # Use complete matrix in case of scheduled run
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
+          # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
             cp eks.json /tmp/matrix.json
           else
@@ -259,8 +260,8 @@ jobs:
       - name: Install eksctl CLI
         run: |
           curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
+          sudo tar xzvfC "eksctl_$(uname -s)_amd64.tar.gz" /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
@@ -486,8 +487,8 @@ jobs:
       - name: Install eksctl CLI
         run: |
           curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
+          sudo tar "xzvfC eksctl_$(uname -s)_amd64.tar.gz" /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0

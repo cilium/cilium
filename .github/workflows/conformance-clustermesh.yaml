@@ -261,7 +261,6 @@ jobs:
       - name: Set up job variables for GHA environment
         id: vars
         run: |
-
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
