@@ -677,6 +677,8 @@ const (
 	// Count is a measure being compared to the Limit
 	Count = "count"
 
+	Total = "total"
+
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
 
