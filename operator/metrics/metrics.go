@@ -106,6 +106,14 @@ func initializeMetrics(p params) {
 		metrics.APILimiterRequestsInFlight,
 		metrics.APILimiterRateLimit,
 		metrics.APILimiterProcessedRequests,
+
+		metrics.WorkQueueDepth,
+		metrics.WorkQueueAddsTotal,
+		metrics.WorkQueueLatency,
+		metrics.WorkQueueDuration,
+		metrics.WorkQueueUnfinishedWork,
+		metrics.WorkQueueLongestRunningProcessor,
+		metrics.WorkQueueRetries,
 	)
 
 	metrics.InitOperatorMetrics()

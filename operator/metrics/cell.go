@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -35,6 +36,8 @@ var Cell = cell.Module(
 	// has not been initialized yet.
 	metrics.OperatorCell,
 	cell.Invoke(initializeMetrics),
+
+	cell.Invoke(func(_ hive.StateDBMetrics) {}),
 )
 
 // Config contains the configuration for the operator-metrics cell.
