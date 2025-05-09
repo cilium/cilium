@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -49,7 +50,15 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
+func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
+	// Lazily construct the augmented logger as we very rarely log here. This improves throughput by 20% and avoids an allocation.
+	log := sync.OnceValue(func() *slog.Logger {
+		return rawlog.With(
+			logfields.Service, svc.GetName(),
+			logfields.K8sNamespace, svc.GetNamespace(),
+		)
+	})
+
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
 	s = &loadbalancer.Service{
 		Name:                name,
@@ -62,10 +71,9 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 
 	expType, err := k8s.NewSvcExposureType(svc)
 	if err != nil {
-		log.Warn("Ignoring annotation",
+		log().Warn("Ignoring annotation",
 			logfields.Error, err,
 			logfields.Annotations, annotation.ServiceTypeExposure,
-			logfields.Service, svc.GetName(),
 		)
 	}
 
@@ -79,6 +87,10 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 	for _, srcRange := range svc.Spec.LoadBalancerSourceRanges {
 		prefix, err := netip.ParsePrefix(srcRange)
 		if err != nil {
+			log().Debug("Failed to parse CIDR in LoadBalancerSourceRanges, Ignoring",
+				logfields.Error, err,
+				logfields.LoadBalancerSourceRanges, svc.Spec.LoadBalancerSourceRanges,
+			)
 			continue
 		}
 		s.SourceRanges = append(s.SourceRanges, prefix)
@@ -136,16 +148,27 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 		for _, ip := range clusterIPs {
 			addr, err := cmtypes.ParseAddrCluster(ip)
 			if err != nil {
+				log().Debug("Failed to parse ClusterIP address",
+					logfields.Error, err,
+					logfields.IPAddr, ip)
 				continue
 			}
 
 			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+				log().Debug(
+					"Skipping ClusterIP due to disabled IP family",
+					logfields.IPv4, cfg.EnableIPv4,
+					logfields.IPv6, cfg.EnableIPv6,
+					logfields.Address, addr,
+				)
 				continue
 			}
 
 			for _, port := range svc.Spec.Ports {
 				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				if p == nil {
+					log().Debug("Skipping ClusterIP due to bad L4 type/port",
+						logfields.Port, port)
 					continue
 				}
 				fe := loadbalancer.FrontendParams{
@@ -174,6 +197,12 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 				for _, family := range getIPFamilies(svc) {
 					if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
 						(!cfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
+						log().Debug(
+							"Skipping NodePort due to disabled IP family",
+							logfields.IPv4, cfg.EnableIPv4,
+							logfields.IPv6, cfg.EnableIPv6,
+							logfields.Family, family,
+						)
 						continue
 					}
 					for _, port := range svc.Spec.Ports {
@@ -221,6 +250,12 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 					continue
 				}
 				if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+					log().Debug(
+						"Skipping LoadBalancer due to disabled IP family",
+						logfields.IPv4, cfg.EnableIPv4,
+						logfields.IPv6, cfg.EnableIPv6,
+						logfields.Address, addr,
+					)
 					continue
 				}
 
@@ -235,6 +270,8 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 
 						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 						if p == nil {
+							log().Debug("Skipping LoadBalancer due to bad L4 type/port",
+								logfields.Port, port)
 							continue
 						}
 						fe.Address.AddrCluster = addr
@@ -254,6 +291,12 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 				continue
 			}
 			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+				log().Debug(
+					"Skipping ExternalIP due to disabled IP family",
+					logfields.IPv4, cfg.EnableIPv4,
+					logfields.IPv6, cfg.EnableIPv6,
+					logfields.Address, addr,
+				)
 				continue
 			}
 
@@ -267,6 +310,8 @@ func convertService(cfg loadbalancer.ExternalConfig, log *slog.Logger, svc *slim
 
 				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				if p == nil {
+					log().Debug("Skipping ExternalIP due to bad L4 type/port",
+						logfields.Port, port)
 					continue
 				}
 
@@ -313,7 +358,15 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []loadbalancer.BackendParams) {
+func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []loadbalancer.BackendParams) {
+	// Lazily construct the augmented logger as we very rarely log here.
+	log := sync.OnceValue(func() *slog.Logger {
+		return rawlog.With(
+			logfields.Service, ep.GetName(),
+			logfields.K8sNamespace, ep.GetNamespace(),
+		)
+	})
+
 	name = loadbalancer.ServiceName{
 		Name:      ep.ServiceID.Name,
 		Namespace: ep.ServiceID.Namespace,
@@ -330,6 +383,12 @@ func convertEndpoints(cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name 
 
 	for addrCluster, be := range ep.Backends {
 		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
+			log().Debug(
+				"Skipping Backend due to disabled IP family",
+				logfields.IPv4, cfg.EnableIPv4,
+				logfields.IPv6, cfg.EnableIPv6,
+				logfields.Address, addrCluster,
+			)
 			continue
 		}
 		for portName, l4Addr := range be.Ports {
@@ -351,7 +410,6 @@ func convertEndpoints(cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name 
 		}
 	}
 	for l3n4Addr, entry := range entries {
-
 		state := loadbalancer.BackendStateActive
 		if entry.backend.Terminating {
 			state = loadbalancer.BackendStateTerminating
