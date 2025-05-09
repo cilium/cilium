@@ -24,6 +24,9 @@ type Service struct {
 // an engine.
 func NewService(options ServiceOptions) (*Service, error) {
 	config, err := newServiceConfig(options)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Service{config: config}, err
 }
@@ -71,17 +74,20 @@ func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, use
 	// Lookup endpoints for authentication but exclude mirrors to prevent
 	// sending credentials of the upstream registry to a mirror.
 	s.mu.RLock()
-	endpoints, err := s.lookupV2Endpoints(registryHostName, false)
+	endpoints, err := s.lookupV2Endpoints(ctx, registryHostName, false)
 	s.mu.RUnlock()
 	if err != nil {
+		if errdefs.IsContext(err) {
+			return "", "", err
+		}
 		return "", "", invalidParam(err)
 	}
 
 	var lastErr error
 	for _, endpoint := range endpoints {
-		authToken, err := loginV2(authConfig, endpoint, userAgent)
+		authToken, err := loginV2(ctx, authConfig, endpoint, userAgent)
 		if err != nil {
-			if errdefs.IsUnauthorized(err) {
+			if errdefs.IsContext(err) || errdefs.IsUnauthorized(err) {
 				// Failed to authenticate; don't continue with (non-TLS) endpoints.
 				return "", "", err
 			}
@@ -103,6 +109,8 @@ func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, use
 
 // ResolveRepository splits a repository name into its components
 // and configuration of the associated registry.
+//
+// Deprecated: this function was only used internally and is no longer used. It will be removed in the next release.
 func (s *Service) ResolveRepository(name reference.Named) (*RepositoryInfo, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -110,12 +118,30 @@ func (s *Service) ResolveRepository(name reference.Named) (*RepositoryInfo, erro
 	return newRepositoryInfo(s.config, name), nil
 }
 
+// ResolveAuthConfig looks up authentication for the given reference from the
+// given authConfigs.
+//
+// IMPORTANT: This function is for internal use and should not be used by external projects.
+func (s *Service) ResolveAuthConfig(authConfigs map[string]registry.AuthConfig, ref reference.Named) registry.AuthConfig {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	// Simplified version of "newIndexInfo" without handling of insecure
+	// registries and mirrors, as we don't need that information to resolve
+	// the auth-config.
+	indexName := normalizeIndexName(reference.Domain(ref))
+	registryInfo, ok := s.config.IndexConfigs[indexName]
+	if !ok {
+		registryInfo = &registry.IndexInfo{Name: indexName}
+	}
+	return ResolveAuthConfig(authConfigs, registryInfo)
+}
+
 // APIEndpoint represents a remote API endpoint
 type APIEndpoint struct {
 	Mirror                         bool
 	URL                            *url.URL
 	AllowNondistributableArtifacts bool // Deprecated: non-distributable artifacts are deprecated and enabled by default. This field will be removed in the next release.
-	Official                       bool
+	Official                       bool // Deprecated: this field was only used internally, and will be removed in the next release.
 	TrimHostname                   bool // Deprecated: hostname is now trimmed unconditionally for remote names. This field will be removed in the next release.
 	TLSConfig                      *tls.Config
 }
@@ -126,7 +152,7 @@ func (s *Service) LookupPullEndpoints(hostname string) (endpoints []APIEndpoint,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.lookupV2Endpoints(hostname, true)
+	return s.lookupV2Endpoints(context.TODO(), hostname, true)
 }
 
 // LookupPushEndpoints creates a list of v2 endpoints to try to push to, in order of preference.
@@ -135,7 +161,7 @@ func (s *Service) LookupPushEndpoints(hostname string) (endpoints []APIEndpoint,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.lookupV2Endpoints(hostname, false)
+	return s.lookupV2Endpoints(context.TODO(), hostname, false)
 }
 
 // IsInsecureRegistry returns true if the registry at given host is configured as

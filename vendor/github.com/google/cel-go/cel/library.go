@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
@@ -421,16 +422,29 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 		Types(types.OptionalType),
 
 		// Configure the optMap and optFlatMap macros.
-		Macros(ReceiverMacro(optMapMacro, 2, optMap)),
+		Macros(ReceiverMacro(optMapMacro, 2, optMap,
+			MacroDocs(`perform computation on the value if present and return the result as an optional`),
+			MacroExamples(
+				common.MultilineDescription(
+					`// sub with the prefix 'dev.cel' or optional.none()`,
+					`request.auth.tokens.?sub.optMap(id, 'dev.cel.' + id)`),
+				`optional.none().optMap(i, i * 2) // optional.none()`))),
 
 		// Global and member functions for working with optional values.
 		Function(optionalOfFunc,
+			FunctionDocs(`create a new optional_type(T) with a value where any value is considered valid`),
 			Overload("optional_of", []*Type{paramTypeV}, optionalTypeV,
+				OverloadExamples(`optional.of(1) // optional(1)`),
 				UnaryBinding(func(value ref.Val) ref.Val {
 					return types.OptionalOf(value)
 				}))),
 		Function(optionalOfNonZeroValueFunc,
+			FunctionDocs(`create a new optional_type(T) with a value, if the value is not a zero or empty value`),
 			Overload("optional_ofNonZeroValue", []*Type{paramTypeV}, optionalTypeV,
+				OverloadExamples(
+					`optional.ofNonZeroValue(null) // optional.none()`,
+					`optional.ofNonZeroValue("") // optional.none()`,
+					`optional.ofNonZeroValue("hello") // optional.of('hello')`),
 				UnaryBinding(func(value ref.Val) ref.Val {
 					v, isZeroer := value.(traits.Zeroer)
 					if !isZeroer || !v.IsZeroValue() {
@@ -439,18 +453,26 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 					return types.OptionalNone
 				}))),
 		Function(optionalNoneFunc,
+			FunctionDocs(`singleton value representing an optional without a value`),
 			Overload("optional_none", []*Type{}, optionalTypeV,
+				OverloadExamples(`optional.none()`),
 				FunctionBinding(func(values ...ref.Val) ref.Val {
 					return types.OptionalNone
 				}))),
 		Function(valueFunc,
+			FunctionDocs(`obtain the value contained by the optional, error if optional.none()`),
 			MemberOverload("optional_value", []*Type{optionalTypeV}, paramTypeV,
+				OverloadExamples(
+					`optional.of(1).value() // 1`,
+					`optional.none().value() // error`),
 				UnaryBinding(func(value ref.Val) ref.Val {
 					opt := value.(*types.Optional)
 					return opt.GetValue()
 				}))),
 		Function(hasValueFunc,
+			FunctionDocs(`determine whether the optional contains a value`),
 			MemberOverload("optional_hasValue", []*Type{optionalTypeV}, BoolType,
+				OverloadExamples(`optional.of({1: 2}).hasValue() // true`),
 				UnaryBinding(func(value ref.Val) ref.Val {
 					opt := value.(*types.Optional)
 					return types.Bool(opt.HasValue())
@@ -459,21 +481,43 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 		// Implementation of 'or' and 'orValue' are special-cased to support short-circuiting in the
 		// evaluation chain.
 		Function("or",
-			MemberOverload("optional_or_optional", []*Type{optionalTypeV, optionalTypeV}, optionalTypeV)),
+			FunctionDocs(`chain optional expressions together, picking the first valued optional expression`),
+			MemberOverload("optional_or_optional", []*Type{optionalTypeV, optionalTypeV}, optionalTypeV,
+				OverloadExamples(
+					`optional.none().or(optional.of(1)) // optional.of(1)`,
+					common.MultilineDescription(
+						`// either a value from the first list, a value from the second, or optional.none()`,
+						`[1, 2, 3][?x].or([3, 4, 5][?y])`)))),
 		Function("orValue",
-			MemberOverload("optional_orValue_value", []*Type{optionalTypeV, paramTypeV}, paramTypeV)),
+			FunctionDocs(`chain optional expressions together picking the first valued optional or the default value`),
+			MemberOverload("optional_orValue_value", []*Type{optionalTypeV, paramTypeV}, paramTypeV,
+				OverloadExamples(
+					common.MultilineDescription(
+						`// pick the value for the given key if the key exists, otherwise return 'you'`,
+						`{'hello': 'world', 'goodbye': 'cruel world'}[?greeting].orValue('you')`)))),
 
 		// OptSelect is handled specially by the type-checker, so the receiver's field type is used to determine the
 		// optput type.
 		Function(operators.OptSelect,
-			Overload("select_optional_field", []*Type{DynType, StringType}, optionalTypeV)),
+			FunctionDocs(`if the field is present create an optional of the field value, otherwise return optional.none()`),
+			Overload("select_optional_field", []*Type{DynType, StringType}, optionalTypeV,
+				OverloadExamples(
+					`msg.?field // optional.of(field) if non-empty, otherwise optional.none()`,
+					`msg.?field.?nested_field // optional.of(nested_field) if both field and nested_field are non-empty.`))),
 
 		// OptIndex is handled mostly like any other indexing operation on a list or map, so the type-checker can use
 		// these signatures to determine type-agreement without any special handling.
 		Function(operators.OptIndex,
-			Overload("list_optindex_optional_int", []*Type{listTypeV, IntType}, optionalTypeV),
+			FunctionDocs(`if the index is present create an optional of the field value, otherwise return optional.none()`),
+			Overload("list_optindex_optional_int", []*Type{listTypeV, IntType}, optionalTypeV,
+				OverloadExamples(`[1, 2, 3][?x] // element value if x is in the list size, else optional.none()`)),
 			Overload("optional_list_optindex_optional_int", []*Type{OptionalType(listTypeV), IntType}, optionalTypeV),
-			Overload("map_optindex_optional_value", []*Type{mapTypeKV, paramTypeK}, optionalTypeV),
+			Overload("map_optindex_optional_value", []*Type{mapTypeKV, paramTypeK}, optionalTypeV,
+				OverloadExamples(
+					`map_value[?key] // value at the key if present, else optional.none()`,
+					common.MultilineDescription(
+						`// map key-value if index is a valid map key, else optional.none()`,
+						`{0: 2, 2: 4, 6: 8}[?index]`))),
 			Overload("optional_map_optindex_optional_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
 
 		// Index overloads to accommodate using an optional value as the operand.
@@ -482,45 +526,62 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 			Overload("optional_map_index_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
 	}
 	if lib.version >= 1 {
-		opts = append(opts, Macros(ReceiverMacro(optFlatMapMacro, 2, optFlatMap)))
+		opts = append(opts, Macros(ReceiverMacro(optFlatMapMacro, 2, optFlatMap,
+			MacroDocs(`perform computation on the value if present and produce an optional value within the computation`),
+			MacroExamples(
+				common.MultilineDescription(
+					`// m = {'key': {}}`,
+					`m.?key.optFlatMap(k, k.?subkey) // optional.none()`),
+				common.MultilineDescription(
+					`// m = {'key': {'subkey': 'value'}}`,
+					`m.?key.optFlatMap(k, k.?subkey) // optional.of('value')`),
+			))))
 	}
 
 	if lib.version >= 2 {
 		opts = append(opts, Function("last",
+			FunctionDocs(`return the last value in a list if present, otherwise optional.none()`),
 			MemberOverload("list_last", []*Type{listTypeV}, optionalTypeV,
+				OverloadExamples(
+					`[].last() // optional.none()`,
+					`[1, 2, 3].last() ? optional.of(3)`),
 				UnaryBinding(func(v ref.Val) ref.Val {
 					list := v.(traits.Lister)
-					sz := list.Size().Value().(int64)
-
-					if sz == 0 {
+					sz := list.Size().(types.Int)
+					if sz == types.IntZero {
 						return types.OptionalNone
 					}
-
 					return types.OptionalOf(list.Get(types.Int(sz - 1)))
 				}),
 			),
 		))
 
 		opts = append(opts, Function("first",
+			FunctionDocs(`return the first value in a list if present, otherwise optional.none()`),
 			MemberOverload("list_first", []*Type{listTypeV}, optionalTypeV,
+				OverloadExamples(
+					`[].first() // optional.none()`,
+					`[1, 2, 3].first() ? optional.of(1)`),
 				UnaryBinding(func(v ref.Val) ref.Val {
 					list := v.(traits.Lister)
-					sz := list.Size().Value().(int64)
-
-					if sz == 0 {
+					sz := list.Size().(types.Int)
+					if sz == types.IntZero {
 						return types.OptionalNone
 					}
-
 					return types.OptionalOf(list.Get(types.Int(0)))
 				}),
 			),
 		))
 
 		opts = append(opts, Function(optionalUnwrapFunc,
+			FunctionDocs(`convert a list of optional values to a list containing only value which are not optional.none()`),
 			Overload("optional_unwrap", []*Type{listOptionalTypeV}, listTypeV,
+				OverloadExamples(`optional.unwrap([optional.of(1), optional.none()]) // [1]`),
 				UnaryBinding(optUnwrap))))
 		opts = append(opts, Function(unwrapOptFunc,
+			FunctionDocs(`convert a list of optional values to a list containing only value which are not optional.none()`),
 			MemberOverload("optional_unwrapOpt", []*Type{listOptionalTypeV}, listTypeV,
+				OverloadExamples(`[optional.of(1), optional.none()].unwrapOpt() // [1]`),
 				UnaryBinding(optUnwrap))))
 	}
 

@@ -25,6 +25,15 @@ usage() {
     >&2 echo "example: $0 tetragon v1.2.0"
 }
 
+# $1 - target ref
+# $2 - remote
+symbolic_ref() {
+    local target="$1"
+    local remote="$2"
+
+    git symbolic-ref "$target" | sed 's@^refs/remotes/'"$remote"'/@@'
+}
+
 # $1 - project
 # $2 - version
 main() {
@@ -44,6 +53,15 @@ main() {
         exit 1
     fi
 
+    remote=$(git remote -v | grep "${ORG}/${PROJECT}" | awk '{print $1;exit}')
+    default_branch=$(symbolic_ref "refs/remotes/${remote}/${target}" "${remote}")
+    if [ "$(symbolic_ref HEAD "${remote}")" !=  "${default_branch}" ]; then
+        git stash
+        git checkout $default_branch
+        git fetch "${remote}"
+        git merge --ff-only "${remote}/${default_branch}"
+    fi
+
     CWD=$(git rev-parse --show-toplevel)
     chart_dir="${PROJECT}/install/kubernetes"
     if [ -d "${PROJECT}" ]; then
@@ -51,7 +69,7 @@ main() {
         git stash
         remote=$(git remote -v | grep "${ORG}/${PROJECT}" | awk '{print $1;exit}')
         git fetch "${remote}"
-        git checkout -B "$version"
+        git checkout "$version"
         cd -
     else
         git clone --depth 1 --branch "$version" "https://github.com/cilium/${PROJECT}.git"
