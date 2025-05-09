@@ -129,6 +129,13 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 				},
 			}, nil
 		}
+		if params.PerfParameters.Bandwidth {
+			return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
+				func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
+					return netBandwidthLimitTests(connTests[0])
+				},
+			}, nil
+		}
 		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
 			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
 				return networkPerformanceTests(connTests[0])
@@ -195,6 +202,12 @@ func networkPerformanceTests(ct *check.ConnectivityTest) error {
 // networkQosTests injects the network performance connectivity tests.
 func networkQosTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{networkQos{}}
+	return injectTests(tests, ct)
+}
+
+// netBandwidthLimitTests injects the network performance connectivity tests.
+func netBandwidthLimitTests(ct *check.ConnectivityTest) error {
+	tests := []testBuilder{networkBandwidthLimit{}}
 	return injectTests(tests, ct)
 }
 
