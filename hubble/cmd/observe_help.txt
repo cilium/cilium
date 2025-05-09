@@ -127,6 +127,7 @@ Formatting Flags:
                                table:    Tab-aligned columns
                               (default "compact")
       --print-node-name      Print node name in output
+      --print-policy-names   Print policy names in output
       --time-format string   Specify the time format for printing. This option does not apply to the json and jsonpb output type. One of:
                                StampMilli:             Jan _2 15:04:05.000
                                YearMonthDay:           2006-01-02

@@ -33,6 +33,7 @@ var (
 
 		enableIPTranslation bool
 		nodeName            bool
+		policyNames         bool
 		numeric             bool
 		color               string
 	}
@@ -122,6 +123,7 @@ func init() {
   table:    Tab-aligned columns
 `)
 	formattingFlags.BoolVarP(&formattingOpts.nodeName, "print-node-name", "", false, "Print node name in output")
+	formattingFlags.BoolVarP(&formattingOpts.policyNames, "print-policy-names", "", false, "Print policy names in output")
 	formattingFlags.StringVar(
 		&formattingOpts.timeFormat, "time-format", "StampMilli",
 		fmt.Sprintf(`Specify the time format for printing. This option does not apply to the json and jsonpb output type. One of:
