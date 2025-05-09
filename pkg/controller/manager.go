@@ -12,6 +12,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -66,15 +68,9 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		m.controllers = controllerMap{}
 	}
 
-	if params.Group.Name == "" {
-		log.Errorf(
-			"Controller initialized with unpopulated group information. " +
-				"Metrics will not be exported for this controller.")
-	}
-
 	ctrl := m.lookupLocked(name)
 	if ctrl != nil {
-		ctrl.getLogger().Debug("Updating existing controller")
+		ctrl.logger.Debug("Updating existing controller")
 		ctrl.SetParams(params)
 
 		// Notify the goroutine of the params update.
@@ -83,28 +79,40 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		default:
 		}
 
-		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
+		ctrl.logger.Debug("Controller update time", logfields.Duration, time.Since(start))
 	} else {
-		return m.createControllerLocked(name, params)
+		ctrl = m.createControllerLocked(name, params)
+	}
+	if params.Group.Name == "" {
+		ctrl.logger.Error(
+			"Controller initialized with unpopulated group information. " +
+				"Metrics will not be exported for this controller.")
 	}
 
 	return ctrl
 }
 
 func (m *Manager) createControllerLocked(name string, params ControllerParams) *managedController {
+	uuid := uuid.New().String()
 	ctrl := &managedController{
 		controller: controller{
+			logger: logging.DefaultSlogLogger.With(
+				logfields.LogSubsys, "controller",
+				fieldControllerName, name,
+				fieldUUID, uuid,
+			),
 			name:       name,
 			group:      params.Group,
-			uuid:       uuid.New().String(),
+			uuid:       uuid,
 			stop:       make(chan struct{}),
 			update:     make(chan struct{}, 1),
 			trigger:    make(chan struct{}, 1),
 			terminated: make(chan struct{}),
 		},
 	}
+
 	ctrl.SetParams(params)
-	ctrl.getLogger().Debug("Starting new controller")
+	ctrl.logger.Debug("Starting new controller")
 
 	m.controllers[ctrl.name] = ctrl
 
@@ -143,7 +151,7 @@ func (m *Manager) removeController(ctrl *managedController) {
 	delete(globalStatus.controllers, ctrl.uuid)
 	globalStatus.mutex.Unlock()
 
-	ctrl.getLogger().Debug("Removed controller")
+	ctrl.logger.Debug("Removed controller")
 }
 
 func (m *Manager) lookup(name string) *managedController {
