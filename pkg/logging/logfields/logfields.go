@@ -1719,4 +1719,10 @@ const (
 	TimeSinceRestart = "timeSinceRestart"
 
 	TimeSincePodStarted = "timeSincePodStarted"
+
+	Primary = "primary"
+
+	RTT = "rtt"
+
+	URI = "uri"
 )
