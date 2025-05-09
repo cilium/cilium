@@ -44,12 +44,13 @@ func ToGoBGPPath(p *types.Path) (*gobgp.Path, error) {
 	}
 
 	return &gobgp.Path{
-		Nlri:   nlri,
-		Pattrs: pattrs,
-		Age:    ageTimestamp,
-		Best:   p.Best,
-		Family: family,
-		Uuid:   p.UUID,
+		Nlri:      nlri,
+		Pattrs:    pattrs,
+		Age:       ageTimestamp,
+		Best:      p.Best,
+		Family:    family,
+		Uuid:      p.UUID,
+		SourceAsn: p.SourceASN,
 	}, nil
 }
 
@@ -78,6 +79,7 @@ func ToAgentPath(p *gobgp.Path) (*types.Path, error) {
 		AgeNanoseconds: ageNano,
 		Best:           p.Best,
 		UUID:           p.Uuid,
+		SourceASN:      p.SourceAsn,
 	}, nil
 }
 
