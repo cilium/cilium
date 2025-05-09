@@ -367,10 +367,15 @@ func runHeartbeat(logger *slog.Logger, heartBeat func(context.Context) error, ti
 		return
 	}
 
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	start := make(chan struct{})
 	done := make(chan error)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 	go func() {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+		start <- struct{}{}
 		// If we have reached up to this point to perform a heartbeat to
 		// kube-apiserver then we should close the connections if we receive
 		// any error at all except if we receive a http.StatusTooManyRequests
@@ -387,6 +392,9 @@ func runHeartbeat(logger *slog.Logger, heartBeat func(context.Context) error, ti
 		close(done)
 	}()
 
+	// Synchronize the heartbeat goroutine.
+	<-start
+	defer cancel()
 	select {
 	case err := <-done:
 		if err != nil {
