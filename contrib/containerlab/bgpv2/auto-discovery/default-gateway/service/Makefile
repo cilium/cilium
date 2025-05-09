@@ -1,4 +1,7 @@
 VERSION ?= v1.16.0
+CHART_DIR ?= $(shell git rev-parse --show-toplevel)/install/kubernetes/cilium
+KIND_CLUSTER_NAME ?= bgpv2-cplane-dev-service
+VALUES_FILE ?= $(shell pwd)/values.yaml
 
 deploy:
 	kind create cluster --config cluster.yaml
@@ -7,9 +10,16 @@ deploy:
 	kubectl taint nodes bgpv2-cplane-dev-service-control-plane node-role.kubernetes.io/control-plane:NoSchedule-
 	# create secret for bgp
 	kubectl -n kube-system create secret generic --type=string bgp-auth-secret --from-literal=password=cilium123
-	# install cilium
-	helm install cilium -n kube-system cilium/cilium --version $(VERSION) -f values.yaml
-	cilium status --wait --namespace kube-system
+	# build and load cilium images to kind
+	cd $(shell git rev-parse --show-toplevel) && sudo KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) make kind-image
+	# install cilium with local chart and locally built images
+	sudo cilium install --chart-directory=$(CHART_DIR) \
+    	-f $(VALUES_FILE) \
+    	--set image.override="localhost:5000/cilium/cilium-dev:local" \
+    	--set image.pullPolicy=Never \
+    	--set operator.image.override="localhost:5000/cilium/operator-generic:local" \
+		--set operator.image.pullPolicy=Never \
+	sudo cilium status --wait --namespace kube-system
 
 destroy:
 	sudo containerlab -t topo.yaml destroy -c

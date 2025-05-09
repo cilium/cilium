@@ -9,6 +9,18 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
+// BGPAutoDiscoveryMode defines type of mode to discovery bgp peers
+//
+// Note list of supported auto discovery modes is not exhaustive and can be extended in the future.
+//
+// +kubebuilder:validation:Enum=DefaultGateway
+type BGPAutoDiscoveryMode string
+
+const (
+	// BGPDefaultGatewayMode when configured, Cilium will discover bgp peers using default gateway
+	BGPDefaultGatewayMode BGPAutoDiscoveryMode = "DefaultGateway"
+)
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -144,7 +156,7 @@ type BGPAutoDiscovery struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=DefaultGateway
-	Mode string `json:"mode"`
+	Mode BGPAutoDiscoveryMode `json:"mode"`
 
 	// defaultGateway is the configuration for auto-discovery of the default gateway.
 	//

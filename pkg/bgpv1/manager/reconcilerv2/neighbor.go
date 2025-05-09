@@ -24,6 +24,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -189,14 +190,13 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		if n.PeerAddress == nil {
 			// future auto-discovery modes can be added here to get the peer address
 			switch n.AutoDiscovery.Mode {
-			case string(v2.BGPDefaultGatewayMode):
+			case v2.BGPDefaultGatewayMode:
 				defaultGateway, err := r.getDefaultGateway(n.AutoDiscovery.DefaultGateway)
 				if err != nil {
-					const logKeyError = "error"
 					r.logger.Debug("failed to get default gateway, skipping",
 						types.PeerLogField,
 						n.Name,
-						logKeyError,
+						logfields.Error,
 						err)
 					continue
 				}
@@ -333,6 +333,7 @@ func (r *NeighborReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway
 	}
 	txn := r.DB.ReadTxn()
 	// get routes from statedb route table
+	// TODO: add RoutePrefixIndex Query to lookup routes by prefix
 	routes := r.routeTable.All(txn)
 	activeDefaultRoutes := []*tables.Route{}
 	for route := range routes {
