@@ -152,8 +152,10 @@ func TestGC(t *testing.T) {
 				cell.ProvidePrivate(func() localEndpointCache {
 					return &fakeEPManager{test.managedEndpoints}
 				}),
-				cell.Provide(func() promise.Promise[endpointstate.Restorer] {
-					return &fakeRestorer{}
+				cell.Provide(func() promise.Promise[endpointstate.EndpointsRestored] {
+					resolver, promise := promise.New[endpointstate.EndpointsRestored]()
+					resolver.Resolve(endpointstate.EndpointsRestored{})
+					return promise
 				}),
 				cell.Provide(func() *node.LocalNodeStore {
 					// no need to provide a real LocalNodeStore since the one set by
@@ -215,7 +217,7 @@ func TestGC(t *testing.T) {
 					ciliumEndpoint resource.Resource[*types.CiliumEndpoint],
 					ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 					clientset k8sClient.Clientset,
-					restorerPromise promise.Promise[endpointstate.Restorer],
+					endpointsRestoredPromise promise.Promise[endpointstate.EndpointsRestored],
 					endpointsCache localEndpointCache,
 				) *cleanup {
 					testCleanup = &cleanup{
@@ -223,7 +225,7 @@ func TestGC(t *testing.T) {
 						ciliumEndpoint:             ciliumEndpoint,
 						ciliumEndpointSlice:        ciliumEndpointSlice,
 						ciliumClient:               clientset.CiliumV2(),
-						restorerPromise:            restorerPromise,
+						endpointsRestoredPromise:   endpointsRestoredPromise,
 						endpointsCache:             endpointsCache,
 						ciliumEndpointSliceEnabled: test.enableCES,
 					}
@@ -266,19 +268,4 @@ func cep(name, ns, nodeIP string) types.CiliumEndpoint {
 			NodeIP: nodeIP,
 		},
 	}
-}
-
-type fakeRestorer struct {
-}
-
-func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
-	return r, nil
-}
-
-func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
-	return nil
-}
-
-func (r *fakeRestorer) WaitForInitialPolicy(_ context.Context) error {
-	return nil
 }

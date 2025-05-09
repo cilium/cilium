@@ -10,6 +10,7 @@ import (
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
+	"github.com/cilium/cilium/pkg/endpoint/restoration"
 	"github.com/cilium/cilium/pkg/endpoint/watchdog"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -38,4 +39,7 @@ var Cell = cell.Group(
 
 	// Cell triggers a job to ensure device tc programs remain loaded.
 	watchdog.Cell,
+
+	// Cell provides the endpoint restoration process logic
+	restoration.Cell,
 )
