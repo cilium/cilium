@@ -25,7 +25,7 @@ type reconciler struct {
 	logger     *slog.Logger
 	client     clientset.CiliumV2alpha1Interface
 	context    context.Context
-	cesManager operations
+	cesManager *cesManager
 	cepStore   resource.Store[*cilium_v2.CiliumEndpoint]
 	cesStore   resource.Store[*cilium_v2a1.CiliumEndpointSlice]
 	metrics    *Metrics
@@ -35,7 +35,7 @@ type reconciler struct {
 func newReconciler(
 	ctx context.Context,
 	client clientset.CiliumV2alpha1Interface,
-	cesMgr operations,
+	cesMgr *cesManager,
 	logger *slog.Logger,
 	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
 	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
