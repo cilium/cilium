@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWatcher(t *testing.T) {
+	logger := hivetest.Logger(t)
 	tmp := t.TempDir()
 
 	regularFile := filepath.Join(tmp, "file")
@@ -22,7 +24,7 @@ func TestWatcher(t *testing.T) {
 	indirectSymlink := filepath.Join(tmp, "foo", "symlink", "nested")
 	targetFile := filepath.Join(tmp, "target")
 
-	w, err := New([]string{
+	w, err := New(logger, []string{
 		regularFile,
 		regularSymlink,
 		nestedFile,
