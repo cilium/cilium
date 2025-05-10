@@ -175,11 +175,17 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u32 seclabel, __u32 magic,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
-					       bool from_tunnel)
+					       bool from_tunnel, bool deliver_via_stack)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
 	int ret;
+
+	if (deliver_via_stack) {
+		/* Deliver to the host-stack */
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
@@ -202,11 +208,18 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
-					       bool from_tunnel, __u32 cluster_id)
+					       bool from_tunnel, __u32 cluster_id,
+						   bool deliver_via_stack)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
 	int ret;
+
+	if (deliver_via_stack) {
+		/* Deliver to the host-stack */
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
@@ -215,5 +228,5 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 		return ret;
 
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-			      from_tunnel, cluster_id);
+				 from_tunnel, cluster_id);
 }
