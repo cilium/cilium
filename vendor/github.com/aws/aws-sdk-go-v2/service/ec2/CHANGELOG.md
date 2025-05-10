@@ -1,3 +1,19 @@
+# v1.217.0 (2025-05-08)
+
+* **Feature**: Launching the feature to support ENA queues offering flexibility to support multiple queues per Enhanced Network Interface (ENI)
+
+# v1.216.0 (2025-05-07)
+
+* **Feature**: This release adds API support for Path Component Exclusion (Filter Out ARN) for Reachability Analyzer
+
+# v1.215.0 (2025-05-06)
+
+* **Feature**: This release adds support for Amazon EBS Provisioned Rate for Volume Initialization, which lets you specify a volume initialization rate to ensure that your EBS volumes are initialized in a predictable amount of time.
+
+# v1.214.0 (2025-05-05)
+
+* **Feature**: This update introduces API operations to manage and create local gateway VIF and VIF groups. It also includes API operations to describe Outpost LAGs and service link VIFs.
+
 # v1.213.0 (2025-04-30)
 
 * **Feature**: Launch of cost distribution feature for IPAM owners to distribute costs to internal teams.

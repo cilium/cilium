@@ -11,39 +11,23 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Attaches a network interface to an instance.
-func (c *Client) AttachNetworkInterface(ctx context.Context, params *AttachNetworkInterfaceInput, optFns ...func(*Options)) (*AttachNetworkInterfaceOutput, error) {
+// Describes the Outposts link aggregation groups (LAGs).
+func (c *Client) DescribeOutpostLags(ctx context.Context, params *DescribeOutpostLagsInput, optFns ...func(*Options)) (*DescribeOutpostLagsOutput, error) {
 	if params == nil {
-		params = &AttachNetworkInterfaceInput{}
+		params = &DescribeOutpostLagsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachNetworkInterface", params, optFns, c.addOperationAttachNetworkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeOutpostLags", params, optFns, c.addOperationDescribeOutpostLagsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*AttachNetworkInterfaceOutput)
+	out := result.(*DescribeOutpostLagsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for AttachNetworkInterface.
-type AttachNetworkInterfaceInput struct {
-
-	// The index of the device for the network interface attachment.
-	//
-	// This member is required.
-	DeviceIndex *int32
-
-	// The ID of the instance.
-	//
-	// This member is required.
-	InstanceId *string
-
-	// The ID of the network interface.
-	//
-	// This member is required.
-	NetworkInterfaceId *string
+type DescribeOutpostLagsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -51,29 +35,57 @@ type AttachNetworkInterfaceInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The number of ENA queues to be created with the instance.
-	EnaQueueCount *int32
+	// The filters to use for narrowing down the request. The following filters are
+	// supported:
+	//
+	//   - service-link-virtual-interface-id - The ID of the service link virtual
+	//   interface.
+	//
+	//   - service-link-virtual-interface-arn - The ARN of the service link virtual
+	//   interface.
+	//
+	//   - outpost-id - The Outpost ID.
+	//
+	//   - outpost-arn - The Outpost ARN.
+	//
+	//   - owner-id - The ID of the Amazon Web Services account that owns the service
+	//   link virtual interface.
+	//
+	//   - vlan - The ID of the address pool.
+	//
+	//   - local-address - The local address.
+	//
+	//   - peer-address - The peer address.
+	//
+	//   - peer-bgp-asn - The peer BGP ASN.
+	//
+	//   - outpost-lag-id - The Outpost LAG ID.
+	//
+	//   - configuration-state - The configuration state of the service link virtual
+	//   interface.
+	Filters []types.Filter
 
-	// Configures ENA Express for the network interface that this action attaches to
-	// the instance.
-	EnaSrdSpecification *types.EnaSrdSpecification
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int32
 
-	// The index of the network card. Some instance types support multiple network
-	// cards. The primary network interface must be assigned to network card index 0.
-	// The default is network card index 0.
-	NetworkCardIndex *int32
+	// The token for the next page of results.
+	NextToken *string
+
+	// The IDs of the Outpost LAGs.
+	OutpostLagIds []string
 
 	noSmithyDocumentSerde
 }
 
-// Contains the output of AttachNetworkInterface.
-type AttachNetworkInterfaceOutput struct {
+type DescribeOutpostLagsOutput struct {
 
-	// The ID of the network interface attachment.
-	AttachmentId *string
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
+	NextToken *string
 
-	// The index of the network card.
-	NetworkCardIndex *int32
+	// The Outpost LAGs.
+	OutpostLags []types.OutpostLag
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -81,19 +93,19 @@ type AttachNetworkInterfaceOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeOutpostLagsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeOutpostLags{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeOutpostLags{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "AttachNetworkInterface"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeOutpostLags"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -148,10 +160,7 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpAttachNetworkInterfaceValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachNetworkInterface(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeOutpostLags(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -184,10 +193,10 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	return nil
 }
 
-func newServiceMetadataMiddleware_opAttachNetworkInterface(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeOutpostLags(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "AttachNetworkInterface",
+		OperationName: "DescribeOutpostLags",
 	}
 }

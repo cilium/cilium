@@ -11,39 +11,52 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Attaches a network interface to an instance.
-func (c *Client) AttachNetworkInterface(ctx context.Context, params *AttachNetworkInterfaceInput, optFns ...func(*Options)) (*AttachNetworkInterfaceOutput, error) {
+// Create a virtual interface for a local gateway.
+func (c *Client) CreateLocalGatewayVirtualInterface(ctx context.Context, params *CreateLocalGatewayVirtualInterfaceInput, optFns ...func(*Options)) (*CreateLocalGatewayVirtualInterfaceOutput, error) {
 	if params == nil {
-		params = &AttachNetworkInterfaceInput{}
+		params = &CreateLocalGatewayVirtualInterfaceInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachNetworkInterface", params, optFns, c.addOperationAttachNetworkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateLocalGatewayVirtualInterface", params, optFns, c.addOperationCreateLocalGatewayVirtualInterfaceMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*AttachNetworkInterfaceOutput)
+	out := result.(*CreateLocalGatewayVirtualInterfaceOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for AttachNetworkInterface.
-type AttachNetworkInterfaceInput struct {
+type CreateLocalGatewayVirtualInterfaceInput struct {
 
-	// The index of the device for the network interface attachment.
+	// The IP address assigned to the local gateway virtual interface on the Outpost
+	// side. Only IPv4 is supported.
 	//
 	// This member is required.
-	DeviceIndex *int32
+	LocalAddress *string
 
-	// The ID of the instance.
+	// The ID of the local gateway virtual interface group.
 	//
 	// This member is required.
-	InstanceId *string
+	LocalGatewayVirtualInterfaceGroupId *string
 
-	// The ID of the network interface.
+	// References the Link Aggregation Group (LAG) that connects the Outpost to
+	// on-premises network devices.
 	//
 	// This member is required.
-	NetworkInterfaceId *string
+	OutpostLagId *string
+
+	// The peer IP address for the local gateway virtual interface. Only IPv4 is
+	// supported.
+	//
+	// This member is required.
+	PeerAddress *string
+
+	// The virtual local area network (VLAN) used for the local gateway virtual
+	// interface.
+	//
+	// This member is required.
+	Vlan *int32
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -51,29 +64,23 @@ type AttachNetworkInterfaceInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The number of ENA queues to be created with the instance.
-	EnaQueueCount *int32
+	// The Autonomous System Number (ASN) of the Border Gateway Protocol (BGP) peer.
+	PeerBgpAsn *int32
 
-	// Configures ENA Express for the network interface that this action attaches to
-	// the instance.
-	EnaSrdSpecification *types.EnaSrdSpecification
+	// The extended 32-bit ASN of the BGP peer for use with larger ASN values.
+	PeerBgpAsnExtended *int64
 
-	// The index of the network card. Some instance types support multiple network
-	// cards. The primary network interface must be assigned to network card index 0.
-	// The default is network card index 0.
-	NetworkCardIndex *int32
+	// The tags to apply to a resource when the local gateway virtual interface is
+	// being created.
+	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
 }
 
-// Contains the output of AttachNetworkInterface.
-type AttachNetworkInterfaceOutput struct {
+type CreateLocalGatewayVirtualInterfaceOutput struct {
 
-	// The ID of the network interface attachment.
-	AttachmentId *string
-
-	// The index of the network card.
-	NetworkCardIndex *int32
+	// Information about the local gateway virtual interface.
+	LocalGatewayVirtualInterface *types.LocalGatewayVirtualInterface
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -81,19 +88,19 @@ type AttachNetworkInterfaceOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateLocalGatewayVirtualInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateLocalGatewayVirtualInterface{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateLocalGatewayVirtualInterface{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "AttachNetworkInterface"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateLocalGatewayVirtualInterface"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -148,10 +155,10 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpAttachNetworkInterfaceValidationMiddleware(stack); err != nil {
+	if err = addOpCreateLocalGatewayVirtualInterfaceValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachNetworkInterface(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateLocalGatewayVirtualInterface(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -184,10 +191,10 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	return nil
 }
 
-func newServiceMetadataMiddleware_opAttachNetworkInterface(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opCreateLocalGatewayVirtualInterface(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "AttachNetworkInterface",
+		OperationName: "CreateLocalGatewayVirtualInterface",
 	}
 }

@@ -11,39 +11,23 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Attaches a network interface to an instance.
-func (c *Client) AttachNetworkInterface(ctx context.Context, params *AttachNetworkInterfaceInput, optFns ...func(*Options)) (*AttachNetworkInterfaceOutput, error) {
+// Describes the Outpost service link virtual interfaces.
+func (c *Client) DescribeServiceLinkVirtualInterfaces(ctx context.Context, params *DescribeServiceLinkVirtualInterfacesInput, optFns ...func(*Options)) (*DescribeServiceLinkVirtualInterfacesOutput, error) {
 	if params == nil {
-		params = &AttachNetworkInterfaceInput{}
+		params = &DescribeServiceLinkVirtualInterfacesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachNetworkInterface", params, optFns, c.addOperationAttachNetworkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeServiceLinkVirtualInterfaces", params, optFns, c.addOperationDescribeServiceLinkVirtualInterfacesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*AttachNetworkInterfaceOutput)
+	out := result.(*DescribeServiceLinkVirtualInterfacesOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for AttachNetworkInterface.
-type AttachNetworkInterfaceInput struct {
-
-	// The index of the device for the network interface attachment.
-	//
-	// This member is required.
-	DeviceIndex *int32
-
-	// The ID of the instance.
-	//
-	// This member is required.
-	InstanceId *string
-
-	// The ID of the network interface.
-	//
-	// This member is required.
-	NetworkInterfaceId *string
+type DescribeServiceLinkVirtualInterfacesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -51,29 +35,48 @@ type AttachNetworkInterfaceInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The number of ENA queues to be created with the instance.
-	EnaQueueCount *int32
+	// The filters to use for narrowing down the request. The following filters are
+	// supported:
+	//
+	//   - outpost-lag-id - The ID of the Outpost LAG.
+	//
+	//   - outpost-arn - The Outpost ARN.
+	//
+	//   - owner-id - The ID of the Amazon Web Services account that owns the service
+	//   link virtual interface.
+	//
+	//   - state - The state of the Outpost LAG.
+	//
+	//   - vlan - The ID of the address pool.
+	//
+	//   - service-link-virtual-interface-id - The ID of the service link virtual
+	//   interface.
+	//
+	//   - local-gateway-virtual-interface-id - The ID of the local gateway virtual
+	//   interface.
+	Filters []types.Filter
 
-	// Configures ENA Express for the network interface that this action attaches to
-	// the instance.
-	EnaSrdSpecification *types.EnaSrdSpecification
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int32
 
-	// The index of the network card. Some instance types support multiple network
-	// cards. The primary network interface must be assigned to network card index 0.
-	// The default is network card index 0.
-	NetworkCardIndex *int32
+	// The token for the next page of results.
+	NextToken *string
+
+	// The IDs of the service link virtual interfaces.
+	ServiceLinkVirtualInterfaceIds []string
 
 	noSmithyDocumentSerde
 }
 
-// Contains the output of AttachNetworkInterface.
-type AttachNetworkInterfaceOutput struct {
+type DescribeServiceLinkVirtualInterfacesOutput struct {
 
-	// The ID of the network interface attachment.
-	AttachmentId *string
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
+	NextToken *string
 
-	// The index of the network card.
-	NetworkCardIndex *int32
+	// Describes the service link virtual interfaces.
+	ServiceLinkVirtualInterfaces []types.ServiceLinkVirtualInterface
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -81,19 +84,19 @@ type AttachNetworkInterfaceOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeServiceLinkVirtualInterfacesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeServiceLinkVirtualInterfaces{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeServiceLinkVirtualInterfaces{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "AttachNetworkInterface"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeServiceLinkVirtualInterfaces"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -148,10 +151,7 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpAttachNetworkInterfaceValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachNetworkInterface(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeServiceLinkVirtualInterfaces(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -184,10 +184,10 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	return nil
 }
 
-func newServiceMetadataMiddleware_opAttachNetworkInterface(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeServiceLinkVirtualInterfaces(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "AttachNetworkInterface",
+		OperationName: "DescribeServiceLinkVirtualInterfaces",
 	}
 }

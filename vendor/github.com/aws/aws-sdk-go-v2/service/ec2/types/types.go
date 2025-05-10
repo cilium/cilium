@@ -3984,6 +3984,35 @@ type EbsBlockDevice struct {
 	// Valid Range: Minimum value of 125. Maximum value of 1000.
 	Throughput *int32
 
+	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate), in MiB/s, at which to download the snapshot blocks from
+	// Amazon S3 to the volume. This is also known as volume initialization. Specifying
+	// a volume initialization rate ensures that the volume is initialized at a
+	// predictable and consistent rate after creation.
+	//
+	// This parameter is supported only for volumes created from snapshots. Omit this
+	// parameter if:
+	//
+	//   - You want to create the volume using fast snapshot restore. You must specify
+	//   a snapshot that is enabled for fast snapshot restore. In this case, the volume
+	//   is fully initialized at creation.
+	//
+	// If you specify a snapshot that is enabled for fast snapshot restore and a
+	//   volume initialization rate, the volume will be initialized at the specified rate
+	//   instead of fast snapshot restore.
+	//
+	//   - You want to create a volume that is initialized at the default rate.
+	//
+	// For more information, see [Initialize Amazon EBS volumes] in the Amazon EC2 User Guide.
+	//
+	// This parameter is not supported when using [CreateImage].
+	//
+	// Valid range: 100 - 300 MiB/s
+	//
+	// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
+	// [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
+	VolumeInitializationRate *int32
+
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
 	// volume size. If you specify a snapshot, the default is the snapshot size. You
 	// can specify a volume size that is equal to or larger than the snapshot size.
@@ -8020,6 +8049,9 @@ type InstanceNetworkInterfaceAttachment struct {
 	// The index of the device on the instance for the network interface attachment.
 	DeviceIndex *int32
 
+	// The number of ENA queues created with the instance.
+	EnaQueueCount *int32
+
 	// Contains the ENA Express settings for the network interface that's attached to
 	// the instance.
 	EnaSrdSpecification *InstanceAttachmentEnaSrdSpecification
@@ -8080,6 +8112,9 @@ type InstanceNetworkInterfaceSpecification struct {
 	// If you specify a network interface when launching an instance, you must specify
 	// the device index.
 	DeviceIndex *int32
+
+	// The number of ENA queues to be created with the instance.
+	EnaQueueCount *int32
 
 	// Specifies the ENA Express settings for the network interface that's attached to
 	// the instance.
@@ -10952,6 +10987,11 @@ type LaunchTemplateEbsBlockDevice struct {
 	// The throughput that the volume supports, in MiB/s.
 	Throughput *int32
 
+	// The Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate) specified for the volume, in MiB/s. If no volume
+	// initialization rate was specified, the value is null .
+	VolumeInitializationRate *int32
+
 	// The size of the volume, in GiB.
 	VolumeSize *int32
 
@@ -11004,6 +11044,32 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	//
 	// Valid Range: Minimum value of 125. Maximum value of 1000.
 	Throughput *int32
+
+	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate), in MiB/s, at which to download the snapshot blocks from
+	// Amazon S3 to the volume. This is also known as volume initialization. Specifying
+	// a volume initialization rate ensures that the volume is initialized at a
+	// predictable and consistent rate after creation.
+	//
+	// This parameter is supported only for volumes created from snapshots. Omit this
+	// parameter if:
+	//
+	//   - You want to create the volume using fast snapshot restore. You must specify
+	//   a snapshot that is enabled for fast snapshot restore. In this case, the volume
+	//   is fully initialized at creation.
+	//
+	// If you specify a snapshot that is enabled for fast snapshot restore and a
+	//   volume initialization rate, the volume will be initialized at the specified rate
+	//   instead of fast snapshot restore.
+	//
+	//   - You want to create a volume that is initialized at the default rate.
+	//
+	// For more information, see [Initialize Amazon EBS volumes] in the Amazon EC2 User Guide.
+	//
+	// Valid range: 100 - 300 MiB/s
+	//
+	// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
+	VolumeInitializationRate *int32
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
 	// volume size. The following are the supported volumes sizes for each volume type:
@@ -11375,6 +11441,9 @@ type LaunchTemplateInstanceNetworkInterfaceSpecification struct {
 	// The device index for the network interface attachment.
 	DeviceIndex *int32
 
+	// The number of ENA queues created with the instance.
+	EnaQueueCount *int32
+
 	// Contains the ENA Express settings for instances launched from your launch
 	// template.
 	EnaSrdSpecification *LaunchTemplateEnaSrdSpecification
@@ -11476,6 +11545,9 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	// add a primary network interface as a launch parameter when you launch an
 	// instance from the template.
 	DeviceIndex *int32
+
+	// The number of ENA queues to be created with the instance.
+	EnaQueueCount *int32
 
 	// Configure ENA Express settings for your launch template.
 	EnaSrdSpecification *EnaSrdSpecificationRequest
@@ -12192,6 +12264,9 @@ type LocalGatewayRouteTableVpcAssociation struct {
 // Describes a local gateway virtual interface.
 type LocalGatewayVirtualInterface struct {
 
+	// The current state of the local gateway virtual interface.
+	ConfigurationState LocalGatewayVirtualInterfaceConfigurationState
+
 	// The local address.
 	LocalAddress *string
 
@@ -12202,8 +12277,17 @@ type LocalGatewayVirtualInterface struct {
 	// The ID of the local gateway.
 	LocalGatewayId *string
 
+	// The Amazon Resource Number (ARN) of the local gateway virtual interface.
+	LocalGatewayVirtualInterfaceArn *string
+
+	// The ID of the local gateway virtual interface group.
+	LocalGatewayVirtualInterfaceGroupId *string
+
 	// The ID of the virtual interface.
 	LocalGatewayVirtualInterfaceId *string
+
+	// The Outpost LAG ID.
+	OutpostLagId *string
 
 	// The ID of the Amazon Web Services account that owns the local gateway virtual
 	// interface.
@@ -12214,6 +12298,9 @@ type LocalGatewayVirtualInterface struct {
 
 	// The peer BGP ASN.
 	PeerBgpAsn *int32
+
+	// The extended 32-bit ASN of the BGP peer for use with larger ASN values.
+	PeerBgpAsnExtended *int64
 
 	// The tags assigned to the virtual interface.
 	Tags []Tag
@@ -12227,8 +12314,20 @@ type LocalGatewayVirtualInterface struct {
 // Describes a local gateway virtual interface group.
 type LocalGatewayVirtualInterfaceGroup struct {
 
+	// The current state of the local gateway virtual interface group.
+	ConfigurationState LocalGatewayVirtualInterfaceGroupConfigurationState
+
+	// The Autonomous System Number(ASN) for the local Border Gateway Protocol (BGP).
+	LocalBgpAsn *int32
+
+	// The extended 32-bit ASN for the local BGP configuration.
+	LocalBgpAsnExtended *int64
+
 	// The ID of the local gateway.
 	LocalGatewayId *string
+
+	// The Amazon Resource Number (ARN) of the local gateway virtual interface group.
+	LocalGatewayVirtualInterfaceGroupArn *string
 
 	// The ID of the virtual interface group.
 	LocalGatewayVirtualInterfaceGroupId *string
@@ -13180,6 +13279,15 @@ type NetworkCardInfo struct {
 	// The baseline network performance of the network card, in Gbps.
 	BaselineBandwidthInGbps *float64
 
+	// The default number of the ENA queues for each interface.
+	DefaultEnaQueueCountPerInterface *int32
+
+	// The maximum number of the ENA queues.
+	MaximumEnaQueueCount *int32
+
+	// The maximum number of the ENA queues for each interface.
+	MaximumEnaQueueCountPerInterface *int32
+
 	// The maximum number of network interfaces for the network card.
 	MaximumNetworkInterfaces *int32
 
@@ -13223,6 +13331,9 @@ type NetworkInfo struct {
 	// Indicates whether the instance type automatically encrypts in-transit traffic
 	// between instances.
 	EncryptionInTransitSupported *bool
+
+	// Indicates whether changing the number of ENA queues is supported.
+	FlexibleEnaQueuesSupport FlexibleEnaQueuesSupport
 
 	// The maximum number of IPv4 addresses per network interface.
 	Ipv4AddressesPerInterface *int32
@@ -13340,6 +13451,9 @@ type NetworkInsightsAnalysis struct {
 
 	// The Amazon Resource Names (ARN) of the resources that the path must traverse.
 	FilterInArns []string
+
+	// The Amazon Resource Names (ARN) of the resources that the path must ignore.
+	FilterOutArns []string
 
 	// The components in the path from source to destination.
 	ForwardPathComponents []PathComponent
@@ -13577,6 +13691,9 @@ type NetworkInterfaceAttachment struct {
 	// The device index of the network interface attachment on the instance.
 	DeviceIndex *int32
 
+	// The number of ENA queues created with the instance.
+	EnaQueueCount *int32
+
 	// Configures ENA Express for the network interface that this action attaches to
 	// the instance.
 	EnaSrdSpecification *AttachmentEnaSrdSpecification
@@ -13602,9 +13719,15 @@ type NetworkInterfaceAttachmentChanges struct {
 	// The ID of the network interface attachment.
 	AttachmentId *string
 
+	// The default number of the ENA queues.
+	DefaultEnaQueueCount *bool
+
 	// Indicates whether the network interface is deleted when the instance is
 	// terminated.
 	DeleteOnTermination *bool
+
+	// The number of ENA queues to be created with the instance.
+	EnaQueueCount *int32
 
 	noSmithyDocumentSerde
 }
@@ -13944,6 +14067,33 @@ type OperatorResponse struct {
 	// If managed is true , then the principal is returned. The principal is the
 	// service provider that manages the resource.
 	Principal *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes an Outpost link aggregation group (LAG).
+type OutpostLag struct {
+
+	// The IDs of the local gateway virtual interfaces associated with the Outpost LAG.
+	LocalGatewayVirtualInterfaceIds []string
+
+	// The Amazon Resource Number (ARN) of the Outpost LAG.
+	OutpostArn *string
+
+	// The ID of the Outpost LAG.
+	OutpostLagId *string
+
+	// The ID of the Outpost LAG owner.
+	OwnerId *string
+
+	// The service link virtual interface IDs associated with the Outpost LAG.
+	ServiceLinkVirtualInterfaceIds []string
+
+	// The current state of the Outpost LAG.
+	State *string
+
+	// The tags associated with the Outpost LAG.
+	Tags []Tag
 
 	noSmithyDocumentSerde
 }
@@ -17434,6 +17584,52 @@ type ServiceDetail struct {
 
 	// Indicates whether the service supports endpoint policies.
 	VpcEndpointPolicySupported *bool
+
+	noSmithyDocumentSerde
+}
+
+// Describes the service link virtual interfaces that establish connectivity
+// between Amazon Web Services Outpost and on-premises networks.
+type ServiceLinkVirtualInterface struct {
+
+	// The current state of the service link virtual interface.
+	ConfigurationState ServiceLinkVirtualInterfaceConfigurationState
+
+	// The IPv4 address assigned to the local gateway virtual interface on the Outpost
+	// side.
+	LocalAddress *string
+
+	// The Outpost Amazon Resource Number (ARN) for the service link virtual interface.
+	OutpostArn *string
+
+	// The Outpost ID for the service link virtual interface.
+	OutpostId *string
+
+	// The link aggregation group (LAG) ID for the service link virtual interface.
+	OutpostLagId *string
+
+	// The ID of the Amazon Web Services account that owns the service link virtual
+	// interface..
+	OwnerId *string
+
+	// The IPv4 peer address for the service link virtual interface.
+	PeerAddress *string
+
+	// The ASN for the Border Gateway Protocol (BGP) associated with the service link
+	// virtual interface.
+	PeerBgpAsn *int64
+
+	// The Amazon Resource Number (ARN) for the service link virtual interface.
+	ServiceLinkVirtualInterfaceArn *string
+
+	// The ID of the service link virtual interface.
+	ServiceLinkVirtualInterfaceId *string
+
+	// The tags associated with the service link virtual interface.
+	Tags []Tag
+
+	// The virtual local area network for the service link virtual interface.
+	Vlan *int32
 
 	noSmithyDocumentSerde
 }
@@ -21587,6 +21783,11 @@ type Volume struct {
 
 	// The ID of the volume.
 	VolumeId *string
+
+	// The Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate) specified for the volume during creation, in MiB/s. If no
+	// volume initialization rate was specified, the value is null .
+	VolumeInitializationRate *int32
 
 	// The volume type.
 	VolumeType VolumeType
