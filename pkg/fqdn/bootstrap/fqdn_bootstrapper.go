@@ -138,7 +138,7 @@ func (b *fqdnProxyBootstrapper) lookupEPByIP(endpointAddr netip.Addr) (endpoint 
 		return e, e.IsHost(), nil
 	}
 
-	if node.IsNodeIP(endpointAddr) != "" {
+	if node.IsNodeIP(b.logger, endpointAddr) != "" {
 		if e := b.endpointManager.GetHostEndpoint(); e != nil {
 			return e, true, nil
 		} else {

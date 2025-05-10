@@ -4,6 +4,7 @@
 package endpoint
 
 import (
+	"log/slog"
 	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -26,7 +27,7 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *cilium_v2.Endp
 	return
 }
 
-func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking *cilium_v2.EndpointNetworking) {
+func getEndpointNetworking(logger *slog.Logger, mdlNetworking *models.EndpointNetworking) (networking *cilium_v2.EndpointNetworking) {
 	if mdlNetworking == nil {
 		return nil
 	}
@@ -34,7 +35,7 @@ func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking
 		Addressing: make(cilium_v2.AddressPairList, len(mdlNetworking.Addressing)),
 	}
 
-	networking.NodeIP = node.GetCiliumEndpointNodeIP()
+	networking.NodeIP = node.GetCiliumEndpointNodeIP(logger)
 
 	for i, pair := range mdlNetworking.Addressing {
 		networking.Addressing[i] = &cilium_v2.AddressPair{
@@ -64,13 +65,15 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
+	logger := e.getLogger()
+
 	status := &cilium_v2.EndpointStatus{
 		ID:                  int64(e.ID),
 		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
-		Networking:          getEndpointNetworking(e.getModelNetworkingRLocked()),
+		Networking:          getEndpointNetworking(logger, e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
-		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex())},
+		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(logger))},
 		NamedPorts:          e.getNamedPortsModel(),
 	}
 

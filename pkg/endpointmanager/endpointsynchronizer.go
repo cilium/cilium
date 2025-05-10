@@ -369,10 +369,10 @@ func updateCEPUID(scopedLog *slog.Logger, e *endpoint.Endpoint, localCEP *cilium
 	if podHostIP == "" {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP: no pod HostIP")
 	}
-	if nodeIP := node.GetIPv4().String(); podHostIP != nodeIP {
+	if nodeIP := node.GetIPv4(scopedLog).String(); podHostIP != nodeIP {
 		// Also checking node ipv6 for k8s dual stack with ipv6 preference where
 		// podHostIP is gonna be node ipv6
-		if nodeIPV6 := node.GetIPv6().String(); podHostIP != nodeIPV6 {
+		if nodeIPV6 := node.GetIPv6(scopedLog).String(); podHostIP != nodeIPV6 {
 			return fmt.Errorf("endpoint sync cannot take ownership of CEP that is not local: CEP's pod %q, pod's hostIP %q, cilium nodeIP %q)",
 				e.GetK8sPodName(), podHostIP, nodeIP)
 		}

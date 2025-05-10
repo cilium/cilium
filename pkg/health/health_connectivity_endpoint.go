@@ -228,13 +228,13 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if healthIPv6 := node.GetEndpointHealthIPv6(); healthIPv6 != nil {
+	if healthIPv6 := node.GetEndpointHealthIPv6(logging.DefaultSlogLogger); healthIPv6 != nil {
 		info.Addressing.IPV6 = healthIPv6.String()
 		info.Addressing.IPV6PoolName = ipam.PoolDefault().String()
 		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
 		healthIP = healthIPv6
 	}
-	if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
+	if healthIPv4 := node.GetEndpointHealthIPv4(logging.DefaultSlogLogger); healthIPv4 != nil {
 		info.Addressing.IPV4 = healthIPv4.String()
 		info.Addressing.IPV4PoolName = ipam.PoolDefault().String()
 		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
@@ -326,7 +326,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	}
 
 	// Set up the endpoint routes.
-	routes, err := h.getHealthRoutes(node.GetNodeAddressing(), mtuConfig)
+	routes, err := h.getHealthRoutes(node.GetNodeAddressing(logging.DefaultSlogLogger), mtuConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting routes for containername %q: %w", info.ContainerName, err)
 	}

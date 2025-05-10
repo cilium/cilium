@@ -149,12 +149,12 @@ func (c *cleanup) cleanStaleCEPs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CiliumEndpoint store: %w", err)
 	}
-	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
+	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP(c.log))
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
 	}
 	for _, cep := range objs {
-		if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && c.endpointsCache.LookupCEPName(cep.Namespace+"/"+cep.Name) == nil {
+		if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(c.log) && c.endpointsCache.LookupCEPName(cep.Namespace+"/"+cep.Name) == nil {
 			if err := c.deleteCiliumEndpoint(ctx, cep.Namespace, cep.Name, &cep.ObjectMeta.UID); err != nil {
 				errs = errors.Join(errs, err)
 			}
@@ -169,13 +169,13 @@ func (c *cleanup) cleanStaleCESs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CiliumEndpointSlice store: %w", err)
 	}
-	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
+	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP(c.log))
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
 	}
 	for _, ces := range objs {
 		for _, cep := range ces.Endpoints {
-			if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && c.endpointsCache.LookupCEPName(ces.Namespace+"/"+cep.Name) == nil {
+			if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(c.log) && c.endpointsCache.LookupCEPName(ces.Namespace+"/"+cep.Name) == nil {
 				if err := c.deleteCiliumEndpoint(ctx, ces.Namespace, cep.Name, nil); err != nil {
 					errs = errors.Join(errs, err)
 				}
@@ -212,7 +212,7 @@ func (c *cleanup) deleteCiliumEndpoint(ctx context.Context, cepNamespace, cepNam
 			)
 			return resiliency.Retryable(err)
 		}
-		if cep.Status.Networking.NodeIP != node.GetCiliumEndpointNodeIP() {
+		if cep.Status.Networking.NodeIP != node.GetCiliumEndpointNodeIP(c.log) {
 			scopedLogger.Debug(
 				"Stale CEP fetched apiserver no longer references this Node, skipping.",
 				logfields.Error, err,

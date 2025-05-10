@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"path"
 	"time"
 
@@ -487,18 +488,18 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServers(getAddresses(), config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(getAddresses(logging.DefaultSlogLogger), config.HTTPPathPort)
 
 	return server, nil
 }
 
 // Get internal node ipv4/ipv6 addresses based on config enabled.
 // If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
-func getAddresses() []string {
+func getAddresses(logger *slog.Logger) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {
-		if ipv4 := node.GetInternalIPv4(); ipv4 != nil {
+		if ipv4 := node.GetInternalIPv4(logger); ipv4 != nil {
 			addresses = append(addresses, ipv4.String())
 		} else {
 			// if Get ipv4 fails, then listen on all ipv4 addr.
@@ -507,7 +508,7 @@ func getAddresses() []string {
 	}
 
 	if option.Config.EnableIPv6 {
-		if ipv6 := node.GetInternalIPv6(); ipv6 != nil {
+		if ipv6 := node.GetInternalIPv6(logger); ipv6 != nil {
 			addresses = append(addresses, ipv6.String())
 		} else {
 			// if Get ipv6 fails, then listen on all ipv6 addr.

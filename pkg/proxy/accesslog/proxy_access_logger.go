@@ -67,11 +67,11 @@ func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTa
 		NodeAddressInfo:   NodeAddressInfo{},
 	}
 
-	if ip := node.GetIPv4(); ip != nil {
+	if ip := node.GetIPv4(r.logger); ip != nil {
 		lr.NodeAddressInfo.IPv4 = ip.String()
 	}
 
-	if ip := node.GetIPv6(); ip != nil {
+	if ip := node.GetIPv6(r.logger); ip != nil {
 		lr.NodeAddressInfo.IPv6 = ip.String()
 	}
 
