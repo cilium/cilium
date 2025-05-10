@@ -125,6 +125,9 @@ type DescribeInstanceTypesInput struct {
 	//   - network-info.ena-support - Indicates whether Elastic Network Adapter (ENA)
 	//   is supported or required ( required | supported | unsupported ).
 	//
+	//   - network-info.flexible-ena-queues-support - Indicates whether an instance
+	//   supports flexible ENA queues ( supported | unsupported ).
+	//
 	//   - network-info.encryption-in-transit-supported - Indicates whether the
 	//   instance type automatically encrypts in-transit traffic between instances (
 	//   true | false ).
