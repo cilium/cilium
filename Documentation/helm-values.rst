@@ -2019,7 +2019,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
@@ -2203,7 +2203,7 @@
    * - :spelling:ignore:`hubble.ui.backend.securityContext`
      - Hubble-ui backend security context.
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`hubble.ui.baseUrl`
      - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
      - string
@@ -2235,7 +2235,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.securityContext`
      - Hubble-ui frontend security context.
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`hubble.ui.frontend.server.ipv6`
      - Controls server listener for ipv6
      - object
@@ -2863,7 +2863,7 @@
    * - :spelling:ignore:`nodeinit.securityContext`
      - Security context to be added to nodeinit pods.
      - object
-     - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
    * - :spelling:ignore:`nodeinit.startup`
      - startup offers way to customize startup nodeinit script (pre and post position)
      - object
@@ -2967,7 +2967,7 @@
    * - :spelling:ignore:`operator.podSecurityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`operator.pprof.address`
      - Configure pprof listen address for cilium-operator
      - string
@@ -3039,7 +3039,7 @@
    * - :spelling:ignore:`operator.securityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`operator.setNodeNetworkStatus`
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
@@ -3087,7 +3087,7 @@
    * - :spelling:ignore:`podSecurityContext`
      - Security Context for cilium-agent pods.
      - object
-     - ``{"appArmorProfile":{"type":"Unconfined"}}``
+     - ``{"appArmorProfile":{"type":"Unconfined"},"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`podSecurityContext.appArmorProfile`
      - AppArmorProfile options for the ``cilium-agent`` and init containers
      - object
@@ -3187,7 +3187,7 @@
    * - :spelling:ignore:`preflight.securityContext`
      - Security context to be added to preflight pods
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`preflight.terminationGracePeriodSeconds`
      - Configure termination grace period for preflight Deployment and DaemonSet.
      - int
@@ -3308,6 +3308,10 @@
      - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
      - object
      - ``{}``
+   * - :spelling:ignore:`securityContext.allowPrivilegeEscalation`
+     - disable privilege escalation
+     - bool
+     - ``false``
    * - :spelling:ignore:`securityContext.capabilities.applySysctlOverwrites`
      - capabilities for the ``apply-sysctl-overwrites`` init container
      - list
