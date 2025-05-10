@@ -512,6 +512,9 @@ type CiliumEgressGatewayPolicyParams struct {
 
 	// ExcludedCIDRsConf controls how the ExcludedCIDRsConf property should be configured
 	ExcludedCIDRsConf ExcludedCIDRsKind
+
+	// Includes changes for multigateway testing
+	Multigateway bool
 }
 
 // WithCiliumEgressGatewayPolicy takes a string containing a YAML policy
@@ -552,6 +555,20 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 	}
 
 	pl.Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
+
+	// If the field EgressGateways is set, the contents of the field EgressGateway are disregarded.
+	if params.Multigateway {
+		egressGatewayNodes := t.EgressGatewayNodes()
+		if len(egressGatewayNodes) <= 1 {
+			t.Fatalf("Cannot find egress gateway nodes")
+		}
+
+		for _, node := range egressGatewayNodes {
+			gw := pl.Spec.EgressGateway.DeepCopy()
+			gw.NodeSelector.MatchLabels["kubernetes.io/hostname"] = node
+			pl.Spec.EgressGateways = append(pl.Spec.EgressGateways, *gw)
+		}
+	}
 
 	var ipv6Enabled bool
 	if status, ok := t.ctx.Feature(features.IPv6); ok && status.Enabled && versioncheck.MustCompile(">=1.18.0")(t.ctx.CiliumVersion) {
@@ -856,6 +873,19 @@ func (t *Test) EgressGatewayNode() string {
 	}
 
 	return ""
+}
+
+// Like EgressGatewayNode() but for the multigateway test case.
+// In this case we use the pods with labels other=client and other=client-other-node.
+func (t *Test) EgressGatewayNodes() []string {
+	var out []string
+	for _, clientPod := range t.ctx.clientPods {
+		if clientPod.Pod.Labels["other"] == "client" ||
+			clientPod.Pod.Labels["other"] == "client-other-node" {
+			out = append(out, clientPod.Pod.Spec.NodeName)
+		}
+	}
+	return out
 }
 
 func (t *Test) collectSysdump() {
