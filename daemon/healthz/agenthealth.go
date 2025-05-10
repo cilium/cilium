@@ -108,7 +108,7 @@ type agentHealthHandler struct {
 }
 
 func (h *agentHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requireK8sConnectivity := true
+	requireK8sConnectivity := option.Config.AgentHealthRequireK8sConnectivity
 	if v := r.Header.Get("require-k8s-connectivity"); v != "" {
 		res, err := strconv.ParseBool(v)
 		if err != nil {
