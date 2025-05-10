@@ -14,47 +14,6 @@
 #include "identity.h"
 
 #include "lib/proxy.h"
-#include "lib/l4.h"
-
-/* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
- * This function returns true in case all the following conditions are satisfied:
- *
- * - ctx is a UDP packet;
- * - L4 dport == WG_PORT;
- * - L4 sport == dport;
- * - valid identity in cluster.
- */
-static __always_inline bool
-ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identity)
-{
-	struct {
-		__be16 sport;
-		__be16 dport;
-	} l4;
-
-	/* Non-UDP packets. */
-	if (protocol != IPPROTO_UDP)
-		return false;
-
-	/* Unable to retrieve L4 ports. */
-	if (l4_load_ports(ctx, l4_off + UDP_SPORT_OFF, &l4.sport) < 0)
-		return false;
-
-	/* Packet is not for cilium@WireGuard.*/
-	if (l4.dport != bpf_htons(WG_PORT))
-		return false;
-
-	/* Packet does not come from cilium@WireGuard. */
-	if (l4.sport != l4.dport)
-		return false;
-
-	/* Identity not in cluster. */
-	if (!identity_is_cluster(identity))
-		return false;
-
-	/* Cilium-related WireGuard packet to be traced as encrypted. */
-	return true;
-}
 
 static __always_inline int
 wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,

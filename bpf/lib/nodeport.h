@@ -101,10 +101,10 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	if (info->flag_ipv6_tunnel_ep)
 		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
 					    src_sec_identity, info->sec_identity,
-					    ct_reason, monitor, ifindex);
+					    ct_reason, monitor, 0, ifindex);
 	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
 				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-				    ct_reason, monitor, ifindex);
+				    ct_reason, monitor, 0, ifindex);
 }
 
 # if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
