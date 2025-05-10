@@ -65,13 +65,23 @@
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
-	XFER_UNUSED		= (1 << 1),
+	XFER_PKT_CRYPTO		= (1 << 1),  /* Packets needs encryption. */
 	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
+	XFER_PKT_DSR		= (1 << 3),  /* Packets is DSR. */
+	XFER_PKT_IPV6		= (1 << 4),  /* Packets is IPv6. */
 };
 
 /* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
 enum {
-	XFER_FLAGS = 0,		/* XFER_PKT_* */
+	XFER_FLAGS                = 0,  /* XFER_PKT_* */
+	XFER_CB_SRC_LABEL         = 1,
+	XFER_CB_HINT              = XFER_CB_SRC_LABEL,
+	XFER_CB_PORT              = XFER_CB_SRC_LABEL,
+	XFER_CB_NAT_46X64         = XFER_CB_SRC_LABEL,
+	XFER_CB_CLUSTER_ID_EGRESS = 2,
+	XFER_CB_ADDR_V4           = XFER_CB_CLUSTER_ID_EGRESS,
+	XFER_CB_ADDR_V6_1         = XFER_CB_CLUSTER_ID_EGRESS,
+	XFER_CB_DSR_L3_OFF        = 3,
 };
 
 /* FIB errors from BPF neighbor map. */

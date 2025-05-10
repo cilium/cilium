@@ -1222,7 +1222,45 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (flags & XFER_PKT_SNAT_DONE)
 		ctx_snat_done_set(ctx);
 #endif
-#endif
+
+#if defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+	if (flags & XFER_PKT_CRYPTO) {
+		__s8 ext_err = 0;
+
+#ifdef ENABLE_DSR
+		if (flags & XFER_PKT_DSR) {
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+			if (flags & XFER_PKT_IPV6) {
+				ctx_store_meta(ctx, CB_HINT, ctx_get_xfer(ctx, XFER_CB_HINT));
+				ctx_store_meta(ctx, CB_ADDR_V6_1, ctx_get_xfer(ctx, XFER_CB_ADDR_V6_1));
+			} else {
+				ctx_store_meta(ctx, CB_HINT, ctx_get_xfer(ctx, XFER_CB_HINT));
+				ctx_store_meta(ctx, CB_ADDR_V4, ctx_get_xfer(ctx, XFER_CB_ADDR_V4));
+			}
+# elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
+			if (flags & XFER_PKT_IPV6) {
+				ctx_store_meta(ctx, CB_PORT, ctx_get_xfer(ctx, XFER_CB_PORT));
+				ctx_store_meta(ctx, CB_ADDR_V6_1, ctx_get_xfer(ctx, XFER_CB_ADDR_V6_1));
+			} else {
+				ctx_store_meta(ctx, CB_PORT, ctx_get_xfer(ctx, XFER_CB_PORT));
+				ctx_store_meta(ctx, CB_ADDR_V4, ctx_get_xfer(ctx, XFER_CB_ADDR_V4));
+				ctx_store_meta(ctx, CB_DSR_L3_OFF, ctx_get_xfer(ctx, XFER_CB_DSR_L3_OFF));
+			}
+# endif
+			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, &ext_err);
+		}
+#endif /* ENABLE_DSR */
+
+		if (flags & XFER_PKT_IPV6) {
+			ctx_store_meta(ctx, CB_NAT_46X64, ctx_get_xfer(ctx, XFER_CB_NAT_46X64));
+		} else {
+			ctx_store_meta(ctx, CB_SRC_LABEL, ctx_get_xfer(ctx, XFER_CB_SRC_LABEL));
+			ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, ctx_get_xfer(ctx, XFER_CB_CLUSTER_ID_EGRESS));
+		}
+		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS, &ext_err);
+	}
+#endif /* ENABLE_WIREGUARD && ENABLE_NODE_ENCRYPTION */
+#endif /* ENABLE_NODEPORT_ACCELERATION */
 
 	if (!validate_ethertype(ctx, &proto)) {
 #ifdef ENABLE_HOST_FIREWALL

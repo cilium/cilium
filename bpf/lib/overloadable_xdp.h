@@ -136,13 +136,100 @@ static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 	 * does not break packet trains in GRO.
 	 */
 
-	if (meta_xfer) {
+	/* No meta to transfer. */
+	if (!meta_xfer)
+		return;
+
+	/* No need to transfer data for encryption in TC, push only XFER_FLAGS. */
+	if (!(meta_xfer & XFER_PKT_CRYPTO)) {
 		if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
 			__u32 *data_meta = ctx_data_meta(ctx);
 			__u32 *data = ctx_data(ctx);
 
 			if (!ctx_no_room(data_meta + 1, data))
 				data_meta[XFER_FLAGS] = meta_xfer;
+		}
+		return;
+	}
+
+#ifdef ENABLE_DSR
+	/* Transfer DSR-related IPv4/IPv6 data for encryption in TC. */
+	if ((meta_xfer & XFER_PKT_DSR)) {
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+		if (meta_xfer & XFER_PKT_IPV6) {
+			if (!ctx_adjust_meta(ctx, -(int)(3 * sizeof(meta_xfer)))) {
+				__u32 *data_meta = ctx_data_meta(ctx);
+				__u32 *data = ctx_data(ctx);
+
+				if (!ctx_no_room(data_meta + 3, data)) {
+					data_meta[XFER_FLAGS] = meta_xfer;
+					data_meta[XFER_CB_HINT] = ctx_load_meta(ctx, CB_HINT);
+					data_meta[XFER_CB_ADDR_V6_1] = ctx_load_meta(ctx, CB_ADDR_V6_1);
+				}
+			}
+		} else {
+			if (!ctx_adjust_meta(ctx, -(int)(3 * sizeof(meta_xfer)))) {
+				__u32 *data_meta = ctx_data_meta(ctx);
+				__u32 *data = ctx_data(ctx);
+
+				if (!ctx_no_room(data_meta + 3, data)) {
+					data_meta[XFER_FLAGS] = meta_xfer;
+					data_meta[XFER_CB_HINT] = ctx_load_meta(ctx, CB_HINT);
+					data_meta[XFER_CB_ADDR_V4] = ctx_load_meta(ctx, CB_ADDR_V4);
+				}
+			}
+		}
+# elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
+		if (meta_xfer & XFER_PKT_IPV6) {
+			if (!ctx_adjust_meta(ctx, -(int)(3 * sizeof(meta_xfer)))) {
+				__u32 *data_meta = ctx_data_meta(ctx);
+				__u32 *data = ctx_data(ctx);
+
+				if (!ctx_no_room(data_meta + 3, data)) {
+					data_meta[XFER_FLAGS] = meta_xfer;
+					data_meta[XFER_CB_PORT] = ctx_load_meta(ctx, CB_PORT);
+					data_meta[XFER_CB_ADDR_V6_1] = ctx_load_meta(ctx, CB_ADDR_V6_1);
+				}
+			}
+		} else {
+			if (!ctx_adjust_meta(ctx, -(int)(4 * sizeof(meta_xfer)))) {
+				__u32 *data_meta = ctx_data_meta(ctx);
+				__u32 *data = ctx_data(ctx);
+
+				if (!ctx_no_room(data_meta + 4, data)) {
+					data_meta[XFER_FLAGS] = meta_xfer;
+					data_meta[XFER_CB_PORT] = ctx_load_meta(ctx, CB_PORT);
+					data_meta[XFER_CB_ADDR_V4] = ctx_load_meta(ctx, CB_ADDR_V4);
+					data_meta[XFER_CB_DSR_L3_OFF] = ctx_load_meta(ctx, CB_DSR_L3_OFF);
+				}
+			}
+		}
+# endif
+		return;
+	}
+#endif /* ENABLE_DSR */
+
+	/* Transfer Non-DSR-related IPv4/IPv6 data for encryption in TC. */
+	if (meta_xfer & XFER_PKT_IPV6) {
+		if (!ctx_adjust_meta(ctx, -(int)(2 * sizeof(meta_xfer)))) {
+			__u32 *data_meta = ctx_data_meta(ctx);
+			__u32 *data = ctx_data(ctx);
+
+			if (!ctx_no_room(data_meta + 2, data)) {
+				data_meta[XFER_FLAGS] = meta_xfer;
+				data_meta[XFER_CB_NAT_46X64] = ctx_load_meta(ctx, CB_NAT_46X64);
+			}
+		}
+	} else {
+		if (!ctx_adjust_meta(ctx, -(int)(3 * sizeof(meta_xfer)))) {
+			__u32 *data_meta = ctx_data_meta(ctx);
+			__u32 *data = ctx_data(ctx);
+
+			if (!ctx_no_room(data_meta + 3, data)) {
+				data_meta[XFER_FLAGS] = meta_xfer;
+				data_meta[XFER_CB_SRC_LABEL] = ctx_load_meta(ctx, CB_SRC_LABEL);
+				data_meta[XFER_CB_CLUSTER_ID_EGRESS] = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+			}
 		}
 	}
 }
