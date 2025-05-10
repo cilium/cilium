@@ -174,6 +174,32 @@ type CreateVolumeInput struct {
 	// Valid Range: Minimum value of 125. Maximum value of 1000.
 	Throughput *int32
 
+	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate), in MiB/s, at which to download the snapshot blocks from
+	// Amazon S3 to the volume. This is also known as volume initialization. Specifying
+	// a volume initialization rate ensures that the volume is initialized at a
+	// predictable and consistent rate after creation.
+	//
+	// This parameter is supported only for volumes created from snapshots. Omit this
+	// parameter if:
+	//
+	//   - You want to create the volume using fast snapshot restore. You must specify
+	//   a snapshot that is enabled for fast snapshot restore. In this case, the volume
+	//   is fully initialized at creation.
+	//
+	// If you specify a snapshot that is enabled for fast snapshot restore and a
+	//   volume initialization rate, the volume will be initialized at the specified rate
+	//   instead of fast snapshot restore.
+	//
+	//   - You want to create a volume that is initialized at the default rate.
+	//
+	// For more information, see [Initialize Amazon EBS volumes] in the Amazon EC2 User Guide.
+	//
+	// Valid range: 100 - 300 MiB/s
+	//
+	// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
+	VolumeInitializationRate *int32
+
 	// The volume type. This parameter can be one of the following values:
 	//
 	//   - General Purpose SSD: gp2 | gp3
@@ -262,6 +288,11 @@ type CreateVolumeOutput struct {
 
 	// The ID of the volume.
 	VolumeId *string
+
+	// The Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate) specified for the volume during creation, in MiB/s. If no
+	// volume initialization rate was specified, the value is null .
+	VolumeInitializationRate *int32
 
 	// The volume type.
 	VolumeType types.VolumeType
