@@ -742,6 +742,9 @@
         "priorityClassName": {
           "type": "string"
         },
+        "resources": {
+          "type": "object"
+        },
         "tolerations": {
           "items": {},
           "type": "array"

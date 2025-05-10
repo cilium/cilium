@@ -13,6 +13,10 @@ spec:
         - name: certgen
           image: {{ include "cilium.image" .Values.certgen.image | quote }}
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
+          {{- with .Values.certgen.resources }}
+          resources:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           command:
             - "/usr/bin/cilium-certgen"
           args:

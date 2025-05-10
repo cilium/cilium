@@ -1190,6 +1190,9 @@ certgen:
   # -- Node tolerations for pod assignment on nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations: []
+  # -- Resource limits for certgen
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+  resources: {}
   # -- Additional certgen volumes.
   extraVolumes: []
   # -- Additional certgen volumeMounts.
