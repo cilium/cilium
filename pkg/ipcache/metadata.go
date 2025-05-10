@@ -8,12 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
@@ -71,6 +70,7 @@ type clusterID uint32
 //
 // ```
 type metadata struct {
+	logger *slog.Logger
 	// Protects the m map.
 	//
 	// If this mutex will be held at the same time as the IPCache mutex,
@@ -121,8 +121,9 @@ type metadata struct {
 	reservedHostLabels map[netip.Prefix]labels.Labels
 }
 
-func newMetadata() *metadata {
+func newMetadata(logger *slog.Logger) *metadata {
 	return &metadata{
+		logger:           logger,
 		m:                make(map[cmtypes.PrefixCluster]prefixInfo),
 		prefixes:         bitlpm.NewCIDRTrieMap[clusterID, struct{}](),
 		prefixRefCounter: make(counter.Counter[cmtypes.PrefixCluster]),
@@ -238,15 +239,15 @@ func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source,
 	}
 
 	for _, i := range info {
-		c := m.m[prefix][resource].merge(i, src)
+		c := m.m[prefix][resource].merge(m.logger, i, src)
 		changed = changed || c
 	}
 
 	if m.m[prefix][resource].shouldLogConflicts() {
-		m.m[prefix].logConflicts(log.WithFields(logrus.Fields{
-			logfields.ClusterID: prefix.ClusterID(),
-			logfields.CIDR:      prefix.AsPrefix(),
-		}))
+		m.m[prefix].logConflicts(m.logger.With(
+			logfields.CIDR, prefix,
+			logfields.ClusterID, prefix.ClusterID(),
+		))
 	}
 
 	if !changed {
@@ -483,11 +484,11 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 				// ensure that if the other owner ever releases
 				// their reference, this reference stays live.
 				if option.Config.Debug {
-					log.WithFields(logrus.Fields{
-						logfields.Prefix:      prefix,
-						logfields.IdentityOld: oldID.ID,
-						logfields.Identity:    entry.identity.ID,
-					}).Debug("Acquiring Identity reference")
+					ipc.logger.Debug(
+						"Acquiring Identity reference",
+						logfields.IdentityOld, oldID.ID,
+						logfields.Identity, entry.identity.ID,
+					)
 				}
 			} else {
 				previouslyAllocatedIdentities[prefix] = oldID
@@ -524,10 +525,10 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 					unmanagedPrefixes[prefix] = unmanagedEntry.identity
 
 					if option.Config.Debug {
-						log.WithFields(logrus.Fields{
-							logfields.Prefix:      prefix,
-							logfields.IdentityOld: oldID.ID,
-						}).Debug("Previously managed IPCache entry is now unmanaged")
+						ipc.logger.Debug(
+							"Previously managed IPCache entry is now unmanaged",
+							logfields.IdentityOld, oldID.ID,
+						)
 					}
 				} else if oldID.exclusivelyOwnedByLegacyAPI() {
 					// Even if we never actually overwrote the legacy-owned
@@ -592,10 +593,12 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 				ExistingSrc: oldID.Source,
 				NewSrc:      entry.identity.Source,
 			})) {
-				log.WithError(err2).WithFields(logrus.Fields{
-					logfields.IPAddr:   prefix,
-					logfields.Identity: entry.identity.ID,
-				}).Error("Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.")
+				ipc.logger.Error(
+					"Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.",
+					logfields.Error, err2,
+					logfields.IPAddr, prefix,
+					logfields.Identity, entry.identity.ID,
+				)
 			}
 		}
 	}
@@ -607,11 +610,11 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		}
 		released, err := ipc.IdentityAllocator.Release(ctx, realID, false)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Identity:       realID,
-				logfields.IdentityLabels: realID.Labels,
-			}).Warning(
+			ipc.logger.Warn(
 				"Failed to release previously allocated identity during ipcache metadata injection.",
+				logfields.Error, err,
+				logfields.Identity, realID,
+				logfields.IdentityLabels, realID.Labels,
 			)
 		}
 
@@ -627,10 +630,11 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 			// but all identity references have been released. We should then delete this prefix.
 			if oldID, unmanaged := unmanagedPrefixes[prefix]; unmanaged && oldID.ID == id.ID {
 				entriesToDelete[prefix] = oldID
-				log.WithFields(logrus.Fields{
-					logfields.IPAddr:   prefix,
-					logfields.Identity: id,
-				}).Debug("Force-removing released prefix from the ipcache.")
+				ipc.logger.Debug(
+					"Force-removing released prefix from the ipcache.",
+					logfields.IPAddr, prefix,
+					logfields.Identity, id,
+				)
 			}
 		}
 	}
@@ -698,11 +702,13 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCl
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
 		id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.ClusterID: prefix.ClusterID(),
-				logfields.IPAddr:    prefix,
-				logfields.Labels:    identityOverrideLabels,
-			}).Warning("Failed to allocate new identity for prefix's IdentityOverrideLabels.")
+			ipc.logger.Warn(
+				"Failed to allocate new identity for prefix's IdentityOverrideLabels.",
+				logfields.Error, err,
+				logfields.ClusterID, prefix.ClusterID(),
+				logfields.IPAddr, prefix,
+				logfields.Labels, identityOverrideLabels,
+			)
 		}
 		return id, isNew, err
 	}
@@ -744,10 +750,12 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCl
 	// number of identities.
 	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, restoredIdentity)
 	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.IPAddr: prefix,
-			logfields.Labels: lbls,
-		}).Warning("Failed to allocate new identity for prefix's Labels.")
+		ipc.logger.Warn(
+			"Failed to allocate new identity for prefix's Labels.",
+			logfields.Error, err,
+			logfields.IPAddr, prefix,
+			logfields.Labels, lbls,
+		)
 		return nil, false, err
 	}
 	if lbls.HasWorldLabel() {
@@ -841,7 +849,10 @@ func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.La
 		newLabels.MergeLabels(l)
 	}
 
-	log.WithField(logfields.Labels, newLabels).Debug("Merged labels for reserved:host identity")
+	ipc.logger.Debug(
+		"Merged labels for reserved:host identity",
+		logfields.Labels, newLabels,
+	)
 
 	return identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
 }
@@ -912,7 +923,7 @@ func (m *metadata) remove(prefix cmtypes.PrefixCluster, resource types.ResourceI
 	affected := m.findAffectedChildPrefixes(prefix)
 
 	for _, a := range aux {
-		info[resource].unmerge(a)
+		info[resource].unmerge(m.logger, a)
 	}
 	if !info[resource].isValid() {
 		delete(info, resource)
