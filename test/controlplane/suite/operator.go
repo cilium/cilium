@@ -45,11 +45,12 @@ func setupCiliumOperatorHive(clients *k8sClient.FakeClientset) *hive.Hive {
 }
 
 func populateCiliumOperatorOptions(
+	log *slog.Logger,
 	vp *viper.Viper,
 	modConfig func(*option.OperatorConfig),
 	modCellConfig func(vp *viper.Viper),
 ) {
-	option.Config.Populate(vp)
+	option.Config.Populate(log, vp)
 
 	// Apply the controlplane tests default configuration
 	vp.Set(apis.SkipCRDCreation, true)

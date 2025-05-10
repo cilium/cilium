@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -26,8 +27,9 @@ func TestGammaConformance(t *testing.T) {
 
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
 			input := readGammaInput(t, name)
-			listeners := GammaHTTPRoutes(input)
+			listeners := GammaHTTPRoutes(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGammaTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)

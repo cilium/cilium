@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +35,7 @@ func Test_getService(t *testing.T) {
 	}
 
 	t.Run("Default LB service", func(t *testing.T) {
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, nil, false)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -70,7 +71,7 @@ func Test_getService(t *testing.T) {
 	})
 
 	t.Run("Default LB service with TLS only", func(t *testing.T) {
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, nil, true)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -101,7 +102,7 @@ func Test_getService(t *testing.T) {
 	})
 
 	t.Run("Invalid LB service annotation, defaults to LoadBalancer", func(t *testing.T) {
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, &model.Service{
 			Type: "InvalidServiceType",
 		}, false)
@@ -141,7 +142,7 @@ func Test_getService(t *testing.T) {
 	t.Run("Node Port service", func(t *testing.T) {
 		var insecureNodePort uint32 = 3000
 		var secureNodePort uint32 = 3001
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, &model.Service{
 			Type:             "NodePort",
 			InsecureNodePort: &insecureNodePort,
@@ -296,6 +297,7 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
+				logger: hivetest.Logger(t),
 				cecTranslator: translation.NewCECTranslator(translation.Config{
 					SecretsNamespace: "cilium-secrets",
 					HostNetworkConfig: translation.HostNetworkConfig{

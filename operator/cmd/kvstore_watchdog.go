@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -61,20 +62,20 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 	return oldestLeases
 }
 
-func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
-	log.WithField(logfields.Interval, defaults.LockLeaseTTL).Infof("Starting kvstore watchdog")
+func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig) {
+	logger.Info("Starting kvstore watchdog", logfields.Interval, defaults.LockLeaseTTL)
 
-	backend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{
+	backend, err := kvstoreallocator.NewKVStoreBackend(logger, kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
 		Backend:  kvstore.Client(),
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity garbage collection")
+		logging.Fatal(logger, "Unable to initialize kvstore backend for identity garbage collection", logfields.Error, err)
 	}
 
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
-	a := allocator.NewAllocatorForGC(logging.DefaultSlogLogger, backend, allocator.WithMin(minID), allocator.WithMax(maxID))
+	a := allocator.NewAllocatorForGC(logger, backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	keysToDelete := map[string]kvstore.Value{}
 	go func() {
@@ -83,7 +84,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			keysToDelete2, err := a.RunLocksGC(ctx, keysToDelete)
 			if err != nil {
-				log.WithError(err).Warning("Unable to run security identity garbage collector")
+				logger.Warn("Unable to run security identity garbage collector", logfields.Error, err)
 			} else {
 				keysToDelete = keysToDelete2
 			}
@@ -99,7 +100,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 
 			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
 			if err != nil {
-				log.WithError(err).Warning("Unable to update heartbeat key")
+				logger.Warn("Unable to update heartbeat key", logfields.Error, err)
 			}
 
 			if option.Config.ClusterName != defaults.ClusterName && option.Config.ClusterID != 0 {
@@ -112,7 +113,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
 				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
-					log.WithError(err).Warning("Unable to set local cluster config")
+					logger.Warn("Unable to set local cluster config", logfields.Error, err)
 				}
 			}
 
