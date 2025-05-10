@@ -3,19 +3,15 @@ description: Rotates IPsec keys
 inputs:
   key-algo:
     required: true
-    type: string
-    description: "gcm(aes) or cbc(aes)"
+    description: "gcm-aes or hmac-sha256"
   tunnel:
     required: true
-    type: string
     description: "the tunnel mode used, 'disabled' if native routing"
   nb-nodes:
     required: true
-    type: string
     description: "Number of nodes in the cluster or clustermesh"
   ipv6:
     required: true
-    type: boolean
     description: "Whether IPv6 is enabled. Note IPv4 is always enabled if IPsec is enabled."
 runs:
   using: composite
@@ -23,33 +19,17 @@ runs:
     - name: Rotate IPsec Key
       shell: bash
       run: |
-        KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
-        if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+        echo "Updating IPsec secret"
+        cilium encrypt rotate-key --auth-algo ${{ inputs.key-algo }}
 
-        if [[ "${{ inputs.key-algo }}" == "gcm(aes)" ]]; then
-          key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-        elif [[ "${{ inputs.key-algo }}" == "cbc(aes)" ]]; then
-          key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-        else
-          echo "Invalid key type"; exit 1
-        fi
-        data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ ${key}\"}}"
+        new_key=$(cilium encrypt key-status)
+        echo "New IPSec key: $new_key"
 
-        echo "Updating IPsec secret with $data"
-        kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+        # We have two keys per node, per direction, per IP family.
+        # So a two-nodes IPv4-only cluster will have four keys.
+        exp_nb_keys=$(cilium encrypt status -o json | jq -r '."ipsec-expected-key-count"')
+        echo "Expected IpSec key count: $exp_nb_keys"
 
-        # We have two keys per node, per direction, per IP family. So a two-nodes IPv4-only cluster
-        # will have four keys.
-        exp_nb_keys=${{ inputs.nb-nodes }}
-        ((exp_nb_keys*=2))
-        if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
-          ((exp_nb_keys*=2))
-        fi
-        # If running in tunneling mode, then we have twice the amount of states
-        # and keys to handle encrypted overlay traffic.
-        if [[ "${{ inputs.tunnel }}" != "disabled" ]]; then
-          ((exp_nb_keys*=2))
-        fi
         # During the key rotation, the number of keys doubles.
         ((exp_nb_keys*=2))
 
@@ -61,7 +41,7 @@ runs:
             break
           fi
           echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
-          sleep 30s
+          sleep 10s
         done
 
         # After the key rotation is finished and old keys are cleaned up, the number of keys is
@@ -77,5 +57,5 @@ runs:
             break
           fi
           echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
-          sleep 30s
+          sleep 10s
         done
