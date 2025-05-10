@@ -83,6 +83,7 @@ type loader struct {
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
 	nodeHandler     datapath.NodeHandler
+	config          *Config
 }
 
 type Params struct {
@@ -94,6 +95,7 @@ type Params struct {
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
 	NodeHandler     datapath.NodeHandler
+	Config          *Config
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -111,6 +113,7 @@ func newLoader(p Params) *loader {
 		compilationLock:   p.CompilationLock,
 		configWriter:      p.ConfigWriter,
 		nodeHandler:       p.NodeHandler,
+		config:            p.Config,
 	}
 }
 

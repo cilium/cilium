@@ -1036,6 +1036,10 @@
      - Enable debug logging
      - bool
      - ``false``
+   * - :spelling:ignore:`debug.errorOnUnusedMaps`
+     - Enable throwing errors instead of warning logs when Cilium loads maps that are not used by the agent. This is useful for debugging and testing purposes.
+     - bool
+     - ``false``
    * - :spelling:ignore:`debug.metricsSamplingInterval`
      - Set the agent-internal metrics sampling frequency. This sets the frequency of the internal sampling of the agent metrics. These are available via the "cilium-dbg shell -- metrics -s" command and are part of the metrics HTML page included in the sysdump. @schema type: [null, string] @schema
      - string

@@ -48,6 +48,7 @@ runs:
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
           --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
           --helm-set=hubble.relay.image.useDigest=false \
+          --helm-set=debug.errorOnUnusedMaps=true \
           --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
           --set-string=extraEnv[0].value=true"
 

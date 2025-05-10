@@ -1616,6 +1616,9 @@
         "enabled": {
           "type": "boolean"
         },
+        "errorOnUnusedMaps": {
+          "type": "boolean"
+        },
         "metricsSamplingInterval": {
           "type": [
             "null",

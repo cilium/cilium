@@ -188,6 +188,7 @@ jobs:
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
+            --set=debug.errorOnUnusedMaps=true \
             --set=hubble.enabled=true \
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \

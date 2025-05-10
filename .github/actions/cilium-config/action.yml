@@ -83,6 +83,7 @@ runs:
             --helm-set=debug.enabled=true \
             --helm-set=debug.verbose=envoy \
             --helm-set=debug.metricsSamplingInterval=30s \
+            --helm-set=debug.errorOnUnusedMaps=true \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=cluster.name=default \
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
