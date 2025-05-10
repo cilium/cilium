@@ -101,7 +101,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.envoy.healthPort }}
+            port: health
             scheme: HTTP
           failureThreshold: {{ .Values.envoy.startupProbe.failureThreshold }}
           periodSeconds: {{ .Values.envoy.startupProbe.periodSeconds }}
@@ -111,7 +111,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.envoy.healthPort }}
+            port: health
             scheme: HTTP
           periodSeconds: {{ .Values.envoy.livenessProbe.periodSeconds }}
           successThreshold: 1
@@ -121,7 +121,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.envoy.healthPort }}
+            port: health
             scheme: HTTP
           periodSeconds: {{ .Values.envoy.readinessProbe.periodSeconds }}
           successThreshold: 1
@@ -162,6 +162,10 @@ spec:
         {{- end }}
         {{- if .Values.envoy.prometheus.enabled }}
         ports:
+        - name: health
+          containerPort: {{ .Values.envoy.healthPort }}
+          hostPort: {{ .Values.envoy.healthPort }}
+          protocol: TCP
         - name: envoy-metrics
           containerPort: {{ .Values.envoy.prometheus.port }}
           hostPort: {{ .Values.envoy.prometheus.port }}
