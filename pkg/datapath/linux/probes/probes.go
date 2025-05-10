@@ -681,18 +681,7 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 
 	progHelpers := []ProgramHelper{
 		// common probes
-		{ebpf.CGroupSock, asm.FnGetNetnsCookie},
-		{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie},
-		{ebpf.CGroupSock, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnJiffies64},
-		{ebpf.SchedCLS, asm.FnJiffies64},
-		{ebpf.XDP, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
-
-		// skb related probes
-		{ebpf.SchedCLS, asm.FnSkbChangeTail},
-		{ebpf.SchedCLS, asm.FnCsumLevel},
 
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
@@ -709,13 +698,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
-		"HAVE_JIFFIES": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
-		"HAVE_CGROUP_ID":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
 		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 	}
 
@@ -724,9 +706,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 
 // writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
-	featuresSkb := map[string]bool{
-		"HAVE_CSUM_LEVEL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
-	}
+	featuresSkb := map[string]bool{}
 
 	return writeFeatureHeader(writer, featuresSkb, false)
 }

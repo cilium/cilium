@@ -11,7 +11,6 @@
 #undef ENABLE_HEALTH_CHECK
 #define ENABLE_LOCAL_REDIRECT_POLICY 1
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
-#define HAVE_NETNS_COOKIE 1
 
 #include <bpf_lxc.c>
 

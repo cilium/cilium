@@ -40,8 +40,16 @@ func CheckRequirements(log *slog.Logger) error {
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager(log)
 
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkbChangeTail) != nil {
+			return errors.New("Require support for bpf_skb_change_tail() (Linux 4.9.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId) != nil {
+			return errors.New("Require support for bpf_get_current_cgroup_id() (Linux 4.18 or newer)")
 		}
 
 		if probes.HaveDeadCodeElim() != nil {
@@ -58,6 +66,22 @@ func CheckRequirements(log *slog.Logger) error {
 
 		if probes.HaveSKBAdjustRoomL2RoomMACSupport(log) != nil {
 			return errors.New("Require support for bpf_skb_adjust_room with BPF_ADJ_ROOM_MAC mode (Linux 5.2 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnJiffies64) != nil ||
+			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnJiffies64) != nil ||
+			probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnJiffies64) != nil ||
+			probes.HaveProgramHelper(log, ebpf.XDP, asm.FnJiffies64) != nil {
+			return errors.New("Require support for bpf_jiffies64 (Linux 5.6.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			return errors.New("Require support for bpf_get_netns_cookie() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {
+			return errors.New("Require support for bpf_csum_level() (Linux 5.8.0 or newer)")
 		}
 
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectNeigh) != nil {
