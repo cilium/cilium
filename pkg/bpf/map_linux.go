@@ -737,7 +737,8 @@ func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
 // the maximum map size. If this limit is reached, ErrMaxLookup is returned.
 //
 // The caller must provide a callback for handling each entry, and a stats
-// object initialized via a call to NewDumpStats().
+// object initialized via a call to NewDumpStats(). The callback function must
+// not invoke any map operations that acquire the Map.lock.
 func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error {
 	if cb == nil {
 		return errors.New("empty callback")
@@ -761,6 +762,17 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 
 	if err := m.Open(); err != nil {
 		return err
+	}
+
+	// Acquire a (write) lock here as callers can invoke map operations in the
+	// DumpCallback that need a (write) lock.
+	// See PR for more details. - https://github.com/cilium/cilium/pull/38590.
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if m.m == nil {
+		// We currently don't prevent open maps from being closed.
+		// See GH issue - https://github.com/cilium/cilium/issues/39287.
+		return errors.New("map is closed")
 	}
 
 	// Get the first map key.
@@ -1304,6 +1316,16 @@ func (m *Map) Delete(key MapKey) error {
 	defer m.lock.Unlock()
 
 	_, err := m.delete(key, false)
+	return err
+}
+
+// DeleteLocked deletes the map entry for the given key.
+//
+// This method must be called from within a DumpCallback to avoid deadlocks,
+// as it assumes the m.lock is already acquired.
+func (m *Map) DeleteLocked(key MapKey) error {
+	_, err := m.delete(key, false)
+
 	return err
 }
 
