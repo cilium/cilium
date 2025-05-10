@@ -89,3 +89,5 @@ add_type(struct node_key);
 add_type(struct node_value);
 add_type(struct skip_lb4_key);
 add_type(struct skip_lb6_key);
+add_type(struct device_key);
+add_type(struct device_value);

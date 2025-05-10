@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/devicemap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
@@ -130,6 +131,8 @@ func init() {
 		"ratelimit_value":         {ratelimitmap.Value{}},
 		"ratelimit_metrics_key":   {ratelimitmap.MetricsKey{}},
 		"ratelimit_metrics_value": {ratelimitmap.MetricsValue{}},
+		"device_key":              {devicemap.DeviceKey{}},
+		"device_value":            {devicemap.DeviceValue{}},
 	})
 
 	registerToCheckSizes(map[string][]any{

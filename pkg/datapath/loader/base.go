@@ -31,6 +31,8 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/devicemap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -355,6 +357,49 @@ func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 	return nil
 }
 
+func (l *loader) reinitializeDeviceMap(ctx context.Context, lnc *datapath.LocalNodeConfiguration) error {
+	deviceCache := map[uint32]*tables.Device{}
+	// Create or update devices in the device bpf map
+	for _, dev := range lnc.Devices {
+		deviceCache[uint32(dev.Index)] = dev
+		isL3 := uint8(0)
+		parsedMAC, _ := mac.ParseMAC(dev.HardwareAddr.String())
+		uint64MAC, err := parsedMAC.Uint64()
+		if err != nil {
+			l.logger.Warn("Failed to parse device mac",
+				logfields.Error, err,
+				logfields.Device, dev,
+			)
+			isL3 = uint8(1)
+		}
+
+		err = l.deviceMap.Update(uint32(dev.Index), uint64MAC, isL3)
+		if err != nil {
+			l.logger.Warn("Failed to update entry for device bpf map",
+				logfields.Error, err,
+				logfields.Device, dev,
+			)
+			return err
+		}
+	}
+
+	// Remove non-existent devices in the device bpf map
+	l.deviceMap.IterateWithCallback(
+		func(key *devicemap.DeviceKey, val *devicemap.DeviceValue) {
+			if dev, found := deviceCache[key.IfIndex]; !found {
+				err := l.deviceMap.Delete(key.IfIndex)
+				if err != nil {
+					l.logger.Warn("Failed to delete entry from device bpf map",
+						logfields.Error, err,
+						logfields.Device, dev,
+					)
+				}
+			}
+		})
+
+	return nil
+}
+
 // Reinitialize (re-)configures the base datapath configuration including global
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
@@ -460,6 +505,10 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 			)
 			return err
 		}
+	}
+
+	if err := l.reinitializeDeviceMap(ctx, lnc); err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
