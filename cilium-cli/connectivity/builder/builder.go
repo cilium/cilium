@@ -273,6 +273,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		podToPodEncryptionV2{},
 		nodeToNodeEncryption{},
 		egressGateway{},
+		egressGatewayMultigateway{},
 		egressGatewayExcludedCidrs{},
 		egressGatewayWithL7Policy{},
 		podToNodeCidrpolicy{},
