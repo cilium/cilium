@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -14,6 +15,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/pkg/ipalloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -74,6 +77,11 @@ type BGPResourceManager struct {
 
 	// enable/disable status reporting
 	enableStatusReporting bool
+
+	// bgp routerID allocation through the ip pool
+	bgpRouterIDIPPoolEnabled bool
+	bgpRouterIDIPPool        *ipalloc.HashAllocator[string]
+	bgpRouterIDMap           map[string]*netip.Addr
 }
 
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
@@ -91,19 +99,41 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		health:    p.Health,
 		metrics:   p.Metrics,
 
-		reconcileCh:        make(chan struct{}, 1),
-		bgpClusterSyncCh:   make(chan struct{}, 1),
-		clusterConfig:      p.ClusterConfigResource,
-		nodeConfigOverride: p.NodeConfigOverrideResource,
-		nodeConfig:         p.NodeConfigResource,
-		peerConfig:         p.PeerConfigResource,
-		ciliumNode:         p.NodeResource,
-
+		reconcileCh:           make(chan struct{}, 1),
+		bgpClusterSyncCh:      make(chan struct{}, 1),
+		bgpRouterIDMap:        make(map[string]*netip.Addr),
+		clusterConfig:         p.ClusterConfigResource,
+		nodeConfigOverride:    p.NodeConfigOverrideResource,
+		nodeConfig:            p.NodeConfigResource,
+		peerConfig:            p.PeerConfigResource,
+		ciliumNode:            p.NodeResource,
 		enableStatusReporting: p.DaemonConfig.EnableBGPControlPlaneStatusReport,
 	}
+	if p.DaemonConfig.BGPRouterIDAllocationMode == option.BGPRouterIDAllocationModeIPPool {
+		ipnet, err := netip.ParsePrefix(p.DaemonConfig.BGPRouterIDAllocationIPPool)
+		if err != nil {
+			err = fmt.Errorf("failed to parse BGP router ID IP pool: %w", err)
+			b.logger.Error(err.Error())
+			b.health.Degraded("BGP manager health degraded", err)
+		}
+		if !ipnet.Addr().Is4() {
+			err = fmt.Errorf("BGP router ID IP pool is not an IPv4 CIDR")
+			b.logger.Error(err.Error())
+			b.health.Degraded("BGP manager health degraded", err)
+		}
 
+		from, to := lbipam.RangeFromPrefix(ipnet)
+		// 50 router IDs as the initial size is enough for hash map since we don't expect more than too many nodes
+		//to run BGP with upstream routers and it can still grow if needed.
+		b.bgpRouterIDIPPool, err = ipalloc.NewHashAllocator[string](from, to, 50)
+		if err != nil {
+			err = fmt.Errorf("failed to create router ID IP pool: %w", err)
+			b.logger.Error(err.Error())
+			b.health.Degraded("BGP manager health degraded", err)
+		}
+		b.bgpRouterIDIPPoolEnabled = true
+	}
 	b.nodeConfigClient = b.clientset.CiliumV2().CiliumBGPNodeConfigs()
-
 	// initialize jobs and register them with lifecycle
 	b.initializeJobs()
 

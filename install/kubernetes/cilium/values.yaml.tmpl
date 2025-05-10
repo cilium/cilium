@@ -492,6 +492,8 @@ bgpControlPlane:
   routerIDAllocation:
     # -- BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
     mode: "default"
+    # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
+    ipPool: ""
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
