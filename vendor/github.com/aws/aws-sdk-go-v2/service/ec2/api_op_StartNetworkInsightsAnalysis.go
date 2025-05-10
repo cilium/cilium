@@ -55,6 +55,9 @@ type StartNetworkInsightsAnalysisInput struct {
 	// The Amazon Resource Names (ARN) of the resources that the path must traverse.
 	FilterInArns []string
 
+	// The Amazon Resource Names (ARN) of the resources that the path will ignore.
+	FilterOutArns []string
+
 	// The tags to apply.
 	TagSpecifications []types.TagSpecification
 

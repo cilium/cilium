@@ -11,39 +11,28 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Attaches a network interface to an instance.
-func (c *Client) AttachNetworkInterface(ctx context.Context, params *AttachNetworkInterfaceInput, optFns ...func(*Options)) (*AttachNetworkInterfaceOutput, error) {
+// Delete the specified local gateway interface group.
+func (c *Client) DeleteLocalGatewayVirtualInterfaceGroup(ctx context.Context, params *DeleteLocalGatewayVirtualInterfaceGroupInput, optFns ...func(*Options)) (*DeleteLocalGatewayVirtualInterfaceGroupOutput, error) {
 	if params == nil {
-		params = &AttachNetworkInterfaceInput{}
+		params = &DeleteLocalGatewayVirtualInterfaceGroupInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachNetworkInterface", params, optFns, c.addOperationAttachNetworkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteLocalGatewayVirtualInterfaceGroup", params, optFns, c.addOperationDeleteLocalGatewayVirtualInterfaceGroupMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*AttachNetworkInterfaceOutput)
+	out := result.(*DeleteLocalGatewayVirtualInterfaceGroupOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for AttachNetworkInterface.
-type AttachNetworkInterfaceInput struct {
+type DeleteLocalGatewayVirtualInterfaceGroupInput struct {
 
-	// The index of the device for the network interface attachment.
+	// The ID of the local gateway virtual interface group to delete.
 	//
 	// This member is required.
-	DeviceIndex *int32
-
-	// The ID of the instance.
-	//
-	// This member is required.
-	InstanceId *string
-
-	// The ID of the network interface.
-	//
-	// This member is required.
-	NetworkInterfaceId *string
+	LocalGatewayVirtualInterfaceGroupId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -51,29 +40,13 @@ type AttachNetworkInterfaceInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The number of ENA queues to be created with the instance.
-	EnaQueueCount *int32
-
-	// Configures ENA Express for the network interface that this action attaches to
-	// the instance.
-	EnaSrdSpecification *types.EnaSrdSpecification
-
-	// The index of the network card. Some instance types support multiple network
-	// cards. The primary network interface must be assigned to network card index 0.
-	// The default is network card index 0.
-	NetworkCardIndex *int32
-
 	noSmithyDocumentSerde
 }
 
-// Contains the output of AttachNetworkInterface.
-type AttachNetworkInterfaceOutput struct {
+type DeleteLocalGatewayVirtualInterfaceGroupOutput struct {
 
-	// The ID of the network interface attachment.
-	AttachmentId *string
-
-	// The index of the network card.
-	NetworkCardIndex *int32
+	// Information about the deleted local gateway virtual interface group.
+	LocalGatewayVirtualInterfaceGroup *types.LocalGatewayVirtualInterfaceGroup
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -81,19 +54,19 @@ type AttachNetworkInterfaceOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteLocalGatewayVirtualInterfaceGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteLocalGatewayVirtualInterfaceGroup{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpAttachNetworkInterface{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteLocalGatewayVirtualInterfaceGroup{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "AttachNetworkInterface"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteLocalGatewayVirtualInterfaceGroup"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -148,10 +121,10 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpAttachNetworkInterfaceValidationMiddleware(stack); err != nil {
+	if err = addOpDeleteLocalGatewayVirtualInterfaceGroupValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachNetworkInterface(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteLocalGatewayVirtualInterfaceGroup(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -184,10 +157,10 @@ func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware
 	return nil
 }
 
-func newServiceMetadataMiddleware_opAttachNetworkInterface(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDeleteLocalGatewayVirtualInterfaceGroup(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "AttachNetworkInterface",
+		OperationName: "DeleteLocalGatewayVirtualInterfaceGroup",
 	}
 }
