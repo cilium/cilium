@@ -317,6 +317,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.ops = n.instancesAPI.CreateNode(resource, node)
 
 		backoff := &backoff.Exponential{
+			Logger:      n.logger,
 			Max:         5 * time.Minute,
 			Jitter:      true,
 			NodeManager: n,

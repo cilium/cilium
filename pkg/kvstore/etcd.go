@@ -697,9 +697,10 @@ func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
 
 func newExpBackoffRateLimiter(e *etcdClient, name string) backoff.Exponential {
 	errLimiter := backoff.Exponential{
-		Name: name,
-		Min:  50 * time.Millisecond,
-		Max:  1 * time.Minute,
+		Logger: e.logger,
+		Name:   name,
+		Min:    50 * time.Millisecond,
+		Max:    1 * time.Minute,
 	}
 
 	if e != nil && e.extraOptions != nil {
