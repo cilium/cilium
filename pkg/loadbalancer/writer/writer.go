@@ -451,6 +451,23 @@ func (w *Writer) DeleteServicesBySource(txn WriteTxn, source source.Source) erro
 	return nil
 }
 
+// DeletesBackendsBySource deletes all backends from the specific source.
+func (w *Writer) DeleteBackendsBySource(txn WriteTxn, source source.Source) error {
+	// Iterating over all as this is a rare operation and it would be costly
+	// to always index by source.
+	for be := range w.bes.All(txn) {
+		for key, inst := range be.Instances.All() {
+			if inst.Source == source {
+				if err := w.removeBackendRef(txn, key.ServiceName, be); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
 // UpsertBackends adds/updates backends for the given service.
 func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, bes ...loadbalancer.BackendParams) error {
 	refs, err := w.updateBackends(txn, serviceName, source, LocalClusterID, bes)

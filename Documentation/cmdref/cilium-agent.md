@@ -313,6 +313,7 @@ cilium-agent [flags]
       --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous arp messages
       --label-prefix-file string                                  Valid label prefixes file path
       --labels strings                                            List of label prefixes used to determine identity of an endpoint
+      --lb-state-file string                                      Synchronize load-balancing state from the specified file
       --lib-dir string                                            Directory path to store runtime build environment (default "/var/lib/cilium")
       --local-router-ipv4 string                                  Link-local IPv4 used for Cilium's router devices
       --local-router-ipv6 string                                  Link-local IPv6 used for Cilium's router devices
