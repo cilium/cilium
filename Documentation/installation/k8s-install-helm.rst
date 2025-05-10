@@ -166,6 +166,11 @@ Install Cilium
          remember to replace ``eth+`` with the proper interface name. For
          reference, Amazon Linux 2 uses ``eth+``, whereas Amazon Linux 2023 uses
          ``ens+``. Mixed node clusters are not supported currently.
+         
+         Even if ``enableIPv4Masquerade`` is set to ``true`` in the ENI environment 
+         the pod traffic to its VPC will not be masqueraded, since Cilium treats
+         the entire VPC CIDR as the cluster range.
+
 
     .. group-tab:: OpenShift
 
