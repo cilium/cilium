@@ -237,6 +237,23 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
+			// If this is a scheme redirect, add a header matcher to prevent redirect loops
+			if hRoutes[0].RequestRedirect.Scheme != nil {
+				// Add a header matcher to only apply the redirect if the scheme doesn't match the target scheme
+				// This prevents redirect loops when the request already has the target scheme
+				schemeHeader := &envoy_config_route_v3.HeaderMatcher{
+					Name: ":scheme",
+					HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+						StringMatch: &envoy_type_matcher_v3.StringMatcher{
+							MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+								Exact: *hRoutes[0].RequestRedirect.Scheme,
+							},
+						},
+					},
+					InvertMatch: true, // Only match if the scheme is NOT the target scheme
+				}
+				route.Match.Headers = append(route.Match.Headers, schemeHeader)
+			}
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
 			route.Action = getRouteAction(&r, backends, r.BackendHTTPFilters, r.Rewrite, r.RequestMirrors)
@@ -449,7 +466,10 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter, listenerPort uint32) *envoy_config_route_v3.Route_Redirect {
 	redirectAction := &envoy_config_route_v3.RedirectAction{}
 
+	// Add scheme-based condition to prevent redirect loops
 	if redirect.Scheme != nil {
+		// Add a header matcher to only apply the redirect if the scheme doesn't match the target scheme
+		// This prevents redirect loops when the request already has the target scheme
 		redirectAction.SchemeRewriteSpecifier = &envoy_config_route_v3.RedirectAction_SchemeRedirect{
 			SchemeRedirect: *redirect.Scheme,
 		}
