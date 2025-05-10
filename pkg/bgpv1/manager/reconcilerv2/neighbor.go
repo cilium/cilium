@@ -180,6 +180,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	nset := map[string]*member{}
 
 	for i, n := range newNeigh {
+		l := l.With(types.PeerLogField, n.Name)
 		// validate that peer has ASN and address. In current implementation these fields are
 		// mandatory for a peer. Eventually we will relax this restriction with implementation
 		// of BGP unnumbered.
@@ -193,16 +194,14 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			case v2.BGPDefaultGatewayMode:
 				defaultGateway, err := r.getDefaultGateway(n.AutoDiscovery.DefaultGateway)
 				if err != nil {
-					r.logger.Debug("failed to get default gateway, skipping",
-						types.PeerLogField,
-						n.Name,
+					l.Debug("failed to get default gateway, skipping",
 						logfields.Error,
 						err)
 					continue
 				}
 				newNeigh[i].PeerAddress = &defaultGateway
 			default:
-				r.logger.Debug("Peer does not have PeerAddress configured, skipping", types.PeerLogField, n.Name)
+				l.Debug("Peer does not have PeerAddress configured, skipping")
 				continue
 			}
 		}
