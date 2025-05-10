@@ -329,7 +329,9 @@ func newConnectivityTests(
 	connTests := make([]*check.ConnectivityTest, 0, params.TestConcurrency)
 	for i := range params.TestConcurrency {
 		params := params
-		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
+		if params.TestConcurrency > 1 {
+			params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
+		}
 		params.TestNamespaceIndex = i
 		if params.ExternalTargetCANamespace == "" {
 			params.ExternalTargetCANamespace = params.TestNamespace
