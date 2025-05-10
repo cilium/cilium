@@ -104,6 +104,7 @@ jobs:
           destination_directory="/tmp/generated/gke"
           mkdir -p "${destination_directory}"
 
+          # shellcheck disable=SC2010
           ls ${work_dir}/*.yaml | grep -v 'schema\|classic' | while read file;do
             filename=$(basename "$file")
             new_filename="${filename%.yaml}.json"
@@ -121,6 +122,7 @@ jobs:
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
+          # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
             cp gke.json /tmp/matrix.json
           else
@@ -334,7 +336,7 @@ jobs:
       - name: Create custom IPsec secret
         if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
         run: |
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
 
       - name: Install Cilium
         id: install-cilium
