@@ -294,6 +294,12 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableCiliumClusterwideNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumClusterwideNetworkPolicy)
 
+	flags.Bool(option.EnableWireguard, false, "Enable WireGuard")
+	option.BindEnv(vp, option.EnableWireguard)
+
+	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPsec support")
+	option.BindEnv(vp, option.EnableIPSecName)
+
 	// Options used for policy validation
 
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
