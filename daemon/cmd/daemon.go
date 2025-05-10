@@ -74,13 +74,14 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ctx       context.Context
-	logger    *slog.Logger
-	clientset k8sClient.Clientset
-	db        *statedb.DB
-	svc       service.ServiceManager
-	policy    policy.PolicyRepository
-	idmgr     identitymanager.IDManager
+	ctx             context.Context
+	logger          *slog.Logger
+	metricsRegistry *metrics.Registry
+	clientset       k8sClient.Clientset
+	db              *statedb.DB
+	svc             service.ServiceManager
+	policy          policy.PolicyRepository
+	idmgr           identitymanager.IDManager
 
 	monitorAgent monitoragent.Agent
 
@@ -259,7 +260,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
+	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 
 	lbmapInitParams := lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -273,7 +274,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		SourceRangeMapMaxEntries: params.LBConfig.LBSourceRangeMapEntries,
 		MaglevMapMaxEntries:      params.LBConfig.LBMaglevMapEntries,
 	}
-	lbmap.Init(lbmapInitParams)
+	lbmap.Init(params.MetricsRegistry, lbmapInitParams)
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
@@ -283,6 +284,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d := Daemon{
 		ctx:              ctx,
 		logger:           params.Logger,
+		metricsRegistry:  params.MetricsRegistry,
 		clientset:        params.Clientset,
 		db:               params.DB,
 		mtuConfig:        params.MTU,
@@ -295,6 +297,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		nodeLocalStore:   params.LocalNodeStore,
 		controllers:      controller.NewManager(),
 		jobGroup:         params.JobGroup,
+
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
@@ -726,7 +729,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			syncVTEPControllerGroup.Name,
 			controller.ControllerParams{
 				Group:       syncVTEPControllerGroup,
-				DoFunc:      syncVTEP,
+				DoFunc:      func(context.Context) error { return syncVTEP(d.metricsRegistry) },
 				RunInterval: time.Minute,
 				Context:     d.ctx,
 			})

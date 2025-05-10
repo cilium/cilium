@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -525,13 +526,13 @@ func (v *SockRevNat6Value) String() string {
 func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
 
 // CreateSockRevNat6Map creates the reverse NAT sock map.
-func CreateSockRevNat6Map() error {
+func CreateSockRevNat6Map(registry *metrics.Registry) error {
 	SockRevNat6Map = bpf.NewMap(SockRevNat6MapName,
 		ebpf.LRUHash,
 		&SockRevNat6Key{},
 		&SockRevNat6Value{},
 		MaxSockRevNat6MapEntries,
 		0,
-	).WithPressureMetric()
+	).WithPressureMetric(registry)
 	return SockRevNat6Map.OpenOrCreate()
 }
