@@ -192,7 +192,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 				 struct bpf_fib_lookup_padded *fib_params,
 				 __s8 *ext_err)
 {
-	int oif = THIS_INTERFACE_IFINDEX;
+	__u32 oif;
 	int ret;
 
 	ret = (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
@@ -200,10 +200,12 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		if ((__u32)oif == fib_params->l.ifindex)
+		oif = fib_params->l.ifindex;
+
+		if (oif == THIS_INTERFACE_IFINDEX)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, true, ret, &oif, ext_err);
+		return fib_do_redirect(ctx, true, fib_params, true, ret, oif, ext_err);
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
