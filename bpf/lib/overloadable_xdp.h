@@ -76,7 +76,8 @@ redirect_neigh(__u32 ifindex __maybe_unused,
 	       int plen __maybe_unused,
 	       __u32 flags __maybe_unused)
 {
-	return XDP_DROP;
+	/* Available only in TC BPF. */
+	__throw_build_bug();
 }
 
 static __always_inline __maybe_unused bool
