@@ -73,21 +73,17 @@ int test1_check(struct __ctx_buff *ctx)
 	test_init();
 
 	/* Simulate a successful fib lookup with an output interface.
-	 * We expect to enter ctx_redirect with the ifindex provided in the
-	 * fib params.
+	 * We expect to enter ctx_redirect with the provided ifindex.
 	 */
 	TEST("lookup_success", {
-		__u32 ifindex_bad  = 0xDEADBEEF;
 		__u32 ifindex_good = 0xAAAAAAAA;
 		int ret = -1;
 		struct bpf_fib_lookup_padded params = {0};
 		__s8 ext_err;
 
-		params.l.ifindex = ifindex_good;
-
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_SUCCESS,
-				      (int *)&ifindex_bad, &ext_err);
+				      ifindex_good, &ext_err);
 		if (ret != CTX_REDIRECT_ENTERED)
 			test_fatal("did not enter ctx_redirect");
 
@@ -105,24 +101,21 @@ int test1_check(struct __ctx_buff *ctx)
 	});
 
 	/* Simulate fib lookup with no neighbor return.
-	 * We expect to enter redirect_neigh with the ifindex provided in
-	 * fib params and a non-nil bpf_redir_neigh
+	 * We expect to enter redirect_neigh with provided ifindex
+	 * and a non-nil bpf_redir_neigh.
 	 */
 	TEST("lookup_no_neigh", {
-		__u32 ifindex_bad  = 0xDEADBEEF;
 		__u32 ifindex_good = 0xAAAAAAAA;
 		int ret = -1;
 		struct bpf_fib_lookup_padded params = {0};
 		__s8 ext_err;
-
-		params.l.ifindex = ifindex_good;
 
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_NO_NEIGH,
-				      (int *)&ifindex_bad, &ext_err);
+				      ifindex_good, &ext_err);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
@@ -159,7 +152,7 @@ int test1_check(struct __ctx_buff *ctx)
 
 		ret = fib_do_redirect(ctx, false, NULL, true,
 				      BPF_FIB_LKUP_RET_NO_NEIGH,
-				      (int *)&ifindex_good, &ext_err);
+				      ifindex_good, &ext_err);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
