@@ -14,11 +14,7 @@ CLANG_FLAGS += -Wdeclaration-after-statement
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 CLANG_FLAGS += -Wimplicit-fallthrough
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifneq ($(KERNEL),54)
 CLANG_FLAGS += -mcpu=v3
-else
-CLANG_FLAGS += -mcpu=v2
-endif
 
 LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
 BPF_C := $(patsubst %.o,%.c,$(BPF))
