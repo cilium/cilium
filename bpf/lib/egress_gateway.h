@@ -415,8 +415,6 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		if (!neigh_resolver_available())
 			return CTX_ACT_OK;
-		if (!is_defined(HAVE_FIB_IFINDEX))
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
