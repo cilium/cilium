@@ -871,11 +871,7 @@ struct ct_entry {
 	      from_tunnel:1,	/* Connection is over tunnel */
 	      reserved3:5;
 	__u16 rev_nat_index;
-	/* In the kernel ifindex is u32, so we need to check in cilium-agent
-	 * that ifindex of a NodePort device is <= MAX(u16).
-	 * Unused when HAVE_FIB_INDEX is available.
-	 */
-	__u16 ifindex;
+	__u16 reserved4;	/* unused since v1.18 */
 
 	/* *x_flags_seen represents the OR of all TCP flags seen for the
 	 * transmit/receive direction of this entry.

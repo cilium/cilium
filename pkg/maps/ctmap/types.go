@@ -533,7 +533,7 @@ type CtEntry struct {
 	Flags     uint16 `align:"rx_closing"`
 	// RevNAT is in network byte order
 	RevNAT           uint16 `align:"rev_nat_index"`
-	IfIndex          uint16 `align:"ifindex"`
+	Reserved4        uint16 `align:"reserved4"`
 	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
 	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
 	SourceSecurityID uint32 `align:"src_sec_id"`
@@ -615,7 +615,7 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 		timeDiff = ""
 	}
 
-	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d BackendID=%d \n",
+	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d BackendID=%d \n",
 		c.Lifetime,
 		timeDiff,
 		c.Packets,
@@ -627,7 +627,6 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 		c.flagsString(),
 		byteorder.NetworkToHost16(c.RevNAT),
 		c.SourceSecurityID,
-		c.IfIndex,
 		c.BackendID)
 }
 
