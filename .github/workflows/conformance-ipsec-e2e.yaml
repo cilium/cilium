@@ -289,6 +289,9 @@ jobs:
           if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
           fi
+          if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
+          fi
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
