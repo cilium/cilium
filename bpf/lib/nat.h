@@ -114,7 +114,6 @@ struct ipv4_nat_target {
 	__u32 ifindex; /* Obtained from EGW policy */
 };
 
-#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -124,6 +123,7 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_snat_v4_external __section_maps_btf;
 
+#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -1182,7 +1182,6 @@ struct ipv6_nat_target {
 	__u32 ifindex; /* Obtained from EGW policy */
 };
 
-#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
@@ -1192,6 +1191,7 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_snat_v6_external __section_maps_btf;
 
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
