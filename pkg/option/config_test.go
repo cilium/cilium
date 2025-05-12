@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -191,10 +192,11 @@ func TestReadDirConfig(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		logger := hivetest.Logger(t)
 		tt.preTestRun()
 		args := tt.setupArgs()
 		want := tt.setupWant()
-		m, err := ReadDirConfig(args.dirName)
+		m, err := ReadDirConfig(logger, args.dirName)
 		require.Equal(t, want.err, err, "Test Name: %s", tt.name)
 		err = MergeConfig(vp, m)
 		require.NoError(t, err)
@@ -911,6 +913,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			vp := viper.New()
+			logger := hivetest.Logger(t)
 			if tt.preTestRun != nil {
 				tt.preTestRun(vp)
 			}
@@ -933,7 +936,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			)
 
 			if tt.totalMemory > 0 && tt.ratio > 0.0 {
-				d.calculateDynamicBPFMapSizes(vp, tt.totalMemory, tt.ratio)
+				d.calculateDynamicBPFMapSizes(logger, vp, tt.totalMemory, tt.ratio)
 			}
 
 			got := sizes{
@@ -952,9 +955,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 
 func Test_backupFiles(t *testing.T) {
 	tempDir := t.TempDir()
+	logger := hivetest.Logger(t)
 	fileNames := []string{"test.json", "test-1.json", "test-2.json"}
 
-	backupFiles(tempDir, fileNames)
+	backupFiles(logger, tempDir, fileNames)
 	files, err := os.ReadDir(tempDir)
 	require.NoError(t, err)
 	// No files should have been created
@@ -963,13 +967,13 @@ func Test_backupFiles(t *testing.T) {
 	_, err = os.Create(filepath.Join(tempDir, "test.json"))
 	require.NoError(t, err)
 
-	backupFiles(tempDir, fileNames)
+	backupFiles(logger, tempDir, fileNames)
 	files, err = os.ReadDir(tempDir)
 	require.NoError(t, err)
 	require.Len(t, files, 1)
 	require.Equal(t, "test-1.json", files[0].Name())
 
-	backupFiles(tempDir, fileNames)
+	backupFiles(logger, tempDir, fileNames)
 	files, err = os.ReadDir(tempDir)
 	require.NoError(t, err)
 	require.Len(t, files, 1)
@@ -978,7 +982,7 @@ func Test_backupFiles(t *testing.T) {
 	_, err = os.Create(filepath.Join(tempDir, "test.json"))
 	require.NoError(t, err)
 
-	backupFiles(tempDir, fileNames)
+	backupFiles(logger, tempDir, fileNames)
 	files, err = os.ReadDir(tempDir)
 	require.NoError(t, err)
 	require.Len(t, files, 2)
@@ -1101,11 +1105,12 @@ func TestDaemonConfig_validateContainerIPLocalReservedPorts(t *testing.T) {
 }
 
 func TestDaemonConfig_StoreInFile(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Set an IntOption so that they are also stored in file
 	assert.False(t, Config.Opts.IsEnabled("unit-test-key-only")) // make sure not used
 	Config.Opts.SetBool("unit-test-key-only", true)
 
-	err := Config.StoreInFile(".")
+	err := Config.StoreInFile(logger, ".")
 	assert.NoError(t, err)
 
 	err = Config.ValidateUnchanged()

@@ -117,7 +117,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 }
 
 func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(*option.DaemonConfig)) {
-	option.Config.Populate(h.hive.Viper())
+	option.Config.Populate(h.log, h.hive.Viper())
 
 	option.Config.RunDir = testDir
 	option.Config.StateDir = testDir

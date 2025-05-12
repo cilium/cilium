@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +82,8 @@ func errorMatch(err error, regex string) assert.Comparison {
 }
 
 func (cfg *kprConfig) verify(t *testing.T, tc tunnel.Config) {
-	err := initKubeProxyReplacementOptions(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, loadbalancer.DefaultConfig)
+	logger := hivetest.Logger(t)
+	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, loadbalancer.DefaultConfig)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
@@ -109,7 +111,8 @@ func setupKPRSuite(tb testing.TB) *KPRSuite {
 	h := hive.New(Agent)
 	h.RegisterFlags(mockCmd.Flags())
 	InitGlobalFlags(mockCmd, h.Viper())
-	option.Config.Populate(h.Viper())
+	logger := hivetest.Logger(tb)
+	option.Config.Populate(logger, h.Viper())
 	option.Config.DryMode = true
 
 	return s

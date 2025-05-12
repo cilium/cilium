@@ -27,8 +27,10 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			// Overwrite the metrics namespace with the one specific for KVStoreMesh
 			metrics.Namespace = metrics.CiliumKVStoreMeshNamespace
 			option.Config.SetupLogging(h.Viper(), "kvstoremesh")
-			option.Config.Populate(h.Viper())
+
 			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "kvstoremesh")
+
+			option.Config.Populate(log, h.Viper())
 			option.LogRegisteredSlogOptions(h.Viper(), log)
 			log.Info("Cilium KVStoreMesh", logfields.Version, version.Version)
 		},

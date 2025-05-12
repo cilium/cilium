@@ -1038,7 +1038,8 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
 	option.Config.SetupLogging(vp, "cilium-agent")
-	option.Config.Populate(vp)
+
+	option.Config.Populate(logging.DefaultSlogLogger, vp)
 
 	// add hooks after setting up metrics in the option.Config
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
@@ -1558,14 +1559,14 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				}
 
 				// Store config in file before resolving the DaemonConfig promise.
-				err = option.Config.StoreInFile(option.Config.StateDir)
+				err = option.Config.StoreInFile(d.logger, option.Config.StateDir)
 				if err != nil {
-					log.WithError(err).Error("Unable to store Cilium's configuration")
+					d.logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
 				}
 
-				err = option.StoreViperInFile(option.Config.StateDir)
+				err = option.StoreViperInFile(d.logger, option.Config.StateDir)
 				if err != nil {
-					log.WithError(err).Error("Unable to store Viper's configuration")
+					d.logger.Error("Unable to store Viper's configuration", logfields.Error, err)
 				}
 			}
 
