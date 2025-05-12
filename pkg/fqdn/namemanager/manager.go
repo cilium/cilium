@@ -15,6 +15,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/hive/cell"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -35,6 +37,9 @@ import (
 
 // The implementation of the NameManager interface.
 type manager struct {
+	ctx       context.Context
+	cancelCtx context.CancelFunc
+
 	logger *slog.Logger
 
 	lock.RWMutex
@@ -79,12 +84,37 @@ func New(params ManagerParams) *manager {
 		manager:      controller.NewManager(),
 		nameLocks:    make([]*lock.Mutex, params.Config.DNSProxyLockCount),
 	}
+	n.ctx, n.cancelCtx = context.WithCancel(context.Background())
 
 	for i := range n.nameLocks {
 		n.nameLocks[i] = &lock.Mutex{}
 	}
 
+	// Break Hive import loop -- pass the NameManager back to the SelectorCache.
+	// (optional for tests)
+	if params.PolicyRepo != nil {
+		params.PolicyRepo.GetSelectorCache().SetLocalIdentityNotifier(n)
+	}
+
 	return n
+}
+
+func (n *manager) Start(cell.HookContext) error {
+	n.manager.UpdateController(dnsGCJobName, controller.ControllerParams{
+		Group:       dnsGCControllerGroup,
+		RunInterval: DNSGCJobInterval,
+		DoFunc:      n.doGC,
+		Context:     n.ctx,
+	})
+
+	go n.completeBootstrap()
+	return nil
+}
+
+func (n *manager) Stop(cell.HookContext) error {
+	n.cancelCtx()
+	n.manager.RemoveAllAndWait()
+	return nil
 }
 
 // RegisterFQDNSelector exposes this FQDNSelector so that the identity labels
@@ -168,7 +198,19 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 	return c
 }
 
-func (n *manager) CompleteBootstrap() {
+// completeBootstrap is called in Start(). It waits for
+// all endpoints to be regenerated, then removes restored ipcache state.
+func (n *manager) completeBootstrap() {
+	epRestorer, err := n.params.RestorerPromise.Await(n.ctx)
+	if err != nil {
+		n.logger.Error("Failed to get endpoint restorer", logfields.Error, err)
+		return
+	}
+	if err := epRestorer.WaitForEndpointRestore(n.ctx); err != nil {
+		n.logger.Error("Failed to get wait for endpoints to regenerate", logfields.Error, err)
+		return
+	}
+
 	n.Lock()
 	defer n.Unlock()
 

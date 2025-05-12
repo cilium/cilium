@@ -27,9 +27,8 @@ import (
 )
 
 type FQDNProxyBootstrapper interface {
-	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) error
+	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) error
 	UpdateDNSDatapathRules(ctx context.Context) error
-	CompleteBootstrap()
 	Cleanup()
 }
 
@@ -51,15 +50,7 @@ var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
-	b.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(b.nameManager)
-
-	// Controller to cleanup TTL expired entries from the DNS policies.
-	b.nameManager.StartGC(b.ctx)
-
-	// restore the global DNS cache state
-	b.nameManager.RestoreCache(preCachePath, possibleEndpoints)
-
+func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) (err error) {
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
@@ -147,10 +138,6 @@ func (b *fqdnProxyBootstrapper) lookupEPByIP(endpointAddr netip.Addr) (endpoint 
 	}
 
 	return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
-}
-
-func (b *fqdnProxyBootstrapper) CompleteBootstrap() {
-	b.nameManager.CompleteBootstrap()
 }
 
 func (b *fqdnProxyBootstrapper) Cleanup() {

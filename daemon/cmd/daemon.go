@@ -485,7 +485,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	params.DNSNameManager.RestoreCache(restoredEndpoints.possible)
+	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err

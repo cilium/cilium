@@ -80,11 +80,9 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 			DNSProxyLockCount: defaults.DNSProxyLockCount,
 			StateDir:          defaults.StateDir,
 		},
-		IPCache: d.ipcache,
+		IPCache:    d.ipcache,
+		PolicyRepo: d.policyRepo,
 	})
-	d.nameManager = ns
-	d.nameManager.CompleteBootstrap()
-	d.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(d.nameManager)
 	d.dnsMessageHandler = messagehandler.NewDNSMessageHandler(
 		messagehandler.DNSMessageHandlerParams{
 			Logger:            logger,

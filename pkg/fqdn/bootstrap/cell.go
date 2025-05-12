@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
-	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -31,7 +30,6 @@ type fqdnProxyBootstrapperParams struct {
 
 	Lifecycle         cell.Lifecycle
 	Logger            *slog.Logger
-	NameManager       namemanager.NameManager
 	ProxyInstance     defaultdns.Proxy
 	ProxyPorts        *proxy.Proxy
 	PolicyRepo        policy.PolicyRepository
@@ -46,7 +44,6 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 	bootstrapper := &fqdnProxyBootstrapper{
 		ctx:               ctx,
 		logger:            params.Logger,
-		nameManager:       params.NameManager,
 		proxyInstance:     params.ProxyInstance,
 		proxyPorts:        params.ProxyPorts,
 		policyRepo:        params.PolicyRepo,
