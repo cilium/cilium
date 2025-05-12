@@ -497,8 +497,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			d.nodeDiscovery.UpdateCiliumNodeResource()
 		}
 
-		if err := agentK8s.WaitForNodeInformation(d.ctx, log, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
-			log.WithError(err).Error("unable to connect to get node spec from apiserver")
+		if err := agentK8s.WaitForNodeInformation(d.ctx, d.logger, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
+			d.logger.Error("unable to connect to get node spec from apiserver", logfields.Error, err)
 			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
