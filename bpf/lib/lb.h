@@ -213,9 +213,7 @@ struct {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
-#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 #include "act.h"
-#endif
 
 static __always_inline bool lb_is_svc_proto(__u8 proto)
 {
