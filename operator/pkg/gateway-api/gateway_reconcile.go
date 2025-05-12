@@ -546,6 +546,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					Status:             metav1.ConditionTrue,
 					Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
 					Message:            "Resolved Refs",
+					ObservedGeneration: gw.GetGeneration(),
 					LastTransitionTime: metav1.Now(),
 				})
 		}
