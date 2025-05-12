@@ -403,7 +403,6 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-#ifdef ENABLE_CUSTOM_CALLS
 /* Private per-EP map for tail calls to user-defined programs. When custom calls
  * are enabled, a map named cilium_calls_custom_XXXXX will be pinned to bpffs
  * when loading the endpoint program.
@@ -421,6 +420,7 @@ struct {
 #define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
 #define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
 
+#ifdef ENABLE_CUSTOM_CALLS
 /* Encode return value and identity into cb buffer. This is used before
  * executing tail calls to custom programs. "ret" is the return value supposed
  * to be returned to the kernel, needed by the callee to preserve the datapath
