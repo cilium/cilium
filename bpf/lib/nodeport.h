@@ -651,7 +651,7 @@ drop_err:
 	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
 	struct bpf_fib_lookup_padded fib_params = {
@@ -809,7 +809,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 }
 
 #ifdef ENABLE_NAT_46X64_GATEWAY
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC6052)
+__declare_tail(CILIUM_CALL_IPV46_RFC6052)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
 	int ret, oif = 0, l3_off = ETH_HLEN;
@@ -840,7 +840,7 @@ drop_err:
 					  METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC6052)
+__declare_tail(CILIUM_CALL_IPV64_RFC6052)
 int tail_nat_ipv64(struct __ctx_buff *ctx)
 {
 	int ret, oif = 0, l3_off = ETH_HLEN;
@@ -1047,7 +1047,7 @@ drop:
 					  METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS)
 static __always_inline
 int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 {
@@ -1061,14 +1061,14 @@ int nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx,
 	return nodeport_rev_dnat_ipv6(ctx, CT_INGRESS, trace, ext_err);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS)
 static __always_inline
 int tail_nodeport_rev_dnat_egress_ipv6(struct __ctx_buff *ctx)
 {
 	return __nodeport_rev_dnat_ipv6(ctx, CT_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
 static __always_inline
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
@@ -1144,7 +1144,7 @@ drop_err:
 	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
 static __always_inline
 int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
@@ -2008,7 +2008,7 @@ drop_err:
 	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_DSR)
 int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -2313,7 +2313,7 @@ redirect:
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 static __always_inline
 int tail_nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx)
 {
@@ -2353,7 +2353,7 @@ drop_err:
 					  METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
 static __always_inline
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
@@ -2444,7 +2444,7 @@ drop_err:
 					  METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
 static __always_inline
 int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 {

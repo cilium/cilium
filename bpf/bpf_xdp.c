@@ -101,7 +101,7 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT_ACCELERATION
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
+__declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
 	bool punt_to_stack = false;
@@ -257,7 +257,7 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_NODEPORT_ACCELERATION
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
+__declare_tail(CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
 	bool punt_to_stack = false;

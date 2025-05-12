@@ -315,7 +315,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 }
 
 #ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
+__declare_tail(CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
 int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
@@ -387,7 +387,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 }
 
 #ifndef SKIP_ICMPV6_NS_HANDLING
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)
+__declare_tail(CILIUM_CALL_HANDLE_ICMP6_NS)
 int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 {
 	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
