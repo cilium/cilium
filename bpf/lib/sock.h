@@ -16,7 +16,6 @@ __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 #endif
 }
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_revnat_tuple);
@@ -25,9 +24,7 @@ struct {
 	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_reverse_sk __section_maps_btf;
-#endif
 
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_revnat_tuple);
@@ -36,4 +33,3 @@ struct {
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_reverse_sk __section_maps_btf;
-#endif
