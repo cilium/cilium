@@ -553,11 +553,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 	cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
+	cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
 
 	if option.Config.EnableNodePort {
-
-		cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
-
 		if option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4Masquerade {
 				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
