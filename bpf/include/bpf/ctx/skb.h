@@ -3,7 +3,7 @@
 
 #pragma once
 
-#define __section_entry __section("tc")
+#define PROG_TYPE		"tc"
 
 #define __ctx_buff		__sk_buff
 #define __ctx_is		__ctx_skb

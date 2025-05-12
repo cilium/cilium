@@ -56,7 +56,7 @@ struct drop_notify {
  *
  */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
+__declare_tail(CILIUM_CALL_DROP_NOTIFY)
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
 	bool l3_dev = false, ipv6 = false;

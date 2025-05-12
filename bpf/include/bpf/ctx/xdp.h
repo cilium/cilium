@@ -6,7 +6,7 @@
 #include <linux/if_ether.h>
 #include <linux/byteorder.h>
 
-#define __section_entry	__section("xdp")
+#define PROG_TYPE			"xdp"
 
 #define __ctx_buff			xdp_md
 #define __ctx_is			__ctx_xdp
