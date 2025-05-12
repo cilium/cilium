@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -37,12 +39,16 @@ type Config struct {
 	CESMaxCEPsInCES           int    `mapstructure:"ces-max-ciliumendpoints-per-ces"`
 	CESSlicingMode            string `mapstructure:"ces-slice-mode"`
 	CESDynamicRateLimitConfig string `mapstructure:"ces-rate-limits"`
+	EnableWireguard           bool   `mapstructure:"enable-wireguard"`
+	EnableIPSec               bool   `mapstructure:"enable-ipsec"`
 }
 
 var defaultConfig = Config{
 	CESMaxCEPsInCES:           100,
 	CESSlicingMode:            fcfsMode,
 	CESDynamicRateLimitConfig: "[{\"nodes\":0,\"limit\":10,\"burst\":20}]",
+	EnableWireguard:           false,
+	EnableIPSec:               false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -51,6 +57,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.MarkDeprecated(CESSlicingMode, "Slicing mode defaults to the FCFS mode and is now deprecated option. It does not have a functional effect")
 
 	flags.String(CESRateLimits, def.CESDynamicRateLimitConfig, "Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string.")
+
+	flags.Bool(wgTypes.EnableWireguard, def.EnableWireguard, "Enable Wireguard")
+	flags.Bool(option.EnableIPSecName, def.EnableIPSec, "Enable IPsec support")
 }
 
 // SharedConfig contains the configuration that is shared between
