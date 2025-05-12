@@ -5,7 +5,9 @@ package restapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,7 +15,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -57,7 +58,7 @@ var configModificationCell = cell.Module(
 type configModifyApiHandlerParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	// Depend on DaemonInitialization to wait until legacy daemon initialization is finished. This blocks the
 	// API server from starting and is required to prevent panics when accessing node globals that are
@@ -107,7 +108,7 @@ type configModifyEventHandlerParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 
 	Orchestrator    datapath.Orchestrator
 	Policy          policy.PolicyRepository
@@ -158,7 +159,7 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 
 type ConfigModifyEventHandler struct {
 	ctx    context.Context
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	datapathRegenTrigger *trigger.Trigger
 	// event queue for serializing configuration updates to the daemon.
@@ -216,9 +217,9 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 			}
 
 		default:
-			msg := fmt.Errorf("invalid option for PolicyEnforcement %s", enforcement)
+			msg := fmt.Sprintf("invalid option for PolicyEnforcement %s", enforcement)
 			h.logger.Warn(msg)
-			resChan <- api.Error(daemonapi.PatchConfigBadRequestCode, msg)
+			resChan <- api.Error(daemonapi.PatchConfigBadRequestCode, errors.New(msg))
 			return
 		}
 		h.logger.Debug("finished configuring PolicyEnforcement for daemon")
@@ -227,7 +228,10 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	changes += option.Config.Opts.ApplyValidated(om, h.changedOption, nil)
 	h.endpointManager.OverrideEndpointOpts(om)
 
-	h.logger.WithField("count", changes).Debug("Applied changes to daemon's configuration")
+	h.logger.Debug(
+		"Applied changes to daemon's configuration",
+		logfields.Count, changes,
+	)
 
 	if changes > 0 {
 		// Only recompile if configuration has changed.
@@ -294,12 +298,15 @@ func (e *ConfigModifyEvent) Handle(res chan any) {
 }
 
 type patchConfigHandler struct {
-	logger       logrus.FieldLogger
+	logger       *slog.Logger
 	eventHandler *ConfigModifyEventHandler
 }
 
 func (h *patchConfigHandler) Handle(params daemonapi.PatchConfigParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /config request")
+	h.logger.Debug(
+		"PATCH /config request",
+		logfields.Params, params,
+	)
 
 	c := &ConfigModifyEvent{
 		params:       params,
@@ -322,7 +329,7 @@ func (h *patchConfigHandler) Handle(params daemonapi.PatchConfigParams) middlewa
 }
 
 type getConfigHandler struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	db              *statedb.DB
 	devices         statedb.Table[*datapathTables.Device]
@@ -335,7 +342,10 @@ type getConfigHandler struct {
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
+	h.logger.Debug(
+		"GET /config request",
+		logfields.Params, params,
+	)
 
 	m := make(map[string]any)
 
@@ -429,8 +439,10 @@ func (h *getConfigHandler) getIPLocalReservedPorts() string {
 		ports = append(ports, fmt.Sprintf("%d", h.tunnelConfig.Port()))
 	}
 
-	h.logger.WithField(logfields.Ports, ports).
-		Info("Auto-detected local ports to reserve in the container namespace for transparent DNS proxy")
+	h.logger.Info(
+		"Auto-detected local ports to reserve in the container namespace for transparent DNS proxy",
+		logfields.Ports, ports,
+	)
 
 	return strings.Join(ports, ",")
 }

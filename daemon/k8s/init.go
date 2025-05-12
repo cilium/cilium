@@ -8,14 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -24,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localNodeResource LocalNodeResource, localCiliumNodeResource LocalCiliumNodeResource) *nodeTypes.Node {
+func retrieveNodeInformation(ctx context.Context, log *slog.Logger, localNodeResource LocalNodeResource, localCiliumNodeResource LocalCiliumNodeResource) *nodeTypes.Node {
 	var n *nodeTypes.Node
 	waitForCIDR := func() error {
 		if option.Config.K8sRequireIPv4PodCIDR && n.IPv4AllocCIDR == nil {
@@ -40,15 +38,15 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 		option.Config.IPAM == ipamOption.IPAMMultiPool {
 		for event := range localCiliumNodeResource.Events(ctx) {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for CiliumNode resource: API server connection issue")
+				log.Error("Timeout while waiting for CiliumNode resource: API server connection issue", logfields.NodeName, nodeTypes.GetName())
 				break
 			}
 			if event.Kind == resource.Upsert {
 				no := nodeTypes.ParseCiliumNode(event.Object)
 				n = &no
-				log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from cilium node")
+				log.Info("Retrieved node information from cilium node", logfields.NodeName, n.Name)
 				if err := waitForCIDR(); err != nil {
-					log.WithError(err).Warning("Waiting for k8s node information")
+					log.Warn("Waiting for k8s node information", logfields.Error, err)
 				} else {
 					event.Done(nil)
 					break
@@ -59,14 +57,14 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 	} else {
 		for event := range localNodeResource.Events(ctx) {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for Node resource: API server connection issue")
+				log.Error("Timeout while waiting for Node resource: API server connection issue", logfields.NodeName, nodeTypes.GetName())
 				break
 			}
 			if event.Kind == resource.Upsert {
-				n = k8s.ParseNode(logging.DefaultSlogLogger, event.Object, source.Unspec)
-				log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes node")
+				n = k8s.ParseNode(log, event.Object, source.Unspec)
+				log.Info("Retrieved node information from kubernetes node", logfields.NodeName, n.Name)
 				if err := waitForCIDR(); err != nil {
-					log.WithError(err).Warning("Waiting for k8s node information")
+					log.Warn("Waiting for k8s node information", logfields.Error, err)
 				} else {
 					event.Done(nil)
 					break
@@ -93,7 +91,7 @@ func useNodeCIDR(n *nodeTypes.Node) {
 // WaitForNodeInformation retrieves the node information via the CiliumNode or
 // Kubernetes Node resource. This function will block until the information is
 // received.
-func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNode LocalNodeResource, localCiliumNode LocalCiliumNodeResource) error {
+func WaitForNodeInformation(ctx context.Context, log *slog.Logger, localNode LocalNodeResource, localCiliumNode LocalCiliumNodeResource) error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
@@ -127,23 +125,25 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 		nodeIP6 := n.GetNodeIP(true)
 		k8sNodeIP := n.GetK8sNodeIP()
 
-		log.WithFields(logrus.Fields{
-			logfields.NodeName:         n.Name,
-			logfields.Labels:           logfields.Repr(n.Labels),
-			logfields.IPAddr + ".ipv4": nodeIP4,
-			logfields.IPAddr + ".ipv6": nodeIP6,
-			logfields.V4Prefix:         n.IPv4AllocCIDR,
-			logfields.V6Prefix:         n.IPv6AllocCIDR,
-			logfields.K8sNodeIP:        k8sNodeIP,
-		}).Info("Received own node information from API server")
+		log.Info(
+			"Received own node information from API server",
+			logfields.NodeName, n.Name,
+			logfields.Labels, n.Labels,
+			logfields.IPv4, nodeIP4,
+			logfields.IPv6, nodeIP6,
+			logfields.V4Prefix, n.IPv4AllocCIDR,
+			logfields.V6Prefix, n.IPv6AllocCIDR,
+			logfields.K8sNodeIP, k8sNodeIP,
+		)
 
 		// If the host does not have an IPv6 address, return an error
 		if option.Config.EnableIPv6 && nodeIP6 == nil {
-			log.WithFields(logrus.Fields{
-				logfields.NodeName:         n.Name,
-				logfields.IPAddr + ".ipv4": nodeIP4,
-				logfields.IPAddr + ".ipv6": nodeIP6,
-			}).Error("No IPv6 support on node as ipv6 address is nil")
+			log.Error(
+				"No IPv6 support on node as ipv6 address is nil",
+				logfields.NodeName, n.Name,
+				logfields.IPv4, nodeIP4,
+				logfields.IPv6, nodeIP6,
+			)
 			return fmt.Errorf("node %s does not have an IPv6 address", n.Name)
 		}
 
