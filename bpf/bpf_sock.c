@@ -120,7 +120,6 @@ bool sock_proto_enabled(__u8 proto)
 	}
 }
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_revnat_tuple);
@@ -130,6 +129,16 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_reverse_sk __section_maps_btf;
 
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv6_revnat_tuple);
+	__type(value, struct ipv6_revnat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_lb6_reverse_sk __section_maps_btf;
+
+#ifdef ENABLE_IPV4
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       const struct lb4_key *orig_key,
@@ -623,15 +632,6 @@ int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
-struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, struct ipv6_revnat_tuple);
-	__type(value, struct ipv6_revnat_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
-} cilium_lb6_reverse_sk __section_maps_btf;
-
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const struct lb6_key *orig_key,
