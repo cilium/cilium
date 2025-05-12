@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -109,4 +110,96 @@ func BenchmarkMatchesInvalid1000Parallel(b *testing.B) {
 			es.Matches(match)
 		}
 	})
+}
+
+func TestEndpointSelectorUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputJSON   string
+		expected    EndpointSelector
+		expectedErr bool
+	}{
+		{
+			name:      "Empty JSON",
+			inputJSON: `{}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels:      map[string]string(nil),
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement(nil),
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:      "MatchLabels with no source",
+			inputJSON: `{"matchLabels": {"app": "frontend"}}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"any.app": "frontend"},
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:      "MatchLabels with source `k8s`",
+			inputJSON: `{"matchLabels": {"k8s:app": "frontend"}}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s.app": "frontend"},
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:      "MatchExpressions with no source",
+			inputJSON: `{"matchExpressions": [{"key": "role", "operator": "In", "values": ["database"]}]}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "any.role",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"database"},
+						},
+					},
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:      "MatchExpressions with source `k8s`",
+			inputJSON: `{"matchExpressions": [{"key": "k8s:role", "operator": "In", "values": ["database"]}]}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.role",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"database"},
+						},
+					},
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:        "Invalid JSON",
+			inputJSON:   `{"matchLabels": {"app": "frontend"`,
+			expected:    EndpointSelector{},
+			expectedErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			es := EndpointSelector{}
+			err := es.UnmarshalJSON([]byte(tt.inputJSON))
+			if tt.expectedErr {
+				assert.Errorf(t, err, "UnmarshalJSON(%v)", tt.inputJSON)
+				return
+			}
+			assert.Equalf(t, tt.expected.MatchLabels, es.MatchLabels, "MarshalJSON() MatchLabels")
+			assert.Equalf(t, tt.expected.MatchExpressions, es.MatchExpressions, "MarshalJSON() MatchExpressions")
+		})
+	}
 }
