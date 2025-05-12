@@ -8,10 +8,6 @@
 #include "common.h"
 #include "time.h"
 
-/* From XDP layer, we neither go through an egress hook nor qdisc
- * from here, hence nothing to be set.
- */
-#if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct edt_id);
@@ -21,6 +17,10 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_throttle __section_maps_btf;
 
+/* From XDP layer, we neither go through an egress hook nor qdisc
+ * from here, hence nothing to be set.
+ */
+#if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
 static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
 {
