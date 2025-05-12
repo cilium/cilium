@@ -66,7 +66,6 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	n.ParseExtendedKey()
 	return nil
 }
 

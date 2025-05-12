@@ -261,6 +261,126 @@ var (
 }`)...)
 )
 
+func TestCiliumNetworkPolicyParse(t *testing.T) {
+	// Build CNP with basic Ingress and Egress rules and labels
+	es := api.NewESFromMatchRequirementsWithoutRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+		},
+		[]slim_metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
+
+	apiRuleWithLabels.EndpointSelector = es
+
+	expectedCNPRule := &CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule1",
+			UID:       uuidRule,
+		},
+
+		Spec: &apiRuleWithLabels,
+	}
+
+	expectedES := api.NewESFromMatchRequirementsWithoutRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
+		},
+		[]slim_metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
+
+	expectedSpecRule.EndpointSelector = expectedES
+
+	tests := []struct {
+		name          string
+		cnp           []byte
+		expected      *CiliumNetworkPolicy
+		expectedRules api.Rules
+		wantErr       bool
+	}{
+		{
+			name:          "simple-rule",
+			cnp:           ciliumRule,
+			expected:      expectedCNPRule,
+			expectedRules: []*api.Rule{expectedSpecRule},
+			wantErr:       false,
+		},
+	}
+
+	logger := hivetest.Logger(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Unmarshal CiliumNetworkPolicy
+			cnpl := CiliumNetworkPolicy{}
+			err := json.Unmarshal(tt.cnp, &cnpl)
+			require.NoError(t, err)
+
+			// Parse expected CNP to prepare verification step
+			_, err = tt.expected.Parse(logger)
+			require.NoError(t, err)
+
+			// Parse the input CNP
+			_, err = cnpl.Parse(logger)
+			require.NoError(t, err)
+			// Verify that the parsed CNP is as expected
+			require.Equal(t, tt.expected, &cnpl)
+
+			////TODO: Verify the parsed rules
+			//require.Len(t, rules, len(tt.expectedRules))
+			//for i, r := range rules {
+			//	require.Equal(t, tt.expectedRules[i], r)
+			//}
+		})
+	}
+}
+
+func TestCiliumNetworkPolicyParseJSONUnmarshalToMarshal(t *testing.T) {
+	es := api.NewESFromMatchRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+		},
+		[]slim_metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
+
+	apiRule.EndpointSelector = es
+
+	expectedPolicyRule := &CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule1",
+			UID:       uuidRule,
+		},
+		Spec: &apiRule,
+	}
+
+	logger := hivetest.Logger(t)
+
+	_, err := expectedPolicyRule.Parse(logger)
+	require.NoError(t, err)
+
+	b, err := json.Marshal(expectedPolicyRule)
+	require.NoError(t, err)
+	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
+	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
+	require.NoError(t, err)
+	expectedPolicyRuleUnmarshalled.Parse(logger)
+	require.Equal(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
+}
+
 func TestParseSpec(t *testing.T) {
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
@@ -306,29 +426,40 @@ func TestParseSpec(t *testing.T) {
 			Values:   []string{"production"},
 		}},
 	)
+	logger := hivetest.Logger(t)
+
 	expectedSpecRule.EndpointSelector = expectedES
 
 	// Sanitize rule to populate aggregated selectors.
 	expectedSpecRule.Sanitize()
 
-	logger := hivetest.Logger(t)
-
+	// Case 1: Parse simple Rule and check obtained rules
 	rules, err := expectedPolicyRule.Parse(logger)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 	require.Equal(t, *expectedSpecRule, *rules[0])
 
+	//Test marshalling and unmarshalling policies
 	b, err := json.Marshal(expectedPolicyRule)
 	require.NoError(t, err)
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse(logger)
+	_, err = expectedPolicyRuleUnmarshalled.Parse(logger)
+	require.NoError(t, err)
 	require.Equal(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
 
+	// Case 2: Parse Rule with Label
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	require.NoError(t, err)
+
+	_, err = expectedPolicyRuleWithLabel.Parse(logger)
+	require.NoError(t, err)
+	_, err = cnpl.Parse(logger)
+	require.NoError(t, err)
+	fmt.Println("expected", *expectedPolicyRuleWithLabel.Spec)
+	fmt.Println("got CNPL", cnpl.Spec)
 	require.Equal(t, *expectedPolicyRuleWithLabel, cnpl)
 
 	empty := &CiliumNetworkPolicy{
@@ -352,6 +483,7 @@ func TestParseSpec(t *testing.T) {
 }
 
 func TestParseRules(t *testing.T) {
+	// Build a CNP with
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
 			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
@@ -398,31 +530,46 @@ func TestParseRules(t *testing.T) {
 	)
 	expectedSpecRule.EndpointSelector = expectedES
 	expectedSpecRules := api.Rules{expectedSpecRule, expectedSpecRule}
+	// Sanitize step is needed to fill up the rule.aggregatedSelectors field.
 	expectedSpecRule.Sanitize()
 	for i := range expectedSpecRules {
 		expectedSpecRules[i].Sanitize()
 	}
 
+	// parse the CNP holding the list of rules
 	logger := hivetest.Logger(t)
 
 	rules, err := expectedPolicyRuleList.Parse(logger)
 	require.NoError(t, err)
+	// verify the parsed rules
 	require.Len(t, rules, 2)
 	for i, rule := range rules {
 		require.Equal(t, expectedSpecRules[i], rule)
 	}
 
+	// Marshal back the list of rules
 	b, err := json.Marshal(expectedPolicyRuleList)
 	require.NoError(t, err)
+	// Unmarshal back the list of rules
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse(logger)
+	// Parse the obtained CNP and compare the CNP before the marshalling and the output
+	_, err = expectedPolicyRuleUnmarshalled.Parse(logger)
+	require.NoError(t, err)
 	require.Equal(t, *expectedPolicyRuleList, expectedPolicyRuleUnmarshalled)
 
+	// Build
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	require.NoError(t, err)
+
+	// Need to parse to have labels with extended key with delimiter '.' instead of ':'.
+	_, err = expectedPolicyRuleListWithLabel.Parse(logger)
+	require.NoError(t, err)
+	_, err = cnpl.Parse(logger)
+	require.NoError(t, err)
+	// compare input and final CNP
 	require.Equal(t, *expectedPolicyRuleListWithLabel, cnpl)
 }
 
