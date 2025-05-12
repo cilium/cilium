@@ -253,6 +253,20 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 					InvertMatch: true, // Only match if the scheme is NOT the target scheme
 				}
 				route.Match.Headers = append(route.Match.Headers, schemeHeader)
+
+				// Also check X-Forwarded-Proto header for external TLS termination
+				xForwardedProtoHeader := &envoy_config_route_v3.HeaderMatcher{
+					Name: "X-Forwarded-Proto",
+					HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+						StringMatch: &envoy_type_matcher_v3.StringMatcher{
+							MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+								Exact: *hRoutes[0].RequestRedirect.Scheme,
+							},
+						},
+					},
+					InvertMatch: true, // Only match if X-Forwarded-Proto is NOT the target scheme
+				}
+				route.Match.Headers = append(route.Match.Headers, xForwardedProtoHeader)
 			}
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
