@@ -533,15 +533,15 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 	xds := testXdsServer(t)
 
 	version := versioned.Latest()
-	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(version, cachedSelector1, L7Rules12, false, false, "")
+	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(version, cachedSelector1, L7Rules12HeaderMatch, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(version, cachedSelector2, L7Rules1, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
 	require.True(t, canShortCircuit)
 }
