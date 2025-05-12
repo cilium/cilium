@@ -227,7 +227,9 @@ func Test_client(t *testing.T) {
 	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	hive.RegisterFlags(flags)
 	flags.Set(option.K8sAPIServerURLs, srv.URL)
-	flags.Set(option.K8sHeartbeatTimeout, "5ms")
+	flags.Set(option.K8sHeartbeatTimeout, "150ms")
+	// Set a higher QPS limit as the test exercises timing aspects.
+	flags.Set(option.K8sClientQPSLimit, "500")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -311,7 +313,9 @@ func Test_clientMultipleAPIServers(t *testing.T) {
 	hive.RegisterFlags(flags)
 	urls := []string{servers[0].URL, servers[1].URL, servers[2].URL}
 	flags.Set(option.K8sAPIServerURLs, strings.Join(urls, ","))
-	flags.Set(option.K8sHeartbeatTimeout, "5ms")
+	flags.Set(option.K8sHeartbeatTimeout, "150ms")
+	// Set a higher QPS limit as the test exercises timing aspects.
+	flags.Set(option.K8sClientQPSLimit, "500")
 	// 2/3 servers are stopped in order to validate that the agent connects to an active server.
 	servers[1].Close()
 	servers[2].Close()
