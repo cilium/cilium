@@ -189,10 +189,8 @@
 # define IS_L3_DEV(ifindex) false
 #endif
 
-#ifdef ENABLE_SRC_RANGE_CHECK
-# define LB4_SRC_RANGE_MAP_SIZE	1000
-# define LB6_SRC_RANGE_MAP_SIZE	1000
-#endif
+#define LB4_SRC_RANGE_MAP_SIZE	1000
+#define LB6_SRC_RANGE_MAP_SIZE	1000
 
 #ifndef LB_SELECTION
 # define LB_SELECTION_RANDOM	1
