@@ -183,6 +183,7 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
@@ -202,6 +203,9 @@ jobs:
           IP_FAM="dual"
           if [ "${{ matrix.ipv6 }}" == "false" ]; then
             IP_FAM="ipv4"
+          fi
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            IP_FAM="ipv6"
           fi
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
@@ -343,7 +347,7 @@ jobs:
           key-algo: ${{ matrix.key-two }}
           tunnel: ${{ matrix.tunnel }}
           nb-nodes: 3 # We don't count the node without Cilium.
-          dual-stack: true
+          dual-stack: ${{ matrix.ipv4 != 'false' && matrix.ipv6 != 'false' }}
           subnet-encryption: false
 
       - name: Assert that no unencrypted packets are leaked during key rotation

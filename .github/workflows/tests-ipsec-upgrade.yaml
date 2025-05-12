@@ -207,6 +207,7 @@ jobs:
           chart-dir: './untrusted/cilium-downgrade/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
@@ -228,6 +229,7 @@ jobs:
           chart-dir: './untrusted/cilium-newest/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
