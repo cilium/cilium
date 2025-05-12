@@ -38,7 +38,8 @@ func (c *Controller) processNamespaceEvents(ctx context.Context) error {
 func (c *Controller) onNamespaceUpsert(ns *slimcorev1.Namespace) {
 	c.updateNamespaceAnnotations(ns)
 	if c.cesWithoutCEPs {
-		c.logger.Debug("CESWithoutCEPs not implemented yet")
+		touchedCESs := c.manager.GetCESInNs(ns)
+		c.enqueueCESReconciliation(touchedCESs)
 	}
 }
 
@@ -64,7 +65,7 @@ func (c *Controller) updateNamespaceAnnotations(ns *slimcorev1.Namespace) {
 func (c *Controller) onNamespaceDelete(ns *slimcorev1.Namespace) {
 	c.logger.Debug(fmt.Sprintf("Namespace deleted: %s", ns.Name))
 	if c.cesWithoutCEPs {
-		c.logger.Debug("CESWithoutCEPs not implemented yet")
+		c.manager.RemoveNamespaceMapping(ns)
 	}
 	c.priorityNamespacesLock.Lock()
 	defer c.priorityNamespacesLock.Unlock()

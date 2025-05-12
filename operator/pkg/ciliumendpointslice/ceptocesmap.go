@@ -6,25 +6,11 @@ package ciliumendpointslice
 import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
 type Cescacher interface {
 	hasCESName(CESName) bool
-}
-
-type CEPName resource.Key
-type CESKey resource.Key
-type CESName string
-
-// CESData contains all CES data, including endpoints.
-// CES is reconciled to have endpoints equal to CEPs mapped to it
-// and other fields set from the CESData.
-type CESData struct {
-	ceps sets.Set[CEPName]
-	ns   string
 }
 
 // CESToCEPMapping is used to map Cilium Endpoints to CiliumEndpointSlices and
@@ -157,38 +143,4 @@ func (c *CESToCEPMapping) getCESNamespace(name CESName) string {
 		return cesData.ns
 	}
 	return ""
-}
-
-func (ces CESKey) key() resource.Key {
-	return resource.Key(ces)
-}
-
-func (cep CEPName) key() resource.Key {
-	return resource.Key(cep)
-}
-
-func (ces CESKey) string() string {
-	return ces.key().String()
-}
-
-func (cep CEPName) string() string {
-	return cep.key().String()
-}
-
-func (c CESName) string() string {
-	return string(c)
-}
-
-// NewCESKey is used with namespace only to determine which queue CES should be in.
-// CES is a cluster-scope object and it does not contain the metadata namespace field.
-func NewCESKey(name string, namespace string) CESKey {
-	return CESKey(resource.Key{Name: name, Namespace: namespace})
-}
-
-func NewCEPName(name, ns string) CEPName {
-	return CEPName(resource.Key{Name: name, Namespace: ns})
-}
-
-func GetCEPNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) CEPName {
-	return NewCEPName(cep.Name, namespace)
 }

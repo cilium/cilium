@@ -19,7 +19,7 @@ func getCEP(name string, id int64) *capi_v2a1.CoreCiliumEndpoint {
 	}
 }
 
-func TestFCFSManager(t *testing.T) {
+func TestFCFSManagerDefault(t *testing.T) {
 	log := hivetest.Logger(t)
 	t.Run("Test adding new CEP to map", func(*testing.T) {
 		m := newCESManager(2, false, log)

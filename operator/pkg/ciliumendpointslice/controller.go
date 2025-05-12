@@ -5,7 +5,6 @@ package ciliumendpointslice
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -33,9 +32,11 @@ type params struct {
 
 	NewClient           k8sClient.ClientBuilderFunc
 	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	Pods                resource.Resource[*slim_corev1.Pod]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
 	Namespace           resource.Resource[*slim_corev1.Namespace]
+	CiliumIdentity      resource.Resource[*v2.CiliumIdentity]
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -54,9 +55,12 @@ type Controller struct {
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
 	clientset           k8sClient.Clientset
 	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	pods                resource.Resource[*slim_corev1.Pod]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	ciliumNodes         resource.Resource[*v2.CiliumNode]
 	namespace           resource.Resource[*slim_corev1.Namespace]
+	ciliumIdentity      resource.Resource[*v2.CiliumIdentity]
+
 	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
 	reconciler *reconciler
 
@@ -94,6 +98,9 @@ type Controller struct {
 
 	cesWithoutCEPs bool
 
+	wireguardEnabled bool
+	ipsecEnabled     bool
+
 	// If the queues are empty, they wait until the condition (adding something to the queues) is met.
 	cond sync.Cond
 
@@ -129,12 +136,15 @@ func registerController(p params) error {
 		syncDelay:                DefaultCESSyncTime,
 		priorityNamespaces:       make(map[string]struct{}),
 		cesWithoutCEPs:           p.Cfg.CESWithoutCEPs,
+		wireguardEnabled:         p.Cfg.EnableWireguard,
+		ipsecEnabled:             p.Cfg.EnableIPSec,
 		cond:                     *sync.NewCond(&lock.Mutex{}),
 		Job:                      p.Job,
 	}
 
 	if p.Cfg.CESWithoutCEPs {
-		return fmt.Errorf("CESWithoutCEPS is not yet implemented.")
+		cesController.pods = p.Pods
+		cesController.ciliumIdentity = p.CiliumIdentity
 	} else {
 		cesController.ciliumEndpoint = p.CiliumEndpoint
 	}

@@ -37,6 +37,9 @@ func TestSingleDynamicRateLimit(t *testing.T) {
 			CESMaxCEPsInCES:           100,
 			CESSlicingMode:            identityMode,
 			CESDynamicRateLimitConfig: "[{\"nodes\": 5, \"limit\": 15.0, \"burst\": 30}]",
+			CESWithoutCEPs:            false,
+			EnableWireguard:           false,
+			EnableIPSec:               false,
 		},
 	}
 	config, err := getRateLimitConfig(p)
@@ -75,6 +78,9 @@ func TestMultipleUnsortedDynamicRateLimit(t *testing.T) {
 			CESMaxCEPsInCES:           100,
 			CESSlicingMode:            identityMode,
 			CESDynamicRateLimitConfig: string(rlJson),
+			CESWithoutCEPs:            true,
+			EnableWireguard:           true,
+			EnableIPSec:               true,
 		},
 	}
 	config, err := getRateLimitConfig(p)

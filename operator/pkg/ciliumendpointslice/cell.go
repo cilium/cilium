@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -41,6 +43,8 @@ type Config struct {
 	CESSlicingMode            string `mapstructure:"ces-slice-mode"`
 	CESDynamicRateLimitConfig string `mapstructure:"ces-rate-limits"`
 	CESWithoutCEPs            bool   `mapstructure:"ces-without-ceps"`
+	EnableWireguard           bool   `mapstructure:"enable-wireguard"`
+	EnableIPSec               bool   `mapstructure:"enable-ipsec"`
 }
 
 var defaultConfig = Config{
@@ -48,6 +52,8 @@ var defaultConfig = Config{
 	CESSlicingMode:            fcfsMode,
 	CESDynamicRateLimitConfig: "[{\"nodes\":0,\"limit\":10,\"burst\":20}]",
 	CESWithoutCEPs:            false,
+	EnableWireguard:           false,
+	EnableIPSec:               false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -59,6 +65,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(CESWithoutCEPs, def.CESWithoutCEPs, "Enable CiliumEndpointSlice controller without CiliumEndpoints. Experimental.")
 	flags.MarkHidden(CESWithoutCEPs)
+
+	flags.Bool(wgTypes.EnableWireguard, def.EnableWireguard, "Enable Wireguard")
+	flags.Bool(option.EnableIPSecName, def.EnableIPSec, "Enable IPsec support")
 }
 
 // SharedConfig contains the configuration that is shared between
