@@ -116,6 +116,11 @@ func (p *Proxy) GetOpenLocalPorts() map[uint16]struct{} {
 	return p.proxyPorts.GetOpenLocalPorts()
 }
 
+func (p *Proxy) GetListenerProxyPort(listener string) uint16 {
+	proxyPort, _, _ := p.proxyPorts.GetProxyPort(listener)
+	return proxyPort
+}
+
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
