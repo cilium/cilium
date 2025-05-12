@@ -18,6 +18,7 @@ clustermesh-apiserver kvstoremesh hive [flags]
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                        Enable debugging mode
       --enable-gops                                  Enable gops server (default true)
+      --enable-heartbeat                             KVStoreMesh will maintain heartbeat in destination etcd cluster
       --global-ready-timeout duration                KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration (default 10m0s)
       --gops-port uint16                             Port for gops server to listen on (default 9894)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)

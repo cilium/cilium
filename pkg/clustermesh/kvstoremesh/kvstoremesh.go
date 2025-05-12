@@ -34,6 +34,7 @@ import (
 type Config struct {
 	PerClusterReadyTimeout time.Duration
 	GlobalReadyTimeout     time.Duration
+	EnableHeartBeat        bool
 
 	DisableDrainOnDisconnection bool
 }
@@ -41,12 +42,14 @@ type Config struct {
 var DefaultConfig = Config{
 	PerClusterReadyTimeout:      15 * time.Second,
 	GlobalReadyTimeout:          10 * time.Minute,
+	EnableHeartBeat:             false,
 	DisableDrainOnDisconnection: false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("per-cluster-ready-timeout", def.PerClusterReadyTimeout, "Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration")
 	flags.Duration("global-ready-timeout", def.GlobalReadyTimeout, "KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration")
+	flags.Bool("enable-heartbeat", def.EnableHeartBeat, "KVStoreMesh will maintain heartbeat in destination etcd cluster")
 
 	flags.Bool("disable-drain-on-disconnection", def.DisableDrainOnDisconnection, "Do not drain cached data upon cluster disconnection")
 	flags.MarkHidden("disable-drain-on-disconnection")
