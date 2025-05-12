@@ -178,7 +178,6 @@ struct {
 } cilium_lb4_maglev __section_maps_btf;
 #endif /* OVERWRITE_MAGLEV_MAP_FROM_TEST */
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lb_affinity_match);
@@ -187,7 +186,6 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb_affinity_match __section_maps_btf;
-#endif
 
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
