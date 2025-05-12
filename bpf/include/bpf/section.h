@@ -23,5 +23,8 @@
 #define __section_license	__section("license")
 #define __section_maps_btf	__section(".maps")
 
+/* Must be kept in sync with `doNotPruneTag` in pkg/bpf/dead_code_elimination.go */
+#define __do_not_prune		__attribute__((btf_decl_tag("do-not-prune")))
+
 #define BPF_LICENSE(NAME) \
 	char ____license[] __section_license = NAME

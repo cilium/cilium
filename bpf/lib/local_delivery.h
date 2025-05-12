@@ -15,7 +15,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, POLICY_PROG_MAP_SIZE);
-} cilium_egresscall_policy __section_maps_btf;
+} cilium_egresscall_policy __section_maps_btf __do_not_prune;
 
 static __always_inline __must_check int
 tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
@@ -32,7 +32,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, POLICY_PROG_MAP_SIZE);
-} cilium_call_policy __section_maps_btf;
+} cilium_call_policy __section_maps_btf __do_not_prune;
 
 static __always_inline __must_check int
 tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
