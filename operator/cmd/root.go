@@ -330,7 +330,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		hook.RegisterProviderFlag(cmd, h.Viper())
 	}
 
-	cobra.OnInitialize(option.InitConfig(cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
+	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
 
 	return cmd
 }
@@ -365,15 +365,19 @@ func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifec
 }
 
 func initEnv(logger *slog.Logger, vp *viper.Viper) {
-	// Prepopulate option.Config with options from CLI.
+	// Setup logging with the options directly from Viper. There's no dependency
+	// from this function with the rest of the DaemonConfig.
 	option.Config.SetupLogging(vp, binaryName)
+	// Populate the global config with the options from Viper
+	option.Config.Populate(logger, vp)
+
+	// Populate the operator config with the options from Viper
+	operatorOption.Config.Populate(logger, vp)
 
 	// add hooks after setting up metrics in the option.Config
 	logging.AddHooks(metrics.NewLoggingHook())
 
-	option.Config.Populate(vp)
-	operatorOption.Config.Populate(logger, vp)
-
+	// Register the user options in the logs
 	option.LogRegisteredSlogOptions(vp, logger)
 	logger.Info("Cilium Operator", logfields.Version, version.Version)
 }

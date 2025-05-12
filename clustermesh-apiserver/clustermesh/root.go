@@ -59,9 +59,12 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
 			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
 			option.Config.SetupLogging(h.Viper(), "clustermesh-apiserver")
-			option.Config.Populate(h.Viper())
-			option.LogRegisteredSlogOptions(h.Viper(), logging.DefaultSlogLogger)
-			logging.DefaultSlogLogger.Info("Cilium ClusterMesh", logfields.Version, version.Version)
+
+			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "clustermesh-apiserver")
+
+			option.Config.Populate(logger, h.Viper())
+			option.LogRegisteredSlogOptions(h.Viper(), logger)
+			logger.Info("Cilium ClusterMesh", logfields.Version, version.Version)
 		},
 	}
 

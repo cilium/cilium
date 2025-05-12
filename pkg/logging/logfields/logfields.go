@@ -1670,6 +1670,14 @@ const (
 
 	KeySize = "keySize"
 
+	Subnets = "subnets"
+
+	Ratio = "ratio"
+
+	OldName = "oldName"
+
+	NewName = "newName"
+
 	ValueSize = "valueSize"
 
 	MaxEntries = "maxEntries"

@@ -59,7 +59,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 	InitGlobalFlags(rootCmd, h.Viper())
 
 	cobra.OnInitialize(
-		option.InitConfig(rootCmd, "cilium-agent", "cilium", h.Viper()),
+		option.InitConfig(logging.DefaultSlogLogger, rootCmd, "cilium-agent", "cilium", h.Viper()),
 
 		// Populate the config and initialize the logger early as these
 		// are shared by all commands.
