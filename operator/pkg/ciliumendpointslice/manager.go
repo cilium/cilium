@@ -116,7 +116,7 @@ func (c *cesManager) getLargestAvailableCESForNamespace(ns string) CESName {
 	selectedCES := CESName("")
 	for _, ces := range c.mapping.getAllCESs() {
 		cepCount := c.mapping.countCEPsInCES(ces)
-		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount && c.mapping.getCESData(ces).ns == ns {
+		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount && c.mapping.getCESNamespace(ces) == ns {
 			selectedCES = ces
 			largestCEPCount = cepCount
 			if largestCEPCount == c.maxCEPsInCES-1 {
@@ -140,8 +140,8 @@ func (c *cesManager) getCEPCountInCES(ces CESName) int {
 	return c.mapping.countCEPsInCES(ces)
 }
 
-func (c *cesManager) getCESData(ces CESName) CESData {
-	return c.mapping.getCESData(ces)
+func (c *cesManager) getCESNamespace(ces CESName) string {
+	return c.mapping.getCESNamespace(ces)
 }
 
 func (c *cesManager) getCEPinCES(ces CESName) []CEPName {
