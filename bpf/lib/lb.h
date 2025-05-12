@@ -70,8 +70,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_lb6_source_range __section_maps_btf;
 
-#ifdef ENABLE_IPV6
-#ifdef ENABLE_HEALTH_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __sock_cookie);
@@ -80,8 +78,8 @@ struct {
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_health __section_maps_btf;
-#endif
 
+#ifdef ENABLE_IPV6
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
@@ -155,8 +153,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_lb4_source_range __section_maps_btf;
 
-#ifdef ENABLE_IPV4
-#ifdef ENABLE_HEALTH_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __sock_cookie);
@@ -165,8 +161,8 @@ struct {
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_health __section_maps_btf;
-#endif
 
+#ifdef ENABLE_IPV4
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 #ifndef LB_MAGLEV_EXTERNAL
 struct {
