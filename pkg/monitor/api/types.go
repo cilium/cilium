@@ -228,8 +228,6 @@ const (
 	AgentNotifyEndpointDeleted
 	AgentNotifyIPCacheUpserted
 	AgentNotifyIPCacheDeleted
-	AgentNotifyServiceUpserted
-	AgentNotifyServiceDeleted
 )
 
 // AgentNotifications is a map of all supported agent notification types.
@@ -245,8 +243,6 @@ var AgentNotifications = map[AgentNotification]string{
 	AgentNotifyIPCacheUpserted:           "IPCache entry upserted",
 	AgentNotifyPolicyUpdated:             "Policy updated",
 	AgentNotifyPolicyDeleted:             "Policy deleted",
-	AgentNotifyServiceDeleted:            "Service deleted",
-	AgentNotifyServiceUpserted:           "Service upserted",
 }
 
 func resolveAgentType(t AgentNotification) string {
@@ -440,71 +436,6 @@ func StartMessage(t time.Time) AgentNotifyMessage {
 
 	return AgentNotifyMessage{
 		Type:         AgentNotifyStart,
-		Notification: notification,
-	}
-}
-
-// ServiceUpsertNotificationAddr is part of ServiceUpsertNotification
-type ServiceUpsertNotificationAddr struct {
-	IP   net.IP `json:"ip"`
-	Port uint16 `json:"port"`
-}
-
-// ServiceUpsertNotification structures service upsert notifications
-type ServiceUpsertNotification struct {
-	ID uint32 `json:"id"`
-
-	Frontend           ServiceUpsertNotificationAddr   `json:"frontend-address"`
-	Backends           []ServiceUpsertNotificationAddr `json:"backend-addresses"`
-	NumBackendsOmitted int                             `json:"num-backends-omitted,omitempty"`
-
-	Type             string `json:"type,omitempty"`
-	ExtTrafficPolicy string `json:"ext-traffic-policy,omitempty"`
-	IntTrafficPolicy string `json:"int-traffic-policy,omitempty"`
-
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,,omitempty"`
-}
-
-// ServiceUpsertMessage constructs an agent notification message for service upserts
-func ServiceUpsertMessage(
-	id uint32,
-	frontend ServiceUpsertNotificationAddr,
-	backends []ServiceUpsertNotificationAddr,
-	numBackendsOmitted int,
-	svcType, svcExtTrafficPolicy, svcIntTrafficPolicy, svcName, svcNamespace string,
-) AgentNotifyMessage {
-	notification := ServiceUpsertNotification{
-		ID:                 id,
-		Frontend:           frontend,
-		Backends:           backends,
-		NumBackendsOmitted: numBackendsOmitted,
-		Type:               svcType,
-		ExtTrafficPolicy:   svcExtTrafficPolicy,
-		IntTrafficPolicy:   svcIntTrafficPolicy,
-		Name:               svcName,
-		Namespace:          svcNamespace,
-	}
-
-	return AgentNotifyMessage{
-		Type:         AgentNotifyServiceUpserted,
-		Notification: notification,
-	}
-}
-
-// ServiceDeleteNotification structures service delete notifications
-type ServiceDeleteNotification struct {
-	ID uint32 `json:"id"`
-}
-
-// ServiceDeleteMessage constructs an agent notification message for service deletions
-func ServiceDeleteMessage(id uint32) AgentNotifyMessage {
-	notification := ServiceDeleteNotification{
-		ID: id,
-	}
-
-	return AgentNotifyMessage{
-		Type:         AgentNotifyServiceDeleted,
 		Notification: notification,
 	}
 }
