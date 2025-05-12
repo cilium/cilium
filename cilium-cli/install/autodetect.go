@@ -73,18 +73,32 @@ func getClusterName(helmValues map[string]any) string {
 	return clusterName
 }
 
-func trimEKSClusterARN(fullARN string) string {
-	const prefix = "cluster/"
-	idx := strings.LastIndex(fullARN, prefix)
-	if idx == -1 {
-		return fullARN
-	}
-	idx += len(prefix)
-	if idx < len(fullARN) {
-		return fullARN[idx:]
+// trimEKSClusterName extracts and trims the EKS cluster name
+// from either an ARN (arn:aws:eks:...) or an eksctl-formatted
+// FQDN (e.g., <name>.<region>.eksctl.io). This helps ensure
+// the resulting name complies with EKS validation constraints,
+// such as the 32-character limit.
+func trimEKSClusterName(identifier string) string {
+	// Handle ARN format: arn:aws:eks:<region>:<account>:cluster/<cluster-name>
+	const prefix = ":cluster/"
+	idx := strings.LastIndex(identifier, prefix)
+	if idx != -1 {
+		idx += len(prefix)
+		if idx < len(identifier) {
+			return identifier[idx:]
+		}
+		return ""
 	}
 
-	return ""
+	// Handle eksctl format: <cluster-name>.<region>.eksctl.io
+	if strings.Contains(identifier, ".eksctl.io") {
+		parts := strings.SplitN(identifier, ".", 2)
+		if len(parts) > 0 {
+			return parts[0]
+		}
+	}
+
+	return identifier
 }
 
 func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]any) error {
@@ -99,12 +113,15 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 
 	if k.params.ClusterName == "" {
 		if k.flavor.ClusterName != "" {
-			// Neither underscores, dots nor colons are allowed as part of the cluster name.
-			name := strings.NewReplacer("_", "-", ".", "-", ":", "-").Replace(k.flavor.ClusterName)
-
+			var name string
 			if k.flavor.Kind == k8s.KindEKS {
-				name = trimEKSClusterARN(name)
+				name = trimEKSClusterName(k.flavor.ClusterName)
+			} else {
+				name = k.flavor.ClusterName
 			}
+
+			// Neither underscores, dots nor colons are allowed as part of the cluster name.
+			name = strings.NewReplacer("_", "-", ".", "-", ":", "-").Replace(name)
 
 			k.Log("🔮 Auto-detected cluster name: %s", name)
 			k.params.ClusterName = name
