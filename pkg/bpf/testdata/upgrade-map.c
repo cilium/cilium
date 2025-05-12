@@ -1,3 +1,4 @@
+#include <bpf/ctx/skb.h>
 #include "common.h"
 
 struct {
@@ -8,7 +9,7 @@ struct {
         __uint(pinning, LIBBPF_PIN_BY_NAME);
 } upgraded_map __section_maps_btf;
 
-__section("tc")
+__section_entry
 int dummy(void *ctx) {
         return 0;
 }

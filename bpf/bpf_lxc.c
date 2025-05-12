@@ -275,7 +275,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 #endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
-__section_tail(CILIUM_MAP_CALLS, ID)						\
+__declare_tail(ID)								\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
@@ -342,7 +342,7 @@ int NAME(struct __ctx_buff *ctx)						\
 }
 
 #define TAIL_CT_LOOKUP6(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
-__section_tail(CILIUM_MAP_CALLS, ID)						\
+__declare_tail(ID)								\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
@@ -792,7 +792,7 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC_CONT)
+__declare_tail(CILIUM_CALL_IPV6_FROM_LXC_CONT)
 static __always_inline
 int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 {
@@ -862,7 +862,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 #endif /* ENABLE_PER_PACKET_LB */
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+__declare_tail(CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
@@ -1341,7 +1341,7 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC_CONT)
+__declare_tail(CILIUM_CALL_IPV4_FROM_LXC_CONT)
 static __always_inline
 int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
@@ -1424,7 +1424,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 #endif /* ENABLE_PER_PACKET_LB */
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+__declare_tail(CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
@@ -1441,7 +1441,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with THIS_INTERFACE_MAC
  */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
+__declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	union macaddr mac = THIS_INTERFACE_MAC;
@@ -1688,7 +1688,7 @@ redirect_to_proxy:
 	return POLICY_ACT_PROXY_REDIRECT;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
+__declare_tail(CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
@@ -1766,7 +1766,7 @@ drop_err:
 				    ret, ext_err, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_ENDPOINT)
+__declare_tail(CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -2033,7 +2033,7 @@ redirect_to_proxy:
 	return POLICY_ACT_PROXY_REDIRECT;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
+__declare_tail(CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 static __always_inline
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
@@ -2120,7 +2120,7 @@ drop_err:
 				    ret, ext_err, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
+__declare_tail(CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);

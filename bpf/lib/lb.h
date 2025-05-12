@@ -8,7 +8,6 @@
 #include "conntrack.h"
 #include "ipv4.h"
 #include "hash.h"
-#include "ids.h"
 #include "eps.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
@@ -2107,7 +2106,7 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	return 0;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NO_SERVICE)
+__declare_tail(CILIUM_CALL_IPV4_NO_SERVICE)
 int tail_no_service_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
@@ -2272,7 +2271,7 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	return 0;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NO_SERVICE)
+__declare_tail(CILIUM_CALL_IPV6_NO_SERVICE)
 int tail_no_service_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);

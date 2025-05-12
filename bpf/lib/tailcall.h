@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
-#ifndef TAILCALL_H
-#define TAILCALL_H
 
-#include "common.h"
+#pragma once
+
+#include "drop_reasons.h"
 #include "config.h"
-#include "ids.h"
 
 #include "bpf/compiler.h"
 
@@ -103,14 +102,28 @@
 /* Private per-EP map for internal tail calls. Its bpffs pin is replaced every
  * time the BPF object is loaded. An existing pinned map is never reused.
  */
-struct bpf_elf_map __section_maps cilium_calls = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_CALLS,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= CILIUM_PIN_REPLACE,
-	.max_elem	= CILIUM_CALL_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, CILIUM_CALL_SIZE);
+	__uint(pinning, CILIUM_PIN_REPLACE);
+	__array(values, int ());
+} cilium_calls __section_maps_btf;
+
+/* Annotate a function with this attribute to insert it into cilium_calls at
+ * the given index. index must be a compile-time constant and must be unique.
+ * Do not use for tail call mocks in bpf tests, use __section_entry instead.
+ *
+ * The agent will automatically insert the tail call into cilium_calls when
+ * the object is loaded. This annotation marks the function for elimination
+ * when it's never called by tail_call_static.
+ */
+#if !defined(PROG_TYPE)
+	#error "Include bpf/ctx/skb.h or bpf/ctx/xdp.h before tailcall.h!"
+#endif
+#define __declare_tail(index) \
+	__section(PROG_TYPE "/tail") \
+	__attribute__((btf_decl_tag("tail:cilium_calls/" __stringify(index))))
 
 static __always_inline __must_check int
 tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
@@ -152,5 +165,3 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 #define invoke_traced_tailcall_if(COND, NAME, FUNC, TRACE, EXT_ERR)	\
 	__eval(__invoke_traced_tailcall_if_, COND)(NAME, FUNC, TRACE,	\
 						   EXT_ERR)
-
-#endif /* TAILCALL_H */
