@@ -51,6 +51,26 @@ static volatile const __u8 base_backend_mac[ETH_ALEN] = {
 #define LB_MAGLEV_LUT_SIZE 20
 
 /* Define a mock maglev map that would be used by the LB code */
+struct lb6_maglev_map_inner {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
+	__uint(max_entries, 1);
+} test_lb6_maglev_map_inner __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, TEST_LB_MAGLEV_MAP_MAX_ENTRIES);
+	__uint(map_flags, TEST_CONDITIONAL_PREALLOC);
+	/* Maglev inner map definition */
+	__array(values, struct lb6_maglev_map_inner);
+} cilium_lb6_maglev __section_maps_btf = {
+	.values = {[TEST_REVNAT] = &test_lb6_maglev_map_inner, },
+};
+
 struct lb4_maglev_map_inner {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -70,6 +90,8 @@ struct {
 } cilium_lb4_maglev __section_maps_btf = {
 	.values = {[TEST_REVNAT] = &test_lb4_maglev_map_inner, },
 };
+
+#define OVERWRITE_MAGLEV_MAP_FROM_TEST 1
 
 static __always_inline void get_backend_mac(__u8 *dst, __u32 backend_id)
 {
