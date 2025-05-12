@@ -497,10 +497,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// define maglev tables when loadbalancer algorith is maglev or config can
 	// be set by the Service annotation
-	if cfg.LBConfig.AlgorithmAnnotation ||
-		cfg.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
-		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", cfg.MaglevConfig.TableSize)
-	}
+	cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", cfg.MaglevConfig.TableSize)
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash1)
 
