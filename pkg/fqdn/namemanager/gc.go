@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -34,10 +33,6 @@ import (
 const DNSGCJobInterval = 1 * time.Minute
 
 const dnsGCJobName = "dns-garbage-collector-job"
-
-var (
-	dnsGCControllerGroup = controller.NewGroup(dnsGCJobName)
-)
 
 var (
 	checkpointFile = "fqdn-name-manager-selectors.json"
@@ -173,25 +168,17 @@ func (n *manager) doGC(ctx context.Context) error {
 	return nil
 }
 
-func (n *manager) StartGC(ctx context.Context) {
-	n.manager.UpdateController(dnsGCJobName, controller.ControllerParams{
-		Group:       dnsGCControllerGroup,
-		RunInterval: DNSGCJobInterval,
-		DoFunc:      n.doGC,
-		Context:     ctx,
-	})
-}
-
 // RestoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint) {
+func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
+	// TODO: remove this; it was neeeded for the v1.3-v1.4 upgrade
+	preCachePath := option.Config.ToFQDNsPreCache
 	if preCachePath != "" {
 		n.logger.Info("Reading toFQDNs pre-cache data")
 		precache, err := readPreCache(preCachePath)
 		if err != nil {
-			// FIXME: add a link to the "documented format"
 			n.logger.Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format",
 				logfields.Error, err,
 				logfields.Path, preCachePath,
@@ -213,6 +200,12 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 		// Upgrades from old ciliums have this nil
 		if possibleEP.DNSHistory != nil {
 			n.cache.UpdateFromCache(possibleEP.DNSHistory, []string{})
+			if names, ips := possibleEP.DNSHistory.Count(); names > 0 {
+				n.logger.Info("restored DNS history from endpoint",
+					logfields.EndpointID, possibleEP.ID,
+					logfields.Count, names,
+					logfields.NumAddresses, ips)
+			}
 
 			// GC any connections that have expired, but propagate it to the zombies
 			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
