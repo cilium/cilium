@@ -768,6 +768,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.podLabels`
      - Labels to be added to clustermesh-apiserver pods
      - object
@@ -1964,6 +1968,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`hubble.relay.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.relay.podLabels`
      - Labels to be added to hubble-relay pods
      - object
@@ -2286,6 +2294,10 @@
      - ``1``
    * - :spelling:ignore:`hubble.ui.podDisruptionBudget.minAvailable`
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.ui.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
      - string
      - ``nil``
    * - :spelling:ignore:`hubble.ui.podLabels`
@@ -2980,6 +2992,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`operator.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`operator.podLabels`
      - Labels to be added to cilium-operator pods
      - object
@@ -3178,6 +3194,10 @@
      - ``1``
    * - :spelling:ignore:`preflight.podDisruptionBudget.minAvailable`
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
+   * - :spelling:ignore:`preflight.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
      - string
      - ``nil``
    * - :spelling:ignore:`preflight.podLabels`
