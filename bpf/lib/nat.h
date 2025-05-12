@@ -131,8 +131,6 @@ struct {
 	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
 } cilium_snat_v4_alloc_retries __section_maps_btf;
 
-#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct per_cluster_snat_mapping_ipv4_inner_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -143,7 +141,7 @@ struct per_cluster_snat_mapping_ipv4_inner_map {
 };
 #else
 } per_cluster_snat_mapping_ipv4_1 __section_maps_btf,
-  per_cluster_snat_mapping_ipv4_2 __section_maps_btf;
+per_cluster_snat_mapping_ipv4_2 __section_maps_btf;
 #endif
 
 struct {
@@ -153,7 +151,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
 	__array(values, struct per_cluster_snat_mapping_ipv4_inner_map);
-#ifndef BPF_TEST
+	#ifndef BPF_TEST
 } cilium_per_cluster_snat_v4_external __section_maps_btf;
 #else
 } cilium_per_cluster_snat_v4_external __section_maps_btf = {
@@ -163,8 +161,8 @@ struct {
 	},
 };
 #endif
-#endif
 
+#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
@@ -1198,8 +1196,6 @@ struct {
 	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
 } cilium_snat_v6_alloc_retries __section_maps_btf;
 
-#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
 	__type(key, __u32);
@@ -1214,8 +1210,8 @@ struct {
 		__uint(map_flags, LRU_MEM_FLAVOR);
 	});
 } cilium_per_cluster_snat_v6_external __section_maps_btf;
-#endif
 
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
