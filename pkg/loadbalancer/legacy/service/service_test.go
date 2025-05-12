@@ -24,7 +24,6 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
@@ -32,9 +31,6 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service/healthserver"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
-	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
-	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/netns"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -229,7 +225,7 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 }
 
 func (m *ManagerTestSuite) newServiceMock(ctx context.Context, lbcfg lb.Config, lbmap datapathTypes.LBMap) {
-	m.svc = newService(m.logger, &FakeMonitorAgent{}, lbcfg, lbmap, nil, nil, true, option.Config)
+	m.svc = newService(m.logger, lbcfg, lbmap, nil, nil, true, option.Config)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 	health, _ := cell.NewSimpleHealth()
 	go m.svc.handleHealthCheckEvent(ctx, health)
@@ -768,7 +764,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
 			logger := hivetest.Logger(t)
-			svc := newService(logger, &FakeMonitorAgent{}, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
+			svc := newService(logger, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -778,7 +774,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = newService(logger, &FakeMonitorAgent{}, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
+			svc = newService(logger, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -2362,7 +2358,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	require.Len(t, m.lbmap.BackendByID, len(backends)+4)
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	logger := hivetest.Logger(t)
-	m.svc = newService(logger, &FakeMonitorAgent{}, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
+	m.svc = newService(logger, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
@@ -2459,34 +2455,6 @@ func (r *FakeBackendSyncer) Sync(svc *lb.LegacySVC) error {
 	r.nrOfBackends = len(svc.Backends)
 	r.nrOfSyncs++
 
-	return nil
-}
-
-type FakeMonitorAgent struct{}
-
-var _ monitorAgent.Agent = &FakeMonitorAgent{}
-
-func (f *FakeMonitorAgent) AttachToEventsMap(nPages int) error {
-	return nil
-}
-
-func (f *FakeMonitorAgent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
-}
-
-func (f *FakeMonitorAgent) RegisterNewListener(newListener listener.MonitorListener) {
-}
-
-func (f *FakeMonitorAgent) RemoveConsumer(mc consumer.MonitorConsumer) {
-}
-
-func (f *FakeMonitorAgent) RemoveListener(ml listener.MonitorListener) {
-}
-
-func (f *FakeMonitorAgent) SendEvent(typ int, event any) error {
-	return nil
-}
-
-func (f *FakeMonitorAgent) State() *models.MonitorStatus {
 	return nil
 }
 
