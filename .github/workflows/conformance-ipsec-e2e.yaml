@@ -306,22 +306,32 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
+          TEST='"seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='"seq-.*,!pod-to-world.*"'
+          fi
+
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-sequential-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test 'seq-.*'
+            --test $TEST
 
       - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
 
+          TEST='"!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+          fi
+
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-concurrent-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test '!seq-.*' \
+            --test $TEST \
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
@@ -372,21 +382,32 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
+          TEST='"seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='"seq-.*,!pod-to-world.*"'
+          fi
+
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-sequential-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test 'seq-.*'
+            --test $TEST
 
       - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
+
+          TEST='"!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+          fi
+
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-concurrent-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test "!seq-.*" \
+            --test $TEST \
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
