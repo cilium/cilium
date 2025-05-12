@@ -34,11 +34,14 @@ cilium-operator-azure hive [flags]
       --enable-ingress-controller                            Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
       --enable-ingress-proxy-protocol                        Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-ipsec                                         Enable IPsec
+      --enable-ipsec-key-watcher                             Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-node-ipam                                     Enable Node IPAM
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-wireguard                                     Enable WireGuard
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
@@ -63,6 +66,8 @@ cilium-operator-azure hive [flags]
       --ingress-lb-annotation-prefixes strings               Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
       --ingress-secrets-namespace string                     Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
+      --ipsec-key-file string                                Path to IPsec key file
+      --ipsec-key-rotation-duration duration                 Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --k8s-api-server-urls strings                          Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
@@ -83,6 +88,7 @@ cilium-operator-azure hive [flags]
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
       --metrics-sampling-interval duration                   Set the internal metrics sampling interval (default 5m0s)
+      --node-encryption-opt-out-labels string                Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
       --operator-k8s-client-qps float32                      Queries per second limit for the K8s client (default 100)
@@ -98,6 +104,7 @@ cilium-operator-azure hive [flags]
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
       --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
+      --wireguard-persistent-keepalive duration              The Wireguard keepalive interval as a Go duration string
 ```
 
 ### SEE ALSO
