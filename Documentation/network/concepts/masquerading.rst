@@ -58,9 +58,6 @@ eBPF-based
    file a GitHub issue if you experience any problems. IPv4 BPF masquerading is
    production-ready.
 
-.. note::
-   BPF masquerading is incompatible with Istio.
-
 The eBPF-based implementation is the most efficient implementation. It can be enabled with
 the ``bpf.masquerade=true`` helm option.
 
