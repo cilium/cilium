@@ -471,7 +471,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 	for _, l := range gw.Spec.Listeners {
 		allSupported := getSupportedRouteKinds(l.Protocol)
-		supportedKinds := []gatewayv1.RouteGroupKind{}
+		var supportedKinds []gatewayv1.RouteGroupKind
 		isValid := true
 
 		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
@@ -551,6 +551,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					Status:             metav1.ConditionTrue,
 					Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
 					Message:            "Resolved Refs",
+					ObservedGeneration: gw.GetGeneration(),
 					LastTransitionTime: metav1.Now(),
 				})
 		}
