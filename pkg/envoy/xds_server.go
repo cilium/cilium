@@ -1291,7 +1291,7 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
 }
 
-func (s *xdsServer) getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, version *versioned.VersionHandle, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	wildcard := sel.IsWildcard()
 	r := &cilium.PortNetworkPolicyRule{}
 
@@ -1316,6 +1316,13 @@ func (s *xdsServer) getPortNetworkPolicyRule(version *versioned.VersionHandle, s
 	if l7Rules.IsDeny {
 		r.Deny = true
 		return r, false
+	}
+
+	// Pass redirect port as proxy ID if the rule has an explicit listener reference.
+	// This makes this rule to be ignored on any listener that does not have a matching
+	// proxy ID.
+	if l7Rules.Listener != "" {
+		r.ProxyId = uint32(ep.GetListenerProxyPort(l7Rules.Listener))
 	}
 
 	// If secret synchronization is disabled, policySecretsNamespace will be the empty string.
@@ -1521,7 +1528,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			}
 		} else {
 			for sel, l7 := range l4.PerSelectorPolicies {
-				rule, cs := s.getPortNetworkPolicyRule(version, sel, l7, useFullTLSContext, useSDS, policySecretsNamespace)
+				rule, cs := s.getPortNetworkPolicyRule(ep, version, sel, l7, useFullTLSContext, useSDS, policySecretsNamespace)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
@@ -1532,11 +1539,12 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 						logfields.Version, version,
 						logfields.TrafficDirection, dir,
 						logfields.Port, port,
+						logfields.ProxyPort, rule.ProxyId,
 						logfields.PolicyID, rule.RemotePolicies,
 						logfields.ServerNames, rule.ServerNames,
 					)
 
-					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 {
+					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 && rule.ProxyId == 0 {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
 						allowAll = true
