@@ -1251,10 +1251,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
-	if option.Config.EnableIPSec && !option.Config.EnableIPv4 {
-		logging.Fatal(logger, "IPSec requires IPv4 addressing to be enabled (--enable-ipv4=\"true\")")
-	}
-
 	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			logging.Fatal(logger, "IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).", logfields.Error, err)
