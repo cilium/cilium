@@ -192,6 +192,12 @@ jobs:
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
+          CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr)"
+          fi
+          echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
+
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -347,7 +353,7 @@ jobs:
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
           fi
           if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
-            CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
+            CILIUM_INTERNAL_IPS=" 0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
           fi
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
@@ -394,7 +400,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-concurrent
-          tests: '!seq-.*'
+          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
 
       - name: Assert that no unencrypted packets are leaked during Cilium upgrade
@@ -451,7 +457,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-concurrent
-          tests: '!seq-.*'
+          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
 
       - name: Assert that no unencrypted packets are leaked during Cilium downgrade
