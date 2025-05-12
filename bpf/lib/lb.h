@@ -25,7 +25,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_skip_lb6 __section_maps_btf;
 
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
@@ -35,6 +34,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_reverse_nat __section_maps_btf;
 
+#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lb6_key);
@@ -114,7 +114,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_skip_lb4 __section_maps_btf;
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
@@ -124,6 +123,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_reverse_nat __section_maps_btf;
 
+#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lb4_key);
