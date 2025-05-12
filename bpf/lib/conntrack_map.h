@@ -24,8 +24,6 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ct_any6_global __section_maps_btf;
 
-#ifdef ENABLE_IPV6
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 /*
  * Per-cluster conntrack map
  *
@@ -67,7 +65,6 @@ struct {
 		__uint(map_flags, LRU_MEM_FLAVOR);
 	});
 } cilium_per_cluster_ct_any6 __section_maps_btf;
-#endif
 
 static __always_inline void *
 get_ct_map6(const struct ipv6_ct_tuple *tuple)
@@ -102,7 +99,6 @@ get_cluster_ct_any_map6(__u32 cluster_id __maybe_unused)
 #endif
 	return &cilium_ct_any6_global;
 }
-#endif
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -122,8 +118,6 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ct_any4_global __section_maps_btf;
 
-#ifdef ENABLE_IPV4
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct per_cluster_ct_map4_inner_map {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv4_ct_tuple);
@@ -174,7 +168,6 @@ struct {
 	},
 };
 #endif
-#endif
 
 static __always_inline void *
 get_ct_map4(const struct ipv4_ct_tuple *tuple)
@@ -209,4 +202,3 @@ get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
 #endif
 	return &cilium_ct_any4_global;
 }
-#endif
