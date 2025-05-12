@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -549,16 +548,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableHostFirewall {
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
-	}
-
-	if option.Config.EnableIPSec {
-		nodeAddress := cfg.NodeIPv4
-		if nodeAddress == nil {
-			return errors.New("external IPv4 node address is required when IPSec is enabled, but none found")
-		}
-
-		a := byteorder.NetIPv4ToHost32(nodeAddress)
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 	}
 
 	if option.Config.EnableNodePort {
