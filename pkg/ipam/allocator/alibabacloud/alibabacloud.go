@@ -40,13 +40,13 @@ type AllocatorAlibabaCloud struct {
 
 // Init sets up ENI limits based on given options
 // Credential ref https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/docs/2-Client-EN.md
-func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) error {
+func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 	var aMetrics openapi.MetricsAPI
 
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "alibabacloud", operatorMetrics.Registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "alibabacloud", reg)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}

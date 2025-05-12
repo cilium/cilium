@@ -504,6 +504,7 @@ type params struct {
 	CfgMCSAPI       cmoperator.MCSAPIConfig
 	Metrics         *UnmanagedPodsMetric
 	MetricsProvider *node.WorkqueuePrometheusMetricsProvider
+	MetricsRegistry *metrics.Registry
 	Logger          *slog.Logger
 }
 
@@ -520,6 +521,7 @@ func registerLegacyOnLeader(p params) {
 		metrics:         p.Metrics,
 		logger:          p.Logger,
 		metricsProvider: p.MetricsProvider,
+		metricsRegistry: p.MetricsRegistry,
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -538,6 +540,7 @@ type legacyOnLeader struct {
 	cfgMCSAPI       cmoperator.MCSAPIConfig
 	metrics         *UnmanagedPodsMetric
 	metricsProvider *node.WorkqueuePrometheusMetricsProvider
+	metricsRegistry *metrics.Registry
 
 	logger *slog.Logger
 }
@@ -593,7 +596,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(legacy.ctx, logging.DefaultSlogLogger); err != nil {
+		if err := alloc.Init(legacy.ctx, logging.DefaultSlogLogger, legacy.metricsRegistry); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
