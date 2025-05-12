@@ -14,13 +14,21 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+type Config struct {
+	EnableHeartBeat bool
+}
+
 // Cell creates a cell responsible for periodically updating the heartbeat key
 // in the kvstore.
 var Cell = cell.Module(
 	"kvstore-heartbeat-updater",
 	"KVStore Heartbeat Updater",
 
-	cell.Invoke(func(logger *slog.Logger, lc cell.Lifecycle, backendPromise promise.Promise[kvstore.BackendOperations]) {
+	cell.Invoke(func(config Config, logger *slog.Logger, lc cell.Lifecycle, backendPromise promise.Promise[kvstore.BackendOperations]) {
+		if !config.EnableHeartBeat {
+			return
+		}
+
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
 
