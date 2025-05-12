@@ -745,8 +745,8 @@ enum AgentEventType {
     ENDPOINT_DELETED = 8;
     IPCACHE_UPSERTED = 9;
     IPCACHE_DELETED = 10;
-    SERVICE_UPSERTED = 11;
-    SERVICE_DELETED = 12;
+    SERVICE_UPSERTED = 11 [deprecated = true];
+    SERVICE_DELETED = 12 [deprecated = true];
 }
 
 message AgentEvent {
@@ -762,8 +762,8 @@ message AgentEvent {
         EndpointUpdateNotification endpoint_update = 104;
         // used for IPCACHE_UPSERTED and IPCACHE_DELETED
         IPCacheNotification ipcache_update = 105;
-        ServiceUpsertNotification service_upsert = 106;
-        ServiceDeleteNotification service_delete = 107;
+        ServiceUpsertNotification service_upsert = 106 [deprecated = true];
+        ServiceDeleteNotification service_delete = 107 [deprecated = true];
     }
 }
 
@@ -808,11 +808,15 @@ message IPCacheNotification {
 }
 
 message ServiceUpsertNotificationAddr {
+    option deprecated = true;
+
     string ip = 1;
     uint32 port = 2;
 }
 
 message ServiceUpsertNotification {
+    option deprecated = true;
+
     uint32 id = 1;
     ServiceUpsertNotificationAddr frontend_address = 2;
     repeated ServiceUpsertNotificationAddr backend_addresses = 3;
@@ -825,6 +829,8 @@ message ServiceUpsertNotification {
 }
 
 message ServiceDeleteNotification {
+    option deprecated = true;
+
     uint32 id = 1;
 }
 

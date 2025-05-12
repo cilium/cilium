@@ -1023,8 +1023,10 @@ const (
 	AgentEventType_ENDPOINT_DELETED            AgentEventType = 8
 	AgentEventType_IPCACHE_UPSERTED            AgentEventType = 9
 	AgentEventType_IPCACHE_DELETED             AgentEventType = 10
-	AgentEventType_SERVICE_UPSERTED            AgentEventType = 11
-	AgentEventType_SERVICE_DELETED             AgentEventType = 12
+	// Deprecated: Marked as deprecated in flow/flow.proto.
+	AgentEventType_SERVICE_UPSERTED AgentEventType = 11
+	// Deprecated: Marked as deprecated in flow/flow.proto.
+	AgentEventType_SERVICE_DELETED AgentEventType = 12
 )
 
 // Enum value maps for AgentEventType.
@@ -4015,6 +4017,7 @@ func (x *AgentEvent) GetIpcacheUpdate() *IPCacheNotification {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 func (x *AgentEvent) GetServiceUpsert() *ServiceUpsertNotification {
 	if x != nil {
 		if x, ok := x.Notification.(*AgentEvent_ServiceUpsert); ok {
@@ -4024,6 +4027,7 @@ func (x *AgentEvent) GetServiceUpsert() *ServiceUpsertNotification {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 func (x *AgentEvent) GetServiceDelete() *ServiceDeleteNotification {
 	if x != nil {
 		if x, ok := x.Notification.(*AgentEvent_ServiceDelete); ok {
@@ -4066,10 +4070,12 @@ type AgentEvent_IpcacheUpdate struct {
 }
 
 type AgentEvent_ServiceUpsert struct {
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	ServiceUpsert *ServiceUpsertNotification `protobuf:"bytes,106,opt,name=service_upsert,json=serviceUpsert,proto3,oneof"`
 }
 
 type AgentEvent_ServiceDelete struct {
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	ServiceDelete *ServiceDeleteNotification `protobuf:"bytes,107,opt,name=service_delete,json=serviceDelete,proto3,oneof"`
 }
 
@@ -4481,6 +4487,7 @@ func (x *IPCacheNotification) GetPodName() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 type ServiceUpsertNotificationAddr struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ip            string                 `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty"`
@@ -4533,6 +4540,7 @@ func (x *ServiceUpsertNotificationAddr) GetPort() uint32 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 type ServiceUpsertNotification struct {
 	state            protoimpl.MessageState           `protogen:"open.v1"`
 	Id               uint32                           `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -4643,6 +4651,7 @@ func (x *ServiceUpsertNotification) GetIntTrafficPolicy() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 type ServiceDeleteNotification struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -5119,7 +5128,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\tLostEvent\x12-\n" +
 	"\x06source\x18\x01 \x01(\x0e2\x15.flow.LostEventSourceR\x06source\x12&\n" +
 	"\x0fnum_events_lost\x18\x02 \x01(\x04R\rnumEventsLost\x12-\n" +
-	"\x03cpu\x18\x03 \x01(\v2\x1b.google.protobuf.Int32ValueR\x03cpu\"\xf6\x04\n" +
+	"\x03cpu\x18\x03 \x01(\v2\x1b.google.protobuf.Int32ValueR\x03cpu\"\xfe\x04\n" +
 	"\n" +
 	"AgentEvent\x12(\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x14.flow.AgentEventTypeR\x04type\x123\n" +
@@ -5129,9 +5138,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\rpolicy_update\x18f \x01(\v2\x1e.flow.PolicyUpdateNotificationH\x00R\fpolicyUpdate\x12R\n" +
 	"\x13endpoint_regenerate\x18g \x01(\v2\x1f.flow.EndpointRegenNotificationH\x00R\x12endpointRegenerate\x12K\n" +
 	"\x0fendpoint_update\x18h \x01(\v2 .flow.EndpointUpdateNotificationH\x00R\x0eendpointUpdate\x12B\n" +
-	"\x0eipcache_update\x18i \x01(\v2\x19.flow.IPCacheNotificationH\x00R\ripcacheUpdate\x12H\n" +
-	"\x0eservice_upsert\x18j \x01(\v2\x1f.flow.ServiceUpsertNotificationH\x00R\rserviceUpsert\x12H\n" +
-	"\x0eservice_delete\x18k \x01(\v2\x1f.flow.ServiceDeleteNotificationH\x00R\rserviceDeleteB\x0e\n" +
+	"\x0eipcache_update\x18i \x01(\v2\x19.flow.IPCacheNotificationH\x00R\ripcacheUpdate\x12L\n" +
+	"\x0eservice_upsert\x18j \x01(\v2\x1f.flow.ServiceUpsertNotificationB\x02\x18\x01H\x00R\rserviceUpsert\x12L\n" +
+	"\x0eservice_delete\x18k \x01(\v2\x1f.flow.ServiceDeleteNotificationB\x02\x18\x01H\x00R\rserviceDeleteB\x0e\n" +
 	"\fnotification\"K\n" +
 	"\x11AgentEventUnknown\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\"\n" +
@@ -5162,10 +5171,10 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\vencrypt_key\x18\x06 \x01(\rR\n" +
 	"encryptKey\x12\x1c\n" +
 	"\tnamespace\x18\a \x01(\tR\tnamespace\x12\x19\n" +
-	"\bpod_name\x18\b \x01(\tR\apodName\"C\n" +
+	"\bpod_name\x18\b \x01(\tR\apodName\"G\n" +
 	"\x1dServiceUpsertNotificationAddr\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\tR\x02ip\x12\x12\n" +
-	"\x04port\x18\x02 \x01(\rR\x04port\"\x9a\x03\n" +
+	"\x04port\x18\x02 \x01(\rR\x04port:\x02\x18\x01\"\x9e\x03\n" +
 	"\x19ServiceUpsertNotification\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12N\n" +
 	"\x10frontend_address\x18\x02 \x01(\v2#.flow.ServiceUpsertNotificationAddrR\x0ffrontendAddress\x12P\n" +
@@ -5175,9 +5184,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x04name\x18\x06 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\a \x01(\tR\tnamespace\x12,\n" +
 	"\x12ext_traffic_policy\x18\b \x01(\tR\x10extTrafficPolicy\x12,\n" +
-	"\x12int_traffic_policy\x18\t \x01(\tR\x10intTrafficPolicy\"+\n" +
+	"\x12int_traffic_policy\x18\t \x01(\tR\x10intTrafficPolicy:\x02\x18\x01\"/\n" +
 	"\x19ServiceDeleteNotification\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\"<\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id:\x02\x18\x01\"<\n" +
 	"\x10NetworkInterface\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\xef\x02\n" +
@@ -5362,7 +5371,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x19UNKNOWN_LOST_EVENT_SOURCE\x10\x00\x12\x1a\n" +
 	"\x16PERF_EVENT_RING_BUFFER\x10\x01\x12\x19\n" +
 	"\x15OBSERVER_EVENTS_QUEUE\x10\x02\x12\x16\n" +
-	"\x12HUBBLE_RING_BUFFER\x10\x03*\xae\x02\n" +
+	"\x12HUBBLE_RING_BUFFER\x10\x03*\xb6\x02\n" +
 	"\x0eAgentEventType\x12\x17\n" +
 	"\x13AGENT_EVENT_UNKNOWN\x10\x00\x12\x11\n" +
 	"\rAGENT_STARTED\x10\x02\x12\x12\n" +
@@ -5374,9 +5383,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x10ENDPOINT_DELETED\x10\b\x12\x14\n" +
 	"\x10IPCACHE_UPSERTED\x10\t\x12\x13\n" +
 	"\x0fIPCACHE_DELETED\x10\n" +
-	"\x12\x14\n" +
-	"\x10SERVICE_UPSERTED\x10\v\x12\x13\n" +
-	"\x0fSERVICE_DELETED\x10\f\"\x04\b\x01\x10\x01*\xd8\x01\n" +
+	"\x12\x18\n" +
+	"\x10SERVICE_UPSERTED\x10\v\x1a\x02\b\x01\x12\x17\n" +
+	"\x0fSERVICE_DELETED\x10\f\x1a\x02\b\x01\"\x04\b\x01\x10\x01*\xd8\x01\n" +
 	"\x16SocketTranslationPoint\x12\x1c\n" +
 	"\x18SOCK_XLATE_POINT_UNKNOWN\x10\x00\x12&\n" +
 	"\"SOCK_XLATE_POINT_PRE_DIRECTION_FWD\x10\x01\x12'\n" +
