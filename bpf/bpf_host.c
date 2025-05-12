@@ -405,14 +405,14 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_CONT_FROM_HOST)
+__declare_tail(CILIUM_CALL_IPV6_CONT_FROM_HOST)
 static __always_inline
 int tail_handle_ipv6_cont_from_host(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6_cont(ctx, true);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
+__declare_tail(CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
 static __always_inline
 int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 {
@@ -456,7 +456,7 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_HOST)
+__declare_tail(CILIUM_CALL_IPV6_FROM_HOST)
 int tail_handle_ipv6_from_host(struct __ctx_buff *ctx)
 {
 	__u32 ipcache_srcid = 0;
@@ -468,7 +468,7 @@ int tail_handle_ipv6_from_host(struct __ctx_buff *ctx)
 	return tail_handle_ipv6(ctx, ipcache_srcid, true);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
+__declare_tail(CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6(ctx, 0, false);
@@ -863,14 +863,14 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_CONT_FROM_HOST)
+__declare_tail(CILIUM_CALL_IPV4_CONT_FROM_HOST)
 static __always_inline
 int tail_handle_ipv4_cont_from_host(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4_cont(ctx, true);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_CONT_FROM_NETDEV)
+__declare_tail(CILIUM_CALL_IPV4_CONT_FROM_NETDEV)
 static __always_inline
 int tail_handle_ipv4_cont_from_netdev(struct __ctx_buff *ctx)
 {
@@ -914,7 +914,7 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_HOST)
+__declare_tail(CILIUM_CALL_IPV4_FROM_HOST)
 int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 {
 	__u32 ipcache_srcid = 0;
@@ -926,7 +926,7 @@ int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 	return tail_handle_ipv4(ctx, ipcache_srcid, true);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
+__declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4(ctx, 0, false);
@@ -1801,7 +1801,7 @@ out:
 
 #if defined(ENABLE_HOST_FIREWALL)
 #ifdef ENABLE_IPV6
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
+__declare_tail(CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 {
@@ -1829,7 +1829,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
+__declare_tail(CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {

@@ -408,7 +408,7 @@ srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 	ctx_store_meta_ipv6(ctx, CB_SRV6_SID_1, sid);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_ENCAP)
+__declare_tail(CILIUM_CALL_SRV6_ENCAP)
 int tail_srv6_encap(struct __ctx_buff *ctx)
 {
 	struct in6_addr dst_sid;
@@ -427,7 +427,7 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_DECAP)
+__declare_tail(CILIUM_CALL_SRV6_DECAP)
 int tail_srv6_decap(struct __ctx_buff *ctx)
 {
 	int ret = 0;
