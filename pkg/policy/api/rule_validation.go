@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/iana"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -758,4 +759,204 @@ func (c *CIDRRule) sanitize() error {
 	}
 
 	return nil
+}
+
+// ReplaceExtendedKey replaces all Cilium key in the form of `:` into `.`
+func (r *Rule) ReplaceExtendedKey() {
+	if r.EndpointSelector.LabelSelector != nil {
+		r.EndpointSelector.ParseExtendedKey()
+	}
+
+	if r.NodeSelector.LabelSelector != nil {
+		r.NodeSelector.ParseExtendedKey()
+	}
+
+	for _, c := range r.Ingress {
+		c.ParseExtendedKey()
+	}
+	for _, c := range r.IngressDeny {
+		c.ParseExtendedKey()
+	}
+	for _, c := range r.Egress {
+		c.ParseExtendedKey()
+	}
+	for _, c := range r.EgressDeny {
+		c.ParseExtendedKey()
+	}
+}
+
+func (r *IngressRule) ParseExtendedKey() {
+	for _, n := range r.FromEndpoints {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+
+	for _, n := range r.FromNodes {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+}
+
+func (r *IngressDenyRule) ParseExtendedKey() {
+	for _, n := range r.FromEndpoints {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+
+	for _, n := range r.FromNodes {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+}
+
+func (r *EgressRule) ParseExtendedKey() {
+	for _, n := range r.ToEndpoints {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+
+	for _, n := range r.ToNodes {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+}
+
+func (r *EgressDenyRule) ParseExtendedKey() {
+	for _, n := range r.ToEndpoints {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
+
+	for _, n := range r.ToNodes {
+		if n.MatchLabels != nil {
+			ml := map[string]string{}
+			for k, v := range n.MatchLabels {
+				ml[labels.GetExtendedKeyFrom(k)] = v
+			}
+			n.MatchLabels = ml
+		}
+		if n.MatchExpressions != nil {
+			newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+			for i, v := range n.MatchExpressions {
+				v.Key = labels.GetExtendedKeyFrom(v.Key)
+				newMatchExpr[i] = v
+			}
+			n.MatchExpressions = newMatchExpr
+		}
+
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		n.cachedLabelSelectorString = n.LabelSelector.String()
+	}
 }
