@@ -52,8 +52,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_backends_v3 __section_maps_btf;
 
-#ifdef ENABLE_IPV6
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb6_affinity_key);
@@ -62,8 +60,8 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_affinity __section_maps_btf;
-#endif
 
+#ifdef ENABLE_IPV6
 #ifdef ENABLE_SRC_RANGE_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
@@ -141,8 +139,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_backends_v3 __section_maps_btf;
 
-#ifdef ENABLE_IPV4
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb4_affinity_key);
@@ -151,8 +147,8 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_affinity __section_maps_btf;
-#endif
 
+#ifdef ENABLE_IPV4
 #ifdef ENABLE_SRC_RANGE_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
