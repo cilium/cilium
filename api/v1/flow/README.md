@@ -86,8 +86,8 @@
 | endpoint_regenerate | [EndpointRegenNotification](#flow-EndpointRegenNotification) |  | used for ENDPOINT_REGENERATE_SUCCESS and ENDPOINT_REGENERATE_FAILURE |
 | endpoint_update | [EndpointUpdateNotification](#flow-EndpointUpdateNotification) |  | used for ENDPOINT_CREATED and ENDPOINT_DELETED |
 | ipcache_update | [IPCacheNotification](#flow-IPCacheNotification) |  | used for IPCACHE_UPSERTED and IPCACHE_DELETED |
-| service_upsert | [ServiceUpsertNotification](#flow-ServiceUpsertNotification) |  |  |
-| service_delete | [ServiceDeleteNotification](#flow-ServiceDeleteNotification) |  |  |
+| service_upsert | [ServiceUpsertNotification](#flow-ServiceUpsertNotification) |  | **Deprecated.**  |
+| service_delete | [ServiceDeleteNotification](#flow-ServiceDeleteNotification) |  | **Deprecated.**  |
 
 
 
