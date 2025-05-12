@@ -164,6 +164,8 @@ var (
 		) ciliumendpointslice.SharedConfig {
 			return ciliumendpointslice.SharedConfig{
 				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+				EnableWireguard:           daemonCfg.EnableWireguard,
+				EnableIPSec:               daemonCfg.EnableIPSec,
 			}
 		}),
 
