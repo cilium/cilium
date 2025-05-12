@@ -45,8 +45,6 @@ struct mcast_subscriber_v4 {
 	__u8  flags;
 };
 
-#ifdef ENABLE_MULTICAST
-
 #define MCAST_MAX_GROUP 1024
 #define MCAST_MAX_SUBSCRIBERS 1024
 /* used to bound iteration of group records within an igmpv3 membership report */
@@ -74,6 +72,7 @@ struct {
 	});
 } cilium_mcast_group_outer_v4_map __section_maps_btf;
 
+#ifdef ENABLE_MULTICAST
 /* lookup a subscriber map for the given ipv4 multicast group
  * returns a void pointer to a inner subscriper map if one exists
  */
