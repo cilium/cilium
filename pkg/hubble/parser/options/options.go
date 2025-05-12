@@ -18,6 +18,7 @@ type Options struct {
 	CacheSize                      int
 	HubbleRedactSettings           HubbleRedactSettings
 	EnableNetworkPolicyCorrelation bool
+	SkipUnknownCGroupIDs           bool
 }
 
 // HubbleRedactSettings contains all hubble redact related options
@@ -68,6 +69,16 @@ func WithNetworkPolicyCorrelation(logger *slog.Logger, enabled bool) Option {
 		opt.EnableNetworkPolicyCorrelation = enabled
 		logger.Info("configured Hubble with network policy correlation",
 			logfields.Options, opt.EnableNetworkPolicyCorrelation,
+		)
+	}
+}
+
+// WithSkipUnknownCGroupIDs configures whether Hubble will skip events with unknown CGroup IDs.
+func WithSkipUnknownCGroupIDs(logger *slog.Logger, enabled bool) Option {
+	return func(opt *Options) {
+		opt.SkipUnknownCGroupIDs = enabled
+		logger.Info("configured Hubble to skip events with unknown CGroup IDs",
+			logfields.Options, opt.SkipUnknownCGroupIDs,
 		)
 	}
 }
