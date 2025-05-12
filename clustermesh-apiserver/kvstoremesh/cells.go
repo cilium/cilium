@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
+	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
 )
 
@@ -27,6 +28,13 @@ var Cell = cell.Module(
 	APIServerCell,
 
 	kvstoremesh.Cell,
+
+	cell.Provide(func(kmConfig kvstoremesh.Config) heartbeat.Config {
+		return heartbeat.Config{
+			EnableHeartBeat: kmConfig.EnableHeartBeat,
+		}
+	}),
+	heartbeat.Cell,
 
 	cell.Invoke(kvstoremesh.RegisterSyncWaiter),
 
