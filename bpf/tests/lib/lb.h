@@ -61,7 +61,8 @@ lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 
 static __always_inline void
 lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-			     __u16 rev_nat_index, __u8 flags, __u8 flags2)
+			     __u16 rev_nat_index, __u8 flags, __u8 flags2,
+			     __u16 proxy_port)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
@@ -74,6 +75,7 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend
 		.flags = flags,
 		.flags2 = flags2,
 		.rev_nat_index = rev_nat_index,
+		.l7_lb_proxy_port = proxy_port,
 	};
 	map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
 	/* Register with both scopes: */
