@@ -9,16 +9,17 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
@@ -42,7 +43,7 @@ func isCtxDone(ctx context.Context) bool {
 
 type Agent interface {
 	AttachToEventsMap(nPages int) error
-	SendEvent(typ int, event interface{}) error
+	SendEvent(typ int, event any) error
 	RegisterNewListener(newListener listener.MonitorListener)
 	RemoveListener(ml listener.MonitorListener)
 	RegisterNewConsumer(newConsumer consumer.MonitorConsumer)
@@ -61,6 +62,8 @@ type Agent interface {
 // If it doesn't, the cancel is the correct behavior (the older generation
 // cancel must have been called for us to get this far anyway).
 type agent struct {
+	logger *slog.Logger
+
 	lock.Mutex
 	models.MonitorStatus
 
@@ -87,9 +90,10 @@ type agent struct {
 // goroutine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func newAgent(ctx context.Context) *agent {
+func newAgent(ctx context.Context, logger *slog.Logger) *agent {
 	return &agent{
 		ctx:              ctx,
+		logger:           logger,
 		listeners:        make(map[listener.MonitorListener]struct{}),
 		consumers:        make(map[consumer.MonitorConsumer]struct{}),
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
@@ -108,7 +112,7 @@ func (a *agent) AttachToEventsMap(nPages int) error {
 	}
 
 	// assert that we can actually connect the monitor
-	path := oldBPF.MapPath(eventsmap.MapName)
+	path := oldBPF.MapPath(a.logger, eventsmap.MapName)
 	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
 	if err != nil {
 		return err
@@ -130,7 +134,7 @@ func (a *agent) AttachToEventsMap(nPages int) error {
 }
 
 // SendEvent distributes an event to all monitor listeners
-func (a *agent) SendEvent(typ int, event interface{}) error {
+func (a *agent) SendEvent(typ int, event any) error {
 	if a == nil {
 		return fmt.Errorf("monitor agent is not set up")
 	}
@@ -220,7 +224,7 @@ func (a *agent) RegisterNewListener(newListener listener.MonitorListener) {
 	defer a.Unlock()
 
 	if isCtxDone(a.ctx) {
-		log.Debug("RegisterNewListener called on stopped monitor")
+		a.logger.Debug("RegisterNewListener called on stopped monitor")
 		newListener.Close()
 		return
 	}
@@ -237,13 +241,14 @@ func (a *agent) RegisterNewListener(newListener listener.MonitorListener) {
 
 	default:
 		newListener.Close()
-		log.WithField("version", version).Error("Closing listener from unsupported monitor client version")
+		a.logger.Error("Closing listener from unsupported monitor client version", logfields.Version, version)
 	}
 
-	log.WithFields(logrus.Fields{
-		"count.listener": len(a.listeners),
-		"version":        version,
-	}).Debug("New listener connected")
+	a.logger.Debug(
+		"New listener connected",
+		logfields.Count, len(a.listeners),
+		logfields.Version, version,
+	)
 }
 
 // RemoveListener deletes the MonitorListener from the list, closes its queue,
@@ -258,10 +263,11 @@ func (a *agent) RemoveListener(ml listener.MonitorListener) {
 
 	// Remove the listener and close it.
 	delete(a.listeners, ml)
-	log.WithFields(logrus.Fields{
-		"count.listener": len(a.listeners),
-		"version":        ml.Version(),
-	}).Debug("Removed listener")
+	a.logger.Debug(
+		"Removed listener",
+		logfields.Count, len(a.listeners),
+		logfields.Version, ml.Version(),
+	)
 	ml.Close()
 
 	// If this was the final listener, shutdown the perf reader and unmap our
@@ -282,7 +288,7 @@ func (a *agent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
 	}
 
 	if isCtxDone(a.ctx) {
-		log.Debug("RegisterNewConsumer called on stopped monitor")
+		a.logger.Debug("RegisterNewConsumer called on stopped monitor")
 		return
 	}
 
@@ -316,14 +322,17 @@ func (a *agent) RemoveConsumer(mc consumer.MonitorConsumer) {
 // Poll call but assumes enough events are generated that these blocks are
 // short.
 func (a *agent) handleEvents(stopCtx context.Context) {
-	scopedLog := log.WithField(logfields.StartTime, time.Now())
-	scopedLog.Info("Beginning to read perf buffer")
-	defer scopedLog.Info("Stopped reading perf buffer")
+	tNow := time.Now()
+	a.logger.Info("Beginning to read perf buffer", logfields.StartTime, tNow)
+	defer a.logger.Info("Stopped reading perf buffer", logfields.StartTime, tNow)
 
 	bufferSize := int(a.Pagesize * a.Npages)
 	monitorEvents, err := perf.NewReader(a.events, bufferSize)
 	if err != nil {
-		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
+		logging.Fatal(a.logger, "Cannot initialise BPF perf ring buffer sockets",
+			logfields.Error, err,
+			logfields.StartTime, tNow,
+		)
 	}
 	defer func() {
 		monitorEvents.Close()
@@ -347,7 +356,10 @@ func (a *agent) handleEvents(stopCtx context.Context) {
 				a.MonitorStatus.Unknown++
 				a.Unlock()
 			} else {
-				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
+				a.logger.Warn("Error received while reading from perf buffer",
+					logfields.Error, err,
+					logfields.StartTime, tNow,
+				)
 				if errors.Is(err, unix.EBADFD) {
 					return
 				}
@@ -355,13 +367,13 @@ func (a *agent) handleEvents(stopCtx context.Context) {
 			continue
 		}
 
-		a.processPerfRecord(scopedLog, record)
+		a.processPerfRecord(record)
 	}
 }
 
 // processPerfRecord processes a record from the datapath and sends it to any
 // registered subscribers
-func (a *agent) processPerfRecord(scopedLog *logrus.Entry, record perf.Record) {
+func (a *agent) processPerfRecord(record perf.Record) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -403,7 +415,7 @@ func (a *agent) State() *models.MonitorStatus {
 }
 
 // notifyAgentEvent notifies all consumers about an agent event.
-func (a *agent) notifyAgentEvent(typ int, message interface{}) {
+func (a *agent) notifyAgentEvent(typ int, message any) {
 	a.Lock()
 	defer a.Unlock()
 	for mc := range a.consumers {

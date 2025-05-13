@@ -6,12 +6,14 @@ package bpf
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -86,21 +88,25 @@ func (e Event) GetDesiredAction() DesiredAction {
 
 func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 	b := &eventsBuffer{
+		logger:   m.Logger,
 		buffer:   container.NewRingBuffer(maxSize),
 		eventTTL: eventsTTL,
 	}
 	if b.eventTTL > 0 {
-		m.scopedLogger().Debug("starting bpf map event buffer GC controller")
+		m.Logger.Debug("starting bpf map event buffer GC controller")
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
 			controller.ControllerParams{
 				Group: bpfEventBufferGCControllerGroup,
 				DoFunc: func(_ context.Context) error {
-					m.scopedLogger().Debugf("clearing bpf map events older than %s", b.eventTTL)
-					b.buffer.Compact(func(e interface{}) bool {
+					m.Logger.Debug(
+						"clearing bpf map events older than TTL",
+						logfields.TTL, b.eventTTL,
+					)
+					b.buffer.Compact(func(e any) bool {
 						event, ok := e.(*Event)
 						if !ok {
-							log.WithError(wrongObjTypeErr(e)).Error("Failed to compact the event buffer")
+							m.Logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
 							return false
 						}
 						return time.Since(event.Timestamp) < b.eventTTL
@@ -117,6 +123,7 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 // eventsBuffer stores a buffer of events for auditing and debugging
 // purposes.
 type eventsBuffer struct {
+	logger        *slog.Logger
 	buffer        *container.RingBuffer
 	eventTTL      time.Duration
 	subsLock      lock.RWMutex
@@ -242,7 +249,11 @@ func (eb *eventsBuffer) add(e *Event) {
 			defer wg.Done()
 			if sub.isFull() {
 				err := fmt.Errorf("timed out waiting to send sub map event")
-				log.WithError(err).Warnf("subscription channel buffer %d was full, closing subscription", i)
+				eb.logger.Warn(
+					"subscription channel buffer was full, closing subscription",
+					logfields.Error, err,
+					logfields.SubscriptionID, i,
+				)
 				sub.close(err)
 			} else {
 				sub.c <- e
@@ -262,10 +273,10 @@ func wrongObjTypeErr(i any) error {
 	return fmt.Errorf("BUG: wrong object type in event ring buffer: %T", i)
 }
 
-func (eb *eventsBuffer) eventIsValid(e interface{}) bool {
+func (eb *eventsBuffer) eventIsValid(e any) bool {
 	event, ok := e.(*Event)
 	if !ok {
-		log.WithError(wrongObjTypeErr(e)).Error("Could not dump contents of events buffer")
+		eb.logger.Error("Could not dump contents of events buffer", logfields.Error, wrongObjTypeErr(e))
 		return false
 	}
 	return eb.eventTTL == 0 || time.Since(event.Timestamp) <= eb.eventTTL
@@ -275,10 +286,10 @@ func (eb *eventsBuffer) eventIsValid(e interface{}) bool {
 type EventCallbackFunc func(*Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
-	eb.buffer.IterateValid(eb.eventIsValid, func(e interface{}) {
+	eb.buffer.IterateValid(eb.eventIsValid, func(e any) {
 		event, ok := e.(*Event)
 		if !ok {
-			log.WithError(wrongObjTypeErr(e)).Error("Could not dump contents of events buffer")
+			eb.logger.Error("Could not dump contents of events buffer", logfields.Error, wrongObjTypeErr(e))
 			return
 		}
 		callback(event)
