@@ -7,7 +7,6 @@
 #include "lib/identity.h"
 #include "lib/tailcall.h"
 
-#ifdef ENABLE_SRV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct srv6_vrf_key6);
@@ -43,8 +42,6 @@ struct srv6_srh {
 	struct in6_addr segments[0];
 };
 
-# ifdef ENABLE_IPV4
-
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct srv6_vrf_key4);
@@ -62,6 +59,9 @@ struct {
 	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_policy_v4 __section_maps_btf;
+
+#ifdef ENABLE_SRV6
+# ifdef ENABLE_IPV4
 
 /* SRV6_VRF_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key4.
