@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#include <bpf/ctx/skb.h>
 #include "common.h"
-#include "bpf/ctx/skb.h"
-#include "linux/bpf.h"
 
 #define CTX_REDIRECT_ENTERED 1001
 
