@@ -35,7 +35,7 @@ spec:
     matchNames:
     - {{ include "cilium.namespace" . }}
   endpoints:
-  {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+  {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (eq "true" (include "identityAllocationCRD" .)) }}
   - port: apiserv-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.interval | quote }}
     {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout }}

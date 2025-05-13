@@ -24,7 +24,7 @@ spec:
   clusterIP: None
   type: ClusterIP
   ports:
-  {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+  {{- if and (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (eq "true" (include "identityAllocationCRD" .)) }}
     {{- if .Values.clustermesh.apiserver.metrics.enabled }}
   - name: apiserv-metrics
     port: {{ .Values.clustermesh.apiserver.metrics.port }}
