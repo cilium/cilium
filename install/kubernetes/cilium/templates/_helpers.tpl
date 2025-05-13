@@ -210,3 +210,10 @@ Return user specify tls.secretSync.enabled or default value based on the upgrade
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{/*
+Determine if CRDs are used for identity allocation
+*/}}
+{{- define "identityAllocationCRD" }}
+  {{- list "crd" "doublewrite-readkvstore" "doublewrite-readcrd" | has .Values.identityAllocationMode }}
+{{- end }}
