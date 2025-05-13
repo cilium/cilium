@@ -342,7 +342,7 @@ jobs:
         with:
           key-algo: ${{ matrix.key-two }}
           tunnel: ${{ matrix.tunnel }}
-          nb-nodes: 2
+          nb-nodes: 3 # We don't count the node without Cilium.
           ipv6: true
 
       - name: Assert that no unencrypted packets are leaked during key rotation
