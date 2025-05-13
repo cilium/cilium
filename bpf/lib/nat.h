@@ -1854,6 +1854,19 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			if (icmp6hdr.icmp6_code > ICMPV6_REJECT_ROUTE)
 				return DROP_UNKNOWN_ICMP6_CODE;
 
+			goto nat_icmp_v6;
+		case ICMPV6_PKT_TOOBIG:
+			goto nat_icmp_v6;
+		case ICMPV6_TIME_EXCEED:
+			switch (icmp6hdr.icmp6_code) {
+			case ICMPV6_EXC_HOPLIMIT:
+			case ICMPV6_EXC_FRAGTIME:
+				break;
+			default:
+				return DROP_UNKNOWN_ICMP6_CODE;
+			}
+
+nat_icmp_v6:
 			return snat_v6_nat_handle_icmp_error(ctx, off, true);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
