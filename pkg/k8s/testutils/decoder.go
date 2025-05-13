@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -21,13 +22,19 @@ import (
 )
 
 var (
-	// Scheme for object types used in Cilium.
+	// Scheme for object types used in Cilium. Excludes the core Kubernetes schema
+	// in favour of the slim one.
+	//
+	//
 	// The scheme can be extended by init() functions since [Decoder] is
 	// lazily constructed.
 	Scheme = runtime.NewScheme()
 
 	decoderOnce sync.Once
 	decoder     runtime.Decoder
+
+	kubernetesDecoderOnce sync.Once
+	kubernetesDecoder     runtime.Decoder
 )
 
 // Decoder returns an object decoder for Cilium and Slim objects.
@@ -66,7 +73,19 @@ func DecodeObject(bytes []byte) (runtime.Object, error) {
 
 func DecodeObjectGVK(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
 	obj, gvk, err := Decoder().Decode(bytes, nil, nil)
-	return obj, gvk, err
+	if err == nil {
+		return obj, gvk, err
+	}
+	return DecodeKubernetesObject(bytes)
+}
+
+func DecodeKubernetesObject(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
+	kubernetesDecoderOnce.Do(func() {
+		scheme := runtime.NewScheme()
+		fake.AddToScheme(scheme)
+		kubernetesDecoder = serializer.NewCodecFactory(scheme).UniversalDeserializer()
+	})
+	return kubernetesDecoder.Decode(bytes, nil, nil)
 }
 
 func DecodeFile(path string) (runtime.Object, error) {
