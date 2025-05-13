@@ -166,12 +166,17 @@
 {{- fail ".Values.clustermesh.apiserver.kvstoremesh.kvstoreMode must have the value of external or internal" -}}
 {{- end -}}
 
-{{- if and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
-  {{- if and (ne .Values.identityAllocationMode "crd") (ne .Values.identityAllocationMode "doublewrite-readkvstore") (ne .Values.identityAllocationMode "doublewrite-readcrd") }}
-    {{ fail (printf "The clustermesh-apiserver cannot be enabled in combination with .Values.identityAllocationMode=%s. To establish a Cluster Mesh, directly configure the parameters to access the remote kvstore through .Values.clustermesh.config" .Values.identityAllocationMode ) }}
-  {{- end }}
-  {{- if .Values.disableEndpointCRD }}
-    {{ fail "The clustermesh-apiserver cannot be enabled in combination with .Values.disableEndpointCRD=true" }}
+{{- if .Values.clustermesh.useAPIServer }}
+  {{- if eq "true" (include "identityAllocationCRD" .) }}
+    {{/* CRDs are used */}}
+    {{- if and .Values.disableEndpointCRD }}
+      {{ fail "The clustermesh-apiserver cannot be enabled in combination with .Values.disableEndpointCRD=true" }}
+    {{- end }}
+  {{- else }}
+    {{/* kvstore is used */}}
+    {{- if not .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      {{ fail (printf "The kvstoremesh container cannot be disabled in combination with .Values.identityAllocationMode=%s. To establish a Cluster Mesh, directly configure the parameters to access the remote kvstores through .Values.clustermesh.config" .Values.identityAllocationMode ) }}
+    {{- end}}
   {{- end }}
 {{- end }}
 {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
