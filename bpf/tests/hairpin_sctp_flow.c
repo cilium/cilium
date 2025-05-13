@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 /* Enable CT debug output */
 #undef QUIET_CT
 
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
+#include "common.h"
 
 /* Enable code paths under test*/
 #define ENABLE_IPV4

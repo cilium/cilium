@@ -11,8 +11,8 @@
 #define DEST_IFINDEX 5
 #define DEST_LXC_ID 200
 
-#include "common.h"
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 #define ctx_redirect mock_ctx_redirect
