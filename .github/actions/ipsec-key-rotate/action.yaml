@@ -38,9 +38,10 @@ runs:
         echo "Updating IPsec secret with $data"
         kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
-        # We have two keys per node, per direction, per IP family. So a two-nodes IPv4-only cluster
-        # will have four keys.
+        # We have two keys per remote node, per direction, per IP family.
+        # So a three-nodes IPv4-only cluster will have four keys.
         exp_nb_keys=${{ inputs.nb-nodes }}
+        ((exp_nb_keys-=1))
         ((exp_nb_keys*=2))
         if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
           ((exp_nb_keys*=2))
