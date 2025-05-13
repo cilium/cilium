@@ -4,28 +4,32 @@
 package bpf
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
-// a CollectionSpec. This spec is only a blueprint of the contents of the ELF
-// and does not represent any live resources that have been loaded into the
-// kernel.
+const (
+	callsMap = "cilium_calls"
+)
+
+// LoadCollectionSpec loads the eBPF ELF at the given path and parses it into a
+// CollectionSpec. This spec is only a blueprint of the contents of the ELF and
+// does not represent any live resources that have been loaded into the kernel.
 //
-// This is a wrapper around ebpf.LoadCollectionSpec that parses legacy iproute2
-// bpf_elf_map definitions (only used for prog_arrays at the time of writing)
-// and assigns tail calls annotated with `__section_tail` macros to their
-// intended maps and slots.
+// This is a wrapper around ebpf.LoadCollectionSpec that populates the object's
+// calls map with programs marked with the __declare_tail() annotation. It
+// performs static reachability analysis of tail call programs. Any unreachable
+// tail call program is removed from the spec.
 func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec, error) {
 	spec, err := ebpf.LoadCollectionSpec(path)
 	if err != nil {
@@ -37,11 +41,11 @@ func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec,
 	}
 
 	if err := removeUnreachableTailcalls(logger, spec); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("removing unreachable tail calls: %w", err)
 	}
 
-	if err := iproute2Compat(spec); err != nil {
-		return nil, err
+	if err := resolveTailCalls(spec); err != nil {
+		return nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
 	return spec, nil
@@ -58,43 +62,114 @@ func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
+// isEntrypoint returns true if the program is marked with the __section_entry
+// annotation.
+func isEntrypoint(prog *ebpf.ProgramSpec) bool {
+	return strings.HasSuffix(prog.SectionName, "/entry")
+}
+
+// isTailCall returns true if the program is marked with the __declare_tail()
+// annotation.
+func isTailCall(prog *ebpf.ProgramSpec) bool {
+	return strings.HasSuffix(prog.SectionName, "/tail")
+}
+
+// tailCallSlot returns the tail call slot for the given program, which must be
+// marked with the __declare_tail() annotation. The slot is the index in the
+// calls map that the program will be called from.
+func tailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
+	if !isTailCall(prog) {
+		return 0, fmt.Errorf("program %s is not a tail call", prog.Name)
+	}
+
+	fn := btf.FuncMetadata(&prog.Instructions[0])
+	if fn == nil {
+		return 0, fmt.Errorf("program %s has no function metadata", prog.Name)
+	}
+
+	for _, tag := range fn.Tags {
+		var slot uint32
+		if _, err := fmt.Sscanf(tag, fmt.Sprintf("tail:%s/%%v", callsMap), &slot); err == nil {
+			return slot, nil
+		}
+	}
+
+	return 0, fmt.Errorf("program %s has no tail call slot", prog.Name)
+}
+
+// resolveTailCalls populates the calls map with Programs marked with the
+// __declare_tail annotation.
+func resolveTailCalls(spec *ebpf.CollectionSpec) error {
+	// If cilium_calls map is missing, do nothing.
+	ms := spec.Maps[callsMap]
+	if ms == nil {
+		return nil
+	}
+
+	if ms.Type != ebpf.ProgramArray {
+		return fmt.Errorf("%s is not a program array, got %s", callsMap, ms.Type)
+	}
+
+	slots := make(map[uint32]struct{})
+	for name, prog := range spec.Programs {
+		if !isTailCall(prog) {
+			continue
+		}
+
+		slot, err := tailCallSlot(prog)
+		if err != nil {
+			return fmt.Errorf("getting tail call slot: %w", err)
+		}
+
+		if _, ok := slots[slot]; ok {
+			return fmt.Errorf("duplicate tail call slot %d", slot)
+		}
+		slots[slot] = struct{}{}
+
+		ms.Contents = append(ms.Contents, ebpf.MapKV{Key: slot, Value: name})
+	}
+
+	return nil
+}
+
+// removeUnreachableTailcalls removes tail calls that are not reachable from
+// entrypoint programs. This is done by traversing the call graph of the
+// entrypoint programs and marking all reachable tail calls. Any tail call that
+// is not marked is removed from the CollectionSpec.
 func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
-	type TailCall struct {
+	type tail struct {
 		referenced bool
 		visited    bool
 		spec       *ebpf.ProgramSpec
 	}
 
-	entrypoints := make([]*ebpf.ProgramSpec, 0)
-	tailcalls := make(map[uint32]*TailCall)
-
-	const (
-		// Corresponds to CILIUM_MAP_CALLS.
-		cilium_calls_map = 2
-	)
-
+	// Build a map of entrypoint programs annotated with __section_entry.
+	entrypoints := make(map[string]*ebpf.ProgramSpec)
 	for _, prog := range spec.Programs {
-		var id, slot uint32
-		// Consider any program that doesn't follow the tailcall naming convention
-		// x/y to be an entrypoint.
-		// Any program that does follow the x/y naming convention but not part
-		// of the cilium_calls map is also considered an entrypoint.
-		if _, err := fmt.Sscanf(prog.SectionName, "%d/%v", &id, &slot); err != nil || id != cilium_calls_map {
-			entrypoints = append(entrypoints, prog)
+		if isEntrypoint(prog) {
+			entrypoints[prog.Name] = prog
+		}
+	}
+
+	// Build a map of tail call slots to ProgramSpecs.
+	tailcalls := make(map[uint32]*tail)
+	for _, prog := range spec.Programs {
+		if !isTailCall(prog) {
 			continue
 		}
 
-		if tailcalls[slot] != nil {
-			return fmt.Errorf("duplicate tail call index %d", slot)
+		slot, err := tailCallSlot(prog)
+		if err != nil {
+			return fmt.Errorf("getting tail call slot: %w", err)
 		}
 
-		tailcalls[slot] = &TailCall{
+		tailcalls[slot] = &tail{
 			spec: prog,
 		}
 	}
 
 	// Discover all tailcalls that are reachable from the given program.
-	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*TailCall) error {
+	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
 		// We look back from any tailcall, so we expect there to always be 3 instructions ahead of any tail call instr.
 		for i := 3; i < len(prog.Instructions); i++ {
 			// The `tail_call_static` C function is always used to call tail calls when
@@ -126,9 +201,9 @@ func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) 
 			ref := movR2.Reference()
 
 			// Ignore static tail calls made to maps that are not the calls map
-			if ref != "cilium_calls" {
+			if ref != callsMap {
 				logger.Debug(
-					"program found tail call, not a calls map, skipping",
+					"skipping tail call into map other than the calls map",
 					logfields.Section, prog.SectionName,
 					logfields.Prog, prog.Name,
 					logfields.Instruction, i,
@@ -140,8 +215,7 @@ func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) 
 			tc := tailcalls[uint32(movIdx.Constant)]
 			if tc == nil {
 				return fmt.Errorf(
-					"program '%s'/'%s' executes tail call to unknown index '%d' at %d, potential missed tailcall",
-					prog.SectionName,
+					"potential missed tail call in program %s to slot %d at insn %d",
 					prog.Name,
 					movIdx.Constant,
 					i,
@@ -187,65 +261,6 @@ reset:
 			)
 
 			delete(spec.Programs, tailcall.spec.Name)
-		}
-	}
-
-	return nil
-}
-
-// iproute2Compat parses the Extra field of each MapSpec in the CollectionSpec.
-// This extra portion is present in legacy bpf_elf_map definitions and must be
-// handled before the map can be loaded into the kernel.
-//
-// It parses the ELF section name of each ProgramSpec to extract any map/slot
-// mappings for prog arrays used as tail call maps. The spec's programs are then
-// inserted into the appropriate map and slot.
-//
-// TODO(timo): Remove when bpf_elf_map map definitions are no longer used after
-// moving away from iproute2+libbpf.
-func iproute2Compat(spec *ebpf.CollectionSpec) error {
-	// Parse legacy iproute2 u32 id and pinning fields.
-	maps := make(map[uint32]*ebpf.MapSpec)
-	for _, m := range spec.Maps {
-		if m.Extra != nil && m.Extra.Len() > 0 {
-			tail := struct {
-				ID      uint32
-				Pinning uint32
-				_       uint64 // inner_id + inner_idx
-			}{}
-			if err := binary.Read(m.Extra, spec.ByteOrder, &tail); err != nil {
-				return fmt.Errorf("reading iproute2 map definition: %w", err)
-			}
-
-			m.Pinning = ebpf.PinType(tail.Pinning)
-
-			// Index maps by their iproute2 .id if any, so X/Y ELF section names can
-			// be matched against them.
-			if tail.ID != 0 {
-				if m2 := maps[tail.ID]; m2 != nil {
-					return fmt.Errorf("maps %s and %s have duplicate iproute2 map ID %d", m.Name, m2.Name, tail.ID)
-				}
-				maps[tail.ID] = m
-			}
-		}
-	}
-
-	for n, p := range spec.Programs {
-		// Parse the program's section name to determine which prog array and slot it
-		// needs to be inserted into. For example, a section name of '2/14' means to
-		// insert into the map with the .id field of 2 at index 14.
-		// Uses %v to automatically detect slot's mathematical base, since they can
-		// appear either in dec or hex, e.g. 1/0x0515.
-		var id, slot uint32
-		if _, err := fmt.Sscanf(p.SectionName, "%d/%v", &id, &slot); err == nil {
-			// Assign the prog name and slot to the map with the iproute2 .id obtained
-			// from the program's section name. The lib will load the ProgramSpecs
-			// and insert the corresponding Programs into the prog array at load time.
-			m := maps[id]
-			if m == nil {
-				return fmt.Errorf("no map with iproute2 map .id %d", id)
-			}
-			m.Contents = append(maps[id].Contents, ebpf.MapKV{Key: slot, Value: n})
 		}
 	}
 
