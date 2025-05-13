@@ -375,7 +375,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: expectedRemotePolicies,
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -418,7 +419,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: expectedRemotePolicies,
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -678,7 +680,8 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: []uint32{uint32(qaFooSecLblsCtx.ID)},
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -894,21 +897,12 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	// proxies.
 	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
 	c.Assert(networkPolicies, HasLen, 2)
+
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
-	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies, HasLen, 1)
-
-	expectedIngressPolicy := &cilium.PortNetworkPolicy{
-		Port:     80,
-		Protocol: envoy_config_core.SocketAddress_TCP,
-		Rules: []*cilium.PortNetworkPolicyRule{
-			{
-				L7: &PNPAllowGETbar,
-			},
-		},
-	}
-	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0], checker.ExportedEquals, expectedIngressPolicy)
+	// "foo" identity does not exist yet, so there are no ingress policies
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies, HasLen, 0)
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
@@ -951,7 +945,8 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: []uint32{uint32(qaFooID.ID)},
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
