@@ -33,7 +33,7 @@ func BenchmarkConvertService(b *testing.B) {
 	svc := obj.(*slim_corev1.Service)
 
 	for b.Loop() {
-		convertService(benchmarkExternalConfig, slog.New(slog.DiscardHandler), svc, source.Kubernetes)
+		convertService(benchmarkExternalConfig, slog.New(slog.DiscardHandler), nil, svc, source.Kubernetes)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "services/sec")
 }

@@ -215,7 +215,7 @@ func (s *fileReflector) synchronize(txn writer.WriteTxn, state *StateFile) (numS
 		return 0, 0, 0, fmt.Errorf("failed to delete backends: %w", err)
 	}
 	for i := range state.Services {
-		svc, fes := convertService(s.extConfig, s.log, &state.Services[i], source.LocalAPI)
+		svc, fes := convertService(s.extConfig, s.log, nil, &state.Services[i], source.LocalAPI)
 		if err := s.w.UpsertServiceAndFrontends(txn, svc, fes...); err != nil {
 			return 0, 0, 0, fmt.Errorf("failed to upsert services and frontends: %w", err)
 		}
