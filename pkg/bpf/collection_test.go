@@ -19,9 +19,7 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	// Use upstream LoadCollectionSpec to defer the call to
 	// removeUnreachableTailcalls.
 	spec, err := ebpf.LoadCollectionSpec("testdata/unreachable-tailcall.o")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Contains(t, spec.Programs, "cil_entry")
 	assert.Contains(t, spec.Programs, "a")
@@ -30,9 +28,7 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	assert.Contains(t, spec.Programs, "d")
 	assert.Contains(t, spec.Programs, "e")
 
-	if err := removeUnreachableTailcalls(logger, spec); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, removeUnreachableTailcalls(logger, spec))
 
 	assert.Contains(t, spec.Programs, "cil_entry")
 	assert.Contains(t, spec.Programs, "a")
