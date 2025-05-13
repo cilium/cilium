@@ -239,7 +239,8 @@ Multi-Pool IPAM is a preview feature. The following limitations apply to Cilium 
 Multi-Pool IPAM mode:
 
 .. warning::
-   - Transparent encryption is only supported with WireGuard and cannot be used with IPsec.
+   - IPsec is not supported in native routing mode. IPsec in tunnel mode and WireGuard
+     (both in native routing and tunnel mode) are supported.
    - IPAM pools with overlapping CIDRs are not supported. Each pod IP must be
      unique in the cluster due the way Cilium determines the security identity
      of endpoints by way of the IPCache.
