@@ -7,18 +7,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"sync/atomic"
 
 	"github.com/cilium/stream"
-	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -34,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -52,7 +49,6 @@ const CheckpointFile = "local_allocator_state.json"
 // CachingIdentityAllocator manages the allocation of identities for both
 // global and local identities.
 type CachingIdentityAllocator struct {
-	logger *slog.Logger
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
@@ -179,20 +175,19 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	defer m.setupMutex.Unlock()
 
 	if m.IdentityAllocator != nil {
-		logging.Fatal(m.logger, "InitIdentityAllocator() in succession without calling Close()")
+		log.Panic("InitIdentityAllocator() in succession without calling Close()")
 	}
 
-	m.logger.Info("Initializing identity allocator")
+	log.Info("Initializing identity allocator")
 
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
 
-	m.logger.Info(
-		"Allocating identities between range",
-		logfields.Min, minID,
-		logfields.Max, maxID,
-		logfields.ClusterID, option.Config.ClusterID,
-	)
+	log.WithFields(map[string]interface{}{
+		"min":        minID,
+		"max":        maxID,
+		"cluster-id": option.Config.ClusterID,
+	}).Info("Allocating identities between range")
 
 	// In the case of the allocator being closed, we need to create a new events channel
 	// and start a new watch.
@@ -214,9 +209,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		switch option.Config.IdentityAllocationMode {
 		case option.IdentityAllocationModeKVstore:
-			m.logger.Debug("Identity allocation backed by KVStore")
+			log.Debug("Identity allocation backed by KVStore")
 			backend, err = kvstoreallocator.NewKVStoreBackend(
-				m.logger,
+				logging.DefaultSlogLogger,
 				kvstoreallocator.KVStoreBackendConfiguration{
 					BasePath: m.identitiesPath,
 					Suffix:   owner.GetNodeSuffix(),
@@ -224,19 +219,19 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 					Backend:  kvstore.Client(),
 				})
 			if err != nil {
-				logging.Fatal(m.logger, "Unable to initialize kvstore backend for identity allocation", logfields.Error, err)
+				log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
 			}
 
 		case option.IdentityAllocationModeCRD:
-			m.logger.Debug("Identity allocation backed by CRD")
-			backend, err = identitybackend.NewCRDBackend(m.logger, identitybackend.CRDBackendConfiguration{
+			log.Debug("Identity allocation backed by CRD")
+			backend, err = identitybackend.NewCRDBackend(logging.DefaultSlogLogger, identitybackend.CRDBackendConfiguration{
 				Store:    nil,
 				StoreSet: &atomic.Bool{},
 				Client:   client,
 				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			if err != nil {
-				logging.Fatal(m.logger, "Unable to initialize Kubernetes CRD backend for identity allocation", logfields.Error, err)
+				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
 			}
 
 		case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
@@ -244,9 +239,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			if option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD {
 				readFromKVStore = false
 			}
-			m.logger.Debug("Double-Write Identity allocation mode (CRD and KVStore) with reads from KVStore", logfields.ReadFromKVStore, readFromKVStore)
+			log.Debugf("Double-Write Identity allocation mode (CRD and KVStore) with reads from KVStore = %t", readFromKVStore)
 			backend, err = doublewrite.NewDoubleWriteBackend(
-				m.logger,
+				logging.DefaultSlogLogger,
 				doublewrite.DoubleWriteBackendConfiguration{
 					CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
 						Store:    nil,
@@ -263,10 +258,10 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 					ReadFromKVStore: readFromKVStore,
 				})
 			if err != nil {
-				logging.Fatal(m.logger, "Unable to initialize the Double Write backend for identity allocation", logfields.Error, err)
+				log.WithError(err).Fatal("Unable to initialize the Double Write backend for identity allocation")
 			}
 		default:
-			logging.Fatal(m.logger, fmt.Sprintf("Unsupported identity allocation mode %s", option.Config.IdentityAllocationMode))
+			log.Fatalf("Unsupported identity allocation mode %s", option.Config.IdentityAllocationMode)
 		}
 
 		allocOptions := []allocator.AllocatorOption{
@@ -282,9 +277,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		if m.maxAllocAttempts > 0 {
 			allocOptions = append(allocOptions, allocator.WithMaxAllocAttempts(m.maxAllocAttempts))
 		}
-		a, err := allocator.NewAllocator(m.logger, &key.GlobalIdentity{}, backend, allocOptions...)
+		a, err := allocator.NewAllocator(logging.DefaultSlogLogger, &key.GlobalIdentity{}, backend, allocOptions...)
 		if err != nil {
-			logging.Fatal(m.logger, fmt.Sprintf("Unable to initialize IdentityAllocator with backend %s", option.Config.IdentityAllocationMode), logfields.Error, err)
+			log.WithError(err).Fatalf("Unable to initialize Identity Allocator with backend %s", option.Config.IdentityAllocationMode)
 		}
 
 		m.IdentityAllocator = a
@@ -294,32 +289,6 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	return m.globalIdentityAllocatorInitialized
 }
 
-// EnableCheckpointing enables checkpointing the local allocator state.
-// The CachingIdentityAllocator is used in multiple places, but we only want to
-// checkpoint the "primary" allocator
-func (m *CachingIdentityAllocator) EnableCheckpointing() {
-	controllerManager := controller.NewManager()
-	controllerGroup := controller.NewGroup("identity-allocator")
-	controllerName := "local-identity-checkpoint"
-	triggerDone := make(chan struct{})
-	t, _ := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: 10 * time.Second,
-		TriggerFunc: func(reasons []string) {
-			controllerManager.UpdateController(controllerName, controller.ControllerParams{
-				Group:    controllerGroup,
-				DoFunc:   m.checkpoint,
-				StopFunc: m.checkpoint, // perform one last checkpoint when the controller is removed
-			})
-		},
-		ShutdownFunc: func() {
-			controllerManager.RemoveControllerAndWait(controllerName) // waits for StopFunc
-			close(triggerDone)
-		},
-	})
-
-	m.checkpointTrigger = t
-	m.triggerDone = triggerDone
-}
 
 const eventsQueueSize = 1024
 
@@ -337,13 +306,12 @@ const eventsQueueSize = 1024
 
 // NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
-func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwner, config AllocatorConfig) *CachingIdentityAllocator {
+func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, config AllocatorConfig) *CachingIdentityAllocator {
 	watcher := identityWatcher{
 		owner: owner,
 	}
 
 	m := &CachingIdentityAllocator{
-		logger:                             logger,
 		globalIdentityAllocatorInitialized: make(chan struct{}),
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
@@ -359,8 +327,8 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 
 	// Local identity cache can be created synchronously since it doesn't
 	// rely upon any external resources (e.g., external kvstore).
-	m.localIdentities = newLocalIdentityCache(logger, identity.IdentityScopeLocal, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity)
-	m.localNodeIdentities = newLocalIdentityCache(logger, identity.IdentityScopeRemoteNode, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity)
+	m.localIdentities = newLocalIdentityCache(identity.IdentityScopeLocal, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity)
+	m.localNodeIdentities = newLocalIdentityCache(identity.IdentityScopeRemoteNode, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity)
 
 	return m
 }
@@ -381,7 +349,7 @@ func (m *CachingIdentityAllocator) Close() {
 		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
 	default:
 		if m.IdentityAllocator == nil {
-			m.logger.Error("Close() called without calling InitIdentityAllocator() first")
+			log.Error("Close() called without calling InitIdentityAllocator() first")
 			return
 		}
 	}
@@ -417,19 +385,21 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 
 	// If this is a reserved, pre-allocated identity, just return that and be done
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
-		m.logger.Debug(
-			"Resolving reserved identity",
-			logfields.Identity, reservedIdentity.ID,
-			logfields.IdentityLabels, lbls,
-			logfields.New, false,
-		)
+		if option.Config.Debug {
+			log.WithFields(logrus.Fields{
+				logfields.Identity:       reservedIdentity.ID,
+				logfields.IdentityLabels: lbls.String(),
+				"isNew":                  false,
+			}).Debug("Resolving reserved identity")
+		}
 		return reservedIdentity, false, nil
 	}
 
-	m.logger.Debug(
-		"Resolving local identity",
-		logfields.IdentityLabels, lbls,
-	)
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.IdentityLabels: lbls.String(),
+		}).Debug("Resolving local identity")
+	}
 
 	// Allocate according to scope
 	var metricLabel string
@@ -441,11 +411,10 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 		id, allocated, err = m.localNodeIdentities.lookupOrCreate(lbls, oldNID)
 		metricLabel = identity.RemoteNodeIdentityType
 	default:
-		m.logger.Error(
-			"BUG: attempt to allocate local identity for labels, but a global identity is required",
-			logfields.Labels, lbls,
-			logfields.Scope, scope,
-		)
+		log.WithFields(logrus.Fields{
+			logfields.Labels: lbls,
+			"scope":          scope,
+		}).Error("BUG: attempt to allocate local identity for labels, but a global identity is required")
 		return nil, false, ErrNonLocalIdentity
 	}
 	if err != nil {
@@ -498,10 +467,9 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	}
 
 	if option.Config.Debug {
-		m.logger.Debug(
-			"Resolving global identity",
-			logfields.IdentityLabels, lbls,
-		)
+		log.WithFields(logrus.Fields{
+			logfields.IdentityLabels: lbls.String(),
+		}).Debug("Resolving global identity")
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -525,13 +493,12 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	id = identity.NewIdentity(identity.NumericIdentity(idp), lbls)
 
 	if option.Config.Debug {
-		m.logger.Debug(
-			"Resolved identity",
-			logfields.Identity, idp,
-			logfields.IdentityLabels, lbls,
-			logfields.New, allocated,
-			logfields.NewLocally, isNewLocally,
-		)
+		log.WithFields(logrus.Fields{
+			logfields.Identity:       idp,
+			logfields.IdentityLabels: lbls.String(),
+			"isNew":                  allocated,
+			"isNewLocally":           isNewLocally,
+		}).Debug("Resolved identity")
 	}
 
 	if allocated || isNewLocally {
@@ -555,66 +522,22 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 }
 
 func (m *CachingIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericIdentity) {
-	m.logger.Debug(
-		"Withholding numeric identities for later restoration",
-		logfields.Identity, nids,
-	)
+	log.WithField(logfields.Identity, nids).Debug("Withholding numeric identities for later restoration")
 
 	// The allocators will return any identities that are not in-scope.
 	nids = m.localIdentities.withhold(nids)
 	nids = m.localNodeIdentities.withhold(nids)
 	if len(nids) > 0 {
-		m.logger.Error(
-			"Attempt to restore invalid numeric identities.",
-			logfields.Identity, nids,
-		)
+		log.WithField(logfields.Identity, nids).Error("Attempt to restore invalid numeric identities.")
 	}
 }
 
 func (m *CachingIdentityAllocator) UnwithholdLocalIdentities(nids []identity.NumericIdentity) {
-	m.logger.Debug(
-		"Unwithholding numeric identities",
-		logfields.Identity, nids,
-	)
+	log.WithField(logfields.Identity, nids).Debug("Unwithholding numeric identities")
 
 	// The allocators will ignore any identities that are not in-scope.
 	m.localIdentities.unwithhold(nids)
 	m.localNodeIdentities.unwithhold(nids)
-}
-
-// checkpoint writes the state of the local allocators to disk. This is used for restoration,
-// to ensure that numeric identities are, as much as possible, stable across agent restarts.
-//
-// Do not call this directly, rather, use m.checkpointTrigger.Trigger()
-func (m *CachingIdentityAllocator) checkpoint(ctx context.Context) error {
-	if m.checkpointPath == "" {
-		return nil // this is a unit test
-	}
-	scopedLog := m.logger.With(logfields.Path, m.checkpointPath)
-
-	ids := make([]*identity.Identity, 0, m.localIdentities.size()+m.localNodeIdentities.size())
-	ids = m.localIdentities.checkpoint(ids)
-	ids = m.localNodeIdentities.checkpoint(ids)
-
-	// use renameio to prevent partial writes
-	out, err := renameio.NewPendingFile(m.checkpointPath, renameio.WithExistingPermissions(), renameio.WithPermissions(0o600))
-	if err != nil {
-		scopedLog.Error("failed to prepare checkpoint file", logfields.Error, err)
-		return err
-	}
-	defer out.Cleanup()
-
-	jw := jsoniter.ConfigFastest.NewEncoder(out)
-	if err := jw.Encode(ids); err != nil {
-		scopedLog.Error("failed to marshal identity checkpoint state", logfields.Error, err)
-		return err
-	}
-	if err := out.CloseAtomicallyReplace(); err != nil {
-		scopedLog.Error("failed to write identity checkpoint file", logfields.Error, err)
-		return err
-	}
-	scopedLog.Debug("Wrote local identity allocator checkpoint")
-	return nil
 }
 
 // RestoreLocalIdentities reads in the checkpointed local allocator state
@@ -626,13 +549,13 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 	if m.checkpointPath == "" {
 		return nil, nil // unit test
 	}
-	scopedLog := m.logger.With(logfields.Path, m.checkpointPath)
+	log := log.WithField(logfields.Path, m.checkpointPath)
 
 	// Read in checkpoint file
 	fp, err := os.Open(m.checkpointPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			scopedLog.Info("No identity checkpoint file found, skipping restoration")
+			log.Info("No identity checkpoint file found, skipping restoration")
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to open identity checkpoint file %s: %w", m.checkpointPath, err)
@@ -655,7 +578,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 	// - update SelectorCache
 	// - unwithhold numeric IDs
 
-	scopedLog.Info("Restoring checkpointed local identities", logfields.Count, len(ids))
+	log.WithField(logfields.Count, len(ids)).Info("Restoring checkpointed local identities")
 	m.restoredIdentities = make(map[identity.NumericIdentity]*identity.Identity, len(ids))
 	added := make(identity.IdentityMap, len(ids))
 
@@ -675,11 +598,10 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 		if scope := identity.ScopeForLabels(oldID.Labels); scope != oldID.ID.Scope() || needsGlobalIdentity(oldID.Labels) {
 			// Should not happen, except when the scope for labels changes
 			// such as disabling policy-cidr-match-mode=nodes
-			scopedLog.Warn(
-				"skipping restore of non-local or re-scoped identity",
-				logfields.Identity, oldID,
-				logfields.Scope, scope,
-			)
+			log.WithFields(logrus.Fields{
+				logfields.Identity: oldID,
+				"scope":            scope,
+			}).Warn("skipping restore of non-local or re-scoped identity")
 			continue
 		}
 
@@ -689,20 +611,13 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 			oldID.ID, // request previous numeric ID
 		)
 		if err != nil {
-			scopedLog.Error(
-				"failed to restore checkpointed local identity, continuing",
-				logfields.Identity, oldID,
-				logfields.Error, err,
-			)
+			log.WithError(err).WithField(logfields.Identity, oldID).Error("failed to restore checkpointed local identity, continuing")
 		} else {
 			m.restoredIdentities[newID.ID] = newID
 			added[newID.ID] = newID.LabelArray
 			if newID.ID != oldID.ID {
 				// Paranoia, shouldn't happen
-				scopedLog.Warn(
-					"Restored local identity has different numeric ID",
-					logfields.Identity, oldID,
-				)
+				log.WithField(logfields.Identity, newID).Warn("Restored local identity has different numeric ID")
 			}
 		}
 	}
@@ -727,19 +642,14 @@ func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
 		released, err := m.Release(context.Background(), id, false)
 		if err != nil {
 			// This should never happen; these IDs are local
-			m.logger.Error(
-				"failed to release restored identity",
-				logfields.Identity, id,
-				logfields.Error, err,
-			)
+			log.WithError(err).WithField(logfields.Identity, id).Error("failed to release restored identity")
 			continue
 		}
 		if option.Config.Debug {
-			m.logger.Debug(
-				"Released restored identity reference",
-				logfields.Identity, id,
-				logfields.Released, released,
-			)
+			log.WithFields(logrus.Fields{
+				logfields.Identity: id,
+				"released":         released,
+			}).Debug("Released restored identity reference")
 		}
 		if released {
 			deleted[id.ID] = id.LabelArray
@@ -827,12 +737,12 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 		prefix = path.Join(kvstore.StateToCachePrefix(prefix), remoteName)
 	}
 
-	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})
 	if err != nil {
 		return nil, fmt.Errorf("error setting up remote allocator backend: %w", err)
 	}
 
-	remoteAlloc, err := allocator.NewAllocator(m.logger,
+	remoteAlloc, err := allocator.NewAllocator(logging.DefaultSlogLogger,
 		&key.GlobalIdentity{}, remoteAllocatorBackend,
 		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
 		allocator.WithCacheValidator(clusterIDValidator(remoteID)),

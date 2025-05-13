@@ -8,7 +8,7 @@ import (
 	"net"
 	"os"
 
-	"golang.org/x/sys/unix"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
@@ -61,6 +61,6 @@ func IsDisconnected(err error) bool {
 		return false
 	}
 
-	var errn unix.Errno
-	return errors.As(syscerr.Err, &errn) && errors.Is(errn, unix.EPIPE)
+	var errn syscall.Errno
+	return errors.As(syscerr.Err, &errn) && errors.Is(errn, syscall.EPIPE)
 }
