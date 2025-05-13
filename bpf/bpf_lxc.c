@@ -959,6 +959,10 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
 		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+		if (from_l7lb && ip4->daddr == CONFIG(endpoint_ipv4).be32) {
+			hairpin_flow = true;
+			ct_state_new.loopback = 1;
+		}
 
 		/* Forward to L7 LB first before applying network policy: */
 		if (proxy_port > 0) {
@@ -1952,12 +1956,8 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		 * define policy rules to allow pods to talk to themselves. We still
 		 * want to execute the conntrack logic so that replies can be correctly
 		 * matched.
-		 *
-		 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
-		 * a loopback connection. Populate .loopback, so that policy enforcement
-		 * is bypassed.
 		 */
-		if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
+		if (ret == CT_NEW &&
 		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
 			ct_state_new.loopback = true;
 			break;

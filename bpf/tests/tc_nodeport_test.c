@@ -12,6 +12,13 @@
 /* Enable code paths under test*/
 #define ENABLE_IPV4
 
+#define ENABLE_L7_LB		1
+#define ENABLE_SIP_VERIFICATION	1
+
+#define L7_LB_SVC_PORT		tcp_svc_two
+#define L7_LB_SRC_IP		v4_pod_two
+#define L7_LB_SRC_PORT		tcp_src_two
+
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
@@ -25,9 +32,13 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 #include <bpf_lxc.c>
 
+#define ENDPOINT_ID	1
+
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
+
+ASSIGN_CONFIG(__u16, endpoint_id, ENDPOINT_ID)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -43,6 +54,17 @@ struct {
 	.values = {
 		[0] = &cil_from_container,
 		[1] = &cil_to_container,
+	},
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 2);
+	__array(values, int());
+} mock_policy_egress_call_map __section(".maps") = {
+	.values = {
+		[ENDPOINT_ID] = &cil_lxc_policy_egress,
 	},
 };
 
@@ -497,6 +519,479 @@ int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 
 	if (l4->check != bpf_htons(0x6325))
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
+	test_finish();
+}
+
+PKTGEN("tc", "hairpin_flow_l7_1_forward_v4")
+int hairpin_flow_l7_forward_pktgen(struct __ctx_buff *ctx)
+{
+	return build_packet(ctx, tcp_src_one);
+}
+
+/* Test that we can also hairpin a proxy-LBed connection */
+SETUP("tc", "hairpin_flow_l7_1_forward_v4")
+int hairpin_flow_l7_forward_setup(struct __ctx_buff *ctx)
+{
+	/* over-write the previous service definition: */
+	lb_v4_add_service_with_flags(v4_svc_one, tcp_svc_one, IPPROTO_TCP, 0, 0,
+				     0, SVC_FLAG_L7_LOADBALANCER, L7_LB_SVC_PORT);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, 0);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_l7_1_forward_v4")
+int hairpin_flow_l7_forward_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+	__u32 proxy_mark = MARK_MAGIC_TO_PROXY | (L7_LB_SVC_PORT << 16);
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+	assert(ctx->mark == proxy_mark);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != v4_pod_one)
+		test_fatal("src IP was changed");
+
+	if (l3->daddr != v4_svc_one)
+		test_fatal("dest IP was changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != tcp_src_one)
+		test_fatal("src TCP port was changed");
+
+	if (l4->dest != tcp_svc_one)
+		test_fatal("dst TCP port was changed");
+
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_entry *ct_entry;
+
+	/* Match the packet headers: */
+	tuple.flags = TUPLE_F_OUT;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.saddr = v4_pod_one;
+	tuple.sport = tcp_src_one;
+	tuple.daddr = v4_svc_one;
+	tuple.dport = tcp_svc_one;
+
+	/* Addrs are stored in reverse order: */
+	ipv4_ct_tuple_swap_addrs(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT_EGRESS entry found");
+
+	test_finish();
+}
+
+PKTGEN("tc", "hairpin_flow_l7_1_forward_proxy_v4")
+int hairpin_flow_l7_forward_proxy_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  L7_LB_SRC_IP, v4_pod_one,
+					  L7_LB_SRC_PORT, tcp_dst_one);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "hairpin_flow_l7_1_forward_proxy_v4")
+int hairpin_flow_l7_forward_proxy_setup(struct __ctx_buff *ctx)
+{
+	tail_call(ctx, &mock_policy_egress_call_map, ENDPOINT_ID);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_l7_1_forward_proxy_v4")
+int hairpin_flow_l7_forward_proxy_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != L7_LB_SRC_IP)
+		test_fatal("src IP was changed");
+
+	if (l3->daddr != v4_pod_one)
+		test_fatal("dest IP was changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != L7_LB_SRC_PORT)
+		test_fatal("src TCP port was changed");
+
+	if (l4->dest != tcp_dst_one)
+		test_fatal("dst TCP port was changed");
+
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_entry *ct_entry;
+
+	/* Match the packet headers: */
+	tuple.flags = TUPLE_F_OUT;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.saddr = L7_LB_SRC_IP;
+	tuple.sport = L7_LB_SRC_PORT;
+	tuple.daddr = v4_pod_one;
+	tuple.dport = tcp_dst_one;
+
+	/* Addrs are stored in reverse order: */
+	ipv4_ct_tuple_swap_addrs(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT_EGRESS entry found");
+	if (!ct_entry->lb_loopback)
+		test_fatal("CT_EGRESS entry doesn't have loopback flag");
+
+	test_finish();
+}
+
+/* Let backend's ingress path create its own CT entry: */
+PKTGEN("tc", "hairpin_flow_l7_2_forward_ingress_v4")
+int hairpin_flow_l7_forward_ingress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  L7_LB_SRC_IP, v4_pod_one,
+					  L7_LB_SRC_PORT, tcp_dst_one);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+/* Test that a packet in the forward direction is good. */
+SETUP("tc", "hairpin_flow_l7_2_forward_ingress_v4")
+int hairpin_flow_l7_forward_ingress_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, 1);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_l7_2_forward_ingress_v4")
+int hairpin_flow_l7_forward_ingress_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == TC_ACT_OK);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != L7_LB_SRC_IP)
+		test_fatal("src IP changed");
+
+	if (l3->daddr != v4_pod_one)
+		test_fatal("dest IP changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != L7_LB_SRC_PORT)
+		test_fatal("src TCP port changed");
+
+	if (l4->dest != tcp_dst_one)
+		test_fatal("dst TCP port changed");
+
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_entry *ct_entry;
+
+	/* Match the packet headers: */
+	tuple.flags = TUPLE_F_IN;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.saddr = L7_LB_SRC_IP;
+	tuple.sport = L7_LB_SRC_PORT;
+	tuple.daddr = v4_pod_one;
+	tuple.dport = tcp_dst_one;
+
+	/* Addrs are stored in reverse order: */
+	ipv4_ct_tuple_swap_addrs(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT_INGRESS entry found");
+	if (!ct_entry->lb_loopback)
+		test_fatal("CT_INGRESS entry doesn't have loopback flag");
+
+	test_finish();
+}
+
+PKTGEN("tc", "hairpin_flow_l7_3_reverse_v4")
+int hairpin_flow_l7_reverse_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  v4_pod_one, L7_LB_SRC_IP,
+					  tcp_dst_one, L7_LB_SRC_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->ack = 1;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+/* Test that a packet in the reverse direction gets translated back. */
+SETUP("tc", "hairpin_flow_l7_3_reverse_v4")
+int hairpin_flow_l7_rev_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, 0);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_l7_3_reverse_v4")
+int hairpin_flow_l7_rev_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == TC_ACT_REDIRECT);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != v4_pod_one)
+		test_fatal("src IP changed");
+
+	if (l3->daddr != L7_LB_SRC_IP)
+		test_fatal("dest IP changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != tcp_dst_one)
+		test_fatal("src TCP port changed");
+
+	if (l4->dest != L7_LB_SRC_PORT)
+		test_fatal("dst TCP port changed");
+
+	test_finish();
+}
+
+PKTGEN("tc", "hairpin_flow_l7_4_reverse_ingress_v4")
+int hairpin_flow_l7_reverse_ingress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  v4_pod_one, L7_LB_SRC_IP,
+					  tcp_dst_one, L7_LB_SRC_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->ack = 1;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "hairpin_flow_l7_4_reverse_ingress_v4")
+int hairpin_flow_l7_reverse_ingress_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, 1);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_l7_4_reverse_ingress_v4")
+int hairpin_flow_l7_reverse_ingress_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(ctx->mark == MARK_MAGIC_TO_PROXY);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != v4_pod_one)
+		test_fatal("src IP was changed");
+
+	if (l3->daddr != L7_LB_SRC_IP)
+		test_fatal("dest IP was changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != tcp_dst_one)
+		test_fatal("src TCP port was changed");
+
+	if (l4->dest != L7_LB_SRC_PORT)
+		test_fatal("dst TCP port incorrect");
 
 	test_finish();
 }

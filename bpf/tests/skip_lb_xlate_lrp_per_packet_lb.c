@@ -66,7 +66,7 @@ SETUP("tc", "v4_local_redirect")
 int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
 	lb_v4_add_service_with_flags(V4_SERVICE_IP, SERVICE_PORT, IPPROTO_TCP, 1, 1,
-				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
+				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT, 0);
 	lb_v4_add_backend(V4_SERVICE_IP, SERVICE_PORT, 1, 124,
 			  V4_BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
