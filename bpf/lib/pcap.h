@@ -36,6 +36,38 @@ struct capture6_wcard {
 	__u8   flags;       /* reserved: 0 */
 };
 
+struct capture_cache {
+	bool  rule_seen;
+	__u16 rule_id;
+	__u16 cap_len;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct capture_cache);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+} cilium_capture_cache __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct capture4_wcard);
+	__type(value, struct capture_rule);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CAPTURE4_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_capture4_rules __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct capture6_wcard);
+	__type(value, struct capture_rule);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CAPTURE6_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_capture6_rules __section_maps_btf;
+
 #ifdef ENABLE_CAPTURE
 #include "common.h"
 #include "time_cache.h"
@@ -130,30 +162,7 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
 # define capture_enabled (ctx_is_xdp())
 #endif /* capture_enabled */
 
-struct capture_cache {
-	bool  rule_seen;
-	__u16 rule_id;
-	__u16 cap_len;
-};
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct capture_cache);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 1);
-} cilium_capture_cache __section_maps_btf;
-
 #ifdef ENABLE_IPV4
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct capture4_wcard);
-	__type(value, struct capture_rule);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CAPTURE4_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_capture4_rules __section_maps_btf;
-
 static __always_inline void
 cilium_capture4_masked_key(const struct capture4_wcard *orig,
 			   const struct capture4_wcard *mask,
@@ -256,15 +265,6 @@ _Pragma("unroll")
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct capture6_wcard);
-	__type(value, struct capture_rule);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CAPTURE6_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_capture6_rules __section_maps_btf;
-
 static __always_inline void
 cilium_capture6_masked_key(const struct capture6_wcard *orig,
 			   const struct capture6_wcard *mask,
