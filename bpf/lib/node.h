@@ -65,3 +65,13 @@ lookup_ip6_node_id(const union v6addr *ip6)
 	return node_value->id;
 }
 # endif /* ENABLE_IPV6 */
+
+static __always_inline struct node_value *
+lookup_node(const struct remote_endpoint_info *info)
+{
+# ifdef ENABLE_IPV6
+	if (info->flag_ipv6_tunnel_ep)
+		return lookup_ip6_node(&info->tunnel_endpoint.ip6);
+# endif /* ENABLE_IPV6 */
+	return lookup_ip4_node(info->tunnel_endpoint.ip4);
+}
