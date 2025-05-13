@@ -13,12 +13,12 @@
  * definitions at the bottom.
  */
 
+#include <bpf/ctx/skb.h>
 #include "common.h"
 
 #define DROP_NOTIFY
 
 /* Include node config */
-#include "bpf/ctx/skb.h"
 #include <bpf/config/node.h>
 
 /* Include lib/tailcall.h which contains the definition of tail_call_internal first to */
