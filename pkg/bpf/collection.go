@@ -32,6 +32,10 @@ func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
+	if err := checkUnspecifiedPrograms(spec); err != nil {
+		return nil, fmt.Errorf("checking for unspecified programs: %w", err)
+	}
+
 	if err := removeUnreachableTailcalls(logger, spec); err != nil {
 		return nil, err
 	}
@@ -40,11 +44,18 @@ func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
-	if err := classifyProgramTypes(spec); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
+}
+
+// checkUnspecifiedPrograms returns an error if any of the programs in the spec
+// are of the UnspecifiedProgram type.
+func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
+	for _, prog := range spec.Programs {
+		if prog.Type == ebpf.UnspecifiedProgram {
+			return fmt.Errorf("program %s has unspecified type: annotate with __section_entry or __declare_tail()", prog.Name)
+		}
+	}
+	return nil
 }
 
 func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
@@ -359,61 +370,6 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return commitMapPins(logger, pins)
 	}
 	return coll, commit, nil
-}
-
-// classifyProgramTypes sets the type of ProgramSpecs which the library cannot
-// automatically classify due to them being in unrecognized ELF sections. Only
-// programs of type UnspecifiedProgram are modified.
-//
-// Cilium uses the iproute2 X/Y section name convention for assigning programs
-// to prog array slots, which is also not supported.
-//
-// TODO(timo): When iproute2 is no longer used for any loading, tail call progs
-// can receive proper prefixes.
-func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
-	var t ebpf.ProgramType
-	for name, p := range spec.Programs {
-		// If the loader was able to classify a program, go with the verdict.
-		if p.Type != ebpf.UnspecifiedProgram {
-			t = p.Type
-			break
-		}
-
-		// Assign a program type based on the first recognized function name.
-		switch name {
-		// bpf_xdp.c
-		case "cil_xdp_entry":
-			t = ebpf.XDP
-		case
-			// bpf_lxc.c
-			"cil_from_container", "cil_to_container",
-			// bpf_host.c
-			"cil_from_netdev", "cil_from_host", "cil_to_netdev", "cil_to_host",
-			// bpf_network.c
-			"cil_from_network",
-			// bpf_overlay.c
-			"cil_to_overlay", "cil_from_overlay",
-			// bpf_wireguard.c
-			"cil_to_wireguard", "cil_from_wireguard":
-			t = ebpf.SchedCLS
-		default:
-			continue
-		}
-
-		break
-	}
-
-	for _, p := range spec.Programs {
-		if p.Type == ebpf.UnspecifiedProgram {
-			p.Type = t
-		}
-	}
-
-	if t == ebpf.UnspecifiedProgram {
-		return errors.New("unable to classify program types")
-	}
-
-	return nil
 }
 
 // renameMaps applies renames to coll.
