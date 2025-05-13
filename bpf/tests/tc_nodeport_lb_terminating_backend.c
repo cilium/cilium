@@ -25,9 +25,8 @@
 
 #define BACKEND_EP_ID		127
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 static volatile const __u8 *client_mac = mac_one;

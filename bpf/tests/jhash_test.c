@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/xdp.h>
+#include "common.h"
 #include <lib/jhash.h>
-#include "bpf/section.h"
 
 CHECK("xdp", "jhash")
 int bpf_test(__maybe_unused struct xdp_md *ctx)

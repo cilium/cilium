@@ -7,8 +7,8 @@
 
 #define CLUSTER_IDENTITY 0x5555
 
+#include <bpf/ctx/skb.h>
 #include "common.h"
-#include "bpf/ctx/skb.h"
 #include "pktgen.h"
 
 #include "node_config.h"
