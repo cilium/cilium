@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -105,6 +106,7 @@ type reflectorParams struct {
 	ExtConfig              loadbalancer.ExternalConfig
 	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
+	LocalNodeStore         *node.LocalNodeStore
 }
 
 func (p reflectorParams) waitTime() time.Duration {
@@ -220,8 +222,17 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.ExtConfig, p.Log, obj, source.Kubernetes)
+			svc, fes := convertService(p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
 			if svc == nil {
+				// The service should not be provisioned on this agent. Try to delete if it was previously.
+				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+				rh.update("svc:"+name.String(), nil)
+
+				err := p.Writer.DeleteServiceAndFrontends(txn, name)
+				if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
+					p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
+						logfields.Error, err)
+				}
 				return
 			}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -50,7 +51,7 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
+func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localNodeStore *node.LocalNodeStore, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
 	// Lazily construct the augmented logger as we very rarely log here. This improves throughput by 20% and avoids an allocation.
 	log := sync.OnceValue(func() *slog.Logger {
 		return rawlog.With(
@@ -67,6 +68,15 @@ func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, svc *s
 		Selector:            svc.Spec.Selector,
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
+	}
+
+	if localNodeStore != nil {
+		if nodeMatches, err := k8s.CheckServiceNodeExposure(localNodeStore, svc.Annotations); err != nil {
+			log().Warn("Ignoring node service exposure", logfields.Error, err)
+		} else if !nodeMatches {
+			return nil, nil
+
+		}
 	}
 
 	expType, err := k8s.NewSvcExposureType(svc)
