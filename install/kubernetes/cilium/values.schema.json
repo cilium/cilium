@@ -2098,6 +2098,9 @@
         },
         "livenessProbe": {
           "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
             "failureThreshold": {
               "type": "integer"
             },
@@ -2328,6 +2331,9 @@
         },
         "startupProbe": {
           "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
             "failureThreshold": {
               "type": "integer"
             },
