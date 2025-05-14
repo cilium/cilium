@@ -4,6 +4,7 @@
 package reflectors
 
 import (
+	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -43,6 +44,17 @@ func isIngressDummyEndpoint(l3n4Addr loadbalancer.L3n4Addr) bool {
 	return l3n4Addr.AddrCluster.Equal(ingressDummyAddress) && l3n4Addr.Port == ingressDummyPort
 }
 
+func getAnnotationServiceForwardingMode(cfg loadbalancer.Config, svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
+	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
+		val := loadbalancer.ToSVCForwardingMode(strings.ToLower(value))
+		if val != loadbalancer.SVCForwardingModeUndef {
+			return val, nil
+		}
+		return loadbalancer.ToSVCForwardingMode(cfg.LBMode), fmt.Errorf("value %q is not supported for %q", val, annotation.ServiceForwardingMode)
+	}
+	return loadbalancer.SVCForwardingModeUndef, nil
+}
+
 func isHeadless(svc *slim_corev1.Service) bool {
 	_, headless := svc.Labels[corev1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
@@ -51,7 +63,7 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localNodeStore *node.LocalNodeStore, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
+func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localNodeStore *node.LocalNodeStore, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
 	// Lazily construct the augmented logger as we very rarely log here. This improves throughput by 20% and avoids an allocation.
 	log := sync.OnceValue(func() *slog.Logger {
 		return rawlog.With(
@@ -68,6 +80,19 @@ func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localN
 		Selector:            svc.Spec.Selector,
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
+		ForwardingMode:      loadbalancer.SVCForwardingModeUndef,
+	}
+
+	if cfg.LBModeAnnotation {
+		fwdMode, err := getAnnotationServiceForwardingMode(cfg, svc)
+		if err == nil {
+			s.ForwardingMode = fwdMode
+		} else {
+			log().Warn("Ignoring annotation",
+				logfields.Error, err,
+				logfields.Annotations, annotation.ServiceForwardingMode,
+			)
+		}
 	}
 
 	if localNodeStore != nil {
@@ -164,11 +189,11 @@ func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localN
 				continue
 			}
 
-			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+			if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
 				log().Debug(
 					"Skipping ClusterIP due to disabled IP family",
-					logfields.IPv4, cfg.EnableIPv4,
-					logfields.IPv6, cfg.EnableIPv6,
+					logfields.IPv4, extCfg.EnableIPv4,
+					logfields.IPv6, extCfg.EnableIPv6,
 					logfields.Address, addr,
 				)
 				continue
@@ -198,19 +223,19 @@ func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localN
 	// NOTE: We always want to do ClusterIP services even when full kube-proxy replacement is disabled.
 	// See https://github.com/cilium/cilium/issues/16197 for context.
 
-	if cfg.KubeProxyReplacement {
+	if extCfg.KubeProxyReplacement {
 		// NodePort
 		if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
 			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
 
 			for _, scope := range scopes {
 				for _, family := range getIPFamilies(svc) {
-					if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
-						(!cfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
+					if (!extCfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
+						(!extCfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
 						log().Debug(
 							"Skipping NodePort due to disabled IP family",
-							logfields.IPv4, cfg.EnableIPv4,
-							logfields.IPv6, cfg.EnableIPv6,
+							logfields.IPv4, extCfg.EnableIPv4,
+							logfields.IPv6, extCfg.EnableIPv6,
 							logfields.Family, family,
 						)
 						continue
@@ -259,11 +284,11 @@ func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localN
 				if err != nil {
 					continue
 				}
-				if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+				if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
 					log().Debug(
 						"Skipping LoadBalancer due to disabled IP family",
-						logfields.IPv4, cfg.EnableIPv4,
-						logfields.IPv6, cfg.EnableIPv6,
+						logfields.IPv4, extCfg.EnableIPv4,
+						logfields.IPv6, extCfg.EnableIPv6,
 						logfields.Address, addr,
 					)
 					continue
@@ -300,11 +325,11 @@ func convertService(cfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localN
 			if err != nil {
 				continue
 			}
-			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+			if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
 				log().Debug(
 					"Skipping ExternalIP due to disabled IP family",
-					logfields.IPv4, cfg.EnableIPv4,
-					logfields.IPv6, cfg.EnableIPv6,
+					logfields.IPv4, extCfg.EnableIPv4,
+					logfields.IPv6, extCfg.EnableIPv6,
 					logfields.Address, addr,
 				)
 				continue

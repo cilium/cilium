@@ -63,7 +63,7 @@ const (
 type SVCForwardingMode string
 
 const (
-	SVCForwardingModeUndef = SVCForwardingMode("undef")
+	SVCForwardingModeUndef = SVCForwardingMode("")
 	SVCForwardingModeDSR   = SVCForwardingMode("dsr")
 	SVCForwardingModeSNAT  = SVCForwardingMode("snat")
 )

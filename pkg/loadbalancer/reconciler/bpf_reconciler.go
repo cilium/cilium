@@ -732,9 +732,16 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
+
+	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode)
+	if ops.cfg.LBModeAnnotation && svc.ForwardingMode != loadbalancer.SVCForwardingModeUndef {
+		forwardingMode = svc.ForwardingMode
+	}
+
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
+		SvcFwdModeDSR:    forwardingMode == loadbalancer.SVCForwardingModeDSR,
 		SvcExtLocal:      svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,

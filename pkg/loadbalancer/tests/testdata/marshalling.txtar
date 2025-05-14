@@ -66,6 +66,7 @@ Address              Instances
   "NatPolicy": "",
   "ExtTrafficPolicy": "Cluster",
   "IntTrafficPolicy": "Cluster",
+  "ForwardingMode": "",
   "SessionAffinity": false,
   "SessionAffinityTimeout": 0,
   "ProxyRedirect": null,
@@ -260,6 +261,7 @@ selector:
 natpolicy: ""
 exttrafficpolicy: Cluster
 inttrafficpolicy: Cluster
+forwardingmode: ""
 sessionaffinity: false
 sessionaffinitytimeout: 0s
 proxyredirect: null
