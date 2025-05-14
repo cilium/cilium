@@ -20,12 +20,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipam/option"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -214,13 +215,15 @@ func DetectEKSClusterName(ctx context.Context, cfg aws.Config) (string, error) {
 func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
 	result := make([]string, 0, int(maxResults))
 	input := &ec2.DescribeNetworkInterfacesInput{
-		Filters:    NewTagsFilter(tags),
-		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
+		Filters: NewTagsFilter(tags),
 	}
 	for _, subnetFilter := range c.subnetsFilters {
 		if aws.ToString(subnetFilter.Name) == "subnet-id" {
 			input.Filters = append(input.Filters, subnetFilter)
 		}
+	}
+	if operatorOption.Config.AWSPaginationEnabled {
+		input.MaxResults = aws.Int32(maxResults)
 	}
 
 	input.Filters = append(input.Filters, ec2_types.Filter{
@@ -259,7 +262,9 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 				Values: []string{"*"},
 			},
 		},
-		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
+	}
+	if operatorOption.Config.AWSPaginationEnabled {
+		input.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
 	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
@@ -296,7 +301,6 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 				Values: []string{instanceID},
 			},
 		},
-		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
@@ -358,7 +362,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 	}
 	if len(enisListFromInstances) > 0 {
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
-	} else {
+	} else if operatorOption.Config.AWSPaginationEnabled {
 		// MaxResults is incompatible with NetworkInterfaceIds
 		ENIAttrs.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
 	}
@@ -697,7 +701,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		Groups:      groups,
 	}
 	if allocatePrefixes {
-		prefixCount := ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)
+		prefixCount := ipPkg.PrefixCeil(int(toAllocate), ipamOption.ENIPDBlockSizeIPv4)
 		input.Ipv4PrefixCount = aws.Int32(int32(prefixCount))
 		c.logger.Debug("Creating interface with prefixes",
 			logfields.PrefixCount, prefixCount,
