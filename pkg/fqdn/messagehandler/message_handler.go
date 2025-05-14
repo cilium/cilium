@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -69,17 +68,28 @@ type DNSMessageHandler interface {
 		TTL int,
 		stat *dnsproxy.ProxyRequestContext,
 	)
+
+	SetBindPort(uint16)
 }
 
 type dnsMessageHandler struct {
 	logger            *slog.Logger
 	nameManager       namemanager.NameManager
-	proxyInstance     defaultdns.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
 	DNSRequestHandler DNSMessageHandler
+
+	bindPort uint16
 }
 
 var _ DNSMessageHandler = &dnsMessageHandler{}
+
+// SetBindPort pushes the proxy bind port to the handler;
+// this is needed to break an import loop otherwise.
+//
+// The bind port is ony used for proxy statistics.
+func (h *dnsMessageHandler) SetBindPort(port uint16) {
+	h.bindPort = port
+}
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
@@ -204,11 +214,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 
 	stat.ProcessingTime.End(true)
 
-	bindPort := uint16(0)
-	if dnsProxy := h.proxyInstance.Get(); dnsProxy != nil {
-		bindPort = dnsProxy.GetBindPort()
-	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), bindPort, false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, !msg.Response, verdict)
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
