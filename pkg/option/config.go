@@ -245,20 +245,9 @@ const (
 	// EnableSVCSourceRangeCheck enables check of service source range checks
 	EnableSVCSourceRangeCheck = "enable-svc-source-range-check"
 
-	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat", "dsr" or "hybrid")
-	NodePortMode = "node-port-mode"
-
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
-
-	// Alias to NodePortMode
-	LoadBalancerMode = "bpf-lb-mode"
-
-	// LoadBalancerModeAnnotation tells whether controller should check service
-	// level annotation for configuring bpf loadbalancing method (snat vs dsr).
-	LoadBalancerModeAnnotation = "bpf-lb-mode-annotation"
 
 	// Alias to DSR dispatch method
 	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
@@ -1155,15 +1144,6 @@ const (
 )
 
 const (
-	// NodePortModeSNAT is for SNATing requests to remote nodes
-	NodePortModeSNAT = "snat"
-
-	// NodePortModeDSR is for performing DSR for requests to remote nodes
-	NodePortModeDSR = "dsr"
-
-	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
-	NodePortModeHybrid = "hybrid"
-
 	// DSR dispatch mode to encode service into IP option or extension header
 	DSRDispatchOption = "opt"
 
@@ -1814,14 +1794,6 @@ type DaemonConfig struct {
 
 	// NodePortNat46X64 indicates whether NAT46 / NAT64 can be used.
 	NodePortNat46X64 bool
-
-	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat", "dsr" or "hybrid")
-	NodePortMode string
-
-	// LoadBalancerModeAnnotation tells whether controller should check service
-	// level annotation for configuring bpf load balancing algorithm.
-	LoadBalancerModeAnnotation bool
 
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark bool
@@ -2475,12 +2447,6 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	}
 
 	return c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
-}
-
-func (c *DaemonConfig) LoadBalancerUsesDSR() bool {
-	return c.NodePortMode == NodePortModeDSR ||
-		c.NodePortMode == NodePortModeHybrid ||
-		c.LoadBalancerModeAnnotation
 }
 
 // KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
@@ -3255,8 +3221,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 func (c *DaemonConfig) populateLoadBalancerSettings(logger *slog.Logger, vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
-	c.NodePortMode = vp.GetString(LoadBalancerMode)
-	c.LoadBalancerModeAnnotation = vp.GetBool(LoadBalancerModeAnnotation)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
 	if vp.IsSet(NodePortAcceleration) {
@@ -3265,14 +3229,6 @@ func (c *DaemonConfig) populateLoadBalancerSettings(logger *slog.Logger, vp *vip
 		if vp.IsSet(LoadBalancerAcceleration) && prior != c.NodePortAcceleration {
 			logging.Fatal(logger, fmt.Sprintf("Both --%s and --%s were set. Only use --%s instead.",
 				LoadBalancerAcceleration, NodePortAcceleration, LoadBalancerAcceleration))
-		}
-	}
-	if vp.IsSet(NodePortMode) {
-		prior := c.NodePortMode
-		c.NodePortMode = vp.GetString(NodePortMode)
-		if vp.IsSet(LoadBalancerMode) && prior != c.NodePortMode {
-			logging.Fatal(logger, fmt.Sprintf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerMode, NodePortMode, LoadBalancerMode))
 		}
 	}
 }
