@@ -1,5 +1,106 @@
 # Changelog
 
+## v1.17.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add TRACE_{FROM/TO}_CRYPTO observation point and bpf metrics for packets forwarded-to/received-from Wireguard. (Backport PR cilium/cilium#39260, Upstream PR cilium/cilium#34958, @smagnani96)
+* Cilium Agent liveness probe no longer fails if Kubernetes apiserver cannot be reached. Earlier the agent was restarted if the apiserver could not be reached for approximately 5 minutes. This avoids traffic disruptions on apiserver downtime (e.g. due to maintenance) for features such as L7 and FQDN proxy that require cilium-agent to always be up. (Backport PR cilium/cilium#38703, Upstream PR cilium/cilium#38458, @joamaki)
+* Update kafka apiKey helm chart value to true (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#38963, @kyle-c-simmons)
+
+**Bugfixes:**
+* bpf: nodeport: avoid accidental NAT46x64 clash in from-container (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#38916, @julianwiedmann)
+* Check the TLSRoute and HasServiceImportSupport through the CRD. (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#39122, @liyihuang)
+* Fix a bug where a `CiliumNetworkPolicy`/`CiliumClusterwideNetworkPolicy` containing invalid rules would not be reported with invalid status. (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38801, @tklauser)
+* Fix a bug where services would fail to match wildcard protocols after switching to Local traffic policy with protocol differentiation enabled. (Backport PR cilium/cilium#39404, Upstream PR cilium/cilium#39360, @pasteley)
+* Fix a deadlock when a host has no IPv4 address. (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38938, @EmilyShepherd)
+* Fix a panic happening in the ipset reconciler when a previous reconciliation failed. (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38890, @pippolo84)
+* Fix bug that would cause the `cilium-dbg encrypt status` command to not list any decryption interfaces when KPR is enabled. (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39170, @pchaigno)
+* Fixes a bug where layer-7 rules would override enableDefaultDeny: false, incorrectly dropping traffic. (Backport PR cilium/cilium#39375, Upstream PR cilium/cilium#38841, @nimishamehta5)
+* gateway-api: Fix Gateway reconciler failure when TLSRoute CRD is not installed (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#38874, @syedazeez337)
+* gateway-api: Fix parentRefMatched to check Group and Kind (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#39275, @syedazeez337)
+* helm: fix hubble dynamic metrics config conflict (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38893, @devodev)
+* ipsec: Fix key derivation error in case of corrupted boot IDs (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39059, @pchaigno)
+* k8s: Fixed a case when delete event for service endpointslices might have been missed if connectivity to k8s apiserver was broken causing stale service cache for service. (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38779, @marseel)
+* wireguard:overlay: cleanup calls map when unused (Backport PR cilium/cilium#38899, Upstream PR cilium/cilium#38655, @smagnani96)
+* xds: Fix a case in which after cilium-agent we were not sending updated resources to Envoy (Backport PR cilium/cilium#38977, Upstream PR cilium/cilium#38654, @marseel)
+
+**CI Changes:**
+* .github/workflows: Enable DualStack for conformance-kind-proxy-embedded (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#36398, @dylandreimerink)
+* [v1.17] l4lb: Support environments with existing veth (cilium/cilium#39408, @joestringer)
+* Align main and stable branch workflows for availability of cilium-cli (Backport PR cilium/cilium#38141, Upstream PR cilium/cilium#38138, @joestringer)
+* bpf: tests: fix ethertype when building inner headers of VXLAN packet (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#39060, @julianwiedmann)
+* ci-aks: Enable dual-stack in Conformance AKS (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#37704, @gandro)
+* gateway-api: Add translation tests for GAMMA (Backport PR cilium/cilium#39221, Upstream PR cilium/cilium#39207, @sayboras)
+* gh: e2e-upgrade: check for unexpected drops from connectivity tests (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39111, @julianwiedmann)
+* gh: e2e-upgrade: generate config matrix from file (Backport PR cilium/cilium#39058, Upstream PR cilium/cilium#38512, @julianwiedmann)
+* gh: e2e-upgrade: minor log output improvements (Backport PR cilium/cilium#39058, Upstream PR cilium/cilium#38011, @julianwiedmann)
+* gh: use e2e-upgrade for IPsec minor upgrade testing (Backport PR cilium/cilium#39058, Upstream PR cilium/cilium#38757, @julianwiedmann)
+* gha: always respect the given image tag in the wait-for-images action (Backport PR cilium/cilium#38141, Upstream PR cilium/cilium#37901, @giorio94)
+* rate: Disable TestStressRateLimiter (Backport PR cilium/cilium#38896, Upstream PR cilium/cilium#38877, @YutaroHayakawa)
+
+**Misc Changes:**
+* [v1.17] deps: bump CNI plugins version (cilium/cilium#39329, @ferozsalam)
+* [v1.17] deps: bump golang-jwt to 4.5.2 (cilium/cilium#39491, @ferozsalam)
+* Add the doc for multi-pool ipam about how to update the existing ip pool (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38539, @liyihuang)
+* bpf: host: use MARK_MAGIC_EGW_DONE-embedded identity in to-netdev (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38768, @julianwiedmann)
+* bpf: nat: ICMP v4 improvements (Backport PR cilium/cilium#39332, Upstream PR cilium/cilium#36767, @julianwiedmann)
+* bpf:hubble: update trace/drop notify for L2-less packets (Backport PR cilium/cilium#39263, Upstream PR cilium/cilium#37097, @smagnani96)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#39183, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#39316, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.23.8 docker digest to 87bb940 (v1.17) (cilium/cilium#38908, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.23.8 docker digest to e54daaa (v1.17) (cilium/cilium#39046, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.2 docker digest to 30baaea (v1.17) (cilium/cilium#39314, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:24.04 docker digest to 6015f66 (v1.17) (cilium/cilium#39379, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.2 (v1.17) (cilium/cilium#39113, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.3 (v1.17) (cilium/cilium#39380, @cilium-renovate[bot])
+* chore(deps): update google/cloud-sdk docker tag to v518 (v1.17) (cilium/cilium#39048, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1744328671-a8b58b35c03a3d100a2b026fc111417207183301 (v1.17) (cilium/cilium#38909, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1744798797-f7456c0c30336bbd437eff7743374370e415fc44 (v1.17) (cilium/cilium#39047, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1745916268-e485bbc0c95e30aa233cb06a753789375b12ad18 (v1.17) (cilium/cilium#39226, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1745971871-f98500f20b253684d483b783b29df2e4db05ea7c (v1.17) (cilium/cilium#39248, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1746405645-719d708b1802ce417568d3eaae4c0677dd60e128 (v1.17) (cilium/cilium#39324, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1746661844-0f602c28cb2aa57b29078195049fb257d5b5246c (v1.17) (cilium/cilium#39413, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#38911, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#38970, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#39182, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#39315, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#39475, @cilium-renovate[bot])
+* chore: remove `retention-days` param in `build-images-releases.yaml` (Backport PR cilium/cilium#39435, Upstream PR cilium/cilium#39431, @sekhar-isovalent)
+* cilium: Fix device controller's dependency on netfilter (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38777, @borkmann)
+* cilium: Fix ipip device mtu (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38682, @borkmann)
+* contrib/scripts: Fix IndexError in stacktrace script (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39101, @christarazi)
+* contrib: Remove kind.sh dependency on git (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#39154, @joestringer)
+* docs: Add good kernel versions for the L7 policy IPv6 bug (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#39212, @gentoo-root)
+* docs: add warning about l7 policy and EnableDefaultDeny (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38675, @squeed)
+* docs: Document L7 policy IPv6 bug (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38591, @gentoo-root)
+* docs: Document that traffic to the VPC in ENI mode is not masqueraded (cilium/cilium#39156, @liyihuang)
+* docs: Fix casing and formatting in L3 examples section (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#39065, @mikejoh)
+* docs: Fix variable naming in EKS-to-EKS Clustermesh guide (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38821, @zzuckerfrei)
+* docs: The Installation on OpenShift OKD document has been updated to link to maintained operators for Cilium (Isovalent Enterprise for Cilium). This operator is validated on all current versions of OpenShift. (Backport PR cilium/cilium#39377, Upstream PR cilium/cilium#38886, @auriaave)
+* docs: Update `hubble-metrics` flag documentation (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38960, @HadrienPatte)
+* Documentation : Modification of eks-clustermesh-prep.rst (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39025, @rwinieski)
+* documentation: fix get deployment cmd (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39155, @g0gn)
+* dynamiclifecycle: fix goroutine leak (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39149, @squeed)
+* exclude the dummy device type when evaluating MTU, ensuring that local traffic does not interfere with MTU calculations. (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#38992, @liyihuang)
+* Fix LRU maps to streamline distributed LRU flag implementation with map prealloc handling (Backport PR cilium/cilium#39214, Upstream PR cilium/cilium#39087, @borkmann)
+* Fix map recreation loop when distributed lru setting is enabled (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38978, @borkmann)
+* hubble:monitor: align TraceNotify to DropNotify (Backport PR cilium/cilium#39264, Upstream PR cilium/cilium#38830, @smagnani96)
+* ipsec: include ipv6 in v1.18 upgrade leak detection (cilium/cilium#38843, @ldelossa)
+* k8s/resource: Don't Add to WaitGroup asynchronously (Backport PR cilium/cilium#38948, Upstream PR cilium/cilium#38692, @joamaki)
+* make: fix golangci-lint version detection (Backport PR cilium/cilium#39075, Upstream PR cilium/cilium#38996, @mhofstetter)
+* Throw build bug when using TRACE_{FROM,TO}_CRYPTO from unexpected files and cleanup unevaluated build_bug_on. (Backport PR cilium/cilium#39260, Upstream PR cilium/cilium#38470, @smagnani96)
+* workflows: fix lint-workflows (Backport PR cilium/cilium#39403, Upstream PR cilium/cilium#39398, @aanm)
+
+**Other Changes:**
+* [v1.17] k8s/statedb: Fix buffering order of objects (cilium/cilium#38585, @joamaki)
+* [v1.17] Stop TLS Interception config being included in preflight (cilium/cilium#39481, @youngnick)
+* bpf,encrypt: fixes the placement of a particular vxlan helper function (cilium/cilium#39088, @ldelossa)
+* install: Update image digests for v1.17.3 (cilium/cilium#38933, @cilium-release-bot[bot])
+* v1.17: Update Go version to 1.24 in go.mod (cilium/cilium#39128, @pchaigno)
+
 ## v1.17.3
 
 Summary of Changes
