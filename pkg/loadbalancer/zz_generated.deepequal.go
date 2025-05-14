@@ -155,6 +155,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.LBAlgorithm != other.LBAlgorithm {
 		return false
 	}
+	if in.DSRDispatch != other.DSRDispatch {
+		return false
+	}
 	if in.ExternalClusterIP != other.ExternalClusterIP {
 		return false
 	}

@@ -67,6 +67,10 @@ const (
 	// Deprecated option for setting [LoadBalancerMode]
 	NodePortModeName = "node-port-mode"
 
+	// LoadBalancerDSRDispatchName is the config option for setting the method for
+	// pushing packets to backends under DSR ("opt" or "ipip")
+	LoadBalancerDSRDispatchName = "bpf-lb-dsr-dispatch"
+
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
@@ -106,6 +110,15 @@ const (
 
 	// LBModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	LBModeHybrid = "hybrid"
+
+	// DSR dispatch mode to encode service into IP option or extension header
+	DSRDispatchOption = "opt"
+
+	// DSR dispatch mode to encapsulate to IPIP
+	DSRDispatchIPIP = "ipip"
+
+	// DSR dispatch mode to encapsulate to Geneve
+	DSRDispatchGeneve = "geneve"
 )
 
 // UserConfig is the configuration provided by the user that has not been processed.
@@ -158,6 +171,10 @@ type UserConfig struct {
 	// LoadBalancerAlgorithm indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	LBAlgorithm string `mapstructure:"bpf-lb-algorithm"`
+
+	// DSRDispatch indicates the method for pushing packets to
+	// backends under DSR ("opt" or "ipip")
+	DSRDispatch string `mapstructure:"bpf-lb-dsr-dispatch"`
 
 	// ExternalClusterIP enables routing to ClusterIP services from outside
 	// the cluster. This mirrors the behaviour of kube-proxy.
@@ -266,7 +283,9 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(LoadBalancerModeAnnotationName, false, "Enable service-level annotation for configuring BPF load balancing mode")
 
-	flags.String(LoadBalancerModeName, LBModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
+	flags.String(LoadBalancerModeName, def.LBMode, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
+
+	flags.String(LoadBalancerDSRDispatchName, def.DSRDispatch, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\", \"geneve\")")
 
 	flags.Bool(ExternalClusterIPName, def.ExternalClusterIP, "Enable external access to ClusterIP services (default false)")
 
@@ -430,6 +449,8 @@ var DefaultUserConfig = UserConfig{
 	LBAlgorithm:   LBAlgorithmRandom,
 
 	LBMode: LBModeSNAT,
+
+	DSRDispatch: DSRDispatchOption,
 
 	// Defaults to false to retain prior behaviour to not route external packets
 	// to ClusterIP services.
