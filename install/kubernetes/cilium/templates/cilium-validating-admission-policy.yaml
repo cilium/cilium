@@ -1,0 +1,83 @@
+{{- if .Values.validatingAdmissionPolicies.enabled }}
+{{- if .Values.validatingAdmissionPolicies.serviceAccountLength.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: service-account-length-create
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - "*"
+      operations:
+      - CREATE
+      resources:
+      - serviceaccounts
+  validations:
+  - expression: object.metadata.name.size() < 64
+    messageExpression: "'object.metadata.name must be no greater than 63 character'"
+    reason: Invalid
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: service-account-length-create-binding
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  policyName: service-account-length-create
+  validationActions:
+  - Deny
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: service-account-length-update
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - "*"
+      operations:
+      - UPDATE
+      resources:
+      - serviceaccounts
+  validations:
+  - expression: object.metadata.name.size() < 64
+    messageExpression: "'object.metadata.name must be no greater than 63 character'"
+    reason: Invalid
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: service-account-length-update-binding
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  policyName: service-account-length-update
+  validationActions:
+  - Warn
+{{- end }}
+{{- end }}

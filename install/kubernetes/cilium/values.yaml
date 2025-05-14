@@ -3945,3 +3945,11 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# Configuration for Validating Admission Policies
+validatingAdmissionPolicies:
+  # -- Global gate for Validating Admission Policies
+  enabled: true
+  # -- Configuration for service-account-length policy
+  serviceAccountLength:
+    # -- Enable (i.e. deploy) the service-account-length policy.
+    enabled: true
