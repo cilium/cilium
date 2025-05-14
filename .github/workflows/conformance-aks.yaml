@@ -65,7 +65,7 @@ env:
 
 jobs:
   echo-inputs:
-    if: github.event_name == 'workflow_dispatch' && always() && vars.ENABLE_CILIUM_CI == 'true'
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
@@ -74,8 +74,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
@@ -85,8 +83,6 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Generate Matrix
     runs-on: ubuntu-24.04
     outputs:
@@ -151,8 +147,6 @@ jobs:
           echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
   wait-for-images:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30

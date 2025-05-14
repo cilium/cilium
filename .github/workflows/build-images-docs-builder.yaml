@@ -21,8 +21,6 @@ concurrency:
 
 jobs:
   build-and-push:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Build and Push Image
     runs-on: ubuntu-24.04
     timeout-minutes: 30
