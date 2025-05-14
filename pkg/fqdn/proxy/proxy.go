@@ -19,7 +19,11 @@ type DNSProxier interface {
 	SetRejectReply(string)
 	RestoreRules(op *endpoint.Endpoint)
 	Cleanup()
+
+	Listen(port uint16) error
 }
+
+var _ DNSProxier = (*MockFQDNProxy)(nil)
 
 type MockFQDNProxy struct{}
 
@@ -45,4 +49,8 @@ func (m MockFQDNProxy) RestoreRules(op *endpoint.Endpoint) {
 }
 
 func (m MockFQDNProxy) Cleanup() {
+}
+
+func (m MockFQDNProxy) Listen(uint16) error {
+	return nil
 }

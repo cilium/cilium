@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -37,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/revert"
-	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -70,23 +68,15 @@ type DNSProxy struct {
 	// the port specified in cfg.
 	BindPort uint16
 
+	// ipcache exposes information about IP addresses and identities
+	ipcache IPCache
+
 	// LookupRegisteredEndpoint is a provided callback that returns the endpoint ID
 	// as a uint16.
 	// Note: this is a little pointless since this proxy is in-process but it is
 	// intended to allow us to switch to an external proxy process by forcing the
 	// design now.
 	LookupRegisteredEndpoint LookupEndpointIDByIPFunc
-
-	// LookupSecIDByIP is a provided callback that returns the IP's security ID
-	// from the ipcache.
-	// Note: this is a little pointless since this proxy is in-process but it is
-	// intended to allow us to switch to an external proxy process by forcing the
-	// design now.
-	LookupSecIDByIP LookupSecIDByIPFunc
-
-	// LookupIPsBySecID is a provided callback that returns the IPs by security ID
-	// from the ipcache.
-	LookupIPsBySecID LookupIPsBySecIDFunc
 
 	// NotifyOnDNSMsg is a provided callback by which the proxy can emit DNS
 	// response data. It is intended to wire into a DNS cache and a
@@ -321,7 +311,7 @@ func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16)
 		Loop:
 			for _, nid := range nids {
 				// Note: p.RLock must not be held during this call to IPCache
-				nidIPs := p.LookupIPsBySecID(nid)
+				nidIPs := p.ipcache.LookupByIdentity(nid)
 				p.RLock()
 				for _, ip := range nidIPs {
 					rip, err := restore.ParseRuleIPOrCIDR(ip)
@@ -600,95 +590,10 @@ func (allow perEPAllow) getPortRulesForID(logger *slog.Logger, endpointID uint64
 	return
 }
 
-// LookupEndpointIDByIPFunc wraps logic to lookup an endpoint with any backend.
-// See DNSProxy.LookupRegisteredEndpoint for usage.
-type LookupEndpointIDByIPFunc func(ip netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error)
-
-// LookupSecIDByIPFunc Func wraps logic to lookup an IP's security ID from the
-// ipcache.
-// See DNSProxy.LookupSecIDByIP for usage.
-type LookupSecIDByIPFunc func(ip netip.Addr) (secID ipcache.Identity, exists bool)
-
-// LookupIPsBySecIDFunc Func wraps logic to lookup an IPs by security ID from the
-// ipcache.
-type LookupIPsBySecIDFunc func(nid identity.NumericIdentity) []string
-
-// NotifyOnDNSMsgFunc handles propagating DNS response data
-// See DNSProxy.LookupEndpointIDByIP for usage.
-type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error
-
-// ErrFailedAcquireSemaphore is an an error representing the DNS proxy's
-// failure to acquire the semaphore. This is error is treated like a timeout.
-type ErrFailedAcquireSemaphore struct {
-	parallel int
-}
-
-func (e ErrFailedAcquireSemaphore) Timeout() bool { return true }
-
-// Temporary is deprecated. Return false.
-func (e ErrFailedAcquireSemaphore) Temporary() bool { return false }
-
-func (e ErrFailedAcquireSemaphore) Error() string {
-	return fmt.Sprintf(
-		"failed to acquire DNS proxy semaphore, %d parallel requests already in-flight",
-		e.parallel,
-	)
-}
-
-// ErrTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
-// out when acquiring the semaphore. It is treated the same as
-// ErrTimedOutAcquireSemaphore.
-type ErrTimedOutAcquireSemaphore struct {
-	ErrFailedAcquireSemaphore
-
-	gracePeriod time.Duration
-}
-
-func (e ErrTimedOutAcquireSemaphore) Error() string {
-	return fmt.Sprintf(
-		"timed out after %v acquiring DNS proxy semaphore, %d parallel requests already in-flight",
-		e.gracePeriod,
-		e.parallel,
-	)
-}
-
-// ErrDNSRequestNoEndpoint represents an error when the local daemon cannot
-// find the corresponding endpoint that triggered a DNS request processed by
-// the local DNS proxy (FQDN proxy).
-type ErrDNSRequestNoEndpoint struct{}
-
-func (ErrDNSRequestNoEndpoint) Error() string {
-	return "DNS request cannot be associated with an existing endpoint"
-}
-
-// ProxyRequestContext proxy dns request context struct to send in the callback
-type ProxyRequestContext struct {
-	TotalTime      spanstat.SpanStat
-	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.
-	// Error is a enum of [timeout, allow, denied, proxyerr].
-	UpstreamTime         spanstat.SpanStat
-	SemaphoreAcquireTime spanstat.SpanStat
-	PolicyCheckTime      spanstat.SpanStat
-	PolicyGenerationTime spanstat.SpanStat
-	DataplaneTime        spanstat.SpanStat
-	Success              bool
-	Err                  error
-	DataSource           accesslog.DNSDataSource
-}
-
-// IsTimeout return true if the ProxyRequest timeout
-func (proxyStat *ProxyRequestContext) IsTimeout() bool {
-	var neterr net.Error
-	if errors.As(proxyStat.Err, &neterr) {
-		return neterr.Timeout()
-	}
-	return false
-}
-
 // DNSProxyConfig is the configuration for the DNS proxy.
 type DNSProxyConfig struct {
+	Logger                 *slog.Logger
 	Address                string
-	Port                   uint16
 	IPv4                   bool
 	IPv6                   bool
 	EnableDNSCompression   bool
@@ -703,26 +608,13 @@ type DNSProxyConfig struct {
 // addresses.
 // port is the port to bind to for both UDP and TCP. 0 causes the kernel to
 // select a free port.
-// lookupEPFunc will be called with the source IP of DNS requests, and expects
-// a unique identifier for the endpoint that made the request.
-// notifyFunc will be called with DNS response data that is returned to a
-// requesting endpoint. Note that denied requests will not trigger this
-// callback.
-func NewDNSProxy(logger *slog.Logger, dnsProxyConfig DNSProxyConfig, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc) *DNSProxy {
-	if dnsProxyConfig.Port == 0 {
-		logger.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
-	}
-
-	if lookupEPFunc == nil || notifyFunc == nil {
-		panic("DNS proxy must have lookupEPFunc and notifyFunc provided")
-	}
+func NewDNSProxy(dnsProxyConfig DNSProxyConfig, ipc IPCache, lookupEPFunc LookupEndpointIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) *DNSProxy {
 
 	p := &DNSProxy{
-		logger:                   logger,
+		logger:                   dnsProxyConfig.Logger,
 		cfg:                      dnsProxyConfig,
+		ipcache:                  ipc,
 		LookupRegisteredEndpoint: lookupEPFunc,
-		LookupSecIDByIP:          lookupSecIDFunc,
-		LookupIPsBySecID:         lookupIPsFunc,
 		NotifyOnDNSMsg:           notifyFunc,
 		logLimiter:               logging.NewLimiter(10*time.Second, 1),
 		lookupTargetDNSServer:    lookupTargetDNSServer,
@@ -745,7 +637,10 @@ func NewDNSProxy(logger *slog.Logger, dnsProxyConfig DNSProxyConfig, lookupEPFun
 	return p
 }
 
-func (p *DNSProxy) Listen() error {
+func (p *DNSProxy) Listen(port uint16) error {
+	if port == 0 {
+		p.logger.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
+	}
 	// Start the DNS listeners on UDP and TCP for IPv4 and/or IPv6
 	var (
 		dnsServers []*dns.Server
@@ -755,7 +650,7 @@ func (p *DNSProxy) Listen() error {
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
-		dnsServers, bindPort, err = bindToAddr(p.logger, p.cfg.Address, p.cfg.Port, p, p.cfg.IPv4, p.cfg.IPv6, p.DNSClients)
+		dnsServers, bindPort, err = bindToAddr(p.logger, p.cfg.Address, port, p, p.cfg.IPv4, p.cfg.IPv6, p.DNSClients)
 		if err == nil {
 			break
 		}
@@ -1098,7 +993,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	// Ignore invalid IP - getter will handle invalid value.
 	targetServerID := identity.GetWorldIdentityFromIP(targetServer.Addr())
-	if serverSecID, exists := p.LookupSecIDByIP(targetServer.Addr()); !exists {
+	if serverSecID, exists := p.ipcache.LookupSecIDByIP(targetServer.Addr()); !exists {
 		scopedLog.Debug(
 			"cannot find server ip in ipcache, defaulting to WORLD",
 			logfields.Server, targetServer.Addr(),
