@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"path"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -153,6 +155,7 @@ func (tc testCommands) cmds() map[string]script.Cmd {
 		"test/bpfops-reset":          tc.opsReset(),
 		"test/bpfops-summary":        tc.opsSummary(),
 		"test/set-node-labels":       tc.setNodeLabels(),
+		"test/set-node-ip":           tc.setNodeIP(),
 	}
 }
 
@@ -228,5 +231,22 @@ func (tc testCommands) setNodeLabels() script.Cmd {
 			})
 			return nil, nil
 		})
+}
 
+func (tc testCommands) setNodeIP() script.Cmd {
+	return script.Command(
+		script.CmdUsage{Summary: "Set local node IP", Args: "ip"},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 1 {
+				return nil, fmt.Errorf("%w: expected 'ip'", script.ErrUsage)
+			}
+			ip := net.ParseIP(args[0])
+			tc.lns.Update(func(n *node.LocalNode) {
+				n.IPAddresses = []nodeTypes.Address{
+					{Type: addressing.NodeExternalIP, IP: ip},
+				}
+				s.Logf("NodeIP set to %s\n", ip)
+			})
+			return nil, nil
+		})
 }
