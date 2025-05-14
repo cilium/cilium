@@ -27,6 +27,7 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(__u32, endpoint_ipv4, v4_pod_one)
+ASSIGN_CONFIG(union v4addr, loopback_ipv4, { .p = v4_loopback })
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
