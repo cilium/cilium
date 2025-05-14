@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
+	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -119,7 +119,7 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 	}
 }
 
-func newDNSProxyIntegration(dnsProxy defaultdns.Proxy, sdpPolicyUpdater *service.FQDNDataServer) *dnsProxyIntegration {
+func newDNSProxyIntegration(dnsProxy fqdnproxy.DNSProxier, sdpPolicyUpdater *service.FQDNDataServer) *dnsProxyIntegration {
 	if !option.Config.EnableL7Proxy {
 		return nil
 	}
