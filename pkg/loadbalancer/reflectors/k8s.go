@@ -220,7 +220,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.ExtConfig, p.Log, obj, source.Kubernetes)
+			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, obj, source.Kubernetes)
 			if svc == nil {
 				return
 			}
