@@ -6,12 +6,12 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path"
 
 	"github.com/cilium/ebpf"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -56,7 +56,7 @@ func incompatibleMaps(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) ([
 
 		pinPath := path.Join(opts.Maps.PinPath, ms.Name)
 		m, err := ebpf.LoadPinnedMap(pinPath, nil)
-		if errors.Is(err, unix.ENOENT) {
+		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		if err != nil {
