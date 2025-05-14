@@ -803,8 +803,8 @@ func (r *IngressRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 
 	for _, n := range r.FromNodes {
@@ -824,8 +824,8 @@ func (r *IngressRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 }
 
@@ -847,8 +847,8 @@ func (r *IngressDenyRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 
 	for _, n := range r.FromNodes {
@@ -868,8 +868,8 @@ func (r *IngressDenyRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 }
 
@@ -891,8 +891,8 @@ func (r *EgressRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 
 	for _, n := range r.ToNodes {
@@ -912,8 +912,8 @@ func (r *EgressRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 }
 
@@ -935,8 +935,8 @@ func (r *EgressDenyRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 
 	for _, n := range r.ToNodes {
@@ -956,7 +956,7 @@ func (r *EgressDenyRule) ParseExtendedKey() {
 			n.MatchExpressions = newMatchExpr
 		}
 
-		n.requirements = labelSelectorToRequirements(n.LabelSelector)
-		n.cachedLabelSelectorString = n.LabelSelector.String()
+		n.requirements = nil
+		n.cachedLabelSelectorString = ""
 	}
 }
