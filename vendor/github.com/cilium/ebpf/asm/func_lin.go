@@ -8,7 +8,7 @@ import "github.com/cilium/ebpf/internal/platform"
 
 // Built-in functions (Linux).
 const (
-	FnUnspec                     = BuiltinFunc(platform.LinuxTag | 0)
+	FnUnspec                     = BuiltinFunc(platform.LinuxTag | 0) //lint:ignore SA4016 consistency
 	FnMapLookupElem              = BuiltinFunc(platform.LinuxTag | 1)
 	FnMapUpdateElem              = BuiltinFunc(platform.LinuxTag | 2)
 	FnMapDeleteElem              = BuiltinFunc(platform.LinuxTag | 3)

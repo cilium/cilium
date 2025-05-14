@@ -4,6 +4,7 @@ package unix
 
 import (
 	"syscall"
+	"unsafe"
 
 	linux "golang.org/x/sys/unix"
 )
@@ -38,6 +39,7 @@ const (
 	PROT_WRITE                = linux.PROT_WRITE
 	MAP_ANON                  = linux.MAP_ANON
 	MAP_SHARED                = linux.MAP_SHARED
+	MAP_FIXED                 = linux.MAP_FIXED
 	MAP_PRIVATE               = linux.MAP_PRIVATE
 	PERF_ATTR_SIZE_VER1       = linux.PERF_ATTR_SIZE_VER1
 	PERF_TYPE_SOFTWARE        = linux.PERF_TYPE_SOFTWARE
@@ -134,6 +136,11 @@ func SetNonblock(fd int, nonblocking bool) (err error) {
 
 func Mmap(fd int, offset int64, length int, prot int, flags int) (data []byte, err error) {
 	return linux.Mmap(fd, offset, length, prot, flags)
+}
+
+//go:nocheckptr
+func MmapPtr(fd int, offset int64, addr unsafe.Pointer, length uintptr, prot int, flags int) (ret unsafe.Pointer, err error) {
+	return linux.MmapPtr(fd, offset, addr, length, prot, flags)
 }
 
 func Munmap(b []byte) (err error) {

@@ -35,8 +35,9 @@ var ErrReadOnly = errors.New("resource is read-only")
 // for individual values. For accesses beyond a single value, the usual
 // concurrent programming rules apply.
 type Memory struct {
-	b  []byte
-	ro bool
+	b    []byte
+	ro   bool
+	heap bool
 }
 
 func newMemory(fd, size int) (*Memory, error) {
@@ -64,6 +65,7 @@ func newMemory(fd, size int) (*Memory, error) {
 	mm := &Memory{
 		b,
 		ro,
+		false,
 	}
 	runtime.SetFinalizer(mm, (*Memory).close)
 

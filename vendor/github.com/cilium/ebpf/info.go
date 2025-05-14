@@ -10,7 +10,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/ebpf/asm"
@@ -258,16 +257,17 @@ type ProgramInfo struct {
 	numLineInfos uint32
 	funcInfos    []byte
 	numFuncInfos uint32
+
+	memlock uint64
 }
 
 func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	var info sys.ProgInfo
-	err := sys.ObjInfo(fd, &info)
-	if errors.Is(err, syscall.EINVAL) {
-		return newProgramInfoFromProc(fd)
-	}
-	if err != nil {
-		return nil, err
+	err1 := sys.ObjInfo(fd, &info)
+	// EINVAL means the kernel doesn't support BPF_OBJ_GET_INFO_BY_FD. Continue
+	// with fdinfo if that's the case.
+	if err1 != nil && !errors.Is(err1, unix.EINVAL) {
+		return nil, fmt.Errorf("getting object info: %w", err1)
 	}
 
 	typ, err := ProgramTypeForPlatform(platform.Native, info.Type)
@@ -289,6 +289,17 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		jitedSize:            info.JitedProgLen,
 		loadTime:             time.Duration(info.LoadTime),
 		verifiedInstructions: info.VerifiedInsns,
+	}
+
+	// Supplement OBJ_INFO with data from /proc/self/fdinfo. It contains fields
+	// like memlock that is not present in OBJ_INFO.
+	err2 := readProgramInfoFromProc(fd, &pi)
+	if err2 != nil && !errors.Is(err2, ErrNotSupported) {
+		return nil, fmt.Errorf("getting map info from fdinfo: %w", err2)
+	}
+
+	if err1 != nil && err2 != nil {
+		return nil, fmt.Errorf("ObjInfo and fdinfo both failed: objinfo: %w, fdinfo: %w", err1, err2)
 	}
 
 	if platform.IsWindows && info.Tag == [8]uint8{} {
@@ -388,29 +399,29 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	return &pi, nil
 }
 
-func newProgramInfoFromProc(fd *sys.FD) (*ProgramInfo, error) {
-	var info ProgramInfo
+func readProgramInfoFromProc(fd *sys.FD, pi *ProgramInfo) error {
 	var progType uint32
 	err := scanFdInfo(fd, map[string]interface{}{
 		"prog_type": &progType,
-		"prog_tag":  &info.Tag,
+		"prog_tag":  &pi.Tag,
+		"memlock":   &pi.memlock,
 	})
 	if errors.Is(err, ErrNotSupported) && !errors.Is(err, internal.ErrNotSupportedOnOS) {
-		return nil, &internal.UnsupportedFeatureError{
+		return &internal.UnsupportedFeatureError{
 			Name:           "reading program info from /proc/self/fdinfo",
 			MinimumVersion: internal.Version{4, 10, 0},
 		}
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	info.Type, err = ProgramTypeForPlatform(platform.Linux, progType)
+	pi.Type, err = ProgramTypeForPlatform(platform.Linux, progType)
 	if err != nil {
-		return nil, fmt.Errorf("program type: %w", err)
+		return fmt.Errorf("program type: %w", err)
 	}
 
-	return &info, nil
+	return nil
 }
 
 // ID returns the program ID.
@@ -743,6 +754,15 @@ func (pi *ProgramInfo) FuncInfos() (btf.FuncOffsets, error) {
 	)
 }
 
+// ProgramInfo returns an approximate number of bytes allocated to this program.
+//
+// Available from 4.10.
+//
+// The bool return value indicates whether this optional field is available.
+func (pi *ProgramInfo) Memlock() (uint64, bool) {
+	return pi.memlock, pi.memlock > 0
+}
+
 func scanFdInfo(fd *sys.FD, fields map[string]interface{}) error {
 	if platform.IsWindows {
 		return fmt.Errorf("read fdinfo: %w", internal.ErrNotSupportedOnOS)
@@ -857,4 +877,4 @@ var haveProgramInfoMapIDs = internal.NewFeatureTest("map IDs in program info", f
 	}
 
 	return err
-}, "4.15", "windows:0.20.0")
+}, "4.15", "windows:0.21.0")
