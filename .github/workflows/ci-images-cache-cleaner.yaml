@@ -15,8 +15,6 @@ concurrency:
 
 jobs:
   cache-cleaner:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Clean Image Cache
     runs-on: ubuntu-24.04
     permissions:

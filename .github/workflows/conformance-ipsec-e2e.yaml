@@ -61,7 +61,7 @@ env:
 
 jobs:
   echo-inputs:
-    if: github.event_name == 'workflow_dispatch' && always() && vars.ENABLE_CILIUM_CI == 'true'
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
@@ -71,8 +71,6 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
@@ -81,8 +79,6 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Generate Matrix
     runs-on: ubuntu-24.04
     outputs:
@@ -111,8 +107,6 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
 
   wait-for-images:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -128,8 +122,6 @@ jobs:
           SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     needs: [wait-for-images, generate-matrix]
     name: 'Setup & Test'
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
