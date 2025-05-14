@@ -56,8 +56,7 @@ var CiliumTestConfig = CiliumTestConfigType{}
 // ParseFlags parses commandline flags relevant to testing.
 func (c *CiliumTestConfigType) ParseFlags() {
 	flagset := flag.NewFlagSet("cilium", flag.ExitOnError)
-	flagset.BoolVar(&c.Reprovision, "cilium.provision", true,
-		"Provision Vagrant boxes and Cilium before running test")
+	flagset.BoolVar(&c.Reprovision, "cilium.provision", false, "(deprecated)")
 	flagset.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
 		"On failure, hold the environment in its current state")
 	flagset.BoolVar(&c.PassCLIEnvironment, "cilium.passCLIEnvironment", false,
@@ -65,7 +64,7 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flagset.BoolVar(&c.SkipLogGathering, "cilium.skipLogs", false,
 		"skip gathering logs if a test fails")
 	flagset.StringVar(&c.SSHConfig, "cilium.SSHConfig", "",
-		"Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')")
+		"Specify a custom command to fetch SSH configuration (eg: 'cat ssh-config')")
 	flagset.BoolVar(&c.ShowCommands, "cilium.showCommands", false,
 		"Output which commands are ran to stdout")
 	flagset.StringVar(&c.TestScope, "cilium.testScope", "",

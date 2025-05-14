@@ -15,7 +15,7 @@ import (
 // if it cannot get the ssh meta information or cannot execute a `ls` on the
 // virtual machine.
 func InitRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
-	node := GetVagrantSSHMeta(target)
+	node := GetSSHMeta(target)
 	if node == nil {
 		ginkgo.Fail(fmt.Sprintf("Cannot connect to target '%s'", target), 1)
 		return nil
