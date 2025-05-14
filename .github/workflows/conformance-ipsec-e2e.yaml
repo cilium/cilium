@@ -344,6 +344,7 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           nb-nodes: 3 # We don't count the node without Cilium.
           ipv6: true
+          subnet-encryption: false
 
       - name: Assert that no unencrypted packets are leaked during key rotation
         uses: ./.github/actions/bpftrace/check

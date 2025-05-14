@@ -370,6 +370,7 @@ jobs:
           nb-nodes: 3
           tunnel: "disabled"
           ipv6: false
+          subnet-encryption: true
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}
