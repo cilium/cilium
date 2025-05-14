@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -41,7 +40,6 @@ type dnsProxyParams struct {
 	DNSRequestHandler messagehandler.DNSMessageHandler
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
-	DefaultProxy      defaultdns.Proxy
 	LocalNodeStore    *node.LocalNodeStore
 }
 
@@ -76,8 +74,6 @@ func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
 		lookupRegisteredEndpointFunc(params.EndpointManager, params.LocalNodeStore),
 		params.DNSRequestHandler.NotifyOnDNSMsg)
 	proxy.SetRejectReply(option.Config.FQDNRejectResponse)
-
-	params.DefaultProxy.Set(proxy)
 
 	return proxy, nil
 }

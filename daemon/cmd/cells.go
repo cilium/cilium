@@ -37,7 +37,6 @@ import (
 	endpoint "github.com/cilium/cilium/pkg/endpoint/cell"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/health"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
@@ -136,10 +135,6 @@ var (
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
 		shell.Cell,
-
-		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
-		// packages.
-		defaultdns.Cell,
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
