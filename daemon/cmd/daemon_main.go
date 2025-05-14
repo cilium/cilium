@@ -550,21 +550,11 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.CgroupPathMKE)
 	option.BindEnv(vp, option.CgroupPathMKE)
 
-	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
-	flags.MarkHidden(option.NodePortMode)
-	option.BindEnv(vp, option.NodePortMode)
-
 	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	flags.MarkHidden(option.NodePortAcceleration)
 	option.BindEnv(vp, option.NodePortAcceleration)
-
-	flags.Bool(option.LoadBalancerModeAnnotation, false, "Enable service-level annotation for configuring BPF load balancing mode")
-	option.BindEnv(vp, option.LoadBalancerModeAnnotation)
-
-	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
-	option.BindEnv(vp, option.LoadBalancerMode)
 
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\", \"geneve\")")
 	option.BindEnv(vp, option.LoadBalancerDSRDispatch)

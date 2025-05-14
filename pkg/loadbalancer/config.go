@@ -56,6 +56,17 @@ const (
 	// Deprecated option for setting [LBAlgorithm]
 	NodePortAlgName = "node-port-algorithm"
 
+	// LoadBalancerMode indicates in which mode NodePort implementation should run
+	// ("snat", "dsr" or "hybrid")
+	LoadBalancerModeName = "bpf-lb-mode"
+
+	// LoadBalancerModeAnnotation tells whether controller should check service
+	// level annotation for configuring bpf loadbalancing method (snat vs dsr).
+	LoadBalancerModeAnnotationName = "bpf-lb-mode-annotation"
+
+	// Deprecated option for setting [LoadBalancerMode]
+	NodePortModeName = "node-port-mode"
+
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
@@ -86,6 +97,15 @@ const (
 
 	// LBAlgorithmMaglev is for using maglev consistent hashing for backend selection
 	LBAlgorithmMaglev = "maglev"
+
+	// LBModeSNAT is for SNATing requests to remote nodes
+	LBModeSNAT = "snat"
+
+	// LBModeDSR is for performing DSR for requests to remote nodes
+	LBModeDSR = "dsr"
+
+	// LBModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
+	LBModeHybrid = "hybrid"
 )
 
 // UserConfig is the configuration provided by the user that has not been processed.
@@ -126,6 +146,14 @@ type UserConfig struct {
 
 	// NodePortRange is the minimum and maximum ports to use for NodePort
 	NodePortRange []string
+
+	// LBMode indicates in which mode NodePort implementation should run
+	// ("snat", "dsr" or "hybrid")
+	LBMode string `mapstructure:"bpf-lb-mode"`
+
+	// LBModeAnnotation tells whether controller should check service
+	// level annotation for configuring bpf load balancing algorithm.
+	LBModeAnnotation bool `mapstructure:"bpf-lb-mode-annotation"`
 
 	// LoadBalancerAlgorithm indicates which backend selection algorithm is used
 	// ("random" or "maglev")
@@ -170,10 +198,20 @@ type Config struct {
 	NodePortMax uint16
 }
 
+func (c *Config) LoadBalancerUsesDSR() bool {
+	return c.LBMode == LBModeDSR ||
+		c.LBMode == LBModeHybrid ||
+		c.LBModeAnnotation
+}
+
 type DeprecatedConfig struct {
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	NodePortAlg string `mapstructure:"node-port-algorithm"`
+
+	// NodePortMode indicates in which mode NodePort implementation should run
+	// ("snat", "dsr" or "hybrid")
+	NodePortMode string `mapstructure:"node-port-mode"`
 }
 
 func (DeprecatedConfig) Flags(flags *pflag.FlagSet) {
@@ -181,6 +219,11 @@ func (DeprecatedConfig) Flags(flags *pflag.FlagSet) {
 	flags.String(NodePortAlgName, "", "BPF load balancing algorithm (\"random\", \"maglev\")")
 	flags.MarkHidden(NodePortAlgName)
 	flags.MarkDeprecated(NodePortAlgName, "Use --"+LBAlgorithmName+" instead")
+
+	// Deprecated option for setting [LBMode]
+	flags.String(NodePortModeName, "", "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
+	flags.MarkHidden(NodePortModeName)
+	flags.MarkDeprecated(NodePortAlgName, "Use --"+LoadBalancerModeName+" instead")
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
@@ -220,6 +263,10 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(NodePortRange, []string{fmt.Sprintf("%d", NodePortMinDefault), fmt.Sprintf("%d", NodePortMaxDefault)}, "Set the min/max NodePort port range")
 
 	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
+
+	flags.Bool(LoadBalancerModeAnnotationName, false, "Enable service-level annotation for configuring BPF load balancing mode")
+
+	flags.String(LoadBalancerModeName, LBModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
 
 	flags.Bool(ExternalClusterIPName, def.ExternalClusterIP, "Enable external access to ClusterIP services (default false)")
 
@@ -322,6 +369,43 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LBAlgorithmName, cfg.LBAlgorithm)
 	}
 
+	if deprecatedConfig.NodePortMode != "" {
+		if cfg.LBMode != DefaultUserConfig.LBMode {
+			return Config{}, fmt.Errorf("both --%s and --%s were set. Use --%s instead.",
+				LoadBalancerModeName, NodePortModeName, LoadBalancerModeName)
+		}
+		cfg.LBMode = deprecatedConfig.NodePortMode
+	}
+
+	if cfg.LBMode != LBModeSNAT && cfg.LBMode != LBModeDSR && cfg.LBMode != LBModeHybrid {
+		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LoadBalancerModeName, cfg.LBMode)
+	}
+
+	if cfg.LBModeAnnotation &&
+		cfg.LBMode == LBModeHybrid {
+		return Config{}, fmt.Errorf("The value --%s=%s is not supported as default under annotation mode", LoadBalancerModeName, cfg.LBMode)
+	}
+
+	/* FIXME:
+
+	if cfg.NodePortMode == option.NodePortModeDSR &&
+		cfg.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
+		cfg.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
+		cfg.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+		return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, cfg.LoadBalancerDSRDispatch)
+	}
+
+	if cfg.NodePortMode == option.NodePortModeHybrid &&
+		cfg.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
+		cfg.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+		return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, cfg.LoadBalancerDSRDispatch)
+	}
+
+	if cfg.LoadBalancerModeAnnotation &&
+		cfg.LoadBalancerDSRDispatch != option.DSRDispatchIPIP {
+		return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, cfg.LoadBalancerDSRDispatch)
+	}*/
+
 	return
 }
 
@@ -344,6 +428,8 @@ var DefaultUserConfig = UserConfig{
 
 	NodePortRange: []string{},
 	LBAlgorithm:   LBAlgorithmRandom,
+
+	LBMode: LBModeSNAT,
 
 	// Defaults to false to retain prior behaviour to not route external packets
 	// to ClusterIP services.
