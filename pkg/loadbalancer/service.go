@@ -55,6 +55,10 @@ type Service struct {
 	// If set to "Local", only node-local backends are chosen.
 	IntTrafficPolicy SVCTrafficPolicy
 
+	// ForwardingMode controls whether DSR or SNAT should be used for the dispatch
+	// to the backend. If undefined the default mode is used (--bpf-lb-mode).
+	ForwardingMode SVCForwardingMode
+
 	SessionAffinity        bool
 	SessionAffinityTimeout time.Duration
 
@@ -209,6 +213,10 @@ func (svc *Service) TableRow() []string {
 
 	if alg := svc.GetLBAlgorithmAnnotation(); alg != SVCLoadBalancingAlgorithmUndef {
 		flags = append(flags, "ExplicitLBAlgorithm="+alg.String())
+	}
+
+	if svc.ForwardingMode != SVCForwardingModeUndef {
+		flags = append(flags, "ForwardingMode="+string(svc.ForwardingMode))
 	}
 
 	if svc.Properties.Len() != 0 {

@@ -222,7 +222,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
+			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
 			if svc == nil {
 				// The service should not be provisioned on this agent. Try to delete if it was previously.
 				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
