@@ -100,13 +100,13 @@ func TestUpdateNetworkMode(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				RoutingMode:            tt.tunnelMode,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				TunnelConfig:    tt.tunnelProto,
@@ -153,13 +153,13 @@ func TestUpdateIPAMMode(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				IPAM:                   tt.IPAMMode,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -206,12 +206,12 @@ func TestUpdateCNIChainingMode(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: tt.chainingMode,
@@ -267,13 +267,13 @@ func TestUpdateInternetProtocol(t *testing.T) {
 				IPAM:                   defaultIPAMModes[0],
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				EnableIPv4:             tt.enableIPv4,
 				EnableIPv6:             tt.enableIPv6,
 			}
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -318,13 +318,13 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				DatapathMode:           defaultDeviceModes[0],
 				IdentityAllocationMode: tt.identityAllocationMode,
 			}
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -374,13 +374,13 @@ func TestUpdateCiliumEndpointSlices(t *testing.T) {
 				EnableIPv4:                true,
 				IdentityAllocationMode:    defaultIdentityAllocationModes[0],
 				DatapathMode:              defaultDeviceModes[0],
-				NodePortMode:              defaultNodePortModes[0],
 				NodePortAcceleration:      defaultNodePortModeAccelerations[0],
 				EnableCiliumEndpointSlice: tt.enableCES,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -417,12 +417,12 @@ func TestUpdateDeviceMode(t *testing.T) {
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				DatapathMode:           tt.deviceMode,
 			}
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -472,12 +472,12 @@ func TestUpdateHostFirewall(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				EnableHostFirewall:     tt.enableHostFirewall,
 			}
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -517,12 +517,12 @@ func TestUpdateLocalRedirectPolicies(t *testing.T) {
 				EnableIPv4:                true,
 				IdentityAllocationMode:    defaultIdentityAllocationModes[0],
 				DatapathMode:              defaultDeviceModes[0],
-				NodePortMode:              defaultNodePortModes[0],
 				NodePortAcceleration:      defaultNodePortModeAccelerations[0],
 				EnableLocalRedirectPolicy: tt.enableLRP,
 			}
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -562,12 +562,12 @@ func TestUpdateMutualAuth(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -608,13 +608,13 @@ func TestUpdateNonDefaultDeny(t *testing.T) {
 				EnableIPv4:                   true,
 				IdentityAllocationMode:       defaultIdentityAllocationModes[0],
 				DatapathMode:                 defaultDeviceModes[0],
-				NodePortMode:                 defaultNodePortModes[0],
 				NodePortAcceleration:         defaultNodePortModeAccelerations[0],
 				EnableNonDefaultDenyPolicies: tt.enableNonDefaultDeny,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -651,13 +651,13 @@ func TestUpdateCIDRPolicyModeToNode(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				PolicyCIDRMatchMode:    []string{tt.policyMode},
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -733,7 +733,6 @@ func TestUpdateEncryptionMode(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				EnableIPSec:            tt.enableIPSec,
 				EnableWireguard:        tt.enableWireguard,
@@ -742,6 +741,7 @@ func TestUpdateEncryptionMode(t *testing.T) {
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -793,13 +793,13 @@ func TestUpdateKubeProxyReplacement(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				KubeProxyReplacement:   tt.enableKubeProxyReplacement,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -850,12 +850,12 @@ func TestUpdateNodePortConfig(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           tt.portMode,
 				NodePortAcceleration:   tt.accelerationMode,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = tt.algoMode
+			lbConfig.LBMode = tt.portMode
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -910,13 +910,13 @@ func TestUpdateBGP(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				EnableBGPControlPlane:  tt.bgpControlPlane,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -956,13 +956,13 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 				EnableIPv4:              true,
 				IdentityAllocationMode:  defaultIdentityAllocationModes[0],
 				DatapathMode:            defaultDeviceModes[0],
-				NodePortMode:            defaultNodePortModes[0],
 				NodePortAcceleration:    defaultNodePortModeAccelerations[0],
 				EnableIPv4EgressGateway: tt.enableEGW,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1003,12 +1003,12 @@ func TestUpdateBandwidthManager(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode:  defaultChainingModes[0],
@@ -1050,12 +1050,12 @@ func TestUpdateSCTP(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1096,12 +1096,12 @@ func TestUpdateInternalTrafficPolicy(t *testing.T) {
 				EnableIPv4:                  true,
 				IdentityAllocationMode:      defaultIdentityAllocationModes[0],
 				DatapathMode:                defaultDeviceModes[0],
-				NodePortMode:                defaultNodePortModes[0],
 				NodePortAcceleration:        defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1142,12 +1142,12 @@ func TestUpdateVTEP(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1188,12 +1188,12 @@ func TestUpdateEnvoyConfig(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1239,13 +1239,13 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 				IPAM:                   defaultIPAMModes[0],
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 				EnableIPv4:             true,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1300,12 +1300,12 @@ func TestUpdateL2Announcements(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1345,12 +1345,12 @@ func TestUpdateL2PodAnnouncements(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode:   defaultChainingModes[0],
@@ -1392,12 +1392,12 @@ func TestUpdateExtEnvoyProxyMode(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
@@ -1447,12 +1447,12 @@ func TestUpdateDynamicNodeConfig(t *testing.T) {
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
 				CNIChainingMode:                     defaultChainingModes[0],

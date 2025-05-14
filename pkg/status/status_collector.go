@@ -310,7 +310,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 	}
 	if d.statusParams.DaemonConfig.EnableNodePort {
 		features.NodePort.Enabled = true
-		features.NodePort.Mode = strings.ToUpper(d.statusParams.DaemonConfig.NodePortMode)
+		features.NodePort.Mode = strings.ToUpper(d.statusParams.LBConfig.LBMode)
 		switch d.statusParams.DaemonConfig.LoadBalancerDSRDispatch {
 		case option.DSRDispatchIPIP:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeIPIP
@@ -319,9 +319,9 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		case option.DSRDispatchGeneve:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
-		if d.statusParams.DaemonConfig.NodePortMode == option.NodePortModeHybrid {
+		if d.statusParams.LBConfig.LBMode == loadbalancer.LBModeHybrid {
 			//nolint:staticcheck
-			features.NodePort.Mode = strings.Title(d.statusParams.DaemonConfig.NodePortMode)
+			features.NodePort.Mode = strings.Title(d.statusParams.LBConfig.LBMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if d.statusParams.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
@@ -372,7 +372,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
 		}
-		if d.statusParams.DaemonConfig.LoadBalancerModeAnnotation {
+		if d.statusParams.LBConfig.LBModeAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceForwardingMode)
 		}
 		features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)

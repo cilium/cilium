@@ -44,9 +44,13 @@ type kprConfig struct {
 	tunnelProtocol tunnel.EncapProtocol
 	nodePortMode   string
 	dispatchMode   string
+
+	lbConfig loadbalancer.Config
 }
 
 func (cfg *kprConfig) set() {
+	cfg.lbConfig = loadbalancer.DefaultConfig
+
 	option.Config.KubeProxyReplacement = cfg.kubeProxyReplacement
 	option.Config.EnableSocketLB = cfg.enableSocketLB
 	option.Config.EnableNodePort = cfg.enableNodePort
@@ -62,8 +66,8 @@ func (cfg *kprConfig) set() {
 	option.Config.RoutingMode = cfg.routingMode
 	option.Config.LoadBalancerDSRDispatch = cfg.dispatchMode
 
-	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
-		option.Config.NodePortMode = cfg.nodePortMode
+	if cfg.nodePortMode == loadbalancer.LBModeDSR || cfg.nodePortMode == loadbalancer.LBModeHybrid {
+		cfg.lbConfig.LBMode = cfg.nodePortMode
 	}
 }
 
@@ -83,7 +87,7 @@ func errorMatch(err error, regex string) assert.Comparison {
 
 func (cfg *kprConfig) verify(t *testing.T, tc tunnel.Config) {
 	logger := hivetest.Logger(t)
-	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, loadbalancer.DefaultConfig)
+	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, cfg.lbConfig)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
@@ -265,7 +269,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.VXLAN
-				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.nodePortMode = loadbalancer.LBModeDSR
 				cfg.dispatchMode = option.DSRDispatchOption
 			},
 			kprConfig{
@@ -287,7 +291,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeNative
 				cfg.tunnelProtocol = tunnel.Geneve
-				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.nodePortMode = loadbalancer.LBModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
@@ -307,7 +311,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.Geneve
-				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.nodePortMode = loadbalancer.LBModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
@@ -327,7 +331,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.VXLAN
-				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.nodePortMode = loadbalancer.LBModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
@@ -349,7 +353,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeNative
 				cfg.tunnelProtocol = tunnel.Geneve
-				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.nodePortMode = loadbalancer.LBModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
@@ -369,7 +373,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.Geneve
-				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.nodePortMode = loadbalancer.LBModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
@@ -389,7 +393,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = tunnel.VXLAN
-				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.nodePortMode = loadbalancer.LBModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
