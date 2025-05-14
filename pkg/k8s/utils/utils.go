@@ -4,14 +4,13 @@
 package utils
 
 import (
-	"net"
+	"net/netip"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/ip"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -177,8 +176,9 @@ func GetClusterIPByFamily(ipFamily slim_corev1.IPFamily, service *slim_corev1.Se
 			return ""
 		}
 
-		IsIPv6Family := (ipFamily == slim_corev1.IPv6Protocol)
-		if IsIPv6Family == ip.IsIPv6(net.ParseIP(service.Spec.ClusterIP)) {
+		isIPv6Family := (ipFamily == slim_corev1.IPv6Protocol)
+		addr, _ := netip.ParseAddr(service.Spec.ClusterIP)
+		if isIPv6Family == addr.Is6() {
 			return service.Spec.ClusterIP
 		}
 
