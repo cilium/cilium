@@ -34,7 +34,7 @@ var Cell = cell.Module(
 	cell.Provide(newEnvoyProxyIntegration),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
-	cell.ProvidePrivate(proxyports.NewProxyPorts),
+	cell.Provide(proxyports.NewProxyPorts),
 	cell.Config(proxyports.ProxyPortsConfig{}),
 	accesslog.Cell,
 )
