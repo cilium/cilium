@@ -518,7 +518,7 @@ func GetExtendedKeyFrom(str string) string {
 			return str
 		}
 	}
-	// Remove an eventually value
+	// Remove an eventual value
 	i := strings.IndexByte(next, '=')
 	if i >= 0 {
 		return src + PathDelimiter + next[:i]
