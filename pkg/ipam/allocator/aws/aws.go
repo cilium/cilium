@@ -72,7 +72,7 @@ func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws
 }
 
 // Init sets up ENI limits based on given options
-func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
+func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 	var aMetrics ec2shim.MetricsAPI
@@ -85,7 +85,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "ec2", operatorMetrics.Registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "ec2", reg)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -43,7 +44,7 @@ func HealthHandlerCell(
 			return &healthHandler{
 				enabled:           true,
 				isOperatorLeading: isOperatorLeading,
-				kvstoreEnabled:    kvstoreEnabled,
+				kvstoreEnabled:    operatorOption.Config.IsKVstoreEnabled,
 				discovery:         clientset.Discovery(),
 				log:               logger,
 			}
