@@ -177,11 +177,6 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     LBIPPoolCRDName,
 			FullName: k8sconstv2.LBIPPoolName,
 		},
-		// TODO remove me when CNC v2alpha 1 will be deprecated
-		synced.CRDResourceName(k8sconstv2alpha1.CNCName): {
-			Name:     CNCCRDNameAlpha,
-			FullName: k8sconstv2alpha1.CNCName,
-		},
 		synced.CRDResourceName(k8sconstv2.CCGName): {
 			Name:     CCGCRDName,
 			FullName: k8sconstv2.CCGName,
@@ -336,9 +331,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Ciliumbgpnodeconfigoverrides
 	case LBIPPoolCRDName:
 		crdBytes = crdsv2Ciliumloadbalancerippools
-	case CNCCRDNameAlpha:
-		crdBytes = crdsv2CiliumNodeConfigs
 	case CNCCRDName:
+		// Contains both v2 and v2alpha1 versions
 		crdBytes = crdsv2CiliumNodeConfigs
 	case CCGCRDName:
 		crdBytes = crdsv2CiliumCIDRGroups
