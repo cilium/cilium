@@ -403,9 +403,10 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          # enable the check for proxy traffic.
+          # Enable the check for proxy traffic only if IPv4 is enabled.
+          # Otherwise we will be skipping proxy tests and won't have DNS proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
