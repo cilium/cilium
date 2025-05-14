@@ -249,9 +249,6 @@ const (
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
 
-	// Alias to DSR dispatch method
-	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
-
 	// Alias to DSR/IPIP IPv4 source CIDR
 	LoadBalancerRSSv4CIDR = "bpf-lb-rss-ipv4-src-cidr"
 
@@ -1140,15 +1137,6 @@ const (
 )
 
 const (
-	// DSR dispatch mode to encode service into IP option or extension header
-	DSRDispatchOption = "opt"
-
-	// DSR dispatch mode to encapsulate to IPIP
-	DSRDispatchIPIP = "ipip"
-
-	// DSR dispatch mode to encapsulate to Geneve
-	DSRDispatchGeneve = "geneve"
-
 	// NodePortAccelerationDisabled means we do not accelerate NodePort via XDP
 	NodePortAccelerationDisabled = XDPModeDisabled
 
@@ -1793,10 +1781,6 @@ type DaemonConfig struct {
 
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark bool
-
-	// LoadBalancerDSRDispatch indicates the method for pushing packets to
-	// backends under DSR ("opt" or "ipip")
-	LoadBalancerDSRDispatch string
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
 	LoadBalancerRSSv4CIDR string
@@ -2840,7 +2824,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
 	c.EnableIPv6FragmentsTracking = vp.GetBool(EnableIPv6FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
-	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
 	c.LoadBalancerIPIPSockMark = vp.GetBool(LoadBalancerIPIPSockMark)

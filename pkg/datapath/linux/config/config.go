@@ -409,11 +409,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
 				cDefinesMap["ENABLE_DSR_BYUSER"] = "1"
 			}
-			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchOption {
+			if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchOption {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)
-			} else if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
+			} else if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapIPIP)
-			} else if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
+			} else if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 			}
 		} else {

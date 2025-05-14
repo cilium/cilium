@@ -97,14 +97,14 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 			option.Config.LoadBalancerRSSv6 = *cidr
 		}
 
-		dsrIPIP := lbConfig.LoadBalancerUsesDSR() && option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		dsrIPIP := lbConfig.LoadBalancerUsesDSR() && lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
 		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-			return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+			return fmt.Errorf("DSR dispatch mode %q currently only available under XDP acceleration", lbConfig.DSRDispatch)
 		}
 
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") && !dsrIPIP {
 			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under %s dispatch for DSR",
-				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, option.DSRDispatchIPIP)
+				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, loadbalancer.DSRDispatchIPIP)
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
@@ -133,22 +133,22 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 
 		if option.Config.TunnelingEnabled() && lbConfig.LoadBalancerUsesDSR() &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+			lbConfig.DSRDispatch != loadbalancer.DSRDispatchGeneve {
 			return fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
-				lbConfig.LBMode, option.DSRDispatchGeneve)
+				lbConfig.LBMode, loadbalancer.DSRDispatchGeneve)
 		}
 
 		if lbConfig.LoadBalancerUsesDSR() &&
-			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
+			lbConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve &&
 			tunnelConfig.EncapProtocol() != tunnel.Geneve {
-			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunnel protocol.",
-				lbConfig.LBMode, option.Config.LoadBalancerDSRDispatch, tunnel.Geneve)
+			return fmt.Errorf("Node Port %q mode with %q dispatch requires %s tunnel protocol.",
+				lbConfig.LBMode, lbConfig.DSRDispatch, tunnel.Geneve)
 		}
 
 		if option.Config.LoadBalancerIPIPSockMark {
 			if !dsrIPIP {
 				return fmt.Errorf("Node Port %q mode with IPIP socket mark logic requires %s dispatch.",
-					lbConfig.LBMode, option.DSRDispatchIPIP)
+					lbConfig.LBMode, loadbalancer.DSRDispatchIPIP)
 			}
 			option.Config.EnableHealthDatapath = true
 		}
