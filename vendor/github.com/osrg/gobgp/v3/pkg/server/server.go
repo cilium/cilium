@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"reflect"
 	"strconv"
 	"sync"
@@ -42,6 +43,25 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bmp"
 	"github.com/osrg/gobgp/v3/pkg/zebra"
 )
+
+type FSMOperation uint
+
+const (
+	FSMMgmtOp FSMOperation = iota
+	FSMAccept
+	FSMROAEvent
+	FSMMessage
+
+	FSMOperationTypeCount
+)
+
+type FSMTimingHook interface {
+	Observe(op FSMOperation, tOp, tWait time.Duration)
+}
+
+type nopTimingHook struct{}
+
+func (n nopTimingHook) Observe(op FSMOperation, tOp, tWait time.Duration) {}
 
 type tcpListener struct {
 	l      *net.TCPListener
@@ -140,6 +160,7 @@ type options struct {
 	grpcAddress string
 	grpcOption  []grpc.ServerOption
 	logger      log.Logger
+	timingHook  FSMTimingHook
 }
 
 type ServerOption func(*options)
@@ -159,6 +180,12 @@ func GrpcOption(opt []grpc.ServerOption) ServerOption {
 func LoggerOption(logger log.Logger) ServerOption {
 	return func(o *options) {
 		o.logger = logger
+	}
+}
+
+func TimingHookOption(hook FSMTimingHook) ServerOption {
+	return func(o *options) {
+		o.timingHook = hook
 	}
 }
 
@@ -183,10 +210,13 @@ type BgpServer struct {
 	roaTable     *table.ROATable
 	uuidMap      map[string]uuid.UUID
 	logger       log.Logger
+	timingHook   FSMTimingHook
 }
 
 func NewBgpServer(opt ...ServerOption) *BgpServer {
-	opts := options{}
+	opts := options{
+		timingHook: nopTimingHook{},
+	}
 	for _, o := range opt {
 		o(&opts)
 	}
@@ -206,6 +236,7 @@ func NewBgpServer(opt ...ServerOption) *BgpServer {
 		roaManager:   newROAManager(roaTable, logger),
 		roaTable:     roaTable,
 		logger:       logger,
+		timingHook:   opts.timingHook,
 	}
 	s.bmpManager = newBmpClientManager(s)
 	s.mrtManager = newMrtManager(s)
@@ -268,6 +299,7 @@ type mgmtOp struct {
 	f           func() error
 	errCh       chan error
 	checkActive bool // check BGP global setting is configured before calling f()
+	timestamp   time.Time
 }
 
 func (s *BgpServer) handleMGMTOp(op *mgmtOp) {
@@ -287,6 +319,7 @@ func (s *BgpServer) mgmtOperation(f func() error, checkActive bool) (err error) 
 		f:           f,
 		errCh:       ch,
 		checkActive: checkActive,
+		timestamp:   time.Now(),
 	}
 	return
 }
@@ -484,22 +517,33 @@ func (s *BgpServer) Serve() {
 		}
 
 		chosen, value, ok := reflect.Select(cases)
+		tStart := time.Now()
 		switch chosen {
 		case 0:
 			op := value.Interface().(*mgmtOp)
+			tWait := tStart.Sub(op.timestamp)
 			s.handleMGMTOp(op)
+			s.timingHook.Observe(FSMMgmtOp, time.Since(tStart), tWait)
 		case 1:
+			// NOTE: it would be useful to use kernel metrics such as SO_TIMESTAMPING to record time we got
+			// first SYN packet in TCP connection. For now we skip tWait for accept events, message/mgmt op
+			// delays should be enough to analyze FSM loop.
 			conn := value.Interface().(*net.TCPConn)
 			s.passConnToPeer(conn)
+			s.timingHook.Observe(FSMAccept, time.Since(tStart), 0)
 		case 2:
 			ev := value.Interface().(*roaEvent)
+			tWait := tStart.Sub(ev.timestamp)
 			s.roaManager.HandleROAEvent(ev)
+			s.timingHook.Observe(FSMROAEvent, time.Since(tStart), tWait)
 		default:
 			// in the case of dynamic peer, handleFSMMessage closed incoming channel so
 			// nil fsmMsg can happen here.
 			if ok {
 				e := value.Interface().(*fsmMsg)
+				tWait := tStart.Sub(e.timestamp)
 				handlefsmMsg(e)
+				s.timingHook.Observe(FSMMessage, time.Since(tStart), tWait)
 			}
 		}
 	}
@@ -647,8 +691,15 @@ func filterpath(peer *peer, path, old *table.Path) *table.Path {
 		return nil
 	}
 
-	if !peer.isRouteServerClient() && isASLoop(peer, path) && !path.IsLocal() {
-		return nil
+	if !peer.isRouteServerClient() && isASLoop(peer, path) {
+		// Do not filter local (static) routes with as-path loop
+		// if configured to bypass these checks in the peer
+		// as-path options config.
+		if path.IsLocal() && !peer.allowAsPathLoopLocal() {
+			return nil
+		} else if !path.IsLocal() {
+			return nil
+		}
 	}
 	return path
 }
@@ -872,12 +923,16 @@ func (s *BgpServer) toConfig(peer *peer, getAdvertised bool) *oc.Neighbor {
 	peer.fsm.lock.RLock()
 	conf.State.SessionState = oc.IntToSessionStateMap[int(peer.fsm.state)]
 	conf.State.AdminState = oc.IntToAdminStateMap[int(peer.fsm.adminState)]
+	conf.State.Flops = peer.fsm.pConf.State.Flops
 	state := peer.fsm.state
 	peer.fsm.lock.RUnlock()
 
 	if state == bgp.BGP_FSM_ESTABLISHED {
 		peer.fsm.lock.RLock()
 		conf.Transport.State.LocalAddress, conf.Transport.State.LocalPort = peer.fsm.LocalHostPort()
+		if conf.Transport.Config.LocalAddress != netip.IPv4Unspecified().String() && conf.Transport.Config.LocalAddress != netip.IPv6Unspecified().String() {
+			conf.Transport.State.LocalAddress = conf.Transport.Config.LocalAddress
+		}
 		_, conf.Transport.State.RemotePort = peer.fsm.RemoteHostPort()
 		buf, _ := peer.fsm.recvOpen.Serialize()
 		// need to copy all values here
@@ -1346,15 +1401,19 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 			return family
 		}()
 		if targetPeer.isAddPathSendEnabled(f) {
+			// in case of multiple paths to the same destination, we need to
+			// filter the paths before counting the number of paths to be sent.
 			if newPath.IsWithdraw {
 				bestList = func() []*table.Path {
-					l := make([]*table.Path, 0, len(dsts))
+					l := []*table.Path{}
 					for _, d := range dsts {
 						toDelete := d.GetWithdrawnPath()
 						toActuallyDelete := make([]*table.Path, 0, len(toDelete))
 						for _, p := range toDelete {
+							// if the path is filtered, there is no need to send the withdrawal
+							p := s.filterpath(targetPeer, p, nil)
 							// the path was never advertized to the peer
-							if targetPeer.unsetPathSendMaxFiltered(p) {
+							if p == nil || targetPeer.unsetPathSendMaxFiltered(p) {
 								continue
 							}
 							toActuallyDelete = append(toActuallyDelete, p)
@@ -1365,8 +1424,6 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 						}
 
 						destination := rib.GetDestination(toActuallyDelete[0])
-						dstPrefix := toActuallyDelete[0].GetPrefix()
-						targetPeer.decrementRoutesCount(dstPrefix, f, uint8(len(toActuallyDelete)))
 						l = append(l, toActuallyDelete...)
 
 						// the destination has been removed from the table
@@ -1375,54 +1432,81 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 							continue
 						}
 
-						toAdd := targetPeer.getSendMaxFilteredPathList(destination, len(toActuallyDelete))
-						targetPeer.incrementRoutesCount(dstPrefix, f, uint8(len(toAdd)))
-						for _, p := range toAdd {
+						knownPathList := destination.GetKnownPathList(targetPeer.TableID(), targetPeer.AS())
+						toAdd := make([]*table.Path, 0, len(knownPathList))
+						for _, p := range knownPathList {
+							// If the path is filtered by policies, there is no need to send the path
+							// Otherwise, we send only paths that were previously filtered because of the max path limit
+							p := s.filterpath(targetPeer, p, nil)
+							if p == nil || !targetPeer.isPathSendMaxFiltered(p) {
+								continue
+							}
+							// We unset the flag as the path is not filtered anymore
 							targetPeer.unsetPathSendMaxFiltered(p)
+							toAdd = append(toAdd, p)
+							if len(toAdd) == len(toActuallyDelete) {
+								break
+							}
 						}
 						l = append(l, toAdd...)
 					}
+					targetPeer.updateRoutes(l...)
 					return l
 				}()
-			} else if targetPeer.canSendPathWithinLimit(newPath) {
-				bestList = []*table.Path{newPath}
-				if newPath.GetRouteFamily() == bgp.RF_RTC_UC {
-					// we assumes that new "path" nlri was already sent before. This assumption avoids the
-					// infinite UPDATE loop between Route Reflector and its clients.
-					for _, old := range dsts[0].OldKnownPathList {
-						if old.IsLocal() {
-							bestList = []*table.Path{}
-							break
+			} else {
+				alreadySent := targetPeer.hasPathAlreadyBeenSent(newPath)
+				newPath := s.filterpath(targetPeer, newPath, nil)
+				// if the path is not filtered and the path has already been sent or land in the limit, we can send it
+				if newPath == nil {
+					bestList = []*table.Path{}
+				} else if alreadySent || targetPeer.getRoutesCount(f, newPath.GetPrefix()) < targetPeer.getAddPathSendMax(f) {
+					bestList = []*table.Path{newPath}
+					if !alreadySent {
+						targetPeer.updateRoutes(newPath)
+					}
+					if newPath.GetRouteFamily() == bgp.RF_RTC_UC {
+						// we assumes that new "path" nlri was already sent before. This assumption avoids the
+						// infinite UPDATE loop between Route Reflector and its clients.
+						for _, old := range dsts[0].OldKnownPathList {
+							if old.IsLocal() {
+								bestList = []*table.Path{}
+								break
+							}
 						}
 					}
+				} else {
+					bestList = []*table.Path{}
+					targetPeer.sendMaxPathFiltered[newPath.GetLocalKey()] = struct{}{}
+					s.logger.Warn("exceeding max routes for prefix",
+						log.Fields{
+							"Topic":  "Peer",
+							"Key":    targetPeer.ID(),
+							"Prefix": newPath.GetPrefix(),
+						})
 				}
-			} else {
-				bestList = []*table.Path{}
-				s.logger.Warn("exceeding max routes for prefix",
-					log.Fields{
-						"Topic":  "Peer",
-						"Key":    targetPeer.ID(),
-						"Prefix": newPath.GetPrefix(),
-					})
 			}
-			oldList = nil
-		} else if targetPeer.isRouteServerClient() {
-			if targetPeer.isSecondaryRouteEnabled() {
-				if paths := s.sendSecondaryRoutes(targetPeer, newPath, dsts); len(paths) > 0 {
-					sendfsmOutgoingMsg(targetPeer, paths, nil, false)
-				}
-				continue
+			if needToAdvertise(targetPeer) && len(bestList) > 0 {
+				sendfsmOutgoingMsg(targetPeer, bestList, nil, false)
 			}
-			bestList, oldList, _ = dstsToPaths(targetPeer.TableID(), targetPeer.AS(), dsts)
 		} else {
-			bestList = gBestList
-			oldList = gOldList
-		}
-		if !needOld {
-			oldList = nil
-		}
-		if paths := s.processOutgoingPaths(targetPeer, bestList, oldList); len(paths) > 0 {
-			sendfsmOutgoingMsg(targetPeer, paths, nil, false)
+			if targetPeer.isRouteServerClient() {
+				if targetPeer.isSecondaryRouteEnabled() {
+					if paths := s.sendSecondaryRoutes(targetPeer, newPath, dsts); len(paths) > 0 {
+						sendfsmOutgoingMsg(targetPeer, paths, nil, false)
+					}
+					continue
+				}
+				bestList, oldList, _ = dstsToPaths(targetPeer.TableID(), targetPeer.AS(), dsts)
+			} else {
+				bestList = gBestList
+				oldList = gOldList
+			}
+			if !needOld {
+				oldList = nil
+			}
+			if paths := s.processOutgoingPaths(targetPeer, bestList, oldList); len(paths) > 0 {
+				sendfsmOutgoingMsg(targetPeer, paths, nil, false)
+			}
 		}
 	}
 }
@@ -1586,6 +1670,10 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 			// exclude zone info
 			ipaddr, _ := net.ResolveIPAddr("ip", laddr)
 			peer.fsm.peerInfo.LocalAddress = ipaddr.IP
+			if peer.fsm.pConf.Transport.Config.LocalAddress != netip.IPv4Unspecified().String() && peer.fsm.pConf.Transport.Config.LocalAddress != netip.IPv6Unspecified().String() {
+				peer.fsm.peerInfo.LocalAddress = net.ParseIP(peer.fsm.pConf.Transport.Config.LocalAddress)
+				peer.fsm.pConf.Transport.State.LocalAddress = peer.fsm.pConf.Transport.Config.LocalAddress
+			}
 			neighborAddress := peer.fsm.pConf.State.NeighborAddress
 			peer.fsm.lock.Unlock()
 			deferralExpiredFunc := func(family bgp.RouteFamily) func() {
@@ -2164,8 +2252,10 @@ func (s *BgpServer) fixupApiPath(vrfId string, pathList []*table.Path) error {
 			switch r := nlri.RouteTypeData.(type) {
 			case *bgp.EVPNMacIPAdvertisementRoute:
 				// MAC Mobility Extended Community
-				mac := path.GetNlri().(*bgp.EVPNNLRI).RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute).MacAddress
-				paths := s.globalRib.GetPathListWithMac(table.GLOBAL_RIB_NAME, 0, []bgp.RouteFamily{bgp.RF_EVPN}, mac)
+				var paths []*table.Path
+				for _, ec := range path.GetRouteTargets() {
+					paths = append(paths, s.globalRib.GetPathListWithMac(table.GLOBAL_RIB_NAME, 0, []bgp.RouteFamily{bgp.RF_EVPN}, ec, r.MacAddress)...)
+				}
 				if m := getMacMobilityExtendedCommunity(r.ETag, r.MacAddress, paths); m != nil {
 					pm := getMacMobilityExtendedCommunity(r.ETag, r.MacAddress, []*table.Path{path})
 					if pm == nil {
@@ -2691,11 +2781,14 @@ func (s *BgpServer) getAdjRib(addr string, family bgp.RouteFamily, in bool, enab
 			if enableFiltered {
 				toUpdate = make([]*table.Path, 0)
 				for _, path := range peer.adjRibIn.PathList([]bgp.RouteFamily{family}, true) {
+					p := path
+					pathLocalKey := path.GetLocalKey()
 					options := &table.PolicyOptions{
 						Validate: s.roaTable.Validate,
 					}
-					if p := s.policy.ApplyPolicy(peer.TableID(), table.POLICY_DIRECTION_IMPORT, path, options); p == nil {
-						filtered[path.GetLocalKey()] = table.PolicyFiltered
+					p = s.policy.ApplyPolicy(peer.TableID(), table.POLICY_DIRECTION_IMPORT, p, options)
+					if p == nil {
+						filtered[pathLocalKey] = table.PolicyFiltered
 					} else {
 						toUpdate = append(toUpdate, p)
 					}
@@ -2703,17 +2796,18 @@ func (s *BgpServer) getAdjRib(addr string, family bgp.RouteFamily, in bool, enab
 			}
 		} else {
 			adjRib = table.NewAdjRib(s.logger, peer.configuredRFlist())
-			pathList := make([]*table.Path, 0)
+			pathList := []*table.Path{}
 			if enableFiltered {
 				for _, path := range s.getPossibleBest(peer, family) {
-					path, options, stop := s.prePolicyFilterpath(peer, path, nil)
+					p := path
+					pathLocalKey := path.GetLocalKey()
+					p, options, stop := s.prePolicyFilterpath(peer, p, nil)
 					if stop {
 						continue
 					}
 					options.Validate = s.roaTable.Validate
-					p := peer.policy.ApplyPolicy(peer.TableID(), table.POLICY_DIRECTION_EXPORT, path, options)
-					if p == nil {
-						filtered[path.GetLocalKey()] = table.PolicyFiltered
+					if p = peer.policy.ApplyPolicy(peer.TableID(), table.POLICY_DIRECTION_EXPORT, p, options); p == nil {
+						filtered[pathLocalKey] = table.PolicyFiltered
 					}
 					pathList = append(pathList, path)
 				}
@@ -2721,12 +2815,12 @@ func (s *BgpServer) getAdjRib(addr string, family bgp.RouteFamily, in bool, enab
 				pathList, _ = s.getBestFromLocal(peer, peer.configuredRFlist())
 			}
 			toUpdate = make([]*table.Path, 0, len(pathList))
-			for _, p := range pathList {
-				pathLocalKey := p.GetLocalKey()
-				if peer.isPathSendMaxFiltered(p) {
+			for _, path := range pathList {
+				pathLocalKey := path.GetLocalKey()
+				if peer.isPathSendMaxFiltered(path) {
 					filtered[pathLocalKey] = filtered[pathLocalKey] | table.SendMaxFiltered
 				}
-				toUpdate = append(toUpdate, p)
+				toUpdate = append(toUpdate, path)
 			}
 		}
 		adjRib.Update(toUpdate)
