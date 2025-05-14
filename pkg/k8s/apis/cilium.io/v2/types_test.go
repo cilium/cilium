@@ -263,7 +263,7 @@ var (
 
 func TestCiliumNetworkPolicyParse(t *testing.T) {
 	// Build CNP with basic Ingress and Egress rules and labels
-	es := api.NewESFromMatchRequirementsWithoutRequirements(
+	es := api.NewESFromMatchRequirements(
 		map[string]string{
 			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
 		},
@@ -286,7 +286,7 @@ func TestCiliumNetworkPolicyParse(t *testing.T) {
 		Spec: &apiRuleWithLabels,
 	}
 
-	expectedES := api.NewESFromMatchRequirementsWithoutRequirements(
+	expectedES := api.NewESFromMatchRequirements(
 		map[string]string{
 			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
 			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
@@ -358,7 +358,7 @@ func TestCiliumNetworkPolicyParseJSONUnmarshalToMarshal(t *testing.T) {
 
 	apiRule.EndpointSelector = es
 
-	expectedPolicyRule := &CiliumNetworkPolicy{
+	cnp := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "rule1",
@@ -369,16 +369,19 @@ func TestCiliumNetworkPolicyParseJSONUnmarshalToMarshal(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	_, err := expectedPolicyRule.Parse(logger)
+	_, err := cnp.Parse(logger)
 	require.NoError(t, err)
 
-	b, err := json.Marshal(expectedPolicyRule)
+	b, err := json.Marshal(cnp)
 	require.NoError(t, err)
-	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
-	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
+	var cnpUnmarshalled CiliumNetworkPolicy
+	err = json.Unmarshal(b, &cnpUnmarshalled)
 	require.NoError(t, err)
-	expectedPolicyRuleUnmarshalled.Parse(logger)
-	require.Equal(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
+
+	_, err = cnpUnmarshalled.Parse(logger)
+	require.NoError(t, err)
+
+	require.Equal(t, *cnp, cnpUnmarshalled)
 }
 
 func TestParseSpec(t *testing.T) {
