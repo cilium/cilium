@@ -100,7 +100,7 @@ var haveNestedMaps = internal.NewFeatureTest("nested maps", func() error {
 		return nil
 	}
 	return err
-}, "4.12", "windows:0.20.0")
+}, "4.12", "windows:0.21.0")
 
 var haveMapMutabilityModifiers = internal.NewFeatureTest("read- and write-only maps", func() error {
 	// This checks BPF_F_RDONLY_PROG and BPF_F_WRONLY_PROG. Since
@@ -214,7 +214,7 @@ var haveObjName = internal.NewFeatureTest("object names", func() error {
 
 	_ = fd.Close()
 	return nil
-}, "4.15", "windows:0.20.0")
+}, "4.15", "windows:0.21.0")
 
 var objNameAllowsDot = internal.NewFeatureTest("dot in object names", func() error {
 	if platform.IsWindows {
@@ -241,7 +241,7 @@ var objNameAllowsDot = internal.NewFeatureTest("dot in object names", func() err
 
 	_ = fd.Close()
 	return nil
-}, "5.2", "windows:0.20.0")
+}, "5.2", "windows:0.21.0")
 
 var haveBatchAPI = internal.NewFeatureTest("map batch api", func() error {
 	var maxEntries uint32 = 2

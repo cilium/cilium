@@ -3,6 +3,7 @@ package ebpf
 import (
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal/sysenc"
@@ -231,4 +232,39 @@ func (v *Variable) Get(out any) error {
 	}
 
 	return nil
+}
+
+func checkVariable[T any](v *Variable) error {
+	if v.ReadOnly() {
+		return ErrReadOnly
+	}
+
+	t := reflect.TypeFor[T]()
+	size := uint64(t.Size())
+	if t.Kind() == reflect.Uintptr && v.size == 8 {
+		// uintptr is 8 bytes on 64-bit and 4 on 32-bit. In BPF/BTF, pointers are
+		// always 8 bytes. For the sake of portability, allow accessing 8-byte BPF
+		// variables as uintptr on 32-bit systems, since the upper 32 bits of the
+		// pointer should be zero anyway.
+		return nil
+	}
+	if v.size != size {
+		return fmt.Errorf("can't create %d-byte accessor to %d-byte variable: %w", size, v.size, ErrInvalidType)
+	}
+
+	return nil
+}
+
+// VariablePointer returns a pointer to a variable of type T backed by memory
+// shared with the BPF program. Requires building the Go application with -tags
+// ebpf_unsafe_memory_experiment.
+//
+// T must contain only fixed-size, non-Go-pointer types: bools, floats,
+// (u)int[8-64], arrays, and structs containing them. Structs must embed
+// [structs.HostLayout]. [ErrInvalidType] is returned if T is not a valid type.
+func VariablePointer[T comparable](v *Variable) (*T, error) {
+	if err := checkVariable[T](v); err != nil {
+		return nil, fmt.Errorf("variable pointer %s: %w", v.name, err)
+	}
+	return memoryPointer[T](v.mm, v.offset)
 }

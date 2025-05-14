@@ -174,6 +174,20 @@ func (mt MapType) canHaveValueSize() bool {
 	return true
 }
 
+// mustHaveNoPrealloc returns true if the map type does not support
+// preallocation and needs the BPF_F_NO_PREALLOC flag set to be created
+// successfully.
+func (mt MapType) mustHaveNoPrealloc() bool {
+	switch mt {
+	case CgroupStorage, InodeStorage, TaskStorage, SkStorage:
+		return true
+	case LPMTrie:
+		return true
+	}
+
+	return false
+}
+
 // ProgramType of the eBPF program
 type ProgramType uint32
 
