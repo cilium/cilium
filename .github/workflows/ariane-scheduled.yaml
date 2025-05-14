@@ -16,8 +16,6 @@ permissions:
 
 jobs:
   ariane-scheduled:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Run Scheduled Workflows
     strategy:
       fail-fast: false

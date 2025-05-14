@@ -62,7 +62,7 @@ env:
 
 jobs:
   echo-inputs:
-    if: github.event_name == 'workflow_dispatch' && always() && vars.ENABLE_CILIUM_CI == 'true'
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
@@ -72,8 +72,6 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
@@ -82,8 +80,6 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   delegated-ipam-conformance-test:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Install and Connectivity Test
     env:
       job_name: "Install and Connectivity Test"

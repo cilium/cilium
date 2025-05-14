@@ -28,8 +28,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   build-and-push:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     timeout-minutes: 45
     name: Build and Push Images
     environment: release-beta-images
