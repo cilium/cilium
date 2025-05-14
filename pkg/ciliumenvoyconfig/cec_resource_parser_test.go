@@ -63,7 +63,7 @@ func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	return m.port, nil
 }
 
-func (m *MockPortAllocator) AckProxyPort(ctx context.Context, name string) error {
+func (m *MockPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
