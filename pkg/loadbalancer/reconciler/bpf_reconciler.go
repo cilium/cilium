@@ -739,6 +739,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
+		SourceRangeDeny:  svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
 		CheckSourceRange: len(svc.SourceRanges) > 0,
 		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
