@@ -812,6 +812,10 @@
      - The internalTrafficPolicy of service used for apiserver access.
      - string
      - ``"Cluster"``
+   * - :spelling:ignore:`clustermesh.apiserver.service.labels`
+     - Labels for the clustermesh-apiserver service.
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerClass`
      - Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+).
      - string
