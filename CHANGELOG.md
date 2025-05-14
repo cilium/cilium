@@ -1,5 +1,56 @@
 # Changelog
 
+## v1.15.17
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Update kafka apiKey helm chart value to true (Backport PR cilium/cilium#39216, Upstream PR cilium/cilium#38963, @kyle-c-simmons)
+
+**Bugfixes:**
+* Fix a deadlock when a host has no IPv4 address. (Backport PR cilium/cilium#39078, Upstream PR cilium/cilium#38938, @EmilyShepherd)
+* Fix bug that would cause the `cilium-dbg encrypt status` command to not list any decryption interfaces when KPR is enabled. (Backport PR cilium/cilium#39216, Upstream PR cilium/cilium#39170, @pchaigno)
+* k8s: Fixed a case when delete event for service endpointslices might have been missed if connectivity to k8s apiserver was broken causing stale service cache for service. (Backport PR cilium/cilium#38952, Upstream PR cilium/cilium#38779, @marseel)
+
+**CI Changes:**
+* [v1.15] .github: provide correct env variables to api/v1 Makefile (cilium/cilium#39286, @ferozsalam)
+* [v1.15] go.mod, vendor: update github.com/cilium/linters to v0.20.0 (cilium/cilium#39394, @tklauser)
+* [v1.15] l4lb: Support environments with existing veth (cilium/cilium#39410, @joestringer)
+
+**Misc Changes:**
+* Add the doc for multi-pool ipam about how to update the existing ip pool (Backport PR cilium/cilium#38952, Upstream PR cilium/cilium#38539, @liyihuang)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#39055, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#39189, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#39277, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.17.3 (v1.15) (cilium/cilium#39321, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.23.8 docker digest to 87bb940 (v1.15) (cilium/cilium#38915, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.23.8 docker digest to e54daaa (v1.15) (cilium/cilium#39052, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.3 (v1.15) (cilium/cilium#39188, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1744679528-43b5c0ea620b5fa8c2e32ed79f113aef89f30e6b (v1.15) (cilium/cilium#38941, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1744798797-f7456c0c30336bbd437eff7743374370e415fc44 (v1.15) (cilium/cilium#39053, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1745916268-e485bbc0c95e30aa233cb06a753789375b12ad18 (v1.15) (cilium/cilium#39228, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1746661844-0f602c28cb2aa57b29078195049fb257d5b5246c (v1.15) (cilium/cilium#39415, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#38972, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#39186, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#39478, @cilium-renovate[bot])
+* chore: remove `retention-days` param in `build-images-releases.yaml` (Backport PR cilium/cilium#39437, Upstream PR cilium/cilium#39431, @sekhar-isovalent)
+* contrib: Remove kind.sh dependency on git (Backport PR cilium/cilium#39406, Upstream PR cilium/cilium#39154, @joestringer)
+* docs: Add good kernel versions for the L7 policy IPv6 bug (Backport PR cilium/cilium#39406, Upstream PR cilium/cilium#39212, @gentoo-root)
+* docs: Document L7 policy IPv6 bug (Backport PR cilium/cilium#38952, Upstream PR cilium/cilium#38591, @gentoo-root)
+* docs: Fix casing and formatting in L3 examples section (Backport PR cilium/cilium#39406, Upstream PR cilium/cilium#39065, @mikejoh)
+* docs: The Installation on OpenShift OKD document has been updated to link to maintained operators for Cilium (Isovalent Enterprise for Cilium). This operator is validated on all current versions of OpenShift. (Backport PR cilium/cilium#39406, Upstream PR cilium/cilium#38886, @auriaave)
+* Documentation : Modification of eks-clustermesh-prep.rst (Backport PR cilium/cilium#39406, Upstream PR cilium/cilium#39025, @rwinieski)
+* documentation: fix get deployment cmd (Backport PR cilium/cilium#39216, Upstream PR cilium/cilium#39155, @g0gn)
+* k8s/resource: Don't Add to WaitGroup asynchronously (Backport PR cilium/cilium#38952, Upstream PR cilium/cilium#38692, @joamaki)
+* make: fix golangci-lint version detection (Backport PR cilium/cilium#39078, Upstream PR cilium/cilium#38996, @mhofstetter)
+* workflows: fix lint-workflows (Backport PR cilium/cilium#39401, Upstream PR cilium/cilium#39398, @aanm)
+
+**Other Changes:**
+* [v1.15] deps: bump golang-jwt to 4.5.2 (cilium/cilium#39496, @ferozsalam)
+* [v1.15] integration: Regenerate consul certs (cilium/cilium#39350, @sayboras)
+* install: Update image digests for v1.15.16 (cilium/cilium#38935, @cilium-release-bot[bot])
+
 ## v1.15.16
 
 Summary of Changes
