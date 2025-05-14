@@ -485,7 +485,7 @@ type staticPortAllocator struct {
 }
 
 // AckProxyPort implements PortAllocator.
-func (s staticPortAllocator) AckProxyPort(ctx context.Context, name string) error {
+func (s staticPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
 	s.log.Info("AckProxyPort", logfields.Listener, name)
 	return nil
 }

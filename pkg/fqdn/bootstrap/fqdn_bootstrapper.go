@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 )
 
@@ -37,7 +37,7 @@ type fqdnProxyBootstrapper struct {
 	logger            *slog.Logger
 	nameManager       namemanager.NameManager
 	proxyInstance     defaultdns.Proxy
-	proxyPorts        *proxy.Proxy
+	proxyPorts        *proxyports.ProxyPorts
 	policyRepo        policy.PolicyRepository
 	ipcache           *ipcache.IPCache
 	endpointManager   endpointmanager.EndpointManager
@@ -120,7 +120,7 @@ func (b *fqdnProxyBootstrapper) UpdateDNSDatapathRules(ctx context.Context) erro
 		return nil
 	}
 
-	return b.proxyPorts.AckProxyPort(ctx, proxytypes.DNSProxyName)
+	return b.proxyPorts.AckProxyPortWithReference(ctx, proxytypes.DNSProxyName)
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to

@@ -70,50 +70,12 @@ func createProxy(
 	}
 }
 
-// AckProxyPort() marks the proxy of the given type as successfully
-// created and creates or updates the datapath rules accordingly.
-// Takes a reference on the proxy port.
-func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
-	return p.proxyPorts.AckProxyPortWithReference(ctx, name)
-}
-
-// AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if
-// already allocated.
-// Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
-// Each allocated port must be eventually freed with ReleaseProxyPort().
-func (p *Proxy) AllocateCRDProxyPort(name string) (uint16, error) {
-	return p.proxyPorts.AllocateCRDProxyPort(name)
-}
-
-func (p *Proxy) ReleaseProxyPort(name string) error {
-	return p.proxyPorts.ReleaseProxyPort(name)
-}
-
 func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int) error {
 	ln, err := p.localNodeStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve local node: %w", err)
 	}
 	return ReinstallRoutingRules(p.logger, ln, mtu)
-}
-
-// GetProxyPort() returns the fixed listen port for a proxy, if any.
-func (p *Proxy) GetProxyPort(name string) (port uint16, isStatic bool, err error) {
-	return p.proxyPorts.GetProxyPort(name)
-}
-
-// SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port'.
-// Another call to AckProxyPort(name) is needed to update the datapath rules accordingly.
-// This should only be called for proxies that have a static listener that is already listening on
-// 'port'. May only be called once per proxy.
-
-func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16, ingress bool) error {
-	return p.proxyPorts.SetProxyPort(name, proxyType, port, ingress)
-}
-
-// GetOpenLocalPorts returns the set of L4 ports currently open locally.
-func (p *Proxy) GetOpenLocalPorts() map[uint16]struct{} {
-	return p.proxyPorts.GetOpenLocalPorts()
 }
 
 func (p *Proxy) GetListenerProxyPort(listener string) uint16 {

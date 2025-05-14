@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/proxyports"
 )
 
 // Cell provides the FQDN bootstrap functionality
@@ -31,7 +31,7 @@ type fqdnProxyBootstrapperParams struct {
 	Lifecycle         cell.Lifecycle
 	Logger            *slog.Logger
 	ProxyInstance     defaultdns.Proxy
-	ProxyPorts        *proxy.Proxy
+	ProxyPorts        *proxyports.ProxyPorts
 	PolicyRepo        policy.PolicyRepository
 	IPCache           *ipcache.IPCache
 	EndpointManager   endpointmanager.EndpointManager
