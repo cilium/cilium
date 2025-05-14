@@ -3953,3 +3953,7 @@ validatingAdmissionPolicies:
   serviceAccountLength:
     # -- Enable (i.e. deploy) the service-account-length policy.
     enabled: true
+  # -- Configuration for the pod-service-account-length policy
+  podServiceAccountLength:
+    # -- Enable (i.e. deploy) the pod-service-account-length policy.
+    enabled: true

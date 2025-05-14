@@ -80,4 +80,47 @@ spec:
   validationActions:
   - Warn
 {{- end }}
+{{- if .Values.validatingAdmissionPolicies.podServiceAccountLength.enabled }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: pod-service-account-length
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - "*"
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+  validations:
+  - expression: object.spec.serviceAccountName.size() < 64
+    messageExpression: "'object.spec.serviceAccountName must be no greater than 63 characters'"
+    reason: Invalid
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: pod-service-account-length-binding
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  policyName: pod-service-account-length
+  validationActions:
+  - Warn
+{{- end }}
 {{- end }}
