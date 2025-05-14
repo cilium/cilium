@@ -30,13 +30,14 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
 	// endpointSliceLocalMCSAPIControllerName is a unique value used with LabelManagedBy to indicate
 	// the component managing an EndpointSlice.
 	endpointSliceLocalMCSAPIControllerName = "endpointslice-local-mcsapi-controller.cilium.io"
-	localEndpointSliceAnnotation           = annotation.ServicePrefix + "/local-endpointslice"
+	localEndpointSliceLabel                = annotation.ServicePrefix + "/local-endpointslice"
 )
 
 // mcsAPIEndpointSliceMirrorReconciler is a controller that mirrors local
@@ -59,11 +60,11 @@ func newMCSAPIEndpointSliceMirrorReconciler(mgr ctrl.Manager, logger *slog.Logge
 }
 
 func getLocalEndpointSliceKey(derivedEpSlice *discoveryv1.EndpointSlice) *types.NamespacedName {
-	if derivedEpSlice.Annotations[localEndpointSliceAnnotation] == "" {
+	if derivedEpSlice.Labels[localEndpointSliceLabel] == "" {
 		return nil
 	}
 	return &types.NamespacedName{
-		Name:      derivedEpSlice.Annotations[localEndpointSliceAnnotation],
+		Name:      derivedEpSlice.Labels[localEndpointSliceLabel],
 		Namespace: derivedEpSlice.Namespace,
 	}
 }
@@ -161,7 +162,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) updateDerivedEndpointSlice(
 	if derivedEpSlice.Annotations == nil {
 		derivedEpSlice.Annotations = map[string]string{}
 	}
-	derivedEpSlice.Annotations[localEndpointSliceAnnotation] = localEpSlice.Name
+	derivedEpSlice.Labels[localEndpointSliceLabel] = localEpSlice.Name
 
 	derivedEpSlice.AddressType = localEpSlice.AddressType
 
@@ -206,6 +207,13 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) Reconcile(ctx context.Context, req
 			return controllerruntime.Fail(err)
 		}
 		derivedServiceName = derivedEpSlice.Labels[discoveryv1.LabelServiceName]
+		// We try to aggressively find the service name here to have a chance to fix the mirrored EndpointSlice
+		if derivedServiceName == "" {
+			derivedServiceName = getOwnerReferenceName(derivedEpSlice.GetOwnerReferences(), "v1", "Service")
+		}
+		if derivedServiceName == "" && localEpSlice != nil {
+			derivedServiceName = getDerivedServiceName(localEpSlice)
+		}
 	} else {
 		localEpSlice = &epSlice
 		derivedEpSlice, err = r.getLocalDerivedEndpointSlice(ctx, localEpSlice)
@@ -215,8 +223,37 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) Reconcile(ctx context.Context, req
 		derivedServiceName = getDerivedServiceName(localEpSlice)
 	}
 
+	// Not finding the derived service name essentially means that the user manually
+	// removed every mention of a link that we support between the EndpointSlice and its Service.
 	if derivedServiceName == "" {
-		return controllerruntime.Success()
+		if derivedEpSlice != nil {
+			r.Logger.Warn(
+				"Can not find a possible related derived Service name, "+
+					"derived mirrored EndpointSlice was likely tampered and will be deleted",
+				logfields.Request, req.NamespacedName,
+			)
+			if err := r.Client.Delete(ctx, derivedEpSlice); err != nil {
+				return controllerruntime.Fail(client.IgnoreNotFound(err))
+			}
+		} else if localEpSlice != nil {
+			// This will happen if the user has manually created an EndpointSlice and remove the label service name
+			// instead of deleting it. In that case we find the mirrored derived EndpointSlice from its label
+			// and remove it bypassing the general logic for this specific case.
+			if derivedEpSlice, err = r.getDerivedEndpointSliceByLabel(ctx, client.ObjectKeyFromObject(localEpSlice)); err != nil {
+				return controllerruntime.Fail(err)
+			}
+			if derivedEpSlice == nil {
+				r.Logger.Debug(
+					"Can not find a possible related derived Service name, reconciliation is aborted",
+					logfields.Request, req.NamespacedName,
+				)
+				return controllerruntime.Success()
+			}
+			if err := r.Client.Delete(ctx, derivedEpSlice); err != nil {
+				return controllerruntime.Fail(client.IgnoreNotFound(err))
+			}
+			return controllerruntime.Success()
+		}
 	}
 	var derivedService corev1.Service
 	if err := r.Client.Get(ctx, types.NamespacedName{
@@ -356,9 +393,6 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
 	if !maps.Equal(derivedEpSlice.Labels, desiredDerivedEndpointSlice.Labels) {
 		return true
 	}
-	if derivedEpSlice.Annotations[localEndpointSliceAnnotation] != desiredDerivedEndpointSlice.Annotations[localEndpointSliceAnnotation] {
-		return true
-	}
 	if len(derivedEpSlice.OwnerReferences) != 1 &&
 		derivedEpSlice.OwnerReferences[0].UID != derivedService.UID {
 		return true
@@ -382,4 +416,21 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
 	}
 
 	return false
+}
+
+func (r *mcsAPIEndpointSliceMirrorReconciler) getDerivedEndpointSliceByLabel(ctx context.Context, key types.NamespacedName) (*discoveryv1.EndpointSlice, error) {
+	serviceReq, _ := labels.NewRequirement(localEndpointSliceLabel, selection.Equals, []string{key.Name})
+	selector := labels.NewSelector()
+	selector = selector.Add(*serviceReq)
+
+	var epSliceList discoveryv1.EndpointSliceList
+	if err := r.Client.List(ctx, &epSliceList, &client.ListOptions{Namespace: key.Namespace, LabelSelector: selector}); err != nil {
+		return nil, err
+	}
+
+	if len(epSliceList.Items) != 1 {
+		return nil, nil
+	}
+
+	return &epSliceList.Items[0], nil
 }
