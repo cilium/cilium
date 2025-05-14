@@ -5,6 +5,7 @@ package mcsapi
 
 import (
 	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -20,6 +21,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
+
+func getExpectedDerivedLabels(localEpSliceName string) map[string]string {
+	labels := maps.Clone(commonLabels)
+	labels[localEndpointSliceLabel] = localEpSliceName
+	return labels
+}
 
 var (
 	commonEndpoints = []discoveryv1.Endpoint{{
@@ -178,6 +185,51 @@ var (
 			Ports:       commonPorts,
 			AddressType: discoveryv1.AddressTypeIPv4,
 		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "full-not-linked-service-1",
+				Namespace: "default",
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "full-not-linked-service-2",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "full",
+				},
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "full-not-linked-service-3",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "full",
+				},
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "full-not-linked-service-4",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "full",
+				},
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
 
 		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -200,7 +252,7 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            commonDerivedName + "-keep",
 				Namespace:       "default",
-				Labels:          commonLabels,
+				Labels:          getExpectedDerivedLabels("full-keep"),
 				OwnerReferences: commonOwnerReferences,
 			},
 			Endpoints:   commonEndpoints,
@@ -211,7 +263,7 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            commonDerivedName + "-update-1",
 				Namespace:       "default",
-				Labels:          commonLabels,
+				Labels:          getExpectedDerivedLabels("full-update-1"),
 				OwnerReferences: commonOwnerReferences,
 			},
 			Endpoints:   commonEndpoints,
@@ -222,7 +274,7 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            commonDerivedName + "-update-2",
 				Namespace:       "default",
-				Labels:          commonLabels,
+				Labels:          getExpectedDerivedLabels("full-update-2"),
 				OwnerReferences: commonOwnerReferences,
 			},
 			Endpoints: []discoveryv1.Endpoint{{
@@ -235,7 +287,7 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            commonDerivedName + "-update-3",
 				Namespace:       "default",
-				Labels:          commonLabels,
+				Labels:          getExpectedDerivedLabels("full-update-3"),
 				OwnerReferences: commonOwnerReferences,
 			},
 			Endpoints: commonEndpoints,
@@ -251,6 +303,7 @@ var (
 				Labels: map[string]string{
 					mcsapiv1alpha1.LabelServiceName: "full",
 					discoveryv1.LabelManagedBy:      endpointSliceLocalMCSAPIControllerName,
+					localEndpointSliceLabel:         "full-update-4",
 				},
 				OwnerReferences: commonOwnerReferences,
 			},
@@ -265,6 +318,7 @@ var (
 				Labels: map[string]string{
 					mcsapiv1alpha1.LabelServiceName: "full",
 					discoveryv1.LabelManagedBy:      endpointSliceLocalMCSAPIControllerName,
+					localEndpointSliceLabel:         "full-update-5",
 				},
 			},
 			Endpoints:   commonEndpoints,
@@ -273,9 +327,10 @@ var (
 		},
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-delete",
-				Namespace: "default",
-				Labels:    commonLabels,
+				Name:            commonDerivedName + "-delete",
+				Namespace:       "default",
+				Labels:          getExpectedDerivedLabels("full-delete"),
+				OwnerReferences: commonOwnerReferences,
 			},
 			Endpoints:   commonEndpoints,
 			Ports:       commonPorts,
@@ -283,13 +338,64 @@ var (
 		},
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-wrong-family-delete",
-				Namespace: "default",
-				Labels:    commonLabels,
+				Name:            commonDerivedName + "-wrong-family-delete",
+				Namespace:       "default",
+				Labels:          getExpectedDerivedLabels("full-wrong-family-delete"),
+				OwnerReferences: commonOwnerReferences,
 			},
 			Endpoints:   commonEndpoints,
 			Ports:       commonPorts,
 			AddressType: discoveryv1.AddressTypeIPv6,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            commonDerivedName + "-not-linked-service-1",
+				Namespace:       "default",
+				Labels:          getExpectedDerivedLabels("full-not-linked-service-1"),
+				OwnerReferences: commonOwnerReferences,
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      commonDerivedName + "-not-linked-service-2",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
+					localEndpointSliceLabel:    "full-not-linked-service-2",
+				},
+				OwnerReferences: commonOwnerReferences,
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      commonDerivedName + "-not-linked-service-3",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
+					localEndpointSliceLabel:    "full-not-linked-service-3",
+				},
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      commonDerivedName + "-not-linked-service-4",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
+				},
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
 		},
 	}
 )
@@ -305,14 +411,38 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 		clusterName: "cluster1",
 	}
 
-	for _, suffix := range []string{"keep", "", "update-1", "update-2", "update-3", "update-4", "update-5"} {
-		t.Run(fmt.Sprintf("Check mirrored Endpoint %s", suffix), func(t *testing.T) {
+	for _, tt := range []struct {
+		suffix                string
+		derivedReconciliation bool
+	}{
+		{suffix: "keep"},
+		{suffix: ""},
+		{suffix: "update-1"},
+		{suffix: "update-2"},
+		{suffix: "update-3"},
+		{suffix: "update-4"},
+		{suffix: "update-5"},
+		{
+			suffix:                "not-linked-service-2",
+			derivedReconciliation: true,
+		},
+		{
+			suffix:                "not-linked-service-3",
+			derivedReconciliation: true,
+		},
+	} {
+		t.Run(fmt.Sprintf("Check mirrored Endpoint %s", tt.suffix), func(t *testing.T) {
+			fullSuffix := "-" + tt.suffix
+			if tt.suffix == "" {
+				fullSuffix = ""
+			}
+
 			key := types.NamespacedName{
-				Name:      "full-" + suffix,
+				Name:      "full" + fullSuffix,
 				Namespace: "default",
 			}
-			if suffix == "" {
-				key.Name = "full"
+			if tt.derivedReconciliation {
+				key.Name = commonDerivedName + fullSuffix
 			}
 			result, err := r.Reconcile(t.Context(), ctrl.Request{
 				NamespacedName: key,
@@ -321,10 +451,10 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			keyDerived := types.NamespacedName{
-				Name:      commonDerivedName + "-" + suffix,
+				Name:      commonDerivedName + "-" + tt.suffix,
 				Namespace: "default",
 			}
-			if suffix == "" {
+			if tt.suffix == "" {
 				keyDerived.Name = commonDerivedName
 			}
 			epSlice := &discoveryv1.EndpointSlice{}
@@ -332,8 +462,8 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
-			require.Equal(t, commonLabels, epSlice.Labels)
-			require.Equal(t, map[string]string{localEndpointSliceAnnotation: key.Name}, epSlice.Annotations)
+			require.Equal(t, getExpectedDerivedLabels("full"+fullSuffix), epSlice.Labels)
+			require.Empty(t, epSlice.Annotations)
 			require.Equal(t, commonPorts, epSlice.Ports)
 			require.Equal(t, commonEndpoints, epSlice.Endpoints)
 			require.Equal(t, discoveryv1.AddressTypeIPv4, epSlice.AddressType)
@@ -360,21 +490,37 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	for _, suffix := range []string{"delete", "wrong-family-delete", "wrong-family-ignore"} {
-		t.Run(fmt.Sprintf("Check delete Endpoint %s", suffix), func(t *testing.T) {
+	for _, tt := range []struct {
+		suffix              string
+		localReconciliation bool
+	}{
+		{suffix: "delete"},
+		{suffix: "wrong-family-delete"},
+		{suffix: "wrong-family-ignore"},
+		{
+			suffix:              "not-linked-service-1",
+			localReconciliation: true,
+		},
+		{suffix: "not-linked-service-4"},
+	} {
+		t.Run(fmt.Sprintf("Check delete Endpoint %s", tt.suffix), func(t *testing.T) {
 			keyDerived := types.NamespacedName{
-				Name:      commonDerivedName + "-" + suffix,
+				Name:      commonDerivedName + "-" + tt.suffix,
 				Namespace: "default",
 			}
+			keyReconcile := keyDerived
+			if tt.localReconciliation {
+				keyReconcile.Name = "full-" + tt.suffix
+			}
 			result, err := r.Reconcile(t.Context(), ctrl.Request{
-				NamespacedName: keyDerived,
+				NamespacedName: keyReconcile,
 			})
 			require.NoError(t, err)
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			epSlice := &discoveryv1.EndpointSlice{}
 			err = c.Get(t.Context(), keyDerived, epSlice)
-			require.True(t, apierrors.IsNotFound(err), "EndpointSlice with delete suffix should be deleted")
+			require.True(t, apierrors.IsNotFound(err), "EndpointSlice should be deleted")
 		})
 	}
 }
