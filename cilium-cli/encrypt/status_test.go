@@ -506,7 +506,74 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 				},
 			},
 			ciliumPods: 10,
+			expected:   36,
+		},
+		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+					"enable-ipv6":     "true",
+					"ipam":            "eni",
+				},
+			},
+			ciliumPods: 10,
+			expected:   54,
+		},
+		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+					"enable-ipv6":     "true",
+					"ipam":            "azure",
+				},
+			},
+			ciliumPods: 10,
+			expected:   54,
+		},
+		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+					"enable-ipv4":     "true",
+					"enable-ipv6":     "true",
+				},
+			},
+			ciliumPods: 10,
 			expected:   72,
+		},
+		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+					"enable-ipv4":     "true",
+					"enable-ipv6":     "true",
+					"ipam":            "eni",
+				},
+			},
+			ciliumPods: 10,
+			expected:   108,
+		},
+		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+					"enable-ipv4":     "true",
+					"enable-ipv6":     "true",
+					"ipam":            "azure",
+				},
+			},
+			ciliumPods: 10,
+			expected:   108,
 		},
 	}
 
