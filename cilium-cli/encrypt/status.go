@@ -201,8 +201,15 @@ func ipsecExpectedKeyCount(ciliumVersion semver.Version, cm *corev1.ConfigMap, n
 		return 0, nil
 	}
 
-	// We have two keys per node, per direction, per IP family.
-	expectedKeys := (nodeCount - 1) * 2
+	// For each IP family, we have two keys per remote node, per direction.
+	// For subnet-encryption mode (ENI & Azure), we'll have one additional
+	// key on ingress per remote node.
+	expectedKeys := nodeCount - 1
+	if fs[features.CiliumIPAMMode].Mode == "eni" || fs[features.CiliumIPAMMode].Mode == "azure" {
+		expectedKeys *= 3
+	} else {
+		expectedKeys *= 2
+	}
 	if fs[features.Tunnel].Enabled {
 		// If running in tunneling mode, then we have twice the amount of states
 		// and keys to handle encrypted overlay traffic.
