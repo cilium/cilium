@@ -298,8 +298,10 @@ jobs:
       - name: Start unencrypted packets check
         uses: ./.github/actions/bpftrace/start
         with:
+          # Only check for DNS proxy traffic if IPv4 is enabled.
+          # If it isn't, we will skip the proxy tests and won't have any such traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Run sequential tests (${{ join(matrix.*, ', ') }})
         shell: bash
@@ -375,7 +377,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Run sequential tests (${{ join(matrix.*, ', ') }})
         shell: bash
