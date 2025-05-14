@@ -523,6 +523,10 @@ const (
 	// Network Policy.
 	EnableCiliumClusterwideNetworkPolicy = true
 
+	// EnableDefaultRestrictLocalClusterPolicy control whether policy rules assume
+	// by default the local cluster if not explicitly selected
+	EnableDefaultRestrictLocalClusterPolicy = false
+
 	// MaxConnectedClusters sets the maximum number of clusters that can be
 	// connected in a clustermesh.
 	// The value is used to determine the bit allocation for cluster ID and

@@ -56,12 +56,20 @@ func GetPolicyLabelsv1(logger *slog.Logger, np *slim_networkingv1.NetworkPolicy)
 	return k8sCiliumUtils.GetPolicyLabels(ns, policyName, policyUID, resourceTypeNetworkPolicy)
 }
 
-func parseNetworkPolicyPeer(namespace string, peer *slim_networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
+func parseNetworkPolicyPeer(namespace, clusterName string, peer *slim_networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
 	if peer == nil {
 		return nil
 	}
 
 	var retSel *api.EndpointSelector
+	// The PodSelector should only reflect to the configured cluster unless the selector
+	// explicitly targets another cluster already.
+	if clusterName != "" && peer.PodSelector.MatchLabels[k8sConst.PolicyLabelCluster] == "" {
+		if peer.PodSelector == nil {
+			peer.PodSelector = &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{}}
+		}
+		peer.PodSelector.MatchLabels[k8sConst.PolicyLabelCluster] = clusterName
+	}
 
 	if peer.NamespaceSelector != nil {
 		namespaceSelector := &slim_metav1.LabelSelector{
@@ -112,8 +120,7 @@ func hasV1PolicyType(pTypes []slim_networkingv1.PolicyType, typ slim_networkingv
 // ParseNetworkPolicy parses a k8s NetworkPolicy. Returns a list of
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
-func ParseNetworkPolicy(logger *slog.Logger, np *slim_networkingv1.NetworkPolicy) (api.Rules, error) {
-
+func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networkingv1.NetworkPolicy) (api.Rules, error) {
 	if np == nil {
 		return nil, fmt.Errorf("cannot parse NetworkPolicy because it is nil")
 	}
@@ -130,7 +137,7 @@ func ParseNetworkPolicy(logger *slog.Logger, np *slim_networkingv1.NetworkPolicy
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
 				ingress := api.IngressRule{}
-				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
+				endpointSelector := parseNetworkPolicyPeer(namespace, clusterName, &rule)
 
 				if endpointSelector != nil {
 					ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
@@ -175,7 +182,7 @@ func ParseNetworkPolicy(logger *slog.Logger, np *slim_networkingv1.NetworkPolicy
 			for _, rule := range eRule.To {
 				egress := api.EgressRule{}
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
-					endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
+					endpointSelector := parseNetworkPolicyPeer(namespace, clusterName, &rule)
 
 					if endpointSelector != nil {
 						egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)

@@ -730,12 +730,17 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 	}
 
+	clusterNamePolicyRestrict := option.Config.ClusterName
+	if !option.Config.EnableDefaultRestrictLocalClusterPolicy {
+		clusterNamePolicyRestrict = ""
+	}
+
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
-		enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
+		enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset, clusterNamePolicyRestrict)
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumClusterwideNetworkPolicy {
-		enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
+		enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset, clusterNamePolicyRestrict)
 	}
 
 	if legacy.clientset.IsEnabled() {

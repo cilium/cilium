@@ -510,7 +510,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			args.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 			want.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
-			rules, policyImportErr := args.cnp.Parse(hivetest.Logger(t))
+			rules, policyImportErr := args.cnp.Parse(hivetest.Logger(t), "")
 			require.Equal(t, want.err, policyImportErr)
 
 			// Only add policies if we have successfully parsed them. Otherwise, if
