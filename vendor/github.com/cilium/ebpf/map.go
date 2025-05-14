@@ -439,6 +439,38 @@ func (m *Map) Memory() (*Memory, error) {
 	return mm, nil
 }
 
+// unsafeMemory returns a heap-mapped memory region for the Map. The Map must
+// have been created with the BPF_F_MMAPABLE flag. Repeated calls to Memory
+// return the same mapping. Callers are responsible for coordinating access to
+// Memory.
+func (m *Map) unsafeMemory() (*Memory, error) {
+	if m.memory != nil {
+		if !m.memory.heap {
+			return nil, errors.New("unsafeMemory would return existing non-heap memory")
+		}
+
+		return m.memory, nil
+	}
+
+	if m.flags&sys.BPF_F_MMAPABLE == 0 {
+		return nil, fmt.Errorf("Map was not created with the BPF_F_MMAPABLE flag: %w", ErrNotSupported)
+	}
+
+	size, err := m.memorySize()
+	if err != nil {
+		return nil, err
+	}
+
+	mm, err := newUnsafeMemory(m.FD(), size)
+	if err != nil {
+		return nil, fmt.Errorf("creating new Memory: %w", err)
+	}
+
+	m.memory = mm
+
+	return mm, nil
+}
+
 func (m *Map) memorySize() (int, error) {
 	switch m.Type() {
 	case Array:
@@ -548,14 +580,19 @@ func handleMapCreateError(attr sys.MapCreateAttr, spec *MapSpec, err error) erro
 	if errors.Is(err, unix.EPERM) {
 		return fmt.Errorf("map create: %w (MEMLOCK may be too low, consider rlimit.RemoveMemlock)", err)
 	}
-	if errors.Is(err, unix.EINVAL) && spec.MaxEntries == 0 {
-		return fmt.Errorf("map create: %w (MaxEntries may be incorrectly set to zero)", err)
-	}
-	if errors.Is(err, unix.EINVAL) && spec.Type == UnspecifiedMap {
-		return fmt.Errorf("map create: cannot use type %s", UnspecifiedMap)
-	}
-	if errors.Is(err, unix.EINVAL) && spec.Flags&sys.BPF_F_NO_PREALLOC > 0 {
-		return fmt.Errorf("map create: %w (noPrealloc flag may be incompatible with map type %s)", err, spec.Type)
+	if errors.Is(err, unix.EINVAL) {
+		if spec.MaxEntries == 0 {
+			return fmt.Errorf("map create: %w (MaxEntries may be incorrectly set to zero)", err)
+		}
+		if spec.Type == UnspecifiedMap {
+			return fmt.Errorf("map create: cannot use type %s", UnspecifiedMap)
+		}
+		if spec.Flags&sys.BPF_F_NO_PREALLOC != 0 && !spec.Type.mustHaveNoPrealloc() {
+			return fmt.Errorf("map create: %w (BPF_F_NO_PREALLOC flag may be incompatible with map type %s)", err, spec.Type)
+		}
+		if spec.Flags&sys.BPF_F_NO_PREALLOC == 0 && spec.Type.mustHaveNoPrealloc() {
+			return fmt.Errorf("map create: %w (BPF_F_NO_PREALLOC flag may need to be set for map type %s)", err, spec.Type)
+		}
 	}
 
 	if spec.Type.canStoreMap() {
@@ -1152,13 +1189,13 @@ func (m *Map) batchLookup(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, valuesOu
 
 	valueBuf := sysenc.SyscallOutput(valuesOut, count*int(m.fullValueSize))
 
-	n, err := m.batchLookupCmd(cmd, cursor, count, keysOut, valueBuf.Pointer(), opts)
-	if errors.Is(err, unix.ENOSPC) {
+	n, sysErr := m.batchLookupCmd(cmd, cursor, count, keysOut, valueBuf.Pointer(), opts)
+	if errors.Is(sysErr, unix.ENOSPC) {
 		// Hash tables return ENOSPC when the size of the batch is smaller than
 		// any bucket.
-		return n, fmt.Errorf("%w (batch size too small?)", err)
-	} else if err != nil {
-		return n, err
+		return n, fmt.Errorf("%w (batch size too small?)", sysErr)
+	} else if sysErr != nil && !errors.Is(sysErr, unix.ENOENT) {
+		return 0, sysErr
 	}
 
 	err = valueBuf.Unmarshal(valuesOut)
@@ -1166,7 +1203,7 @@ func (m *Map) batchLookup(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, valuesOu
 		return 0, err
 	}
 
-	return n, nil
+	return n, sysErr
 }
 
 func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
@@ -1192,17 +1229,14 @@ func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, va
 }
 
 func (m *Map) batchLookupCmd(cmd sys.Cmd, cursor *MapBatchCursor, count int, keysOut any, valuePtr sys.Pointer, opts *BatchOptions) (int, error) {
-	cursorLen := int(m.keySize)
-	if cursorLen < 4 {
-		// * generic_map_lookup_batch requires that batch_out is key_size bytes.
-		//   This is used by array and LPM maps.
-		//
-		// * __htab_map_lookup_and_delete_batch requires u32. This is used by the
-		//   various hash maps.
-		//
-		// Use a minimum of 4 bytes to avoid having to distinguish between the two.
-		cursorLen = 4
-	}
+	// * generic_map_lookup_batch requires that batch_out is key_size bytes.
+	//   This is used by array and LPM maps.
+	//
+	// * __htab_map_lookup_and_delete_batch requires u32. This is used by the
+	//   various hash maps.
+	//
+	// Use a minimum of 4 bytes to avoid having to distinguish between the two.
+	cursorLen := max(int(m.keySize), 4)
 
 	inBatch := cursor.opaque
 	if inBatch == nil {

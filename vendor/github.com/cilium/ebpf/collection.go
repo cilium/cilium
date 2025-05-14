@@ -628,7 +628,12 @@ func (cl *collectionLoader) loadVariable(varName string) (*Variable, error) {
 	// emit a Variable with a nil Memory. This keeps Collection{Spec}.Variables
 	// consistent across systems with different feature sets without breaking
 	// LoadAndAssign.
-	mm, err := m.Memory()
+	var mm *Memory
+	if unsafeMemory {
+		mm, err = m.unsafeMemory()
+	} else {
+		mm, err = m.Memory()
+	}
 	if err != nil && !errors.Is(err, ErrNotSupported) {
 		return nil, fmt.Errorf("variable %s: getting memory for map %s: %w", varName, mapName, err)
 	}

@@ -4,6 +4,7 @@ package unix
 
 import (
 	"syscall"
+	"unsafe"
 )
 
 // Constants are distinct to avoid breaking switch statements.
@@ -37,6 +38,7 @@ const (
 	PROT_WRITE
 	MAP_ANON
 	MAP_SHARED
+	MAP_FIXED
 	MAP_PRIVATE
 	PERF_ATTR_SIZE_VER1
 	PERF_TYPE_SOFTWARE
@@ -195,6 +197,10 @@ func SetNonblock(fd int, nonblocking bool) (err error) {
 
 func Mmap(fd int, offset int64, length int, prot int, flags int) (data []byte, err error) {
 	return []byte{}, errNonLinux()
+}
+
+func MmapPtr(fd int, offset int64, addr unsafe.Pointer, length uintptr, prot int, flags int) (ret unsafe.Pointer, err error) {
+	return nil, errNonLinux()
 }
 
 func Munmap(b []byte) (err error) {
