@@ -97,6 +97,7 @@ spec:
         {{- with .Values.envoy.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
+        {{- if .Values.envoy.startupProbe.enabled }}
         startupProbe:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
@@ -107,6 +108,8 @@ spec:
           periodSeconds: {{ .Values.envoy.startupProbe.periodSeconds }}
           successThreshold: 1
           initialDelaySeconds: 5
+        {{- end }}
+        {{- if .Values.envoy.livenessProbe.enabled }}
         livenessProbe:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
@@ -117,6 +120,7 @@ spec:
           successThreshold: 1
           failureThreshold: {{ .Values.envoy.livenessProbe.failureThreshold }}
           timeoutSeconds: 5
+        {{- end }}
         readinessProbe:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
