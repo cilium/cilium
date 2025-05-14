@@ -690,7 +690,7 @@ const (
 )
 
 type BtfInfo struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	Btf       TypedPointer[uint8]
 	BtfSize   uint32
 	Id        BTFID
@@ -700,13 +700,13 @@ type BtfInfo struct {
 }
 
 type FuncInfo struct {
-	structs.HostLayout
+	_       structs.HostLayout
 	InsnOff uint32
 	TypeId  uint32
 }
 
 type LineInfo struct {
-	structs.HostLayout
+	_           structs.HostLayout
 	InsnOff     uint32
 	FileNameOff uint32
 	LineOff     uint32
@@ -714,7 +714,7 @@ type LineInfo struct {
 }
 
 type LinkInfo struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	Type   LinkType
 	Id     LinkID
 	ProgId uint32
@@ -723,7 +723,7 @@ type LinkInfo struct {
 }
 
 type MapInfo struct {
-	structs.HostLayout
+	_                     structs.HostLayout
 	Type                  uint32
 	Id                    MapID
 	KeySize               uint32
@@ -743,7 +743,7 @@ type MapInfo struct {
 }
 
 type ProgInfo struct {
-	structs.HostLayout
+	_                    structs.HostLayout
 	Type                 uint32
 	Id                   uint32
 	Tag                  [8]uint8
@@ -786,7 +786,7 @@ type ProgInfo struct {
 }
 
 type SkLookup struct {
-	structs.HostLayout
+	_              structs.HostLayout
 	Cookie         uint64
 	Family         uint32
 	Protocol       uint32
@@ -802,7 +802,7 @@ type SkLookup struct {
 }
 
 type XdpMd struct {
-	structs.HostLayout
+	_              structs.HostLayout
 	Data           uint32
 	DataEnd        uint32
 	DataMeta       uint32
@@ -812,7 +812,7 @@ type XdpMd struct {
 }
 
 type BtfGetFdByIdAttr struct {
-	structs.HostLayout
+	_  structs.HostLayout
 	Id uint32
 }
 
@@ -825,7 +825,7 @@ func BtfGetFdById(attr *BtfGetFdByIdAttr) (*FD, error) {
 }
 
 type BtfGetNextIdAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	Id     BTFID
 	NextId BTFID
 }
@@ -836,7 +836,7 @@ func BtfGetNextId(attr *BtfGetNextIdAttr) error {
 }
 
 type BtfLoadAttr struct {
-	structs.HostLayout
+	_              structs.HostLayout
 	Btf            TypedPointer[uint8]
 	BtfLogBuf      TypedPointer[uint8]
 	BtfSize        uint32
@@ -856,7 +856,7 @@ func BtfLoad(attr *BtfLoadAttr) (*FD, error) {
 }
 
 type EnableStatsAttr struct {
-	structs.HostLayout
+	_    structs.HostLayout
 	Type uint32
 }
 
@@ -869,7 +869,7 @@ func EnableStats(attr *EnableStatsAttr) (*FD, error) {
 }
 
 type IterCreateAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	LinkFd uint32
 	Flags  uint32
 }
@@ -883,7 +883,7 @@ func IterCreate(attr *IterCreateAttr) (*FD, error) {
 }
 
 type LinkCreateAttr struct {
-	structs.HostLayout
+	_           structs.HostLayout
 	ProgFd      uint32
 	TargetFd    uint32
 	AttachType  AttachType
@@ -901,7 +901,7 @@ func LinkCreate(attr *LinkCreateAttr) (*FD, error) {
 }
 
 type LinkCreateIterAttr struct {
-	structs.HostLayout
+	_           structs.HostLayout
 	ProgFd      uint32
 	TargetFd    uint32
 	AttachType  AttachType
@@ -920,7 +920,7 @@ func LinkCreateIter(attr *LinkCreateIterAttr) (*FD, error) {
 }
 
 type LinkCreateKprobeMultiAttr struct {
-	structs.HostLayout
+	_                structs.HostLayout
 	ProgFd           uint32
 	TargetFd         uint32
 	AttachType       AttachType
@@ -942,7 +942,7 @@ func LinkCreateKprobeMulti(attr *LinkCreateKprobeMultiAttr) (*FD, error) {
 }
 
 type LinkCreateNetfilterAttr struct {
-	structs.HostLayout
+	_              structs.HostLayout
 	ProgFd         uint32
 	TargetFd       uint32
 	AttachType     AttachType
@@ -963,7 +963,7 @@ func LinkCreateNetfilter(attr *LinkCreateNetfilterAttr) (*FD, error) {
 }
 
 type LinkCreateNetkitAttr struct {
-	structs.HostLayout
+	_                structs.HostLayout
 	ProgFd           uint32
 	TargetIfindex    uint32
 	AttachType       AttachType
@@ -983,7 +983,7 @@ func LinkCreateNetkit(attr *LinkCreateNetkitAttr) (*FD, error) {
 }
 
 type LinkCreatePerfEventAttr struct {
-	structs.HostLayout
+	_          structs.HostLayout
 	ProgFd     uint32
 	TargetFd   uint32
 	AttachType AttachType
@@ -1001,7 +1001,7 @@ func LinkCreatePerfEvent(attr *LinkCreatePerfEventAttr) (*FD, error) {
 }
 
 type LinkCreateTcxAttr struct {
-	structs.HostLayout
+	_                structs.HostLayout
 	ProgFd           uint32
 	TargetIfindex    uint32
 	AttachType       AttachType
@@ -1021,7 +1021,7 @@ func LinkCreateTcx(attr *LinkCreateTcxAttr) (*FD, error) {
 }
 
 type LinkCreateTracingAttr struct {
-	structs.HostLayout
+	_           structs.HostLayout
 	ProgFd      uint32
 	TargetFd    uint32
 	AttachType  AttachType
@@ -1041,7 +1041,7 @@ func LinkCreateTracing(attr *LinkCreateTracingAttr) (*FD, error) {
 }
 
 type LinkCreateUprobeMultiAttr struct {
-	structs.HostLayout
+	_                structs.HostLayout
 	ProgFd           uint32
 	TargetFd         uint32
 	AttachType       AttachType
@@ -1065,7 +1065,7 @@ func LinkCreateUprobeMulti(attr *LinkCreateUprobeMultiAttr) (*FD, error) {
 }
 
 type LinkGetFdByIdAttr struct {
-	structs.HostLayout
+	_  structs.HostLayout
 	Id LinkID
 }
 
@@ -1078,7 +1078,7 @@ func LinkGetFdById(attr *LinkGetFdByIdAttr) (*FD, error) {
 }
 
 type LinkGetNextIdAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	Id     LinkID
 	NextId LinkID
 }
@@ -1089,7 +1089,7 @@ func LinkGetNextId(attr *LinkGetNextIdAttr) error {
 }
 
 type LinkUpdateAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	LinkFd    uint32
 	NewProgFd uint32
 	Flags     uint32
@@ -1102,7 +1102,7 @@ func LinkUpdate(attr *LinkUpdateAttr) error {
 }
 
 type MapCreateAttr struct {
-	structs.HostLayout
+	_                     structs.HostLayout
 	MapType               MapType
 	KeySize               uint32
 	ValueSize             uint32
@@ -1130,7 +1130,7 @@ func MapCreate(attr *MapCreateAttr) (*FD, error) {
 }
 
 type MapDeleteBatchAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1147,7 +1147,7 @@ func MapDeleteBatch(attr *MapDeleteBatchAttr) error {
 }
 
 type MapDeleteElemAttr struct {
-	structs.HostLayout
+	_     structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1161,7 +1161,7 @@ func MapDeleteElem(attr *MapDeleteElemAttr) error {
 }
 
 type MapFreezeAttr struct {
-	structs.HostLayout
+	_     structs.HostLayout
 	MapFd uint32
 }
 
@@ -1171,7 +1171,7 @@ func MapFreeze(attr *MapFreezeAttr) error {
 }
 
 type MapGetFdByIdAttr struct {
-	structs.HostLayout
+	_  structs.HostLayout
 	Id uint32
 }
 
@@ -1184,7 +1184,7 @@ func MapGetFdById(attr *MapGetFdByIdAttr) (*FD, error) {
 }
 
 type MapGetNextIdAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	Id     uint32
 	NextId uint32
 }
@@ -1195,7 +1195,7 @@ func MapGetNextId(attr *MapGetNextIdAttr) error {
 }
 
 type MapGetNextKeyAttr struct {
-	structs.HostLayout
+	_       structs.HostLayout
 	MapFd   uint32
 	_       [4]byte
 	Key     Pointer
@@ -1208,7 +1208,7 @@ func MapGetNextKey(attr *MapGetNextKeyAttr) error {
 }
 
 type MapLookupAndDeleteBatchAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1225,7 +1225,7 @@ func MapLookupAndDeleteBatch(attr *MapLookupAndDeleteBatchAttr) error {
 }
 
 type MapLookupAndDeleteElemAttr struct {
-	structs.HostLayout
+	_     structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1239,7 +1239,7 @@ func MapLookupAndDeleteElem(attr *MapLookupAndDeleteElemAttr) error {
 }
 
 type MapLookupBatchAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1256,7 +1256,7 @@ func MapLookupBatch(attr *MapLookupBatchAttr) error {
 }
 
 type MapLookupElemAttr struct {
-	structs.HostLayout
+	_     structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1270,7 +1270,7 @@ func MapLookupElem(attr *MapLookupElemAttr) error {
 }
 
 type MapUpdateBatchAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	InBatch   Pointer
 	OutBatch  Pointer
 	Keys      Pointer
@@ -1287,7 +1287,7 @@ func MapUpdateBatch(attr *MapUpdateBatchAttr) error {
 }
 
 type MapUpdateElemAttr struct {
-	structs.HostLayout
+	_     structs.HostLayout
 	MapFd uint32
 	_     [4]byte
 	Key   Pointer
@@ -1301,7 +1301,7 @@ func MapUpdateElem(attr *MapUpdateElemAttr) error {
 }
 
 type ObjGetAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	Pathname  StringPointer
 	BpfFd     uint32
 	FileFlags uint32
@@ -1318,7 +1318,7 @@ func ObjGet(attr *ObjGetAttr) (*FD, error) {
 }
 
 type ObjGetInfoByFdAttr struct {
-	structs.HostLayout
+	_       structs.HostLayout
 	BpfFd   uint32
 	InfoLen uint32
 	Info    Pointer
@@ -1330,7 +1330,7 @@ func ObjGetInfoByFd(attr *ObjGetInfoByFdAttr) error {
 }
 
 type ObjPinAttr struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	Pathname  StringPointer
 	BpfFd     uint32
 	FileFlags uint32
@@ -1344,7 +1344,7 @@ func ObjPin(attr *ObjPinAttr) error {
 }
 
 type ProgAttachAttr struct {
-	structs.HostLayout
+	_                 structs.HostLayout
 	TargetFdOrIfindex uint32
 	AttachBpfFd       uint32
 	AttachType        uint32
@@ -1360,7 +1360,7 @@ func ProgAttach(attr *ProgAttachAttr) error {
 }
 
 type ProgBindMapAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	ProgFd uint32
 	MapFd  uint32
 	Flags  uint32
@@ -1372,7 +1372,7 @@ func ProgBindMap(attr *ProgBindMapAttr) error {
 }
 
 type ProgDetachAttr struct {
-	structs.HostLayout
+	_                 structs.HostLayout
 	TargetFdOrIfindex uint32
 	AttachBpfFd       uint32
 	AttachType        uint32
@@ -1388,7 +1388,7 @@ func ProgDetach(attr *ProgDetachAttr) error {
 }
 
 type ProgGetFdByIdAttr struct {
-	structs.HostLayout
+	_  structs.HostLayout
 	Id uint32
 }
 
@@ -1401,7 +1401,7 @@ func ProgGetFdById(attr *ProgGetFdByIdAttr) (*FD, error) {
 }
 
 type ProgGetNextIdAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	Id     uint32
 	NextId uint32
 }
@@ -1412,7 +1412,7 @@ func ProgGetNextId(attr *ProgGetNextIdAttr) error {
 }
 
 type ProgLoadAttr struct {
-	structs.HostLayout
+	_                  structs.HostLayout
 	ProgType           ProgType
 	InsnCnt            uint32
 	Insns              TypedPointer[uint8]
@@ -1452,7 +1452,7 @@ func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
 }
 
 type ProgQueryAttr struct {
-	structs.HostLayout
+	_                 structs.HostLayout
 	TargetFdOrIfindex uint32
 	AttachType        AttachType
 	QueryFlags        uint32
@@ -1472,7 +1472,7 @@ func ProgQuery(attr *ProgQueryAttr) error {
 }
 
 type ProgRunAttr struct {
-	structs.HostLayout
+	_           structs.HostLayout
 	ProgFd      uint32
 	Retval      uint32
 	DataSizeIn  uint32
@@ -1497,7 +1497,7 @@ func ProgRun(attr *ProgRunAttr) error {
 }
 
 type RawTracepointOpenAttr struct {
-	structs.HostLayout
+	_      structs.HostLayout
 	Name   StringPointer
 	ProgFd uint32
 	_      [4]byte
@@ -1513,7 +1513,7 @@ func RawTracepointOpen(attr *RawTracepointOpenAttr) (*FD, error) {
 }
 
 type CgroupLinkInfo struct {
-	structs.HostLayout
+	_          structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1524,7 +1524,7 @@ type CgroupLinkInfo struct {
 }
 
 type IterLinkInfo struct {
-	structs.HostLayout
+	_             structs.HostLayout
 	Type          LinkType
 	Id            LinkID
 	ProgId        uint32
@@ -1534,7 +1534,7 @@ type IterLinkInfo struct {
 }
 
 type KprobeLinkInfo struct {
-	structs.HostLayout
+	_             structs.HostLayout
 	Type          LinkType
 	Id            LinkID
 	ProgId        uint32
@@ -1550,7 +1550,7 @@ type KprobeLinkInfo struct {
 }
 
 type KprobeMultiLinkInfo struct {
-	structs.HostLayout
+	_       structs.HostLayout
 	Type    LinkType
 	Id      LinkID
 	ProgId  uint32
@@ -1564,7 +1564,7 @@ type KprobeMultiLinkInfo struct {
 }
 
 type NetNsLinkInfo struct {
-	structs.HostLayout
+	_          structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1575,7 +1575,7 @@ type NetNsLinkInfo struct {
 }
 
 type NetfilterLinkInfo struct {
-	structs.HostLayout
+	_        structs.HostLayout
 	Type     LinkType
 	Id       LinkID
 	ProgId   uint32
@@ -1588,7 +1588,7 @@ type NetfilterLinkInfo struct {
 }
 
 type NetkitLinkInfo struct {
-	structs.HostLayout
+	_          structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1599,7 +1599,7 @@ type NetkitLinkInfo struct {
 }
 
 type PerfEventLinkInfo struct {
-	structs.HostLayout
+	_             structs.HostLayout
 	Type          LinkType
 	Id            LinkID
 	ProgId        uint32
@@ -1608,7 +1608,7 @@ type PerfEventLinkInfo struct {
 }
 
 type RawTracepointLinkInfo struct {
-	structs.HostLayout
+	_         structs.HostLayout
 	Type      LinkType
 	Id        LinkID
 	ProgId    uint32
@@ -1619,7 +1619,7 @@ type RawTracepointLinkInfo struct {
 }
 
 type TcxLinkInfo struct {
-	structs.HostLayout
+	_          structs.HostLayout
 	Type       LinkType
 	Id         LinkID
 	ProgId     uint32
@@ -1630,7 +1630,7 @@ type TcxLinkInfo struct {
 }
 
 type TracingLinkInfo struct {
-	structs.HostLayout
+	_           structs.HostLayout
 	Type        LinkType
 	Id          LinkID
 	ProgId      uint32
@@ -1642,7 +1642,7 @@ type TracingLinkInfo struct {
 }
 
 type XDPLinkInfo struct {
-	structs.HostLayout
+	_       structs.HostLayout
 	Type    LinkType
 	Id      LinkID
 	ProgId  uint32
