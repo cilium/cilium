@@ -156,9 +156,14 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 		e := n.enis[eniId]
 		ipPrefixes := e.Prefixes
 		if len(ipPrefixes) > 0 {
-			// Prevents a newly added node's IPPrefix from being unassigned.
-			if len(ipPrefixes) > 1 {
-				usedIPs := n.k8sObj.Status.IPAM.Used
+			usedIPs := n.k8sObj.Status.IPAM.Used
+			usedIPsCount := len(usedIPs)
+			ipsPerPrefix := 16
+			preAllocate := n.k8sObj.Spec.IPAM.PreAllocate
+			// Calculate number of prefixes needed
+			requiredPrefixes := (usedIPsCount + preAllocate + ipsPerPrefix - 1) / ipsPerPrefix
+
+			if len(ipPrefixes) > requiredPrefixes {
 				unusedIPPrefixes := []string{}
 				matchedIPs := []string{}
 				// Check each prefix to determine if at least one IP is used in IPAM.
