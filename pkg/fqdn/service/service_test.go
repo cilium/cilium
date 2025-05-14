@@ -111,7 +111,6 @@ func TestFQDNDataServer(t *testing.T) {
 									Lifecycle:         lc,
 									Logger:            logger,
 									NameManager:       nil,
-									ProxyInstance:     nil,
 									ProxyAccessLogger: nil,
 								})
 						},

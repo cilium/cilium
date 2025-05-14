@@ -25,8 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
-	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -60,7 +58,6 @@ type DaemonSuite struct {
 
 	PolicyImporter     policycell.PolicyImporter
 	envoyXdsServer     envoy.XDSServer
-	dnsProxy           defaultdns.Proxy
 	endpointAPIManager endpointapi.EndpointAPIManager
 }
 
@@ -131,7 +128,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		ControlPlane,
 		metrics.Cell,
 		store.Cell,
-		defaultdns.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),
@@ -140,9 +136,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		}),
 		cell.Invoke(func(envoyXdsServer envoy.XDSServer) {
 			ds.envoyXdsServer = envoyXdsServer
-		}),
-		cell.Invoke(func(dnsProxy defaultdns.Proxy) {
-			ds.dnsProxy = dnsProxy
 		}),
 		cell.Invoke(func(endpointAPIManager endpointapi.EndpointAPIManager) {
 			ds.endpointAPIManager = endpointAPIManager
@@ -162,8 +155,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	ds.d, err = daemonPromise.Await(ctx)
 	require.NoError(tb, err)
-
-	ds.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 

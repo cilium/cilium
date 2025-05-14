@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
@@ -104,7 +103,6 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		DNSMessageHandlerParams{
 			Logger:            logger,
 			NameManager:       nm,
-			ProxyInstance:     defaultdns.NewProxy(),
 			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
 		})
 

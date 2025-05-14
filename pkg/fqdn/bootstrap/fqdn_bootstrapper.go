@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -30,9 +31,10 @@ type fqdnProxyBootstrapperParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 
-	ProxyPorts *proxyports.ProxyPorts
-	DNSProxy   proxy.DNSProxier
-	Health     cell.Health
+	ProxyPorts        *proxyports.ProxyPorts
+	DNSProxy          proxy.DNSProxier
+	Health            cell.Health
+	DNSRequestHandler messagehandler.DNSMessageHandler
 }
 
 type fqdnProxyBootstrapper struct {
@@ -40,6 +42,7 @@ type fqdnProxyBootstrapper struct {
 
 	proxy      proxy.DNSProxier
 	proxyPorts *proxyports.ProxyPorts
+	handler    messagehandler.DNSMessageHandler
 
 	restored chan struct{}
 }
@@ -52,7 +55,9 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 
 		proxy:      params.DNSProxy,
 		proxyPorts: params.ProxyPorts,
-		restored:   make(chan struct{}),
+		handler:    params.DNSRequestHandler,
+
+		restored: make(chan struct{}),
 	}
 
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
@@ -145,6 +150,9 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 		// should never happen
 		b.logger.Warn("BUG: Failed to increase DNS proxy port refcount", logfields.Error, err)
 	}
+
+	// tell the message handler about the bind port, so it can correctly update statistics
+	b.handler.SetBindPort(b.proxy.GetBindPort())
 
 	// Set up iptables rules.
 	if err := b.proxyPorts.AckProxyPortWithReference(ctx, proxytypes.DNSProxyName); err != nil {
