@@ -79,8 +79,8 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")
 	dnsProxyConfig := DNSProxyConfig{
+		Logger:                 logger,
 		Address:                "",
-		Port:                   0,
 		IPv4:                   true,
 		IPv6:                   true,
 		EnableDNSCompression:   true,
@@ -88,45 +88,23 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		ConcurrencyLimit:       0,
 		ConcurrencyGracePeriod: 0,
 	}
-	proxy := NewDNSProxy(logger, dnsProxyConfig, func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
-		if s.restoring {
-			return nil, false, fmt.Errorf("No EPs available when restoring")
-		}
-		model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
-		ep.Start(uint16(model.ID))
-		tb.Cleanup(ep.Stop)
-		return ep, false, err
-	}, func(ip netip.Addr) (ipcache.Identity, bool) {
-		DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
-		switch {
-		case ip.String() == DNSServerListenerAddr.IP.String():
-			ident := ipcache.Identity{
-				ID:     dstID1,
-				Source: source.Unspec,
+	proxy := NewDNSProxy(dnsProxyConfig,
+		s,
+		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+			if s.restoring {
+				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
-			return ident, true
-		default:
-			ident := ipcache.Identity{
-				ID:     dstID2,
-				Source: source.Unspec,
-			}
-			return ident, true
-		}
-	}, func(nid identity.NumericIdentity) []string {
-		DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
-		switch nid {
-		case dstID1:
-			return []string{DNSServerListenerAddr.IP.String()}
-		case dstID2:
-			return []string{"127.0.0.1", "127.0.0.2"}
-		default:
+			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+			ep.Start(uint16(model.ID))
+			tb.Cleanup(ep.Stop)
+			return ep, false, err
+		},
+		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
-		}
-	}, func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
-		return nil
-	})
-	err := proxy.Listen()
+		},
+	)
+	err := proxy.Listen(0)
 	require.NoError(tb, err, "error listening for DNS requests")
 	s.proxy = proxy
 
@@ -160,6 +138,36 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	})
 
 	return s
+}
+
+func (s *DNSProxyTestSuite) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
+	DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
+	switch {
+	case ip.String() == DNSServerListenerAddr.IP.String():
+		ident := ipcache.Identity{
+			ID:     dstID1,
+			Source: source.Unspec,
+		}
+		return ident, true
+	default:
+		ident := ipcache.Identity{
+			ID:     dstID2,
+			Source: source.Unspec,
+		}
+		return ident, true
+	}
+}
+
+func (s *DNSProxyTestSuite) LookupByIdentity(nid identity.NumericIdentity) []string {
+	DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
+	switch nid {
+	case dstID1:
+		return []string{DNSServerListenerAddr.IP.String()}
+	case dstID2:
+		return []string{"127.0.0.1", "127.0.0.2"}
+	default:
+		return nil
+	}
 }
 
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {

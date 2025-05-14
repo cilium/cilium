@@ -5,60 +5,120 @@ package bootstrap
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"net/netip"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
-	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
-	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
-	"github.com/cilium/cilium/pkg/fqdn/namemanager"
-	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 )
 
 type FQDNProxyBootstrapper interface {
-	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) error
-	UpdateDNSDatapathRules(ctx context.Context) error
-	Cleanup()
+	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint)
+}
+
+type fqdnProxyBootstrapperParams struct {
+	cell.In
+
+	JobGroup  job.Group
+	Lifecycle cell.Lifecycle
+	Logger    *slog.Logger
+
+	ProxyPorts *proxyports.ProxyPorts
+	DNSProxy   proxy.DNSProxier
+	Health     cell.Health
 }
 
 type fqdnProxyBootstrapper struct {
-	ctx               context.Context
-	logger            *slog.Logger
-	nameManager       namemanager.NameManager
-	proxyInstance     defaultdns.Proxy
-	proxyPorts        *proxyports.ProxyPorts
-	policyRepo        policy.PolicyRepository
-	ipcache           *ipcache.IPCache
-	endpointManager   endpointmanager.EndpointManager
-	dnsMessageHandler messagehandler.DNSMessageHandler
+	logger *slog.Logger
+
+	proxy      proxy.DNSProxier
+	proxyPorts *proxyports.ProxyPorts
+
+	restored chan struct{}
 }
 
-var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
+// newFQDNProxyBootstrapper handles initializing the DNS proxy in concert with the daemon.
+func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBootstrapper {
 
-// bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
-// dnsNameManager will use the default resolver and, implicitly, the
-// default DNS cache. The proxy binds to all interfaces, and uses the
-// configured DNS proxy port (this may be 0 and so OS-assigned).
-func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) (err error) {
+	b := &fqdnProxyBootstrapper{
+		logger: params.Logger,
+
+		proxy:      params.DNSProxy,
+		proxyPorts: params.ProxyPorts,
+		restored:   make(chan struct{}),
+	}
+
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
 	if option.Config.DryMode || !option.Config.EnableL7Proxy {
+		return b
+	}
+
+	params.JobGroup.Add(job.OneShot("proxy-bootstrapper", b.startProxy, job.WithShutdown()))
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(_ cell.HookContext) error {
+			b.proxy.Cleanup()
+			return nil
+		},
+	})
+
+	return b
+}
+
+var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
+
+// BootstrapFQDN restores per-endpoint cached FQDN L7 rules to the proxy,
+// so it may immediately listen and start serving.
+func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) {
+	// was proxy disabled?
+	if b.proxy == nil {
+		return
+	}
+
+	// Restore old rules
+	eps := make([]uint16, 0, len(possibleEndpoints))
+	for _, possibleEP := range possibleEndpoints {
+		// Upgrades from old ciliums have this nil
+		if possibleEP.DNSRules != nil || possibleEP.DNSRulesV2 != nil {
+			b.proxy.RestoreRules(possibleEP)
+			eps = append(eps, possibleEP.ID)
+		}
+	}
+	if len(eps) > 0 {
+		b.logger.Info("Loaded DNS L7 rules for restored endpoints", logfields.Endpoints, eps)
+	}
+
+	close(b.restored)
+}
+
+// startProxy waits for cached endpoint state to be loaded, then starts
+// the DNS proxy.
+func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Health) error {
+	// Wait for proxy ports to be loaded from disk
+	select {
+	case <-b.proxyPorts.RestoreComplete():
+	case <-ctx.Done():
+		return nil
+	}
+
+	// wait for restore rules to be provided
+	select {
+	case <-b.restored:
+	case <-ctx.Done():
 		return nil
 	}
 
 	// A configured proxy wantPort takes precedence over using the previous wantPort.
+	// An existing (restored-from-disk) port is used on a best-effort basis
 	wantPort := uint16(option.Config.ToFQDNsProxyPort)
 	if wantPort == 0 {
 		var isStatic bool
@@ -71,77 +131,26 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		}
 	}
 
-	if err := re.InitRegexCompileLRU(b.logger, option.Config.FQDNRegexCompileLRUSize); err != nil {
-		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
-	}
-	dnsProxyConfig := dnsproxy.DNSProxyConfig{
-		Address:                "",
-		Port:                   wantPort,
-		IPv4:                   option.Config.EnableIPv4,
-		IPv6:                   option.Config.EnableIPv6,
-		EnableDNSCompression:   option.Config.ToFQDNsEnableDNSCompression,
-		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
-		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
-		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
-	}
-	dnsProxy := dnsproxy.NewDNSProxy(b.logger, dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsMessageHandler.NotifyOnDNSMsg)
-	b.proxyInstance.Set(dnsProxy)
-
-	if err := dnsProxy.Listen(); err != nil {
+	if err := b.proxy.Listen(wantPort); err != nil {
 		return fmt.Errorf("error opening dns proxy socket(s): %w", err)
 	}
+	bindPort := b.proxy.GetBindPort()
 
-	if wantPort == dnsProxy.GetBindPort() {
+	if wantPort == bindPort {
 		b.logger.Info("Reusing previous / configured DNS proxy port", logfields.Port, wantPort)
 	}
 
 	// Increase the ProxyPort reference count so that it will never get released.
-	if err := b.proxyPorts.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, dnsProxy.GetBindPort(), false); err != nil {
+	if err := b.proxyPorts.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, bindPort, false); err != nil {
 		// should never happen
 		b.logger.Warn("BUG: Failed to increase DNS proxy port refcount", logfields.Error, err)
 	}
 
-	dnsProxy.SetRejectReply(option.Config.FQDNRejectResponse)
-	// Restore old rules
-	for _, possibleEP := range possibleEndpoints {
-		// Upgrades from old ciliums have this nil
-		if possibleEP.DNSRules != nil || possibleEP.DNSRulesV2 != nil {
-			dnsProxy.RestoreRules(possibleEP)
-		}
+	// Set up iptables rules.
+	if err := b.proxyPorts.AckProxyPortWithReference(ctx, proxytypes.DNSProxyName); err != nil {
+		return fmt.Errorf("failed to ack DNS proxy port: %w", err)
 	}
+
+	health.OK(fmt.Sprintf("DNS proxy successfully initialized on port %d", bindPort))
 	return nil
-}
-
-// updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
-// called after iptables has been initialized, and only after
-// successful bootstrapFQDN().
-func (b *fqdnProxyBootstrapper) UpdateDNSDatapathRules(ctx context.Context) error {
-	if option.Config.DryMode || !option.Config.EnableL7Proxy {
-		return nil
-	}
-
-	return b.proxyPorts.AckProxyPortWithReference(ctx, proxytypes.DNSProxyName)
-}
-
-// lookupEPByIP returns the endpoint that this IP belongs to
-func (b *fqdnProxyBootstrapper) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) {
-	if e := b.endpointManager.LookupIP(endpointAddr); e != nil {
-		return e, e.IsHost(), nil
-	}
-
-	if node.IsNodeIP(b.logger, endpointAddr) != "" {
-		if e := b.endpointManager.GetHostEndpoint(); e != nil {
-			return e, true, nil
-		} else {
-			return nil, true, errors.New("host endpoint has not been created yet")
-		}
-	}
-
-	return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
-}
-
-func (b *fqdnProxyBootstrapper) Cleanup() {
-	if p := b.proxyInstance.Get(); p != nil {
-		p.Cleanup()
-	}
 }
