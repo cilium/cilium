@@ -4,6 +4,7 @@
 package writer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"iter"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -35,6 +37,7 @@ type Writer struct {
 	svcs      statedb.RWTable[*loadbalancer.Service]
 	fes       statedb.RWTable[*loadbalancer.Frontend]
 	bes       statedb.RWTable[*loadbalancer.Backend]
+	lns       *node.LocalNodeStore
 
 	svcHooks         []ServiceHook
 	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
@@ -50,12 +53,13 @@ const LocalClusterID = 0
 type writerParams struct {
 	cell.In
 
-	Config        loadbalancer.Config
-	DB            *statedb.DB
-	NodeAddresses statedb.Table[tables.NodeAddress]
-	Services      statedb.RWTable[*loadbalancer.Service]
-	Frontends     statedb.RWTable[*loadbalancer.Frontend]
-	Backends      statedb.RWTable[*loadbalancer.Backend]
+	Config         loadbalancer.Config
+	DB             *statedb.DB
+	NodeAddresses  statedb.Table[tables.NodeAddress]
+	Services       statedb.RWTable[*loadbalancer.Service]
+	Frontends      statedb.RWTable[*loadbalancer.Frontend]
+	Backends       statedb.RWTable[*loadbalancer.Backend]
+	LocalNodeStore *node.LocalNodeStore
 
 	ServiceHooks []ServiceHook `group:"service-hooks"`
 
@@ -76,6 +80,7 @@ func NewWriter(p writerParams) (*Writer, error) {
 		bes:              p.Backends,
 		fes:              p.Frontends,
 		svcs:             p.Services,
+		lns:              p.LocalNodeStore,
 		nodeAddrs:        p.NodeAddresses,
 		svcHooks:         p.ServiceHooks,
 		sourcePriorities: priorityMapFromSlice(p.SourcePriorities),
@@ -363,6 +368,7 @@ func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) e
 func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
 	onlyLocal := false
 	ipv4, ipv6 := true, true
+	isLocalProxyDelegation := func(loadbalancer.L3n4Addr) bool { return true }
 	if fe != nil {
 		onlyLocal = shouldUseLocalBackends(fe)
 		if fe.Address.IsIPv6() {
@@ -372,6 +378,17 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 		}
 	} else {
 		onlyLocal = svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal
+
+		// For proxy delegation we will consider backends that have a node IP as their
+		// address as "local" when external traffic policy is set to local.
+		if svc.GetProxyDelegation() != loadbalancer.SVCProxyDelegationNone {
+			node, err := w.lns.Get(context.Background())
+			if err == nil {
+				isLocalProxyDelegation = func(addr loadbalancer.L3n4Addr) bool {
+					return node.IsNodeIP(addr.AddrCluster.Addr()) != ""
+				}
+			}
+		}
 	}
 
 	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
@@ -386,8 +403,13 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 			} else if !ipv4 {
 				continue
 			}
-			if onlyLocal && len(be.NodeName) != 0 && be.NodeName != w.nodeName {
-				continue
+			if onlyLocal {
+				if len(be.NodeName) != 0 && be.NodeName != w.nodeName {
+					continue
+				}
+				if !isLocalProxyDelegation(be.Address) {
+					continue
+				}
 			}
 			if fe != nil {
 				if fe.RedirectTo == nil && fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {

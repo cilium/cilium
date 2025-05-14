@@ -103,6 +103,16 @@ func (svc *Service) GetLBAlgorithmAnnotation() SVCLoadBalancingAlgorithm {
 	return ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
+func (svc *Service) GetProxyDelegation() SVCProxyDelegation {
+	if value, ok := annotation.Get(svc, annotation.ServiceProxyDelegation); ok {
+		tmp := SVCProxyDelegation(strings.ToLower(value))
+		if tmp == SVCProxyDelegationDelegateIfLocal {
+			return tmp
+		}
+	}
+	return SVCProxyDelegationNone
+}
+
 func (svc *Service) GetAnnotations() map[string]string {
 	return svc.Annotations
 }
