@@ -311,12 +311,12 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 	if d.statusParams.DaemonConfig.EnableNodePort {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(d.statusParams.LBConfig.LBMode)
-		switch d.statusParams.DaemonConfig.LoadBalancerDSRDispatch {
-		case option.DSRDispatchIPIP:
+		switch d.statusParams.LBConfig.DSRDispatch {
+		case loadbalancer.DSRDispatchIPIP:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeIPIP
-		case option.DSRDispatchOption:
+		case loadbalancer.DSRDispatchOption:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeIPOptionExtension
-		case option.DSRDispatchGeneve:
+		case loadbalancer.DSRDispatchGeneve:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
 		if d.statusParams.LBConfig.LBMode == loadbalancer.LBModeHybrid {
