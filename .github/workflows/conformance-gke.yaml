@@ -84,8 +84,6 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Generate Matrix
     runs-on: ubuntu-24.04
     outputs:

@@ -30,8 +30,6 @@ concurrency:
 
 jobs:
   setup-charts:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Setup Charts
     runs-on: ubuntu-24.04
     outputs:

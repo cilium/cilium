@@ -26,8 +26,6 @@ concurrency:
 
 jobs:
   release:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Release
     environment: release-tool
     timeout-minutes: 40

@@ -65,7 +65,7 @@ env:
 
 jobs:
   echo-inputs:
-    if: github.event_name == 'workflow_dispatch' && always() && vars.ENABLE_CILIUM_CI == 'true'
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
@@ -75,8 +75,6 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
@@ -87,8 +85,6 @@ jobs:
   # Pre-build the ginkgo binary so that we don't have to build it for all
   # runners.
   build-ginkgo-binary:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     runs-on: ubuntu-24.04
     name: Build Ginkgo Runtime
     steps:

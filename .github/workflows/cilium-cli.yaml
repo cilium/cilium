@@ -12,8 +12,6 @@ concurrency:
 
 jobs:
   build-cilium-cli-binaries:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Build Cilium CLI binaries
     runs-on: ubuntu-24.04
     steps:

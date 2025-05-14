@@ -26,8 +26,6 @@ concurrency:
 
 jobs:
   compute-vars:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Compute variables
     runs-on: ubuntu-22.04
     outputs:
@@ -84,8 +82,6 @@ jobs:
               - 'test/**'
 
   build-commits-cilium:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Check if cilium builds for every commit
     runs-on: ubuntu-22.04
     needs: [compute-vars]
@@ -172,8 +168,6 @@ jobs:
         run: git --no-pager log --format=%B -n 1
 
   build-commits-hubble-cli:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Check if hubble-cli builds for every commit
     runs-on: ubuntu-22.04
     needs: [compute-vars]
@@ -266,8 +260,6 @@ jobs:
         run: git --no-pager log --format=%B -n 1
 
   build-commits-bpf:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Check if bpf builds for every commit
     runs-on: ubuntu-22.04
     needs: [compute-vars]
@@ -361,8 +353,6 @@ jobs:
         run: git --no-pager log --format=%B -n 1
 
   build-commits-test:
-    # Skip running workflow on forks using variable Kill Switch
-    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Check if test builds for every commit
     runs-on: ubuntu-22.04
     needs: [compute-vars]
