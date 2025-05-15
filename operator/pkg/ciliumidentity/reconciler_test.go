@@ -102,8 +102,7 @@ func testCreateCIDObj(id string, lbs map[string]string) *capi_v2.CiliumIdentity 
 
 	k := key.GetCIDKeyFromLabels(secLbs, labels.LabelSourceK8s)
 	secLbs = k.GetAsMap()
-
-	selectedLabels, _ := idbackend.SanitizeK8sLabels(secLbs)
+	selectedLabels := idbackend.SelectK8sLabels(secLbs)
 
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -117,7 +116,7 @@ func testCreateCIDObj(id string, lbs map[string]string) *capi_v2.CiliumIdentity 
 func testCreateCIDObjNs(id string, pod *slim_corev1.Pod, namespace *slim_corev1.Namespace) *capi_v2.CiliumIdentity {
 	lbs := k8sUtils.SanitizePodLabels(pod.ObjectMeta.Labels, namespace, "", "")
 	secLbs := key.GetCIDKeyFromLabels(lbs, labels.LabelSourceK8s).GetAsMap()
-	selectedLabels, _ := idbackend.SanitizeK8sLabels(secLbs)
+	selectedLabels := idbackend.SelectK8sLabels(secLbs)
 
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
