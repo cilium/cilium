@@ -111,6 +111,9 @@ jobs:
           - name: 'Tunnel Mode with IPSec Encryption'
             tunnel: 'vxlan'
             encryption: 'ipsec'
+          - name: 'Direct Routing with WireGuard Encryption'
+            tunnel: 'disabled'
+            encryption: 'wireguard'
 
     name: Install and Connectivity Test
     env:
