@@ -112,7 +112,7 @@ type EndpointMapManager struct {
 // packets that arrive on this node from being forwarded to the endpoint that
 // used to exist with the specified ID.
 func (e *EndpointMapManager) RemoveDatapathMapping(endpointID uint16) error {
-	return policymap.RemoveGlobalMapping(logging.DefaultSlogLogger, uint32(endpointID), option.Config.EnableEnvoyConfig)
+	return policymap.RemoveGlobalMapping(logging.DefaultSlogLogger, uint32(endpointID))
 }
 
 // RemoveMapPath removes the specified path from the filesystem.
