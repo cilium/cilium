@@ -2151,18 +2151,6 @@ definitions:
             type: string
             format: duration
             description: Uptime of this Hubble observer instance
-      metrics:
-        type: object
-        description: Status of the Hubble metrics server
-        properties:
-          state:
-            type: string
-            description: State of the Hubble metrics
-            enum:
-              - Ok
-              - Warning
-              - Failure
-              - Disabled
   HubbleMetricsStatus:
     description: |-
       Status of the Hubble metrics server
