@@ -53,7 +53,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	struct endpoint_info *ep;
-	bool decrypted;
+	bool decrypted = false;
 	bool __maybe_unused is_dsr = false;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -87,7 +87,9 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 
+#ifdef ENABLE_IPSEC
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+#endif
 	if (decrypted) {
 		if (info)
 			*identity = info->sec_identity;
@@ -287,7 +289,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
-	bool decrypted;
+	bool decrypted = false;
 	bool __maybe_unused is_dsr = false;
 	int ret;
 
@@ -340,7 +342,9 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	 */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 
+#ifdef ENABLE_IPSEC
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+#endif
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
 		if (info)
@@ -651,7 +655,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	bool decrypted;
+	bool decrypted = false;
 	__u16 proto;
 	int ret;
 
@@ -686,7 +690,9 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  * if the packets are ESP, because it doesn't matter for the
  * non-IPSec mode.
  */
+#ifdef ENABLE_IPSEC
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+#endif
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
