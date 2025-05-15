@@ -25,10 +25,10 @@ type lxcObjects struct {
 	ToContainer   *ebpf.Program `ebpf:"cil_to_container"`
 	FromContainer *ebpf.Program `ebpf:"cil_from_container"`
 
-	PolicyProg *ebpf.Program `ebpf:"handle_policy"`
+	PolicyProg *ebpf.Program `ebpf:"cil_lxc_policy"`
 	PolicyMap  *ebpf.Map     `ebpf:"cilium_call_policy"`
 
-	EgressPolicyProg *ebpf.Program `ebpf:"handle_policy_egress"`
+	EgressPolicyProg *ebpf.Program `ebpf:"cil_lxc_policy_egress"`
 	EgressPolicyMap  *ebpf.Map     `ebpf:"cilium_egresscall_policy"`
 }
 
@@ -42,7 +42,7 @@ type hostObjects struct {
 	ToHost   *ebpf.Program `ebpf:"cil_to_host"`
 	FromHost *ebpf.Program `ebpf:"cil_from_host"`
 
-	PolicyProg *ebpf.Program `ebpf:"handle_lxc_traffic"`
+	PolicyProg *ebpf.Program `ebpf:"cil_host_policy"`
 	PolicyMap  *ebpf.Map     `ebpf:"cilium_call_policy"`
 }
 

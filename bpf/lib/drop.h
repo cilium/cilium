@@ -59,7 +59,7 @@ struct drop_notify {
  */
 
 __declare_tail(CILIUM_CALL_DROP_NOTIFY)
-int __send_drop_notify(struct __ctx_buff *ctx)
+int tail_drop_notify(struct __ctx_buff *ctx)
 {
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
