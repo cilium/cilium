@@ -1,10 +1,9 @@
 # See https://golangci-lint.run/usage/configuration/ for available options.
 # Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
 # reference.
-run:
-  timeout: 1m
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
@@ -22,20 +21,16 @@ linters:
     - errcheck
     - errchkjson
     - errname
-    - errorlint
-    - exhaustive
-    - forcetypeassert
+    - exptostd
     - gocheckcompilerdirectives
     - gocognit
     - goconst
     - gocritic
     - godot
-    - gofmt
     - goheader
-    - goimports
+    - gomodguard
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - grouper
     - importas
@@ -61,35 +56,66 @@ linters:
     - sloglint
     - staticcheck
     - tagalign
-    - tenv
     - testifylint
     - thelper
     - tparallel
-    - typecheck
     - unconvert
     - unparam
     - unused
     - usestdlibvars
+    - usetesting
     - wastedassign
-linters-settings:
-  gocritic:
-    disabled-checks:
-      - exitAfterDefer
-      - singleCaseSwitch
-  goheader:
-    template: |-
-      SPDX-License-Identifier: Apache-2.0
-      Copyright Authors of Cilium
-  gosec:
-    # available rules: https://github.com/securego/gosec#available-rules
-    includes: [] # include all available rules
-    excludes:
-      - G104 # Audit errors not checked
-      - G307 # Deferring a method which returns an error
-  govet:
-    enable-all: true
+  settings:
+    gocritic:
+      disabled-checks:
+        - exitAfterDefer
+        - singleCaseSwitch
+    goheader:
+      template: |-
+        SPDX-License-Identifier: Apache-2.0
+        Copyright Authors of Cilium
+    gomodguard:
+      blocked:
+        modules:
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: "Go 1.20+ has support for combining multiple errors, see https://go.dev/doc/go1.20#errors"
+    gosec:
+      # available rules: https://github.com/securego/gosec#available-rules
+      includes: [] # include all available rules
+      excludes:
+        - G104 # Audit errors not checked
+        - G307 # Deferring a method which returns an error
+    govet:
+      enable-all: true
+    perfsprint:
+      strconcat: false
+    sloglint:
+      no-mixed-args: true
+      no-global: all
+      static-msg: true
+      key-naming-case: kebab # be consistent with key names
+      forbidden-keys: # let's no use reserved log keys
+        - level
+        - msg
+        - source
+        - time
+  exclusions:
+    presets:
+      - comments
+    rules:
+      - linters:
+          - err113
+        text: "do not define dynamic errors, use wrapped static errors instead"
+formatters:
+  enable:
+    - gofmt
+    - goimports
 issues:
-  exclude-use-default: false # default rules exclude doc comments check :(
-  exclude-rules:
-    - linters: [err113]
-      text: "do not define dynamic errors, use wrapped static errors instead"
+  # Maximum issues count per one linter.
+  # Set to 0 to disable (default is 50)
+  max-issues-per-linter: 0
+  # Maximum count of issues with the same text.
+  # Set to 0 to disable (default is 3)
+  max-same-issues: 0

@@ -553,14 +553,27 @@ func (e *Env) HasFunction(functionName string) bool {
 	return ok
 }
 
-// Functions returns map of Functions, keyed by function name, that have been configured in the environment.
+// Functions returns a shallow copy of the Functions, keyed by function name, that have been configured in the environment.
 func (e *Env) Functions() map[string]*decls.FunctionDecl {
-	return e.functions
+	shallowCopy := make(map[string]*decls.FunctionDecl, len(e.functions))
+	for nm, fn := range e.functions {
+		shallowCopy[nm] = fn
+	}
+	return shallowCopy
 }
 
-// Variables returns the set of variables associated with the environment.
+// Variables returns a shallow copy of the variables associated with the environment.
 func (e *Env) Variables() []*decls.VariableDecl {
-	return e.variables[:]
+	shallowCopy := make([]*decls.VariableDecl, len(e.variables))
+	copy(shallowCopy, e.variables)
+	return shallowCopy
+}
+
+// Macros returns a shallow copy of macros associated with the environment.
+func (e *Env) Macros() []Macro {
+	shallowCopy := make([]Macro, len(e.macros))
+	copy(shallowCopy, e.macros)
+	return shallowCopy
 }
 
 // HasValidator returns whether a specific ASTValidator has been configured in the environment.

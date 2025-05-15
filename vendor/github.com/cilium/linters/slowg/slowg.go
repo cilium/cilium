@@ -13,6 +13,8 @@ import (
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/types/typeutil"
+
+	"github.com/cilium/linters/analysisutil"
 )
 
 // Analyzer implements an analysis function that checks for inappropriate use
@@ -26,6 +28,11 @@ var Analyzer = &analysis.Analyzer{
 }
 
 func run(pass *analysis.Pass) (any, error) {
+	if !analysisutil.ImportsPackage(pass.Pkg, "log/slog") &&
+		!analysisutil.ImportsPackage(pass.Pkg, "golang.org/x/exp/slog") {
+		return nil, nil // doesn't directly import slog package
+	}
+
 	inspect, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	if !ok {
 		return nil, errors.New("require analyzer of type *inspector.Inspector")
