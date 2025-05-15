@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
+	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -371,7 +372,7 @@ func TestRespondViaCorrectProtocol(t *testing.T) {
 
 	// Respond with an actual answer for the query. This also tests that the
 	// connection was forwarded via the correct protocol (tcp/udp) because we
-	// connet with TCP, and the server only listens on TCP.
+	// connect with TCP, and the server only listens on TCP.
 
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
@@ -1184,6 +1185,160 @@ func TestProxyRequestContext_IsTimeout(t *testing.T) {
 		gracePeriod: 1 * time.Second,
 	}
 	require.True(t, p.IsTimeout())
+}
+
+func TestExtractMsgDetails(t *testing.T) {
+	testCases := []struct {
+		msg     *dns.Msg
+		ttl     uint32
+		cnames  []string
+		wantErr bool
+	}{
+		// Invalid DNS message
+		{
+			msg:     &dns.Msg{},
+			ttl:     0,
+			cnames:  nil,
+			wantErr: true,
+		},
+		// A response, no CNAMEs
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("cilium.io"),
+				}},
+				Answer: []dns.RR{&dns.A{
+					Hdr: dns.RR_Header{
+						Name: fqdndns.FQDN("cilium.io"),
+						Ttl:  3600,
+					},
+					A: net.ParseIP("192.0.2.3"),
+				}},
+			},
+			ttl:     3600,
+			cnames:  nil,
+			wantErr: false,
+		},
+		// AAAA response, no CNAMEs, min TTL
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.AAAA{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("cilium.io"),
+							Ttl:  3600,
+						},
+						AAAA: net.ParseIP("f00d::1"),
+					},
+					&dns.AAAA{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("cilium.io"),
+							Ttl:  1800,
+						},
+						AAAA: net.ParseIP("f00d::2"),
+					},
+				},
+			},
+			ttl:     1800,
+			cnames:  nil,
+			wantErr: false,
+		},
+		// A & CNAME (1 level) response, min TTL
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo.cilium.io"),
+							Ttl:  1800,
+						},
+						Target: fqdndns.FQDN("bar.cilium.io"),
+					},
+					&dns.A{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("bar.cilium.io"),
+							Ttl:  3600,
+						},
+						A: net.ParseIP("192.168.0.2"),
+					},
+				},
+			},
+			ttl:     1800,
+			cnames:  []string{"bar.cilium.io."},
+			wantErr: false,
+		},
+		// AAAA & CNAME (3 levels) response, min TTL
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo.cilium.io"),
+							Ttl:  7200,
+						},
+						Target: fqdndns.FQDN("foo1.cilium.io"),
+					},
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo1.cilium.io"),
+							Ttl:  3600,
+						},
+						Target: fqdndns.FQDN("foo2.cilium.io"),
+					},
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo2.cilium.io"),
+							Ttl:  7200,
+						},
+						Target: fqdndns.FQDN("foo3.cilium.io"),
+					},
+					&dns.AAAA{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo3.cilium.io"),
+							Ttl:  7200,
+						},
+						AAAA: net.ParseIP("f00d::1"),
+					},
+				},
+			},
+			ttl:     3600,
+			cnames:  []string{"foo1.cilium.io.", "foo2.cilium.io.", "foo3.cilium.io."},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		_, _, ttl, cnames, _, _, _, err := ExtractMsgDetails(tc.msg)
+		if tc.wantErr {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+
+		require.Equal(t, tc.ttl, ttl)
+		require.Equal(t, tc.cnames, cnames)
+	}
 }
 
 type selectorMock struct {

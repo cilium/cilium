@@ -1319,7 +1319,16 @@ func (p *DNSProxy) GetBindPort() uint16 {
 // the lowest applicable TTL, rcode, anwer rr types and question types
 // When a CNAME is returned the chain is collapsed down, keeping the lowest TTL,
 // and CNAME targets are returned.
-func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []netip.Addr, TTL uint32, CNAMEs []string, rcode int, answerTypes []uint16, qTypes []uint16, err error) {
+func ExtractMsgDetails(msg *dns.Msg) (
+	qname string,
+	responseIPs []netip.Addr,
+	TTL uint32,
+	CNAMEs []string,
+	rcode int,
+	answerTypes []uint16,
+	qTypes []uint16,
+	err error,
+) {
 	if len(msg.Question) == 0 {
 		return "", nil, 0, nil, 0, nil, nil, errors.New("Invalid DNS message")
 	}
