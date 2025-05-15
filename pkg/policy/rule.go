@@ -481,9 +481,7 @@ func (r *rule) resolveIngressPolicy(
 	state *traceState,
 	result L4PolicyMap,
 	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
-) (
-	L4PolicyMap, error,
-) {
+) error {
 	state.selectRule(policyCtx, r)
 	found, foundDeny := 0, 0
 
@@ -494,7 +492,7 @@ func (r *rule) resolveIngressPolicy(
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements)
 		cnt, err := mergeIngress(policyCtx, fromEndpoints, ingressRule.Authentication, ingressRule.ToPorts, ingressRule.ICMPs, makeStringLabels(r.Rule.Labels), result)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if cnt > 0 {
 			found += cnt
@@ -509,24 +507,21 @@ func (r *rule) resolveIngressPolicy(
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirementsDeny)
 		cnt, err := mergeIngress(policyCtx, fromEndpoints, nil, ingressRule.ToPorts, ingressRule.ICMPs, makeStringLabels(r.Rule.Labels), result)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if cnt > 0 {
 			foundDeny += cnt
 		}
 	}
 
-	if found+foundDeny > 0 {
-		if found != 0 {
-			state.matchedRules++
-		}
-		if foundDeny != 0 {
-			state.matchedDenyRules++
-		}
-		return result, nil
+	if found != 0 {
+		state.matchedRules++
+	}
+	if foundDeny != 0 {
+		state.matchedDenyRules++
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
@@ -690,9 +685,7 @@ func (r *rule) resolveEgressPolicy(
 	state *traceState,
 	result L4PolicyMap,
 	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
-) (
-	L4PolicyMap, error,
-) {
+) error {
 
 	state.selectRule(policyCtx, r)
 	found, foundDeny := 0, 0
@@ -704,7 +697,7 @@ func (r *rule) resolveEgressPolicy(
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
 		cnt, err := mergeEgress(policyCtx, toEndpoints, egressRule.Authentication, egressRule.ToPorts, egressRule.ICMPs, makeStringLabels(r.Rule.Labels), result, egressRule.ToFQDNs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if cnt > 0 {
 			found += cnt
@@ -719,22 +712,19 @@ func (r *rule) resolveEgressPolicy(
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirementsDeny)
 		cnt, err := mergeEgress(policyCtx, toEndpoints, nil, egressRule.ToPorts, egressRule.ICMPs, makeStringLabels(r.Rule.Labels), result, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if cnt > 0 {
 			foundDeny += cnt
 		}
 	}
 
-	if found+foundDeny > 0 {
-		if found != 0 {
-			state.matchedRules++
-		}
-		if foundDeny != 0 {
-			state.matchedDenyRules++
-		}
-		return result, nil
+	if found != 0 {
+		state.matchedRules++
+	}
+	if foundDeny != 0 {
+		state.matchedDenyRules++
 	}
 
-	return nil, nil
+	return nil
 }
