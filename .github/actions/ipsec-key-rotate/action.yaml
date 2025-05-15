@@ -13,10 +13,10 @@ inputs:
     required: true
     type: string
     description: "Number of nodes in the cluster or clustermesh"
-  ipv6:
+  dual-stack:
     required: true
     type: boolean
-    description: "Whether IPv6 is enabled. Note IPv4 is always enabled if IPsec is enabled."
+    description: "Whether both IPV4 and IPv6 are enabled."
   subnet-encryption:
     required: true
     type: boolean
@@ -52,7 +52,7 @@ runs:
         else
           ((exp_nb_keys*=2))
         fi
-        if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
+        if [[ "${{ inputs.dual-stack }}" == "true" ]]; then
           ((exp_nb_keys*=2))
         fi
         # If running in tunneling mode, then we have twice the amount of states
