@@ -1403,7 +1403,8 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
+	wildcard := sel.IsWildcard()
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
@@ -1648,14 +1649,8 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 				rules = append(rules, rule)
 			}
 		} else {
-			nSelectors := len(l4.PerSelectorPolicies)
 			for sel, l7 := range l4.PerSelectorPolicies {
-				// A single selector is effectively a wildcard, as bpf passes through
-				// only allowed l3. If there are multiple selectors for this l4-filter
-				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
-				// being different between the selectors.
-				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7, useFullTLSContext)
+				rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, useFullTLSContext)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false

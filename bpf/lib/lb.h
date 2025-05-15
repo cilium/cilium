@@ -958,7 +958,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			goto drop_err;
 
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
-		_lb_act_conn_open(ct_state->rev_nat_index, backend->zone);
+		_lb_act_conn_open(state->rev_nat_index, backend->zone);
 #endif
 
 		break;
