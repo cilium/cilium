@@ -2227,7 +2227,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
  * from another local pod).
  */
 __section_entry
-int handle_policy(struct __ctx_buff *ctx)
+int cil_lxc_policy(struct __ctx_buff *ctx)
 {
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u32 sec_label = SECLABEL;
@@ -2278,7 +2278,7 @@ out:
  * a L7 LB.
  */
 __section_entry
-int handle_policy_egress(struct __ctx_buff *ctx __maybe_unused)
+int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 {
 #if defined(ENABLE_L7_LB)
 	__u16 proto;
