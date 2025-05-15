@@ -1683,14 +1683,14 @@ int cil_to_host(struct __ctx_buff *ctx)
 	/* Prefer ctx->mark when it is set to one of the expected values.
 	 * Also see https://github.com/cilium/cilium/issues/36329.
 	 */
-	if (((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) ||
-	    ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY))
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY)
 		magic = ctx->mark;
+#ifdef ENABLE_IPSEC
+	else if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT)
+		magic = ctx->mark;
+#endif
 
-	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
-		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
-		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
+	if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
 		/* We already traced this in the previous prog with more
@@ -1702,6 +1702,12 @@ int cil_to_host(struct __ctx_buff *ctx)
 		ret = ctx_redirect_to_proxy_first(ctx, port);
 		goto out;
 	}
+#ifdef ENABLE_IPSEC
+	else if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
+		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+	}
+#endif
 
 #ifdef ENABLE_IPSEC
 	/* Encryption stack needs this when IPSec headers are
