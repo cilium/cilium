@@ -272,10 +272,6 @@ var ExpectedPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
 	L7:             ExpectedHttpRule122HeaderMatch,
 }
 
-var ExpectedPortNetworkPolicyRule122HeaderMatchWildcard = &cilium.PortNetworkPolicyRule{
-	L7: ExpectedHttpRule122HeaderMatch,
-}
-
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint32{1001, 1003},
 	L7:             ExpectedHttpRule1,
@@ -391,6 +387,15 @@ var ExpectedPerPortPoliciesSNI = []*cilium.PortNetworkPolicy{
 	},
 }
 
+var ExpectedPerPortPolicies1 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     8080,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule1,
+		},
+	},
+}
 var ExpectedPerPortPolicies1Wildcard = []*cilium.PortNetworkPolicy{
 	{
 		Port:     8080,
@@ -401,12 +406,22 @@ var ExpectedPerPortPolicies1Wildcard = []*cilium.PortNetworkPolicy{
 	},
 }
 
-var ExpectedPerPortPolicies122HeaderMatchWildcard = []*cilium.PortNetworkPolicy{
+var ExpectedPerPortPolicies122HeaderMatch = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
-			ExpectedPortNetworkPolicyRule122HeaderMatchWildcard,
+			ExpectedPortNetworkPolicyRule122HeaderMatch,
+		},
+	},
+}
+
+var ExpectedPerPortPolicies12 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule12,
 		},
 	},
 }
@@ -431,6 +446,16 @@ var ExpectedPerPortPolicies12RequiresV2 = []*cilium.PortNetworkPolicy{
 		}, {
 			RemotePolicies: []uint32{1002},
 			L7:             ExpectedHttpRule12,
+		}},
+	},
+}
+
+var ExpectedPerPortPolicies = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			RemotePolicies: []uint32{1001, 1002},
 		}},
 	},
 }
@@ -489,15 +514,15 @@ func (s *ServerSuite) Test_getWildcardNetworkPolicyRule(c *C) {
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
-	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12)
+	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules12)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule12)
 	c.Assert(canShortCircuit, Equals, true)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch)
+	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules12HeaderMatch)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule122HeaderMatch)
 	c.Assert(canShortCircuit, Equals, false)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1)
+	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, policy.ParserTypeHTTP, L7Rules1)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule1)
 	c.Assert(canShortCircuit, Equals, true)
 }
@@ -505,19 +530,19 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
 	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies12Wildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies12)
 
 	// L4+L7 with header mods
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies122HeaderMatchWildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies122HeaderMatch)
 
 	// L4+L7
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1Wildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, nil, "ingress")
-	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, nil, "ingress")
@@ -533,8 +558,8 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
-		IngressPerPortPolicies: ExpectedPerPortPolicies12Wildcard,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
+		IngressPerPortPolicies: ExpectedPerPortPolicies12,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
 		ConntrackMapName:       "global",
 	}
 	c.Assert(obtained, checker.ExportedEquals, expected)
@@ -546,7 +571,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12Wildcard,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
 		ConntrackMapName:       "global",
 	}
 	c.Assert(obtained, checker.ExportedEquals, expected)
@@ -558,7 +583,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
 		ConntrackMapName:       "global",
 	}
 	c.Assert(obtained, checker.ExportedEquals, expected)
@@ -570,7 +595,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
 		ConntrackMapName:       "global",
 	}
 	c.Assert(obtained, checker.ExportedEquals, expected)
@@ -594,7 +619,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: allowAllPortNetworkPolicy,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
 		ConntrackMapName:       "global",
 	}
 	c.Assert(obtained, checker.ExportedEquals, expected)
@@ -640,8 +665,8 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 		Port:     9090,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
-			L7Proto: "tester",
+			RemotePolicies: []uint32{1001, 1002},
+			L7Proto:        "tester",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
 					L7AllowRules: []*cilium.L7NetworkPolicyRule{
@@ -692,8 +717,8 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 		Port:     9092,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
-			L7Proto: "kafka",
+			RemotePolicies: []uint32{1001, 1002},
+			L7Proto:        "kafka",
 			L7: &cilium.PortNetworkPolicyRule_KafkaRules{
 				KafkaRules: &cilium.KafkaNetworkPolicyRules{
 					KafkaRules: []*cilium.KafkaNetworkPolicyRule{{
@@ -749,8 +774,8 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 		Port:     3306,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
-			L7Proto: "envoy.filters.network.mysql_proxy",
+			RemotePolicies: []uint32{1001, 1002},
+			L7Proto:        "envoy.filters.network.mysql_proxy",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
 					L7DenyRules: []*cilium.L7NetworkPolicyRule{{
@@ -868,6 +893,7 @@ var ExpectedPerPortPoliciesTLSEgress = []*cilium.PortNetworkPolicy{
 		Port:     443,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			RemotePolicies: []uint32{1001, 1002},
 			UpstreamTlsContext: &cilium.TLSContext{
 				TrustedCa: "foo",
 			},
@@ -909,6 +935,7 @@ var ExpectedPerPortPoliciesTLSIngress = []*cilium.PortNetworkPolicy{
 		Port:     443,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			RemotePolicies: []uint32{1001, 1002},
 			UpstreamTlsContext: &cilium.TLSContext{
 				CertificateChain: "certchain",
 				PrivateKey:       "key",
