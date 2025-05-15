@@ -4,6 +4,7 @@
 package policymap
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -37,30 +38,34 @@ func (k *PlumbingValue) New() bpf.MapValue { return &PlumbingValue{} }
 
 // RemoveGlobalMapping removes the mapping from the specified endpoint ID to
 // the BPF policy program for that endpoint.
-func RemoveGlobalMapping(logger *slog.Logger, id uint32, haveEgressCallMap bool) error {
-	gpm, err := OpenCallMap(logger, PolicyCallMapName)
-	if err == nil {
+func RemoveGlobalMapping(logger *slog.Logger, id uint32) error {
+	var errs error
+
+	if m, err := OpenCallMap(logger, PolicyCallMapName); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("open global policy map: %w", err))
+	} else {
+		defer m.Close()
 		k := PlumbingKey{
 			Key: id,
 		}
-		err = gpm.Map.Delete(&k)
-		gpm.Close()
-	}
-	if haveEgressCallMap {
-		gpm, err2 := OpenCallMap(logger, PolicyEgressCallMapName)
-		if err2 == nil {
-			k := PlumbingKey{
-				Key: id,
-			}
-			err2 = gpm.Map.Delete(&k)
-			gpm.Close()
-		}
-		if err == nil {
-			return err2
+		if err := m.Map.Delete(&k); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("delete endpoint id %d from global policy map: %w", id, err))
 		}
 	}
 
-	return err
+	if m, err := OpenCallMap(logger, PolicyEgressCallMapName); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("open global egress policy map: %w", err))
+	} else {
+		defer m.Close()
+		k := PlumbingKey{
+			Key: id,
+		}
+		if err := m.Map.Delete(&k); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("delete endpoint id %d from global egress policy map: %w", id, err))
+		}
+	}
+
+	return errs
 }
 
 // OpenCallMap opens the map that maps endpoint IDs to program file
