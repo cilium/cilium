@@ -1975,9 +1975,20 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
  * will tail call into this program to enforce egress and ingress host policies.
  * Packets to the local endpoints will then tail call back to the original
  * bpf_lxc program.
+ *
+ * This program is not attached to a bpf hook directly, but instead inserted
+ * into the global policy tail call map at a fixed index. It is marked as an
+ * entry point since it can be invoked by bpf_lxc as soon as it's inserted into
+ * the map, effectively making this object's code reachable from other parts of
+ * the datapath.
+ *
+ * Care must be taken to insert it at a specific time in the host datapath setup
+ * sequence to ensure no missed tail calls or policy bypass occurs. It is not
+ * marked as a tail call since those programs are inserted automatically in
+ * random order.
  */
 __section_entry
-int handle_lxc_traffic(struct __ctx_buff *ctx __maybe_unused)
+int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);

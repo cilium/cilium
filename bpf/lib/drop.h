@@ -57,7 +57,7 @@ struct drop_notify {
  */
 
 __declare_tail(CILIUM_CALL_DROP_NOTIFY)
-int __send_drop_notify(struct __ctx_buff *ctx)
+int tail_drop_notify(struct __ctx_buff *ctx)
 {
 	bool l3_dev = false, ipv6 = false;
 	/* Mask needed to calm verifier. */
