@@ -3310,22 +3310,6 @@ func init() {
       "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "metrics": {
-          "description": "Status of the Hubble metrics server",
-          "type": "object",
-          "properties": {
-            "state": {
-              "description": "State of the Hubble metrics",
-              "type": "string",
-              "enum": [
-                "Ok",
-                "Warning",
-                "Failure",
-                "Disabled"
-              ]
-            }
-          }
-        },
         "msg": {
           "description": "Human readable status/error/warning message",
           "type": "string"
@@ -9034,22 +9018,6 @@ func init() {
       "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "metrics": {
-          "description": "Status of the Hubble metrics server",
-          "type": "object",
-          "properties": {
-            "state": {
-              "description": "State of the Hubble metrics",
-              "type": "string",
-              "enum": [
-                "Ok",
-                "Warning",
-                "Failure",
-                "Disabled"
-              ]
-            }
-          }
-        },
         "msg": {
           "description": "Human readable status/error/warning message",
           "type": "string"
@@ -9079,22 +9047,6 @@ func init() {
         },
         "state": {
           "description": "State the component is in",
-          "type": "string",
-          "enum": [
-            "Ok",
-            "Warning",
-            "Failure",
-            "Disabled"
-          ]
-        }
-      }
-    },
-    "HubbleStatusMetrics": {
-      "description": "Status of the Hubble metrics server",
-      "type": "object",
-      "properties": {
-        "state": {
-          "description": "State of the Hubble metrics",
           "type": "string",
           "enum": [
             "Ok",
