@@ -2279,27 +2279,6 @@ func (c *DaemonConfig) AreDevicesRequired() bool {
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
-// NeedEgressOnWireGuardDevice returns true if the agent needs to attach
-// cil_to_wireguard on the Egress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedEgressOnWireGuardDevice() bool {
-	if !c.EnableWireguard {
-		return false
-	}
-
-	// No need to handle rev-NAT xlations in wireguard with tunneling enabled.
-	if c.TunnelingEnabled() {
-		return false
-	}
-
-	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
-	// the rev-NAT xlations when encrypting KPR traffic.
-	if c.EnableNodePort && c.EnableL7Proxy && c.KubeProxyReplacement == KubeProxyReplacementTrue {
-		return true
-	}
-
-	return false
-}
-
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
 func (c *DaemonConfig) MasqueradingEnabled() bool {
 	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade

@@ -760,20 +760,10 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	// Attach/detach cil_to_wireguard to/from egress.
-	if option.Config.NeedEgressOnWireGuardDevice() {
-		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,
-			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-			return fmt.Errorf("interface %s egress: %w", device, err)
-		}
-	} else {
-		if err := detachSKBProgram(logger, device, symbolToWireguard,
-			linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-			logger.Error("",
-				logfields.Error, err,
-				logfields.Device, device,
-			)
-		}
+	// Attach cil_to_wireguard to egress.
+	if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,
+		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+		return fmt.Errorf("interface %s egress: %w", device, err)
 	}
 	// Attach cil_from_wireguard to ingress.
 	if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
