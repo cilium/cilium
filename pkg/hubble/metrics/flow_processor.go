@@ -13,6 +13,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var _ FlowProcessor = (*StaticFlowProcessor)(nil)
+
 type StaticFlowProcessor struct {
 	logger  *slog.Logger
 	metrics []api.NamedHandler
@@ -23,6 +25,12 @@ func NewStaticFlowProcessor(logger *slog.Logger, metrics []api.NamedHandler) *St
 		logger:  logger,
 		metrics: metrics,
 	}
+}
+
+// ProcessFlow implements FlowProcessor.
+func (p *StaticFlowProcessor) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	_, err := p.OnDecodedFlow(ctx, flow)
+	return err
 }
 
 // OnDecodedFlow implements observeroption.OnDecodedFlow.

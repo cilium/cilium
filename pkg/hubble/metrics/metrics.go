@@ -4,6 +4,7 @@
 package metrics
 
 import (
+	"context"
 	"crypto/tls"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/util/workqueue"
 
+	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/dns"               // invoke init
@@ -145,4 +147,10 @@ func StartMetricsServer(srv *http.Server, log logging.FieldLogger, metricsTLSCon
 		return srv.ListenAndServeTLS("", "")
 	}
 	return srv.ListenAndServe()
+}
+
+// FlowProcessor is an abstraction over the static and dynamic flow processors.
+type FlowProcessor interface {
+	// ProcessFlow processes a flow event and perform metrics accounting.
+	ProcessFlow(ctx context.Context, flow *pb.Flow) error
 }
