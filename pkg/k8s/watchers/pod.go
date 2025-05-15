@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"go4.org/netipx"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -578,8 +577,8 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				continue
 			}
 
-			feIP := net.ParseIP(p.HostIP)
-			if feIP != nil && feIP.IsLoopback() && !netnsCookieSupported(logger) {
+			feIP, err := netip.ParseAddr(p.HostIP)
+			if err == nil && feIP.IsLoopback() && !netnsCookieSupported(logger) {
 				logger.Warn(
 					fmt.Sprintf("The requested loopback address for hostIP (%s) is not supported for kernels which don't provide netns cookies. Ignoring.",
 						feIP))
@@ -618,19 +617,19 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 			// on this address but not via other addresses. When it's not set,
 			// then expose via all local addresses. Same when the user provides
 			// an unspecified address (0.0.0.0 / [::]).
-			if feIP != nil && !feIP.IsUnspecified() {
+			if feIP.IsValid() && !feIP.IsUnspecified() {
 				// Migrate the loopback address into a 0.0.0.0 / [::]
 				// surrogate, thus internal datapath handling can be
 				// streamlined. It's not exposed for traffic from outside.
 				if feIP.IsLoopback() {
-					if feIP.To4() != nil {
-						feIP = net.IPv4zero
+					if feIP.Is4() {
+						feIP = netip.IPv4Unspecified()
 					} else {
-						feIP = net.IPv6zero
+						feIP = netip.IPv6Unspecified()
 					}
 					loopbackHostport = true
 				}
-				nodeAddrAll = []netip.Addr{netipx.MustFromStdIP(feIP)}
+				nodeAddrAll = []netip.Addr{feIP}
 			} else {
 				iter := k.nodeAddrs.List(k.db.ReadTxn(), datapathTables.NodeAddressNodePortIndex.Query(true))
 				for addr := range iter {
