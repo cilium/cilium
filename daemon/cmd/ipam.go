@@ -538,15 +538,18 @@ func (d *Daemon) configureIPAM() {
 
 		node.SetIPv6NodeRange(allocCIDR)
 	}
+	/*
+	   device := ""
+	   drd, _ := d.directRoutingDev.Get(d.ctx, d.db.ReadTxn())
 
-	device := ""
-	drd, _ := d.directRoutingDev.Get(d.ctx, d.db.ReadTxn())
-	if drd != nil {
-		device = drd.Name
-	}
-	if err := node.AutoComplete(d.logger, device); err != nil {
-		log.WithError(err).Fatal("Cannot autocomplete node addresses")
-	}
+	   	if drd != nil {
+	   		device = drd.Name
+	   	}
+
+	   	if err := node.AutoComplete(d.logger, device); err != nil {
+	   		log.WithError(err).Fatal("Cannot autocomplete node addresses")
+	   	}
+	*/
 }
 
 func (d *Daemon) startIPAM() {
