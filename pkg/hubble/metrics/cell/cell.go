@@ -112,6 +112,7 @@ type params struct {
 type out struct {
 	cell.Out
 
+	HealthReporter HealthReporter
 	// TODO: should we instead provide a concrete metrics.FlowProcessor
 	// interface and have the hubble cell register the OnDecodecFlow hooks
 	// like we do with the exporter?
@@ -124,10 +125,14 @@ func newHubbleMetrics(p params) (out, error) {
 	}
 	if p.Config.MetricsServer == "" {
 		p.Logger.Info("The Hubble metrics server is disabled")
-		return out{}, nil
+		return out{HealthReporter: &healthReporter{}}, nil
 	}
 
-	p.Lifecycle.Append(newMetricsServer(p))
+	// metrics server
+	metricsServer := newMetricsServer(p)
+	p.Lifecycle.Append(metricsServer)
+
+	var observerOptions []observeroption.Option
 
 	// static metrics
 	if len(p.Config.Metrics) > 0 {
@@ -138,7 +143,7 @@ func newHubbleMetrics(p params) (out, error) {
 			return out{}, fmt.Errorf("failed to setup hubble metrics: %w", err)
 		}
 		fp := metrics.NewStaticFlowProcessor(p.Logger, metrics.EnabledMetrics)
-		return out{ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedFlow(fp)}}, nil
+		observerOptions = append(observerOptions, observeroption.WithOnDecodedFlow(fp))
 	}
 
 	// dynamic metrics
@@ -149,8 +154,11 @@ func newHubbleMetrics(p params) (out, error) {
 		)
 		metrics.InitHubbleInternalMetrics(metrics.Registry, p.GRPCServerMetrics)
 		fp := metrics.NewDynamicFlowProcessor(metrics.Registry, p.Logger, p.Config.DynamicMetricConfigFilePath)
-		return out{ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedFlow(fp)}}, nil
+		observerOptions = append(observerOptions, observeroption.WithOnDecodedFlow(fp))
 	}
 
-	return out{}, nil
+	return out{
+		HealthReporter:  &healthReporter{metricsServer},
+		ObserverOptions: observerOptions,
+	}, nil
 }
