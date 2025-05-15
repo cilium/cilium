@@ -114,6 +114,9 @@ jobs:
           - name: 'Direct Routing with WireGuard Encryption'
             tunnel: 'disabled'
             encryption: 'wireguard'
+          - name: 'Tunnel Mode with WireGuard Encryption'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
 
     name: Install and Connectivity Test
     env:
