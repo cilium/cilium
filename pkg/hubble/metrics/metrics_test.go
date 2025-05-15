@@ -56,8 +56,7 @@ func TestInitializedMetrics(t *testing.T) {
 }
 
 func SetUpTestMetricsServer(reg *prometheus.Registry) *httptest.Server {
-	srv := httptest.NewServer(nil)
-	InitMetricsServerHandler(srv.Config, reg, false)
+	srv := httptest.NewServer(ServerHandler(reg, false))
 	return srv
 }
 
