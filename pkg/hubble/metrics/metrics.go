@@ -5,7 +5,6 @@ package metrics
 
 import (
 	"context"
-	"crypto/tls"
 	"log/slog"
 	"net/http"
 
@@ -15,7 +14,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/dns"               // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/drop"              // invoke init
@@ -27,9 +25,7 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/policy"            // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/port-distribution" // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
-	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -127,7 +123,7 @@ func InitMetricHandlers(logger *slog.Logger, reg *prometheus.Registry, enabled *
 	return api.DefaultRegistry().ConfigureHandlers(logger, reg, enabled)
 }
 
-func InitMetricsServerHandler(srv *http.Server, reg *prometheus.Registry, enableOpenMetrics bool) {
+func ServerHandler(reg *prometheus.Registry, enableOpenMetrics bool) http.Handler {
 	mux := http.NewServeMux()
 	handler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		EnableOpenMetrics: enableOpenMetrics,
@@ -136,17 +132,7 @@ func InitMetricsServerHandler(srv *http.Server, reg *prometheus.Registry, enable
 	handler = promhttp.InstrumentHandlerDuration(RequestDuration, handler)
 	mux.Handle("/metrics", handler)
 
-	srv.Handler = mux
-}
-
-func StartMetricsServer(srv *http.Server, log logging.FieldLogger, metricsTLSConfig *certloader.WatchedServerConfig, grpcMetrics *grpc_prometheus.ServerMetrics) error {
-	if metricsTLSConfig != nil {
-		srv.TLSConfig = metricsTLSConfig.ServerConfig(&tls.Config{ //nolint:gosec
-			MinVersion: serveroption.MinTLSVersion,
-		})
-		return srv.ListenAndServeTLS("", "")
-	}
-	return srv.ListenAndServe()
+	return mux
 }
 
 // FlowProcessor is an abstraction over the static and dynamic flow processors.

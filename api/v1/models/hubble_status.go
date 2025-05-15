@@ -25,9 +25,6 @@ import (
 // swagger:model HubbleStatus
 type HubbleStatus struct {
 
-	// metrics
-	Metrics *HubbleStatusMetrics `json:"metrics,omitempty"`
-
 	// Human readable status/error/warning message
 	Msg string `json:"msg,omitempty"`
 
@@ -43,10 +40,6 @@ type HubbleStatus struct {
 func (m *HubbleStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateMetrics(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateObserver(formats); err != nil {
 		res = append(res, err)
 	}
@@ -58,25 +51,6 @@ func (m *HubbleStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *HubbleStatus) validateMetrics(formats strfmt.Registry) error {
-	if swag.IsZero(m.Metrics) { // not required
-		return nil
-	}
-
-	if m.Metrics != nil {
-		if err := m.Metrics.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("metrics")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("metrics")
-			}
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -151,10 +125,6 @@ func (m *HubbleStatus) validateState(formats strfmt.Registry) error {
 func (m *HubbleStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.contextValidateMetrics(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateObserver(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -162,27 +132,6 @@ func (m *HubbleStatus) ContextValidate(ctx context.Context, formats strfmt.Regis
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *HubbleStatus) contextValidateMetrics(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.Metrics != nil {
-
-		if swag.IsZero(m.Metrics) { // not required
-			return nil
-		}
-
-		if err := m.Metrics.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("metrics")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("metrics")
-			}
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -218,101 +167,6 @@ func (m *HubbleStatus) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *HubbleStatus) UnmarshalBinary(b []byte) error {
 	var res HubbleStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
-	return nil
-}
-
-// HubbleStatusMetrics Status of the Hubble metrics server
-//
-// swagger:model HubbleStatusMetrics
-type HubbleStatusMetrics struct {
-
-	// State of the Hubble metrics
-	// Enum: ["Ok","Warning","Failure","Disabled"]
-	State string `json:"state,omitempty"`
-}
-
-// Validate validates this hubble status metrics
-func (m *HubbleStatusMetrics) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.validateState(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-var hubbleStatusMetricsTypeStatePropEnum []interface{}
-
-func init() {
-	var res []string
-	if err := json.Unmarshal([]byte(`["Ok","Warning","Failure","Disabled"]`), &res); err != nil {
-		panic(err)
-	}
-	for _, v := range res {
-		hubbleStatusMetricsTypeStatePropEnum = append(hubbleStatusMetricsTypeStatePropEnum, v)
-	}
-}
-
-const (
-
-	// HubbleStatusMetricsStateOk captures enum value "Ok"
-	HubbleStatusMetricsStateOk string = "Ok"
-
-	// HubbleStatusMetricsStateWarning captures enum value "Warning"
-	HubbleStatusMetricsStateWarning string = "Warning"
-
-	// HubbleStatusMetricsStateFailure captures enum value "Failure"
-	HubbleStatusMetricsStateFailure string = "Failure"
-
-	// HubbleStatusMetricsStateDisabled captures enum value "Disabled"
-	HubbleStatusMetricsStateDisabled string = "Disabled"
-)
-
-// prop value enum
-func (m *HubbleStatusMetrics) validateStateEnum(path, location string, value string) error {
-	if err := validate.EnumCase(path, location, value, hubbleStatusMetricsTypeStatePropEnum, true); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *HubbleStatusMetrics) validateState(formats strfmt.Registry) error {
-	if swag.IsZero(m.State) { // not required
-		return nil
-	}
-
-	// value enum
-	if err := m.validateStateEnum("metrics"+"."+"state", "body", m.State); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ContextValidate validates this hubble status metrics based on context it is used
-func (m *HubbleStatusMetrics) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (m *HubbleStatusMetrics) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *HubbleStatusMetrics) UnmarshalBinary(b []byte) error {
-	var res HubbleStatusMetrics
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

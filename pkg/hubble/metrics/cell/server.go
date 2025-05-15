@@ -37,14 +37,13 @@ func newMetricsServer(p params) Server {
 		return nil
 	}
 
-	srv := &http.Server{
-		Addr: p.Config.MetricsServer,
-	}
-	metrics.InitMetricsServerHandler(srv, metrics.Registry, p.Config.EnableOpenMetrics)
-
+	mux := metrics.ServerHandler(metrics.Registry, p.Config.EnableOpenMetrics)
 	server := &metricsServer{
-		logger:           p.Logger,
-		server:           srv,
+		logger: p.Logger,
+		server: &http.Server{
+			Addr:    p.Config.MetricsServer,
+			Handler: mux,
+		},
 		tlsConfigPromise: p.TLSConfigPromise,
 	}
 

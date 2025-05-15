@@ -882,6 +882,25 @@ func (d *statusCollector) getProbes() []Probe {
 			},
 		},
 		{
+			Name: "hubble-metrics",
+			Probe: func(ctx context.Context) (any, error) {
+				if d.statusParams.HubbleMetrics == nil {
+					return &models.HubbleMetricsStatus{State: models.HubbleMetricsStatusStateDisabled}, nil
+				}
+				return d.statusParams.HubbleMetrics.Status(), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.HubbleMetricsStatus); ok {
+						d.statusResponse.HubbleMetrics = s
+					}
+				}
+			},
+		},
+		{
 			Name: "encryption",
 			Probe: func(ctx context.Context) (any, error) {
 				switch {
