@@ -58,6 +58,7 @@ __id_for_file(const char *const header_name)
 	_strcase_(114, "host_firewall.h");
 	_strcase_(115, "nodeport_egress.h");
 	_strcase_(116, "ipv6.h");
+	_strcase_(117, "classifiers.h");
 
 	/* @@ source files list end */
 
