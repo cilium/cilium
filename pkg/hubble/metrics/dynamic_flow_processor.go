@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var _ FlowProcessor = (*DynamicFlowProcessor)(nil)
+
 // DynamicFlowProcessor represents instance of hubble exporter with dynamic
 // configuration reload.
 type DynamicFlowProcessor struct {
@@ -26,6 +28,12 @@ type DynamicFlowProcessor struct {
 	mutex    lock.RWMutex
 	Metrics  []api.NamedHandler
 	registry *prometheus.Registry
+}
+
+// ProcessFlow implements FlowProcessor.
+func (p *DynamicFlowProcessor) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	_, err := p.OnDecodedFlow(ctx, flow)
+	return err
 }
 
 // OnDecodedEvent distributes events across all managed exporters.
