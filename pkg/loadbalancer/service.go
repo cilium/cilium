@@ -103,6 +103,15 @@ func (svc *Service) GetLBAlgorithmAnnotation() SVCLoadBalancingAlgorithm {
 	return ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
+func (svc *Service) GetSourceRangesPolicy() SVCSourceRangesPolicy {
+	if value, ok := annotation.Get(svc, annotation.ServiceSourceRangesPolicy); ok {
+		if SVCSourceRangesPolicy(strings.ToLower(value)) == SVCSourceRangesPolicyDeny {
+			return SVCSourceRangesPolicyDeny
+		}
+	}
+	return SVCSourceRangesPolicyAllow
+}
+
 func (svc *Service) GetAnnotations() map[string]string {
 	return svc.Annotations
 }
@@ -183,6 +192,10 @@ func (svc *Service) TableRow() []string {
 			ss[i] = cidrs[i].String()
 		}
 		flags = append(flags, "SourceRanges="+strings.Join(ss, ", "))
+	}
+
+	if p := svc.GetSourceRangesPolicy(); p == SVCSourceRangesPolicyDeny {
+		flags = append(flags, "SourceRangesPolicy=deny")
 	}
 
 	if svc.ProxyRedirect != nil {
