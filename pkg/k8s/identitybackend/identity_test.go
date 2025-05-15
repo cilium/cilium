@@ -24,65 +24,38 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
-func TestSanitizeK8sLabels(t *testing.T) {
+func TestSelectK8sLabels(t *testing.T) {
 	path := field.NewPath("test", "labels")
 	testCases := []struct {
-		input            map[string]string
-		selected         map[string]string
-		skipped          map[string]string
-		validationErrors field.ErrorList
+		input    map[string]string
+		selected map[string]string
 	}{
 		{
-			input:            map[string]string{},
-			selected:         map[string]string{},
-			skipped:          map[string]string{},
-			validationErrors: field.ErrorList{},
+			input:    map[string]string{},
+			selected: map[string]string{},
 		},
 		{
-			input:            map[string]string{"k8s:foo": "bar"},
-			selected:         map[string]string{"foo": "bar"},
-			skipped:          map[string]string{},
-			validationErrors: field.ErrorList{},
-		},
-		{
-			input:            map[string]string{"k8s:foo": "bar", "k8s:abc": "def"},
-			selected:         map[string]string{"foo": "bar", "abc": "def"},
-			skipped:          map[string]string{},
-			validationErrors: field.ErrorList{},
-		},
-		{
-			input:            map[string]string{"k8s:foo": "bar", "k8s:abc": "def", "container:something": "else"},
-			selected:         map[string]string{"foo": "bar", "abc": "def"},
-			skipped:          map[string]string{"container:something": "else"},
-			validationErrors: field.ErrorList{},
+			input:    map[string]string{"k8s:io.kubernetes.pod.namespace": "bar", "k8s:abc": "def", "container:something": "else"},
+			selected: map[string]string{"io.kubernetes.pod.namespace": "bar"},
 		},
 		{
 			input:    map[string]string{"k8s:some.really.really.really.really.really.really.really.long.label.name": "someval"},
-			selected: map[string]string{"some.really.really.really.really.really.really.really.long.label.name": "someval"},
-			skipped:  map[string]string{},
-			validationErrors: field.ErrorList{
-				&field.Error{
-					Type:     "FieldValueInvalid",
-					Field:    "test.labels",
-					BadValue: "some.really.really.really.really.really.really.really.long.label.name",
-					Detail:   "name part must be no more than 63 characters",
-					Origin:   "labelKey",
-				},
-			},
+			selected: map[string]string{},
 		},
 		{
-			input:            map[string]string{"k8s:io.cilium.k8s.namespace.labels.some.really.really.long.namespace.label.name": "someval"},
-			selected:         map[string]string{},
-			skipped:          map[string]string{"k8s:io.cilium.k8s.namespace.labels.some.really.really.long.namespace.label.name": "someval"},
-			validationErrors: field.ErrorList{},
+			input:    map[string]string{"k8s:io.cilium.k8s.namespace.labels.some.really.really.long.namespace.label.name": "someval"},
+			selected: map[string]string{},
+		},
+		{
+			input:    map[string]string{"k8s:io.cilium.k8s.policy.serviceaccount": "emr-containers-sa-spark-executor-123456789012-h94a5lkq1wmdnn0lu3ldn86aul757y413dgn7tj9zmkq4tujzz4mzp"},
+			selected: map[string]string{},
 		},
 	}
 
 	for _, test := range testCases {
-		selected, skipped := SanitizeK8sLabels(test.input)
+		selected := SelectK8sLabels(test.input)
 		require.Equal(t, test.selected, selected)
-		require.Equal(t, test.skipped, skipped)
-		require.Equal(t, test.validationErrors, validation.ValidateLabels(selected, path))
+		require.Equal(t, field.ErrorList{}, validation.ValidateLabels(selected, path))
 	}
 }
 
