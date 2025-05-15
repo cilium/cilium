@@ -17,10 +17,10 @@ func TestFlushNat(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	numEntries := 5
-	v4NatMap := NewMap("test_nap_v4", IPv4, 1000)
+	v4NatMap := NewMap(nil, "test_nap_v4", IPv4, 1000)
 	err := v4NatMap.OpenOrCreate()
 	assert.NoError(t, err)
-	v6NatMap := NewMap("test_nat_v6", IPv6, 1000)
+	v6NatMap := NewMap(nil, "test_nat_v6", IPv6, 1000)
 	err = v6NatMap.OpenOrCreate()
 	assert.NoError(t, err)
 	t.Cleanup(func() {

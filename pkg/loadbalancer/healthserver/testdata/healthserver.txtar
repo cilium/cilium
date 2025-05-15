@@ -20,7 +20,7 @@ replace '$HEALTHPORT' $HEALTHPORT1 frontends.table
 replace '$HEALTHPORT' $HEALTHPORT1 backends.table
 
 # HealthServer's jobs should be reported in module health
-db/cmp --grep=^loadbalancer health health_no_service.table
+db/cmp --grep=^loadbalancer-healthserver health health_no_service.table
 
 # Add endpoints. This is done first to avoid non-determinismic backend
 # id allocation due to health server adding its own service and endpoints
@@ -31,7 +31,7 @@ db/cmp backends backends1.table
 
 # Add the service
 k8s/add service.yaml
-db/cmp --grep=^loadbalancer health health_with_service.table
+db/cmp --grep=^loadbalancer-healthserver health health_with_service.table
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table
@@ -105,27 +105,13 @@ primary: true
 devicename: test
 
 -- health_no_service.table --
-Module                                    Component                         Level   Message                    Error
-loadbalancer-healthserver                 job-control-loop                  OK      0 health servers running
-loadbalancer-reconciler                   job-reconcile                     OK      OK, 0 object(s)
-loadbalancer-reconciler                   job-refresh                       OK      Next refresh in 30m0s
-loadbalancer-reconciler                   job-start-reconciler              Stopped Started
-loadbalancer-reflectors.k8s-reflector     job-reflect-pods                  OK      Running
-loadbalancer-reflectors.k8s-reflector     job-reflect-services-endpoints    OK      Running
-loadbalancer-writer                       job-node-addr-reconciler          OK      Running
-loadbalancer-writer                       job-zone-watcher                  OK      Running
+Module                      Component                         Level   Message                    Error
+loadbalancer-healthserver   job-control-loop                  OK      0 health servers running
 
 -- health_with_service.table --
-Module                                    Component                         Level   Message                    Error
-loadbalancer-healthserver                 job-control-loop                  OK      1 health servers running
-loadbalancer-healthserver                 job-listener-40000                OK      Running
-loadbalancer-reconciler                   job-reconcile                     OK      OK, 4 object(s)
-loadbalancer-reconciler                   job-refresh                       OK      Next refresh in 30m0s
-loadbalancer-reconciler                   job-start-reconciler              Stopped Started
-loadbalancer-reflectors.k8s-reflector     job-reflect-pods                  OK      Running
-loadbalancer-reflectors.k8s-reflector     job-reflect-services-endpoints    OK      Running
-loadbalancer-writer                       job-node-addr-reconciler          OK      Running
-loadbalancer-writer                       job-zone-watcher                  OK      Running
+Module                      Component                         Level   Message                    Error
+loadbalancer-healthserver   job-control-loop                  OK      1 health servers running
+loadbalancer-healthserver   job-listener-40000                OK      Running
 
 -- services.table --
 Name                   Source   PortNames  TrafficPolicy   Flags

@@ -149,7 +149,7 @@ func newPerClusterNATMap(family IPFamily, innerMapEntries int) *perClusterNATMap
 }
 
 func (om *perClusterNATMap) newInnerMap(clusterID uint32) *Map {
-	return NewMap(ClusterInnerMapName(om.family, clusterID), om.family, om.innerMapEntries)
+	return NewMap(nil, ClusterInnerMapName(om.family, clusterID), om.family, om.innerMapEntries)
 }
 
 func (om *perClusterNATMap) createClusterNATMap(clusterID uint32) error {
