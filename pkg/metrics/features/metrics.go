@@ -178,9 +178,9 @@ var (
 	}
 
 	defaultNodePortModes = []string{
-		option.NodePortModeSNAT,
-		option.NodePortModeDSR,
-		option.NodePortModeHybrid,
+		loadbalancer.LBModeSNAT,
+		loadbalancer.LBModeDSR,
+		loadbalancer.LBModeHybrid,
 	}
 
 	defaultNodePortModeAlgorithms = []string{
@@ -1022,7 +1022,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.ACLBKubeProxyReplacementEnabled.Add(1)
 	}
 
-	m.ACLBNodePortConfig.WithLabelValues(config.NodePortMode, lbConfig.LBAlgorithm, config.NodePortAcceleration).Add(1)
+	m.ACLBNodePortConfig.WithLabelValues(lbConfig.LBMode, lbConfig.LBAlgorithm, config.NodePortAcceleration).Add(1)
 
 	if config.EnableBGPControlPlane {
 		m.ACLBBGPEnabled.Add(1)

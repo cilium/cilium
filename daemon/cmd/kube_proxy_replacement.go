@@ -63,35 +63,6 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.NodePortMode != option.NodePortModeSNAT &&
-			option.Config.NodePortMode != option.NodePortModeDSR &&
-			option.Config.NodePortMode != option.NodePortModeHybrid {
-			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
-		}
-
-		if option.Config.LoadBalancerModeAnnotation &&
-			option.Config.NodePortMode == option.NodePortModeHybrid {
-			return fmt.Errorf("The value --%s=%s is not supported as default under annotation mode", option.NodePortMode, option.Config.NodePortMode)
-		}
-
-		if option.Config.NodePortMode == option.NodePortModeDSR &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
-			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
-		}
-
-		if option.Config.NodePortMode == option.NodePortModeHybrid &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
-			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
-		}
-
-		if option.Config.LoadBalancerModeAnnotation &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP {
-			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
-		}
-
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -126,14 +97,14 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 			option.Config.LoadBalancerRSSv6 = *cidr
 		}
 
-		dsrIPIP := option.Config.LoadBalancerUsesDSR() && option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		dsrIPIP := lbConfig.LoadBalancerUsesDSR() && lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
 		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-			return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+			return fmt.Errorf("DSR dispatch mode %q currently only available under XDP acceleration", lbConfig.DSRDispatch)
 		}
 
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") && !dsrIPIP {
 			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under %s dispatch for DSR",
-				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, option.DSRDispatchIPIP)
+				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, loadbalancer.DSRDispatchIPIP)
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
@@ -157,27 +128,27 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 
 		if option.Config.TunnelingEnabled() && tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
-			option.Config.LoadBalancerUsesDSR() {
-			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
+			lbConfig.LoadBalancerUsesDSR() {
+			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", lbConfig.LBMode, tunnel.VXLAN)
 		}
 
-		if option.Config.TunnelingEnabled() && option.Config.LoadBalancerUsesDSR() &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+		if option.Config.TunnelingEnabled() && lbConfig.LoadBalancerUsesDSR() &&
+			lbConfig.DSRDispatch != loadbalancer.DSRDispatchGeneve {
 			return fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
-				option.Config.NodePortMode, option.DSRDispatchGeneve)
+				lbConfig.LBMode, loadbalancer.DSRDispatchGeneve)
 		}
 
-		if option.Config.LoadBalancerUsesDSR() &&
-			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
+		if lbConfig.LoadBalancerUsesDSR() &&
+			lbConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve &&
 			tunnelConfig.EncapProtocol() != tunnel.Geneve {
-			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunnel protocol.",
-				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, tunnel.Geneve)
+			return fmt.Errorf("Node Port %q mode with %q dispatch requires %s tunnel protocol.",
+				lbConfig.LBMode, lbConfig.DSRDispatch, tunnel.Geneve)
 		}
 
 		if option.Config.LoadBalancerIPIPSockMark {
 			if !dsrIPIP {
 				return fmt.Errorf("Node Port %q mode with IPIP socket mark logic requires %s dispatch.",
-					option.Config.NodePortMode, option.DSRDispatchIPIP)
+					lbConfig.LBMode, loadbalancer.DSRDispatchIPIP)
 			}
 			option.Config.EnableHealthDatapath = true
 		}
@@ -301,7 +272,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string) error {
+func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config) error {
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -341,13 +312,13 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		}
 	}
 
-	if option.Config.NodePortNat46X64 && option.Config.NodePortMode != option.NodePortModeSNAT {
+	if option.Config.NodePortNat46X64 && lbConfig.LBMode != loadbalancer.LBModeSNAT {
 		return fmt.Errorf("NAT46/NAT64 requires SNAT mode for services")
 	}
 
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
-		option.Config.LoadBalancerUsesDSR() &&
+		lbConfig.LoadBalancerUsesDSR() &&
 		directRoutingDevice != "" &&
 		len(devices) > 1 {
 

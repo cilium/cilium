@@ -6,6 +6,7 @@ package tunnel
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -30,12 +31,12 @@ var Cell = cell.Module(
 
 		// Enable tunnel configuration when DSR Geneve is enabled (this is currently
 		// handled here, as the corresponding logic has not yet been modularized).
-		func(dcfg *option.DaemonConfig) EnablerOut {
+		func(dcfg *option.DaemonConfig, lbcfg loadbalancer.Config) EnablerOut {
 			return NewEnabler(
 				(dcfg.EnableNodePort ||
 					dcfg.KubeProxyReplacement == option.KubeProxyReplacementTrue) &&
-					dcfg.LoadBalancerUsesDSR() &&
-					dcfg.LoadBalancerDSRDispatch == option.DSRDispatchGeneve,
+					lbcfg.LoadBalancerUsesDSR() &&
+					lbcfg.DSRDispatch == loadbalancer.DSRDispatchGeneve,
 				// The datapath logic takes care of the MTU overhead. So no need to
 				// take it into account here.
 				// See encap_geneve_dsr_opt[4,6] in nodeport.h
