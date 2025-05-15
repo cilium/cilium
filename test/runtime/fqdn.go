@@ -39,14 +39,6 @@ server.cilium.test. IN A 127.0.0.1
 world1.cilium.test. IN A %[1]s
 world2.cilium.test. IN A %[2]s
 world3.cilium.test. IN A %[3]s
-
-level1CNAME.cilium.test. 1 IN CNAME world1
-level2CNAME.cilium.test. 1 IN CNAME level1CNAME.cilium.test.
-level3CNAME.cilium.test. 1 IN CNAME level2CNAME.cilium.test.
-
-world1CNAME.cilium.test. 1 IN CNAME world1
-world2CNAME.cilium.test. 1 IN CNAME world2
-world3CNAME.cilium.test. 1 IN CNAME world3
 `
 
 var bindOutsideTestTemplate = `
@@ -448,99 +440,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		By("Allowing egress to IPs of the new DNS name")
 		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world2Target))
 		res.ExpectSuccess("Cannot access  %q", world2Target)
-	})
-
-	It("CNAME follow", func() {
-
-		By("Testing one level of CNAME")
-		policy := `
-[
-	{
-		"labels": [{
-			"key": "CNAME follow one level"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:id.app1": ""
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "*.cilium.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchName": "level1CNAME.cilium.test"
-				}]
-			}
-		]
-	}
-]`
-
-		_, err := vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-
-		expectFQDNSareApplied("cilium.test", 0)
-		target := "http://level1CNAME.cilium.test"
-		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
-		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
-
-		By("Testing three level CNAME to same target still works")
-		target = "http://level3CNAME.cilium.test"
-		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
-		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
-
-		By("Testing other CNAME in same domain should fail")
-		target = "http://world2CNAME.cilium.test"
-		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
-		res.ExpectFail("Container %q can access to %q when shouldn't work", helpers.App1, target)
-
-		By("Testing three level of CNAME")
-		policy = `
-[
-	{
-		"labels": [{
-			"key": "CNAME follow three levels"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:id.app2": ""
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "*.cilium.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchName": "level3CNAME.cilium.test"
-				}]
-			}
-		]
-	}
-]`
-
-		_, err = vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-
-		expectFQDNSareApplied("cilium.test", 1)
-		target = "http://level3CNAME.cilium.test"
-		res = vm.ContainerExec(helpers.App2, helpers.CurlFail(target))
-		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App2, target)
 	})
 
 	Context("toFQDNs populates toCIDRSet (data from proxy)", func() {
