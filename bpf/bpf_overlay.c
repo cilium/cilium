@@ -107,7 +107,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 
-	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	decrypted = (is_defined(ENABLE_IPSEC) &&
+				(ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
 		if (info)
 			*identity = info->sec_identity;
@@ -385,7 +386,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	 */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 
-	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	decrypted = (is_defined(ENABLE_IPSEC) &&
+				(ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
 		if (info)
@@ -671,7 +673,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  * if the packets are ESP, because it doesn't matter for the
  * non-IPSec mode.
  */
-	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	decrypted = (is_defined(ENABLE_IPSEC) &&
+				(ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)

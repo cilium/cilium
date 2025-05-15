@@ -181,7 +181,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
-	} else if (magic == MARK_MAGIC_ENCRYPT) {
+	} else if (is_defined(ENABLE_IPSEC) && magic == MARK_MAGIC_ENCRYPT) {
 		*identity = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
 	} else {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
