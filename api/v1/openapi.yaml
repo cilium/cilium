@@ -2000,6 +2000,9 @@ definitions:
       hubble:
         description: Status of Hubble server
         "$ref": "#/definitions/HubbleStatus"
+      hubble-metrics:
+        description: Status of Hubble metrics server
+        "$ref": "#/definitions/HubbleMetricsStatus"
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
@@ -2160,6 +2163,24 @@ definitions:
               - Warning
               - Failure
               - Disabled
+  HubbleMetricsStatus:
+    description: |-
+      Status of the Hubble metrics server
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+          - Ok
+          - Warning
+          - Failure
+          - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
   K8sStatus:
     description: |-
       Status of Kubernetes integration
