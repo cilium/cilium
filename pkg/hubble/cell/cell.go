@@ -10,11 +10,14 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
+	"github.com/cilium/cilium/pkg/hubble/metrics"
+	metricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
@@ -44,6 +47,9 @@ var Cell = cell.Module(
 
 	// Parser for Hubble flows
 	parsercell.Cell,
+
+	// Metrics server and flow processor
+	metricscell.Cell,
 )
 
 // The core cell group, which contains the Hubble integration and the
@@ -79,6 +85,9 @@ type hubbleParams struct {
 
 	PayloadParser parser.Decoder
 
+	GRPCMetrics          *grpc_prometheus.ServerMetrics
+	MetricsFlowProcessor metrics.FlowProcessor
+
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
 	Config      config
@@ -105,6 +114,8 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.ObserverOptions,
 		params.ExporterBuilders,
 		params.PayloadParser,
+		params.GRPCMetrics,
+		params.MetricsFlowProcessor,
 		params.AgentConfig,
 		params.Config,
 		params.Logger,
