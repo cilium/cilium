@@ -780,6 +780,9 @@ const (
 	// Expected is an expected value
 	Expected = "expected"
 
+	// Config is a configuration object.
+	Config = "config"
+
 	// ConfigSource is a configuration source (for process options, e.g. agent)
 	ConfigSource = "configSource"
 
