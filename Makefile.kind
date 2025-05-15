@@ -36,6 +36,10 @@ kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
 	@kind get clusters 2>&1 | grep "clustermesh2" \
 		&& exit 0 || exit 1
 
+.PHONY: kind-ipv6
+kind-ipv6: ## Create an ipv6 only kind cluster for Cilium development.
+	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh  "" "" "" "" "" "ipv6" "::1"
+
 .PHONY: kind-bgp-v4
 kind-bgp-v4:
 	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 deploy
