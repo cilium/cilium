@@ -6,6 +6,8 @@ package policy
 import (
 	"fmt"
 	"log/slog"
+	"math"
+	"slices"
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
@@ -282,16 +284,39 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 			// We already know from the L7Parser.Merge() above that there are no
 			// conflicting parser types, and rule validation only allows one type of L7
 			// rules in a rule, so we can just merge the rules here.
-			for _, newRule := range newL7Rules.HTTP {
-				if !newRule.Exists(l7Rules.L7Rules) {
-					l7Rules.HTTP = append(l7Rules.HTTP, newRule)
+
+			// Complexity of algorithms:
+			// n - number of existing rules
+			// m - number of new rules
+			// O((n + m) log (n + m)) for sorting/deduplicating
+			// O(n*m) for "insertion" merging
+			n := len(l7Rules.HTTP)
+			m := len(newL7Rules.HTTP)
+			// Check which complexity is smaller
+			if (n+m)*int(math.Log2(float64(n+m+1))) < n*m {
+				// Sorting variant should be faster
+				l7Rules.HTTP = append(l7Rules.HTTP, newL7Rules.HTTP...)
+				slices.SortFunc(l7Rules.HTTP, func(a, b api.PortRuleHTTP) int {
+					return a.Compare(b)
+				})
+				l7Rules.HTTP = slices.CompactFunc(l7Rules.HTTP, func(a, b api.PortRuleHTTP) bool {
+					return a.Equal(b)
+				})
+			} else {
+				// Insertion variant should be faster
+				for _, newRule := range newL7Rules.HTTP {
+					if !newRule.Exists(l7Rules.L7Rules) {
+						l7Rules.HTTP = append(l7Rules.HTTP, newRule)
+					}
 				}
 			}
+
 			for _, newRule := range newL7Rules.Kafka {
 				if !newRule.Exists(l7Rules.L7Rules.Kafka) {
 					l7Rules.Kafka = append(l7Rules.Kafka, newRule)
 				}
 			}
+
 			if l7Rules.L7Proto == "" && newL7Rules.L7Proto != "" {
 				l7Rules.L7Proto = newL7Rules.L7Proto
 			}

@@ -38,6 +38,134 @@ func TestHTTPEqual(t *testing.T) {
 	require.False(t, rule3.Exists(rules))
 }
 
+func TestHTTPCompare(t *testing.T) {
+	setUpSuite(t)
+
+	orderedRules := []PortRuleHTTP{
+		PortRuleHTTP{Path: "/bar$", Method: "GET", Headers: []string{"X-Test: Foo"}},
+		PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"X-Test: Bar"}},
+		PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"X-Test: Foo"}},
+		PortRuleHTTP{Path: "/foo$", Method: "PUT", HeaderMatches: []*HeaderMatch{
+			{Name: "X-Test", Mismatch: MismatchActionAdd, Value: "Bar"},
+		}},
+		PortRuleHTTP{Path: "/foo$", Method: "PUT", HeaderMatches: []*HeaderMatch{
+			{Name: "X-Test", Mismatch: MismatchActionLog, Value: "Bar"},
+		}},
+		PortRuleHTTP{Path: "/foo$", Method: "PUT", Headers: []string{"X-Test: Bar"}},
+	}
+
+	for i, firstRule := range orderedRules {
+		for j, secondRule := range orderedRules {
+			if i == j {
+				require.True(t, firstRule.Compare(secondRule) == 0, "Expected rule %d == rule %d", i, j)
+			} else if i < j {
+				require.True(t, firstRule.Compare(secondRule) < 0, "Expected rule %d < rule %d", i, j)
+			} else {
+				require.True(t, firstRule.Compare(secondRule) > 0, "Expected rule %d > rule %d", i, j)
+			}
+		}
+	}
+}
+
+func TestSecretEqual(t *testing.T) {
+	setUpSuite(t)
+
+	rule1 := &Secret{Namespace: "ns1", Name: "name1"}
+	rule2 := &Secret{Namespace: "ns2", Name: "name1"}
+	rule3 := &Secret{Namespace: "ns1", Name: "name2"}
+	var rule4 *Secret = nil
+
+	require.True(t, rule1.Equal(rule1))
+	require.True(t, rule4.Equal(rule4))
+
+	require.False(t, rule1.Equal(rule2))
+	require.False(t, rule1.Equal(rule3))
+	require.False(t, rule1.Equal(rule4))
+
+	require.False(t, rule2.Equal(rule1))
+	require.False(t, rule3.Equal(rule1))
+	require.False(t, rule4.Equal(rule1))
+}
+
+func TestSecretCompare(t *testing.T) {
+	setUpSuite(t)
+
+	orderedRules := []*Secret{
+		nil,
+		&Secret{Namespace: "ns1", Name: "name1"},
+		&Secret{Namespace: "ns1", Name: "name2"},
+		&Secret{Namespace: "ns2", Name: "name1"},
+		&Secret{Namespace: "ns2", Name: "name2"},
+	}
+
+	for i, firstRule := range orderedRules {
+		for j, secondRule := range orderedRules {
+			if i == j {
+				require.True(t, firstRule.Compare(secondRule) == 0, "Expected rule %d == rule %d", i, j)
+			} else if i < j {
+				require.True(t, firstRule.Compare(secondRule) < 0, "Expected rule %d < rule %d", i, j)
+			} else {
+				require.True(t, firstRule.Compare(secondRule) > 0, "Expected rule %d > rule %d", i, j)
+			}
+		}
+	}
+
+}
+
+func TestHeaderMatchEqual(t *testing.T) {
+	setUpSuite(t)
+
+	rule1 := &HeaderMatch{Name: "header1", Value: "value1", Mismatch: MismatchActionLog}
+	rule2 := &HeaderMatch{Name: "header2", Value: "value1", Mismatch: MismatchActionLog}
+	rule3 := &HeaderMatch{Name: "header1", Value: "value2", Mismatch: MismatchActionLog}
+	rule4 := &HeaderMatch{Name: "header1", Value: "value1", Mismatch: MismatchActionAdd}
+	rule5 := &HeaderMatch{Name: "header1", Value: "value1", Mismatch: MismatchActionLog,
+		Secret: &Secret{Namespace: "ns1", Name: "name1"},
+	}
+
+	require.True(t, rule1.Equal(rule1))
+	require.True(t, rule2.Equal(rule2))
+	require.True(t, rule3.Equal(rule3))
+	require.True(t, rule4.Equal(rule4))
+	require.True(t, rule5.Equal(rule5))
+
+	require.False(t, rule1.Equal(rule2))
+	require.False(t, rule1.Equal(rule3))
+	require.False(t, rule1.Equal(rule4))
+	require.False(t, rule1.Equal(rule5))
+
+	require.False(t, rule2.Equal(rule1))
+	require.False(t, rule3.Equal(rule1))
+	require.False(t, rule4.Equal(rule1))
+	require.False(t, rule5.Equal(rule1))
+}
+
+func TestHeaderMatchCompare(t *testing.T) {
+	setUpSuite(t)
+
+	orderedRules := []*HeaderMatch{
+		nil,
+		&HeaderMatch{Name: "header1", Value: "value1", Mismatch: MismatchActionLog},
+		&HeaderMatch{Name: "header1", Value: "value2", Mismatch: MismatchActionLog},
+		&HeaderMatch{Name: "header2", Value: "value1", Mismatch: MismatchActionLog},
+		&HeaderMatch{Name: "header2", Value: "value2", Mismatch: MismatchActionAdd},
+		&HeaderMatch{Name: "header2", Value: "value2", Mismatch: MismatchActionLog},
+		&HeaderMatch{Name: "header2", Value: "value2", Mismatch: MismatchActionLog, Secret: &Secret{Namespace: "ns1", Name: "name1"}},
+	}
+
+	for i, firstRule := range orderedRules {
+		for j, secondRule := range orderedRules {
+			if i == j {
+				require.True(t, firstRule.Compare(secondRule) == 0, "Expected rule %d == rule %d", i, j)
+			} else if i < j {
+				require.True(t, firstRule.Compare(secondRule) < 0, "Expected rule %d < rule %d", i, j)
+			} else {
+				require.True(t, firstRule.Compare(secondRule) > 0, "Expected rule %d > rule %d", i, j)
+			}
+		}
+	}
+}
+
 func TestKafkaEqual(t *testing.T) {
 	setUpSuite(t)
 
