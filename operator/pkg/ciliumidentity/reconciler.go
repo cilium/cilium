@@ -178,8 +178,7 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 
 func (r *reconciler) createCID(cidName string, cidKey *key.GlobalIdentity) error {
 	cidLabels := cidKey.GetAsMap()
-	selectedLabels, skippedLabels := identitybackend.SanitizeK8sLabels(cidLabels)
-	r.logger.Debug("Skipped non-kubernetes labels when labelling CID. All labels will still be used in identity determination", logfields.Labels, skippedLabels)
+	selectedLabels := identitybackend.SelectK8sLabels(cidLabels)
 
 	cid := &cilium_api_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,8 +199,7 @@ func (r *reconciler) createCID(cidName string, cidKey *key.GlobalIdentity) error
 
 func (r *reconciler) updateCID(cid *cilium_api_v2.CiliumIdentity, cidKey *key.GlobalIdentity) error {
 	cidLabels := cidKey.GetAsMap()
-	selectedLabels, skippedLabels := identitybackend.SanitizeK8sLabels(cidLabels)
-	r.logger.Debug("Skipped non-kubernetes labels when labelling CID. All labels will still be used in identity determination", logfields.Labels, skippedLabels)
+	selectedLabels := identitybackend.SelectK8sLabels(cidLabels)
 
 	updatedId := cid.DeepCopy()
 	updatedId.Labels = selectedLabels
