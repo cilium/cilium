@@ -420,6 +420,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		DockerEndpointID:         e.dockerEndpointID,
 		IfName:                   e.ifName,
 		IfIndex:                  e.ifIndex,
+		ParentIfIndex:            e.parentIfIndex,
 		ContainerIfName:          e.containerIfName,
 		DisableLegacyIdentifiers: e.disableLegacyIdentifiers,
 		Labels:                   e.labels,
@@ -479,6 +480,11 @@ type serializableEndpoint struct {
 
 	// ifIndex is the interface index of the host face interface (veth pair)
 	IfIndex int
+
+	// parentIfIndex is the interface index of the interface with which the endpoint
+	// IP is associated. In some scenarios, the network will expect traffic with
+	// the endpoint IP to be sent via the parent interface.
+	ParentIfIndex int
 
 	// ContainerIfName is the name of the container facing interface (veth pair).
 	ContainerIfName string
@@ -594,6 +600,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
+	ep.parentIfIndex = r.ParentIfIndex
 	ep.containerIfName = r.ContainerIfName
 	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
 	ep.labels = r.Labels
