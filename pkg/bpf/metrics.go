@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -40,7 +41,7 @@ type mapPressureMetricsOps interface {
 //	cell.Invoke(
 //	  bpf.RegisterTablePressureMetricsJob[MyObj, myBPFMap],
 //	)
-func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.Group, db *statedb.DB, table statedb.Table[Obj], m Map) {
+func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](params reconciler.Params, g job.Group, db *statedb.DB, table statedb.Table[Obj], m Map) {
 	name := m.NonPrefixedName()
 	var pressureGauge *metrics.GaugeWithThreshold
 	g.Add(job.Timer(
@@ -52,7 +53,7 @@ func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.G
 			}
 
 			if pressureGauge == nil {
-				pressureGauge = metrics.NewBPFMapPressureGauge(name, 0.0)
+				pressureGauge = metrics.NewBPFMapPressureGauge(params.Log, name, 0.0)
 			}
 
 			txn := db.ReadTxn()

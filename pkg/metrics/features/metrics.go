@@ -95,6 +95,7 @@ const (
 	networkChainingModeCalico      = "calico"
 	networkChainingModeFlannel     = "flannel"
 	networkChainingModeGenericVeth = "generic-veth"
+	networkChainingModePortmap     = "portmap"
 
 	networkIPv4      = "ipv4-only"
 	networkIPv6      = "ipv6-only"
@@ -146,6 +147,7 @@ var (
 		networkChainingModeCalico,
 		networkChainingModeFlannel,
 		networkChainingModeGenericVeth,
+		networkChainingModePortmap,
 	}
 
 	defaultIPAddressFamilies = []string{

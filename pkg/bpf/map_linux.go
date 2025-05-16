@@ -334,7 +334,7 @@ func (m *Map) WithPressureMetricThreshold(threshold float64) *Map {
 		m.cache = map[string]*cacheEntry{}
 	}
 
-	m.pressureGauge = metrics.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
+	m.pressureGauge = metrics.NewBPFMapPressureGauge(m.Logger, m.NonPrefixedName(), threshold)
 
 	return m
 }
