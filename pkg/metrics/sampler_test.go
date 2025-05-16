@@ -32,7 +32,7 @@ func TestSamplerMaxMemoryUsage(t *testing.T) {
 
 func TestSampler(t *testing.T) {
 	log := hivetest.Logger(t)
-	reg := &Registry{inner: prometheus.NewPedanticRegistry()}
+	reg := &Registry{params: RegistryParams{Logger: log}, inner: prometheus.NewPedanticRegistry()}
 
 	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "counter"})
 	reg.Register(counter)

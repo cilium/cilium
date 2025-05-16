@@ -6,15 +6,16 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"slices"
 	"strings"
 
+	"github.com/cilium/ebpf"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/cilium/ebpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // This file contains a Prometheus collector that collects the memory usage of
@@ -164,7 +165,8 @@ func (v *bpfVisitor) visitMap(id ebpf.MapID) error {
 }
 
 type bpfCollector struct {
-	sfg singleflight.Group
+	logger *slog.Logger
+	sfg    singleflight.Group
 
 	bpfMapsCount      *prometheus.Desc
 	bpfMapsMemory     *prometheus.Desc
@@ -172,8 +174,9 @@ type bpfCollector struct {
 	bpfProgramsMemory *prometheus.Desc
 }
 
-func newbpfCollector() *bpfCollector {
+func newbpfCollector(logger *slog.Logger) *bpfCollector {
 	return &bpfCollector{
+		logger: logger,
 		bpfMapsCount: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "", "bpf_maps"),
 			"Total count of BPF maps.",
@@ -209,7 +212,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 	})
 
 	if err != nil {
-		logrus.WithError(err).Error("retrieving BPF maps & programs usage")
+		s.logger.Error("retrieving BPF maps & programs usage", logfields.Error, err)
 		return
 	}
 

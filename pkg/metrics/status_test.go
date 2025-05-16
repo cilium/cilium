@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
@@ -123,6 +124,7 @@ func (f *fakeDaemonClient) GetHealthz(params *daemon.GetHealthzParams, opts ...d
 }
 
 func Test_statusCollector_Collect(t *testing.T) {
+	logger := hivetest.Logger(t)
 	tests := []struct {
 		name                 string
 		healthResponse       *daemon.GetHealthzOK
@@ -141,7 +143,7 @@ func Test_statusCollector_Collect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Log("Test :", tt.name)
-		collector := newStatusCollectorWithClients(&fakeDaemonClient{
+		collector := newStatusCollectorWithClients(logger, &fakeDaemonClient{
 			response: tt.healthResponse,
 		}, &fakeConnectivityClient{
 			response: tt.connectivityResponse,
