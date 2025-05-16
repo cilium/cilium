@@ -85,6 +85,35 @@ spec:
                         virtual router
                       items:
                         properties:
+                          autoDiscovery:
+                            description: AutoDiscovery is the configuration for auto-discovery
+                              of the peer address.
+                            properties:
+                              defaultGateway:
+                                description: defaultGateway is the configuration for
+                                  auto-discovery of the default gateway.
+                                properties:
+                                  addressFamily:
+                                    description: addressFamily is the address family
+                                      of the default gateway.
+                                    enum:
+                                    - ipv4
+                                    - ipv6
+                                    type: string
+                                required:
+                                - addressFamily
+                                type: object
+                              mode:
+                                allOf:
+                                - enum:
+                                  - DefaultGateway
+                                - enum:
+                                  - DefaultGateway
+                                description: mode is the mode of the auto-discovery.
+                                type: string
+                            required:
+                            - mode
+                            type: object
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.
