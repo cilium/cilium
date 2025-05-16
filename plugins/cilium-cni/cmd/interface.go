@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
@@ -12,10 +13,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
-func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
+func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
 	if ipam == nil {
 		return fmt.Errorf("missing IPAM configuration")
 	}
@@ -56,7 +56,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 	}
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(
-		logging.DefaultSlogLogger,
+		logger,
 		ipam.Gateway,
 		coalescedCIDRs,
 		ipam.MasterMac,

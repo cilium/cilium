@@ -6,10 +6,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
@@ -31,7 +31,7 @@ const (
 
 // PluginContext is the context given to chaining plugins
 type PluginContext struct {
-	Logger     *logrus.Entry
+	Logger     *slog.Logger
 	Args       *skel.CmdArgs
 	CniArgs    *types.ArgsSpec
 	NetConf    *types.NetConf
