@@ -1397,6 +1397,12 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		ctx_store_meta(ctx, CB_PORT, key->dport);
 		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &key->address);
 #endif /* DSR_ENCAP_MODE */
+
+#if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+		/* See v4 path for comments. */
+		ctx_set_xfer(ctx, XFER_PKT_CRYPTO | XFER_PKT_IPV6 | XFER_PKT_DSR);
+		return CTX_ACT_OK;
+#endif
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR, ext_err);
 	} else {
 		/* This code path is not only hit for NAT64, but also
@@ -1409,6 +1415,13 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		ctx_store_meta(ctx, CB_NAT_46X64,
 			       !is_v4_in_v6(&key->address) &&
 			       lb6_to_lb4_service(svc));
+
+#if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+need_encryption:
+		/* See v4 path for comments. */
+		ctx_set_xfer(ctx, XFER_PKT_CRYPTO | XFER_PKT_IPV6);
+		return CTX_ACT_OK;
+#endif
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
 					  ext_err);
 	}
@@ -2739,11 +2752,30 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
 		ctx_store_meta(ctx, CB_DSR_L3_OFF, l3_off);
 #endif /* DSR_ENCAP_MODE */
+
+#if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+		/* See below for comments. */
+		ctx_set_xfer(ctx, XFER_PKT_CRYPTO | XFER_PKT_DSR);
+		return CTX_ACT_OK;
+#endif
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);
 	}
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+
+#if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+	/* In TC, the to-netdev hook for Wireguard encrypts all overlay traffic,
+	 * including all LB-to-remote-backend traffic we generate here.
+	 * In XDP, we don't traverse egress program that would apply encryption policy,
+	 * and we cannot redirect the packet to the TC to-netdev right away.
+	 * Therefore, push the packet to the TC from-netdev hook to proceed with
+	 * (i) the NodePort path and then (ii) the to-netdev hook for encryption.
+	 */
+	ctx_set_xfer(ctx, XFER_PKT_CRYPTO);
+	return CTX_ACT_OK;
+#endif
+
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS,
 				  ext_err);
 }
