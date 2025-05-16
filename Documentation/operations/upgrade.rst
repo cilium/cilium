@@ -348,6 +348,9 @@ Deprecated Options
   be removed in Cilium 1.19.
 * The flag ``--bpf-lb-proto-diff`` has been deprecated and will be removed in Cilium 1.19.
   Service protocol differentiation will be unconditionally enabled.
+* The flags ``--enable-node-port``, ``--enable-host-port``, ``--enable-external-ips`` have been deprecated
+  and will be removed in Cilium 1.19. The kube-proxy replacement features will be only enabled when
+  ``--kube-proxy-replacent`` is set to ``true``. 
 
 Helm Options
 ~~~~~~~~~~~~
