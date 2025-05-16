@@ -1631,6 +1631,10 @@ func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
 	return nil
 }
 
+func (e *Endpoint) GetListenerProxyPort(listener string) uint16 {
+	return e.proxy.GetListenerProxyPort(listener)
+}
+
 // getProxyStatistics gets the ProxyStatistics for the flows with the
 // given characteristics, or adds a new one and returns it.
 func (e *Endpoint) getProxyStatistics(key string, l7Protocol string, port uint16, ingress bool, redirectPort uint16) *models.ProxyStatistics {
