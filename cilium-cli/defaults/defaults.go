@@ -180,6 +180,11 @@ var (
 		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.1@sha256:e899028c84c1a1e65bb14821b0802a683a2cffbff96c9ac02ff1d9cbb03f64e6",
 	}
 
+	ConnectivityCheckOptionalImagesTest = map[string]string{
+		// renovate: datasource=docker
+		"ConnectivityTestEchoImage": "gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd",
+	}
+
 	ConnectivityCheckImagesPerf = map[string]string{
 		// renovate: datasource=docker
 		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:a816f935930cb2b40ba43230643da4d5751a5711@sha256:679d3a370c696f63884da4557a4466f3b5569b4719bb4f86e8aac02fbe390eea",

@@ -122,6 +122,8 @@ const (
 	NodeLocalDNS Feature = "node-local-dns"
 
 	Multicast Feature = "multicast-enabled"
+
+	L7LoadBalancer Feature = "loadbalancer-l7"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -411,6 +413,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[PolicySecretSync] = Status{
 		Enabled: cm.Data[string(PolicySecretSync)] == "true",
+	}
+
+	fs[L7LoadBalancer] = Status{
+		Enabled: cm.Data[string(L7LoadBalancer)] == "envoy",
 	}
 
 	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)
