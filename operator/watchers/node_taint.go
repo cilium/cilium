@@ -13,6 +13,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -72,6 +73,11 @@ func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	err := checkAndMarkNode(ctx, c, nodeGetter, key, mno, logger)
+	// Do not requeue on node not found errors
+	if err != nil && k8serrors.IsNotFound(err) {
+		workQueue.Forget(key)
+		return true
+	}
 	handleErr(err, key, workQueue, logger)
 	return true
 }
@@ -79,7 +85,7 @@ func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter
 func handleErr(err error, key string, workQueue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) {
 	if err == nil {
 		if workQueue.NumRequeues(key) >= maxSilentRetries {
-			logger.Info("Successfully updated tains and conditions for the node", logfields.NodeName, key)
+			logger.Info("Successfully updated taints and conditions for the node", logfields.NodeName, key)
 		}
 		workQueue.Forget(key)
 		return
