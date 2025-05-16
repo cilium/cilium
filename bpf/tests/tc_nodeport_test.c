@@ -106,6 +106,10 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 
 	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
 
+	/* Hairpin should over-rule any installed network policy: */
+	policy_add_egress_deny_all_entry();
+	policy_add_ingress_deny_all_entry();
+
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);
 	/* Fail if we didn't jump */
