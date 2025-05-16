@@ -80,7 +80,7 @@ struct {
 } entry_call_map __section(".maps") = {
 	.values = {
 		[FROM_CONTAINER] = &cil_from_container,
-		[HANDLE_POLICY] = &handle_policy,
+		[HANDLE_POLICY] = &cil_lxc_policy,
 	},
 };
 
