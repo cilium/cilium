@@ -5,6 +5,7 @@
 
 #include <linux/ipv6.h>
 
+#include "eth.h"
 #include "dbg.h"
 #include "l4.h"
 #include "metrics.h"
@@ -34,6 +35,8 @@
 
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
+
+#define IPV6_ALEN               16
 
 /* Follows the structure of ipv6hdr, see ipv6_handle_fragmentation. */
 struct ipv6_frag_id {
@@ -189,6 +192,37 @@ static __always_inline bool ipv6_addr_equals(const union v6addr *a,
 	if (a->d1 != b->d1)
 		return false;
 	return a->d2 == b->d2;
+}
+
+static __always_inline
+void ipv6_mc_mac_set(const union v6addr *addr, union macaddr *mac)
+{
+	const union macaddr mac_base_addr = {{0x33, 0x33, 0x00,
+					      0x00, 0x00, 0x00}};
+
+	memcpy(mac, (void *)&mac_base_addr, 2);
+	memcpy((__u8 *)mac + 2, (__u8 *)addr + 12, 4);
+}
+
+static __always_inline
+bool ipv6_is_mc_mac(const union v6addr *addr, const union macaddr *mac)
+{
+	union macaddr mc_mac;
+
+	ipv6_mc_mac_set(addr, &mc_mac);
+	return eth_addrcmp((const union macaddr *)&mc_mac, mac) == 0;
+}
+
+static __always_inline
+void ipv6_mc_addr_set(const union v6addr *addr, union v6addr *mc_addr)
+{
+	const union v6addr base_addr = { .addr = {0xff, 0x02, 0, 0, 0, 0, 0, 0,
+					  0, 0, 0, 0x01, 0xFF, 0, 0, 0} };
+
+	memcpy(mc_addr, (void *)&base_addr, IPV6_ALEN);
+	mc_addr->addr[13] = addr->addr[13];
+	mc_addr->addr[14] = addr->addr[14];
+	mc_addr->addr[15] = addr->addr[15];
 }
 
 /* Only works with contiguous masks. */
