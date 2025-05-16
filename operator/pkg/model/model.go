@@ -80,6 +80,10 @@ type HTTPListener struct {
 	// This plaintext listener will override any other plaintext HTTP config in
 	// the final rendered Envoy Config.
 	ForceHTTPtoHTTPSRedirect bool `json:"force_http_to_https_redirect,omitempty"`
+
+	// UseOriginalSourceAddress is a flag to indicate whether the original source address is used
+	// for generated CiliumEnvoyConfig.
+	UseOriginalSourceAddress bool `json:"use_original_source_address,omitempty"`
 }
 
 func (l HTTPListener) GetSources() []FullyQualifiedResource {
