@@ -177,7 +177,7 @@ Common mistakes
   Parents:
     Conditions:
       Last Transition Time:  2023-06-06T13:56:40Z
-      Message:               Gateway.gateway.networking.k8s.io "my-gatewai" not found
+      Message:               Gateway.gateway.networking.k8s.io "my-gateway" not found
       Observed Generation:   2
         Reason:                InvalidHTTPRoute
         Status:                False
