@@ -2,6 +2,7 @@
 {{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
 {{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
 {{- end -}}
+{{- $crdsUsed := list "crd" "doublewrite-readkvstore" "doublewrite-readcrd" | has .Values.identityAllocationMode }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -181,6 +182,8 @@ spec:
         lifecycle:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if $crdsUsed }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -308,6 +311,7 @@ spec:
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
         - --controller-group-metrics=all
         {{- end }}
+        - --enable-heartbeat={{ (and (not $crdsUsed) .Values.clustermesh.apiserver.kvstoremesh.heartBeatEnabled) | ternary "true" "false" }}
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}

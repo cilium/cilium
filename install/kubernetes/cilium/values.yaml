@@ -3356,6 +3356,8 @@ clustermesh:
       # - "internal": remote cluster identities are cached in etcd that runs as a sidecar within ``clustermesh-apiserver`` pod.
       # - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
       kvstoreMode: "internal"
+      # -- KVStore heartbeat is enabled by default. Disable it when directing kvstoremesh to an external etcd shared with other cilium components which do maintain heartbeat.
+      heartBeatEnabled: true
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
