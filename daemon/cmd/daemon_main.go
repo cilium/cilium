@@ -1089,7 +1089,7 @@ func initEnv(vp *viper.Viper) {
 	log.Infof("Cilium %s", version.Version)
 
 	if option.Config.LogSystemLoadConfig {
-		loadinfo.StartBackgroundLogger()
+		loadinfo.StartBackgroundLogger(logging.DefaultSlogLogger)
 	}
 
 	if option.Config.PreAllocateMaps {
@@ -1188,7 +1188,7 @@ func initEnv(vp *viper.Viper) {
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
 	bpf.CheckOrMountFS(logging.DefaultSlogLogger, option.Config.BPFRoot)
-	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
+	cgroups.CheckOrMountCgrpFS(logging.DefaultSlogLogger, option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, debugDatapath)
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
@@ -1689,7 +1689,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	if option.Config.EnableIPMasqAgent {
-		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
+		ipmasqAgent, err := ipmasq.NewIPMasqAgent(logging.DefaultSlogLogger, option.Config.IPMasqAgentConfigPath)
 		if err != nil {
 			return fmt.Errorf("failed to create ipmasq agent: %w", err)
 		}
