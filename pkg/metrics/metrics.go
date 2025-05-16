@@ -769,7 +769,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 		}, metric.Labels{
 			{
 				Name:   LabelOutcome,
-				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFailure),
+				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFail),
 			},
 		}),
 
