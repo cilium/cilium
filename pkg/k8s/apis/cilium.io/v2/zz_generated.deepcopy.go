@@ -1397,6 +1397,13 @@ func (in *CiliumEgressGatewayPolicySpec) DeepCopyInto(out *CiliumEgressGatewayPo
 		*out = new(EgressGateway)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EgressGateways != nil {
+		in, out := &in.EgressGateways, &out.EgressGateways
+		*out = make([]EgressGateway, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
