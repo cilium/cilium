@@ -23,6 +23,11 @@ policy_add_ingress_allow_entry(__u32 sec_label, __u8 protocol, __u16 dport)
 	policy_add_entry(false, sec_label, protocol, dport, false);
 }
 
+static __always_inline void policy_add_ingress_deny_all_entry(void)
+{
+	policy_add_entry(false, 0, 0, 0, true);
+}
+
 static __always_inline void
 policy_add_egress_allow_entry(__u32 sec_label, __u8 protocol, __u16 dport)
 {
