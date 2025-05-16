@@ -13,7 +13,8 @@ static __always_inline int
 __encap_with_nodeid4(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		     __be32 tunnel_endpoint,
 		     __u32 seclabel, __u32 dstid, __u32 vni,
-		     enum trace_reason ct_reason, __u32 monitor, int *ifindex)
+		     enum trace_reason ct_reason, __u32 monitor,
+			 cls_flags_t flags, int *ifindex)
 {
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
@@ -30,8 +31,8 @@ __encap_with_nodeid4(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	*ifindex = 0;
 #endif
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
-			  *ifindex, ct_reason, monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
+				*ifindex, ct_reason, monitor, flags);
 
 	return ctx_set_encap_info4(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni,
 				   NULL, 0);
@@ -40,7 +41,7 @@ __encap_with_nodeid4(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 static __always_inline int
 __encap_with_nodeid6(struct __ctx_buff *ctx, const union v6addr *tunnel_endpoint,
 		     __u32 seclabel, __u32 dstid, enum trace_reason ct_reason,
-		     __u32 monitor, int *ifindex)
+		     __u32 monitor, cls_flags_t flags, int *ifindex)
 {
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
@@ -55,8 +56,8 @@ __encap_with_nodeid6(struct __ctx_buff *ctx, const union v6addr *tunnel_endpoint
 	*ifindex = 0;
 #endif
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
-			  *ifindex, ct_reason, monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
+				*ifindex, ct_reason, monitor, flags);
 
 	return ctx_set_encap_info6(ctx, tunnel_endpoint, seclabel, NULL, 0);
 }
@@ -73,12 +74,12 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 	if (info->flag_ipv6_tunnel_ep)
 		ret = __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
 					   seclabel, dstid, trace->reason,
-					   trace->monitor, &ifindex);
+					   trace->monitor, trace->flags, &ifindex);
 	else
 		ret = __encap_with_nodeid4(ctx, 0, 0,
 					   info->tunnel_endpoint.ip4, seclabel,
 					   dstid, vni, trace->reason,
-					   trace->monitor, &ifindex);
+					   trace->monitor, trace->flags, &ifindex);
 	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 

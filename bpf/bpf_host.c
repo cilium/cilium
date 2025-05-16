@@ -968,8 +968,9 @@ static __always_inline int
 do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 {
 	struct trace_ctx trace = {
-		.reason = TRACE_REASON_ENCRYPTED,
+		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = CLS_FLAG_IPSEC,
 	};
 	struct remote_endpoint_info *ep = NULL;
 	void *data, *data_end;
@@ -1052,13 +1053,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = from_host ? ctx_classify_by_pkt_mark(ctx) : 0,
 	};
 	__u32 __maybe_unused ipcache_srcid = 0;
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	int __maybe_unused hdrlen = 0;
-	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
@@ -1068,8 +1068,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
      defined ENABLE_L2_ANNOUNCEMENTS
 	case bpf_htons(ETH_P_ARP):
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					trace.reason, trace.monitor, trace.flags);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
 			ret = handle_l2_announcement(ctx);
 		#else
@@ -1096,25 +1097,19 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
-# ifdef ENABLE_WIREGUARD
-		if (!from_host) {
-			next_proto = ip6->nexthdr;
-			hdrlen = ipv6_hdrlen(ctx, &next_proto);
-			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
-# endif /* ENABLE_WIREGUARD */
+		if (!from_host)
+			trace.flags = ctx_classify_by_pkt_hdr6(ctx, ip6);
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
 					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity,
+					ret, ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1140,17 +1135,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
-#ifdef ENABLE_WIREGUARD
-		if (!from_host) {
-			next_proto = ip4->protocol;
-			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
-#endif /* ENABLE_WIREGUARD */
+		if (!from_host)
+			trace.flags = ctx_classify_by_pkt_hdr4(ctx, ip4);
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
 							  CILIUM_CALL_IPV4_FROM_NETDEV,
@@ -1161,15 +1151,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity,
+					ret, ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif /* ENABLE_IPV4 */
 	default:
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					trace.reason, trace.monitor, trace.flags);
 #ifdef ENABLE_HOST_FIREWALL
-		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
-					     METRIC_INGRESS);
+		ret = send_drop_notify_error_flags(ctx, identity, DROP_UNKNOWN_L3,
+						   METRIC_INGRESS, trace.flags);
 #else
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
@@ -1309,9 +1300,9 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_ENCRYPT) {
 		ret = CTX_ACT_OK;
 
-		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_flags(ctx, TRACE_FROM_STACK, identity,
+					UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					TRACE_REASON_UNKNOWN, 0, CLS_FLAG_IPSEC);
 
 # ifdef TUNNEL_MODE
 		ret = do_netdev_encrypt_encap(ctx, proto, identity);
@@ -1338,6 +1329,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	__be16 __maybe_unused proto = 0;
 	__u32 vlan_id;
@@ -1346,7 +1338,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
+	if (magic == MARK_MAGIC_HOST || ctx_is_overlay(ctx) || ctx_is_wireguard(ctx))
 		src_sec_identity = HOST_ID;
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
@@ -1355,6 +1347,10 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 	else if (magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
+#endif
+#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
+	else if (magic == MARK_MAGIC_PROXY_TO_WORLD)
+		trace.flags = CLS_FLAG_IPSEC;
 #endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
@@ -1596,14 +1592,12 @@ skip_egress_gateway:
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
 	 */
-	if (!ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_is_wireguard(ctx)) {
 		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
@@ -1621,7 +1615,7 @@ skip_egress_gateway:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_wireguard(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
@@ -1638,15 +1632,15 @@ exit:
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  THIS_INTERFACE_IFINDEX, trace.reason, trace.monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
+				TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 
 drop_err:
-	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-					  METRIC_EGRESS);
+	return send_drop_notify_error_ext_flags(ctx, src_sec_identity, ret, ext_err,
+						METRIC_EGRESS, trace.flags);
 }
 
 /*
@@ -1661,6 +1655,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	int ret = CTX_ACT_OK;
 	bool traced = false;
@@ -1677,6 +1672,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
 		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+		trace.flags = CLS_FLAG_IPSEC;
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
@@ -1729,8 +1725,10 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * from 'cilium_host', mark the packet with MARK_MAGIC_PROXY_TO_WORLD
 	 * and allow it to enter the foward path once punted to stack.
 	 */
-	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX)
+	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX) {
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		trace.flags = CLS_FLAG_IPSEC;
+	}
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT
@@ -1788,13 +1786,13 @@ skip_ipsec_nodeport_revdnat:
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  METRIC_INGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+						  METRIC_INGRESS, trace.flags);
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
@@ -1808,6 +1806,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);
@@ -1816,13 +1815,13 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 
 	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  METRIC_INGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+						  METRIC_INGRESS, trace.flags);
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
@@ -1836,6 +1835,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
+		.flags = ctx_classify_by_pkt_mark(ctx),
 	};
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);
@@ -1844,13 +1844,13 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  METRIC_INGRESS);
+		return send_drop_notify_error_ext_flags(ctx, src_id, ret, ext_err,
+						  METRIC_INGRESS, trace.flags);
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify_flags(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+					TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+					trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 }
