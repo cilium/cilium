@@ -1567,12 +1567,14 @@ skip_egress_gateway:
 
 #if defined(ENABLE_IPSEC)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT) {
-		ret =  ipsec_maybe_redirect_to_encrypt(ctx, proto,
-						       src_sec_identity);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto,
+						      src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
+	} else {
+		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
 #endif /* ENABLE_IPSEC */
 
