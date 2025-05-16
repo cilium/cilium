@@ -5,13 +5,10 @@ package hubblecell
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"github.com/go-openapi/strfmt"
@@ -32,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
-	"github.com/cilium/cilium/pkg/hubble/metrics"
-	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
@@ -90,6 +85,10 @@ type hubbleIntegration struct {
 	// payloadParser is used to decode monitor events into Hubble events.
 	payloadParser parser.Decoder
 
+	// GRPC metrics are registered on the Hubble gRPC server
+	// and are exposed by the Hubble metrics server.
+	grpcMetrics *grpc_prometheus.ServerMetrics
+
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
 	config      config
@@ -111,6 +110,7 @@ func new(
 	observerOptions []observeroption.Option,
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
 	payloadParser parser.Decoder,
+	grpcMetrics *grpc_prometheus.ServerMetrics,
 	agentConfig *option.DaemonConfig,
 	config config,
 	log *slog.Logger,
@@ -141,6 +141,7 @@ func new(
 		observerOptions:   observerOptions,
 		exporters:         exporters,
 		payloadParser:     payloadParser,
+		grpcMetrics:       grpcMetrics,
 		agentConfig:       agentConfig,
 		config:            config,
 		log:               log,
@@ -200,12 +201,6 @@ func (h *hubbleIntegration) Status(ctx context.Context) *models.HubbleStatus {
 		return &models.HubbleStatus{State: models.HubbleStatusStateFailure, Msg: err.Error()}
 	}
 
-	metricsState := models.HubbleStatusMetricsStateDisabled
-	if h.config.MetricsServer != "" {
-		// TODO: The metrics package should be refactored to be able report its actual state
-		metricsState = models.HubbleStatusMetricsStateOk
-	}
-
 	hubbleStatus := &models.HubbleStatus{
 		State: models.StatusStateOk,
 		Observer: &models.HubbleStatusObserver{
@@ -213,9 +208,6 @@ func (h *hubbleIntegration) Status(ctx context.Context) *models.HubbleStatus {
 			MaxFlows:     int64(status.MaxFlows),
 			SeenFlows:    int64(status.SeenFlows),
 			Uptime:       strfmt.Duration(time.Duration(status.UptimeNs)),
-		},
-		Metrics: &models.HubbleStatusMetrics{
-			State: metricsState,
 		},
 	}
 
@@ -270,102 +262,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		return nil, fmt.Errorf("failed to retrieve local node information: %w", err)
 	}
 	observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(localNodeWatcher))
-
-	grpcMetrics := grpc_prometheus.NewServerMetrics()
-	var metricsTLSConfig *certloader.WatchedServerConfig
-	if h.config.EnableMetricsServerTLS {
-		metricsTLSConfigChan, err := certloader.FutureWatchedServerConfig(
-			h.log.With(logfields.Config, "hubble-metrics-server-tls"),
-			h.config.MetricsServerTLSClientCAFiles,
-			h.config.MetricsServerTLSCertFile,
-			h.config.MetricsServerTLSKeyFile,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize Hubble metrics server TLS configuration: %w", err)
-		}
-		waitingMsgTimeout := time.After(30 * time.Second)
-		for metricsTLSConfig == nil {
-			select {
-			case metricsTLSConfig = <-metricsTLSConfigChan:
-			case <-waitingMsgTimeout:
-				h.log.Info("Waiting for Hubble metrics server TLS certificate and key files to be created")
-			case <-ctx.Done():
-				return nil, fmt.Errorf("timeout while waiting for Hubble metrics server TLS certificate and key files to be created: %w", ctx.Err())
-			}
-		}
-		go func() {
-			<-ctx.Done()
-			metricsTLSConfig.Stop()
-		}()
-	}
-
-	var srv *http.Server
-	if h.config.MetricsServer != "" {
-		switch {
-		case h.config.DynamicMetricConfigFilePath != "" && len(h.config.Metrics) > 0:
-			return nil, errors.New("Cannot configure both static and dynamic Hubble metrics")
-		case h.config.DynamicMetricConfigFilePath != "":
-			h.log.Info(
-				"Starting Hubble server with dynamically configurable metrics",
-				logfields.Address, h.config.MetricsServer,
-				logfields.MetricConfig, h.config.DynamicMetricConfigFilePath,
-				logfields.TLS, h.config.EnableMetricsServerTLS,
-			)
-
-			metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
-			dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, h.log, h.config.DynamicMetricConfigFilePath)
-			observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(dynamicFp))
-		case len(h.config.Metrics) > 0:
-			h.log.Info(
-				"Starting Hubble Metrics server",
-				logfields.Address, h.config.MetricsServer,
-				logfields.MetricConfig, h.config.DynamicMetricConfigFilePath,
-				logfields.TLS, h.config.EnableMetricsServerTLS,
-			)
-
-			metricConfigs := api.ParseStaticMetricsConfig(strings.Fields(h.config.Metrics))
-			err := metrics.InitMetrics(h.log, metrics.Registry, metricConfigs, grpcMetrics)
-			if err != nil {
-				return nil, fmt.Errorf("failed to setup metrics: %w", err)
-			}
-
-			observerOpts = append(observerOpts,
-				observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-					if metrics.EnabledMetrics != nil {
-						var errs error
-						for _, nh := range metrics.EnabledMetrics {
-							// Continue running the remaining metrics handlers, since one failing
-							// shouldn't impact the other metrics handlers.
-							errs = errors.Join(errs, nh.Handler.ProcessFlow(ctx, flow))
-						}
-						if errs != nil {
-							h.log.Error("Failed to ProcessFlow in metrics handler", logfields.Error, err)
-						}
-					}
-					return false, nil
-				}),
-			)
-		}
-
-		srv = &http.Server{
-			Addr:    h.config.MetricsServer,
-			Handler: nil,
-		}
-		metrics.InitMetricsServerHandler(srv, metrics.Registry, h.config.EnableOpenMetrics)
-
-		go func() {
-			if err := metrics.StartMetricsServer(srv, h.log, metricsTLSConfig, grpcMetrics); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				h.log.Error("Hubble metrics server encountered an error", logfields.Error, err)
-				return
-			}
-		}()
-
-		localSrvOpts = append(localSrvOpts,
-			serveroption.WithGRPCMetrics(grpcMetrics),
-			serveroption.WithGRPCStreamInterceptor(grpcMetrics.StreamServerInterceptor()),
-			serveroption.WithGRPCUnaryInterceptor(grpcMetrics.UnaryServerInterceptor()),
-		)
-	}
 
 	maxFlows, err := container.NewCapacity(h.config.EventBufferCapacity)
 	if err != nil {
@@ -435,6 +331,9 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		serveroption.WithInsecure(),
 		serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
 		serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
+		serveroption.WithGRPCMetrics(h.grpcMetrics),
+		serveroption.WithGRPCStreamInterceptor(h.grpcMetrics.StreamServerInterceptor()),
+		serveroption.WithGRPCUnaryInterceptor(h.grpcMetrics.UnaryServerInterceptor()),
 	)
 
 	if h.agentConfig.EnableRecorder && h.config.EnableRecorderAPI {
@@ -468,9 +367,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		<-ctx.Done()
 		localSrv.Stop()
 		peerSvc.Close()
-		if srv != nil {
-			srv.Close()
-		}
 	}()
 
 	// configure another hubble server listening on TCP. This server is
