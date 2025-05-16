@@ -652,6 +652,22 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 
+#if defined(ENABLE_WIREGUARD)
+	/* When wireguard is enabled we should drop any traffic coming through the tunnel
+	 * that previously wasn't marked as decrypted by cilium.
+	 * TODO: make sure to also wrap this in a feature flag
+	 */
+	if (ctx->mark != MARK_MAGIC_WG_DECRYPTED) {
+		ret = DROP_INVALID;
+		goto out;
+	}
+	/* We only needed the mark to decide if we need to drop the packet here.
+	 * To not cause any further collision with the `decrypted` variable,
+	 * clear the mark.
+	 */
+	ctx->mark = 0;
+#endif
+
 /* We need to handle following possible packets come to this program
  *
  * 1. ESP packets coming from overlay (encrypted and not marked)
