@@ -132,7 +132,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 41
+      max-parallel: 100
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
@@ -358,6 +358,9 @@ jobs:
           if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
           fi
+          if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
+          fi
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
@@ -400,9 +403,10 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          # enable the check for proxy traffic.
+          # Enable the check for proxy traffic only if IPv4 is enabled.
+          # Otherwise we will be skipping proxy tests and won't have DNS proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
