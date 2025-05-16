@@ -9,7 +9,8 @@ UIDGID := $(shell stat -c '%u:%g' ${ROOT_DIR})
 
 TARGETS := \
 	unreachable-tailcall \
-	upgrade-map
+	upgrade-map \
+	unused-map-pruning
 
 .PHONY: docker build clean
 

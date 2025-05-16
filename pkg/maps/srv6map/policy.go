@@ -137,8 +137,14 @@ type srv6PolicyMap struct {
 }
 
 func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*PolicyMap4], bpf.MapOut[*PolicyMap6], defines.NodeOut) {
+	nodeOut := defines.NodeOut{
+		NodeDefines: defines.Map{
+			"SRV6_POLICY_MAP_SIZE": strconv.FormatUint(maxPolicyEntries, 10),
+		},
+	}
+
 	if !dc.EnableSRv6 {
-		return bpf.MapOut[*PolicyMap4]{}, bpf.MapOut[*PolicyMap6]{}, defines.NodeOut{}
+		return bpf.MapOut[*PolicyMap4]{}, bpf.MapOut[*PolicyMap6]{}, nodeOut
 	}
 
 	m4 := bpf.NewMap(
@@ -175,12 +181,6 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 			return nil
 		},
 	})
-
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_POLICY_MAP_SIZE": strconv.FormatUint(maxPolicyEntries, 10),
-		},
-	}
 
 	return bpf.NewMapOut(&PolicyMap4{m4}), bpf.NewMapOut(&PolicyMap6{m6}), nodeOut
 }
