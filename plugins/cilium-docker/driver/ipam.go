@@ -11,6 +11,7 @@ import (
 	"github.com/docker/libnetwork/ipams/remote/api"
 
 	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -22,23 +23,23 @@ const (
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{})
 	if err != nil {
-		log.WithError(err).Fatal("capabilities encode")
-		sendError(w, "encode error", http.StatusInternalServerError)
+		logging.Fatal(driver.logger, "capabilities encode", logfields.Error, err)
+		sendError(driver.logger, w, "encode error", http.StatusInternalServerError)
 		return
 	}
-	log.Debug("IPAM capabilities exchange complete")
+	driver.logger.Debug("IPAM capabilities exchange complete")
 }
 
 func (driver *driver) getDefaultAddressSpaces(w http.ResponseWriter, r *http.Request) {
-	log.Debug("GetDefaultAddressSpaces Called")
+	driver.logger.Debug("GetDefaultAddressSpaces Called")
 
 	resp := &api.GetAddressSpacesResponse{
 		LocalDefaultAddressSpace:  "CiliumLocal",
 		GlobalDefaultAddressSpace: "CiliumGlobal",
 	}
 
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Get Default Address Spaces response")
-	objectResponse(w, resp)
+	driver.logger.Debug("Get Default Address Spaces response", logfields.Response, resp)
+	objectResponse(driver.logger, w, resp)
 }
 
 func (driver *driver) getPoolResponse(req *api.RequestPoolRequest) *api.RequestPoolResponse {
@@ -66,24 +67,24 @@ func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 	var req api.RequestPoolRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
+		sendError(driver.logger, w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&req)).Debug("Request Pool request")
+	driver.logger.Debug("Request Pool request", logfields.Request, req)
 	resp := driver.getPoolResponse(&req)
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Request Pool response")
-	objectResponse(w, resp)
+	driver.logger.Debug("Request Pool response", logfields.Response, resp)
+	objectResponse(driver.logger, w, resp)
 }
 
 func (driver *driver) releasePool(w http.ResponseWriter, r *http.Request) {
 	var release api.ReleasePoolRequest
 	if err := json.NewDecoder(r.Body).Decode(&release); err != nil {
-		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
+		sendError(driver.logger, w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Pool request")
+	driver.logger.Debug("Release Pool request", logfields.Request, release)
 
 	emptyResponse(w)
 }
@@ -91,11 +92,11 @@ func (driver *driver) releasePool(w http.ResponseWriter, r *http.Request) {
 func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 	var request api.RequestAddressRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
+		sendError(driver.logger, w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&request)).Debug("Request Address request")
+	driver.logger.Debug("Request Address request", logfields.Request, request)
 
 	family := client.AddressFamilyIPv6 // Default
 	switch request.PoolID {
@@ -107,7 +108,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 
 	ipam, err := driver.client.IPAMAllocate(family, "docker-ipam", "", false)
 	if err != nil {
-		sendError(w, fmt.Sprintf("Could not allocate IP address: %s", err), http.StatusBadRequest)
+		sendError(driver.logger, w, fmt.Sprintf("Could not allocate IP address: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -116,37 +117,37 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 
 	addr := ipam.Address
 	if addr == nil {
-		sendError(w, "No IP addressing provided", http.StatusBadRequest)
+		sendError(driver.logger, w, "No IP addressing provided", http.StatusBadRequest)
 		return
 	}
 
 	resp := &api.RequestAddressResponse{}
 	if addr.IPV6 != "" {
 		if family != client.AddressFamilyIPv6 {
-			sendError(w, "Requested IPv4, received IPv6 address", http.StatusInternalServerError)
+			sendError(driver.logger, w, "Requested IPv4, received IPv6 address", http.StatusInternalServerError)
 		}
 		resp.Address = addr.IPV6 + "/128"
 	} else if addr.IPV4 != "" {
 		if family != client.AddressFamilyIPv4 {
-			sendError(w, "Requested IPv6, received IPv4 address", http.StatusInternalServerError)
+			sendError(driver.logger, w, "Requested IPv6, received IPv4 address", http.StatusInternalServerError)
 		}
 		resp.Address = addr.IPV4 + "/32"
 	}
 
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Request Address response")
-	objectResponse(w, resp)
+	driver.logger.Debug("Request Address response", logfields.Response, resp)
+	objectResponse(driver.logger, w, resp)
 }
 
 func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 	var release api.ReleaseAddressRequest
 	if err := json.NewDecoder(r.Body).Decode(&release); err != nil {
-		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
+		sendError(driver.logger, w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Address request")
+	driver.logger.Debug("Release Address request", logfields.Request, release)
 	if err := driver.client.IPAMReleaseIP(release.Address, ""); err != nil {
-		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
+		sendError(driver.logger, w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return
 	}
 
