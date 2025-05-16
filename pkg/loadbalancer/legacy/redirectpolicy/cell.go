@@ -47,8 +47,9 @@ func newLRPManager(params lrpManagerParams) *Manager {
 	return NewRedirectPolicyManager(params.Logger, params.DB, params.Svc, params.SvcCache, params.Pods, params.Ep, params.MetricsManager)
 }
 
-func newLRPApiHandler(lrpManager *Manager) serviceapi.GetLrpHandler {
+func newLRPApiHandler(logger *slog.Logger, lrpManager *Manager) serviceapi.GetLrpHandler {
 	return &getLrpHandler{
+		logger:     logger,
 		lrpManager: lrpManager,
 	}
 }
