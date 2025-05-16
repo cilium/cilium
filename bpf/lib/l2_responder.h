@@ -21,6 +21,6 @@ struct {
 	__type(key, struct l2_responder_v4_key);
 	__type(value, struct l2_responder_v4_stats);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, L2_RESPONSER_MAP4_SIZE);
+	__uint(max_entries, L2_RESPONDER_MAP4_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_l2_responder_v4 __section_maps_btf;
