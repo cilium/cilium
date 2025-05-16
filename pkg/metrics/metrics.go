@@ -15,8 +15,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
@@ -1502,13 +1502,16 @@ func (gwt *GaugeWithThreshold) Set(value float64) {
 	if gwt.active && !overThreshold {
 		gwt.active = !gwt.reg.Unregister(gwt.gauge)
 		if gwt.active {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+			gwt.reg.params.Logger.Warn("Failed to unregister metric", logfields.MetricConfig, gwt.gauge.Desc())
 		}
 	} else if !gwt.active && overThreshold {
 		err := gwt.reg.Register(gwt.gauge)
 		gwt.active = err == nil
 		if err != nil {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+			gwt.reg.params.Logger.Warn("Failed to register metric",
+				logfields.Error, err,
+				logfields.MetricConfig, gwt.gauge.Desc(),
+			)
 		}
 	}
 
@@ -1516,7 +1519,7 @@ func (gwt *GaugeWithThreshold) Set(value float64) {
 }
 
 // NewGaugeWithThresholdForRegistry creates a new GaugeWithThreshold.
-func (reg *Registry) NewGaugeWithThreshold(name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
+func (reg *Registry) NewGaugeWithThreshold(name, subsystem, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
 	return &GaugeWithThreshold{
 		reg: reg,
 		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
