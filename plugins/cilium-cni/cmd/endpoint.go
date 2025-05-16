@@ -5,9 +5,9 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -41,7 +41,7 @@ type EndpointConfiguration interface {
 // invocation. Those fields may be used by custom implementations of the
 // EndpointConfigurator interface to customize the CNI ADD call.
 type ConfigurationParams struct {
-	Log     *logrus.Entry
+	Log     *slog.Logger
 	Conf    *models.DaemonConfigurationStatus
 	Args    *skel.CmdArgs
 	CniArgs *types.ArgsSpec

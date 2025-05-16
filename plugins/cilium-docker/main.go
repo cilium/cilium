@@ -4,10 +4,10 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	log            = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker")
 	pluginPath     string
 	driverSock     string
 	debug          bool
@@ -42,22 +41,24 @@ connected to a Docker network of type "cilium".`,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium-docker")
 
-		createPluginSock()
+		logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-docker-driver")
+		createPluginSock(logger)
 
-		if d, err := driver.NewDriver(ciliumAPI, dockerHostPath); err != nil {
-			log.WithError(err).Fatal("Unable to create cilium-net driver")
+		if d, err := driver.NewDriver(logger, ciliumAPI, dockerHostPath); err != nil {
+			logging.Fatal(logger, "Unable to create cilium-net driver", logfields.Error, err)
 		} else {
-			log.WithField(logfields.Path, driverSock).Info("Listening for events from Docker")
+			logger.Info("Listening for events from Docker", logfields.Path, driverSock)
 			if err := d.Listen(driverSock); err != nil {
-				log.Fatal(err)
+				logging.Fatal(logger, err.Error())
 			}
 		}
 	},
 }
 
 func main() {
+	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-docker-driver")
 	if err := RootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, err.Error())
 	}
 }
 
@@ -73,21 +74,21 @@ func init() {
 
 func initConfig() {
 	if debug {
-		log.Logger.SetLevel(logrus.DebugLevel)
+		logging.SetSlogLevel(slog.LevelDebug)
 	} else {
-		log.Logger.SetLevel(logrus.InfoLevel)
+		logging.SetSlogLevel(slog.LevelInfo)
 	}
 }
 
-func createPluginSock() {
+func createPluginSock(logger *slog.Logger) {
 	driverSock = filepath.Join(pluginPath, "cilium.sock")
 
 	if err := os.MkdirAll(pluginPath, 0755); err != nil && !os.IsExist(err) {
-		log.WithError(err).Fatal("Could not create net plugin path directory")
+		logging.Fatal(logger, "Could not create net plugin path directory", logfields.Error, err)
 	}
 
 	if _, err := os.Stat(driverSock); err == nil {
-		log.WithField(logfields.Path, driverSock).Debug("socket file already exists, unlinking the old file handle.")
+		logger.Debug("socket file already exists, unlinking the old file handle.", logfields.Path, driverSock)
 		os.RemoveAll(driverSock)
 	}
 }

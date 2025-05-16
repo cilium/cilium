@@ -1694,6 +1694,18 @@ const (
 
 	ExitCode = "exitCode"
 
+	NetLink = "netLink"
+
+	NetConf = "netConf"
+
+	Result = "result"
+
+	NetNamespace = "netNamespace"
+
+	DockerHostPath = "dockerHostPath"
+
+	ImageID = "imageID"
+
 	NumBufferedEvents = "numBufferedEvents"
 
 	EventHandlingDuration = "eventHandlingDuration"

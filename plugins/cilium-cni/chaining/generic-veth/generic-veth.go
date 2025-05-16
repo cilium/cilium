@@ -11,7 +11,6 @@ import (
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -44,9 +43,11 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 
 	defer func() {
 		if err != nil {
-			pluginCtx.Logger.WithError(err).
-				WithField("previousResult", pluginCtx.NetConf.PrevResult).
-				Errorf("Unable to create endpoint")
+			pluginCtx.Logger.Error(
+				"Unable to create endpoint",
+				logfields.Error, err,
+				logfields.Previous, pluginCtx.NetConf.PrevResult,
+			)
 		}
 	}()
 	var (
@@ -69,7 +70,10 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 
 		linkFound := false
 		for _, link := range links {
-			pluginCtx.Logger.Debugf("Found interface in container %s", logfields.Repr(link.Attrs()))
+			pluginCtx.Logger.Debug(
+				"Found interface in container",
+				logfields.Interface, link.Attrs(),
+			)
 
 			if link.Type() != "veth" {
 				continue
@@ -92,7 +96,11 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			if err == nil && len(addrs) > 0 {
 				vethIP = addrs[0].IPNet.IP.String()
 			} else if err != nil {
-				pluginCtx.Logger.WithError(err).WithField(logfields.Interface, link.Attrs().Name).Warn("No valid IPv4 address found")
+				pluginCtx.Logger.Warn(
+					"No valid IPv4 address found",
+					logfields.Error, err,
+					logfields.Interface, link.Attrs().Name,
+				)
 			}
 
 			addrsv6, err := safenetlink.AddrList(link, netlink.FAMILY_V6)
@@ -108,7 +116,11 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 					}
 				}
 			} else if err != nil {
-				pluginCtx.Logger.WithError(err).WithField(logfields.Interface, link.Attrs().Name).Warn("No valid IPv6 address found")
+				pluginCtx.Logger.Warn(
+					"No valid IPv6 address found",
+					logfields.Error, err,
+					logfields.Interface, link.Attrs().Name,
+				)
 			}
 
 			linkFound = true
@@ -219,14 +231,14 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		},
 	}
 
-	scopedLog := pluginCtx.Logger.WithFields(logrus.Fields{
-		logfields.ContainerID:        ep.ContainerID,
-		logfields.ContainerInterface: ep.ContainerInterfaceName,
-	})
+	scopedLogger := pluginCtx.Logger.With(
+		logfields.ContainerID, ep.ContainerID,
+		logfields.ContainerInterface, ep.ContainerInterfaceName,
+	)
 	var newEp *models.Endpoint
 	newEp, err = cli.EndpointCreate(ep)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to create endpoint")
+		scopedLogger.Warn("Unable to create endpoint", logfields.Error, err)
 		err = fmt.Errorf("unable to create endpoint: %w", err)
 		return
 	}
@@ -246,7 +258,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			}
 		}
 	}
-	scopedLog.Debug("Endpoint successfully created")
+	scopedLogger.Debug("Endpoint successfully created")
 
 	res = prevRes
 
@@ -256,7 +268,10 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext, delClient *lib.DeletionFallbackClient) (err error) {
 	req := &models.EndpointBatchDeleteRequest{ContainerID: pluginCtx.Args.ContainerID}
 	if err := delClient.EndpointDeleteMany(req); err != nil {
-		pluginCtx.Logger.WithError(err).Warning("Errors encountered while deleting endpoint")
+		pluginCtx.Logger.Warn(
+			"Errors encountered while deleting endpoint",
+			logfields.Error, err,
+		)
 	}
 	return nil
 }
@@ -264,7 +279,10 @@ func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.P
 func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) error {
 	// Just confirm that the endpoint is healthy
 	eID := endpointid.NewCNIAttachmentID(pluginCtx.Args.ContainerID, pluginCtx.Args.IfName)
-	pluginCtx.Logger.WithField(logfields.EndpointID, eID).Debugf("Asking agent for healthz for %s", eID)
+	pluginCtx.Logger.Warn(
+		"Asking agent for healthz for endpoint",
+		logfields.EndpointID, eID,
+	)
 	epHealth, err := cli.EndpointHealthGet(eID)
 	if err != nil {
 		return cniTypes.NewError(types.CniErrHealthzGet, "HealthzFailed",
@@ -275,7 +293,11 @@ func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.Pl
 		return cniTypes.NewError(types.CniErrUnhealthy, "Unhealthy",
 			"container is unhealthy in agent")
 	}
-	pluginCtx.Logger.Debugf("Container %s:%s has a healthy agent endpoint", pluginCtx.Args.ContainerID, pluginCtx.Args.IfName)
+	pluginCtx.Logger.Debug(
+		"Container has a healthy agent endpoint",
+		logfields.ContainerID, pluginCtx.Args.ContainerID,
+		logfields.Interface, pluginCtx.Args.IfName,
+	)
 	return nil
 }
 
