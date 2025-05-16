@@ -8,11 +8,10 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
@@ -22,7 +21,7 @@ import (
 )
 
 type DeletionFallbackClient struct {
-	logger *logrus.Entry
+	logger *slog.Logger
 	cli    *client.Client
 
 	lockfile *lockfile.Lockfile
@@ -42,7 +41,7 @@ const maxDeletionFiles = 256
 // 2. Otherwise, take a shared lock on the delete queue directory
 // 3. Once we get the lock, check to see if the socket now exists
 // 4. If it exists, drop the lock and use the api
-func NewDeletionFallbackClient(logger *logrus.Entry) (*DeletionFallbackClient, error) {
+func NewDeletionFallbackClient(logger *slog.Logger) (*DeletionFallbackClient, error) {
 	dc := &DeletionFallbackClient{
 		logger: logger,
 	}
@@ -52,7 +51,11 @@ func NewDeletionFallbackClient(logger *logrus.Entry) (*DeletionFallbackClient, e
 	if err == nil {
 		return dc, nil
 	}
-	dc.logger.WithError(err).Warnf("Failed to connect to agent socket at %s.", client.DefaultSockPath())
+	dc.logger.Warn(
+		"Failed to connect to agent socket",
+		logfields.Error, err,
+		logfields.Socket, client.DefaultSockPath(),
+	)
 
 	// We failed to connect: get the queue lock
 	if err := dc.tryQueueLock(); err != nil {
@@ -84,7 +87,10 @@ func (dc *DeletionFallbackClient) tryConnect() error {
 }
 
 func (dc *DeletionFallbackClient) tryQueueLock() error {
-	dc.logger.Debugf("attempting to acquire deletion queue lock at %s", defaults.DeleteQueueLockfile)
+	dc.logger.Debug(
+		"attempting to acquire deletion queue lock",
+		logfields.Path, defaults.DeleteQueueLockfile,
+	)
 
 	// Ensure deletion queue directory exists, obtain shared lock
 	err := os.MkdirAll(defaults.DeleteQueueDir, 0755)
@@ -118,7 +124,10 @@ func (dc *DeletionFallbackClient) EndpointDelete(id string) error {
 
 	// fall-back mode
 	if dc.lockfile != nil {
-		dc.logger.WithField(logfields.EndpointID, id).Info("Queueing deletion request for endpoint")
+		dc.logger.Info(
+			"Queueing deletion request for endpoint",
+			logfields.EndpointID, id,
+		)
 		return dc.enqueueDeletionRequestLocked(id)
 	}
 
@@ -134,7 +143,10 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 
 	// fall-back mode
 	if dc.lockfile != nil {
-		dc.logger.WithField(logfields.Request, req).Info("Queueing endpoint batch deletion request")
+		dc.logger.Info(
+			"Queueing endpoint batch deletion request",
+			logfields.Request, req,
+		)
 		b, err := req.MarshalBinary()
 		if err != nil {
 			return fmt.Errorf("failed to marshal endpoint delete request: %w", err)
@@ -156,7 +168,11 @@ func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(contents string) 
 	// then the kubelet will get the failure and eventually retry deletion.
 	files, err := os.ReadDir(defaults.DeleteQueueDir)
 	if err != nil {
-		dc.logger.WithField(logfields.Path, defaults.DeleteQueueDir).WithError(err).Error("failed to list deletion queue directory")
+		dc.logger.Error(
+			"failed to list deletion queue directory",
+			logfields.Error, err,
+			logfields.Path, defaults.DeleteQueueDir,
+		)
 		return err
 	}
 	if len(files) > maxDeletionFiles {
@@ -171,7 +187,11 @@ func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(contents string) 
 
 	err = os.WriteFile(path, []byte(contents), 0644)
 	if err != nil {
-		dc.logger.WithField(logfields.Path, path).WithError(err).Error("failed to write deletion file")
+		dc.logger.Error(
+			"failed to write deletion file",
+			logfields.Error, err,
+			logfields.Path, path,
+		)
 		return fmt.Errorf("failed to write deletion file %s: %w", path, err)
 	}
 	dc.logger.Info("wrote queued deletion file")
