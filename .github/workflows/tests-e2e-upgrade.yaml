@@ -517,7 +517,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ !success() || matrix.name == '31' || matrix.name == '32' }}
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
@@ -532,7 +532,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ !success() || matrix.name == '31' || matrix.name == '32' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdumps-${{ matrix.name }}

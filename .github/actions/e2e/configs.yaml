@@ -330,9 +330,11 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   tunnel: 'vxlan'
+  underlay: 'ipv6'
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  skip-upgrade: 'true'
 - name: '30'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20250507.063028'

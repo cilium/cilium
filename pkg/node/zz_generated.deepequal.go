@@ -61,5 +61,9 @@ func (in *LocalNode) DeepEqual(other *LocalNode) bool {
 		}
 	}
 
+	if in.UnderlayProtocol != other.UnderlayProtocol {
+		return false
+	}
+
 	return true
 }
