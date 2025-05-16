@@ -945,3 +945,8 @@ Users (Alphabetically)
       D: Zero Hash is using Cilium as CNI for networking, security and monitoring features for Kubernetes clusters
       U: CNI/ENI Networking, Network policies, Hubble
       Q: @eugenestarchenko
+
+    * N: Sagar Mujumale
+      D: Global solution is using Cilium in their production clusters (self-hosted k8s, On-premises)
+      U: ENI Networking, Service load-balancing
+      Q: sagar: mujumalesagar@gmail.com
