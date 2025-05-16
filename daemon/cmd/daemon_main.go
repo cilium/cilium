@@ -359,6 +359,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.EnablePolicy)
 
 	flags.Bool(option.EnableExternalIPs, false, fmt.Sprintf("Enable k8s service externalIPs feature (requires enabling %s)", option.EnableNodePort))
+	flags.MarkDeprecated(option.EnableExternalIPs, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
 	option.BindEnv(vp, option.EnableExternalIPs)
 
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
@@ -516,16 +517,15 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(vp, option.Labels)
 
-	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementFalse, fmt.Sprintf(
-		"Enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
-			"or enable all features (will panic if any feature cannot be enabled) (%q)",
-		option.KubeProxyReplacementFalse, option.KubeProxyReplacementTrue))
+	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementFalse, "Enable kube-proxy replacement")
 	option.BindEnv(vp, option.KubeProxyReplacement)
 
 	flags.Bool(option.EnableHostPort, false, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
+	flags.MarkDeprecated(option.EnableHostPort, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
 	option.BindEnv(vp, option.EnableHostPort)
 
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
+	flags.MarkDeprecated(option.EnableNodePort, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
 	option.BindEnv(vp, option.EnableNodePort)
 
 	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
