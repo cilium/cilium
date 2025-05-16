@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
-#include <bpf/helpers_skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 #define ETH_HLEN 0
@@ -33,7 +31,7 @@ static volatile const __u8 *node_mac = mac_two;
  * Therefore, we created a stud, mock_hanle_policy, to simply check if the
  * our skb reaches there.
  */
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
