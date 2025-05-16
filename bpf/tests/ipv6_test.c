@@ -232,4 +232,49 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	test_finish();
 }
 
+CHECK("tc", "test_ipv6_mc_helpers")
+int test_ipv6_mc_helpers(__maybe_unused struct __ctx_buff *ctx)
+{
+	union macaddr mac = {{0}};
+	union v6addr addr = {{0}};
+
+	test_init();
+
+	/* IPv6 mcast mac addr is 33:33 followed by 32 LSBs from target IP */
+	ipv6_mc_mac_set((union v6addr *)&v6_pod_one, &mac);
+	assert(mac.addr[0] == 0x33);
+	assert(mac.addr[1] == 0x33);
+	assert(mac.addr[2] == v6_pod_one[12]);
+	assert(mac.addr[3] == v6_pod_one[13]);
+	assert(mac.addr[4] == v6_pod_one[14]);
+	assert(mac.addr[5] == v6_pod_one[15]);
+	assert(ipv6_is_mc_mac((union v6addr *)&v6_pod_one, &mac));
+	mac.addr[5] += 0x1;
+	assert(!ipv6_is_mc_mac((union v6addr *)&v6_pod_one, &mac));
+
+	/*
+	 * IPv6 mcast addr is ff02::1:ffXX:XXXX where XX:XXXX are 24 LSBs from
+	 * the target IP
+	 */
+	ipv6_mc_addr_set((union v6addr *)&v6_pod_one, &addr);
+	assert(addr.addr[0] == 0xFF);
+	assert(addr.addr[1] == 0x02);
+	assert(addr.addr[2] == 0x00);
+	assert(addr.addr[3] == 0x00);
+	assert(addr.addr[4] == 0x00);
+	assert(addr.addr[5] == 0x00);
+	assert(addr.addr[6] == 0x00);
+	assert(addr.addr[7] == 0x00);
+	assert(addr.addr[8] == 0x00);
+	assert(addr.addr[9] == 0x00);
+	assert(addr.addr[10] == 0x00);
+	assert(addr.addr[11] == 0x01);
+	assert(addr.addr[12] == 0xFF);
+	assert(addr.addr[13] == v6_pod_one[13]);
+	assert(addr.addr[14] == v6_pod_one[14]);
+	assert(addr.addr[15] == v6_pod_one[15]);
+
+	test_finish();
+}
+
 BPF_LICENSE("Dual BSD/GPL");
