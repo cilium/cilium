@@ -340,3 +340,61 @@ func (s *outsideToIngressService) Run(ctx context.Context, t *check.Test) {
 		i++
 	}
 }
+
+// PodToL7Service sends an HTTP request from a given client Pods
+// to all L7 LB service in the test context.
+func PodToL7Service(name string, clients map[string]check.Pod, opts ...Option) check.Scenario {
+	options := &labelsOption{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return &podToL7Service{
+		ScenarioBase:      check.NewScenarioBase(),
+		name:              name,
+		clients:           clients,
+		sourceLabels:      options.sourceLabels,
+		destinationLabels: options.destinationLabels,
+	}
+}
+
+// podToL7Service implements a Scenario.
+type podToL7Service struct {
+	check.ScenarioBase
+
+	name              string
+	clients           map[string]check.Pod
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+}
+
+func (s *podToL7Service) Name() string {
+	if len(s.name) == 0 {
+		return "pod-to-l7-lb-service"
+	}
+	return fmt.Sprintf("pod-to-l7-lb-service-%s", s.name)
+}
+
+func (s *podToL7Service) Run(ctx context.Context, t *check.Test) {
+	var i int
+	ct := t.Context()
+
+	for _, pod := range s.clients {
+		if !hasAllLabels(pod, s.sourceLabels) {
+			continue
+		}
+
+		for _, svc := range ct.L7LBService() {
+			if !hasAllLabels(svc, s.destinationLabels) {
+				continue
+			}
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, a.CurlCommand(svc))
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+					DNSRequired: true,
+					AltDstPort:  svc.Port(),
+				}))
+			})
+			i++
+		}
+	}
+}
