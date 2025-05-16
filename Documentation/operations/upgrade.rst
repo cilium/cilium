@@ -350,6 +350,9 @@ Deprecated Options
   Service protocol differentiation will be unconditionally enabled.
 * The flag ``--enable-recorder`` has been deprecated and will be removed in Cilium 1.19.
   You can use `pwru <https://github.com/cilium/pwru>`_ with ``--filter-trace-xdp`` to trace XDP requests.
+* The flags ``--enable-node-port``, ``--enable-host-port``, ``--enable-external-ips`` have been deprecated
+  and will be removed in Cilium 1.19. The kube-proxy replacement features will be only enabled when
+  ``--kube-proxy-replacent`` is set to ``true``. 
 
 Helm Options
 ~~~~~~~~~~~~
