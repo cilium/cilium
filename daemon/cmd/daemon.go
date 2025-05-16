@@ -231,8 +231,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	if option.Config.TunnelingEnabled() && params.TunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
-		if option.Config.EnableIPSec || option.Config.EnableWireguard {
-			return nil, nil, fmt.Errorf("Transparent encryption (both IPsec and WireGuard) requires an IPv4 underlay")
+		if option.Config.EnableWireguard {
+			return nil, nil, fmt.Errorf("WireGuard requires an IPv4 underlay")
 		}
 	}
 

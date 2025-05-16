@@ -370,7 +370,7 @@ jobs:
           key-algo: "gcm(aes)"
           nb-nodes: 3
           tunnel: "disabled"
-          ipv6: false
+          dual-stack: false
           subnet-encryption: true
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
