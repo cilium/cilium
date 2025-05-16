@@ -4,19 +4,27 @@
 package reconcilerv2
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -24,6 +32,9 @@ import (
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
 	logger       *slog.Logger
+	DB           *statedb.DB
+	routeTable   statedb.Table[*tables.Route]
+	deviceTable  statedb.Table[*tables.Device]
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
@@ -42,19 +53,70 @@ type NeighborReconcilerIn struct {
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
+
+	DB          *statedb.DB
+	JobGroup    job.Group
+	Signaler    *signaler.BGPCPSignaler
+	RouteTable  statedb.Table[*tables.Route]
+	DeviceTable statedb.Table[*tables.Device]
 }
+
+var (
+	ipv4Default = netip.PrefixFrom(netip.IPv4Unspecified(), 0)
+	ipv6Default = netip.PrefixFrom(netip.IPv6Unspecified(), 0)
+)
 
 func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 	logger := params.Logger.With(types.ReconcilerLogField, "Neighbor")
 
+	params.JobGroup.Add(
+		job.Observer("default-gateway-route-change-tracker",
+			routeChangeTrackerObserver(params.Signaler, params.Logger),
+			statedb.Observable(params.DB, params.RouteTable)),
+	)
+
+	params.JobGroup.Add(
+		job.Observer("device-change-device-change-tracker",
+			deviceChangeTrackerObserver(params.Signaler, params.Logger),
+			statedb.Observable(params.DB, params.DeviceTable)),
+	)
+
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
 			logger:       logger,
+			DB:           params.DB,
+			routeTable:   params.RouteTable,
+			deviceTable:  params.DeviceTable,
 			SecretStore:  params.SecretStore,
 			PeerConfig:   params.PeerConfig,
 			DaemonConfig: params.DaemonConfig,
 			metadata:     make(map[string]NeighborReconcilerMetadata),
 		},
+	}
+}
+
+// routeChangeTrackerObserver triggers BGP reconciliation when there is a change in IPv4 or IPv6 default route
+func routeChangeTrackerObserver(signaler *signaler.BGPCPSignaler, logger *slog.Logger) job.ObserverFunc[statedb.Change[*tables.Route]] {
+	return func(ctx context.Context, event statedb.Change[*tables.Route]) error {
+		route := event.Object
+		// check for default route change
+		if route.Dst == ipv4Default ||
+			route.Dst == ipv6Default {
+			// trigger reconciliation for default route changes
+			signaler.Event(struct{}{})
+			logger.Debug("Default route change detected, triggering BGP reconciliation")
+		}
+		return nil
+	}
+}
+
+// deviceChangeTrackerObserver triggers BGP reconciliation when there is a change in the device table
+func deviceChangeTrackerObserver(signaler *signaler.BGPCPSignaler, logger *slog.Logger) job.ObserverFunc[statedb.Change[*tables.Device]] {
+	return func(ctx context.Context, event statedb.Change[*tables.Device]) error {
+		// trigger reconciliation for device changes
+		signaler.Event(struct{}{})
+		logger.Debug("Device change detected, triggering BGP reconciliation")
+		return nil
 	}
 }
 
@@ -140,6 +202,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	nset := map[string]*member{}
 
 	for i, n := range newNeigh {
+		l := l.With(types.PeerLogField, n.Name)
 		// validate that peer has ASN and address. In current implementation these fields are
 		// mandatory for a peer. Eventually we will relax this restriction with implementation
 		// of BGP unnumbered.
@@ -148,12 +211,25 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 
 		if n.PeerAddress == nil {
-			r.logger.Debug("Peer does not have PeerAddress configured, skipping", types.PeerLogField, n.Name)
-			continue
+			// future auto-discovery modes can be added here to get the peer address
+			switch n.AutoDiscovery.Mode {
+			case v2.BGPDefaultGatewayMode:
+				defaultGateway, err := r.getDefaultGateway(n.AutoDiscovery.DefaultGateway)
+				if err != nil {
+					l.Debug("failed to get default gateway, skipping",
+						logfields.Error,
+						err)
+					continue
+				}
+				newNeigh[i].PeerAddress = &defaultGateway
+			default:
+				l.Debug("Peer does not have PeerAddress configured, skipping")
+				continue
+			}
 		}
 
 		var (
-			key = r.neighborID(&n)
+			key = r.neighborID(&newNeigh[i])
 			h   *member
 			ok  bool
 		)
@@ -262,6 +338,50 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	l.Debug("Done reconciling peers")
 	return nil
+}
+
+// getDefaultGateway returns the default gateway address with lower priority using route and device
+// statedb tables and the provided default gateway configuration.
+func (r *NeighborReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway) (string, error) {
+	var defaultRoute netip.Prefix
+	switch defaultGateway.AddressFamily {
+	case "ipv4":
+		defaultRoute = ipv4Default
+	case "ipv6":
+		defaultRoute = ipv6Default
+	default:
+		return "", fmt.Errorf("invalid address family %s", defaultGateway.AddressFamily)
+	}
+	txn := r.DB.ReadTxn()
+	// get routes from statedb route table
+	// TODO: add RoutePrefixIndex Query to lookup routes by prefix
+	routes := r.routeTable.All(txn)
+	activeDefaultRoutes := []*tables.Route{}
+	for route := range routes {
+		// ignore routes that are not default routes or do not have a valid gateway
+		if !route.Gw.IsValid() || route.Dst != defaultRoute {
+			continue
+		}
+		dev, _, found := r.deviceTable.Get(txn, tables.DeviceIDIndex.Query(route.LinkIndex))
+		// ignore routes if the link through which it is reachable is not up
+		if !found || dev.OperStatus != "up" {
+			continue
+		}
+		if route.Gw.IsLinkLocalUnicast() {
+			r.logger.Warn("link local address is not supported for default gateway mode of bgp auto-discovery",
+				logfields.Gateway, route.Gw.String(),
+			)
+			continue
+		}
+		activeDefaultRoutes = append(activeDefaultRoutes, route)
+	}
+	if len(activeDefaultRoutes) == 0 {
+		return "", fmt.Errorf("no active default route found")
+	}
+	// return the gateway address with lowest priority
+	return slices.MinFunc(activeDefaultRoutes, func(r0, r1 *tables.Route) int {
+		return cmp.Compare(r0.Priority, r1.Priority)
+	}).Gw.String(), nil
 }
 
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
