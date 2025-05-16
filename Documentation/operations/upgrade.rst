@@ -348,6 +348,8 @@ Deprecated Options
   be removed in Cilium 1.19.
 * The flag ``--bpf-lb-proto-diff`` has been deprecated and will be removed in Cilium 1.19.
   Service protocol differentiation will be unconditionally enabled.
+* The flag ``--enable-recorder`` has been deprecated and will be removed in Cilium 1.19.
+  You can use `pwru <https://github.com/cilium/pwru>`_ with ``--filter-trace-xdp`` to trace XDP requests.
 
 Helm Options
 ~~~~~~~~~~~~
