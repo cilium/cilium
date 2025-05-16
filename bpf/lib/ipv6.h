@@ -35,6 +35,8 @@
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
 
+#define IPV6_ALEN               16
+
 /* Follows the structure of ipv6hdr, see ipv6_handle_fragmentation. */
 struct ipv6_frag_id {
 	__be32 id;		/* L4 datagram identifier */
@@ -59,6 +61,27 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv6_frag_datagrams __section_maps_btf;
 #endif
+
+static __always_inline
+void ipv6_mc_mac_set(union v6addr *addr, union macaddr *mac)
+{
+	union macaddr mac_base_addr = {{0x33, 0x33, 0x00, 0x00, 0x00, 0x00}};
+
+	memcpy(mac, (void *)&mac_base_addr, 2);
+	memcpy((__u8 *)mac + 2, (__u8 *)addr + 12, 4);
+}
+
+static __always_inline
+void ipv6_mc_addr_set(union v6addr *addr, union v6addr *mc_addr)
+{
+	union v6addr base_addr = { .addr = {0xff, 0x02, 0, 0, 0, 0, 0, 0,
+				  0, 0, 0, 0x01, 0xFF, 0, 0, 0} };
+
+	memcpy(mc_addr, (void *)&base_addr, IPV6_ALEN);
+	mc_addr->addr[13] = addr->addr[13];
+	mc_addr->addr[14] = addr->addr[14];
+	mc_addr->addr[15] = addr->addr[15];
+}
 
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
