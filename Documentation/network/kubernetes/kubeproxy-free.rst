@@ -71,6 +71,16 @@ by using the following commands below.
    Be aware that removing ``kube-proxy`` will break existing service connections. It will also stop service related traffic
    until the Cilium replacement has been installed.
 
+.. warning::
+   When deploying the eBPF kube-proxy replacement under co-existence with
+   kube-proxy on the system, be aware that both mechanisms operate independent of each
+   other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
+   *running* cluster in order to delegate operation from respectively back to kube-proxy,
+   then it must be expected that existing connections will break since, for example,
+   both NAT tables are not aware of each other. If deployed in co-existence on a newly
+   spawned up node/cluster which does not yet serve user traffic, then this is not an
+   issue.
+
 .. code-block:: shell-session
 
    $ kubectl -n kube-system delete ds kube-proxy
@@ -1337,113 +1347,6 @@ the ``cilium-dbg service list`` dump:
 .. code-block:: shell-session
 
     $ kubectl delete deployment my-nginx
-
-kube-proxy Hybrid Modes
-***********************
-
-Cilium's eBPF kube-proxy replacement can be configured in several modes, i.e. it can
-replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
-underlying Linux kernel requirements do not support a full kube-proxy replacement.
-
-.. warning::
-   When deploying the eBPF kube-proxy replacement under co-existence with
-   kube-proxy on the system, be aware that both mechanisms operate independent of each
-   other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
-   *running* cluster in order to delegate operation from respectively back to kube-proxy,
-   then it must be expected that existing connections will break since, for example,
-   both NAT tables are not aware of each other. If deployed in co-existence on a newly
-   spawned up node/cluster which does not yet serve user traffic, then this is not an
-   issue.
-
-This section elaborates on the ``kubeProxyReplacement`` options:
-
-- ``kubeProxyReplacement=true``: When using this option, it's highly recommended
-  to run a kube-proxy-free Kubernetes setup where Cilium is expected to fully replace
-  all kube-proxy functionality. However, if it's not possible to remove kube-proxy for
-  specific reasons (e.g. Kubernetes distribution limitations), it's also acceptable to
-  leave it deployed in the background. Just be aware of the potential side effects on
-  existing nodes as mentioned above when running kube-proxy in co-existence. Once the
-  Cilium agent is up and running, it takes care of handling Kubernetes services of type
-  ClusterIP, NodePort, LoadBalancer, services with externalIPs as well as HostPort.
-  If the underlying kernel version requirements are not met
-  (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
-  with an error message.
-
-- ``kubeProxyReplacement=false``: This option is used to disable any Kubernetes service
-  handling by fully relying on kube-proxy instead, except for ClusterIP services
-  accessed from pods (pre-v1.6 behavior), or for a hybrid setup. That is,
-  kube-proxy is running in the Kubernetes cluster where Cilium
-  partially replaces and optimizes kube-proxy functionality. The ``false``
-  option requires the user to manually specify which components for the eBPF
-  kube-proxy replacement should be used.
-  Similarly to ``true`` mode, the Cilium agent will bail out on start-up with
-  an error message if the underlying kernel requirements are not met when components
-  are manually enabled. For
-  fine-grained configuration, ``socketLB.enabled``, ``nodePort.enabled``,
-  ``externalIPs.enabled`` and ``hostPort.enabled`` can be set to ``true``. By
-  default all four options are set to ``false``.
-  If you are setting ``nodePort.enabled`` to true, make sure to also
-  set ``nodePort.enableHealthCheck`` to ``false``, so that the Cilium agent does not
-  start the NodePort health check server (``kube-proxy`` will also attempt to start
-  this server, and there would otherwise be a clash when cilium attempts to bind its server to the
-  same port). A few example configurations
-  for the ``false`` option are provided below.
-
-.. note::
-
-    Switching from the ``true`` to ``false`` mode, or vice versa can break
-    existing connections to services in a cluster. The same goes for enabling, or
-    disabling ``socketLB``. It is recommended to drain all the workloads before
-    performing such configuration changes.
-
-  The following Helm setup below would be equivalent to ``kubeProxyReplacement=true``
-  in a kube-proxy-free environment:
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=false \\
-        --set socketLB.enabled=true \\
-        --set nodePort.enabled=true \\
-        --set externalIPs.enabled=true \\
-        --set hostPort.enabled=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
-
-
-  The following Helm setup below would be equivalent to the default Cilium service
-  handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
-  for pods:
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=false
-
-  The following Helm setup below would optimize Cilium's NodePort, LoadBalancer and services
-  with externalIPs handling for external traffic ingressing into the Cilium managed node in
-  a kube-proxy environment:
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=false \\
-        --set nodePort.enabled=true \\
-        --set externalIPs.enabled=true
-
-In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=false`` for
-new deployments.
-
-The current Cilium kube-proxy replacement mode can also be introspected through the
-``cilium-dbg status`` CLI command:
-
-.. code-block:: shell-session
-
-    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep KubeProxyReplacement
-    KubeProxyReplacement:   True	[eth0 (DR)]
 
 Graceful Termination
 ********************
