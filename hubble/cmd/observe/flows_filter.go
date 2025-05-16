@@ -359,8 +359,6 @@ var agentEventSubtypes = map[string]monitorAPI.AgentNotification{
 	"endpoint-deleted":            monitorAPI.AgentNotifyEndpointDeleted,
 	"ipcache-upserted":            monitorAPI.AgentNotifyIPCacheUpserted,
 	"ipcache-deleted":             monitorAPI.AgentNotifyIPCacheDeleted,
-	"service-upserted":            monitorAPI.AgentNotifyServiceUpserted,
-	"service-deleted":             monitorAPI.AgentNotifyServiceDeleted,
 }
 
 func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error {

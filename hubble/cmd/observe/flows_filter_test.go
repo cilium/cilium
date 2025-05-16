@@ -386,7 +386,6 @@ func TestFilterType(t *testing.T) {
 		"-t", "agent",
 		"-t", "agent:3",
 		"-t", "agent:policy-updated",
-		"-t", "agent:service-deleted",
 	}))
 
 	require.NoError(t, handleFlowArgs(os.Stdout, f, false))
@@ -430,11 +429,6 @@ func TestFilterType(t *testing.T) {
 						Type:         monitorAPI.MessageTypeAgent,
 						MatchSubType: true,
 						SubType:      int32(monitorAPI.AgentNotifyPolicyUpdated),
-					},
-					{
-						Type:         monitorAPI.MessageTypeAgent,
-						MatchSubType: true,
-						SubType:      int32(monitorAPI.AgentNotifyServiceDeleted),
 					},
 				},
 			},
