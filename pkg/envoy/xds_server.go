@@ -526,6 +526,7 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string
 	// 2. Add Cilium Network filter.
 	var ciliumConfig *cilium.NetworkFilter
 	if filterName == "" {
+		s.logger.Warn("P")
 		// Use proxylib by default
 		ciliumConfig = &cilium.NetworkFilter{
 			Proxylib: "libcilium.so",
@@ -999,6 +1000,10 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
 		// Default TCP chain, takes care of all parsers in proxylib
+		// The proxylib is deprecated and will be removed in the future
+		// https://github.com/cilium/cilium/issues/38224
+		s.logger.Warn("Support for proxylib has been deprecated due to lack of maintainers. If you are interested in helping to maintain, please reach out on GitHub or the official Cilium slack",
+			logfields.URL, "https://cilium.herokuapp.com/")
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
 
 		// Add a TLS variant
