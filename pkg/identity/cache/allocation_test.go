@@ -347,7 +347,7 @@ func testAllocator(t *testing.T) {
 
 func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
 	k := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
-	selectedLabels, _ := identitybackend.SanitizeK8sLabels(k.GetAsMap())
+	selectedLabels := identitybackend.SelectK8sLabels(k.GetAsMap())
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   id,
