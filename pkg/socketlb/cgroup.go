@@ -48,6 +48,7 @@ var attachTypes = map[string]ebpf.AttachType{
 	GetPeerName6: ebpf.AttachCgroupInet6GetPeername,
 	PostBind6:    ebpf.AttachCGroupInet6PostBind,
 	PreBind6:     ebpf.AttachCGroupInet6Bind,
+	SockRelease:  ebpf.AttachCgroupInetSockRelease,
 }
 
 // attachCgroup attaches a program from spec with the given name to cgroupRoot.

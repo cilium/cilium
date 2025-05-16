@@ -154,6 +154,19 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	return ret;
 }
 
+static __always_inline int sock4_delete_revnat(struct bpf_sock *ctx)
+{
+    struct ipv4_revnat_tuple key = {};
+    int ret = 0;
+
+    key.cookie = get_socket_cookie(ctx);
+    key.address = (__u32)ctx->dst_ip4;
+    key.port = (__u16)ctx->dst_port;
+
+    ret = map_delete_elem(&cilium_lb4_reverse_sk, &key);
+    return ret;
+}
+
 static __always_inline bool
 sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 {
@@ -641,6 +654,32 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 		ret = map_update_elem(&cilium_lb6_reverse_sk, &key,
 				      &val, 0);
 	return ret;
+}
+
+static __always_inline void ctx_get_v6_dst_address(const struct bpf_sock *ctx,
+						   union v6addr *addr)
+{
+	addr->p1 = ctx->dst_ip6[0];
+	barrier();
+	addr->p2 = ctx->dst_ip6[1];
+	barrier();
+	addr->p3 = ctx->dst_ip6[2];
+	barrier();
+	addr->p4 = ctx->dst_ip6[3];
+	barrier();
+}
+
+static __always_inline int sock6_delete_revnat(struct bpf_sock *ctx)
+{
+    struct ipv6_revnat_tuple key = {};
+    int ret = 0;
+
+    key.cookie = get_socket_cookie(ctx);
+    ctx_get_v6_dst_address(ctx, &key.address);
+    key.port = (__u16)ctx->dst_port;
+
+    ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
+    return ret;
 }
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -1209,6 +1248,24 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 #endif /* ENABLE_SOCKET_LB_PEER */
+
+__section("cgroup/sock_release")
+int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
+{
+# ifdef ENABLE_IPV4
+	if (ctx->family == AF_INET)
+		if (sock4_delete_revnat(ctx) == 0)
+			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_DELETE);
+# endif /* ENABLE_IPV4 */
+
+# ifdef ENABLE_IPV6
+	if (ctx->family == AF_INET6)
+		if (sock6_delete_revnat(ctx) == 0)
+			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_DELETE);
+# endif /* ENABLE_IPV6 */
+
+    return SYS_PROCEED;
+}
 
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
