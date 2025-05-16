@@ -7,19 +7,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"slices"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type bpfCollector struct {
-	sfg singleflight.Group
+	logger *slog.Logger
+	sfg    singleflight.Group
 
 	bpfMapsCount      *prometheus.Desc
 	bpfMapsMemory     *prometheus.Desc
@@ -36,8 +38,9 @@ func (bu bpfUsage) count() float64 {
 	return float64(len(bu.ids))
 }
 
-func newbpfCollector() *bpfCollector {
+func newbpfCollector(logger *slog.Logger) *bpfCollector {
 	return &bpfCollector{
+		logger: logger,
 		bpfMapsCount: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "", "bpf_maps"),
 			"Total count of BPF maps.",
@@ -142,7 +145,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 	})
 
 	if err != nil {
-		logrus.WithError(err).Error("retrieving BPF maps & programs usage")
+		s.logger.Error("retrieving BPF maps & programs usage", logfields.Error, err)
 		return
 	}
 

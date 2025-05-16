@@ -30,7 +30,7 @@ func newAuthMapCache(logger *slog.Logger, authMap authMap) *authMapCache {
 	var pressureGauge *metrics.GaugeWithThreshold
 
 	if metrics.BPFMapPressure {
-		pressureGauge = metrics.NewBPFMapPressureGauge(authmap.MapName, 0)
+		pressureGauge = metrics.NewBPFMapPressureGauge(logger, authmap.MapName, 0)
 	}
 	return &authMapCache{
 		logger:        logger,

@@ -12,11 +12,12 @@ package metrics
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
@@ -1484,6 +1485,7 @@ func newErrorsWarningsMetric() metric.Vec[metric.Counter] {
 // GaugeWithThreshold is a prometheus gauge that registers itself with
 // prometheus if over a threshold value and unregisters when under.
 type GaugeWithThreshold struct {
+	logger    *slog.Logger
 	gauge     prometheus.Gauge
 	threshold float64
 	active    bool
@@ -1495,13 +1497,16 @@ func (gwt *GaugeWithThreshold) Set(value float64) {
 	if gwt.active && !overThreshold {
 		gwt.active = !Unregister(gwt.gauge)
 		if gwt.active {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+			gwt.logger.Warn("Failed to unregister metric", logfields.MetricConfig, gwt.gauge.Desc())
 		}
 	} else if !gwt.active && overThreshold {
 		err := Register(gwt.gauge)
 		gwt.active = err == nil
 		if err != nil {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+			gwt.logger.Warn("Failed to register metric",
+				logfields.Error, err,
+				logfields.MetricConfig, gwt.gauge.Desc(),
+			)
 		}
 	}
 
@@ -1509,8 +1514,9 @@ func (gwt *GaugeWithThreshold) Set(value float64) {
 }
 
 // NewGaugeWithThreshold creates a new GaugeWithThreshold.
-func NewGaugeWithThreshold(name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
+func NewGaugeWithThreshold(logger *slog.Logger, name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
 	return &GaugeWithThreshold{
+		logger: logger,
 		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace:   Namespace,
 			Subsystem:   subsystem,
@@ -1525,8 +1531,9 @@ func NewGaugeWithThreshold(name string, subsystem string, desc string, labels ma
 
 // NewBPFMapPressureGauge creates a new GaugeWithThreshold for the
 // cilium_bpf_map_pressure metric with the map name as constant label.
-func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThreshold {
+func NewBPFMapPressureGauge(logger *slog.Logger, mapname string, threshold float64) *GaugeWithThreshold {
 	return NewGaugeWithThreshold(
+		logger,
 		"map_pressure",
 		SubsystemBPF,
 		"Fill percentage of map, tagged by map name",
