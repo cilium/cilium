@@ -186,7 +186,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 	dcfg := p.DaemonConfig
 
 	// TODO: deprecate --enable-ipv4-egress-gateway, create new --enable-egress-gateway
-	if !dcfg.EnableIPEgressGateway {
+	if !dcfg.EnableEgressGateway {
 		return out, nil
 	}
 
