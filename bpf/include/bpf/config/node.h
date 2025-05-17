@@ -15,5 +15,6 @@
 /* Legacy node config rendered at agent runtime. */
 #include <node_config.h>
 
+NODE_CONFIG(union v6addr, service_loopback_ipv6, "IPv6 source address used for SNAT when a Pod talks to itself over a Service")
 NODE_CONFIG(union v4addr, service_loopback_ipv4, "IPv4 source address used for SNAT when a Pod talks to itself over a Service")
 NODE_CONFIG(union v6addr, router_ipv6, "Internal IPv6 router address assigned to the cilium_host interface")
