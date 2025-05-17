@@ -17,7 +17,7 @@ import (
 func TestDecodeTraceSockNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 38, TraceSockNotifyLen)
+	require.Equal(t, 40, TraceSockNotifyLen)
 
 	input := TraceSockNotify{
 		Type:       0x00,
