@@ -74,6 +74,9 @@ triggers:
   /scale-100:
     workflows:
     - scale-test-100-gce.yaml
+  /scale-5:
+    workflows:
+    - scale-test-5-gce.yaml
   /scale-clustermesh:
     workflows:
     - scale-test-clustermesh.yaml
