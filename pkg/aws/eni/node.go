@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
 	"net/netip"
 	"slices"
 	"strings"
@@ -157,24 +156,26 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 		ipPrefixes := e.Prefixes
 		if len(ipPrefixes) > 0 {
 			usedIPs := n.k8sObj.Status.IPAM.Used
-			usedIPsCount := len(usedIPs)
-			ipsPerPrefix := 16
-			preAllocate := n.k8sObj.Spec.IPAM.PreAllocate
-			// Calculate number of prefixes needed
-			requiredPrefixes := (usedIPsCount + preAllocate + ipsPerPrefix - 1) / ipsPerPrefix
+			ipsPerPrefix := option.ENIPDBlockSizeIPv4
 
+			// Calculate number of prefixes needed to avoid deleting IPPrefix allocated to resolve IPDeficit
+			requiredPrefixes := (len(usedIPs) + n.k8sObj.Spec.IPAM.PreAllocate + ipsPerPrefix - 1) / ipsPerPrefix
 			if len(ipPrefixes) > requiredPrefixes {
 				unusedIPPrefixes := []string{}
 				matchedIPs := []string{}
 				// Check each prefix to determine if at least one IP is used in IPAM.
 				for _, prefix := range ipPrefixes {
-					_, ipNet, err := net.ParseCIDR(prefix)
+					if len(unusedIPPrefixes) >= requiredPrefixes {
+						break
+					}
+					prefixAddr, err := netip.ParsePrefix(prefix)
 					if err != nil {
 						continue
 					}
+
 					found := false
 					for ip := range usedIPs {
-						if ipNet.Contains(net.ParseIP(ip)) {
+						if prefixAddr.Contains(netip.MustParseAddr(ip)) {
 							found = true
 							break
 						}
@@ -182,8 +183,8 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 					if !found {
 						unusedIPPrefixes = append(unusedIPPrefixes, prefix)
 						for _, ipStr := range e.Addresses {
-							ip := net.ParseIP(ipStr)
-							if ip != nil && ipNet.Contains(ip) {
+							ip := netip.MustParseAddr(ipStr)
+							if prefixAddr.Contains(ip) {
 								matchedIPs = append(matchedIPs, ipStr)
 							}
 						}

@@ -41,6 +41,7 @@ const (
 	createInterfaceAndAllocateIP = "createInterfaceAndAllocateIP"
 	allocateIP                   = "allocateIP"
 	releaseIP                    = "releaseIP"
+	releaseIPPrefixes            = "releaseIPPrefixes"
 
 	// operator status
 	success = "success"
@@ -881,21 +882,29 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			logfields.Releasing, ipsToRelease,
 			logfields.SelectedInterface, a.release.InterfaceID,
 			logfields.SelectedPoolID, a.release.PoolID)
+		start := time.Now()
 		// Unassign IPPrefixes instead of IPs
 		if len(a.release.IPPrefixesToRelease) > 0 {
 			err := n.ops.ReleaseIPPrefixes(ctx, a.release)
-			if err != nil {
-				scopedLog.Warn("Unable to unassign IP prefixes from interface", logfields.Error, err)
-				return false, err
+			if err == nil {
+				n.manager.metricsAPI.ReleaseAttempt(releaseIPPrefixes, success, string(a.release.PoolID), metrics.SinceInSeconds(start))
+				n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
+				return true, nil
 			}
+			n.manager.metricsAPI.ReleaseAttempt(releaseIPPrefixes, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
+			scopedLog.Warn(
+				"Unable to unassign ipPrefixes from interface",
+				logfields.Error, err,
+				logfields.SelectedInterface, a.release.InterfaceID,
+				logfields.ReleasingAddresses, a.release.IPPrefixesToRelease,
+			)
 			return false, err
 		}
-		start := time.Now()
+
 		err := n.ops.ReleaseIPs(ctx, a.release)
 		if err == nil {
 			n.manager.metricsAPI.ReleaseAttempt(releaseIP, success, string(a.release.PoolID), metrics.SinceInSeconds(start))
 			n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
-
 			// Remove the IPs from ipsMarkedForRelease
 			n.mutex.Lock()
 			for _, ip := range ipsToRelease {
