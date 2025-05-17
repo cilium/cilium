@@ -86,6 +86,7 @@ func newLocalNodeConfig(
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
 		NativeRoutingCIDRIPv6:        datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode),
 		LoopbackIPv4:                 node.GetIPv4Loopback(logger),
+		LoopbackIPv6:                 node.GetIPv6Loopback(logger),
 		Devices:                      nativeDevices,
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
