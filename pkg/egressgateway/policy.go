@@ -315,7 +315,15 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 			policyGwc.v6needed = true
 		}
 	}
-
+	//validation for egressIP and destinationCDRs are of same IP Family
+	for _, cidr := range dstCidrList {
+		if cidr.Addr().Is6() && egressGateway.EgressIP !="" && policyGwc.egressIP.Is4() {
+			return nil, fmt.Errorf("egress IP and destination CIDRs must be of the same IP family")
+		}
+		if cidr.Addr().Is4() && egressGateway.EgressIP !="" && policyGwc.egressIP.Is6() {
+			return nil, fmt.Errorf("egress IP and destination CIDRs must be of the same IP family")
+		}
+	}
 	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
 		cidr, err := netip.ParsePrefix(string(cidrString))
 		if err != nil {
