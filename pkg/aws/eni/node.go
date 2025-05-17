@@ -153,9 +153,51 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	// addresses available for release
 	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
 		e := n.enis[eniId]
+		ipPrefixes := e.Prefixes
+		if len(ipPrefixes) > 0 {
+			usedIPs := n.k8sObj.Status.IPAM.Used
+			ipsPerPrefix := option.ENIPDBlockSizeIPv4
 
-		// IP release for prefixes is not currently supported. Will skip releasing from this ENI
-		if len(e.Prefixes) > 0 {
+			// Calculate number of prefixes needed to avoid deleting IPPrefix allocated to resolve IPDeficit
+			requiredPrefixes := (len(usedIPs) + n.k8sObj.Spec.IPAM.PreAllocate + ipsPerPrefix - 1) / ipsPerPrefix
+			if len(ipPrefixes) > requiredPrefixes {
+				unusedIPPrefixes := []string{}
+				matchedIPs := []string{}
+				// Check each prefix to determine if at least one IP is used in IPAM.
+				for _, prefix := range ipPrefixes {
+					if len(unusedIPPrefixes) >= requiredPrefixes {
+						break
+					}
+					prefixAddr, err := netip.ParsePrefix(prefix)
+					if err != nil {
+						continue
+					}
+
+					found := false
+					for ip := range usedIPs {
+						if prefixAddr.Contains(netip.MustParseAddr(ip)) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						unusedIPPrefixes = append(unusedIPPrefixes, prefix)
+						for _, ipStr := range e.Addresses {
+							ip := netip.MustParseAddr(ipStr)
+							if prefixAddr.Contains(ip) {
+								matchedIPs = append(matchedIPs, ipStr)
+							}
+						}
+					}
+				}
+				if len(unusedIPPrefixes) > 0 {
+					r.InterfaceID = eniId
+					r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
+					r.IPsToRelease = matchedIPs
+					r.IPPrefixesToRelease = unusedIPPrefixes
+					return r
+				}
+			}
 			continue
 		}
 		scopedLog.Debug(
@@ -205,6 +247,16 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	}
 
 	return r
+}
+
+// ReleaseIPPrefixes performs the ENI IPPrefixes release operation
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	if err := n.manager.api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // ReleaseIPs performs the ENI IP release operation
