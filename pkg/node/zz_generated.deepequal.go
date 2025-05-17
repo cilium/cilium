@@ -61,5 +61,22 @@ func (in *LocalNode) DeepEqual(other *LocalNode) bool {
 		}
 	}
 
+	if ((in.IPv6Loopback != nil) && (other.IPv6Loopback != nil)) || ((in.IPv6Loopback == nil) != (other.IPv6Loopback == nil)) {
+		in, other := &in.IPv6Loopback, &other.IPv6Loopback
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }

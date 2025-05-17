@@ -178,10 +178,22 @@ func GetIPv4Loopback(logger *slog.Logger) net.IP {
 	return getLocalNode(logger).IPv4Loopback
 }
 
+// GetIPv6Loopback returns the loopback IPv6 address of this node.
+func GetIPv6Loopback(logger *slog.Logger) net.IP {
+	return getLocalNode(logger).IPv6Loopback
+}
+
 // SetIPv4Loopback sets the loopback IPv4 address of this node.
 func SetIPv4Loopback(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {
 		n.IPv4Loopback = ip
+	})
+}
+
+// SetIPv6Loopback sets the loopback IPv6 address of this node.
+func SetIPv6Loopback(ip net.IP) {
+	localNode.Update(func(n *LocalNode) {
+		n.IPv6Loopback = ip
 	})
 }
 

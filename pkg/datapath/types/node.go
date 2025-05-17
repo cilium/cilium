@@ -68,6 +68,10 @@ type LocalNodeConfiguration struct {
 	// Immutable at runtime.
 	LoopbackIPv4 net.IP
 
+	// LoopbackIPv6 is the IPv6 loopback address.
+	// Immutable at runtime.
+	LoopbackIPv6 net.IP
+
 	// Devices is the native network devices selected for datapath use.
 	// Mutable at runtime.
 	Devices []*tables.Device
