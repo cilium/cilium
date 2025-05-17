@@ -41,6 +41,9 @@ type LocalNode struct {
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
 	ServiceLoopbackIPv4 net.IP
+	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to
+	// itself through a Service.
+	ServiceLoopbackIPv6 net.IP
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local
