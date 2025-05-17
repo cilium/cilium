@@ -325,6 +325,9 @@ const (
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
 
+	// LoopbackIPv6 is the default address for service loopback
+	LoopbackIPv6 = "fd00::1"
+
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false

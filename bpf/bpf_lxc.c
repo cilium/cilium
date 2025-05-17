@@ -1608,7 +1608,9 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			int ret2;
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
-					   ct_state->rev_nat_index, tuple,
+					   ct_state->rev_nat_index, 
+					   ct_state->loopback,
+					   tuple,
 					   ipfrag_has_l4_header(fraginfo), CT_INGRESS);
 			if (IS_ERR(ret2))
 				return ret2;
@@ -1622,6 +1624,18 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		 */
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
+		
+#if defined(ENABLE_PER_PACKET_LB)
+		union v6addr loopback_addr = IPV6_LOOPBACK;
+		if (ret == CT_NEW && ip6->saddr == loopback_addr &&
+		ct_has_loopback_egress_entry6(get_ct_map6(tuple), tuple)) {
+			ct_state_new.loopback = true;
+			break;
+		}
+
+		if (unlikely(ct_state->loopback))
+			break;
+#endif /* ENABLE_PER_PACKET_LB */
 
 		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,

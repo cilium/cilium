@@ -464,6 +464,14 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router(d.logger))
 
+		// Allocate IPv6 service loopback IP
+		loopbackIPv6 := net.ParseIP(option.Config.LoopbackIPv6)
+		if loopbackIPv6 == nil {
+			return fmt.Errorf("Invalid IPv6 loopback address %s", option.Config.LoopbackIPv6)
+		}
+		node.SetIPv6Loopback(loopbackIPv6)
+		log.Infof("  Loopback IPv6: %s", node.GetIPv6Loopback(d.logger).String())
+
 		log.Info("  Local IPv6 addresses:")
 		for _, addr := range addrs {
 			if addr.Addr.Is6() {
