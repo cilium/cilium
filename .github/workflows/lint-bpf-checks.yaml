@@ -101,11 +101,26 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24' 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm make
       - name: Build all BPF datapath permutations
         env:
           V: 0
         run: |
-          contrib/scripts/builder.sh make --quiet -C bpf build_all -j $(nproc) || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+          contrib/scripts/builder.sh make --quiet -C bpf build_all -j "$(nproc)" || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+      
+      - name: Run alignment checker
+        run: |
+          make -C bpf check-alignment || (echo "Run 'make -C bpf check-alignment' locally to investigate alignment mismatches"; exit 1)
+        env:
+          CLANG: clang
+          LLC: llc
 
   bpf_tests:
     needs: [check_changes]

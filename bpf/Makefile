@@ -172,7 +172,7 @@ endif
 
 include ./Makefile.bpf
 
-.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands
+.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands check-alignment
 
 all: bpf_all
 
@@ -189,6 +189,11 @@ testdata:
 
 generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
+
+check-alignment: bpf_alignchecker.o
+	@$(ECHO_CHECK) "Running alignment checker..."
+	$(QUIET) $(GO) build -o $(CURDIR)/../tools/alignchecker/cilium-align-checker $(CURDIR)/../tools/alignchecker
+	$(QUIET) $(CURDIR)/../tools/alignchecker/cilium-align-checker $(CURDIR)/bpf_alignchecker.o
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
