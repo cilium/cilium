@@ -24,6 +24,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -434,6 +435,42 @@ func HaveIPv6Support() error {
 	unix.Close(fd)
 	return nil
 }
+
+// HaveFibLookupSkipNeigh tests whether or not the kernel supports the
+// BPF_FIB_LOOKUP_SKIP_NEIGH flag for bpf_fib_lookup.
+// https://lore.kernel.org/bpf/20230217205515.3583372-1-martin.lau@linux.dev/
+var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
+	var objs bpfgen.ProbesObjects
+
+	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("loading collection: %w", err)
+	}
+
+	defer objs.Close()
+
+	ret, err := objs.ProbeFibLookupSkipNeigh.Run(&ebpf.RunOptions{
+		// Newer kernels require that data is at least 14 bytes:
+		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
+		Data:   make([]byte, 14),
+		Repeat: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("running probe: %w", err)
+	}
+
+	if ret != 0 {
+		return ErrNotSupported
+	}
+
+	return nil
+})
 
 // CreateHeaderFiles creates C header files with macros indicating which BPF
 // features are available in the kernel.
