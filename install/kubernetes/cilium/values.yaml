@@ -3263,6 +3263,8 @@ clustermesh:
   enableEndpointSliceSynchronization: false
   # -- Enable Multi-Cluster Services API support
   enableMCSAPISupport: false
+  # -- Control whether policy rules assume by default the local cluster if not explicitly selected
+  policyDefaultLocalCluster: false
   # -- Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
   annotations: {}
   # -- Clustermesh explicit configuration.
