@@ -177,12 +177,6 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 			test_fatal("dst IP hasn't been revSNATed to client IP");
 	} else { /* CT_EGRESS */
 		if (test_ctx.redirect) {
-			if (memcmp(l2->h_source, (__u8 *)mac_zero, ETH_ALEN) != 0)
-				test_fatal("src MAC is not the secondary iface MAC")
-
-			if (memcmp(l2->h_dest, (__u8 *)mac_zero, ETH_ALEN) != 0)
-				test_fatal("dst MAC is not the external svc MAC")
-
 			if (l3->saddr != CLIENT_IP)
 				test_fatal("src IP has changed before redirecting to egress iface");
 		} else {
@@ -411,12 +405,6 @@ static __always_inline int egressgw_snat_check_v6(const struct __ctx_buff *ctx,
 			test_fatal("dst IP hasn't been revSNATed to client IP");
 	} else { /* CT_EGRESS */
 		if (test_ctx.redirect) {
-			if (memcmp(l2->h_source, (__u8 *)mac_zero, ETH_ALEN) != 0)
-				test_fatal("src MAC is not the secondary iface MAC");
-
-			if (memcmp(l2->h_dest, (__u8 *)mac_zero, ETH_ALEN) != 0)
-				test_fatal("dst MAC is not the external svc MAC");
-
 			if (memcmp(&l3->saddr, &client_ip, sizeof(struct in6_addr)) != 0)
 				test_fatal("src IP has changed before redirecting to egress iface");
 		} else {

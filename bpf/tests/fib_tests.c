@@ -2,34 +2,10 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
+#define ENABLE_IPV4		      1
+#define ENABLE_IPV6		      1
+#define SKIP_ICMPV6_HOPLIMIT_HANDLING 1
 #include "common.h"
-
-#define CTX_REDIRECT_ENTERED 1001
-
-struct ctx_redirect_recorder {
-	const struct __sk_buff *ctx;
-	__u32 ifindex;
-	__u64 flags;
-} redir_recorder = {0};
-
-void reset_redir_recorder(struct ctx_redirect_recorder *r)
-{
-	r->ctx = 0;
-	r->ifindex = 0;
-	r->flags = 0XFFFFFFFFFFFFFFFF;
-}
-
-#define ctx_redirect mock_ctx_redirect
-
-long mock_ctx_redirect(__maybe_unused const struct __sk_buff *ctx,
-		       __maybe_unused __u32 ifindex,
-		       __maybe_unused __u64 flags)
-{
-	redir_recorder.flags = flags;
-	redir_recorder.ifindex = ifindex;
-	redir_recorder.ctx = ctx;
-	return CTX_REDIRECT_ENTERED;
-}
 
 #define REDIR_NEIGH_ENTERED 1002
 
@@ -62,7 +38,27 @@ long mock_redirect_neigh(__maybe_unused int ifindex,
 	return REDIR_NEIGH_ENTERED;
 }
 
+struct fib_lookup_recorder {
+	__u32 flags;
+} fib_lookup_recorder = {0};
+
+void reset_fib_lookup_recorder(struct fib_lookup_recorder *r)
+{
+	r->flags = 0;
+}
+
+#define fib_lookup mock_fib_lookup
+
+long mock_fib_lookup(void *ctx __maybe_unused,
+		     struct bpf_fib_lookup *params __maybe_unused,
+		     int plen __maybe_unused, __u32 flags __maybe_unused)
+{
+	fib_lookup_recorder.flags = flags;
+	return 0;
+}
+
 #include "lib/dbg.h"
+#include <bpf/config/global.h>
 #include <bpf/config/node.h>
 #include "lib/fib.h"
 
@@ -83,20 +79,26 @@ int test1_check(struct __ctx_buff *ctx)
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_SUCCESS,
 				      ifindex_good, &ext_err);
-		if (ret != CTX_REDIRECT_ENTERED)
-			test_fatal("did not enter ctx_redirect");
+		if (ret != REDIR_NEIGH_ENTERED)
+			test_fatal("did not enter ctx_redirect_neigh");
 
-		if (redir_recorder.ifindex != ifindex_good)
+		if (redir_neigh_recorder.ifindex != ifindex_good)
 			test_fatal("expected %x, got %d", ifindex_good,
-				   redir_recorder.ifindex);
+				   redir_neigh_recorder.ifindex);
 
-		if (redir_recorder.ctx != ctx)
-			test_fatal("ctx pointer mismatch");
+		if (!redir_neigh_recorder.params)
+			test_fatal("redirect_neigh called with nil params");
 
-		if (redir_recorder.flags != 0)
-			test_fatal("unexpected flags: ");
+		if (redir_neigh_recorder.plen != sizeof(struct bpf_redir_neigh))
+			test_fatal("expected plen %d, got %d",
+				   sizeof(struct bpf_redir_neigh),
+				   redir_neigh_recorder.plen);
 
-		reset_redir_recorder(&redir_recorder);
+		if (redir_neigh_recorder.flags != 0)
+			test_fatal("expected flags 0, got %d",
+				   redir_neigh_recorder.flags);
+
+		reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
 
 	/* Simulate fib lookup with no neighbor return.
