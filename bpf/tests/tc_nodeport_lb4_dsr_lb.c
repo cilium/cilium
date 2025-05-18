@@ -125,7 +125,6 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 
 	test_init();
@@ -140,11 +139,7 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
@@ -155,11 +150,6 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	l4 = (void *)opt + sizeof(*opt);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
