@@ -5,6 +5,7 @@ package loader
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -26,6 +27,8 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	if lnc.DirectRoutingDevice != nil {
 		node.DirectRoutingDevIfindex = uint32(lnc.DirectRoutingDevice.Index)
 	}
+
+	node.SupportsFibLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
 
 	return node
 }
