@@ -62,6 +62,8 @@ long mock_fib_lookup(void *ctx __maybe_unused,
 #include <bpf/config/node.h>
 #include "lib/fib.h"
 
+ASSIGN_CONFIG(bool, supports_fib_lookup_skip_neigh, true)
+
 CHECK("tc", "fib_do_redirect_happy_path")
 int test1_check(struct __ctx_buff *ctx)
 {
@@ -173,5 +175,67 @@ int test1_check(struct __ctx_buff *ctx)
 
 		reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
+	test_finish();
+}
+
+CHECK("tc", "fib_redirect*_fib_lookup_flags")
+int test2_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	TEST("fib_redirect", {
+		struct bpf_fib_lookup_padded params = { 0 };
+		int oif = 0;
+		__s8 ext_err;
+
+		if (!neigh_resolver_available())
+			test_fatal("expected neigh_resolver_available true");
+
+		fib_redirect(ctx, false, &params, true, &ext_err, &oif);
+
+		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
+			test_fatal("expected flags %x, got %d",
+				   BPF_FIB_LOOKUP_SKIP_NEIGH,
+				   fib_lookup_recorder.flags);
+
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
+	TEST("fib_redirect_v4", {
+		struct iphdr hdr = { 0 };
+		int oif = 0;
+		__s8 ext_err;
+
+		if (!neigh_resolver_available())
+			test_fatal("expected neigh_resolver_available true");
+
+		fib_redirect_v4(ctx, 0, &hdr, true, true, &ext_err, &oif);
+
+		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
+			test_fatal("expected flags %x, got %d",
+				   BPF_FIB_LOOKUP_SKIP_NEIGH,
+				   fib_lookup_recorder.flags);
+
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
+	TEST("fib_redirect_v6", {
+		struct ipv6hdr hdr6 = { 0 };
+		int oif = 0;
+		__s8 ext_err;
+
+		if (!neigh_resolver_available())
+			test_fatal("expected neigh_resolver_available true");
+
+		fib_redirect_v6(ctx, 0, &hdr6, true, true, &ext_err, &oif);
+
+		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
+			test_fatal("expected flags %x, got %d",
+				   BPF_FIB_LOOKUP_SKIP_NEIGH,
+				   fib_lookup_recorder.flags);
+
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
 	test_finish();
 }
