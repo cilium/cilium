@@ -1415,6 +1415,7 @@ data:
 {{- end }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ .Values.clustermesh.enableMCSAPISupport | quote }}
+  policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}
   nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -42,14 +43,14 @@ func TestCorrectDerivativeName(t *testing.T) {
 	name := "test"
 	cnp := getSamplePolicy(name, "testns")
 	logger := hivetest.Logger(t)
-	cnpDerivedPolicy, err := createDerivativeCNP(context.TODO(), logger, cnp)
+	cnpDerivedPolicy, err := createDerivativeCNP(context.TODO(), logger, cmtypes.PolicyAnyCluster, cnp)
 	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf("%s-groups-%s", name, cnp.ObjectMeta.UID), cnpDerivedPolicy.ObjectMeta.Name)
 
 	// Test clusterwide policy helper functions
 	ccnpName := "ccnp-test"
 	ccnp := getSamplePolicy(ccnpName, "")
-	ccnpDerivedPolicy, err := createDerivativeCCNP(context.TODO(), logger, ccnp)
+	ccnpDerivedPolicy, err := createDerivativeCCNP(context.TODO(), logger, cmtypes.PolicyAnyCluster, ccnp)
 
 	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf("%s-groups-%s", ccnpName, ccnp.ObjectMeta.UID), ccnpDerivedPolicy.ObjectMeta.Name)
@@ -74,7 +75,7 @@ func TestDerivativePoliciesAreDeletedIfNogroups(t *testing.T) {
 	cnp.Spec.Egress = egressRule
 
 	logger := hivetest.Logger(t)
-	cnpDerivedPolicy, err := createDerivativeCNP(context.TODO(), logger, cnp)
+	cnpDerivedPolicy, err := createDerivativeCNP(context.TODO(), logger, cmtypes.PolicyAnyCluster, cnp)
 	require.NoError(t, err)
 	require.Equal(t, cnp.Spec.Egress, cnpDerivedPolicy.Specs[0].Egress)
 	require.Len(t, cnpDerivedPolicy.Specs, 1)
@@ -84,7 +85,7 @@ func TestDerivativePoliciesAreDeletedIfNogroups(t *testing.T) {
 	ccnp := getSamplePolicy(ccnpName, "")
 	ccnp.Spec.Egress = egressRule
 
-	ccnpDerivedPolicy, err := createDerivativeCCNP(context.TODO(), logger, ccnp)
+	ccnpDerivedPolicy, err := createDerivativeCCNP(context.TODO(), logger, cmtypes.PolicyAnyCluster, ccnp)
 	require.NoError(t, err)
 	require.Equal(t, ccnp.Spec.Egress, ccnpDerivedPolicy.Specs[0].Egress)
 	require.Len(t, ccnpDerivedPolicy.Specs, 1)
@@ -125,7 +126,7 @@ func TestDerivativePoliciesAreInheritCorrectly(t *testing.T) {
 
 	cnp.Spec.Egress = egressRule
 
-	cnpDerivedPolicy, err := createDerivativeCNP(context.TODO(), hivetest.Logger(t), cnp)
+	cnpDerivedPolicy, err := createDerivativeCNP(context.TODO(), hivetest.Logger(t), cmtypes.PolicyAnyCluster, cnp)
 	require.NoError(t, err)
 	require.Nil(t, cnpDerivedPolicy.Spec)
 	require.Len(t, cnpDerivedPolicy.Specs, 1)
@@ -137,7 +138,7 @@ func TestDerivativePoliciesAreInheritCorrectly(t *testing.T) {
 	ccnp := getSamplePolicy(ccnpName, "")
 	ccnp.Spec.Egress = egressRule
 
-	ccnpDerivedPolicy, err := createDerivativeCCNP(context.TODO(), hivetest.Logger(t), ccnp)
+	ccnpDerivedPolicy, err := createDerivativeCCNP(context.TODO(), hivetest.Logger(t), cmtypes.PolicyAnyCluster, ccnp)
 	require.NoError(t, err)
 	require.Nil(t, ccnpDerivedPolicy.Spec)
 	require.Len(t, ccnpDerivedPolicy.Specs, 1)

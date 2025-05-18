@@ -78,7 +78,7 @@ type CiliumClusterwideNetworkPolicyList struct {
 
 // Parse parses a CiliumClusterwideNetworkPolicy and returns a list of cilium
 // policy rules.
-func (r *CiliumClusterwideNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
+func (r *CiliumClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("CiliumClusterwideNetworkPolicy must have name")
 	}
@@ -96,16 +96,15 @@ func (r *CiliumClusterwideNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, 
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(logger, "", name, uid, r.Spec)
+		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, "", name, uid, r.Spec)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
 			if err := rule.Sanitize(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
-
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(logger, "", name, uid, rule)
+			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, "", name, uid, rule)
 			retRules = append(retRules, cr)
 		}
 	}
