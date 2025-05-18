@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -361,7 +362,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			err := tc.out.Sanitize()
 			require.NoError(t, err)
 
-			rules, err := ParseNetworkPolicy(hivetest.Logger(t), np)
+			rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, np)
 			require.NoError(t, err)
 			require.Len(t, rules, 1)
 			require.Equal(t, &tc.out, rules[0])
@@ -534,7 +535,7 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 		expectedRule,
 	}
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 	require.Equal(t, expectedRules, rules)
@@ -597,7 +598,7 @@ func parseAndAddRules(t *testing.T, ps ...*slim_networkingv1.NetworkPolicy) *pol
 		if p.Namespace == "" {
 			p.Namespace = "default"
 		}
-		rules, err := ParseNetworkPolicy(hivetest.Logger(t), p)
+		rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, p)
 		require.NoError(t, err)
 		rev := repo.GetRevision()
 		_, id := repo.MustAddList(rules)
@@ -756,7 +757,7 @@ func TestParseNetworkPolicyNamedPort(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, netPolicy)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 }
@@ -774,7 +775,7 @@ func TestParseNetworkPolicyEmptyPort(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, netPolicy)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 	require.Len(t, rules[0].Ingress, 1)
@@ -815,7 +816,7 @@ func TestParseNetworkPolicyUnknownProto(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, netPolicy)
 	require.Error(t, err)
 	require.Empty(t, rules)
 }
@@ -881,7 +882,7 @@ func TestParseNetworkPolicyNoIngress(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, netPolicy)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 }
@@ -941,7 +942,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 			err := json.Unmarshal(p, &np)
 			require.NoError(t, err, "Failed to unmarshal policy %d", i)
 
-			rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
+			rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, &np)
 			require.NoError(t, err, "Failed to parse policy %d", i)
 			require.Len(t, rules, 1)
 
@@ -1409,7 +1410,7 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	err := json.Unmarshal(ex1, &np)
 	require.NoError(t, err)
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 	require.Len(t, rules, 1)
@@ -1457,7 +1458,7 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	err = json.Unmarshal(ex2, &np)
 	require.NoError(t, err)
 
-	rules, err = ParseNetworkPolicy(hivetest.Logger(t), &np)
+	rules, err = ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 	require.Len(t, rules, 1)
@@ -1481,10 +1482,88 @@ func getSelectorPointer(sel api.EndpointSelector) *api.EndpointSelector {
 	return &sel
 }
 
+func TestParseNetworkPolicyClusterLabel(t *testing.T) {
+	np := &slim_networkingv1.NetworkPolicy{
+		Spec: slim_networkingv1.NetworkPolicySpec{
+			PodSelector: slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{{
+				From: []slim_networkingv1.NetworkPolicyPeer{{
+					PodSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{},
+					},
+				}},
+			}},
+			Egress: []slim_networkingv1.NetworkPolicyEgressRule{{
+				To: []slim_networkingv1.NetworkPolicyPeer{{
+					PodSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"io.cilium.k8s.policy.cluster": "cluster2"},
+					},
+				}},
+			}},
+		},
+	}
+	fromEndpoints := labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s),
+		labels.NewLabel("foo", "bar", labels.LabelSourceK8s),
+	}
+	epSelector := api.NewESFromLabels(fromEndpoints...)
+
+	expectedRule := api.NewRule().
+		WithEndpointSelector(epSelector).
+		WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{api.NewESFromK8sLabelSelector(
+					labels.LabelSourceK8sKeyPrefix,
+					&slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"io.cilium.k8s.policy.cluster": "cluster1",
+							"io.kubernetes.pod.namespace":  "default",
+						},
+					},
+				)},
+			},
+		}}).
+		WithEgressRules([]api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEndpoints: []api.EndpointSelector{api.NewESFromK8sLabelSelector(
+					labels.LabelSourceK8sKeyPrefix,
+					&slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"io.cilium.k8s.policy.cluster": "cluster2",
+							"io.kubernetes.pod.namespace":  "default",
+						},
+					},
+				)},
+			},
+		}}).
+		WithLabels(labels.ParseLabelArray(
+			"k8s:"+k8sConst.PolicyLabelName+"=",
+			"k8s:"+k8sConst.PolicyLabelUID+"=",
+			"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
+			"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
+		))
+
+	expectedRule.Sanitize()
+
+	expectedRules := api.Rules{
+		expectedRule,
+	}
+
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), "cluster1", np)
+	require.NoError(t, err)
+	require.NotNil(t, rules)
+	require.Equal(t, expectedRules, rules)
+}
+
 func Test_parseNetworkPolicyPeer(t *testing.T) {
 	type args struct {
-		namespace string
-		peer      *slim_networkingv1.NetworkPolicyPeer
+		namespace   string
+		clusterName string
+		peer        *slim_networkingv1.NetworkPolicyPeer
 	}
 	tests := []struct {
 		name string
@@ -1494,7 +1573,8 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 		{
 			name: "peer-with-pod-selector",
 			args: args{
-				namespace: "foo-namespace",
+				namespace:   "foo-namespace",
+				clusterName: "cluster1",
 				peer: &slim_networkingv1.NetworkPolicyPeer{
 					PodSelector: &slim_metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1513,8 +1593,9 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.foo":                         "bar",
-						"k8s.io.kubernetes.pod.namespace": "foo-namespace",
+						"k8s.foo":                          "bar",
+						"k8s.io.kubernetes.pod.namespace":  "foo-namespace",
+						"k8s.io.cilium.k8s.policy.cluster": "cluster1",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
@@ -1635,10 +1716,104 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 				),
 			),
 		},
+		{
+			name: "peer-with-defaut-cluster",
+			args: args{
+				namespace:   "foo-namespace",
+				clusterName: "cluster1",
+				peer: &slim_networkingv1.NetworkPolicyPeer{
+					PodSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+						MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+							{
+								Key:      "foo",
+								Operator: slim_metav1.LabelSelectorOpIn,
+								Values:   []string{"bar", "baz"},
+							},
+						},
+					},
+				},
+			},
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						"k8s.foo":                          "bar",
+						"k8s.io.cilium.k8s.policy.cluster": "cluster1",
+						"k8s.io.kubernetes.pod.namespace":  "foo-namespace",
+					},
+					[]slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.foo",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"bar", "baz"},
+						},
+					},
+				),
+			),
+		},
+		{
+			name: "peer-with-cluster-selector",
+			args: args{
+				namespace:   "foo-namespace",
+				clusterName: "cluster1",
+				peer: &slim_networkingv1.NetworkPolicyPeer{
+					PodSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo":                          "bar",
+							"io.cilium.k8s.policy.cluster": "cluster2",
+						},
+					},
+				},
+			},
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						"k8s.foo":                          "bar",
+						"k8s.io.kubernetes.pod.namespace":  "foo-namespace",
+						"k8s.io.cilium.k8s.policy.cluster": "cluster2",
+					},
+					nil,
+				),
+			),
+		},
+		{
+			name: "peer-with-cluster-selector-expr",
+			args: args{
+				namespace:   "foo-namespace",
+				clusterName: "cluster1",
+				peer: &slim_networkingv1.NetworkPolicyPeer{
+					PodSelector: &slim_metav1.LabelSelector{
+						MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+							{
+								Key:      "io.cilium.k8s.policy.cluster",
+								Operator: slim_metav1.LabelSelectorOpIn,
+								Values:   []string{"bar", "baz"},
+							},
+						},
+					},
+				},
+			},
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						"k8s.io.kubernetes.pod.namespace": "foo-namespace",
+					},
+					[]slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.io.cilium.k8s.policy.cluster",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"bar", "baz"},
+						},
+					},
+				),
+			),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer)
+			got := parseNetworkPolicyPeer(tt.args.clusterName, tt.args.namespace, tt.args.peer)
 			require.Equal(t, tt.want, got)
 		})
 	}

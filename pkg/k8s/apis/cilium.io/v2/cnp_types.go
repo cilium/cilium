@@ -160,7 +160,7 @@ func (r *CiliumNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string
 
 // Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
 // rules.
-func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
+func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("CiliumNetworkPolicy must have name")
 	}
@@ -177,7 +177,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 			Specs:      r.Specs,
 			Status:     r.Status,
 		}
-		return ccnp.Parse(logger)
+		return ccnp.Parse(logger, clusterName)
 	}
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
@@ -195,16 +195,15 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 		if r.Spec.NodeSelector.LabelSelector != nil {
 			return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(logger, namespace, name, uid, r.Spec)
+		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, r.Spec)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
 			if err := rule.Sanitize(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
-
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(logger, namespace, name, uid, rule)
+			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, rule)
 			retRules = append(retRules, cr)
 		}
 	}

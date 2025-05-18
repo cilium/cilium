@@ -14,12 +14,12 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string, dc chan uint64) error {
+func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string, dc chan uint64, clusterName string) error {
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	rules, err := k8s.ParseNetworkPolicy(p.log, k8sNP)
+	rules, err := k8s.ParseNetworkPolicy(p.log, clusterName, k8sNP)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		p.log.Error(

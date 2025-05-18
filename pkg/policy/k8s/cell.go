@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -65,9 +66,10 @@ type PolicyWatcherParams struct {
 
 	Lifecycle cell.Lifecycle
 
-	ClientSet client.Clientset
-	Config    *option.DaemonConfig
-	Logger    *slog.Logger
+	ClientSet               client.Clientset
+	Config                  *option.DaemonConfig
+	ClusterMeshPolicyConfig cmtypes.PolicyConfig
+	Logger                  *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
@@ -96,6 +98,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	p := &policyWatcher{
 		log:                              params.Logger,
 		config:                           params.Config,
+		clusterMeshPolicyConfig:          params.ClusterMeshPolicyConfig,
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,

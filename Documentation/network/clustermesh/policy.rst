@@ -35,13 +35,38 @@ between two clusters. The cluster name refers to the name given via the
     metadata:
       name: "allow-cross-cluster"
     spec:
-      description: "Allow x-wing in cluster1 to contact rebel-base in cluster2"
+      description: "Allow x-wing to be deployed in the local cluster to contact rebel-base in cluster2"
       endpointSelector:
         matchLabels:
           name: x-wing
-          io.cilium.k8s.policy.cluster: cluster1
       egress:
       - toEndpoints:
         - matchLabels:
             name: rebel-base
             io.cilium.k8s.policy.cluster: cluster2
+
+
+Note that by default policies automatically select endpoints from all the clusters unless it is explicitly specified.
+To restrict endpoint selection to the local cluster by default you can enable the option ``--policy-default-local-cluster``
+via the ConfigMap option ``policy-default-local-cluster`` or the Helm value ``clustermesh.policyDefaultLocalCluster``.
+
+The following policy illustrates how to explicitly allow pods to communicate to all clusters.
+
+.. code-block:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: "allow-cross-cluster-any"
+    spec:
+      description: "Allow x-wing to be deployed in the local cluster to contact rebel-base in any cluster"
+      endpointSelector:
+        matchLabels:
+          name: x-wing
+      egress:
+      - toEndpoints:
+        - matchLabels:
+            name: rebel-base
+          matchExpressions:
+            - key: io.cilium.k8s.policy.cluster
+              operator: Exists
