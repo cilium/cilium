@@ -195,7 +195,9 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	__u32 oif;
 	int ret;
 
-	ret = (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+	ret = (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l),
+			      neigh_resolver_available()
+			      ? BPF_FIB_LOOKUP_SKIP_NEIGH : 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
