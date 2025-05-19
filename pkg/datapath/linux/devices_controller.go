@@ -71,10 +71,6 @@ func (c DevicesConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
 
 	flags.Bool(option.ForceDeviceDetection, false, "Forces the auto-detection of devices, even if specific devices are explicitly listed")
-
-	// Temporary flag until we start using the neighbor table more widely
-	flags.Bool("enable-statedb-neighbor-sync", false, "Enables synchronization of host neighbors to the neighbor table in statedb")
-	flags.MarkHidden("enable-statedb-neighbor-sync")
 }
 
 var (
@@ -102,9 +98,6 @@ type DevicesConfig struct {
 	// ForceDeviceDetection forces the auto-detection of devices,
 	// even if user-specific devices are explicitly listed.
 	ForceDeviceDetection bool
-	// EnableStateDBNeighborSync enables synchronization of host neighbors
-	// to the neighbor table in statedb.
-	EnableStateDBNeighborSync bool
 }
 
 type devicesControllerParams struct {
@@ -231,14 +224,11 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 		dc.log.Warn("LinkSubscribe failed, restarting", logfields.Error, err)
 		return
 	}
-	var neighborUpdates chan netlink.NeighUpdate
-	if dc.params.Config.EnableStateDBNeighborSync {
-		neighborUpdates = make(chan netlink.NeighUpdate)
-		err = dc.params.NetlinkFuncs.NeighSubscribe(neighborUpdates, ctx.Done(), errorCallback)
-		if err != nil {
-			dc.log.Warn("NeighSubscribe failed, restarting", logfields.Error, err)
-			return
-		}
+	neighborUpdates := make(chan netlink.NeighUpdate)
+	err = dc.params.NetlinkFuncs.NeighSubscribe(neighborUpdates, ctx.Done(), errorCallback)
+	if err != nil {
+		dc.log.Warn("NeighSubscribe failed, restarting", logfields.Error, err)
+		return
 	}
 
 	// Initialize the tables by listing links, routes and addresses.
@@ -313,17 +303,15 @@ func (dc *devicesController) initialize() error {
 			Route: route,
 		})
 	}
-	if dc.params.Config.EnableStateDBNeighborSync {
-		neighbors, err := dc.params.NetlinkFuncs.NeighList(0, netlink.FAMILY_ALL)
-		if err != nil {
-			return fmt.Errorf("NeighList failed: %w", err)
-		}
-		for _, neighbor := range neighbors {
-			batch[neighbor.LinkIndex] = append(batch[neighbor.LinkIndex], netlink.NeighUpdate{
-				Type:  unix.RTM_NEWNEIGH,
-				Neigh: neighbor,
-			})
-		}
+	neighbors, err := dc.params.NetlinkFuncs.NeighList(0, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("NeighList failed: %w", err)
+	}
+	for _, neighbor := range neighbors {
+		batch[neighbor.LinkIndex] = append(batch[neighbor.LinkIndex], netlink.NeighUpdate{
+			Type:  unix.RTM_NEWNEIGH,
+			Neigh: neighbor,
+		})
 	}
 
 	txn := dc.params.DB.WriteTxn(dc.params.DeviceTable, dc.params.RouteTable, dc.params.NeighborTable)
