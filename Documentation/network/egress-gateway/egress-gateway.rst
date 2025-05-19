@@ -53,8 +53,7 @@ adequately route traffic flowing from and to the instances. Other cloud
 providers have similar networking requirements and constructs.
 
 Additionally, the enablement of the egress gateway feature requires that both
-BPF masquerading and the kube-proxy replacement are enabled, which may not be
-possible in all environments (due to, e.g., incompatible kernel versions).
+BPF masquerading and the kube-proxy replacement are enabled.
 
 Delay for enforcement of egress policies on new pods
 ----------------------------------------------------
