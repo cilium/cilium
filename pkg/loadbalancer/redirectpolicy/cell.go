@@ -63,8 +63,8 @@ var Cell = cell.Module(
 	cell.DecorateAll(replaceAPI),
 )
 
-func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
-	if !enabled {
+func replaceAPI(cfg loadbalancer.Config, old service.GetLrpHandler, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
+	if !cfg.EnableExperimentalLB {
 		return old
 	}
 	return &getLrpHandler{db, lrps}
