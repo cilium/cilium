@@ -96,27 +96,40 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
 
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/multi-pool"
+          destination_directory="/tmp/generated/multi-pool"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/matrix.json"
+
+      - name: Generate Matrix
+        id: generate-matrix
+        run: |
+          cd /tmp/generated/multi-pool
+          echo "Generated matrix:"
+          cat /tmp/generated/multi-pool/matrix.json
+          echo "matrix=$(jq -c . < /tmp/generated/multi-pool/matrix.json)" >> $GITHUB_OUTPUT
+
   multi-pool-ipam-conformance-test:
-    needs: [wait-for-images]
+    needs: [wait-for-images, generate-matrix]
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: 'Direct Routing'
-            tunnel: 'disabled'
-            encryption: 'disabled'
-          - name: 'Tunnel Mode'
-            tunnel: 'vxlan'
-            encryption: 'disabled'
-          - name: 'Tunnel Mode with IPSec Encryption'
-            tunnel: 'vxlan'
-            encryption: 'ipsec'
-          - name: 'Direct Routing with WireGuard Encryption'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-          - name: 'Tunnel Mode with WireGuard Encryption'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
     name: Install and Connectivity Test
     env:
