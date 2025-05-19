@@ -260,13 +260,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	int __maybe_unused ret;
 	__u32 __maybe_unused identity = UNKNOWN_ID;
 	__s8 __maybe_unused ext_err = 0;
-	__u16 proto = 0;
+	__u16 __maybe_unused proto = ctx_get_protocol(ctx);
 
 	ctx_skip_nodeport_clear(ctx);
-
-	/* Pass unknown traffic to the stack */
-	if (!validate_ethertype(ctx, &proto))
-		return TC_ACT_OK;
 
 	bpf_clear_meta(ctx);
 
