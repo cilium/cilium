@@ -653,8 +653,8 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(vp, option.EnableIPMasqAgent)
 
-	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
-	option.BindEnv(vp, option.EnableIPv4EgressGateway)
+	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway for IPv4 and IPv6")
+	option.BindEnv(vp, option.EnableEgressGateway)
 
 	flags.Bool(option.EnableEnvoyConfig, false, "Enable Envoy Config CRDs")
 	option.BindEnv(vp, option.EnableEnvoyConfig)

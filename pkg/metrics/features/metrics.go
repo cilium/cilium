@@ -1028,7 +1028,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.ACLBBGPEnabled.Add(1)
 	}
 
-	if config.EnableIPv4EgressGateway {
+	if config.EnableEgressGateway {
 		m.ACLBEgressGatewayEnabled.Add(1)
 	}
 

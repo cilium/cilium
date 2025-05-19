@@ -181,13 +181,20 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	case gc.egressIP.IsValid():
 		// If the gateway config specifies an egress IP, use the interface with that IP as egress
 		// interface.
-		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
-		gwc.egressIP4 = gc.egressIP
-		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported	
+		if gc.egressIP.Is4() {
+			gwc.egressIP4 = gc.egressIP
+			gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve interface with egress IPv4: %w", err)
+			}
+		} else {
+			gwc.egressIP6 = gc.egressIP
+			gwc.ifaceName, err = netdevice.GetIfaceWithIPv6Address(gc.egressIP)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve interface with egress IPv6: %w", err)
+			}
 		}
-
 	default:
 		// If the gateway config doesn't specify any egress IP or interface, use the
 		// interface with the IPv4 default route
@@ -308,7 +315,15 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 			policyGwc.v6needed = true
 		}
 	}
-
+	//validation for egressIP and destinationCDRs are of same IP Family
+	for _, cidr := range dstCidrList {
+		if cidr.Addr().Is6() && egressGateway.EgressIP !="" && policyGwc.egressIP.Is4() {
+			return nil, fmt.Errorf("egress IP and destination CIDRs must be of the same IP family")
+		}
+		if cidr.Addr().Is4() && egressGateway.EgressIP !="" && policyGwc.egressIP.Is6() {
+			return nil, fmt.Errorf("egress IP and destination CIDRs must be of the same IP family")
+		}
+	}
 	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
 		cidr, err := netip.ParsePrefix(string(cidrString))
 		if err != nil {

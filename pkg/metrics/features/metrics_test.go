@@ -958,7 +958,7 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 				DatapathMode:            defaultDeviceModes[0],
 				NodePortMode:            defaultNodePortModes[0],
 				NodePortAcceleration:    defaultNodePortModeAccelerations[0],
-				EnableIPv4EgressGateway: tt.enableEGW,
+				EnableEgressGateway: tt.enableEGW,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
