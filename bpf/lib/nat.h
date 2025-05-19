@@ -107,8 +107,8 @@ struct ipv4_nat_entry {
 
 struct ipv4_nat_target {
 	__be32 addr;
-	const __u16 min_port; /* host endianness */
-	const __u16 max_port; /* host endianness */
+	__u16 min_port; /* host endianness */
+	__u16 max_port; /* host endianness */
 	bool from_local_endpoint;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 cluster_id;
@@ -878,7 +878,7 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t fr
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	    struct iphdr *ip4, fraginfo_t fraginfo,
-	    int off, const struct ipv4_nat_target *target,
+	    int off, struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
@@ -929,6 +929,10 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			tuple->dport = 0;
 			tuple->sport = icmphdr.un.echo.id;
 			port_off = offsetof(struct icmphdr, un.echo.id);
+			/* Don't clamp the ID field: */
+			target->min_port = 0;
+			target->max_port = UINT16_MAX;
+
 			break;
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
@@ -1171,8 +1175,8 @@ struct ipv6_nat_entry {
 
 struct ipv6_nat_target {
 	union v6addr addr;
-	const __u16 min_port; /* host endianness */
-	const __u16 max_port; /* host endianness */
+	__u16 min_port; /* host endianness */
+	__u16 max_port; /* host endianness */
 	bool from_local_endpoint;
 	bool needs_ct;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
@@ -1805,7 +1809,7 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, fraginfo_t fr
 static __always_inline __maybe_unused int
 snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	    struct ipv6hdr *ip6, fraginfo_t fraginfo,
-	    int off, const struct ipv6_nat_target *target,
+	    int off, struct ipv6_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
@@ -1856,6 +1860,10 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			tuple->sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			port_off = offsetof(struct icmp6hdr,
 					    icmp6_dataun.u_echo.identifier);
+			/* Don't clamp the ID field: */
+			target->min_port = 0;
+			target->max_port = UINT16_MAX;
+
 			break;
 		case ICMPV6_DEST_UNREACH:
 			if (icmp6hdr.icmp6_code > ICMPV6_REJECT_ROUTE)
