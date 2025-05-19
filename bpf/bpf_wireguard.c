@@ -32,7 +32,7 @@
 #include "lib/local_delivery.h"
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32
+static __always_inline __u32 __maybe_unused
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
 	__u32 srcid = WORLD_IPV6_ID;
@@ -52,7 +52,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	return srcid;
 }
 
-static __always_inline int
+static __always_inline int __maybe_unused
 handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused)
 {
 	void *data_end, *data;
@@ -128,7 +128,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline __u32
+static __always_inline __u32 __maybe_unused
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
 	__u32 srcid = WORLD_IPV4_ID;
@@ -146,7 +146,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 	return srcid;
 }
 
-static __always_inline int
+static __always_inline int __maybe_unused
 handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused)
 {
 	void *data_end, *data;
@@ -250,7 +250,20 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
-/* from-wireguard is attached as a tc ingress filter to the cilium_wg0 device. */
+/* from-wireguard is attached as a tc ingress filter to the cilium_wg0 device.
+ * In native routing mode we want to deliver packets to local endpoints straight
+ * from BPF, without passing through the stack. This matches overlay mode
+ * (where bpf_overlay would handle the delivery) and native routing mode without
+ * encryption (where bpf_host at the native device would handle the delivery).
+ * When WG & encrypt-node are on, a NodePort BPF to-be forwarded request to a
+ * remote node running a selected service endpoint must be encrypted. To make the
+ * NodePort's rev-{S,D}NAT translations to happen for a reply from the remote node,
+ * we need to execute the whole from_wireguard logic (otherwise, the WG netdev
+ * after decrypting the reply will pass it to the stack which drops the packet).
+ * In all the other cases, there's no need to handle rev-NAT xlations.
+ * However, we're always attaching the program for updating bpf metrics, tracing
+ * the packet and setting the mark to MARK_MAGIC_DECRYPT.
+ */
 __section_entry
 int cil_from_wireguard(struct __ctx_buff *ctx)
 {
@@ -269,8 +282,10 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	/* mark packet as decrypted by wireguard */
 	ctx->mark = MARK_MAGIC_WG_DECRYPTED;
 
+/* Skip hook logic when not needed. See above comment in function definition. */
+#if !defined(HAVE_ENCAP) || (defined(ENABLE_NODEPORT) && defined(ENABLE_NODE_ENCRYPTION))
 	switch (proto) {
-#ifdef ENABLE_IPV6
+# ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID, METRIC_INGRESS);
@@ -286,9 +301,8 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		/* See the equivalent v4 path for comments */
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
-#endif
-
-#ifdef ENABLE_IPV4
+# endif /* ENABLE_IPV6 */
+# ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID, METRIC_INGRESS);
@@ -309,8 +323,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		 */
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
-#endif
+# endif /* ENABLE_IPV4 */
 	}
+#endif /* HAVE_ENCAP || (ENABLE_NODEPORT && ENABLE_NODE_ENCRYPTION) */
 
 	send_trace_notify(ctx, TRACE_FROM_CRYPTO, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
