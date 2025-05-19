@@ -651,7 +651,7 @@ func (e *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 	return &instance, nil
 }
 
-func (e *API) AssociateEIP(ctx context.Context, instanceID string, eipTags ipamTypes.Tags) (string, error) {
+func (e *API) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AssociateEIP)
 
@@ -664,19 +664,16 @@ func (e *API) AssociateEIP(ctx context.Context, instanceID string, eipTags ipamT
 
 	ipAddr := "192.0.2.254"
 
-	// Assign the EIP to the ENI 0 of the instance
-	for iid, enis := range e.enis {
-		if iid == instanceID {
-			for _, eni := range enis {
-				if eni.Number == 0 {
-					eni.PublicIP = ipAddr
-					return ipAddr, nil
-				}
+	for _, enis := range e.enis {
+		for id, eni := range enis {
+			if eniID == id {
+				eni.PublicIP = ipAddr
+				return ipAddr, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("unable to find ENI 0 for instance %s", instanceID)
+	return "", fmt.Errorf("unable to find ENI %s", eniID)
 }
 
 func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {

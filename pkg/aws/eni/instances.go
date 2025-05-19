@@ -42,7 +42,7 @@ type EC2API interface {
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
 	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
-	AssociateEIP(ctx context.Context, instanceID string, eipTags ipamTypes.Tags) (string, error)
+	AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error)
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
