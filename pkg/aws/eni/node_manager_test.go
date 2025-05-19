@@ -981,7 +981,7 @@ func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	staticIP, err := ec2api.AssociateEIP(t.Context(), instanceID, make(ipamTypes.Tags))
+	staticIP, err := ec2api.AssociateEIP(t.Context(), eniID1, make(ipamTypes.Tags))
 	require.NoError(t, err)
 	instances.Resync(t.Context())
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, false)

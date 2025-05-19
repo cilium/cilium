@@ -322,7 +322,15 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
-	return n.manager.api.AssociateEIP(ctx, n.node.InstanceID(), staticIPTags)
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	for _, eni := range n.enis {
+		if eni.PublicIP == "" {
+			return n.manager.api.AssociateEIP(ctx, eni.ID, staticIPTags)
+		}
+	}
+
+	return "", fmt.Errorf("no ENI found to associate static IP")
 }
 
 func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec) ([]string, error) {
