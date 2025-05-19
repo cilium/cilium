@@ -14,8 +14,6 @@ import (
 const (
 	// K8sAPIGroupNetworkingV1Core is the identifier for K8S resources of type networking.k8s.io/v1/NetworkPolicy
 	K8sAPIGroupNetworkingV1Core = "networking.k8s.io/v1::NetworkPolicy"
-	// K8sAPIGroupNamespaceV1Core is the identifier for K8s resources of type core/v1/Namespace.
-	K8sAPIGroupNamespaceV1Core = "core/v1::Namespace"
 	// K8sAPIGroupServiceV1Core is the identifier for K8s resources of type core/v1/Service.
 	K8sAPIGroupServiceV1Core = "core/v1::Service"
 	// K8sAPIGroupPodV1Core is the identifier for K8s resources of type core/v1/Pod.
