@@ -137,18 +137,10 @@ ff00::/8                                         255     0       0
 IPAddr   HardwareAddr   Type   State   Flags   FlagsExt
 
 -- neighbors_dummy1.table --
-IPAddr                 HardwareAddr        Type   State   Flags   FlagsExt
-192.168.1.253          00:00:5e:00:53:01   1      0x80    0x10    0x0
-192.168.1.254          00:00:5e:00:53:02   1      0x80    0x10    0x0
-::ffff:192.168.1.254   00:00:5e:00:53:02   1      0x80    0x10    0x0
--- neighbors_dummy1_link.table --
-IPAddr                 HardwareAddr        Type   State   Flags   FlagsExt
-192.168.1.254          00:00:5e:00:53:02   1      0x80    0x10    0x0
-::ffff:192.168.1.254   00:00:5e:00:53:02   1      0x80    0x10    0x0
-192.168.1.253          00:00:5e:00:53:01   1      0x80    0x10    0x0
--- neighbors_dummy1_254.table --
-IPAddr          HardwareAddr        Type   State   Flags   FlagsExt
-192.168.1.254   00:00:5e:00:53:02   1      0x80    0x10    0x0
+IPAddr                 HardwareAddr        Type   State       Flags         FlagsExt
+192.168.1.253          00:00:5e:00:53:01   DST    PERMANENT   EXT_LEARNED   NONE
+192.168.1.254          00:00:5e:00:53:02   DST    PERMANENT   EXT_LEARNED   NONE
+::ffff:192.168.1.254   00:00:5e:00:53:02   DST    PERMANENT   EXT_LEARNED   NONE
 -- neighbors_dummy1_253.table --
-IPAddr          HardwareAddr        Type   State   Flags   FlagsExt
-192.168.1.253   00:00:5e:00:53:01   1      0x80    0x10    0x0
+IPAddr          HardwareAddr        Type   State       Flags         FlagsExt
+192.168.1.253   00:00:5e:00:53:01   DST    PERMANENT   EXT_LEARNED   NONE
