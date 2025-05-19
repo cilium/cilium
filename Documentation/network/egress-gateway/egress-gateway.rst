@@ -362,16 +362,6 @@ For gateway nodes with multiple network interfaces, Cilium selects the egress
 network interface based on the node's routing setup
 (``ip route get <externalIP> from <egressIP>``).
 
-.. warning::
-
-   Redirecting to the correct egress network interface can fail under certain
-   conditions when using a pre-5.10 kernel. In this case Cilium falls back to
-   the current (== default) network interface.
-
-   For environments that strictly require traffic to leave through the
-   correct egress interface (for example EKS in ENI mode), it is recommended to use
-   a 5.10 kernel or newer.
-
 Testing the egress gateway feature
 ==================================
 
