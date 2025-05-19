@@ -31,12 +31,11 @@ enum {
 static __always_inline cls_flags_t
 ctx_classify(const struct __ctx_buff *ctx __maybe_unused)
 {
-#if defined(IS_BPF_WIREGUARD)
+	if (ETH_HLEN != 0)
+		return CLS_FLAG_NONE;
+
 	if (ctx_get_protocol(ctx) == bpf_htons(ETH_P_IPV6))
 		return CLS_FLAG_L3_DEV | CLS_FLAG_IPV6;
 
 	return CLS_FLAG_L3_DEV;
-#else
-	return CLS_FLAG_NONE;
-#endif
 }

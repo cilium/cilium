@@ -22,7 +22,7 @@
 static __always_inline void
 adjust_l2(struct __ctx_buff *ctx)
 {
-	if (!is_defined(IS_BPF_WIREGUARD))
+	if (ETH_HLEN != 0)
 		return;
 
 	void *data = (void *)(long)ctx->data;
@@ -83,8 +83,8 @@ int ctx_classify4_check(struct __ctx_buff *ctx)
 
 	cls_flags_t flags = ctx_classify(ctx);
 
-	/* L3 flag set only from bpf_wireguard */
-	assert(((flags & CLS_FLAG_L3_DEV) != 0) == is_defined(IS_BPF_WIREGUARD));
+	/* L3 flag set only when ETH_HLEN is 0. */
+	assert(((flags & CLS_FLAG_L3_DEV) != 0) == (ETH_HLEN == 0));
 
 	/* IPv6 flag not set. */
 	assert((flags & CLS_FLAG_IPV6) == 0);
@@ -107,11 +107,11 @@ int ctx_classify6_check(struct __ctx_buff *ctx)
 
 	cls_flags_t flags = ctx_classify(ctx);
 
-	/* L3 flag set only from bpf_wireguard */
-	assert(((flags & CLS_FLAG_L3_DEV) != 0) == is_defined(IS_BPF_WIREGUARD));
+	/* L3 flag set only when ETH_HLEN is 0. */
+	assert(((flags & CLS_FLAG_L3_DEV) != 0) == (ETH_HLEN == 0));
 
-	/* IPv6 flag set from bpf_wireguard, given it is a L3 packet. */
-	assert(((flags & CLS_FLAG_IPV6) != 0) == is_defined(IS_BPF_WIREGUARD));
+	/* IPv6 flag set with a L3 packet. */
+	assert(((flags & CLS_FLAG_IPV6) != 0) == (ETH_HLEN == 0));
 
 	test_finish();
 }
