@@ -388,6 +388,11 @@ lint: golangci-lint
 
 lint-fix: golangci-lint-fix
 
+check-permissions: ## Check if files are not executable expect for allowlisted files. \
+	# This can happen especially when someone is developing on a Windows machine
+	find ./ -executable -type f | grep -Ev "\.git|\.sh|\.py" > ./executables.txt
+	diff <(sort ./executables.txt) <(sort ./contrib/executable_list.txt)
+
 logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
 	$(QUIET) contrib/scripts/check-logging-subsys-field.sh
