@@ -14,10 +14,10 @@
  */
 #undef EVENT_SOURCE
 
-#define ENABLE_ROUTING
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_IPSEC
+#define ENABLE_ROUTING 1
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
+#define ENABLE_IPSEC 1
 #define IPV4_LOOPBACK 0
 
 #define TO_NETDEV 0
