@@ -1,5 +1,7 @@
 #include "common.h"
 
+static void *(* const bpf_map_lookup_elem)(void *map, const void *key) = (void *) 1;
+
 struct {
         __uint(type, BPF_MAP_TYPE_ARRAY);
         __type(key, __u32);
@@ -10,5 +12,7 @@ struct {
 
 __section("tc")
 int dummy(void *ctx) {
+        __u32 key = 0;
+        bpf_map_lookup_elem(&upgraded_map, &key);
         return 0;
 }

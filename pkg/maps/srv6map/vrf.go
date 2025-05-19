@@ -141,8 +141,14 @@ type srv6VRFMap struct {
 }
 
 func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6], defines.NodeOut) {
+	nodeOut := defines.NodeOut{
+		NodeDefines: defines.Map{
+			"SRV6_VRF_MAP_SIZE": strconv.FormatUint(maxVRFEntries, 10),
+		},
+	}
+
 	if !dc.EnableSRv6 {
-		return bpf.MapOut[*VRFMap4]{}, bpf.MapOut[*VRFMap6]{}, defines.NodeOut{}
+		return bpf.MapOut[*VRFMap4]{}, bpf.MapOut[*VRFMap6]{}, nodeOut
 	}
 
 	m4 := bpf.NewMap(
@@ -179,12 +185,6 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 			return nil
 		},
 	})
-
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_VRF_MAP_SIZE": strconv.FormatUint(maxVRFEntries, 10),
-		},
-	}
 
 	return bpf.NewMapOut(&VRFMap4{m4}), bpf.NewMapOut(&VRFMap6{m6}), nodeOut
 }

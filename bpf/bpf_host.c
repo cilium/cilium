@@ -122,6 +122,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
+#endif /* ENABLE_IPV6 */
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -130,6 +131,7 @@ struct {
 	__uint(max_entries, 1);
 } cilium_tail_call_buffer6 __section_maps_btf;
 
+#ifdef ENABLE_IPV6
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
@@ -557,6 +559,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
+#endif /* ENABLE_IPV4 */
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -565,6 +568,7 @@ struct {
 	__uint(max_entries, 1);
 } cilium_tail_call_buffer4 __section_maps_btf;
 
+#ifdef ENABLE_IPV4
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,

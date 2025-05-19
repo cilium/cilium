@@ -4,6 +4,7 @@
 package bpf
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -320,6 +321,11 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
 	}
 
+	neverPrunedMaps, err := removeUnusedMaps(spec)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
 	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
 	toReplace := consumePinReplace(spec)
@@ -343,6 +349,17 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if logger.Enabled(context.Background(), slog.LevelDebug) {
+		_, unusedMaps, err := getUnusedMaps(coll, neverPrunedMaps)
+		if err != nil {
+			return nil, nil, fmt.Errorf("getUnusedMaps: %w", err)
+		}
+		// Check if any maps were not removed by our dead code elimination logic.
+		if len(unusedMaps) > 0 {
+			logger.Debug("Unused maps found", logfields.BPFMapName, unusedMaps)
+		}
 	}
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects

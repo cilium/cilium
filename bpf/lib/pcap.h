@@ -130,6 +130,8 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
 # define capture_enabled (ctx_is_xdp())
 #endif /* capture_enabled */
 
+#endif /* ENABLE_CAPTURE */
+
 struct capture_cache {
 	bool  rule_seen;
 	__u16 rule_id;
@@ -144,7 +146,6 @@ struct {
 	__uint(max_entries, 1);
 } cilium_capture_cache __section_maps_btf;
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct capture4_wcard);
@@ -154,6 +155,8 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_capture4_rules __section_maps_btf;
 
+#ifdef ENABLE_CAPTURE
+#ifdef ENABLE_IPV4
 static __always_inline void
 cilium_capture4_masked_key(const struct capture4_wcard *orig,
 			   const struct capture4_wcard *mask,
@@ -254,8 +257,8 @@ _Pragma("unroll")
 	return NULL;
 }
 #endif /* ENABLE_IPV4 */
+#endif /* ENABLE_CAPTURE */
 
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct capture6_wcard);
@@ -265,6 +268,8 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_capture6_rules __section_maps_btf;
 
+#ifdef ENABLE_CAPTURE
+#ifdef ENABLE_IPV6
 static __always_inline void
 cilium_capture6_masked_key(const struct capture6_wcard *orig,
 			   const struct capture6_wcard *mask,
