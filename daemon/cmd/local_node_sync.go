@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -33,6 +34,7 @@ type localNodeSynchronizerParams struct {
 
 	Logger             *slog.Logger
 	Config             *option.DaemonConfig
+	TunnelConfig       tunnel.Config
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
 
@@ -55,6 +57,8 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	if err := ini.initFromConfig(ctx, n); err != nil {
 		return err
 	}
+
+	n.UnderlayProtocol = ini.TunnelConfig.UnderlayProtocol()
 
 	if err := ini.initFromK8s(ctx, n); err != nil {
 		return err
