@@ -96,21 +96,40 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
 
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/e2e"
+          destination_directory="/tmp/generated/multipool"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json "${work_dir}/multipool_configs.yaml" | jq . > "${destination_directory}/matrix.json"
+
+      - name: Generate Matrix
+        id: generate-matrix
+        run: |
+          cd /tmp/generated/multipool
+          echo "Generated matrix:"
+          cat /tmp/generated/multipool/matrix.json
+          echo "matrix=$(jq -c . < /tmp/generated/multipool/matrix.json)" >> $GITHUB_OUTPUT
+
   multi-pool-ipam-conformance-test:
-    needs: [wait-for-images]
+    needs: [wait-for-images, generate-matrix]
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: 'Direct Routing'
-            tunnel: 'disabled'
-            encryption: 'disabled'
-          - name: 'Tunnel Mode'
-            tunnel: 'vxlan'
-            encryption: 'disabled'
-          - name: 'Tunnel Mode with IPSec Encryption'
-            tunnel: 'vxlan'
-            encryption: 'ipsec'
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
     name: Install and Connectivity Test
     env:
@@ -228,6 +247,15 @@ jobs:
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo config="--set=etcd.enabled=true --set=identityAllocationMode=kvstore --set=etcd.endpoints[0]=http://${IP}:2378" >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
@@ -246,7 +274,7 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ steps.kvstore.outputs.config }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -301,6 +329,12 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           cilium status
           cilium sysdump --output-filename cilium-sysdump-out
+
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
