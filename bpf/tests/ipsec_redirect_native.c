@@ -178,3 +178,15 @@ int ipsec_redirect_bad_identities_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return bad_identities_check(ctx, true);
 }
+
+PKTGEN("tc", "ipsec_redirect_bad_identities6")
+int ipsec_redirect_bad_identities6_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, false);
+}
+
+CHECK("tc", "ipsec_redirect_bad_identities6")
+int ipsec_redirect_bad_identities6_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return bad_identities_check(ctx, false);
+}
