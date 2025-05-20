@@ -123,6 +123,7 @@ Talos
 Telco
 Terraform
 Tierney
+ToR
 Triagers
 Twilio
 Uncompress
