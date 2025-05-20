@@ -648,6 +648,29 @@ pktgen__push_ipv4_packet(struct pktgen *builder,
 	return l3;
 }
 
+static __always_inline struct ipv6hdr *
+pktgen__push_ipv6_packet(struct pktgen *builder,
+			 __u8 *smac, __u8 *dmac,
+			 __u8 *saddr, __u8 *daddr)
+{
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_ipv6hdr(builder);
+	if (!l3)
+		return NULL;
+
+	ipv6hdr__set_addrs(l3, saddr, daddr);
+
+	return l3;
+}
+
 static __always_inline struct tcphdr *
 pktgen__push_ipv4_tcp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
@@ -806,6 +829,22 @@ pktgen__push_ipv6_udp_packet(struct pktgen *builder,
 	l4->dest = dport;
 
 	return l4;
+}
+
+static __always_inline struct vxlanhdr *
+pktgen__push_ipv6_vxlan_packet(struct pktgen *builder,
+			       __u8 *smac, __u8 *dmac,
+			       __u8 *saddr, __u8 *daddr,
+			       __be16 sport, __be16 dport)
+{
+	struct udphdr *l4;
+
+	l4 = pktgen__push_ipv6_udp_packet(builder, smac, dmac, saddr, daddr,
+					  sport, dport);
+	if (!l4)
+		return NULL;
+
+	return pktgen__push_default_vxlanhdr(builder);
 }
 
 static __always_inline struct icmp6hdr *
