@@ -1377,13 +1377,14 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			return DROP_UNKNOWN_CT;
 		}
 
-		ret = neigh_record_ip6(ctx);
-		if (ret < 0)
-			return ret;
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
 		}
+
+		ret = neigh_record_ip6(ctx);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* TX request to remote backend: */
@@ -2715,16 +2716,14 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			return DROP_UNKNOWN_CT;
 		}
 
-		/* Neighbour tracking is needed for local backend until
-		 * https://github.com/cilium/cilium/issues/24062 is resolved.
-		 */
-		ret = neigh_record_ip4(ctx);
-		if (ret < 0)
-			return ret;
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
 		}
+
+		ret = neigh_record_ip4(ctx);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* TX request to remote backend: */
