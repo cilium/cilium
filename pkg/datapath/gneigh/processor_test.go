@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package garp
+package gneigh
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 )
 
-// fakeSender mocks the GARP Sender, allowing for a feedback channel.
+// fakeSender mocks the GNeigh Sender, allowing for a feedback channel.
 type fakeSender struct {
 	sent chan fakeGarp
 }
@@ -31,8 +31,13 @@ type fakeGarp struct {
 	iface Interface
 }
 
-func (fs *fakeSender) Send(iface Interface, ip netip.Addr) error {
+func (fs *fakeSender) SendArp(iface Interface, ip netip.Addr) error {
 	fs.sent <- fakeGarp{addr: ip, iface: iface}
+	return nil
+}
+
+func (fs *fakeSender) SendNd(iface Interface, ip netip.Addr) error {
+	// Not used in this test
 	return nil
 }
 
@@ -103,7 +108,7 @@ func fixture(t *testing.T, c *Config) (
 			// Provide the read-only table, which is what the processor uses.
 			statedb.RWTable[*tables.Device].ToTable,
 
-			// Replace the actual GARP sender with a fake one, so we can see when
+			// Replace the actual GNeigh sender with a fake one, so we can see when
 			// a GARP packet would have been sent.
 			func() Sender { return &fakeSender{sent: garpSent} },
 
@@ -112,7 +117,7 @@ func fixture(t *testing.T, c *Config) (
 			func() endpointmanager.EndpointManager { return nil },
 
 			// Component under test.
-			newGARPProcessor,
+			newGNeighProcessor,
 		),
 
 		cell.Invoke(
@@ -127,7 +132,7 @@ func fixture(t *testing.T, c *Config) (
 		),
 	)
 
-	// Apply the config so that the GARP cell will initialise.s
+	// Apply the config so that the GNeigh cell will initialise.s
 	hive.AddConfigOverride(h, func(cfg *Config) {
 		cfg.EnableL2PodAnnouncements = c.EnableL2PodAnnouncements
 		cfg.L2PodAnnouncementsInterface = c.L2PodAnnouncementsInterface
