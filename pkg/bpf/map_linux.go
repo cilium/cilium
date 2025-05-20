@@ -865,17 +865,15 @@ type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
 	opts *ebpf.BatchOptions
 }
 
-// NewBatchIterator returns a typed wrapper for *Map that allows for
-// iterating (i.e. "dumping") the map using the bpf batch api.
+// NewBatchIterator that allows for iterating a map using the bpf batch api.
+// This automatically handles concerns such as batch sizing and handling errors
+// when end of map is reached.
+// Following iteration, any unresolved errors encountered when iterating
+// the bpf map can be accessed via the Err() function.
+// The pointer type of KT & VT must implement Map{Key,Value}, respectively.
 //
-// Unlike the general *Map dump functions, this must read into slices of
-// a concrete type (such as struct, or other scalar type), rather than into
-// pointers. This is because there is currently no safe way to allocate a
-// contiguous slice of key/value elements from either the underlying generic
-// pointer types or from MapKey/MapValue interface types.
-//
-// This means that attempting to use the pointer types that implement
-// MapKey/MapValue will fail upon iteration (via the Err() function).
+// Subsequent iterations via IterateAll reset all internal state and begin
+// iteration over.
 //
 // Example usage:
 //
@@ -887,14 +885,10 @@ type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
 //		BPF_F_NO_PREALLOC,
 //	)
 //
-//	// Note: TestKey & TestValue are not pointer types!
 //	iter := NewBatchIterator[TestKey, TestValue](m)
-//	for k, v := range iter {
+//	for k, v := range iter.IterateAll(context.TODO()) {
 //		// ...
 //	}
-//
-// Following iteration, any unresolved errors encountered when iterating
-// the bpf map can be accessed via the Err() function.
 func NewBatchIterator[KT any, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](m *Map) *BatchIterator[KT, VT, KP, VP] {
 	return &BatchIterator[KT, VT, KP, VP]{
 		m: m,
