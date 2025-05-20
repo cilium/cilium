@@ -331,6 +331,7 @@ Removed Options
 * The previously deprecated flag ``--enable-k8s-terminating-endpoint`` has been removed.
   The K8s terminating endpoints feature is unconditionally enabled.
 * The previously deprecated ``CONNTRACK_LOCAL`` option has been removed
+* The previously deprecated ``enableRuntimeDeviceDetection`` option has been removed
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
