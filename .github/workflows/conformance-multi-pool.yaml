@@ -247,6 +247,15 @@ jobs:
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo config="--set=etcd.enabled=true --set=identityAllocationMode=kvstore --set=etcd.endpoints[0]=http://${IP}:2378" >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@6e65fa094c051aee03959dc9a75e66213e9050c7 # v0.18.4
         with:
@@ -265,7 +274,7 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ steps.kvstore.outputs.config }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -307,6 +316,16 @@ jobs:
 
           for ip in "${{ steps.ips.outputs.echo-other-node }}".split():
             assert ip_address(ip) in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Run common post steps
         if: ${{ always() }}
