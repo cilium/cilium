@@ -22,6 +22,7 @@ to learn how to level up through the project.
  * [Deepesh Pathak]
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
+ * [Fabio Falzoi] (Isovalent)
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Datadog)
@@ -89,6 +90,7 @@ project.
 [Dorde Lapcevic]: https://github.com/dlapcevic
 [Dylan Reimerink]: https://github.com/dylandreimerink
 [Eloy Coto]: https://github.com/eloycoto
+[Fabio Falzoi]: https://github.com/pippolo84
 [Gilberto Bertin]: https://github.com/jibi
 [Glib Smaga]: https://github.com/glibsm
 [Hemanth Malla]: https://github.com/hemanthmalla
