@@ -69,6 +69,7 @@ jobs:
           filters: |
             src:
               - 'bpf/**'
+              - '!**/*.md'
 
       - name: Check test code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -80,6 +81,7 @@ jobs:
             src:
               - 'pkg/**'
               - 'test/**'
+              - '!**/*.md'
 
   build-commits-cilium:
     name: Check if cilium builds for every commit

@@ -44,6 +44,7 @@ jobs:
           filters: |
             src:
               - '!(test|Documentation)/**'
+              - '!**/*.md'
 
   conformance-test-ipv6:
     env:
