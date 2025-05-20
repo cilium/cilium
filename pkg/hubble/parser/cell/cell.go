@@ -51,7 +51,6 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 		parserOpts = append(
 			parserOpts,
 			parserOptions.WithRedact(
-				params.Log,
 				params.Config.RedactHttpURLQuery,
 				params.Config.RedactHttpUserInfo,
 				params.Config.RedactKafkaAPIKey,
@@ -63,13 +62,11 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 	parserOpts = append(
 		parserOpts,
 		parserOptions.WithNetworkPolicyCorrelation(
-			params.Log,
 			params.Config.EnableNetworkPolicyCorrelation,
 		))
 	parserOpts = append(
 		parserOpts,
 		parserOptions.WithSkipUnknownCGroupIDs(
-			params.Log,
 			params.Config.SkipUnknownCGroupIDs,
 		),
 	)

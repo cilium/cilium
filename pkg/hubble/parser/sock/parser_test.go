@@ -401,7 +401,7 @@ func TestDecodeSockEvent(t *testing.T) {
 	}
 
 	logger := hivetest.Logger(t)
-	p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, options.WithSkipUnknownCGroupIDs(logger, false))
+	p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, options.WithSkipUnknownCGroupIDs(false))
 	assert.NoError(t, err)
 
 	for _, tc := range tt {
