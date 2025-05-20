@@ -1,8 +1,6 @@
 # Test handling of headless services
 
-# Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
-db/initialized
 
 # Set up the services and endpoints
 k8s/add service.yaml endpointslice.yaml

@@ -5,7 +5,6 @@ db/insert node-addresses addrv4.yaml
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
-db/initialized
 
 # Set up the services and endpoints
 k8s/add service.yaml

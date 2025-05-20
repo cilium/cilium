@@ -2,7 +2,6 @@
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
-db/initialized
 
 set-node-labels foo=a
 
