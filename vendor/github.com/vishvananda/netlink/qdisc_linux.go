@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/vishvananda/netlink/nl"
@@ -200,7 +201,9 @@ func qdiscPayload(req *nl.NetlinkRequest, qdisc Qdisc) error {
 		opt.Debug = qdisc.Debug
 		opt.DirectPkts = qdisc.DirectPkts
 		options.AddRtAttr(nl.TCA_HTB_INIT, opt.Serialize())
-		// options.AddRtAttr(nl.TCA_HTB_DIRECT_QLEN, opt.Serialize())
+		if qdisc.DirectQlen != nil {
+			options.AddRtAttr(nl.TCA_HTB_DIRECT_QLEN, nl.Uint32Attr(*qdisc.DirectQlen))
+		}
 	case *Hfsc:
 		opt := nl.TcHfscOpt{}
 		opt.Defcls = qdisc.Defcls
@@ -525,8 +528,8 @@ func parseHtbData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
 			htb.Debug = opt.Debug
 			htb.DirectPkts = opt.DirectPkts
 		case nl.TCA_HTB_DIRECT_QLEN:
-			// TODO
-			//htb.DirectQlen = native.uint32(datum.Value)
+			directQlen := native.Uint32(datum.Value)
+			htb.DirectQlen = &directQlen
 		}
 	}
 	return nil
@@ -688,6 +691,9 @@ var (
 	tickInUsec  float64
 	clockFactor float64
 	hz          float64
+
+	// Without this, the go race detector may report races.
+	initClockMutex sync.Mutex
 )
 
 func initClock() {
@@ -722,6 +728,8 @@ func initClock() {
 }
 
 func TickInUsec() float64 {
+	initClockMutex.Lock()
+	defer initClockMutex.Unlock()
 	if tickInUsec == 0.0 {
 		initClock()
 	}
@@ -729,6 +737,8 @@ func TickInUsec() float64 {
 }
 
 func ClockFactor() float64 {
+	initClockMutex.Lock()
+	defer initClockMutex.Unlock()
 	if clockFactor == 0.0 {
 		initClock()
 	}
@@ -736,6 +746,8 @@ func ClockFactor() float64 {
 }
 
 func Hz() float64 {
+	initClockMutex.Lock()
+	defer initClockMutex.Unlock()
 	if hz == 0.0 {
 		initClock()
 	}

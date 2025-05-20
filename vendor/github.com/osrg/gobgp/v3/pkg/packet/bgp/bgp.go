@@ -1094,7 +1094,7 @@ func (c *CapSoftwareVersion) DecodeFromBytes(data []byte) error {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilitySoftwareVersion bytes allowed")
 	}
 	softwareVersionLen := uint8(data[0])
-	if len(data[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 {
+	if len(data[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 || softwareVersionLen == 0 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "invalid length of software version capablity")
 	}
 	c.SoftwareVersionLen = softwareVersionLen
@@ -1586,6 +1586,7 @@ const (
 	BGP_RD_TWO_OCTET_AS = iota
 	BGP_RD_IPV4_ADDRESS
 	BGP_RD_FOUR_OCTET_AS
+	BGP_RD_EOR
 )
 
 type RouteDistinguisherInterface interface {
@@ -9637,6 +9638,8 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		return NewIPv6AddrPrefix(uint8(len), addr.String()), nil
 	}
 
+	rdEOR := &RouteDistinguisherUnknown{DefaultRouteDistinguisher{Type: BGP_RD_EOR}, []byte("EOR")}
+
 	switch family {
 	case RF_IPv4_UC, RF_IPv4_MC:
 		if len(prefixStr) > 0 {
@@ -9652,7 +9655,7 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		}
 	case RF_IPv4_VPN:
 		if len(prefixStr) == 0 {
-			prefix = NewLabeledVPNIPAddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+			prefix = NewLabeledVPNIPAddrPrefix(0, "", *NewMPLSLabelStack(), rdEOR)
 			break
 		}
 
@@ -9671,7 +9674,7 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		)
 	case RF_IPv6_VPN:
 		if len(prefixStr) == 0 {
-			prefix = NewLabeledVPNIPv6AddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+			prefix = NewLabeledVPNIPv6AddrPrefix(0, "", *NewMPLSLabelStack(), rdEOR)
 			break
 		}
 
@@ -12705,6 +12708,10 @@ func parseGenericTransitiveExperimentalExtended(data []byte) (ExtendedCommunityI
 		dscp := data[7]
 		return NewTrafficRemarkExtended(dscp), nil
 	case EC_SUBTYPE_FLOWSPEC_REDIRECT_IP6:
+		if len(data) < 20 {
+			return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "not all extended community bytes for IPv6 FlowSpec are available")
+		}
+
 		ipv6 := net.IP(data[2:18]).String()
 		localAdmin := binary.BigEndian.Uint16(data[18:20])
 		return NewRedirectIPv6AddressSpecificExtended(ipv6, localAdmin), nil
