@@ -83,3 +83,15 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true);
 }
+
+PKTGEN("tc", "ipsec_redirect6")
+int ipsec_redirect6_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, false);
+}
+
+CHECK("tc", "ipsec_redirect6")
+int ipsec_redirect6_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return ipsec_redirect_checks(ctx, false);
+}
