@@ -687,6 +687,22 @@
       matchBaseBranches: [
         "v1.15"
       ]
+    },
+    {
+      // Do not allow any major and minor etcd updates into stable branches.
+      "enabled": false,
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+      ],
+      "matchBaseBranches": [
+        "v1.17",
+        "v1.16",
+        "v1.15",
+      ]
     }
   ],
   "kubernetes": {
