@@ -17,10 +17,10 @@ the local area network. This feature is primarily intended for on-premises
 deployments within networks without BGP based routing such as office or 
 campus networks.
 
-When used, this feature will respond to ARP queries for ExternalIPs and/or 
+When used, this feature will respond to ARP/NDP queries for ExternalIPs and/or 
 LoadBalancer IPs. These IPs are Virtual IPs (not installed on network 
 devices) on multiple nodes, so for each service one node at a time will respond
-to the ARP queries and respond with its MAC address. This node will perform 
+to ARP/NDP queries and respond with its MAC address. This node will perform 
 load balancing with the service load balancing feature, thus acting as a 
 north/south load balancer.
 
@@ -81,10 +81,8 @@ Prerequisites
 Limitations
 ###########
 
-* The feature currently does not support IPv6/NDP.
-
 * Due to the way L3->L2 translation protocols work, one node receives all 
-  ARP requests for a specific IP, so no load balancing can happen before traffic hits the cluster.
+  ARP/NDP requests for a specific IP, so no load balancing can happen before traffic hits the cluster.
 
 * The feature currently has no traffic balancing mechanism so nodes within the
   same policy might be asymmetrically loaded. For details see :ref:`l2_announcements_leader_election`.
@@ -161,7 +159,7 @@ devices specified in the ``devices`` Helm option, see :ref:`NodePort Devices`.
 
 .. note::
     This selector is NOT a security feature, services will still be available 
-    via interfaces when not advertised (for example by hard-coding ARP entries).
+    via interfaces when not advertised (for example by hard-coding ARP/NDP entries).
 
 IP Types
 --------
@@ -386,10 +384,6 @@ Such clients might experience longer downtime then configured in the leases
 since they will only re-query via ARP when TTL in their internal tables 
 has been reached.
 
-.. note::
-   Since this feature has no IPv6 support yet, only ARP messages are sent, no 
-   Unsolicited Neighbor Advertisements are sent.
-
 Troubleshooting
 ###############
 
@@ -570,10 +564,10 @@ L2 Pod Announcements
 ####################
 
 L2 Pod Announcements announce Pod IP addresses on the L2 network using
-Gratuitous ARP replies. When enabled, the node transmits Gratuitous ARP
-replies for every locally created pod, on the configured network
-interface(s). This feature is enabled separately from the above L2
-announcements feature.
+Gratuitous ARP replies / Neighbor Discovery Advertisements. When enabled, the
+node transmits Gratuitous ARP replies / NDP Advertisements for every locally
+created pod, on the configured network interface(s). This feature is enabled
+separately from the above L2 announcements feature.
 
 To enable L2 Pod Announcements, set the following:
 
