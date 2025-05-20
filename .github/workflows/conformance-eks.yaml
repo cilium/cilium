@@ -229,6 +229,9 @@ jobs:
           fi
           if [[ "${{ matrix.kpr }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
+            if [[ "${{ matrix.ipsec }}" == "true" ]]; then
+              CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.hostLegacyRouting=true"
+            fi
           fi
           if [[ "${{ matrix.aws-eni-pd }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"

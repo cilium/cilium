@@ -325,9 +325,6 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
-		// Needs host stack for packet handling.
-		case option.Config.EnableIPSec:
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)

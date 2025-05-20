@@ -259,6 +259,7 @@ jobs:
         run: |
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --helm-set=bpf.hostLegacyRouting=${{ matrix.kube-proxy != 'none' || matrix.encryption == 'ipsec' }} \
             --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
