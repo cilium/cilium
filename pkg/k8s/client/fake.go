@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
@@ -34,8 +33,6 @@ import (
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var FakeClientCell = cell.Module(
@@ -77,8 +74,6 @@ type FakeClientset struct {
 		domain  string
 		tracker k8sTesting.ObjectTracker
 	}
-
-	watchers lock.Map[string, struct{}]
 }
 
 var _ Clientset = &FakeClientset{}
@@ -153,26 +148,24 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 	client.CiliumFakeClientset.Resources = resources
 	client.APIExtFakeClientset.Resources = resources
 
-	otc := ot.For("*", testutils.Scheme, testutils.Decoder())
-	augmentTracker(log, otc, client.SlimFakeClientset, &client.watchers)
-	augmentTracker(log, otc, client.CiliumFakeClientset, &client.watchers)
-	augmentTracker(log, otc, client.MCSAPIFakeClientset, &client.watchers)
-	augmentTracker(log, otc, client.APIExtFakeClientset, &client.watchers)
+	otx := ot.For("*", testutils.Scheme, testutils.Decoder())
+	prependReactors(client.SlimFakeClientset, otx)
+	prependReactors(client.CiliumFakeClientset, otx)
+	prependReactors(client.MCSAPIFakeClientset, otx)
+	prependReactors(client.APIExtFakeClientset, otx)
+
+	// Use a separate object tracker domain for the "kubernetes" objects. This is needed
+	// to avoid overlap with the Slim clientset since they have the same GVR but different
+	// Go types.
+	otk := ot.For("k8s", testutils.KubernetesScheme, testutils.KubernetesDecoder())
+	prependReactors(client.KubernetesFakeClientset, otk)
 
 	client.trackers = []struct {
 		domain  string
 		tracker k8sTesting.ObjectTracker
 	}{
-		{domain: "*", tracker: otc},
-		{domain: "k8s", tracker: augmentTracker(
-			log,
-			// Use a separate object tracker domain for the "kubernetes" objects. This is needed
-			// to avoid overlap with the Slim clientset since they have the same GVR but different
-			// Go types.
-			ot.For("k8s", testutils.KubernetesScheme, testutils.KubernetesDecoder()),
-			client.KubernetesFakeClientset,
-			&client.watchers),
-		},
+		{domain: "*", tracker: otx},
+		{domain: "k8s", tracker: otk},
 	}
 
 	fd := client.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
@@ -192,6 +185,28 @@ func FakeClientBuilder(log *slog.Logger, ot *statedbObjectTracker) ClientBuilder
 	return func(_ string) (Clientset, error) {
 		return fc, nil
 	}
+}
+
+type prepender interface {
+	PrependReactor(verb string, resource string, reaction k8sTesting.ReactionFunc)
+	PrependWatchReactor(resource string, reaction k8sTesting.WatchReactionFunc)
+}
+
+func prependReactors(cs prepender, ot *statedbObjectTracker) {
+	cs.PrependReactor("*", "*", k8sTesting.ObjectReaction(ot))
+	cs.PrependWatchReactor("*", func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		var opts metav1.ListOptions
+		if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+			opts = watchAction.ListOptions
+		}
+		gvr := action.GetResource()
+		ns := action.GetNamespace()
+		watch, err := ot.Watch(gvr, ns, opts)
+		if err != nil {
+			return false, nil, err
+		}
+		return true, watch, nil
+	})
 }
 
 func showGVR(gvr schema.GroupVersionResource) string {
@@ -481,86 +496,5 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				}, nil
 			},
 		),
-
-		"k8s/wait-watchers": script.Command(
-			script.CmdUsage{
-				Summary: "Wait for watchers for given resources to appear",
-				Detail: []string{
-					"Takes a list of resources and waits for a Watch() to appear for it.",
-					"",
-					"Useful when working with an informer/reflector that is not backed by",
-					"a StateDB table and thus cannot use 'db/initialized'.",
-				},
-				Args: "resources...",
-			},
-			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				resources := map[string]struct{}{}
-				for _, r := range args {
-					resources[r] = struct{}{}
-				}
-				for s.Context().Err() == nil && len(resources) > 0 {
-					for r := range resources {
-						_, ok := fc.watchers.Load(r)
-						if ok {
-							delete(resources, r)
-						}
-					}
-					time.Sleep(10 * time.Millisecond)
-				}
-				if len(resources) > 0 {
-					seen := []string{}
-					fc.watchers.Range(func(key string, value struct{}) bool {
-						seen = append(seen, key)
-						return true
-					})
-					return nil, fmt.Errorf("watchers did not appear. saw: %v", seen)
-				}
-				return nil, nil
-			},
-		),
 	}
-
-}
-
-type fakeWithTracker interface {
-	PrependReactor(verb string, resource string, reaction k8sTesting.ReactionFunc)
-	PrependWatchReactor(resource string, reaction k8sTesting.WatchReactionFunc)
-	Tracker() k8sTesting.ObjectTracker
-}
-
-// augmentTracker augments the fake clientset to record watchers.
-// The reason we need to do this is the following: The k8s object tracker's implementation
-// of Watch is not equivalent to Watch on a real api-server, as it does not respect the
-// ResourceVersion from whence to start the watch. As a consequence, when informers (or
-// reflectors) call ListAndWatch, they miss events which occur between the end of List and
-// the establishment of Watch.
-func augmentTracker[T fakeWithTracker](log *slog.Logger, ot *statedbObjectTracker, f T, watchers *lock.Map[string, struct{}]) k8sTesting.ObjectTracker {
-	f.PrependReactor("*", "*", k8sTesting.ObjectReaction(ot))
-
-	f.PrependWatchReactor(
-		"*",
-		func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
-			w := action.(k8sTesting.WatchAction)
-			var opts metav1.ListOptions
-			if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
-				opts = watchAction.ListOptions
-			}
-			gvr := w.GetResource()
-			ns := w.GetNamespace()
-			watch, err := ot.Watch(gvr, ns, opts)
-			if err != nil {
-				return false, nil, err
-			}
-			watchName := showGVR(gvr)
-			if _, ok := watchers.Load(watchName); ok {
-				log.Warn("Multiple watches for resource intercepted. This highlights a potential cause for flakes", logfields.Resource, watchName)
-			}
-
-			log.Debug("Watch started", logfields.Resource, watchName)
-			watchers.Store(watchName, struct{}{})
-
-			return true, watch, nil
-		})
-
-	return ot
 }
