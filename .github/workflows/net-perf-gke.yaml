@@ -304,7 +304,7 @@ jobs:
         id: run-perf
         run: |
           mkdir output
-          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --report-dir=./output --unsafe-capture-kernel-profiles
+          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --crr=true --report-dir=./output --unsafe-capture-kernel-profiles
           sudo chmod -R +r ./output
 
       - name: Features tested
@@ -313,8 +313,8 @@ jobs:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
 
-      - name: Get sysdump}}
-        if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' && matrix.mode != 'native' }}
+      - name: Get sysdump
+        if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' && matrix.mode != 'baseline' }}
         run: |
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
@@ -343,7 +343,7 @@ jobs:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./output/*
-          other_files: cilium-sysdump-final.zip
+          other_files: ${{ matrix.mode != 'baseline' && 'cilium-sysdump-final.zip' || '' }}
 
   merge-upload:
     if: ${{ always() }}
