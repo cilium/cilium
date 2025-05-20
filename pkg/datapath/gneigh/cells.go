@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package garp
+package gneigh
 
 import (
 	"github.com/cilium/hive/cell"
@@ -9,14 +9,14 @@ import (
 )
 
 const (
-	// L2PodAnnouncementsInterface is the interface used to send Gratuitous ARP messages.
+	// L2PodAnnouncementsInterface is the interface used to send Gratuitous ARP|ND messages.
 	L2PodAnnouncementsInterface        = "l2-pod-announcements-interface"
 	L2PodAnnouncementsInterfacePattern = "l2-pod-announcements-interface-pattern"
 
 	EnableL2PodAnnouncements = "enable-l2-pod-announcements"
 )
 
-// Config contains the configuration for the GARP cell.
+// Config contains the configuration for the Gneigh cell.
 type Config struct {
 	L2PodAnnouncementsInterface        string
 	L2PodAnnouncementsInterfacePattern string
@@ -28,10 +28,10 @@ func (def Config) Enabled() bool {
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.String(L2PodAnnouncementsInterface, def.L2PodAnnouncementsInterface, "Interface used for sending gratuitous arp messages")
+	flags.String(L2PodAnnouncementsInterface, def.L2PodAnnouncementsInterface, "Interface used for sending gratuitous ARP and NDP messages")
 	flags.MarkDeprecated(L2PodAnnouncementsInterface, "use --"+L2PodAnnouncementsInterfacePattern+" instead")
-	flags.String(L2PodAnnouncementsInterfacePattern, def.L2PodAnnouncementsInterfacePattern, "Regex matching interfaces used for sending gratuitous arp messages")
-	flags.Bool(EnableL2PodAnnouncements, def.EnableL2PodAnnouncements, "Enable announcing Pod IPs with Gratuitous ARP")
+	flags.String(L2PodAnnouncementsInterfacePattern, def.L2PodAnnouncementsInterfacePattern, "Regex matching interfaces used for sending gratuitous ARP and NDP messages")
+	flags.Bool(EnableL2PodAnnouncements, def.EnableL2PodAnnouncements, "Enable announcing Pod IPs with Gratuitous ARP and NDP")
 }
 
 // This cell can't be enabled by default, it's entirely env dependent.
@@ -42,10 +42,10 @@ var defaultConfig = Config{
 }
 
 // Cell processes k8s pod events for the local node and determines if a
-// Gratuitous ARP packet needs to be sent.
+// Gratuitous ARP|ND packet needs to be sent.
 var Cell = cell.Module(
-	"l2-pod-announcements-garp",
-	"GARP processor sends gratuitous ARP packets for local pods",
+	"l2-pod-announcements-gneigh",
+	"Gneigh processor sends gratuitous ARP and NDP packets for local pods",
 
 	cell.Provide(
 		newSender,
@@ -55,7 +55,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 
-	cell.Invoke(newGARPProcessor),
+	cell.Invoke(newGNeighProcessor),
 )
 
 type L2PodAnnouncementConfig interface {
