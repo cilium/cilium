@@ -158,14 +158,14 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 			usedIPs := n.k8sObj.Status.IPAM.Used
 			ipsPerPrefix := option.ENIPDBlockSizeIPv4
 
-			// Calculate number of prefixes needed to avoid deleting IPPrefix allocated to resolve IPDeficit
-			requiredPrefixes := (len(usedIPs) + n.k8sObj.Spec.IPAM.PreAllocate + ipsPerPrefix - 1) / ipsPerPrefix
-			if len(ipPrefixes) > requiredPrefixes {
+			// Calculate number of prefixes to release to avoid deleting IPPrefix allocated to resolve IPDeficit
+			excessPrefixes := len(ipPrefixes) - (len(usedIPs)+n.k8sObj.Spec.IPAM.PreAllocate+ipsPerPrefix-1)/ipsPerPrefix
+			if excessPrefixes > 0 {
 				unusedIPPrefixes := []string{}
 				matchedIPs := []string{}
 				// Check each prefix to determine if at least one IP is used in IPAM.
 				for _, prefix := range ipPrefixes {
-					if len(unusedIPPrefixes) >= requiredPrefixes {
+					if len(unusedIPPrefixes) >= excessPrefixes {
 						break
 					}
 					prefixAddr, err := netip.ParsePrefix(prefix)
