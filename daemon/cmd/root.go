@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	shell "github.com/cilium/cilium/pkg/shell/client"
 	"github.com/cilium/cilium/pkg/time"
@@ -32,16 +32,17 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 				os.Exit(0)
 			}
 
+			daemonLogger := logging.DefaultSlogLogger.With(logfields.LogSubsys, daemonSubsys)
 			// Initialize working directories and validate the configuration.
-			initEnv(h.Viper())
+			initEnv(daemonLogger, h.Viper())
 
 			// Validate the daemon-specific global options.
 			if err := option.Config.Validate(h.Viper()); err != nil {
-				log.Fatalf("invalid daemon configuration: %s", err)
+				logging.Fatal(daemonLogger, fmt.Sprintf("invalid daemon configuration: %s", err))
 			}
 
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
-				log.Fatal(err)
+				logging.Fatal(daemonLogger, fmt.Sprintf("unable to run agent: %s", err))
 			}
 		},
 	}
@@ -56,7 +57,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 		h.Command(),
 	)
 
-	InitGlobalFlags(rootCmd, h.Viper())
+	InitGlobalFlags(logging.DefaultSlogLogger, rootCmd, h.Viper())
 
 	cobra.OnInitialize(
 		option.InitConfig(logging.DefaultSlogLogger, rootCmd, "cilium-agent", "cilium", h.Viper()),
@@ -84,7 +85,7 @@ func setupSleepBeforeFatal(cmd *cobra.Command) {
 			time.Sleep(fatalSleep)
 			return e
 		})
-	logrus.RegisterExitHandler(func() {
+	logging.RegisterExitHandler(func() {
 		time.Sleep(fatalSleep)
 	})
 }

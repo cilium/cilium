@@ -110,8 +110,8 @@ func setupKPRSuite(tb testing.TB) *KPRSuite {
 	mockCmd := &cobra.Command{}
 	h := hive.New(Agent)
 	h.RegisterFlags(mockCmd.Flags())
-	InitGlobalFlags(mockCmd, h.Viper())
 	logger := hivetest.Logger(tb)
+	InitGlobalFlags(logger, mockCmd, h.Viper())
 	option.Config.Populate(logger, h.Viper())
 	option.Config.DryMode = true
 
