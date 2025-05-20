@@ -11,6 +11,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
@@ -20,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sPkg "github.com/cilium/cilium/pkg/k8s"
@@ -167,6 +170,26 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.policy)
 	f.fakeClientSet.SlimFakeClientset.Tracker().Add(&conf.secret)
 
+	// Create route and device tables
+	routeTable, err := tables.NewRouteTable()
+	require.NoError(t, err)
+
+	deviceTable, err := tables.NewDeviceTable()
+	require.NoError(t, err)
+
+	// Create a cell that registers the tables with the StateDB
+	registerTablesCell := cell.Module(
+		"register-tables",
+		"Registers the route and device tables with the StateDB",
+		cell.Invoke(func(db *statedb.DB) {
+			err := db.RegisterTable(routeTable)
+			require.NoError(t, err)
+
+			err = db.RegisterTable(deviceTable)
+			require.NoError(t, err)
+		}),
+	)
+
 	// Construct a new Hive with mocked out dependency cells.
 	f.cells = []cell.Cell{
 		cell.Config(k8sPkg.DefaultConfig),
@@ -196,6 +219,18 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 			return f.fakeClientSet
 		}),
 
+		// Register the tables with the StateDB
+		registerTablesCell,
+
+		// Provide route table
+		cell.Provide(func() statedb.Table[*tables.Route] {
+			return routeTable.ToTable()
+		}),
+
+		// Provide device table
+		cell.Provide(func() statedb.Table[*tables.Device] {
+			return deviceTable.ToTable()
+		}),
 		// daemon config
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
