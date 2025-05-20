@@ -14,8 +14,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -83,7 +83,7 @@ var Cell = cell.Module(
 
 		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
 
-		func() garp.L2PodAnnouncementConfig { return &fakeTypes.GarpConfig{} },
+		func() gneigh.L2PodAnnouncementConfig { return &fakeTypes.GNeighConfig{} },
 	),
 
 	tables.NodeAddressCell,
