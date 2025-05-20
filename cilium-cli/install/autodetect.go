@@ -74,9 +74,14 @@ func getClusterName(helmValues map[string]any) string {
 	return clusterName
 }
 
+// trimEKSClusterName extracts and trims the EKS cluster name
+// from either an ARN (arn:aws:eks:...) or an eksctl-formatted
+// FQDN (e.g., <name>.<region>.eksctl.io). This helps ensure
+// the resulting name complies with EKS validation constraints,
+// such as the 32-character limit.
 func trimEKSClusterName(identifier string) string {
 	// Handle ARN format: arn:aws:eks:<region>:<account>:cluster/<cluster-name>
-	const prefix = "cluster/"
+	const prefix = ":cluster/"
 	idx := strings.LastIndex(identifier, prefix)
 	if idx != -1 {
 		idx += len(prefix)
