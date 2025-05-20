@@ -759,10 +759,6 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
-{{- if .Values.enableRuntimeDeviceDetection }}
-  enable-runtime-device-detection: "true"
-{{- end }}
-
 {{- if .Values.forceDeviceDetection }}
   force-device-detection: "true"
 {{- end }}
