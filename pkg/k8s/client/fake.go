@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"reflect"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
@@ -190,6 +192,7 @@ func FakeClientBuilder(log *slog.Logger, ot *statedbObjectTracker) ClientBuilder
 type prepender interface {
 	PrependReactor(verb string, resource string, reaction k8sTesting.ReactionFunc)
 	PrependWatchReactor(resource string, reaction k8sTesting.WatchReactionFunc)
+	Tracker() k8sTesting.ObjectTracker
 }
 
 func prependReactors(cs prepender, ot *statedbObjectTracker) {
@@ -207,6 +210,9 @@ func prependReactors(cs prepender, ot *statedbObjectTracker) {
 		}
 		return true, watch, nil
 	})
+
+	// Switch out the tracker to our version.
+	overrideTracker(cs, ot)
 }
 
 func showGVR(gvr schema.GroupVersionResource) string {
@@ -496,5 +502,23 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				}, nil
 			},
 		),
+	}
+}
+
+// overrideTracker changes the internal 'tracker' field in the generated
+// clientset to point to our object tracker. This allows using the Tracker()
+// method without ending up getting the wrong one.
+func overrideTracker(cs prepender, ot k8sTesting.ObjectTracker) {
+	type fakeLayout struct {
+		k8sTesting.Fake
+		discovery uintptr
+		tracker   k8sTesting.ObjectTracker
+	}
+
+	f := (*fakeLayout)(unsafe.Pointer(reflect.ValueOf(cs).Pointer()))
+	f.tracker = ot
+
+	if cs.Tracker() != ot {
+		panic("overrideTracker failed, layout changed?")
 	}
 }
