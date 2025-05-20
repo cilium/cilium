@@ -73,3 +73,15 @@ int ipsec_redirect_tunnel4_v4_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true);
 }
+
+PKTGEN("tc", "ipsec_redirect_tunnel4_v6")
+int ipsec_redirect_tunnel4_v6_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_vxlan_packet(ctx, true, false);
+}
+
+CHECK("tc", "ipsec_redirect_tunnel4_v6")
+int ipsec_redirect_tunnel4_v6_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return ipsec_redirect_checks(ctx, true);
+}
