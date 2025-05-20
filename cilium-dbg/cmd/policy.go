@@ -15,7 +15,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -107,7 +106,7 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 
 func ignoredFile(name string) bool {
 	if slices.Contains(ignoredFileNames, name) {
-		logrus.WithField(logfields.Path, name).Debug("Ignoring file")
+		log.Debug("Ignoring file", logfields.Path, name)
 		return true
 	}
 
@@ -118,7 +117,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 	var content []byte
 	var err error
 	var r io.Reader
-	logrus.WithField(logfields.Path, path).Debug("Loading file")
+	log.Debug("Loading file", logfields.Path, path)
 
 	if path == "-" {
 		r = bufio.NewReader(os.Stdin)
@@ -145,7 +144,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 }
 
 func loadPolicy(name string) (api.Rules, error) {
-	logrus.WithField(logfields.Path, name).Debug("Entering directory")
+	log.Debug("Entering directory", logfields.Path, name)
 
 	if name == "-" {
 		return loadPolicyFile(name)
@@ -177,7 +176,7 @@ func loadPolicy(name string) (api.Rules, error) {
 	}
 	result = append(result, ruleList...)
 
-	logrus.WithField(logfields.Path, name).Debug("Leaving directory")
+	log.Debug("Leaving directory", logfields.Path, name)
 
 	return result, nil
 }

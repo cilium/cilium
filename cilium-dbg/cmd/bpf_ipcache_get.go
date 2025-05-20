@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 )
 
@@ -95,7 +96,11 @@ func getLPMValue(ip net.IP, entries map[string][]string) (any, bool) {
 	for cidr, identity := range entries {
 		currIP, subnet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			log.WithError(err).Warnf("unable to parse ipcache entry %q as a CIDR", cidr)
+			log.Warn(
+				"unable to parse ipcache entry as a CIDR",
+				logfields.Error, err,
+				logfields.Entry, cidr,
+			)
 			continue
 		}
 
