@@ -1251,10 +1251,14 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #ifdef ENABLE_WIREGUARD
 	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
 	 * BPF NodePort enabled, we should change the obs point to FROM_CRYPTO.
+	 * Additionally, we mark the packet so that following programs can detect
+	 * that traffic was encrypted.
 	 * Therefore, we check THIS_INTERFACE_IFINDEX value to be set to WG_IFINDEX.
 	 */
-	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
 		obs_point = TRACE_FROM_CRYPTO;
+		// ctx->mark = MARK_MAGIC_DECRYPT;
+	}
 #endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
@@ -1320,7 +1324,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 
 	return do_netdev(ctx, proto, UNKNOWN_ID, obs_point, false);
-
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }

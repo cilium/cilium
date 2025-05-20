@@ -421,8 +421,7 @@ func attachCiliumNet(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint,
 func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
 
-	// Selectively attach bpf_host to cilium_wg0.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
+	if option.Config.EnableWireguard {
 		devices = append(devices, wgTypes.IfaceName)
 	}
 
