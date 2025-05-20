@@ -30,6 +30,7 @@ runs:
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
+        image: 'kind-ci'
         images-folder-parent: "/tmp"
         host-mount: ./
         cpu: 4
