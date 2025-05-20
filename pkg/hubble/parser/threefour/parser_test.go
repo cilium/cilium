@@ -649,7 +649,7 @@ func TestNetworkPolicyCorrelationDisabled(t *testing.T) {
 		},
 	}
 
-	opts := []options.Option{options.WithNetworkPolicyCorrelation(hivetest.Logger(t), false)}
+	opts := []options.Option{options.WithNetworkPolicyCorrelation(false)}
 	parser, err := New(hivetest.Logger(t), endpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter, opts...)
 	require.NoError(t, err)
 

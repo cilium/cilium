@@ -508,7 +508,7 @@ func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.WithRedact(nil, true, true, false, []string{}, []string{"authorization"})}
+	opts := []options.Option{options.WithRedact(true, true, false, []string{}, []string{"authorization"})}
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -556,7 +556,7 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.WithRedact(nil, true, true, false, []string{"host"}, []string{})}
+	opts := []options.Option{options.WithRedact(true, true, false, []string{"host"}, []string{})}
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -574,7 +574,7 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 		},
 	}, f.GetL7().GetHttp())
 
-	opts = []options.Option{options.WithRedact(nil, true, true, false, []string{}, []string{"host"})}
+	opts = []options.Option{options.WithRedact(true, true, false, []string{}, []string{"host"})}
 	parser, err = New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -694,7 +694,7 @@ func TestDecodeL7HTTPRequestPasswordRedact(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.WithRedact(nil, true, true, false, []string{}, []string{})}
+	opts := []options.Option{options.WithRedact(true, true, false, []string{}, []string{})}
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
