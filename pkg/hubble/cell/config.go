@@ -164,8 +164,11 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.String("hubble-dynamic-metrics-config-path", def.DynamicMetricConfigFilePath, "Filepath with dynamic configuration of hubble metrics")
 	// Hubble recorder configuration
 	flags.Bool("enable-hubble-recorder-api", def.EnableRecorderAPI, "Enable the Hubble recorder API")
+	flags.MarkDeprecated("enable-hubble-recorder-api", "The feature will be removed in v1.19")
 	flags.String("hubble-recorder-storage-path", def.RecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
+	flags.MarkDeprecated("hubble-recorder-storage-path", "The feature will be removed in v1.19")
 	flags.Int("hubble-recorder-sink-queue-size", def.RecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
+	flags.MarkDeprecated("hubble-recorder-sink-queue-size", "The feature will be removed in v1.19")
 	// Hubble k8s v1.Events integration configuration.
 	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
 	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")
