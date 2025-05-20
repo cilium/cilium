@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -56,7 +56,7 @@ type params struct {
 	NetLink             linkByNamer
 	JobGroup            job.Group
 	Health              cell.Health
-	GARPSender          garp.Sender
+	GARPSender          gneigh.Sender
 }
 
 type linkByNamer interface {
@@ -261,7 +261,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 // If the given IP and network interface index does not yet exist in the l2 responder map,
 // a failover might have taken place. Therefor we should send out a gARP reply to let
 // the local network know the IP has moved to minimize downtime due to ARP caching.
-func garpOnNewEntry(arMap l2respondermap.Map, sender garp.Sender, ip netip.Addr, ifIndex int) error {
+func garpOnNewEntry(arMap l2respondermap.Map, sender gneigh.Sender, ip netip.Addr, ifIndex int) error {
 	_, err := arMap.Lookup(ip, uint32(ifIndex))
 	if !errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
@@ -272,7 +272,7 @@ func garpOnNewEntry(arMap l2respondermap.Map, sender garp.Sender, ip netip.Addr,
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}
 
-	err = sender.Send(iface, ip)
+	err = sender.SendArp(iface, ip)
 	if err != nil {
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}

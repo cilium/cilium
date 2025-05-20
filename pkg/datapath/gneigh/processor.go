@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package garp
+package gneigh
 
 import (
 	"context"
@@ -36,7 +36,7 @@ type processorParams struct {
 	JobGroup        job.Group
 }
 
-func newGARPProcessor(p processorParams) (*processor, error) {
+func newGNeighProcessor(p processorParams) (*processor, error) {
 	if !p.Config.EnableL2PodAnnouncements {
 		return nil, nil
 	}
@@ -71,7 +71,7 @@ func newGARPProcessor(p processorParams) (*processor, error) {
 	gp := &processor{
 		params:       p,
 		devicesRegex: devicesRegex,
-		endpointIPs:  make(map[uint16]netip.Addr),
+		endpointIPs:  make(map[uint16]EndpointIPs),
 	}
 
 	p.JobGroup.Add(job.OneShot("device-updater", gp.deviceUpdater))
@@ -85,6 +85,11 @@ func newGARPProcessor(p processorParams) (*processor, error) {
 	return gp, nil
 }
 
+type EndpointIPs struct {
+	IPv4 netip.Addr
+	IPv6 netip.Addr
+}
+
 type processor struct {
 	params processorParams
 
@@ -92,7 +97,7 @@ type processor struct {
 
 	mu             lock.Mutex
 	sendInterfaces []Interface
-	endpointIPs    map[uint16]netip.Addr
+	endpointIPs    map[uint16]EndpointIPs
 }
 
 func (gp *processor) deviceUpdater(ctx context.Context, health cell.Health) error {
@@ -147,36 +152,63 @@ func (gp *processor) updateInterfaces() (<-chan struct{}, error) {
 
 var _ endpointmanager.Subscriber = &processor{}
 
+func (gp *processor) send(ep *endpoint.Endpoint, ip netip.Addr, iface Interface) {
+	if !ip.IsValid() {
+		return
+	}
+
+	var (
+		err   error
+		proto string
+	)
+
+	if ip.Is4() {
+		err = gp.params.Sender.SendArp(iface, ip)
+		proto = "ARP"
+	} else {
+		err = gp.params.Sender.SendNd(iface, ip)
+		proto = "ND"
+	}
+
+	if err != nil {
+		gp.params.Logger.Warn(fmt.Sprintf("Failed to send gratuitous %s", proto),
+			logfields.Error, err,
+			logfields.K8sPodName, ep.K8sPodName,
+			logfields.IPAddr, ip,
+		)
+	} else {
+		gp.params.Logger.Debug(fmt.Sprintf("pod upsert gratuitous %s sent", proto),
+			logfields.K8sPodName, ep.K8sPodName,
+			logfields.IPAddr, ip,
+		)
+	}
+}
+
 // EndpointCreated implements endpointmanager.Subscriber
 func (gp *processor) EndpointCreated(ep *endpoint.Endpoint) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
-	newIP := ep.IPv4
-	if newIP.IsUnspecified() {
+	if !ep.IPv4.IsValid() && !ep.IPv6.IsValid() {
+		gp.params.Logger.Warn("Endpoint doesn't have v4 nor v6 addresses. This is a bug!")
 		return
 	}
 
-	oldIP, ok := gp.endpointIPs[ep.ID]
-	if ok && oldIP == newIP {
+	newIPs := EndpointIPs{
+		IPv4: ep.IPv4,
+		IPv6: ep.IPv6,
+	}
+
+	oldIPs, ok := gp.endpointIPs[ep.ID]
+	if ok && oldIPs.IPv4 == newIPs.IPv4 && oldIPs.IPv6 == newIPs.IPv6 {
 		return
 	}
 
-	gp.endpointIPs[ep.ID] = newIP
+	gp.endpointIPs[ep.ID] = newIPs
 
 	for _, iface := range gp.sendInterfaces {
-		if err := gp.params.Sender.Send(iface, newIP); err != nil {
-			gp.params.Logger.Warn("Failed to send gratuitous arp",
-				logfields.Error, err,
-				logfields.K8sPodName, ep.K8sPodName,
-				logfields.IPAddr, newIP,
-			)
-		} else {
-			gp.params.Logger.Debug("pod upsert gratuitous arp sent",
-				logfields.K8sPodName, ep.K8sPodName,
-				logfields.IPAddr, newIP,
-			)
-		}
+		gp.send(ep, newIPs.IPv4, iface)
+		gp.send(ep, newIPs.IPv6, iface)
 	}
 }
 

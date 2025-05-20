@@ -3,12 +3,12 @@
 
 package types
 
-// GarpConfig contains the configuration for the GARP cell.
-type GarpConfig struct {
+// GNeighConfig contains the configuration for the GARP cell.
+type GNeighConfig struct {
 	EnableL2PodAnnouncements bool
 }
 
-func (def GarpConfig) Enabled() bool {
+func (def GNeighConfig) Enabled() bool {
 	return def.EnableL2PodAnnouncements
 }
 
