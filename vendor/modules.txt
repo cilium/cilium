@@ -1135,6 +1135,9 @@ github.com/mdlayher/ethernet
 # github.com/mdlayher/genetlink v1.3.2
 ## explicit; go 1.18
 github.com/mdlayher/genetlink
+# github.com/mdlayher/ndp v1.1.0
+## explicit; go 1.20
+github.com/mdlayher/ndp
 # github.com/mdlayher/netlink v1.7.2
 ## explicit; go 1.18
 github.com/mdlayher/netlink
