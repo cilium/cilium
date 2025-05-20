@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
@@ -27,7 +28,7 @@ func Test_removeOldRouterState(t *testing.T) {
 
 			// Assert that the old router IP (192.0.2.1) was removed because we are
 			// restoring a different one (10.0.0.1).
-			assert.NoError(t, removeOldRouterState(false, net.ParseIP("10.0.0.1")))
+			assert.NoError(t, removeOldRouterState(hivetest.Logger(t), false, net.ParseIP("10.0.0.1")))
 			addrs, err := netlink.AddrList(&netlink.Dummy{
 				LinkAttrs: netlink.LinkAttrs{
 					Name: defaults.HostDevice,
@@ -37,7 +38,7 @@ func Test_removeOldRouterState(t *testing.T) {
 			assert.Empty(t, addrs)
 
 			// Assert no errors in the case we have no IPs to remove from cilium_host.
-			assert.NoError(t, removeOldRouterState(false, nil))
+			assert.NoError(t, removeOldRouterState(hivetest.Logger(t), false, nil))
 
 			return nil
 		})
@@ -55,7 +56,7 @@ func Test_removeOldRouterState(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, link)
 			assert.NoError(t, netlink.LinkDel(link))
-			assert.NoError(t, removeOldRouterState(false, nil))
+			assert.NoError(t, removeOldRouterState(hivetest.Logger(t), false, nil))
 
 			return nil
 		})
@@ -111,7 +112,7 @@ func Test_removeStaleEPIfaces(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that stale iface is removed
-		err = clearCiliumVeths()
+		err = clearCiliumVeths(hivetest.Logger(t))
 		assert.NoError(t, err)
 
 		_, err = netlink.LinkByName(linkAttrs.Name)

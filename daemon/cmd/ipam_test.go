@@ -5,15 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestCoalesceCIDRs(t *testing.T) {
@@ -81,12 +80,7 @@ func (m mockAllocateIP) AllocateIPWithoutSyncUpstream(ip net.IP, owner string, p
 }
 
 func TestDaemon_reallocateDatapathIPs(t *testing.T) {
-	level := logging.GetLevel(logging.DefaultLogger)
-	logging.SetLogLevel(logrus.FatalLevel)
-	logging.AddHooks()
-	t.Cleanup(func() {
-		logging.SetLogLevel(level)
-	})
+	logger := slog.New(slog.DiscardHandler)
 
 	allocCIDR := cidr.MustParseCIDR("10.20.30.0/24")
 	alloc := mockAllocateIP(func(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
@@ -103,35 +97,35 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	invalidFromK8s := net.ParseIP("172.16.0.41")
 
 	// no restoration needed
-	result := reallocateDatapathIPs(alloc, nil, nil)
+	result := reallocateDatapathIPs(logger, alloc, nil, nil)
 	assert.Nil(t, result)
 
 	// fromK8s if fromFS is not available
-	result = reallocateDatapathIPs(alloc, fromK8s, nil)
+	result = reallocateDatapathIPs(logger, alloc, fromK8s, nil)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromK8s)
 
 	// fromFS if fromK8s is not available
-	result = reallocateDatapathIPs(alloc, nil, fromFS)
+	result = reallocateDatapathIPs(logger, alloc, nil, fromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromFS)
 
 	// fromFS should be preferred
-	result = reallocateDatapathIPs(alloc, fromK8s, fromFS)
+	result = reallocateDatapathIPs(logger, alloc, fromK8s, fromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromFS)
 
 	// reject restoration if the IP is not in the allocation CIDR
-	result = reallocateDatapathIPs(alloc, invalidFromFS, invalidFromK8s)
+	result = reallocateDatapathIPs(logger, alloc, invalidFromFS, invalidFromK8s)
 	assert.Nil(t, result)
 
 	// fromFS with invalid fromK8s
-	result = reallocateDatapathIPs(alloc, invalidFromK8s, fromFS)
+	result = reallocateDatapathIPs(logger, alloc, invalidFromK8s, fromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromFS)
 
 	// fromFS with invalid fromK8s
-	result = reallocateDatapathIPs(alloc, fromK8s, invalidFromFS)
+	result = reallocateDatapathIPs(logger, alloc, fromK8s, invalidFromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromK8s)
 }

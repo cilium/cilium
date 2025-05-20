@@ -6,10 +6,10 @@ package cni
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -75,13 +75,13 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.CNIExternalRouting, defaultConfig.CNIExternalRouting, "Whether the chained CNI plugin handles routing on the node")
 }
 
-func enableConfigManager(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
-	c := newConfigManager(log, cfg, dcfg.Debug)
+func enableConfigManager(lc cell.Lifecycle, logger *slog.Logger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
+	c := newConfigManager(logger, cfg, dcfg.Debug)
 	lc.Append(c)
 	return c
 }
 
-func newConfigManager(log logrus.FieldLogger, cfg Config, debug bool) *cniConfigManager {
+func newConfigManager(logger *slog.Logger, cfg Config, debug bool) *cniConfigManager {
 	if cfg.CNIChainingMode == "aws-cni" && cfg.CNIChainingTarget == "" {
 		cfg.CNIChainingTarget = "aws-cni"
 		cfg.CNIExternalRouting = true
@@ -103,7 +103,7 @@ func newConfigManager(log logrus.FieldLogger, cfg Config, debug bool) *cniConfig
 	c := &cniConfigManager{
 		config:     cfg,
 		debug:      debug,
-		log:        log,
+		logger:     logger,
 		controller: controller.NewManager(),
 	}
 
