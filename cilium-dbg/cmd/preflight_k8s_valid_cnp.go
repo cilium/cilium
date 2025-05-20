@@ -20,6 +20,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -46,7 +47,7 @@ has an exit code 1 is returned.`,
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
 		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
-			log.Fatal(err)
+			logging.Fatal(log, err.Error())
 		}
 	}
 	return cmd
@@ -138,10 +139,17 @@ func validateNPResources(
 				cnpName = cnp.GetName()
 			}
 			if err := validator(&cnp); err != nil {
-				log.WithField(shortName, cnpName).WithError(err).Error("Unexpected validation error")
+				log.Error("Unexpected validation error",
+					logfields.Error, err,
+					logfields.Type, shortName,
+					logfields.Name, cnpName,
+				)
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
 			} else {
-				log.WithField(shortName, cnpName).Info("Validation OK!")
+				log.Info("Validation OK!",
+					logfields.Type, shortName,
+					logfields.Name, cnpName,
+				)
 			}
 		}
 		if cnps.GetContinue() == "" {
