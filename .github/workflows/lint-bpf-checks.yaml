@@ -45,12 +45,14 @@ jobs:
               - 'images/**'
               - 'Makefile*'
               - 'contrib/scripts/builder.sh'
+              - '!**/*.md'
 
             coccinelle:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:
               - 'bpf/tests/bpftest/**'
               - 'pkg/bpf/**'
+              - '!**/*.md'
             workflow-description:
               - '.github/workflows/lint-bpf-checks.yaml'
 
