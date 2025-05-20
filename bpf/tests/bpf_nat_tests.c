@@ -1131,7 +1131,7 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	struct snat_callback_ctx cb_ctx = {
 		.ctx = ctx,
 	};
-	__u32 iters;
+	long iters;
 
 	test_init();
 	/* This test checks the effectiveness of port allocation algorithm in SNAT.
@@ -1262,7 +1262,7 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	struct snat_callback_ctx cb_ctx = {
 		.ctx = ctx,
 	};
-	__u32 iters;
+	long iters;
 
 	test_init();
 	/* This test checks the effectiveness of port allocation algorithm in SNAT.
