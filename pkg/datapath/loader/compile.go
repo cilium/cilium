@@ -97,7 +97,7 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
+	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu99",
 		"-nostdinc",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
