@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -59,8 +59,8 @@ func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) 
 
 // clearCiliumVeths checks all veths created by cilium and removes all that
 // are considered a leftover from failed attempts to connect the container.
-func clearCiliumVeths() error {
-	log.Info("Removing stale endpoint interfaces")
+func clearCiliumVeths(logger *slog.Logger) error {
+	logger.Info("Removing stale endpoint interfaces")
 
 	leftVeths, err := listFilterIfs(func(intf netlink.Link) int {
 		// Filter by veth and return the index of the interface.
@@ -88,14 +88,12 @@ func clearCiliumVeths() error {
 		// ill-fated consequences.
 		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") &&
 			parentVeth.Attrs().ParentIndex == v.Attrs().Index {
-			scopedlog := log.WithFields(logrus.Fields{
-				logfields.Device: v.Attrs().Name,
-			})
+			scopedLog := logger.With(logfields.Device, v.Attrs().Name)
 
-			scopedlog.Debug("Deleting stale veth device")
+			scopedLog.Debug("Deleting stale veth device")
 			err := netlink.LinkDel(v)
 			if err != nil {
-				scopedlog.WithError(err).Warning("Unable to delete stale veth device")
+				scopedLog.Warn("Unable to delete stale veth device", logfields.Error, err)
 			}
 		}
 	}
@@ -105,6 +103,7 @@ func clearCiliumVeths() error {
 // EndpointMapManager is a wrapper around an endpointmanager as well as the
 // filesystem for removing maps related to endpoints from the filesystem.
 type EndpointMapManager struct {
+	logger *slog.Logger
 	endpointmanager.EndpointManager
 }
 
@@ -112,15 +111,21 @@ type EndpointMapManager struct {
 // packets that arrive on this node from being forwarded to the endpoint that
 // used to exist with the specified ID.
 func (e *EndpointMapManager) RemoveDatapathMapping(endpointID uint16) error {
-	return policymap.RemoveGlobalMapping(logging.DefaultSlogLogger, uint32(endpointID))
+	return policymap.RemoveGlobalMapping(e.logger, uint32(endpointID))
 }
 
 // RemoveMapPath removes the specified path from the filesystem.
 func (e *EndpointMapManager) RemoveMapPath(path string) {
 	if err := os.RemoveAll(path); err != nil {
-		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
+		e.logger.Warn(
+			"Error while deleting stale map file",
+			logfields.Path, path,
+		)
 	} else {
-		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
+		e.logger.Info(
+			"Removed stale bpf map",
+			logfields.Path, path,
+		)
 	}
 }
 
@@ -169,7 +174,7 @@ func (d *Daemon) initMaps() error {
 
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
-		log.WithError(err).Fatal("Unable to initialize service maps")
+		logging.Fatal(d.logger, "Unable to initialize service maps", logfields.Error, err)
 	}
 
 	for _, ep := range d.endpointManager.GetEndpoints() {
@@ -292,25 +297,28 @@ func (d *Daemon) initMaps() error {
 	return nil
 }
 
-func syncVTEP(context.Context) error {
-	if option.Config.EnableVTEP {
-		err := setupVTEPMapping()
-		if err != nil {
-			return err
+func syncVTEP(logger *slog.Logger) func(context.Context) error {
+	return func(context.Context) error {
+		if option.Config.EnableVTEP {
+			err := setupVTEPMapping(logger)
+			if err != nil {
+				return err
+			}
+			err = setupRouteToVtepCidr(logger)
+			if err != nil {
+				return err
+			}
 		}
-		err = setupRouteToVtepCidr()
-		if err != nil {
-			return err
-		}
+		return nil
 	}
-	return nil
 }
 
-func setupVTEPMapping() error {
+func setupVTEPMapping(logger *slog.Logger) error {
 	for i, ep := range option.Config.VtepEndpoints {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: ep,
-		}).Debug("Updating vtep map entry for VTEP")
+		logger.Debug(
+			"Updating vtep map entry for VTEP",
+			logfields.IPAddr, ep,
+		)
 
 		err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
@@ -320,7 +328,7 @@ func setupVTEPMapping() error {
 	return nil
 }
 
-func setupRouteToVtepCidr() error {
+func setupRouteToVtepCidr(logger *slog.Logger) error {
 	routeCidrs := []*cidr.CIDR{}
 
 	filter := &netlink.Route{
@@ -355,12 +363,13 @@ func setupRouteToVtepCidr() error {
 				MTU:    vtepMTU,
 				Table:  linux_defaults.RouteTableVtep,
 			}
-			if err := route.Upsert(logging.DefaultSlogLogger, r); err != nil {
+			if err := route.Upsert(logger, r); err != nil {
 				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
 			}
-			log.WithFields(logrus.Fields{
-				logfields.IPAddr: r.Prefix.String(),
-			}).Info("VTEP route added")
+			logger.Info(
+				"VTEP route added",
+				logfields.IPAddr, r.Prefix,
+			)
 
 			rule := route.Rule{
 				Priority: linux_defaults.RulePriorityVtep,
@@ -390,9 +399,10 @@ func setupRouteToVtepCidr() error {
 		if err := route.Delete(r); err != nil {
 			return fmt.Errorf("Delete VTEP CIDR route error: %w", err)
 		}
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: r.Prefix.String(),
-		}).Info("VTEP route removed")
+		logger.Info(
+			"VTEP route removed",
+			logfields.IPAddr, r.Prefix,
+		)
 
 		rule := route.Rule{
 			Priority: linux_defaults.RulePriorityVtep,
