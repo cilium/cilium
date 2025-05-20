@@ -46,7 +46,7 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
 
 	ipcache_v4_add_entry(SOURCE_IP, 0, SOURCE_IDENTITY, 0, BAD_SPI);
-	ipcache_v4_add_entry(DST_IP, 0, 0xAC, DST_NODE_IP, TARGET_SPI);
+	ipcache_v4_add_entry(DST_IP, 0, DST_IDENTITY, DST_NODE_IP, TARGET_SPI);
 
 	ret = ipsec_maybe_redirect_to_encrypt(ctx, bpf_htons(ETH_P_IP),
 					      SOURCE_IDENTITY);
