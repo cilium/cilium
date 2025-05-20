@@ -72,6 +72,77 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
 	test_finish();
 }
 
+static __always_inline
+int bad_identities_check(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
+{
+	test_init();
+
+	int ret = 0;
+	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
+
+	/* fill encrypt map with node's current SPI 3 */
+	struct encrypt_config cfg = {
+		.encrypt_key = BAD_SPI,
+	};
+	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
+
+	/*
+	 * Ensure host-to-pod traffic is not encrypted.
+	 */
+	TEST("native-host-to-pod", {
+		set_dst_identity(is_ipv4, DST_IDENTITY);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, HOST_ID);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure world-to-pod traffic is not encrypted.
+	 */
+	TEST("native-world-to-pod", {
+		set_dst_identity(is_ipv4, DST_IDENTITY);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, WORLD_ID);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure remote_node-to-pod traffic is not encrypted.
+	 */
+	TEST("native-remote_node-to-pod", {
+		set_dst_identity(is_ipv4, DST_IDENTITY);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, REMOTE_NODE_ID);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure pod-to-host traffic is not encrypted.
+	 */
+	TEST("native-pod-to-host", {
+		set_dst_identity(is_ipv4, HOST_ID);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure pod-to-world traffic is not encrypted.
+	 */
+	TEST("native-pod-to-world", {
+		set_dst_identity(is_ipv4, WORLD_ID);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure pod-to-remote_node traffic is not encrypted.
+	 */
+	TEST("native-pod-to-remote_node", {
+		set_dst_identity(is_ipv4, REMOTE_NODE_ID);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	test_finish();
+}
+
 PKTGEN("tc", "ipsec_redirect")
 int ipsec_redirect_pktgen(struct __ctx_buff *ctx)
 {
@@ -94,4 +165,16 @@ CHECK("tc", "ipsec_redirect6")
 int ipsec_redirect6_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false);
+}
+
+PKTGEN("tc", "ipsec_redirect_bad_identities")
+int ipsec_redirect_bad_identities_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, true);
+}
+
+CHECK("tc", "ipsec_redirect_bad_identities")
+int ipsec_redirect_bad_identities_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return bad_identities_check(ctx, true);
 }
