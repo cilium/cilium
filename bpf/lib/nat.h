@@ -308,8 +308,6 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (!map)
 		return DROP_SNAT_NO_MAP_FOUND;
 
-	*state = __snat_lookup(map, tuple);
-
 	if (needs_ct) {
 		struct ipv4_ct_tuple tuple_snat;
 		int ret;
@@ -334,6 +332,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		}
 	}
 
+	*state = __snat_lookup(map, tuple);
 	if (*state) {
 		int ret;
 		struct ipv4_ct_tuple rtuple = {};
@@ -1346,8 +1345,6 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 {
 	bool needs_ct = target->needs_ct;
 
-	*state = snat_v6_lookup(tuple);
-
 	if (needs_ct) {
 		struct ipv6_ct_tuple tuple_snat;
 		int ret;
@@ -1372,6 +1369,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		}
 	}
 
+	*state = snat_v6_lookup(tuple);
 	if (*state) {
 		int ret;
 		struct ipv6_ct_tuple rtuple = {};
