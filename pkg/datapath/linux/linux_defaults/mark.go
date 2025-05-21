@@ -20,7 +20,7 @@ package linux_defaults
 //	+-----------------------------------------------+
 //	 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
 //
-// Kubernetes Mark (4 bits; see MagicMarkWireGuardEncrypted for usage of some of
+// Kubernetes Mark (4 bits; see MagicMarkDecryptedOverlay for usage of some of
 // K8s mark space):
 // R R R R
 // 0 1 0 0  Masquerade
@@ -100,13 +100,7 @@ const (
 	// in order to indicate that a packet has been encrypted, and that there
 	// is no need to forward it again to the WG tunnel netdev.
 	//
-	// The mark invades the K8s mark space described above. This is because
-	// some packets might carry a security identity which is indicated with
-	// MagicMarkIdentity which takes all 4 bits. The LSB bit which we take
-	// from the K8s space is not used, so this is fine). I.e., the LSB bit is
-	// 0x1000, and the K8s marks are 0x4000 and 0x8000. So both are not
-	// interfering with that bit.
-	MagicMarkWireGuardEncrypted int = 0x1E00
+	MagicMarkWireGuardEncrypted int = MagicMarkEncrypt
 
 	// MagicMarkDecrypt is the packet mark used to indicate the datapath needs
 	// to decrypt a packet.
@@ -118,6 +112,13 @@ const (
 	// When this mark is present on a packet it indicates that overlay traffic
 	// was decrypted by XFRM and should be forwarded to a tunnel device for
 	// decapsulation.
+	//
+	// The mark invades the K8s mark space described above. This is because
+	// some packets might carry a security identity which is indicated with
+	// MagicMarkIdentity which takes all 4 bits. The LSB bit which we take
+	// from the K8s space is not used, so this is fine). I.e., the LSB bit is
+	// 0x1000, and the K8s marks are 0x4000 and 0x8000. So both are not
+	// interfering with that bit.
 	MagicMarkDecryptedOverlay = 0x1D00
 
 	// MagicMarkEncrypt is the packet mark to use to indicate datapath
