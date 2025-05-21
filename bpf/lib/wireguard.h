@@ -8,7 +8,6 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
-#include "tailcall.h"
 #include "common.h"
 #include "overloadable.h"
 #include "identity.h"
