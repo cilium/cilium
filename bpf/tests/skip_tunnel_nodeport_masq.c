@@ -197,7 +197,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 			test_fatal("l3 out of bounds");
 
 		if (snat) {
-			if (l3->saddr != IPV4_MASQUERADE)
+			if (l3->saddr != CONFIG(nat_ipv4_masquerade).be32)
 				test_fatal("src IP was not snatted");
 		} else {
 			if (l3->saddr != SRC_IPV4)

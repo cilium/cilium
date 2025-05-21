@@ -26,7 +26,7 @@ static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x
 
 #include <bpf_host.c>
 
-ASSIGN_CONFIG(__u32, nat_ipv4_masquerade, FRONTEND_IP)
+ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = FRONTEND_IP})
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

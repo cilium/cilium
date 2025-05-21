@@ -24,9 +24,7 @@
 #include "stubs.h"
 #include "trace.h"
 
-DECLARE_CONFIG(__u32, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
-#define IPV4_MASQUERADE CONFIG(nat_ipv4_masquerade)
-
+DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 
 enum  nat_dir {
@@ -636,14 +634,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	/* To prevent aliasing with masqueraded connections,
-	 * we need to track all host connections that use IPV4_MASQUERADE.
+	 * we need to track all host connections that use config
+	 * nat_ipv4_masquerade.
 	 *
 	 * This either reserves the source port (so that it's not used
 	 * for masquerading), or port-SNATs the host connection (if the sport
 	 * is already in use for a masqueraded connection).
 	 */
-	if (tuple->saddr == IPV4_MASQUERADE) {
-		target->addr = IPV4_MASQUERADE;
+	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
 		target->needs_ct = true;
 
 		return NAT_NEEDED;
@@ -759,7 +758,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	if (local_ep) {
-		target->addr = IPV4_MASQUERADE;
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
 		return NAT_NEEDED;
 	}
 #endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
