@@ -220,7 +220,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	void *data __maybe_unused, *data_end __maybe_unused;
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
-	__u32 magic __maybe_unused = 0;
 	int ip_proto = 0;
 	int ret = 0;
 	union macaddr dst_mac = CILIUM_NET_MAC;
