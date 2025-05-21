@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -143,9 +144,10 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:      serviceType,
-			ClusterIP: clusterIP,
-			Ports:     ports,
+			Type:           serviceType,
+			ClusterIP:      clusterIP,
+			Ports:          ports,
+			IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 		},
 	}
 }

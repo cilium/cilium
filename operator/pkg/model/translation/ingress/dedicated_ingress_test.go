@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -64,6 +65,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -95,6 +97,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -133,6 +136,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -177,6 +181,7 @@ func Test_getService(t *testing.T) {
 						NodePort: 3001,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
