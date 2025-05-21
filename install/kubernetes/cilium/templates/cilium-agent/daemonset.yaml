@@ -1034,7 +1034,7 @@ spec:
           defaultMode: 0400
           sources:
           - secret:
-              name: {{ .Values.hubble.tls.server.existingSecret | default "hubble-metrics-server-certs" }}
+              name: {{ .Values.hubble.metrics.tls.server.existingSecret | default "hubble-metrics-server-certs" }}
               optional: true
               items:
               - key: tls.crt
