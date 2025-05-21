@@ -520,11 +520,11 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 		/* Decision is deferred to the host policies. */
 		return CTX_ACT_OK;
 
-	if ((ICMP6_UNREACH_MSG_TYPE <= type && type <= ICMP6_PARAM_ERR_MSG_TYPE) ||
-		(ICMP6_MULT_LIST_QUERY_TYPE <= type && type <= ICMP6_NA_MSG_TYPE) ||
-		(ICMP6_INV_NS_MSG_TYPE <= type && type <= ICMP6_MULT_LIST_REPORT_V2_TYPE) ||
-		(ICMP6_SEND_NS_MSG_TYPE <= type && type <= ICMP6_SEND_NA_MSG_TYPE) ||
-		(ICMP6_MULT_RA_MSG_TYPE <= type && type <= ICMP6_MULT_RT_MSG_TYPE))
+	if ((type >= ICMP6_UNREACH_MSG_TYPE && type <= ICMP6_PARAM_ERR_MSG_TYPE) ||
+	    (type >= ICMP6_MULT_LIST_QUERY_TYPE && type <= ICMP6_NA_MSG_TYPE) ||
+	    (type >= ICMP6_INV_NS_MSG_TYPE && type <= ICMP6_MULT_LIST_REPORT_V2_TYPE) ||
+	    (type >= ICMP6_SEND_NS_MSG_TYPE && type <= ICMP6_SEND_NA_MSG_TYPE) ||
+	    (type >= ICMP6_MULT_RA_MSG_TYPE && type <= ICMP6_MULT_RT_MSG_TYPE))
 		return SKIP_HOST_FIREWALL;
 	return DROP_FORBIDDEN_ICMP6;
 #else
