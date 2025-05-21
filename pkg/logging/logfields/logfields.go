@@ -1779,4 +1779,6 @@ const (
 	URI = "uri"
 
 	Goroutine = "goroutine"
+
+	Matcher = "matcher"
 )

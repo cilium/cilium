@@ -269,7 +269,7 @@ func (h *ConfigModifyEventHandler) changedOption(key string, value option.Option
 		// Reflect log level change to proxies
 		// Might not be initialized yet
 		if option.Config.EnableL7Proxy {
-			h.l7Proxy.ChangeLogLevel(logging.GetSlogLevel(logging.DefaultSlogLogger))
+			h.l7Proxy.ChangeLogLevel(logging.GetSlogLevel(h.logger))
 		}
 	}
 	h.policy.BumpRevision() // force policy recalculation

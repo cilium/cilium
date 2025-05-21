@@ -181,7 +181,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 		}
 		defer logWriter.Close()
 
-		envoyArgs := []string{"-l", mapLogLevel(logging.GetSlogLevel(logging.DefaultSlogLogger), config.defaultLogLevel), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
+		envoyArgs := []string{"-l", mapLogLevel(logging.GetSlogLevel(o.logger), config.defaultLogLevel), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
 		envoyStarterArgs := []string{}
 		if config.keepCapNetBindService {
 			envoyStarterArgs = append(envoyStarterArgs, "--keep-cap-net-bind-service", "--")
