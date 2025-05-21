@@ -141,8 +141,6 @@ else
     sudo cp -f contrib/systemd/*.* /etc/systemd/system/
     # Use dockerized Cilium with runtime tests
     sudo cp -f contrib/systemd/cilium.service-with-docker /etc/systemd/system/cilium.service
-    # Do not run cilium-operator with runtime tests, as it fails to connect to k8s api-server
-    sudo rm -f /etc/systemd/system/cilium-operator.service
 
     services_pattern="cilium*.service"
     if ! mount | grep /sys/fs/bpf; then
