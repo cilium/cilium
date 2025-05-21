@@ -21,7 +21,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "bpf_lxc.c"
 
-ASSIGN_CONFIG(__u32, endpoint_ipv4, v4_pod_one)
+ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 
 #include "lib/policy.h"
 
