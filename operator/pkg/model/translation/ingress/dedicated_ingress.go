@@ -144,9 +144,10 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:      serviceType,
-			ClusterIP: clusterIP,
-			Ports:     ports,
+			Type:           serviceType,
+			ClusterIP:      clusterIP,
+			Ports:          ports,
+			IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 		},
 	}
 }
