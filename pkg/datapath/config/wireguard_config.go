@@ -17,7 +17,7 @@ type BPFWireguard struct {
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
-	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
+	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// Pull security context from IP cache.
@@ -27,7 +27,7 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard(node Node) *BPFWireguard {
-	return &BPFWireguard{0x5dc, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
+	return &BPFWireguard{0x5dc, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, node}
 }
