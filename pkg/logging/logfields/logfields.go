@@ -1775,4 +1775,6 @@ const (
 	RTT = "rtt"
 
 	URI = "uri"
+
+	Goroutine = "goroutine"
 )
