@@ -86,17 +86,12 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * by filtering out icmpv6 NA.
 		 */
 		if (ip6->nexthdr == IPPROTO_ICMPV6) {
-			__u8 icmp_type;
+			struct icmp6hdr *icmp6 = (void *)ip6 + sizeof(*ip6);
 
-			if (data + sizeof(*ip6) + ETH_HLEN +
-			    sizeof(struct icmp6hdr) > data_end)
+			if ((void *)icmp6 + sizeof(*icmp6) > data_end)
 				return DROP_INVALID;
 
-			if (icmp6_load_type(ctx, ETH_HLEN + sizeof(struct ipv6hdr),
-					    &icmp_type) < 0)
-				return DROP_INVALID;
-
-			if (icmp_type == ICMPV6_NA_MSG)
+			if (icmp6->icmp6_type == ICMPV6_NA_MSG)
 				goto out;
 		}
 #endif
