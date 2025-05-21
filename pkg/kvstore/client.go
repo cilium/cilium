@@ -21,7 +21,7 @@ var (
 )
 
 func initClient(ctx context.Context, logger *slog.Logger, module backendModule, opts *ExtraOptions) error {
-	scopedLog := logger.With(fieldKVStoreModule, module.getName())
+	scopedLog := logger.With(fieldKVStoreBackend, module.getName())
 	c, errChan := module.newClient(ctx, scopedLog, opts)
 	if c == nil {
 		err := <-errChan

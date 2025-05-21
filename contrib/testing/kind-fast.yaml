@@ -66,3 +66,8 @@ clustermesh:
       pullPolicy: IfNotPresent
 image:
   pullPolicy: IfNotPresent
+extraEnv:
+  - name: "CILIUM_FEATURE_METRICS_WITH_DEFAULTS"
+    value: "true"
+prometheus:
+  enabled: true

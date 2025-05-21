@@ -62,7 +62,6 @@ func (r *PreflightReconciler) Cleanup(_ *instance.ServerWithConfig) {}
 func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	var (
 		l = r.logger.With(
-			types.ComponentLogField, "PreflightReconciler",
 			types.LocalASNLogField, p.DesiredConfig.LocalASN,
 		)
 	)
