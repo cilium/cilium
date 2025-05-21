@@ -4,8 +4,9 @@
 package hooks
 
 import (
+	"log/slog"
+
 	"github.com/cilium/lumberjack/v2"
-	"github.com/sirupsen/logrus"
 )
 
 // FileRotationOption provides all parameters for file rotation
@@ -62,13 +63,8 @@ func EnableCompression() Option {
 	}
 }
 
-// FileRotationLogHook stores the configuration of the hook
-type FileRotationLogHook struct {
-	logger *lumberjack.Logger
-}
-
 // NewFileRotationLogHook creates a new FileRotationLogHook*/
-func NewFileRotationLogHook(fileName string, opts ...Option) *FileRotationLogHook {
+func NewFileRotationLogHook(logLevel slog.Level, fileName string, opts ...Option) slog.Handler {
 	options := &FileRotationOption{
 		FileName:  fileName,
 		MaxSize:   100,   // MBs
@@ -89,27 +85,7 @@ func NewFileRotationLogHook(fileName string, opts ...Option) *FileRotationLogHoo
 		Compress:   options.Compress,
 	}
 
-	return &FileRotationLogHook{
-		logger: logger,
-	}
-}
-
-// Fire is called when a log event is fired.
-func (hook *FileRotationLogHook) Fire(entry *logrus.Entry) error {
-	line, err := entry.String()
-	if err != nil {
-		return err
-	}
-
-	_, err = hook.logger.Write([]byte(line))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Levels returns the available logging levels
-func (hook *FileRotationLogHook) Levels() []logrus.Level {
-	return logrus.AllLevels
+	return slog.NewTextHandler(logger, &slog.HandlerOptions{
+		Level: logLevel,
+	})
 }

@@ -129,7 +129,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	instances, err := eni.NewInstancesManager(a.logger, a.client)
+	instances, err := eni.NewInstancesManager(a.rootLogger, a.client)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
 	}
