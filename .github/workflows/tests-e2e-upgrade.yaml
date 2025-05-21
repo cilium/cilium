@@ -346,6 +346,8 @@ jobs:
 
       - name: Start conn-disrupt-test
         uses: ./.github/actions/conn-disrupt-test-setup
+        with:
+          kernel: ${{ matrix.kernel }}
 
       - name: Upgrade Cilium
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -368,6 +370,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
+          kernel: ${{ matrix.kernel }}
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
@@ -444,6 +447,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
+          kernel: ${{ matrix.kernel }}
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade

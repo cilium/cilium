@@ -342,6 +342,8 @@ jobs:
       - name: Setup conn-disrupt-test before upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
+        with:
+          kernel: ${{ matrix.kernel }}
 
       - name: Upgrade Cilium (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -361,6 +363,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
+          kernel: ${{ matrix.kernel }}
 
       - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -417,6 +420,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
+          kernel: ${{ matrix.kernel }}
 
       - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
