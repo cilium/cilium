@@ -356,9 +356,6 @@ check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterro
 	./contrib/scripts/check-preflight-clusterrole.sh
 
 ##@ Development
-vps: ## List all the running vagrant VMs.
-	VBoxManage list runningvms
-
 reload: ## Reload cilium-agent and cilium-docker systemd service after installing built binaries.
 	sudo systemctl stop cilium cilium-docker
 	sudo $(MAKE) install
