@@ -3148,6 +3148,10 @@
      - Enable Cilium pre-flight resources (required for upgrade)
      - bool
      - ``false``
+   * - :spelling:ignore:`preflight.envoy.image`
+     - Envoy pre-flight image.
+     - object
+     - ``{"digest":"sha256:5d442079aeb87ae1aaec431f7e9cb9b3da309149521e5465fe82965d96a8ef05","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.3-1747631391-2d12fe781e661e30cd2c817f377c35cc6c64500e","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
