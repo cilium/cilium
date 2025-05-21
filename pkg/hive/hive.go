@@ -69,6 +69,26 @@ func New(cells ...cell.Cell) *Hive {
 		cell.Provide(
 			func() logrus.FieldLogger { return logging.DefaultLogger },
 		),
+
+		// Provide a custom lifecycle for the module-scoped job groups. This will be started
+		// as the very last thing.
+		cell.Provide(
+			func() jobGroupLifecycle { return jobGroupLifecycle{&cell.DefaultLifecycle{}} },
+		),
+
+		// As the very last invoke, append the job group's lifecycle to the main lifecycle.
+		cell.Invoke(func(log *slog.Logger, lc cell.Lifecycle, jglc jobGroupLifecycle) {
+			lc.Append(cell.Hook{
+				OnStart: func(ctx cell.HookContext) error {
+					log.Info("Starting job groups")
+					return jglc.Start(log, ctx)
+				},
+				OnStop: func(ctx cell.HookContext) error {
+					log.Info("Stopping job groups")
+					return jglc.Stop(log, ctx)
+				},
+			})
+		}),
 	)
 
 	// Scope logging and health by module ID.
@@ -119,11 +139,15 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 	upstream.AddConfigOverride[Cfg](h, override)
 }
 
+type jobGroupLifecycle struct {
+	*cell.DefaultLifecycle
+}
+
 // jobGroupProvider provides a (private) job group to modules, with scoped health reporting, logging and metrics.
-func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, mid cell.ModuleID) job.Group {
+func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc jobGroupLifecycle, mid cell.ModuleID, fmid cell.FullModuleID) job.Group {
 	g := reg.NewGroup(h,
 		job.WithLogger(l),
 		job.WithPprofLabels(pprof.Labels("cell", string(mid))))
-	lc.Append(g)
+	lc.AppendWithModuleID(g, fmid)
 	return g
 }

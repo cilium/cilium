@@ -96,6 +96,13 @@ func (lc *DefaultLifecycle) Append(hook HookInterface) {
 	lc.hooks = append(lc.hooks, augmentedHook{hook, nil})
 }
 
+func (lc *DefaultLifecycle) AppendWithModuleID(hook HookInterface, moduleID FullModuleID) {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+
+	lc.hooks = append(lc.hooks, augmentedHook{hook, moduleID})
+}
+
 func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
