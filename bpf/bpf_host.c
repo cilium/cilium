@@ -1608,6 +1608,9 @@ skip_egress_gateway:
 	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
+	 *
+	 * NOTE: from v1.18, where we use MARK_MAGIC_ENCRYPT also for
+	 * WireGuard-encrypted traffic. This is handled in ctx_mark_is_wireguard.
 	 */
 	if (!ctx_mark_is_wireguard(ctx)) {
 		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
