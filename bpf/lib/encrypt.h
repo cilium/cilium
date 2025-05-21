@@ -214,6 +214,7 @@ static __always_inline int
 ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 				__u32 src_sec_identity)
 {
+	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct remote_endpoint_info __maybe_unused *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data __maybe_unused, *data_end __maybe_unused;
@@ -262,17 +263,11 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			/* NOTE: we confirm double-encryption will not occur
 			 * above in the `ctx_is_overlay_encrypted` check
 			 */
-			struct remote_endpoint_info fake_info = {0};
-
 			fake_info.tunnel_endpoint.ip4 = ip4->daddr;
 			fake_info.flag_has_tunnel_ep = true;
 
-			/* see comment in the native-routing mode call. */
-			ret = set_ipsec_encrypt(ctx, 0, &fake_info,
-						get_identity(ctx), true,
-						true);
-			if (ret != CTX_ACT_OK)
-				return ret;
+			dst = &fake_info;
+			src_sec_identity = get_identity(ctx);
 			goto overlay_encrypt;
 		}
 #  endif /* TUNNEL_MODE */
@@ -304,19 +299,13 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			/* NOTE: we confirm double-encryption will not occur
 			 * above in the `ctx_is_overlay_encrypted` check
 			 */
-			struct remote_endpoint_info fake_info = {0};
-
-			ipv6_addr_copy(&fake_info.tunnel_endpoint.ip6,
-				       (union v6addr *)&ip6->daddr);
+			ipv6_addr_copy_unaligned(&fake_info.tunnel_endpoint.ip6,
+						 (union v6addr *)&ip6->daddr);
 			fake_info.flag_has_tunnel_ep = true;
 			fake_info.flag_ipv6_tunnel_ep = true;
 
-			/* see comment in the native-routing mode call. */
-			ret = set_ipsec_encrypt(ctx, 0, &fake_info,
-						get_identity(ctx), true,
-						true);
-			if (ret != CTX_ACT_OK)
-				return ret;
+			dst = &fake_info;
+			src_sec_identity = get_identity(ctx);
 			goto overlay_encrypt;
 		}
 #  endif /* TUNNEL_MODE */
@@ -345,6 +334,9 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 				      ip_proto))
 		return CTX_ACT_OK;
 
+#  if defined(TUNNEL_MODE)
+overlay_encrypt:
+#  endif
 	/* mark packet for encryption
 	 * for now, we flip the 'use_meta' flag true, this is required since
 	 * rhel 8.6 kernels lack a patch which preserves marks through eBPF
@@ -358,9 +350,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#  if defined(TUNNEL_MODE)
-overlay_encrypt:
-#  endif
 	/* redirect to the ingress side of CILIUM_NET.
 	 * this will subject the packet to the ingress XFRM hooks,
 	 * encrypting the packet.
