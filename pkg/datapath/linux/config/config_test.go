@@ -36,16 +36,16 @@ import (
 
 var (
 	dummyNodeCfg = datapath.LocalNodeConfiguration{
-		NodeIPv4:           ipv4DummyAddr.AsSlice(),
-		NodeIPv6:           ipv6DummyAddr.AsSlice(),
-		CiliumInternalIPv4: ipv4DummyAddr.AsSlice(),
-		CiliumInternalIPv6: ipv6DummyAddr.AsSlice(),
-		AllocCIDRIPv4:      cidr.MustParseCIDR("10.147.0.0/16"),
-		LoopbackIPv4:       ipv4DummyAddr.AsSlice(),
-		Devices:            []*tables.Device{},
-		NodeAddresses:      []tables.NodeAddress{},
-		HostEndpointID:     1,
-		MaglevConfig:       maglev.DefaultConfig,
+		NodeIPv4:            ipv4DummyAddr.AsSlice(),
+		NodeIPv6:            ipv6DummyAddr.AsSlice(),
+		CiliumInternalIPv4:  ipv4DummyAddr.AsSlice(),
+		CiliumInternalIPv6:  ipv6DummyAddr.AsSlice(),
+		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
+		ServiceLoopbackIPv4: ipv4DummyAddr.AsSlice(),
+		Devices:             []*tables.Device{},
+		NodeAddresses:       []tables.NodeAddress{},
+		HostEndpointID:      1,
+		MaglevConfig:        maglev.DefaultConfig,
 	}
 	dummyDevCfg   testutils.TestEndpoint
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
