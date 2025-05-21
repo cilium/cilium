@@ -17,20 +17,12 @@
 #define ICMP6_ND_OPTS (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr))
 #define ICMP6_ND_OPT_LEN 8
 
-#define ICMP6_UNREACH_MSG_TYPE		1
-#define ICMP6_TIME_EXCEEDED_TYPE	3
-#define ICMP6_PARAM_ERR_MSG_TYPE	4
-#define ICMP6_ECHO_REQUEST_MSG_TYPE	128
-#define ICMP6_ECHO_REPLY_MSG_TYPE	129
-#define ICMP6_MULT_LIST_QUERY_TYPE	130
 #define ICMP6_NS_MSG_TYPE		135
 #define ICMP6_NA_MSG_TYPE		136
 #define ICMP6_RR_MSG_TYPE		138
 #define ICMP6_INV_NS_MSG_TYPE		141
-#define ICMP6_MULT_LIST_REPORT_V2_TYPE	143
 #define ICMP6_SEND_NS_MSG_TYPE		148
 #define ICMP6_SEND_NA_MSG_TYPE		149
-#define ICMP6_MULT_RA_MSG_TYPE		151
 #define ICMP6_MULT_RT_MSG_TYPE		153
 
 #define SKIP_HOST_FIREWALL	-2
@@ -249,7 +241,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 	upper = (data + 48);
 
 	/* fill icmp6hdr */
-	icmp6hoplim->icmp6_type = ICMP6_TIME_EXCEEDED_TYPE;
+	icmp6hoplim->icmp6_type = ICMPV6_TIME_EXCEED;
 	icmp6hoplim->icmp6_code = 0;
 	icmp6hoplim->icmp6_cksum = 0;
 	icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
@@ -516,15 +508,15 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 	if (type == ICMP6_NS_MSG_TYPE)
 		return CTX_ACT_OK;
 
-	if (type == ICMP6_ECHO_REQUEST_MSG_TYPE || type == ICMP6_ECHO_REPLY_MSG_TYPE)
+	if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY)
 		/* Decision is deferred to the host policies. */
 		return CTX_ACT_OK;
 
-	if ((type >= ICMP6_UNREACH_MSG_TYPE && type <= ICMP6_PARAM_ERR_MSG_TYPE) ||
-	    (type >= ICMP6_MULT_LIST_QUERY_TYPE && type <= ICMP6_NA_MSG_TYPE) ||
-	    (type >= ICMP6_INV_NS_MSG_TYPE && type <= ICMP6_MULT_LIST_REPORT_V2_TYPE) ||
+	if ((type >= ICMPV6_DEST_UNREACH && type <= ICMPV6_PARAMPROB) ||
+	    (type >= ICMPV6_MGM_QUERY && type <= ICMP6_NA_MSG_TYPE) ||
+	    (type >= ICMP6_INV_NS_MSG_TYPE && type <= ICMPV6_MLD2_REPORT) ||
 	    (type >= ICMP6_SEND_NS_MSG_TYPE && type <= ICMP6_SEND_NA_MSG_TYPE) ||
-	    (type >= ICMP6_MULT_RA_MSG_TYPE && type <= ICMP6_MULT_RT_MSG_TYPE))
+	    (type >= ICMPV6_MRDISC_ADV && type <= ICMP6_MULT_RT_MSG_TYPE))
 		return SKIP_HOST_FIREWALL;
 	return DROP_FORBIDDEN_ICMP6;
 #else
