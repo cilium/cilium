@@ -1764,9 +1764,17 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 		switch (type) {
 		case ICMPV6_ECHO_REQUEST:
 			return NAT_PUNT_TO_STACK;
+		case ICMPV6_ECHO_REPLY:
+			port_off = offsetof(struct icmp6hdr, icmp6_dataun.u_echo.identifier);
+			break;
 		default:
 			return DROP_UNKNOWN_ICMP6_CODE;
 		}
+
+		if (ctx_load_bytes(ctx, icmpoff + port_off,
+				   &tuple.sport, sizeof(tuple.sport)) < 0)
+			return DROP_INVALID;
+		break;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
