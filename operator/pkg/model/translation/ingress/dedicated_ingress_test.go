@@ -67,6 +67,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -98,6 +99,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -136,6 +138,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -180,6 +183,7 @@ func Test_getService(t *testing.T) {
 						NodePort: 3001,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
