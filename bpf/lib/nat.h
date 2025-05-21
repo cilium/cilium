@@ -1544,6 +1544,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
+	__u8 type;
 	int ret;
 
 	/* According to the RFC 5508, any networking equipment that is
@@ -1583,7 +1584,15 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMPV6:
-		return DROP_UNKNOWN_ICMP6_CODE;
+		if (icmp6_load_type(ctx, icmpoff, &type) < 0)
+			return DROP_INVALID;
+
+		switch (type) {
+		case ICMPV6_ECHO_REQUEST:
+			return NAT_PUNT_TO_STACK;
+		default:
+			return DROP_UNKNOWN_ICMP6_CODE;
+		}
 	default:
 		return DROP_UNKNOWN_L4;
 	}
