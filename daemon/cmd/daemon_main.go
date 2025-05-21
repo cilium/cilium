@@ -51,7 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
+	"github.com/cilium/cilium/pkg/endpoint/restoration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -75,7 +75,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1433,11 +1432,9 @@ var daemonCell = cell.Module(
 
 	cell.Provide(
 		newDaemonPromise,
-		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 	),
-	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -1465,7 +1462,8 @@ type daemonParams struct {
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
-	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	EndpointRestorer    *restoration.EndpointRestorer
+	EPsRestoredPromise  promise.Promise[endpointstate.EndpointsRestored]
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1502,7 +1500,6 @@ type daemonParams struct {
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
-	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
 	LBConfig            loadbalancer.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
@@ -1591,7 +1588,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(d *Daemon, restoredEndpoints *restoration.EndpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1615,7 +1612,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Error("Failed to wait for initial IPCache revision")
 	}
 
-	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+	bootstrapStats.restore.Start()
+	params.EndpointRestorer.InitRestore(d.ctx, restoredEndpoints, params.EndpointRegenerator)
+	bootstrapStats.restore.End(true)
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
@@ -1685,13 +1684,10 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	go func() {
-		if d.endpointRestoreComplete != nil {
-			select {
-			case <-d.endpointRestoreComplete:
-			case <-d.ctx.Done():
-				return
-			}
+		if _, err := params.EPsRestoredPromise.Await(d.ctx); err != nil {
+			return
 		}
+
 		params.DNSProxy.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(params.Logger, &EndpointMapManager{
@@ -1784,30 +1780,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		})
 
 	return nil
-}
-
-func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
-	var wg sync.WaitGroup
-
-	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				daemon, err := daemonPromise.Await(context.Background())
-				if err != nil {
-					resolver.Reject(err)
-				} else {
-					resolver.Resolve(daemon)
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			wg.Wait()
-			return nil
-		},
-	})
 }
 
 func initClockSourceOption() {

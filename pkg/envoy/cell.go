@@ -136,11 +136,11 @@ func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
 type xdsServerParams struct {
 	cell.In
 
-	Lifecycle          cell.Lifecycle
-	Logger             *slog.Logger
-	IPCache            *ipcache.IPCache
-	RestorerPromise    promise.Promise[endpointstate.Restorer]
-	LocalEndpointStore *LocalEndpointStore
+	Lifecycle                      cell.Lifecycle
+	Logger                         *slog.Logger
+	IPCache                        *ipcache.IPCache
+	InitialPoliciesComputedPromise promise.Promise[endpointstate.InitialPoliciesComputed]
+	LocalEndpointStore             *LocalEndpointStore
 
 	EnvoyProxyConfig ProxyConfig
 
@@ -164,7 +164,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	xdsServer := newXDSServer(
 		params.Logger,
-		params.RestorerPromise,
+		params.InitialPoliciesComputedPromise,
 		params.IPCache,
 		params.LocalEndpointStore,
 		xdsServerConfig{

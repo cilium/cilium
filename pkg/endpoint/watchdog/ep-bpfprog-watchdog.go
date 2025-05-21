@@ -40,7 +40,7 @@ type epBPFProgWatchdogParams struct {
 	Logger   *slog.Logger
 	JobGroup job.Group
 
-	RestorerPromise promise.Promise[endpointstate.Restorer]
+	EndpointsRestoredPromise promise.Promise[endpointstate.EndpointsRestored]
 
 	EndpointManager endpointmanager.EndpointManager
 	Orchestrator    datapath.Orchestrator
@@ -69,7 +69,7 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 	}
 
 	p.JobGroup.Add(job.Timer(epBPFProgWatchdog, func(ctx context.Context) error {
-		_, err := p.RestorerPromise.Await(ctx)
+		_, err := p.EndpointsRestoredPromise.Await(ctx)
 		if err != nil {
 			return err
 		}

@@ -1692,6 +1692,8 @@ const (
 
 	Flags = "flags"
 
+	Regenerated = "regenerated"
+
 	ExitCode = "exitCode"
 
 	NetLink = "netLink"

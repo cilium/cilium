@@ -191,7 +191,7 @@ type xdsServer struct {
 	// them to the proxy via NPHDS in the cases described
 	ipCache IPCacheEventSource
 
-	restorerPromise promise.Promise[endpointstate.Restorer]
+	initialPoliciesComputedPromise promise.Promise[endpointstate.InitialPoliciesComputed]
 
 	localEndpointStore *LocalEndpointStore
 
@@ -227,13 +227,13 @@ type xdsServerConfig struct {
 }
 
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) *xdsServer {
+func newXDSServer(logger *slog.Logger, initialPoliciesComputedPromise promise.Promise[endpointstate.InitialPoliciesComputed], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) *xdsServer {
 	xdsServer := &xdsServer{
-		logger:             logger,
-		restorerPromise:    restorerPromise,
-		listenerCount:      make(map[string]uint),
-		ipCache:            ipCache,
-		localEndpointStore: localEndpointStore,
+		logger:                         logger,
+		initialPoliciesComputedPromise: initialPoliciesComputedPromise,
+		listenerCount:                  make(map[string]uint),
+		ipCache:                        ipCache,
+		localEndpointStore:             localEndpointStore,
 
 		socketPath:    getXDSSocketPath(config.envoySocketDir),
 		accessLogPath: getAccessLogSocketPath(config.envoySocketDir),
