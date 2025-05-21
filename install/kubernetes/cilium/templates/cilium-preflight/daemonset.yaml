@@ -1,3 +1,5 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+
 {{- if .Values.preflight.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
@@ -85,7 +87,7 @@ spec:
                 apiVersion: v1
                 fieldPath: spec.nodeName
           {{- with .Values.preflight.extraEnv }}
-            {{- toYaml . | trim | nindent 12 }}
+          {{- toYaml . | trim | nindent 10 }}
           {{- end }}
           volumeMounts:
           - name: cilium-run
@@ -182,6 +184,57 @@ spec:
           {{- end }}
           terminationMessagePolicy: FallbackToLogsOnError
         {{- end }}
+        {{- if $envoyDS }}
+        - name: cilium-pre-flight-envoy
+          image: {{ include "cilium.image" .Values.envoy.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - "touch /tmp/ready; sleep 1h"
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          volumeMounts:
+          - name: envoy-sockets
+            mountPath: /var/run/cilium/envoy/sockets
+            readOnly: false
+          - name: envoy-artifacts
+            mountPath: /var/run/cilium/envoy/artifacts
+            readOnly: true
+          - name: envoy-config
+            mountPath: /var/run/cilium/envoy/
+            readOnly: true
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+        {{- end }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: Always
@@ -226,6 +279,24 @@ spec:
           defaultMode: 0400
           optional: true
       {{- end }}
+      {{- end }}
+      {{- if $envoyDS }}
+      - name: envoy-sockets
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/sockets"
+          type: DirectoryOrCreate
+      - name: envoy-artifacts
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/artifacts"
+          type: DirectoryOrCreate
+      - name: envoy-config
+        configMap:
+          name: {{ .Values.envoy.bootstrapConfigMap | default "cilium-envoy-config" | quote }}
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          items:
+            - key: bootstrap-config.json
+              path: bootstrap-config.json
       {{- end }}
       {{- with .Values.preflight.extraVolumes }}
       {{- toYaml . | nindent 6 }}

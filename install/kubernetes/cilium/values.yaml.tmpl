@@ -3158,6 +3158,18 @@ preflight:
     digest: ${CILIUM_DIGEST}
     useDigest: ${USE_DIGESTS}
     pullPolicy: "${PULL_POLICY}"
+  envoy:
+    # -- Envoy pre-flight image.
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: "${CILIUM_ENVOY_REPO}"
+      tag: "${CILIUM_ENVOY_VERSION}"
+      pullPolicy: "${PULL_POLICY}"
+      digest: "${CILIUM_ENVOY_DIGEST}"
+      useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
   # -- preflight update strategy
