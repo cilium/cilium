@@ -1463,7 +1463,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	 * of the LXC IP (to avoid specific problems, like IP duplicate address
 	 * detection checks that might run within the container).
 	 */
-	if (tip == LXC_IPV4)
+	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);

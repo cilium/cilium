@@ -58,7 +58,7 @@
 #include <bpf_lxc.c>
 
 /* Set the LXC source address to be the address of pod one */
-ASSIGN_CONFIG(__u32, endpoint_ipv4, CLIENT_IP)
+ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

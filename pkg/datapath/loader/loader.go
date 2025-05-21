@@ -557,11 +557,11 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (*config.BPFLXC, map[string]string) {
 	cfg := config.NewBPFLXC(nodeConfig(lnc))
 
+	if ep.IPv4Address().IsValid() {
+		cfg.EndpointIPv4 = ep.IPv4Address().As4()
+	}
 	if ep.IPv6Address().IsValid() {
 		cfg.EndpointIPv6 = ep.IPv6Address().As16()
-	}
-	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
-		cfg.EndpointIPv4 = byteorder.NetIPv4ToHost32(net.IP(ipv4))
 	}
 
 	// Netkit devices can be L2-less, meaning they operate with a zero MAC
