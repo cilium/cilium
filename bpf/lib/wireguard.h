@@ -16,6 +16,8 @@
 #include "lib/proxy.h"
 #include "lib/l4.h"
 
+#include "linux/icmpv6.h"
+
 /* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
  * This function returns true in case all the following conditions are satisfied:
  *
@@ -95,7 +97,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 					    &icmp_type) < 0)
 				return DROP_INVALID;
 
-			if (icmp_type == ICMP6_NA_MSG_TYPE)
+			if (icmp_type == ICMPV6_NA_MSG)
 				goto out;
 		}
 #endif
