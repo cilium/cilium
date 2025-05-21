@@ -1779,4 +1779,8 @@ const (
 	URI = "uri"
 
 	Goroutine = "goroutine"
+
+	Matcher = "matcher"
+
+	ParentResource = "parentResource"
 )

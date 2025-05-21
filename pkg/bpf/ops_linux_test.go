@@ -8,7 +8,6 @@ import (
 	"encoding"
 	"errors"
 	"iter"
-	"log/slog"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -21,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -167,13 +165,6 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 
 	// Create the map operations and the reconciler configuration.
 	ops := NewMapOps[*TestObject](exampleMap)
-
-	// Silence the hive log output.
-	oldLogLevel := logging.GetSlogLevel(logging.DefaultSlogLogger)
-	logging.SetSlogLevel(slog.LevelError)
-	t.Cleanup(func() {
-		logging.SetSlogLevel(oldLogLevel)
-	})
 
 	// Setup and start a hive to run the reconciler.
 	var db *statedb.DB

@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -22,42 +21,6 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
-
-func TestEndpointLogFormat(t *testing.T) {
-	setupEndpointSuite(t)
-	logger := hivetest.Logger(t)
-
-	// Default log format is text
-	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-
-	model := newTestEndpointModel(12345, StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
-	require.NoError(t, err)
-
-	ep.Start(uint16(model.ID))
-	t.Cleanup(ep.Stop)
-
-	// FIXME @aanm
-	// _, ok := ep.getLogger().Logger.Formatter.(*slog.TextHandler)
-	ep.getLogger()
-	// require.True(t, ok)
-
-	// Log format is JSON when configured
-	logging.SetLogFormat(logging.LogFormatJSON)
-	defer func() {
-		logging.SetLogFormat(logging.LogFormatText)
-	}()
-	do = &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-
-	ep, err = NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
-	require.NoError(t, err)
-
-	ep.Start(uint16(model.ID))
-	t.Cleanup(ep.Stop)
-
-	// _, ok = ep.getLogger().Logger.Formatter.(*slog.TextHandler)
-	// require.True(t, ok)
-}
 
 func TestPolicyLog(t *testing.T) {
 	setupEndpointSuite(t)

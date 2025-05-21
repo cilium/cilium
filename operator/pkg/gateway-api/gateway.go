@@ -131,7 +131,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 			reqs = append(reqs, req)
 			scopedLog.Info("Queueing gateway",
 				logfields.K8sNamespace, gw.GetNamespace(),
-				logfields.Resource, gw.GetName(),
+				gateway, gw.GetName(),
 			)
 		}
 		return reqs
@@ -154,7 +154,6 @@ func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandl
 
 		scopedLog.Info("Enqueued gateway for owning service",
 			logfields.K8sNamespace, a.GetNamespace(),
-			logfields.Resource, a.GetName(),
 			logfields.Gateway, key,
 		)
 
@@ -244,7 +243,7 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 
 		scopedLog.Info("Enqueued gateway for Route",
 			logfields.K8sNamespace, ns,
-			logfields.Resource, parent.Name,
+			logfields.ParentResource, parent.Name,
 			logfields.Route, object.GetName())
 
 		reqs = append(reqs, reconcile.Request{
