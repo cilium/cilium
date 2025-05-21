@@ -553,6 +553,10 @@ enum metric_dir {
  * traffic is encrypted or not.
  *
  * the SPI bit can be reused since this magic mark is only used POST encryption.
+ *
+ * The MSB invades the Kubernetes mark "space" which is
+ * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
+ * for more details.
  */
 #define MARK_MAGIC_OVERLAY_ENCRYPTED	(MARK_MAGIC_OVERLAY | 0x1000)
 #define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
@@ -561,11 +565,9 @@ enum metric_dir {
 
 
 /* The mark is used to indicate that the WireGuard tunnel device is done
- * encrypting a packet. The MSB invades the Kubernetes mark "space" which is
- * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
- * for more details.
+ * encrypting a packet.
  */
-#define MARK_MAGIC_WG_ENCRYPTED		0x1E00
+#define MARK_MAGIC_WG_ENCRYPTED		MARK_MAGIC_ENCRYPT
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
