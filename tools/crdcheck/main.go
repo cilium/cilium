@@ -6,12 +6,15 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
 
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 const mandatoryCategory = "cilium"
@@ -24,7 +27,7 @@ var allChecks = []checkCRDFunc{
 
 func main() {
 	if len(os.Args) != 2 {
-		log.Fatalf("usage: %s <path>", os.Args[0])
+		logging.Fatal(slog.Default(), fmt.Sprintf("usage: %s <path>", os.Args[0]))
 	}
 
 	_ = crdv1.AddToScheme(scheme.Scheme)

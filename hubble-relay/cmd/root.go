@@ -27,7 +27,7 @@ func New() *cobra.Command {
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
 	}
-	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
+	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "hubble-relay")
 	vp := newViper()
 	flags := rootCmd.PersistentFlags()
 	flags.BoolP("debug", "D", false, "Enable debug messages")
@@ -41,7 +41,10 @@ func New() *cobra.Command {
 	}
 
 	if err := vp.ReadInConfig(); err != nil {
-		logger.WithError(err).Debugf("Failed to read config from file '%s'", configFilePath)
+		logger.Debug("Failed to read config from file",
+			logfields.Error, err,
+			logfields.Path, configFilePath,
+		)
 	}
 
 	// Check for the debug flag again now that the configuration file may has
