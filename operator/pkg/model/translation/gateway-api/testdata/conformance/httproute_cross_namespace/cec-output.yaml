@@ -1,7 +1,7 @@
 metadata:
   creationTimestamp: null
   labels:
-    cilium.io/use-original-source-address: "false"
+    cilium.io/use-original-source-address: "true"
     gateway.networking.k8s.io/gateway-name: backend-namespaces
   name: cilium-gateway-backend-namespaces
   namespace: gateway-conformance-infra
