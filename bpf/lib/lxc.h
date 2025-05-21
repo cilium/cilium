@@ -31,7 +31,7 @@ static __always_inline
 int is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
 {
 #ifdef ENABLE_IPV4
-	return ip4->saddr == LXC_IPV4;
+	return ip4->saddr == CONFIG(endpoint_ipv4).be32;
 #else
 	/* Can't send IPv4 if no IPv4 address is configured */
 	return 0;
