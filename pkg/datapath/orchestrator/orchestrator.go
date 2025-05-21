@@ -163,7 +163,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		stream.Filter(o.params.LocalNodeStore,
 			func(n node.LocalNode) bool {
 				if agentConfig.EnableIPv4 {
-					loopback := n.IPv4Loopback != nil
+					loopback := n.ServiceLoopbackIPv4 != nil
 					ipv4GW := n.GetCiliumInternalIP(false) != nil
 					ipv4Range := n.IPv4AllocCIDR != nil
 					if !ipv4GW || !ipv4Range || !loopback {
