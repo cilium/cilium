@@ -1335,3 +1335,12 @@ func (ct *ConnectivityTest) IsSocketLBFull() bool {
 	}
 	return false
 }
+
+func (ct *ConnectivityTest) GetPodHostIPByFamily(pod Pod, ipFam features.IPFamily) string {
+	for _, addr := range pod.Pod.Status.HostIPs {
+		if features.GetIPFamily(addr.IP) == ipFam {
+			return addr.IP
+		}
+	}
+	return ""
+}

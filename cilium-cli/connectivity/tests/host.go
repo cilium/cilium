@@ -144,18 +144,20 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		for _, echo := range ct.EchoPods() {
-			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, ct.Params().EchoServerHostPort, echo.Path())
-			ep := check.HTTPEndpoint(echo.Name(), baseURL)
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, features.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, a.CurlCommand(ep))
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), ct.GetPodHostIPByFamily(echo, ipFam), ct.Params().EchoServerHostPort, echo.Path())
+				ep := check.HTTPEndpoint(echo.Name(), baseURL)
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, ep, ipFam).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, a.CurlCommand(ep))
 
-				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
-					// Because the HostPort request is NATed, we might only
-					// observe flows after DNAT has been applied (e.g. by
-					// HostReachableServices),
-					AltDstIP:   echo.Address(features.IPFamilyAny),
-					AltDstPort: echo.Port(),
-				}))
+					a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
+						// Because the HostPort request is NATed, we might only
+						// observe flows after DNAT has been applied (e.g. by
+						// HostReachableServices),
+						AltDstIP:   echo.Address(ipFam),
+						AltDstPort: echo.Port(),
+					}))
+				})
 			})
 
 			i++
