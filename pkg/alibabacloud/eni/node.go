@@ -324,7 +324,7 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *slog.Logger) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
 
 	n.mutex.Lock()
@@ -375,6 +375,12 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	}
 
 	return r
+}
+
+// CalculateExcessIPPrefixes is a no-op on Azure since Azure ENIs don't
+// support prefix delegation.
+func (n *Node) CalculateExcessIPPrefixes() int {
+	return 0
 }
 
 // ReleaseIPPrefixes is a no-op on AlibabaCloud since Alibaba ENIs don't

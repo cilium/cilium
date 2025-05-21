@@ -666,11 +666,11 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	a := &maintenanceAction{}
 
 	stats := n.Stats()
-
+	excessIPPrefixes := n.ops.CalculateExcessIPPrefixes()
 	// Validate that the node still requires addresses to be released, the
 	// request may have been resolved in the meantime.
 	if n.manager.releaseExcessIPs && stats.IPv4.ExcessIPs > 0 {
-		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, n.logger.Load())
+		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, excessIPPrefixes, n.logger.Load())
 		return a, nil
 	}
 

@@ -55,8 +55,14 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 }
 
 // PrepareIPRelease prepares the release of IPs
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *slog.Logger) *ipam.ReleaseAction {
 	return &ipam.ReleaseAction{}
+}
+
+// CalculateExcessIPPrefixes is a no-op on Azure since Azure ENIs don't
+// support prefix delegation.
+func (n *Node) CalculateExcessIPPrefixes() int {
+	return 0
 }
 
 // ReleaseIPPrefixes is a no-op on Azure since Azure ENIs don't

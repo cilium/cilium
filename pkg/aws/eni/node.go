@@ -141,7 +141,7 @@ func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *slog.Logger) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
 
 	n.mutex.Lock()
@@ -156,16 +156,12 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 		ipPrefixes := e.Prefixes
 		if len(ipPrefixes) > 0 {
 			usedIPs := n.k8sObj.Status.IPAM.Used
-			ipsPerPrefix := option.ENIPDBlockSizeIPv4
-
-			// Calculate number of prefixes to release to avoid deleting IPPrefix allocated to resolve IPDeficit
-			excessPrefixes := len(ipPrefixes) - (len(usedIPs)+n.k8sObj.Spec.IPAM.PreAllocate+ipsPerPrefix-1)/ipsPerPrefix
-			if excessPrefixes > 0 {
+			if excessIPPrefixes > 0 {
 				unusedIPPrefixes := []string{}
 				matchedIPs := []string{}
 				// Check each prefix to determine if at least one IP is used in IPAM.
 				for _, prefix := range ipPrefixes {
-					if len(unusedIPPrefixes) >= excessPrefixes {
+					if len(unusedIPPrefixes) >= excessIPPrefixes {
 						break
 					}
 					prefixAddr, err := netip.ParsePrefix(prefix)
@@ -247,6 +243,25 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	}
 
 	return r
+}
+
+// CalculateExcessIPPrefixes calculates number of unused IPPrefixes to unassign
+func (n *Node) CalculateExcessIPPrefixes() int {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	ipsPerPrefix := option.ENIPDBlockSizeIPv4
+	excessIPPrefixes := 0
+	if !n.IsPrefixDelegated() {
+		return 0
+	}
+	for _, e := range n.enis {
+		ipPrefixesCount := len(e.Prefixes)
+		if ipPrefixesCount > 0 {
+			usedIPsCount := len(n.k8sObj.Status.IPAM.Used)
+			excessIPPrefixes += ipPrefixesCount - (usedIPsCount+n.k8sObj.Spec.IPAM.PreAllocate+ipsPerPrefix-1)/ipsPerPrefix
+		}
+	}
+	return excessIPPrefixes
 }
 
 // ReleaseIPPrefixes performs the ENI IPPrefixes release operation
