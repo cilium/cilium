@@ -19,16 +19,7 @@ For help with installing ``kubeadm`` and for more provisioning options please re
 
 .. note::
 
-   Cilium's kube-proxy replacement depends on the socket-LB feature,
-   which requires a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel.
-   Linux kernels v5.3 and v5.8 add additional features that Cilium can use to
-   further optimize the kube-proxy replacement implementation.
-
-   Note that v5.0.y kernels do not have the fix required to run the kube-proxy
-   replacement since at this point in time the v5.0.y stable kernel is end-of-life
-   (EOL) and not maintained anymore on kernel.org. For individual distribution
-   maintained kernels, the situation could differ. Therefore, please check with
-   your distribution.
+   Cilium's kube-proxy replacement depends on the socket-LB feature.
 
 Quick-Start
 ###########
@@ -925,8 +916,7 @@ with ``devices``, the XDP acceleration is enabled on all devices. This means tha
 each underlying device's driver must have native XDP support on all Cilium managed
 nodes. If you have an environment where some devices support XDP but others do not
 you can have XDP enabled on the supported devices by setting
-``loadBalancer.acceleration`` to ``best-effort``. In addition, for performance
-reasons we recommend kernel >= 5.5 for the multi-device XDP acceleration.
+``loadBalancer.acceleration`` to ``best-effort``.
 
 A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 
@@ -1185,10 +1175,9 @@ the reserved ports, set ``nodePort.autoProtectPortRanges`` to ``false``.
 
 By default, the NodePort implementation prevents application ``bind(2)`` requests
 to NodePort service ports. In such case, the application will typically see a
-``bind: Operation not permitted`` error. This happens either globally for older
-kernels or starting from v5.7 kernels only for the host namespace by default
-and therefore not affecting any application pod ``bind(2)`` requests anymore. In
-order to opt-out from this behavior in general, this setting can be changed for
+``bind: Operation not permitted`` error. By default this happens only for the host
+namespace and therefore does not affect any application pod ``bind(2)`` requests.
+In order to opt-out from this behavior in general, this setting can be changed for
 expert users by switching ``nodePort.bindProtection`` to ``false``.
 
 .. _Configuring Maps:
@@ -1835,7 +1824,7 @@ Limitations
     * Cilium's eBPF kube-proxy replacement relies upon the socket-LB feature
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in
-      eBPF, which is only available for kernels v5.8 and higher.
+      eBPF.
     * NFS and SMB mounts may break when mounted to a ``Service`` cluster IP while using socket-LB.
       This issue is known to impact Longhorn, Portworx, and Robin, but may impact other storage
       systems that implement ``ReadWriteMany`` volumes using this pattern. To avoid this problem,
@@ -1864,10 +1853,6 @@ Limitations
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
       currently not supported and will log a warning to the Cilium agent log.
-    * When using the Socket-LB feature and deployed on kernels older than 5.7, Cilium is unable
-      to distinguish between host and pod namespaces due to the lack of kernel support for
-      network namespace cookies. As a result, Kubernetes services are reachable from all pods via
-      the loopback address.
     * The neighbor discovery in a multi-device environment doesn't work with the runtime device
       detection which means that the target devices for the neighbor discovery doesn't follow the
       device changes.
