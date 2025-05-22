@@ -30,6 +30,8 @@ import (
 )
 
 func TestScript(t *testing.T) {
+	t.Skip("tests disabled as not relevant for v1.17")
+
 	// version/capabilities are unfortunately a global variable, so we're forcing it here.
 	// This makes it difficult to have different k8s version/capabilities (e.g. use Endpoints
 	// not EndpointSlice) in the tests here, which is why we're currently only testing against

@@ -487,7 +487,7 @@ type envoyOps struct {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, cec *CEC) error {
+func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, cec *CEC) error {
 	if prev := cec.ReconciledResources; prev != nil {
 		// Perform the deletion with the resources that were last successfully reconciled
 		// instead of whatever the latest one is (which would have not been pushed to Envoy).
@@ -502,7 +502,7 @@ func (ops *envoyOps) Prune(ctx context.Context, txn statedb.ReadTxn, objects ite
 }
 
 // Update implements reconciler.Operations.
-func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, cec *CEC) error {
+func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, cec *CEC) error {
 	var prevResources envoy.Resources
 	if cec.ReconciledResources != nil {
 		prevResources = *cec.ReconciledResources
