@@ -14,9 +14,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
-	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -103,8 +103,8 @@ var Cell = cell.Module(
 	// it to the BPF L2 responder map.
 	l2responder.Cell,
 
-	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
-	garp.Cell,
+	// Gratuitous ARP event processor emits GNeigh packets on k8s pod creation events.
+	gneigh.Cell,
 
 	// This cell provides the object used to write the headers for datapath program types.
 	dpcfg.Cell,

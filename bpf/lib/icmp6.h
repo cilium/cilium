@@ -532,4 +532,42 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 #endif /* ENABLE_HOST_FIREWALL */
 }
 
+static __always_inline
+bool icmp6_ndisc_validate(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+			  union macaddr *iface_mac, union macaddr *smac,
+			  union v6addr *sip, union v6addr *tip)
+{
+	__u8 nexthdr = ip6->nexthdr;
+	struct icmp6hdr *icmp;
+	int l3_off = (__u8 *)ip6 - (__u8 *)ctx_data(ctx);
+	int l4_off = ipv6_hdrlen(ctx, &nexthdr);
+	struct ethhdr *eth = (void *)(long)ctx->data;
+	union macaddr *dmac;
+
+	if ((void *)eth + ETH_HLEN > (void *)(long)ctx->data_end)
+		return false;
+
+	dmac = (union macaddr *)&eth->h_dest;
+
+	if (l4_off < 0 || nexthdr != NEXTHDR_ICMP)
+		return false;
+
+	icmp = (struct icmp6hdr *)((__u8 *)ip6 + l4_off);
+	if ((void *)icmp + sizeof(*icmp) + sizeof(*tip) > ctx_data_end(ctx))
+		return false;
+
+	if (icmp->icmp6_type != ICMP6_NS_MSG_TYPE)
+		return false;
+
+	/* Extract fields */
+	eth_load_saddr(ctx, &smac->addr[0], 0);
+	ipv6_load_saddr(ctx, l3_off, sip);
+	*tip = *(union v6addr *)(icmp + 1);
+
+	if (!ipv6_is_mc_mac(tip, dmac) && eth_addrcmp(dmac, iface_mac) != 0)
+		return false;
+
+	return true;
+}
+
 #endif
