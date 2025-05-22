@@ -13,7 +13,7 @@ export DOCKER_BUILDKIT=1
 ifdef ARCH
   # Default to multi-arch builds, always create the builder for all the platforms we support
   DOCKER_PLATFORMS := linux/arm64,linux/amd64
-  DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
+  DOCKER_BUILDER := $(shell docker buildx ls --format '{{ .Name }}' | head -n1)
   ifneq (,$(filter $(DOCKER_BUILDER),default desktop-linux))
     DOCKER_BUILDKIT_DRIVER :=
     ifdef DOCKER_BUILDKIT_IMAGE
@@ -36,7 +36,7 @@ else
 endif
 DOCKER_EXISTS := $(shell command -v docker 2>/dev/null)
 ifdef DOCKER_EXISTS
-DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
+DOCKER_BUILDER := $(shell docker buildx ls --format '{{ .Name }}' | head -n1)
 endif
 
 ##@ Docker Images
