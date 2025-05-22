@@ -51,9 +51,7 @@ func TestRegisterController(t *testing.T) {
 		}),
 		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
 			h := p.ForModule(cell.FullModuleID{"test"})
-			jg := jr.NewGroup(h)
-			lc.Append(jg)
-			return jg
+			return jr.NewGroup(h, lc)
 		}),
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(p params) error {
@@ -110,9 +108,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		}),
 		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
 			h := p.ForModule(cell.FullModuleID{"test"})
-			jg := jr.NewGroup(h)
-			lc.Append(jg)
-			return jg
+			return jr.NewGroup(h, lc)
 		}),
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(p params) error {

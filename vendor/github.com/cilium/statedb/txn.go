@@ -96,13 +96,10 @@ func (txn *txn) indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, error)
 	if txn.modifiedTables != nil {
 		entry := txn.modifiedTables[meta.tablePos()]
 		if entry != nil {
-			itxn, err := txn.indexWriteTxn(meta, indexPos)
-			if err != nil {
-				return indexReadTxn{}, err
-			}
+			indexEntry := &entry.indexes[indexPos]
 			// Since iradix reuses nodes when mutating we need to return a clone
 			// so that iterators don't become invalid.
-			return indexReadTxn{itxn.Txn.Clone(), itxn.unique}, nil
+			return indexReadTxn{indexEntry.getClone(), indexEntry.unique}, nil
 		}
 	}
 	indexEntry := txn.root[meta.tablePos()].indexes[indexPos]
@@ -120,6 +117,7 @@ func (txn *txn) indexWriteTxn(meta TableMeta, indexPos int) (indexTxn, error) {
 	if indexEntry.txn == nil {
 		indexEntry.txn = indexEntry.tree.Txn()
 	}
+	indexEntry.clone = nil
 	return indexTxn{indexEntry.txn, indexEntry.unique}, nil
 }
 

@@ -261,9 +261,7 @@ func fixture(t *testing.T) (*hive.Hive, *statedb.DB, statedb.RWTable[dynamicconf
 			},
 			func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
 				h := p.ForModule(cell.FullModuleID{"test"})
-				jg := jr.NewGroup(h)
-				lc.Append(jg)
-				return jg
+				return jr.NewGroup(h, lc)
 			},
 			func() config {
 				return config{

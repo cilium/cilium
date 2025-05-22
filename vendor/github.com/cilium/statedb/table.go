@@ -149,15 +149,15 @@ func (t *genTable[Obj]) tableEntry() tableEntry {
 	entry.deleteTrackers = part.New[anyDeleteTracker]()
 	entry.initWatchChan = make(chan struct{})
 	entry.indexes = make([]indexEntry, len(t.indexPositions))
-	entry.indexes[t.indexPositions[t.primaryIndexer.indexName()]] = indexEntry{part.New[object](), nil, true}
+	entry.indexes[t.indexPositions[t.primaryIndexer.indexName()]] = indexEntry{part.New[object](), nil, nil, true}
 
 	for index, indexer := range t.secondaryAnyIndexers {
-		entry.indexes[t.indexPositions[index]] = indexEntry{part.New[object](), nil, indexer.unique}
+		entry.indexes[t.indexPositions[index]] = indexEntry{part.New[object](), nil, nil, indexer.unique}
 	}
 	// For revision indexes we only need to watch the root.
-	entry.indexes[t.indexPositions[RevisionIndex]] = indexEntry{part.New[object](part.RootOnlyWatch), nil, true}
-	entry.indexes[t.indexPositions[GraveyardRevisionIndex]] = indexEntry{part.New[object](part.RootOnlyWatch), nil, true}
-	entry.indexes[t.indexPositions[GraveyardIndex]] = indexEntry{part.New[object](), nil, true}
+	entry.indexes[t.indexPositions[RevisionIndex]] = indexEntry{part.New[object](part.RootOnlyWatch), nil, nil, true}
+	entry.indexes[t.indexPositions[GraveyardRevisionIndex]] = indexEntry{part.New[object](part.RootOnlyWatch), nil, nil, true}
+	entry.indexes[t.indexPositions[GraveyardIndex]] = indexEntry{part.New[object](), nil, nil, true}
 
 	return entry
 }
@@ -277,23 +277,27 @@ func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64
 }
 
 func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, watch <-chan struct{}, ok bool) {
-	// Since we're not returning an iterator here we can optimize and not use
-	// indexReadTxn which clones if this is a WriteTxn (to avoid invalidating iterators).
 	indexPos := t.indexPos(q.index)
 	itxn := txn.getTxn()
 	var (
 		ops    part.Ops[object]
 		unique bool
 	)
-	if itxn.modifiedTables != nil && itxn.modifiedTables[t.tablePos()] != nil {
-		var err error
-		iwtxn, err := itxn.indexWriteTxn(t, indexPos)
-		if err != nil {
-			panic(err)
+	if itxn.modifiedTables != nil {
+		if table := itxn.modifiedTables[t.tablePos()]; table != nil {
+			// Since we're not returning an iterator here we can optimize and not use
+			// indexReadTxn which clones if this is a WriteTxn (to avoid invalidating iterators).
+			indexEntry := &table.indexes[indexPos]
+			if indexEntry.txn != nil {
+				ops = indexEntry.txn
+			} else {
+				ops = indexEntry.tree
+			}
+			unique = indexEntry.unique
 		}
-		ops = iwtxn.Txn
-		unique = iwtxn.unique
-	} else {
+	}
+
+	if ops == nil {
 		entry := itxn.root[t.tablePos()].indexes[indexPos]
 		ops = entry.tree
 		unique = entry.unique

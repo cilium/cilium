@@ -204,7 +204,7 @@ type skiplbOps struct {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *skiplbOps) Delete(ctx context.Context, txn statedb.ReadTxn, d *desiredSkipLB) (err error) {
+func (ops *skiplbOps) Delete(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, d *desiredSkipLB) (err error) {
 	if d.NetnsCookie == nil {
 		return nil
 	}
@@ -260,7 +260,7 @@ func (ops *skiplbOps) Prune(ctx context.Context, txn statedb.ReadTxn, objs iter.
 }
 
 // Update implements reconciler.Operations.
-func (ops *skiplbOps) Update(ctx context.Context, txn statedb.ReadTxn, d *desiredSkipLB) (err error) {
+func (ops *skiplbOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, d *desiredSkipLB) (err error) {
 	if d.NetnsCookie == nil {
 		return nil
 	}

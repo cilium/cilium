@@ -86,13 +86,14 @@ func newFixture(t testing.TB) *fixture {
 		JobGroup:        jg,
 	}
 
+	lc := hivetest.Lifecycle(t)
+
 	// Setting stores normally happens in .run which we bypass for testing purposes
 	announcer := NewL2Announcer(params)
 	announcer.policyStore = fakePolicyStore
 	announcer.svcStore = fakeSvcStore
-	announcer.params.JobGroup = jr.NewGroup(h)
+	announcer.params.JobGroup = jr.NewGroup(h, lc)
 	announcer.scopedGroup = announcer.params.JobGroup.Scoped("leader-election")
-	announcer.params.JobGroup.Start(context.Background())
 
 	return &fixture{
 		announcer:          announcer,
@@ -267,10 +268,6 @@ func TestHappyPath(t *testing.T) {
 		},
 		Origins: []resource.Key{svcKey},
 	}, entries[0])
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test the happy path, but in every permutation of events. It should not matter in which order objects are processed
@@ -320,11 +317,6 @@ func TestHappyPathPermutations(t *testing.T) {
 		}
 		t.Run(strings.Join(names, "_"), func(tt *testing.T) {
 			fix := newFixture(tt)
-			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				fix.announcer.params.JobGroup.Stop(ctx)
-				cancel()
-			}()
 
 			err := fix.announcer.upsertLocalNode(context.Background(), blueNode())
 			assert.NoError(tt, err)
@@ -489,10 +481,6 @@ func TestPolicyRedundancy(t *testing.T) {
 		},
 		Origins: []resource.Key{svcKey},
 	}, entries[0])
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 func baseUpdateSetup(t *testing.T) *fixture {
@@ -574,10 +562,6 @@ func TestUpdateHostLabels_NoMatch(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // When policies and services exist that currently don't match, assert that these are added properly when the labels
@@ -663,10 +647,6 @@ func TestUpdateHostLabels_AdditionalMatch(t *testing.T) {
 	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 2)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when a policy update causes a service to no longer match, that the service is removed
@@ -692,10 +672,6 @@ func TestUpdatePolicy_NoMatch(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when a policy is updated to match an addition service, that it is added and reflected in the proxy
@@ -747,10 +723,6 @@ func TestUpdatePolicy_AdditionalMatch(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 2)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test service selection under various conditions
@@ -966,10 +938,6 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when the interfaces in a policy change, that the proxy neighbor entries are updated.
@@ -1006,10 +974,6 @@ func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 		},
 		Origins: []resource.Key{resource.NewKey(blueService())},
 	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when a service deletes an IP the proxy neighbor table is updated accordingly
@@ -1032,10 +996,6 @@ func TestUpdateService_DelIP(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when a service adds and IP, the proxy neighbor table is updated accordingly.
@@ -1058,10 +1018,6 @@ func TestUpdateService_AddIP(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 2)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that a service is removed if it no longer matches any policies
@@ -1084,10 +1040,6 @@ func TestUpdateService_NoMatch(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when a service load balancer class is set to a supported value,
@@ -1111,10 +1063,6 @@ func TestUpdateService_LoadBalancerClassMatch(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that when a service load balancer class is set to an unsupported value,
@@ -1138,10 +1086,6 @@ func TestUpdateService_LoadBalancerClassNotMatch(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // Test that deleting a service removes its entries
@@ -1163,10 +1107,6 @@ func TestDelService(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Empty(t, entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fix.announcer.params.JobGroup.Stop(ctx)
-	cancel()
 }
 
 // This tests affirms that the L2 announcer behaves as expected during it lifecycle, shutting down cleanly

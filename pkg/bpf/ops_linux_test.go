@@ -62,17 +62,17 @@ func Test_MapOps(t *testing.T) {
 	obj := &TestObject{Key: TestKey{1}, Value: TestValue{2}}
 
 	// Test Update() and Delete()
-	err = ops.Update(ctx, nil, obj)
+	err = ops.Update(ctx, nil, 0, obj)
 	assert.NoError(t, err, "Update")
 
-	err = ops.Update(ctx, nil, obj)
+	err = ops.Update(ctx, nil, 0, obj)
 	assert.NoError(t, err, "Update")
 
 	v, err := testMap.Lookup(&TestKey{1})
 	assert.NoError(t, err, "Lookup")
 	assert.Equal(t, v.(*TestValue).Value, obj.Value.Value)
 
-	err = ops.Delete(ctx, nil, obj)
+	err = ops.Delete(ctx, nil, 0, obj)
 	assert.NoError(t, err, "Delete")
 
 	_, err = testMap.Lookup(&TestKey{1})

@@ -455,9 +455,27 @@ type anyDeleteTracker interface {
 }
 
 type indexEntry struct {
-	tree   *part.Tree[object]
-	txn    *part.Txn[object]
+	tree *part.Tree[object]
+
+	// txn for mutating the index
+	txn *part.Txn[object]
+
+	// clone is the latest memoized clone of [txn] for reading that won't
+	// be invalidated by future writes. Cleared on write.
+	clone  part.Ops[object]
 	unique bool
+}
+
+func (ie *indexEntry) getClone() part.Ops[object] {
+	if ie.clone == nil {
+		if ie.txn == nil {
+			treeCopy := *ie.tree
+			ie.clone = &treeCopy
+		} else {
+			ie.clone = ie.txn.Clone()
+		}
+	}
+	return ie.clone
 }
 
 type tableEntry struct {

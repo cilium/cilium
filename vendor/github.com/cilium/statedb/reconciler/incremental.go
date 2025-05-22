@@ -201,7 +201,7 @@ func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision,
 	)
 	if delete {
 		op = OpDelete
-		err = round.config.Operations.Delete(round.ctx, round.txn, obj)
+		err = round.config.Operations.Delete(round.ctx, round.txn, rev, obj)
 		if err != nil {
 			// Deletion failed. Retry again later.
 			round.retries.Add(obj, rev, true, err)
@@ -211,7 +211,7 @@ func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision,
 		orig := obj
 		obj = round.config.CloneObject(obj)
 		op = OpUpdate
-		err = round.config.Operations.Update(round.ctx, round.txn, obj)
+		err = round.config.Operations.Update(round.ctx, round.txn, rev, obj)
 		status := round.config.GetObjectStatus(obj)
 		round.results[obj] = opResult{original: orig, id: status.ID, rev: rev, err: err}
 	}

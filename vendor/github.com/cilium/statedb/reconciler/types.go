@@ -65,11 +65,11 @@ type Operations[Obj any] interface {
 	// The object handed to Update is a clone produced by Config.CloneObject
 	// and thus Update can mutate the object. The mutations are only guaranteed
 	// to be retained if the object has a single reconciler (one Status).
-	Update(ctx context.Context, txn statedb.ReadTxn, obj Obj) error
+	Update(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj Obj) error
 
 	// Delete the object in the target. Same semantics as with Update.
 	// Deleting a non-existing object is not an error and returns nil.
-	Delete(context.Context, statedb.ReadTxn, Obj) error
+	Delete(context.Context, statedb.ReadTxn, statedb.Revision, Obj) error
 
 	// Prune undesired state. It is given an iterator for the full set of
 	// desired objects. The implementation should diff the desired state against
