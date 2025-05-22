@@ -86,8 +86,7 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	c := &Configuration{}
-	group := p.JobRegistry.NewGroup(p.Health)
-	lc.Append(group)
+	group := p.JobRegistry.NewGroup(p.Health, lc)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			*c = NewConfiguration(

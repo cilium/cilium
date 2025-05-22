@@ -69,7 +69,7 @@ func (ops *mapOps[KV]) withMap(do func(m *ebpf.Map) error) error {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *mapOps[KV]) Delete(ctx context.Context, txn statedb.ReadTxn, entry KV) error {
+func (ops *mapOps[KV]) Delete(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, entry KV) error {
 	return ops.withMap(func(m *ebpf.Map) error {
 		err := ops.m.m.Delete(entry.BinaryKey())
 		if errors.Is(err, ebpf.ErrKeyNotExist) {
@@ -145,7 +145,7 @@ func (ops *mapOps[KV]) Prune(ctx context.Context, txn statedb.ReadTxn, objs iter
 }
 
 // Update the BPF map value to match with the object in the desired state table.
-func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, entry KV) error {
+func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, entry KV) error {
 	return ops.withMap(func(m *ebpf.Map) error {
 		return m.Put(entry.BinaryKey(), entry.BinaryValue())
 	})

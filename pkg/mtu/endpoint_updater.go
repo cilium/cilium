@@ -84,9 +84,8 @@ func newEndpointUpdater(p endpointUpdaterParams) EndpointMTUUpdater {
 
 	// If we are not in chaining mode, or if we are in chaining mode and the CNI config requests us to manage route MTU
 	// Start the endpoint updater
-	jobGroup := p.JobRegistry.NewGroup(p.Health)
+	jobGroup := p.JobRegistry.NewGroup(p.Health, p.Lifecycle)
 	jobGroup.Add(job.OneShot("endpoint-mtu-updater", endpointUpdater.Updater))
-	p.Lifecycle.Append(jobGroup)
 
 	return &endpointUpdater
 }

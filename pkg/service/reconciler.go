@@ -22,9 +22,8 @@ import (
 // with the new set of node addresses assigned for NodePort use.
 func registerServiceReconciler(p serviceReconcilerParams) {
 	sr := serviceReconciler(p)
-	g := p.Jobs.NewGroup(p.Health)
+	g := p.Jobs.NewGroup(p.Health, p.Lifecycle)
 	g.Add(job.OneShot("service-reconciler", sr.reconcileLoop))
-	p.Lifecycle.Append(g)
 }
 
 type syncNodePort interface {

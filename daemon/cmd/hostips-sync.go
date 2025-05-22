@@ -70,9 +70,8 @@ func newSyncHostIPs(lc cell.Lifecycle, p syncHostIPsParams) *syncHostIPs {
 		return s
 	}
 
-	g := p.Jobs.NewGroup(p.Health)
+	g := p.Jobs.NewGroup(p.Health, lc)
 	g.Add(job.OneShot("sync-hostips", s.loop))
-	lc.Append(g)
 
 	return s
 }
