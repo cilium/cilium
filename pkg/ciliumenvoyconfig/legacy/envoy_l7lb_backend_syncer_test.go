@@ -7,9 +7,9 @@ import (
 	"net/netip"
 	"testing"
 
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	endpointv3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
-	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

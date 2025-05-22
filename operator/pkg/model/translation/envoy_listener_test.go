@@ -6,8 +6,8 @@ package translation
 import (
 	"testing"
 
-	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"

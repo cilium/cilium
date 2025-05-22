@@ -9,8 +9,8 @@ import (
 	"log/slog"
 	"strconv"
 
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer"

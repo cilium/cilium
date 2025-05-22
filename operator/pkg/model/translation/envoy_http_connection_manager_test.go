@@ -6,7 +6,7 @@ package translation
 import (
 	"testing"
 
-	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )

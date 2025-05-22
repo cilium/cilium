@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	corepb "github.com/cilium/proxy/go/envoy/config/core/v3"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 

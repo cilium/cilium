@@ -6,7 +6,7 @@ package legacy
 import (
 	"testing"
 
-	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"

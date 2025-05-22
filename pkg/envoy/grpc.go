@@ -9,12 +9,12 @@ import (
 	"net"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_service_cluster "github.com/cilium/proxy/go/envoy/service/cluster/v3"
-	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
-	envoy_service_endpoint "github.com/cilium/proxy/go/envoy/service/endpoint/v3"
-	envoy_service_listener "github.com/cilium/proxy/go/envoy/service/listener/v3"
-	envoy_service_route "github.com/cilium/proxy/go/envoy/service/route/v3"
-	envoy_service_secret "github.com/cilium/proxy/go/envoy/service/secret/v3"
+	envoy_service_cluster "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	envoy_service_endpoint "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
+	envoy_service_listener "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
+	envoy_service_route "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
+	envoy_service_secret "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 

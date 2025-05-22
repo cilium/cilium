@@ -4,11 +4,11 @@
 package translation
 
 import (
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	grpcStatsv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_stats/v3"
-	grpcWebv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_web/v3"
-	httpRouterv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
-	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	grpcStatsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
+	grpcWebv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
+	httpRouterv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 

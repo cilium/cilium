@@ -13,11 +13,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"

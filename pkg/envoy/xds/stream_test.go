@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 )
 
 // MockStream is a mock implementation of Stream used for testing.

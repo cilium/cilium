@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_extensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"

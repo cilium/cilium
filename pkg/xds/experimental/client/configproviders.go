@@ -5,7 +5,7 @@ package xdsclient
 import (
 	"context"
 
-	corepb "github.com/cilium/proxy/go/envoy/config/core/v3"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

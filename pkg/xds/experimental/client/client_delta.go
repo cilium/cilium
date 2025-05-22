@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	corepb "github.com/cilium/proxy/go/envoy/config/core/v3"
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
