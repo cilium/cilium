@@ -6,10 +6,6 @@
 # Start the hive
 hive start
 
-# Wait for k8s watchers to be initialized
-k8s/wait-watchers cilium.io.v2.ciliumnodes cilium.io.v2.ciliumbgpnodeconfigs cilium.io.v2.ciliumbgppeerconfigs cilium.io.v2.ciliumbgpadvertisements
-k8s/wait-watchers v1.services v1.endpoints
-
 # Configure gobgp server
 gobgp/add-server 65010 10.99.4.101 1790
 

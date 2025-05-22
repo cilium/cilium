@@ -1,0 +1,137 @@
+# Tests for the fake k8s client and our custom object tracker.
+#
+# This adds+updates an object from each of the clientsets and checks that
+# they get correctly indexed and we can retrieve them via the k8s script commands.
+
+hive/start
+
+# Add object for the Kubernetes and Slim clientsets
+k8s/add service.yaml
+k8s/update service.yaml
+
+# Add object just for the Kubernetes clientset (has no slim counterpart)
+k8s/add limitrange.yaml
+k8s/update limitrange.yaml
+
+# Add object for the Cilium clientset
+k8s/add ciliumenvoyconfig.yaml
+k8s/update ciliumenvoyconfig.yaml
+
+# Add object for the apiext clientset
+k8s/add apiext_crd.yaml
+k8s/update apiext_crd.yaml
+
+# Add object for the MCSAPI clientset
+k8s/add mcs_svcexport.yaml
+k8s/update mcs_svcexport.yaml
+
+# Validate the summary to see that we've indexed everything
+k8s/summary summary.actual
+cmp summary.expected summary.actual
+
+# Verify that we can retrieve the service (this will prefer slim)
+k8s/get v1.services test/echo -o actual.yaml
+grep 'kind: Service' actual.yaml
+grep 'name: echo' actual.yaml
+
+# Verify that we can retrieve the limitrange from the Kubernetes clientset
+k8s/get v1.limitranges bar/foo -o actual.yaml
+grep 'kind: LimitRange' actual.yaml
+grep 'name: foo' actual.yaml
+
+# Verify that we can retrieve the service export from the MCS clientset
+k8s/get multicluster.x-k8s.io.v1alpha1.serviceexports test -o actual.yaml
+grep 'kind: ServiceExport' actual.yaml
+grep 'name: test' actual.yaml
+
+# Validate the table output of 'k8s-object-tracker'
+db/cmp k8s-object-tracker object-tracker.table
+
+# Delete objects from each clientset
+k8s/delete service.yaml limitrange.yaml ciliumenvoyconfig.yaml apiext_crd.yaml mcs_svcexport.yaml
+k8s/summary summary.actual
+cmp summary.empty summary.actual
+db/empty k8s-object-tracker
+
+###
+
+-- object-tracker.table --
+ID                                                                                           Type
+*;/v1, Resource=services;test/echo                                                           *v1.Service
+*;apiextensions.k8s.io/v1, Resource=customresourcedefinitions;/ciliumenvoyconfigs.cilium.io  *v1.CustomResourceDefinition
+*;cilium.io/v2, Resource=ciliumenvoyconfigs;default/cec                                      *v2.CiliumEnvoyConfig
+*;multicluster.x-k8s.io/v1alpha1, Resource=serviceexports;/test                              *v1alpha1.ServiceExport
+k8s;/v1, Resource=limitranges;bar/foo                                                        *v1.LimitRange
+k8s;/v1, Resource=services;test/echo                                                         *v1.Service
+
+-- summary.expected --
+*:
+- v1.services: 1
+- cilium.io.v2.ciliumenvoyconfigs: 1
+- apiextensions.k8s.io.v1.customresourcedefinitions: 1
+- multicluster.x-k8s.io.v1alpha1.serviceexports: 1
+k8s:
+- v1.services: 1
+- v1.limitranges: 1
+-- summary.empty --
+*:
+- v1.services: 0
+- cilium.io.v2.ciliumenvoyconfigs: 0
+- apiextensions.k8s.io.v1.customresourcedefinitions: 0
+- multicluster.x-k8s.io.v1alpha1.serviceexports: 0
+k8s:
+- v1.services: 0
+- v1.limitranges: 0
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "12345" # Will be ignored
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+
+-- limitrange.yaml --
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: foo
+  namespace: bar
+
+-- ciliumenvoyconfig.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: cec
+  namespace: default
+  resourceVersion: "12345" # Will be ignored
+  uid: 094b684c-6a6a-4313-b07b-c7c124da8d1f
+spec:
+  backendServices:
+  - name: foo
+
+-- apiext_crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ciliumenvoyconfigs.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    kind: CiliumEnvoyConfig
+    listKind: CiliumEnvoyConfigList
+    plural: ciliumenvoyconfigs
+    shortNames:
+    - cec
+    singular: ciliumenvoyconfig
+  scope: Namespaced
+
+-- mcs_svcexport.yaml --
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: test
