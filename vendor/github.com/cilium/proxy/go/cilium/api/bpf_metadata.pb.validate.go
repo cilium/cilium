@@ -104,6 +104,8 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for L7LbPolicyName
 
+	// no validation rules for IpcacheName
+
 	if m.OriginalSourceSoLingerTime != nil {
 		// no validation rules for OriginalSourceSoLingerTime
 	}
@@ -121,7 +123,7 @@ type BpfMetadataMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m BpfMetadataMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
