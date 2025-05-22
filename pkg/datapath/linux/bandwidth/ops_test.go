@@ -63,7 +63,7 @@ func TestOps(t *testing.T) {
 
 	// Initial Update()
 	err = ns.Do(func() error {
-		return ops.Update(ctx, nil, &tables.BandwidthQDisc{
+		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
 			LinkIndex: index,
 			LinkName:  name,
 			FqHorizon: FqDefaultHorizon,
@@ -87,7 +87,7 @@ func TestOps(t *testing.T) {
 
 	// Second Update() should not do anything.
 	err = ns.Do(func() error {
-		return ops.Update(ctx, nil, &tables.BandwidthQDisc{
+		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
 			LinkIndex: index,
 			LinkName:  name,
 			FqHorizon: FqDefaultHorizon,
@@ -99,7 +99,7 @@ func TestOps(t *testing.T) {
 
 	// Non-existing devices return an error.
 	err = ns.Do(func() error {
-		return ops.Update(ctx, nil, &tables.BandwidthQDisc{
+		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
 			LinkIndex: 1234,
 			LinkName:  name,
 			FqHorizon: FqDefaultHorizon,

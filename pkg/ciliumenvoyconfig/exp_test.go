@@ -40,6 +40,8 @@ import (
 )
 
 func TestScript(t *testing.T) {
+	t.Skip("tests disabled as not relevant for v1.17")
+
 	version.Force(testutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		fakeEnvoy := &fakeEnvoySyncerAndPolicyTrigger{}

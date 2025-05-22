@@ -120,9 +120,7 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 
 // jobGroupProvider provides a (private) job group to modules, with scoped health reporting, logging and metrics.
 func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, mid cell.ModuleID) job.Group {
-	g := reg.NewGroup(h,
+	return reg.NewGroup(h, lc,
 		job.WithLogger(l),
 		job.WithPprofLabels(pprof.Labels("cell", string(mid))))
-	lc.Append(g)
-	return g
 }
