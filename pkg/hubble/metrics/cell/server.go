@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 
@@ -17,6 +18,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+var (
+	statusWarnWaitCertsAvail = "Waiting for TLS certificates to become available"
+	statusErrWaitCertsAvail  = "Failed waiting for TLS certificates to become available"
+	statusErrServe           = "Failed serving HTTP metrics"
 )
 
 type Server interface {
@@ -33,6 +40,9 @@ type metricsServer struct {
 	wg        sync.WaitGroup
 	tlsCtx    context.Context
 	tlsCancel context.CancelFunc
+
+	statusWarn atomic.Pointer[string]
+	statusErr  atomic.Pointer[string]
 }
 
 func newMetricsServer(p params) Server {
@@ -72,11 +82,15 @@ func (s *metricsServer) Start(_ cell.HookContext) error {
 
 		listenAndServeFn := s.server.ListenAndServe
 		if tlsEnabled {
+			s.statusWarn.Store(&statusWarnWaitCertsAvail)
 			tlsConfig, err := s.tlsConfigPromise.Await(s.tlsCtx)
 			if err != nil {
-				s.logger.Error("Unable to retrieve TLS config for Hubble metrics server", logfields.Error, err)
+				s.logger.Error(statusErrWaitCertsAvail, logfields.Error, err)
+				errMsg := statusErrWaitCertsAvail + ": " + err.Error()
+				s.statusErr.Store(&errMsg)
 				return
 			}
+			s.statusWarn.Store(nil)
 			s.server.TLSConfig = tlsConfig.ServerConfig(&tls.Config{ //nolint:gosec
 				MinVersion: serveroption.MinTLSVersion,
 			})
@@ -87,7 +101,9 @@ func (s *metricsServer) Start(_ cell.HookContext) error {
 
 		err := listenAndServeFn()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.logger.Error("Unable to start Hubble metrics server", logfields.Error, err)
+			s.logger.Error(statusErrServe, logfields.Error, err)
+			errMsg := statusErrServe + ": " + err.Error()
+			s.statusErr.Store(&errMsg)
 		}
 	}()
 
@@ -99,7 +115,7 @@ func (s *metricsServer) Stop(ctx cell.HookContext) error {
 	s.tlsCancel()
 	err := s.server.Shutdown(ctx)
 	if err != nil {
-		s.logger.Error("Shutdown Hubble metrics server failed", logfields.Error, err)
+		s.logger.Error("Failed shutdown of Hubble metrics server", logfields.Error, err)
 	}
 	s.wg.Wait()
 	return err
@@ -107,6 +123,22 @@ func (s *metricsServer) Stop(ctx cell.HookContext) error {
 
 // Status implements Server.
 func (m *metricsServer) Status() *models.HubbleMetricsStatus {
+	statusErr := m.statusErr.Load()
+	if statusErr != nil {
+		return &models.HubbleMetricsStatus{
+			Msg:   *statusErr,
+			State: models.HubbleMetricsStatusStateFailure,
+		}
+	}
+
+	statusWarn := m.statusWarn.Load()
+	if statusWarn != nil {
+		return &models.HubbleMetricsStatus{
+			Msg:   *statusWarn,
+			State: models.HubbleMetricsStatusStateWarning,
+		}
+	}
+
 	return &models.HubbleMetricsStatus{
 		State: models.HubbleMetricsStatusStateOk,
 	}
