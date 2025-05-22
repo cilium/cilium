@@ -74,7 +74,7 @@ type KeyValueMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m KeyValueMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -287,7 +287,7 @@ type HttpLogEntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpLogEntryMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -395,7 +395,7 @@ type KafkaLogEntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m KafkaLogEntryMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -498,7 +498,7 @@ type L7LogEntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m L7LogEntryMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -745,7 +745,7 @@ type LogEntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LogEntryMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

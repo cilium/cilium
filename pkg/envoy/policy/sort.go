@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 )
 
 // PortNetworkPolicySlice implements sort.Interface to sort a slice of
