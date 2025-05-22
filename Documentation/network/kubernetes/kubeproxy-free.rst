@@ -1390,10 +1390,9 @@ sent from outside the cluster to the service, the request's source IP address is
 used for determining the endpoint affinity. If a request is sent from inside
 the cluster, then the source depends on whether the socket-LB feature
 is used to load balance ClusterIP services. If yes, then the client's network
-namespace cookie is used as the source. The latter was introduced in the 5.7
-Linux kernel to implement the affinity at the socket layer at which
-the socket-LB operates (a source IP is not available there, as the
-endpoint selection happens before a network packet has been built by the
+namespace cookie is used as the source - it allows to implement affinity at the
+socket layer at which the socket-LB operates (a source IP is not available there,
+as the endpoint selection happens before a network packet has been built by the
 kernel). If the socket-LB is not used (i.e. the loadbalancing is done
 at the pod network interface, on a per-packet basis), then the request's source
 IP address is used as the source.
@@ -1401,17 +1400,11 @@ IP address is used as the source.
 The session affinity support is enabled by default. To disable the feature,
 set ``config.sessionAffinity=false``.
 
-For users who run on older kernels which do not support the network
-namespace cookies, a fallback in-cluster mode is implemented, which is based on
-a fixed cookie value as a trade-off. This makes all applications on the host to
-select the same service endpoint for a given service with session affinity configured.
-
-When the fixed cookie value is not used, the session affinity of a service with
-multiple ports is per service IP and port. Meaning that all requests for a
-given service sent from the same source and to the same service port will be routed
-to the same service endpoints; but two requests for the same service, sent from
-the same source but to different service ports may be routed to distinct service
-endpoints.
+The session affinity of a service with multiple ports is per service IP and port.
+Meaning that all requests for a given service sent from the same source and to the
+same service port will be routed to the same service endpoints; but two requests
+for the same service, sent from the same source but to different service ports may
+be routed to distinct service endpoints.
 
 Note that if the session affinity feature is used in combination with Maglev
 consistent hashing to select backends, then Maglev will not take the source
