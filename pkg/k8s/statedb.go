@@ -64,10 +64,12 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 // Intended to be used with [cell.Provide].
 // See [ExampleOnDemand] for example usage.
 func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Logger, db *statedb.DB, cfg ReflectorConfig[Obj]) (hive.OnDemand[statedb.Table[Obj]], error) {
+	lc := &cell.DefaultLifecycle{}
 	// Job group for the reflector that will be started when the table
 	// is acquired.
 	jg := jobs.NewGroup(
 		health,
+		lc,
 		job.WithLogger(log),
 	)
 
@@ -79,7 +81,7 @@ func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Log
 	return hive.NewOnDemand(
 		log,
 		cfg.Table.ToTable(),
-		jg,
+		lc,
 	), nil
 }
 

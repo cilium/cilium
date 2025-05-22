@@ -34,7 +34,7 @@ type ops struct {
 // Currently, there is no dependency checking when stopping feature.
 // If DynamicFeatureName is enabled, the list of dependencies is checked to ensure
 // all dependants are running and if the requirement is met the lifecycle is started.
-func (o *ops) Update(ctx context.Context, txn statedb.ReadTxn, tl *DynamicFeature) error {
+func (o *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, tl *DynamicFeature) error {
 	// Nothing to do
 	if tl.Enabled == tl.IsRunning {
 		return nil
@@ -71,7 +71,7 @@ func (o *ops) Update(ctx context.Context, txn statedb.ReadTxn, tl *DynamicFeatur
 
 // Delete stops the DynamicFeatureName if it's enabled or running and the reconciler status is Done or Error.
 // Currently, no dependencies are checked on stopping the DynamicFeatureName.
-func (o *ops) Delete(ctx context.Context, _ statedb.ReadTxn, tl *DynamicFeature) error {
+func (o *ops) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, tl *DynamicFeature) error {
 	// Nothing to do
 	if tl.Enabled == tl.IsRunning {
 		return nil
