@@ -4,7 +4,6 @@
 package filters
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -127,7 +126,7 @@ func TestCELExpressionFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := hivetest.Logger(t)
-			fl, err := BuildFilterList(context.Background(), tt.args.f, []OnBuildFilter{&CELExpressionFilter{log: log}})
+			fl, err := BuildFilterList(t.Context(), tt.args.f, []OnBuildFilter{&CELExpressionFilter{log: log}})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return

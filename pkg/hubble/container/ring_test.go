@@ -741,7 +741,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	ch := make(chan *v1.Event, 30)
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -803,7 +803,7 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
 	ch := make(chan *v1.Event, 30)
@@ -901,7 +901,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
 	ch := make(chan *v1.Event, 30)
