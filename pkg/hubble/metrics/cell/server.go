@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -18,6 +19,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+var (
+	statusWarnWaitCertsAvail = "Waiting for TLS certificates to become available"
+	statusErrWaitCertsAvail  = "Failed waiting for TLS certificates to become available"
+	statusErrServe           = "Failed serving HTTP metrics"
 )
 
 type Server interface {
@@ -29,6 +36,9 @@ type metricsServer struct {
 
 	server           *http.Server
 	tlsConfigPromise tlsConfigPromise
+
+	statusWarn atomic.Pointer[string]
+	statusErr  atomic.Pointer[string]
 }
 
 func newMetricsServer(p params) Server {
@@ -71,11 +81,15 @@ func (s *metricsServer) Run(ctx context.Context) error {
 
 	listenAndServeFn := s.server.ListenAndServe
 	if tlsEnabled {
-		s.logger.Info("Waiting for TLS certificates to become available")
+		s.logger.Info(statusWarnWaitCertsAvail)
+		s.statusWarn.Store(&statusWarnWaitCertsAvail)
 		tlsConfig, err := s.tlsConfigPromise.Await(ctx)
 		if err != nil {
+			errMsg := statusErrWaitCertsAvail + ": " + err.Error()
+			s.statusErr.Store(&errMsg)
 			return fmt.Errorf("failed waiting for TLS config to resolve: %w", err)
 		}
+		s.statusWarn.Store(nil)
 		s.server.TLSConfig = tlsConfig.ServerConfig(&tls.Config{ //nolint:gosec
 			MinVersion: serveroption.MinTLSVersion,
 		})
@@ -85,6 +99,8 @@ func (s *metricsServer) Run(ctx context.Context) error {
 	}
 
 	if err := listenAndServeFn(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		errMsg := statusErrServe + ": " + err.Error()
+		s.statusErr.Store(&errMsg)
 		return fmt.Errorf("unable to listen and serve Hubble metrics server: %w", err)
 	}
 	return nil
@@ -92,6 +108,22 @@ func (s *metricsServer) Run(ctx context.Context) error {
 
 // Status implements Server.
 func (m *metricsServer) Status() *models.HubbleMetricsStatus {
+	statusErr := m.statusErr.Load()
+	if statusErr != nil {
+		return &models.HubbleMetricsStatus{
+			Msg:   *statusErr,
+			State: models.HubbleMetricsStatusStateFailure,
+		}
+	}
+
+	statusWarn := m.statusWarn.Load()
+	if statusWarn != nil {
+		return &models.HubbleMetricsStatus{
+			Msg:   *statusWarn,
+			State: models.HubbleMetricsStatusStateWarning,
+		}
+	}
+
 	return &models.HubbleMetricsStatus{
 		State: models.HubbleMetricsStatusStateOk,
 	}
