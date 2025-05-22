@@ -5,7 +5,6 @@ package pool
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -59,7 +58,7 @@ func TestGRPCClientConnBuilder_CertificateChange(t *testing.T) {
 	clientConn, err := cb.ClientConn(fmt.Sprintf("unix://%s", list.Addr().String()), "foo.test.cilium.io")
 	require.NoError(t, err)
 	hc := healthpb.NewHealthClient(clientConn)
-	_, err = hc.Check(context.TODO(), nil)
+	_, err = hc.Check(t.Context(), nil)
 	require.NoError(t, err)
 
 	cert, ca = newTestCAandCert(t)
@@ -76,7 +75,7 @@ func TestGRPCClientConnBuilder_CertificateChange(t *testing.T) {
 	fTLSb.set(&cert, ca)
 
 	require.Eventually(t, func() bool {
-		_, err = hc.Check(context.TODO(), nil)
+		_, err = hc.Check(t.Context(), nil)
 		if err != nil {
 			t.Logf("Error %q conn state %q", err.Error(), clientConn.GetState().String())
 		}

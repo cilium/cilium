@@ -4,7 +4,6 @@
 package server
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -59,13 +58,13 @@ func TestHealthServer(t *testing.T) {
 func eventuallServingStatus(t *testing.T, svc healthpb.HealthServer, status healthpb.HealthCheckResponse_ServingStatus) {
 	t.Helper()
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
-		res, err := svc.Check(context.TODO(), &healthpb.HealthCheckRequest{
+		res, err := svc.Check(t.Context(), &healthpb.HealthCheckRequest{
 			Service: "",
 		})
 		assert.NoError(c, err)
 		assert.Equal(c, status, res.Status)
 
-		res, err = svc.Check(context.TODO(), &healthpb.HealthCheckRequest{
+		res, err = svc.Check(t.Context(), &healthpb.HealthCheckRequest{
 			Service: v1.ObserverServiceName,
 		})
 		assert.NoError(c, err)

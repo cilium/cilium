@@ -149,7 +149,7 @@ func TestEventPropagation(t *testing.T) {
 	}
 
 	// when
-	exporter.Export(context.TODO(), &v1.Event{})
+	exporter.Export(t.Context(), &v1.Event{})
 
 	// then
 	assert.Equal(t, 1, mockExporter0.events)

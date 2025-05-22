@@ -4,7 +4,6 @@
 package filters
 
 import (
-	"context"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -176,9 +175,9 @@ func TestClusterNameFilter(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			fl, err := BuildFilterList(context.Background(), tc.f, []OnBuildFilter{&ClusterNameFilter{}})
+			fl, err := BuildFilterList(t.Context(), tc.f, []OnBuildFilter{&ClusterNameFilter{}})
 			if (err != nil) != tc.wantErr {
-				t.Errorf("BuildFilterList(context.Background(), ) error = %v, wantErr %v", err, tc.wantErr)
+				t.Errorf("BuildFilterList(t.Context(), ) error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
 			for i, ev := range tc.ev {
