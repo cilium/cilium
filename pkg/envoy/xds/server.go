@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/anypb"
 

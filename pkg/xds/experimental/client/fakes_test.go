@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 )
 

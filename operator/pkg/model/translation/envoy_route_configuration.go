@@ -8,7 +8,7 @@ import (
 	"fmt"
 	goslices "slices"
 
-	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"

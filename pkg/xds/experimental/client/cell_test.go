@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	core_v1 "k8s.io/api/core/v1"
 )
 

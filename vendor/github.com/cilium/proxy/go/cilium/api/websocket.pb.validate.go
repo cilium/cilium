@@ -152,7 +152,7 @@ type WebSocketClientMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m WebSocketClientMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -324,7 +324,7 @@ type WebSocketServerMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m WebSocketServerMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

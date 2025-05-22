@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	corepb "github.com/cilium/proxy/go/envoy/config/core/v3"
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 )
 
 // requestConstraint is a constraint for request messages in xDS protocol.
