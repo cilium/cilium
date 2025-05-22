@@ -128,8 +128,8 @@ var (
 	}
 )
 
-// getBPFCPU returns the BPF CPU for this host.
-func getBPFCPU(logger *slog.Logger) string {
+// GetBPFCPU returns the BPF CPU for this host.
+func GetBPFCPU(logger *slog.Logger) string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
 			if probes.HaveV3ISA(logger) == nil {
@@ -173,7 +173,7 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 	}
 
 	compileArgs = append(compileArgs, StandardCFlags...)
-	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU(logger))
+	compileArgs = append(compileArgs, "-mcpu="+GetBPFCPU(logger))
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,
 		"-c", path.Join(dir.Library, prog.Source),

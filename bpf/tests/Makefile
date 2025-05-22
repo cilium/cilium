@@ -11,17 +11,17 @@ FLAGS := -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include -g
 
 # Base CFLAGS (CLANG_FLAGS) are read from pkg/datapath/loader/compile.go
 # to keep them synced with the loader
-CLANG_FLAGS := $(FLAGS) $(shell $(GO) run $(ROOT_DIR)/pkg/datapath/loader/tools/clang_cflags.go)
+CLANG_FLAGS_SRC  := $(ROOT_DIR)/pkg/datapath/loader/tools/clang_cflags.go
+CLANG_FLAGS_BIN  := $(ROOT_DIR)/bpf/.cache/clang_cflags
+CLANG_FLAGS_EXEC := $(CLANG_FLAGS_BIN)
+ifneq ($(shell id -u), 0)
+CLANG_FLAGS_EXEC = sudo -E $(CLANG_FLAGS_BIN)
+endif
+LOADER_FLAGS := $(shell $(GO) build -o $(CLANG_FLAGS_BIN) $(CLANG_FLAGS_SRC) && $(CLANG_FLAGS_EXEC))
+CLANG_FLAGS := $(FLAGS) $(LOADER_FLAGS)
 
 # Create dependency files for each .o file.
 CLANG_FLAGS += -MD
-
-# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifneq ($(KERNEL),54)
-CLANG_FLAGS += -mcpu=v3
-else
-CLANG_FLAGS += -mcpu=v2
-endif
 
 .PHONY: all clean run
 

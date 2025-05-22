@@ -5,11 +5,14 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/loader"
 )
 
 func main() {
-	fmt.Println(strings.Join(loader.StandardCFlags, " "))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fmt.Println(strings.Join(loader.StandardCFlags, " ") + " -mcpu=" + loader.GetBPFCPU(logger))
 }
