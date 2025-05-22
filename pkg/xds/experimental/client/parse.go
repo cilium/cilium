@@ -6,10 +6,10 @@ package xdsclient
 import (
 	"fmt"
 
-	clusterpb "github.com/cilium/proxy/go/envoy/config/cluster/v3"
-	endpointpb "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
-	listenerpb "github.com/cilium/proxy/go/envoy/config/listener/v3"
-	routepb "github.com/cilium/proxy/go/envoy/config/route/v3"
+	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
