@@ -59,6 +59,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  test_concurrency: 3
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.207.0
@@ -234,7 +235,7 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --test-concurrency=3 \
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --collect-sysdump-on-failure --external-target amazon.com."
@@ -350,6 +351,7 @@ jobs:
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --test-concurrency=${{ env.test_concurrency }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
@@ -379,6 +381,7 @@ jobs:
         with:
           job-name: ${{ env.job_name }}-${{ matrix.version }}-post-rotate
           full-test: 'true'
+          test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
