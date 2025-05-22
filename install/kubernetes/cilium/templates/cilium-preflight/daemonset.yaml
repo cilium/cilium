@@ -186,7 +186,7 @@ spec:
         {{- end }}
         {{- if $envoyDS }}
         - name: cilium-pre-flight-envoy
-          image: {{ include "cilium.image" .Values.envoy.image | quote }}
+          image: {{ include "cilium.image" .Values.preflight.envoy.image | quote }}
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
