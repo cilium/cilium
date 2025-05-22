@@ -29,7 +29,7 @@ type ops struct {
 	procFs string
 }
 
-func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysctl) error {
+func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, s *tables.Sysctl) error {
 	log := ops.log.With(
 		logfields.SysParamName, strings.Join(s.Name, "."),
 		logfields.SysParamValue, s.Val,
@@ -68,7 +68,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysct
 	return nil
 }
 
-func (ops *ops) Delete(context.Context, statedb.ReadTxn, *tables.Sysctl) error {
+func (ops *ops) Delete(context.Context, statedb.ReadTxn, statedb.Revision, *tables.Sysctl) error {
 	// sysctl settings will never be deleted, just ignored
 	return nil
 }
