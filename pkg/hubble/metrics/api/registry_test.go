@@ -144,8 +144,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(context.TODO(), flow1, *handlers)
-		ExecuteAllProcessFlow(context.TODO(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
@@ -187,8 +187,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(context.TODO(), flow1, *handlers)
-		ExecuteAllProcessFlow(context.TODO(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 1)
@@ -226,8 +226,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(context.TODO(), flow1, *handlers)
-		ExecuteAllProcessFlow(context.TODO(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
@@ -265,8 +265,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(context.TODO(), flow1, *handlers)
-		ExecuteAllProcessFlow(context.TODO(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 2)

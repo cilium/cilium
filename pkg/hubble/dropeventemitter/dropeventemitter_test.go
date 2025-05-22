@@ -4,7 +4,6 @@
 package dropeventemitter
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -183,7 +182,7 @@ func TestProcessFlow(t *testing.T) {
 				recorder:   fakeRecorder,
 				k8sWatcher: &fakeK8SWatcher{},
 			}
-			if err := e.ProcessFlow(context.Background(), tt.flow); err != nil {
+			if err := e.ProcessFlow(t.Context(), tt.flow); err != nil {
 				t.Errorf("DropEventEmitter.ProcessFlow() error = %v", err)
 			}
 			if tt.expect == "" {

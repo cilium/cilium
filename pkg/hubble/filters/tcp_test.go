@@ -4,7 +4,6 @@
 package filters
 
 import (
-	"context"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -112,7 +111,7 @@ func TestFlowTCPFilter(t *testing.T) {
 		argsevent = &v1.Event{Event: &flowpb.Flow{
 			L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{Flags: tt.argsev}}}}}
 		t.Run(tt.name, func(t *testing.T) {
-			fl, err := BuildFilterList(context.Background(), argsfilter, []OnBuildFilter{&TCPFilter{}})
+			fl, err := BuildFilterList(t.Context(), argsfilter, []OnBuildFilter{&TCPFilter{}})
 			if err != nil {
 				t.Errorf("unexpected filter build error: %s", err)
 			} else if got := fl.MatchOne(argsevent); got != tt.want {
