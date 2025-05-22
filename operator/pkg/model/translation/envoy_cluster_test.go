@@ -6,7 +6,7 @@ package translation
 import (
 	"testing"
 
-	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
