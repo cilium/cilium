@@ -1398,12 +1398,13 @@ kernel). If the socket-LB is not used (i.e. the loadbalancing is done
 at the pod network interface, on a per-packet basis), then the request's source
 IP address is used as the source.
 
-The session affinity support is enabled by default for Cilium's kube-proxy
-replacement. For users who run on older kernels which do not support the network
+The session affinity support is enabled by default. To disable the feature,
+set ``config.sessionAffinity=false``.
+
+For users who run on older kernels which do not support the network
 namespace cookies, a fallback in-cluster mode is implemented, which is based on
 a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
-To disable the feature, set ``config.sessionAffinity=false``.
 
 When the fixed cookie value is not used, the session affinity of a service with
 multiple ports is per service IP and port. Meaning that all requests for a
@@ -1417,13 +1418,6 @@ consistent hashing to select backends, then Maglev will not take the source
 port as input for its hashing in order to respect the user's ClientIP choice
 (see also `GH#26709 <https://github.com/cilium/cilium/issues/26709>`__ for
 further details).
-
-For users who run with kube-proxy (i.e. with Cilium's kube-proxy replacement
-disabled), the ClusterIP service loadbalancing when a request is sent from a pod
-running in a non-host network namespace is still performed at the pod network
-interface (until `GH#16197 <https://github.com/cilium/cilium/issues/16197>`__ is
-fixed).  For this case the session affinity support is disabled by default. To
-enable the feature, set ``config.sessionAffinity=true``.
 
 kube-proxy Replacement Health Check server
 ******************************************
