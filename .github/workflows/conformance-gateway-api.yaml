@@ -230,7 +230,7 @@ jobs:
         run: |
           cilium_install_defaults="${{ steps.vars.outputs.cilium_install_defaults }}"
           if [ "${{ matrix.encryption }}" == "ipsec" ]; then
-            cilium encrypt create-key --auth-algo gcm-aes
+            cilium encrypt create-key --auth-algo rfc4106-gcm-aes
             cilium_install_defaults+=" --helm-set=encryption.enabled=true \
               --helm-set=encryption.type=ipsec"
           fi
