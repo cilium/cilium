@@ -1,8 +1,19 @@
-KINDNETWORK=$1
-IP4TARGET=$2
-IP4OTHERTARGET=$3
-IP6TARGET=$4
-IP6OTHERTARGET=$5
+#!/usr/bin/env bash
+
+LVH="$1"
+KINDNETWORK="$2"
+IP4TARGET="$3"
+IP4OTHERTARGET="$4"
+IP6TARGET="$5"
+IP6OTHERTARGET="$6"
+
+lvh_wrapper() {
+	if [ "$LVH" = "true" ]; then
+		ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "${@@Q}"
+	else
+		"$@"
+	fi
+}
 
 TARGETNAME=fake.external.service.cilium
 OTHERTARGETNAME=fake.external.service.other.cilium
@@ -102,7 +113,7 @@ http {
 EOF
 
 # Start our first external target
-CONTAINERID=$(docker run -d --name webserver --network $KINDNETWORK \
+CONTAINERID=$(lvh_wrapper docker run -d --name webserver --network $KINDNETWORK \
     --ip $IP4TARGET --ip6 $IP6TARGET \
     -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
     -v $(pwd)/external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
@@ -110,7 +121,7 @@ CONTAINERID=$(docker run -d --name webserver --network $KINDNETWORK \
     nginx)
 
 # Start the second external target
-CONTAINERID=$(docker run -d --name other-webserver --network $KINDNETWORK \
+CONTAINERID=$(lvh_wrapper docker run -d --name other-webserver --network $KINDNETWORK \
     --ip $IP4OTHERTARGET --ip6 $IP6OTHERTARGET \
     -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
     -v $(pwd)/external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
