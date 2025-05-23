@@ -46,6 +46,7 @@ jobs:
           filters: |
             src:
               - '!(test|Documentation)/**'
+              - '!**/*.md'
 
   preflight-clusterrole:
     runs-on: ubuntu-24.04
