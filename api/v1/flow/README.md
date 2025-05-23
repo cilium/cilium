@@ -375,6 +375,8 @@ multiple fields are set, then all fields must match for the filter to match.
 | tcp_flags | [TCPFlags](#flow-TCPFlags) | repeated | tcp_flags filters flows based on TCP header flags |
 | node_name | [string](#string) | repeated | node_name is a list of patterns to filter on the node name, e.g. &#34;k8s*&#34;, &#34;test-cluster/*.domain.com&#34;, &#34;cluster-name/&#34; etc. |
 | node_labels | [string](#string) | repeated | node_labels filters on a list of node label selectors. Selectors support the full Kubernetes label selector syntax. |
+| source_node_labels | [string](#string) | repeated | source_node_labels filters flows originating from nodes matching label selectors. Selectors support the full Kubernetes label selector syntax. |
+| destination_node_labels | [string](#string) | repeated | destination_node_labels filters flows destined to nodes matching label selectors. Selectors support the full Kubernetes label selector syntax. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
 | trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
 | experimental | [FlowFilter.Experimental](#flow-FlowFilter-Experimental) |  | experimental contains filters that are not stable yet. Support for experimental features is always optional and subject to change. |
