@@ -4,7 +4,6 @@
 package egressmap
 
 import (
-	"fmt"
 	"net/netip"
 	"testing"
 
@@ -68,7 +67,6 @@ func TestPolicyMap(t *testing.T) {
 	})
 
 	t.Run("IPv6 policies", func(t *testing.T) {
-		fmt.Print("HELLO")
 		egressPolicyMap := createPolicyMap6(hivetest.Lifecycle(t), nil, DefaultPolicyConfig, ebpf.PinNone)
 
 		sourceIP1 := netip.MustParseAddr("2001:db8:1::1")
