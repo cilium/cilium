@@ -36,7 +36,8 @@ int cil_from_network(struct __ctx_buff *ctx)
 	 * from the stack by xfrm. In that case, the packets should
 	 * be marked with MARK_MAGIC_DECRYPT.
 	 */
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+	if (is_defined(ENABLE_IPSEC) &&
+	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 		obs_point_from = TRACE_FROM_STACK;
 
 #ifdef ENABLE_IPSEC

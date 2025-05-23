@@ -3,10 +3,10 @@
 
 #define NODE_ID 2333
 #define ENCRYPT_KEY 3
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_IPSEC
-#define TUNNEL_MODE
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
+#define ENABLE_IPSEC 1
+#define TUNNEL_MODE 1
 #define ENCAP_IFINDEX 4
 #define DEST_IFINDEX 5
 #define DEST_LXC_ID 200
