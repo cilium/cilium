@@ -28,3 +28,4 @@
     name: mesh-ports
     namespace: gateway-conformance-mesh
     version: v1
+  gamma: true

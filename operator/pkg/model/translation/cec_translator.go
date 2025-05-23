@@ -90,9 +90,7 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
-			Labels: map[string]string{
-				k8s.UseOriginalSourceAddressLabel: "false",
-			},
+			Labels:    i.desiredLabels(model),
 		},
 	}
 
@@ -225,6 +223,18 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP),
 		tlsPassthroughBackendsToHostnames(m.TLSPassthrough), i.ipv4Enabled, i.ipv6Enabled, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
+}
+
+func (i *cecTranslator) desiredLabels(m *model.Model) map[string]string {
+	labels := map[string]string{}
+	for _, l := range m.HTTP {
+		if l.Gamma {
+			labels[k8s.UseOriginalSourceAddressLabel] = "true"
+			return labels
+		}
+	}
+	labels[k8s.UseOriginalSourceAddressLabel] = "false"
+	return labels
 }
 
 // getRouteConfiguration returns the route configuration for the given model.
