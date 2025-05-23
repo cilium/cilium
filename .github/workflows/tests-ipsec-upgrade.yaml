@@ -331,7 +331,7 @@ jobs:
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
-          cilium encrypt create-key --auth-algo gcm-aes
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
           mkdir -p cilium-junits
 

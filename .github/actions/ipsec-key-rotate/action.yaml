@@ -3,7 +3,7 @@ description: Rotates IPsec keys
 inputs:
   key-algo:
     required: true
-    description: "gcm-aes or hmac-sha256"
+    description: "rfc4106-gcm-aes or cbc-aes-sha256"
 runs:
   using: composite
   steps:

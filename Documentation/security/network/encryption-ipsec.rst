@@ -65,7 +65,7 @@ following command:
 
        .. parsed-literal::
 
-          $ cilium encrypt create-key --auth-algo gcm-aes
+          $ cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
     .. group-tab:: Kubectl CLI
 

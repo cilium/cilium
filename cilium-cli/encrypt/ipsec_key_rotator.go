@@ -4,10 +4,10 @@
 package encrypt
 
 var rotators = map[string]func(key ipsecKey) (ipsecKey, error){
-	"":            func(key ipsecKey) (ipsecKey, error) { return key.rotate() },
-	"gcm-aes":     newGcmAesKey,
-	"hmac-sha256": newHmacSHA256Key,
-	"hmac-sha512": newHmacSHA512Key,
+	"":                func(key ipsecKey) (ipsecKey, error) { return key.rotate() },
+	"rfc4106-gcm-aes": newGcmAesKey,
+	"cbc-aes-sha256":  newHmacSHA256Key,
+	"cbc-aes-sha512":  newHmacSHA512Key,
 }
 
 func IsIPsecAlgoSupported(algo string) bool {
