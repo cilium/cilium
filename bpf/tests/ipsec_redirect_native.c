@@ -8,36 +8,28 @@
 #include "tests/lib/ipcache.h"
 #include "tests/lib/node.h"
 
-PKTGEN("tc", "ipsec_redirect")
-int ipsec_redirect_pktgen(struct __ctx_buff *ctx)
+static __always_inline
+void set_dst_identity(bool is_ipv4, __u32 identity)
 {
-	struct pktgen builder;
-	struct iphdr *l3;
-
-	pktgen__init(&builder, ctx);
-
-	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)SOURCE_MAC, (__u8 *)DST_MAC,
-				      SOURCE_IP, DST_IP);
-	if (!l3)
-		return TEST_ERROR;
-
-	pktgen__finish(&builder);
-	return 0;
+	if (is_ipv4)
+		ipcache_v4_add_entry(DST_IP, 0, identity, DST_NODE_IP, TARGET_SPI);
+	else
+		ipcache_v6_add_entry((const union v6addr *)DST_IP_6, 0,
+				     identity, DST_NODE_IP, TARGET_SPI);
 }
 
-CHECK("tc", "ipsec_redirect")
-int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
+static __always_inline
+int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
 {
 	test_init();
 
 	int ret = 0;
+	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
 
-	/* for some reason filling maps in a SETUP() function does not work for
-	 * this test...
-	 */
-
-	/* fill in nodemap entry */
-	node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
+	if (is_ipv4)
+		node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
+	else
+		node_v6_add_entry((const union v6addr *)DST_NODE_IP_6, DST_NODE_ID, TARGET_SPI);
 
 	/* fill encrypt map with node's current SPI 3 */
 	struct encrypt_config cfg = {
@@ -45,11 +37,14 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	};
 	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
 
-	ipcache_v4_add_entry(SOURCE_IP, 0, SOURCE_IDENTITY, 0, BAD_SPI);
-	ipcache_v4_add_entry(DST_IP, 0, 0xAC, DST_NODE_IP, TARGET_SPI);
+	/*
+	 * Set destination identity for DST_IP / DST_IP_6.
+	 * There is no need to set also for the source, as it is passed as
+	 * parameter to `ipsec_maybe_redirect_to_encrypt`.
+	 */
+	set_dst_identity(is_ipv4, DST_IDENTITY);
 
-	ret = ipsec_maybe_redirect_to_encrypt(ctx, bpf_htons(ETH_P_IP),
-					      SOURCE_IDENTITY);
+	ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
 	assert(ret == CTX_ACT_REDIRECT);
 
 	/* assert we set the correct mark */
@@ -75,4 +70,123 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	assert(rec.flags == BPF_F_INGRESS);
 
 	test_finish();
+}
+
+static __always_inline
+int bad_identities_check(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
+{
+	test_init();
+
+	int ret = 0;
+	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
+
+	/* fill encrypt map with node's current SPI 3 */
+	struct encrypt_config cfg = {
+		.encrypt_key = BAD_SPI,
+	};
+	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
+
+	/*
+	 * Ensure host-to-pod traffic is not encrypted.
+	 */
+	TEST("native-host-to-pod", {
+		set_dst_identity(is_ipv4, DST_IDENTITY);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, HOST_ID);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure world-to-pod traffic is not encrypted.
+	 */
+	TEST("native-world-to-pod", {
+		set_dst_identity(is_ipv4, DST_IDENTITY);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, WORLD_ID);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure remote_node-to-pod traffic is not encrypted.
+	 */
+	TEST("native-remote_node-to-pod", {
+		set_dst_identity(is_ipv4, DST_IDENTITY);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, REMOTE_NODE_ID);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure pod-to-host traffic is not encrypted.
+	 */
+	TEST("native-pod-to-host", {
+		set_dst_identity(is_ipv4, HOST_ID);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure pod-to-world traffic is not encrypted.
+	 */
+	TEST("native-pod-to-world", {
+		set_dst_identity(is_ipv4, WORLD_ID);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	/*
+	 * Ensure pod-to-remote_node traffic is not encrypted.
+	 */
+	TEST("native-pod-to-remote_node", {
+		set_dst_identity(is_ipv4, REMOTE_NODE_ID);
+		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_OK);
+	})
+
+	test_finish();
+}
+
+PKTGEN("tc", "ipsec_redirect")
+int ipsec_redirect_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, true);
+}
+
+CHECK("tc", "ipsec_redirect")
+int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return ipsec_redirect_checks(ctx, true);
+}
+
+PKTGEN("tc", "ipsec_redirect6")
+int ipsec_redirect6_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, false);
+}
+
+CHECK("tc", "ipsec_redirect6")
+int ipsec_redirect6_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return ipsec_redirect_checks(ctx, false);
+}
+
+PKTGEN("tc", "ipsec_redirect_bad_identities")
+int ipsec_redirect_bad_identities_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, true);
+}
+
+CHECK("tc", "ipsec_redirect_bad_identities")
+int ipsec_redirect_bad_identities_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return bad_identities_check(ctx, true);
+}
+
+PKTGEN("tc", "ipsec_redirect_bad_identities6")
+int ipsec_redirect_bad_identities6_pktgen(struct __ctx_buff *ctx)
+{
+	return generate_native_packet(ctx, false);
+}
+
+CHECK("tc", "ipsec_redirect_bad_identities6")
+int ipsec_redirect_bad_identities6_check(__maybe_unused struct __ctx_buff *ctx)
+{
+	return bad_identities_check(ctx, false);
 }
