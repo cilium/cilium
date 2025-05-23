@@ -93,6 +93,11 @@ jobs:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
+      - name: Executables check
+        run: |
+          cd src/github.com/cilium/cilium
+          HELP="check permissions of files and allowlist them in contrib/executable_list.txt if you are adding a new executable"
+          make check-permissions || (echo $HELP; exit 1)
       - name: Go code prechecks
         run: |
           cd src/github.com/cilium/cilium
