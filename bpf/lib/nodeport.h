@@ -873,8 +873,8 @@ drop_err:
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
 static __always_inline int
-nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
-		       struct trace_ctx *trace, __s8 *ext_err)
+nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+		       __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -928,8 +928,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 			return ret;
 
 		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
-				  &tuple, ipfrag_has_l4_header(fraginfo),
-				  dir);
+				  &tuple, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1013,7 +1012,7 @@ fib_redirect:
 }
 
 static __always_inline
-int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir)
+int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -1022,7 +1021,7 @@ int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir)
 	__s8 ext_err = 0;
 	int ret = 0;
 
-	ret = nodeport_rev_dnat_ipv6(ctx, dir, &trace, &ext_err);
+	ret = nodeport_rev_dnat_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
 
@@ -1051,21 +1050,21 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS)
 static __always_inline
 int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 {
-	return __nodeport_rev_dnat_ipv6(ctx, CT_INGRESS);
+	return __nodeport_rev_dnat_ipv6(ctx);
 }
 
 static __always_inline
 int nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx,
 				   struct trace_ctx *trace, __s8 *ext_err)
 {
-	return nodeport_rev_dnat_ipv6(ctx, CT_INGRESS, trace, ext_err);
+	return nodeport_rev_dnat_ipv6(ctx, trace, ext_err);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS)
 static __always_inline
 int tail_nodeport_rev_dnat_egress_ipv6(struct __ctx_buff *ctx)
 {
-	return __nodeport_rev_dnat_ipv6(ctx, CT_EGRESS);
+	return __nodeport_rev_dnat_ipv6(ctx);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
