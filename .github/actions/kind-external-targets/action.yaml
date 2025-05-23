@@ -18,6 +18,10 @@ inputs:
   ipv6_other_external_target:
     description: "IPv6 address of the second external target"
     required: true
+  lvh:
+    required: false
+    description: "Whether to SSH into LVH"
+    default: 'false'
 outputs:
   external_target_name:
     description: "Domain name of the first external target"
@@ -32,6 +36,7 @@ runs:
       shell: bash
       run: |
         bash ./.github/actions/kind-external-targets/action.sh \
+          ${{ inputs.lvh }} \
           ${{ inputs.kind_network }} \
           ${{ inputs.ipv4_external_target }} \
           ${{ inputs.ipv4_other_external_target }} \

@@ -1,3 +1,15 @@
+#!/usr/bin/env bash
+
+LVH="$1"
+
+lvh_wrapper() {
+	if [ "$LVH" = "true" ]; then
+		ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "cd /host; ${@@Q}"
+	else
+		"$@"
+	fi
+}
+
 IP4RANGE="172.20.0.0/16"
 IP6RANGE="fd00:10:64::/64"
 
@@ -24,8 +36,8 @@ echo "ipv6_other_external_target=$IP6OTHERTARGET" >> $GITHUB_OUTPUT
 # Except we explicitly request subnets which will allow us to allocate specific
 # IPs for containers later on. (docker does not allow this for non-manually created networks)
 KINDNETWORK="external"
-MTU=$(docker network inspect bridge -f '{{ index .Options "com.docker.network.driver.mtu" }}')
-docker network create \
+MTU=$(lvh_wrapper docker network inspect bridge -f '{{ index .Options "com.docker.network.driver.mtu" }}')
+lvh_wrapper docker network create \
     --ipv6 \
     --driver bridge \
     -o com.docker.network.bridge.enable_ip_masquerade=true \
