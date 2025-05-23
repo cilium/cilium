@@ -166,26 +166,34 @@ func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 			MatchExpressions: make([]slim_metav1.LabelSelectorRequirement, 0, 1+len(r.ExceptCIDRs)),
 		}
 
+		// If we see the zero-prefix label, then
+		// we need to "duplicate" the generated selector, selecting also
+		// the `reserved:world` label.
+		var addWorldLabel labels.Label
+
 		// add the "main" label:
 		// either a CIDR, CIDRGroupRef, or CIDRGroupSelector
 		if r.Cidr != "" {
-			var lbl labels.Label
-			switch r.Cidr {
-			case ipv4All:
-				if option.Config.IsDualStack() {
-					lbl = worldLabelV4
-				} else {
-					lbl = worldLabelNonDualStack
+			// Check to see if this is a zero-length prefix.
+			// If so, determine the extra label to add
+			if strings.HasSuffix(string(r.Cidr), "/0") {
+				switch {
+				case !option.Config.IsDualStack():
+					addWorldLabel = worldLabelNonDualStack
+				case strings.Contains(string(r.Cidr), ":"):
+					addWorldLabel = worldLabelV6
+				default:
+					addWorldLabel = worldLabelV4
 				}
-			case ipv6All:
-				if option.Config.IsDualStack() {
-					lbl = worldLabelV6
-				} else {
-					lbl = worldLabelNonDualStack
-				}
-			default:
-				lbl, _ = labels.IPStringToLabel(string(r.Cidr))
+
 			}
+
+			lbl, err := labels.IPStringToLabel(string(r.Cidr))
+			if err != nil {
+				// should not happen, IP already parsed.
+				continue
+			}
+
 			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
 				Key:      lbl.GetExtendedKey(),
 				Operator: slim_metav1.LabelSelectorOpExists,
@@ -214,6 +222,17 @@ func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		}
 
 		ces = append(ces, NewESFromK8sLabelSelector("", &ls))
+
+		// Duplicate ls with world label
+		if addWorldLabel.Key != "" {
+			worldLS := ls.DeepCopy()
+			worldLS.MatchExpressions[0] = slim_metav1.LabelSelectorRequirement{
+				Key:      addWorldLabel.GetExtendedKey(),
+				Operator: slim_metav1.LabelSelectorOpExists,
+			}
+
+			ces = append(ces, NewESFromK8sLabelSelector("", worldLS))
+		}
 	}
 
 	return ces

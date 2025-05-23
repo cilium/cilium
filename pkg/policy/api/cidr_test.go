@@ -15,6 +15,13 @@ import (
 )
 
 func TestGetAsEndpointSelectors(t *testing.T) {
+	oldv4 := option.Config.EnableIPv4
+	oldv6 := option.Config.EnableIPv6
+	t.Cleanup(func() {
+		option.Config.EnableIPv4 = oldv4
+		option.Config.EnableIPv6 = oldv6
+	})
+
 	world := labels.ParseLabelArray("reserved:world")
 
 	labelWorld := labels.ParseSelectLabel("reserved:world")
@@ -150,8 +157,115 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 		require.Equal(t, test.matchesWorld, result.Matches(world))
 		require.EqualValues(t, test.expectedSelectors, result)
 	}
-	option.Config.EnableIPv4 = true
-	option.Config.EnableIPv6 = true
+}
+
+func TestCIDRRuleGetAsEndpointSelectors(t *testing.T) {
+
+	oldv4 := option.Config.EnableIPv4
+	oldv6 := option.Config.EnableIPv6
+	t.Cleanup(func() {
+		option.Config.EnableIPv4 = oldv4
+		option.Config.EnableIPv6 = oldv6
+	})
+
+	selectors := func(needKeys ...string) EndpointSelectorSlice {
+		out := EndpointSelectorSlice{}
+		for _, k := range needKeys {
+			sel := NewESFromLabels()
+			sel.AddMatchExpression(k, "Exists", nil)
+			sel.LabelSelector.MatchLabels = nil
+			out = append(out, sel)
+		}
+		return out
+	}
+
+	tt := []struct {
+		name                   string
+		rule                   CIDRRule
+		expected               EndpointSelectorSlice
+		enableIPv4, enableIPv6 bool
+	}{
+		{
+			name:       "basic cidr",
+			rule:       CIDRRule{Cidr: "1.2.3.4/32"},
+			expected:   selectors("cidr.1.2.3.4/32"),
+			enableIPv4: true, enableIPv6: true,
+		},
+		{
+			name: "except",
+			rule: CIDRRule{Cidr: "1.0.0.0/8", ExceptCIDRs: []CIDR{"1.2.3.4/32"}},
+			expected: EndpointSelectorSlice{NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{
+				{Key: "cidr.1.0.0.0/8", Operator: "Exists"},
+				{Key: "cidr.1.2.3.4/32", Operator: "DoesNotExist"},
+			})},
+			enableIPv4: true, enableIPv6: true,
+		},
+
+		{
+			name:       "cidr group",
+			rule:       CIDRRule{CIDRGroupRef: "foo"},
+			expected:   selectors("cidrgroup.io.cilium.policy.cidrgroupname/foo"),
+			enableIPv4: true, enableIPv6: true,
+		},
+		{
+			name: "cidr group ls",
+			rule: CIDRRule{CIDRGroupSelector: &v1.LabelSelector{
+				MatchLabels: map[string]v1.MatchLabelsValue{"foo": "bar"},
+			}},
+			expected:   EndpointSelectorSlice{NewESFromLabels(labels.NewLabel("foo", "bar", "cidrgroup"))},
+			enableIPv4: true, enableIPv6: true,
+		},
+
+		{
+			name:       "world v4 ss",
+			rule:       CIDRRule{Cidr: "0.0.0.0/0"},
+			expected:   selectors("cidr.0.0.0.0/0", "reserved.world"),
+			enableIPv4: true, enableIPv6: false,
+		},
+		{
+			name:       "world v4 ds",
+			rule:       CIDRRule{Cidr: "0.0.0.0/0"},
+			expected:   selectors("cidr.0.0.0.0/0", "reserved.world-ipv4"),
+			enableIPv4: true, enableIPv6: true,
+		},
+		{
+			name:       "world v6 ss",
+			rule:       CIDRRule{Cidr: "::/0"},
+			expected:   selectors("cidr.0--0/0", "reserved.world"),
+			enableIPv4: false, enableIPv6: true,
+		},
+		{
+			name:       "world v6 ds",
+			rule:       CIDRRule{Cidr: "::/0"},
+			expected:   selectors("cidr.0--0/0", "reserved.world-ipv6"),
+			enableIPv4: true, enableIPv6: true,
+		},
+
+		{
+			name: "world v4 ds except",
+			rule: CIDRRule{Cidr: "0.0.0.0/0", ExceptCIDRs: []CIDR{"1.2.3.4/32"}},
+			expected: EndpointSelectorSlice{
+				NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{
+					{Key: "cidr.0.0.0.0/0", Operator: "Exists"},
+					{Key: "cidr.1.2.3.4/32", Operator: "DoesNotExist"},
+				}),
+				NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{
+					{Key: "reserved.world-ipv4", Operator: "Exists"},
+					{Key: "cidr.1.2.3.4/32", Operator: "DoesNotExist"},
+				}),
+			},
+			enableIPv4: true, enableIPv6: true,
+		},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			option.Config.EnableIPv6 = test.enableIPv6
+			option.Config.EnableIPv4 = test.enableIPv4
+			result := (CIDRRuleSlice{test.rule}).GetAsEndpointSelectors()
+			require.Equal(t, test.expected, result)
+		})
+	}
 }
 
 const CIDRRegex = `^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$`
