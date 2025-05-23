@@ -74,7 +74,7 @@ func (ops *ops) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []re
 var _ reconciler.Operations[*tables.IPSetEntry] = &ops{}
 var _ reconciler.BatchOperations[*tables.IPSetEntry] = &ops{}
 
-func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
+func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, entry *tables.IPSetEntry) error {
 	if !ops.enabled {
 		return nil
 	}
@@ -83,7 +83,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPS
 	return ops.ipset.addBatch(ctx, addrsByName)
 }
 
-func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
+func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, entry *tables.IPSetEntry) error {
 	if !ops.enabled {
 		return nil
 	}

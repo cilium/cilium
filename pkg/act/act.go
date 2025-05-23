@@ -142,7 +142,6 @@ func NewACT(in struct {
 	in.Jobs.Add(job.OneShot("act-metrics-init",
 		func(ctx context.Context, health cell.Health) error { return a.update(ctx) },
 	))
-	in.Lifecycle.Append(in.Jobs)
 	in.Lifecycle.Append(cell.Hook{
 		OnStop: func(_ cell.HookContext) error {
 			return a.saveFailed()

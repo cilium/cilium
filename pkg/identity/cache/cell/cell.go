@@ -139,10 +139,9 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	})
 
 	iao.updatePolicyMaps = job.NewTrigger()
-	jg := params.Registry.NewGroup(params.Health, job.WithMetrics(params.Metrics), job.WithLogger(params.Log))
+	jg := params.Registry.NewGroup(params.Health, params.Lifecycle, job.WithMetrics(params.Metrics), job.WithLogger(params.Log))
 	jg.Add(job.Timer("id-alloc-update-policy-maps", iao.doUpdatePolicyMaps,
 		/* no interval, only on trigger */ 0, job.WithTrigger(iao.updatePolicyMaps)))
-	params.Lifecycle.Append(jg)
 
 	return identityAllocatorOut{
 		IdentityAllocator:      idAlloc,

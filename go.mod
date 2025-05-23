@@ -23,11 +23,11 @@ require (
 	github.com/cilium/ebpf v0.17.1
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
-	github.com/cilium/hive v0.0.0-20250121145729-e67f66eb0375
+	github.com/cilium/hive v0.0.0-20250522145610-0734675df148
 	github.com/cilium/linters v0.1.0
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250408103314-d3be7c547203
-	github.com/cilium/statedb v0.3.6
+	github.com/cilium/statedb v0.4.0
 	github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744
 	github.com/cilium/workerpool v1.2.0
 	github.com/containernetworking/cni v1.2.3

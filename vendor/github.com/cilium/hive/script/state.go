@@ -40,6 +40,9 @@ type State struct {
 	Flags       *pflag.FlagSet
 	DoUpdate    bool
 	FileUpdates map[string]string
+	RetryCount  int
+
+	BreakOnError bool
 
 	background []backgroundCmd
 }
@@ -198,9 +201,16 @@ func (s *State) LogWriter() io.Writer {
 	return &s.log
 }
 
+type flusher interface {
+	Flush() error
+}
+
 // FlushLog writes out the contents of the script's log and clears the buffer.
 func (s *State) FlushLog() error {
 	_, err := s.logOut.Write(s.log.Bytes())
+	if flusher, ok := s.logOut.(flusher); ok {
+		flusher.Flush()
+	}
 	s.log.Reset()
 	return err
 }
