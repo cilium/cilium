@@ -97,13 +97,12 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
+	StandardCFlags = []string{"-O2", "--target=bpf", "-std=gnu99",
 		"-nostdinc",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
 		"-Wno-gnu-variable-sized-type-not-at-end",
-		"-Wdeclaration-after-statement",
 		"-Wimplicit-int-conversion",
 		"-Wenum-conversion",
 		"-Wimplicit-fallthrough"}
@@ -129,8 +128,8 @@ var (
 	}
 )
 
-// getBPFCPU returns the BPF CPU for this host.
-func getBPFCPU(logger *slog.Logger) string {
+// GetBPFCPU returns the BPF CPU for this host.
+func GetBPFCPU(logger *slog.Logger) string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
 			if probes.HaveV3ISA(logger) == nil {
@@ -173,8 +172,8 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		compileArgs = append(compileArgs, "-g")
 	}
 
-	compileArgs = append(compileArgs, standardCFlags...)
-	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU(logger))
+	compileArgs = append(compileArgs, StandardCFlags...)
+	compileArgs = append(compileArgs, "-mcpu="+GetBPFCPU(logger))
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,
 		"-c", path.Join(dir.Library, prog.Source),
