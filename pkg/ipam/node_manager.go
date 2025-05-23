@@ -83,7 +83,11 @@ type NodeOperations interface {
 	// PrepareIPRelease is called to calculate whether any IP excess needs
 	// to be resolved. It behaves identical to PrepareIPAllocation but
 	// indicates a need to release IPs.
-	PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ReleaseAction
+	PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *slog.Logger) *ReleaseAction
+
+	// ReleaseIPPrefixes is called after invoking PrepareIPRelease and needs to
+	// perform the release of IPPrefixes.
+	ReleaseIPPrefixes(ctx context.Context, release *ReleaseAction) error
 
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
@@ -103,6 +107,9 @@ type NodeOperations interface {
 	// GetUsedIPWithPrefixes returns the total number of used IPs including all IPs in a prefix if at-least one of
 	// the prefix IPs is in use.
 	GetUsedIPWithPrefixes() int
+
+	// CalculateExcessIPPrefixes returns the total number of unused IPPrefixes
+	CalculateExcessIPPrefixes() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.
