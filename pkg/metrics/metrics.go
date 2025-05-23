@@ -223,19 +223,6 @@ const (
 	// LabelTargetCluster is the label for target cluster name
 	LabelTargetCluster = "target_cluster"
 
-	// LabelTargetNodeIP is the label for target node IP
-	LabelTargetNodeIP = "target_node_ip"
-
-	// LabelTargetNodeName is the label for target node name
-	LabelTargetNodeName = "target_node_name"
-
-	// LabelTargetNodeType is the label for target node type (local_node, remote_intra_cluster, vs remote_inter_cluster)
-	LabelTargetNodeType = "target_node_type"
-
-	LabelLocationLocalNode          = "local_node"
-	LabelLocationRemoteIntraCluster = "remote_intra_cluster"
-	LabelLocationRemoteInterCluster = "remote_inter_cluster"
-
 	// Rule label is a label for a L7 rule name.
 	LabelL7Rule = "rule"
 
@@ -281,14 +268,6 @@ var (
 	APIInteractions = NoOpObserverVec
 
 	// Status
-
-	// NodeConnectivityStatus is the connectivity status between local node to
-	// other node intra or inter cluster.
-	NodeConnectivityStatus = NoOpGaugeDeletableVec
-
-	// NodeConnectivityLatency is the connectivity latency between local node to
-	// other node intra or inter cluster.
-	NodeConnectivityLatency = NoOpGaugeDeletableVec
 
 	// NodeHealthConnectivityStatus is the number of connections with connectivity status
 	// between local node to other node intra or inter cluster.
@@ -660,8 +639,6 @@ var (
 type LegacyMetrics struct {
 	BootstrapTimes                   metric.Vec[metric.Gauge]
 	APIInteractions                  metric.Vec[metric.Observer]
-	NodeConnectivityStatus           metric.DeletableVec[metric.Gauge]
-	NodeConnectivityLatency          metric.DeletableVec[metric.Gauge]
 	NodeHealthConnectivityStatus     metric.Vec[metric.Gauge]
 	NodeHealthConnectivityLatency    metric.Vec[metric.Observer]
 	Endpoint                         metric.GaugeFunc
@@ -1310,37 +1287,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Buckets:    []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
 		}, []string{}),
 
-		NodeConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_node_connectivity_status",
-			Namespace:  Namespace,
-			Name:       "node_connectivity_status",
-			Help:       "The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
-		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
-			LabelTargetCluster,
-			LabelTargetNodeName,
-			LabelTargetNodeType,
-			LabelType,
-		}),
-
-		NodeConnectivityLatency: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_node_connectivity_latency_seconds",
-			Namespace:  Namespace,
-			Name:       "node_connectivity_latency_seconds",
-			Help:       "The last observed latency between the current Cilium agent and other Cilium nodes in seconds",
-		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
-			LabelTargetCluster,
-			LabelTargetNodeName,
-			LabelTargetNodeIP,
-			LabelTargetNodeType,
-			LabelType,
-			LabelProtocol,
-			LabelAddressType,
-		}),
-
 		NodeHealthConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_node_health_connectivity_status",
 			Namespace:  Namespace,
@@ -1391,8 +1337,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 	BootstrapTimes = lm.BootstrapTimes
 	APIInteractions = lm.APIInteractions
-	NodeConnectivityStatus = lm.NodeConnectivityStatus
-	NodeConnectivityLatency = lm.NodeConnectivityLatency
 	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
 	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint

@@ -401,6 +401,11 @@ Added Metrics
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
+The following deprecated metrics were removed:
+
+* ``node_connectivity_status``
+* ``node_connectivity_latency_seconds``
+
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
