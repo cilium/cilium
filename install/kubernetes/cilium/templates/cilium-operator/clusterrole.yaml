@@ -262,6 +262,7 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
+  - ciliumvteppolicies.cilium.io
 - apiGroups:
   - cilium.io
   resources:

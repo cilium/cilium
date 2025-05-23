@@ -78,6 +78,7 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/vteppolicy"
 )
 
 var (
@@ -337,6 +338,9 @@ var (
 
 		// Cilium Debuginfo API
 		debugapi.Cell,
+
+		// VTEP Policy allows two-way communication with an external VXLAN gateway
+		vteppolicy.Cell,
 	)
 )
 
