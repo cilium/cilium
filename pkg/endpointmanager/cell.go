@@ -38,6 +38,7 @@ var Cell = cell.Module(
 	cell.Provide(newDefaultEndpointManager),
 	cell.Provide(endpoint.NewEndpointBuildQueue),
 	cell.ProvidePrivate(newEndpointSynchronizer),
+	cell.Invoke(registerNamespaceUpdater),
 )
 
 type EndpointsLookup interface {

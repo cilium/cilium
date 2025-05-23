@@ -12,8 +12,6 @@ import (
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -27,14 +25,11 @@ var Cell = cell.Module(
 type managerParams struct {
 	cell.In
 
-	Logger *slog.Logger
-
-	Lifecycle    cell.Lifecycle
+	Logger       *slog.Logger
 	DaemonConfig *option.DaemonConfig
-
-	NamespaceResource resource.Resource[*slim_core_v1.Namespace]
-	DB                *statedb.DB
-	Pods              statedb.Table[k8s.LocalPod]
+	DB           *statedb.DB
+	Pods         statedb.Table[k8s.LocalPod]
+	Namespaces   statedb.Table[k8s.Namespace]
 }
 
 func newIPAMMetadataManager(params managerParams) Manager {
@@ -43,12 +38,11 @@ func newIPAMMetadataManager(params managerParams) Manager {
 	}
 
 	manager := &manager{
-		logger:            params.Logger,
-		db:                params.DB,
-		namespaceResource: params.NamespaceResource,
-		pods:              params.Pods,
+		logger:     params.Logger,
+		db:         params.DB,
+		namespaces: params.Namespaces,
+		pods:       params.Pods,
 	}
-	params.Lifecycle.Append(manager)
 
 	return manager
 }
