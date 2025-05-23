@@ -132,6 +132,7 @@ var bpfMapsPath = []string{
 	"tc/globals/cilium_snat_v4_alloc_retries",
 	"tc/globals/cilium_snat_v6_alloc_retries",
 	"tc/globals/cilium_vtep_map",
+	"tc/globals/cilium_vtep_policy_map",
 	"tc/globals/cilium_l2_responder_v4",
 	"tc/globals/cilium_l2_responder_v6",
 	"tc/globals/cilium_ratelimit",

@@ -87,10 +87,6 @@ func (r config) Flags(flags *pflag.FlagSet) {
 func (r config) validatedConfig() (*vtepManagerConfig, error) {
 	config := vtepManagerConfig{}
 
-	if len(r.VTEPEndpoint) < 1 {
-		return nil, fmt.Errorf("If VTEP is enabled, at least one VTEP device must be configured")
-	}
-
 	if len(r.VTEPEndpoint) > defaults.MaxVTEPDevices {
 		return nil, fmt.Errorf("VTEP must not exceed %d VTEP devices (Found %d VTEPs)", defaults.MaxVTEPDevices, len(r.VTEPEndpoint))
 	}
