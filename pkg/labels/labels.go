@@ -511,9 +511,14 @@ func GetCiliumKeyFrom(extKey string) string {
 func GetExtendedKeyFrom(str string) string {
 	src, next := parseSource(str, ':')
 	if src == "" {
-		src = LabelSourceAny
+		src, next = parseSource(str, '.')
+		if src == "" {
+			src = LabelSourceAny
+		} else {
+			return str
+		}
 	}
-	// Remove an eventually value
+	// Remove an eventual value
 	i := strings.IndexByte(next, '=')
 	if i >= 0 {
 		return src + PathDelimiter + next[:i]
