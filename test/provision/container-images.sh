@@ -44,16 +44,6 @@ function test_images {
   done
 }
 
-function cilium_images {
-  echo "Downloading all images needed to build cilium"
-  CILIUM_IMGS=$(grep -rI --no-filename "quay.io" images/*/Dockerfile | sed -nEe 's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
-
-  check_img_list $CILIUM_IMGS
-  for p in `jobs -p`; do
-    wait $p
-  done
-}
-
 if [ $# -lt 2 ]; then
   echo "Usage: $0 <function-name> <path to root of cilium repository>"
   exit 1
