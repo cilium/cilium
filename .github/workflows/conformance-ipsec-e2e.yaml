@@ -266,15 +266,7 @@ jobs:
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-          if [[ "${{ matrix.key-one }}" == "gcm(aes)" ]]; then
-            key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-          elif [[ "${{ matrix.key-one }}" == "cbc(aes)" ]]; then
-            key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-          else
-            echo "Invalid key type"; exit 1
-          fi
-          kubectl create -n kube-system secret generic cilium-ipsec-keys \
-            --from-literal=keys="3+ ${key}"
+          cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
 
           cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
@@ -360,10 +352,6 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: ${{ matrix.key-two }}
-          tunnel: ${{ matrix.tunnel }}
-          nb-nodes: 3 # We don't count the node without Cilium.
-          dual-stack: ${{ matrix.ipv4 != 'false' && matrix.ipv6 != 'false' }}
-          subnet-encryption: false
 
       - name: Assert that no unencrypted packets are leaked during key rotation
         uses: ./.github/actions/bpftrace/check
