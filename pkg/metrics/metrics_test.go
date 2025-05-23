@@ -6,16 +6,19 @@ package metrics
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestGaugeWithThreshold(t *testing.T) {
+	logger := hivetest.Logger(t)
 	threshold := 1.0
 	underThreshold := threshold - 0.5
 	overThreshold := threshold + 0.5
 	reg := NewRegistry(RegistryParams{
+		Logger:       logger,
 		DaemonConfig: &option.DaemonConfig{},
 	})
 

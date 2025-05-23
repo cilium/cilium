@@ -1544,6 +1544,8 @@ const (
 
 	Candidates = "candidates"
 
+	Location = "location"
+
 	Skipped = "skipped"
 
 	AliveEntries = "aliveEntries"
@@ -1777,4 +1779,6 @@ const (
 	URI = "uri"
 
 	Goroutine = "goroutine"
+
+	Matcher = "matcher"
 )

@@ -246,7 +246,7 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	api.PreServerShutdown = func() {}
 
 	api.ServerShutdown = func() {
-		logging.DefaultLogger.Debug("canceling server context")
+		logging.DefaultSlogLogger.Debug("canceling server context")
 		serverCancel()
 	}
 
