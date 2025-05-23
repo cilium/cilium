@@ -22,6 +22,35 @@ inputs:
     required: true
     description: 'Test name'
 
+outputs:
+  external_target_name:
+    description: "Domain name of the first external target"
+    value: ${{ steps.external_targets.outputs.external_target_name }}
+  other_external_target_name:
+    description: "Domain name of the second external target"
+    value: ${{ steps.external_targets.outputs.other_external_target_name }}
+  ipv4_external_cidr:
+    description: "IPv4 CIDR in which the external targets are created"
+    value: ${{ steps.external_network.outputs.ipv4_external_cidr }}
+  ipv4_external_target:
+    description: "IPv4 address of the first external target"
+    value: ${{ steps.external_network.outputs.ipv4_external_target }}
+  ipv4_other_external_target:
+    description: "IPv4 address of the second external target"
+    value: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+  ipv6_external_cidr:
+    description: "IPv6 CIDR in which the external targets are created"
+    value: ${{ steps.external_network.outputs.ipv6_external_cidr }}
+  ipv6_external_target:
+    description: "IPv6 address of the first external target"
+    value: ${{ steps.external_network.outputs.ipv6_external_target }}
+  ipv6_other_external_target:
+    description: "IPv6 address of the second external target"
+    value: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+  kind_network:
+    description: "Name of the docker network created for kind"
+    value: ${{ steps.external_network.outputs.kind_network }}
+
 runs:
   using: composite
   steps:
@@ -42,6 +71,12 @@ runs:
         cmd: |
           git config --global --add safe.directory /host
 
+    - name: Add external docker network
+      uses: ./.github/actions/kind-external-network
+      id: external_network
+      with:
+        lvh: 'true'
+
     - name: Create K8s cluster
       uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
       with:
@@ -61,3 +96,14 @@ runs:
       run: |
         mkdir ~/.kube
         scp -o StrictHostKeyChecking=no -P 2222 root@localhost:/root/.kube/config ~/.kube/config
+
+    - name: Add external targets to kind cluster
+      uses: ./.github/actions/kind-external-targets
+      id: external_targets
+      with:
+        lvh: 'true'
+        kind_network: ${{ steps.external_network.outputs.kind_network }}
+        ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
+        ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+        ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
+        ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
