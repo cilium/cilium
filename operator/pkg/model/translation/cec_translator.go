@@ -214,7 +214,7 @@ func (i *cecTranslator) desiredLabels(m *model.Model) map[string]string {
 			return labels
 		}
 	}
-	labels[k8s.UseOriginalSourceAddressLabel] = "false"
+	labels[k8s.UseOriginalSourceAddressLabel] = "true"
 	return labels
 }
 
