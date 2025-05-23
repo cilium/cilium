@@ -1467,6 +1467,9 @@
         "maxConnectedClusters": {
           "type": "integer"
         },
+        "policyDefaultLocalCluster": {
+          "type": "boolean"
+        },
         "useAPIServer": {
           "type": "boolean"
         }
