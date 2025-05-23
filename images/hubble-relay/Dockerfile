@@ -46,6 +46,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
     ./build-gops.sh
+RUN mkdir -p /out/.config
 
 FROM ${BASE_IMAGE} AS release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
@@ -57,6 +58,8 @@ COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin/hubble-relay
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
+ENV GOPS_CONFIG_DIR=/.config
+COPY --chown=65532:65532 --from=gops /out/.config /.config
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/hubble-relay"]
 CMD ["serve"]
