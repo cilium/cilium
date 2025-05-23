@@ -1737,9 +1737,6 @@
     "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
-    "enableRuntimeDeviceDetection": {
-      "type": "boolean"
-    },
     "enableXTSocketFallback": {
       "type": "boolean"
     },
