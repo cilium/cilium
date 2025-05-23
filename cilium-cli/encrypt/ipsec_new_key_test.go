@@ -15,7 +15,7 @@ func Test_createIPsecKey(t *testing.T) {
 		expectedKey ipsecKey
 	}{
 		{
-			algo: "gcm-aes",
+			algo: "rfc4106-gcm-aes",
 			expectedKey: ipsecKey{
 				spi:  1,
 				algo: "rfc4106(gcm(aes))",
@@ -24,7 +24,7 @@ func Test_createIPsecKey(t *testing.T) {
 			},
 		},
 		{
-			algo: "hmac-sha256",
+			algo: "cbc-aes-sha256",
 			expectedKey: ipsecKey{
 				spi:        1,
 				algo:       "hmac(sha256)",
@@ -34,7 +34,7 @@ func Test_createIPsecKey(t *testing.T) {
 			},
 		},
 		{
-			algo: "hmac-sha512",
+			algo: "cbc-aes-sha512",
 			expectedKey: ipsecKey{
 				spi:        1,
 				algo:       "hmac(sha512)",

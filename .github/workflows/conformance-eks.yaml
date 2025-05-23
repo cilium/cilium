@@ -300,7 +300,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         shell: bash
         run: |
-          cilium encrypt create-key --auth-algo gcm-aes
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -368,7 +368,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/ipsec-key-rotate
         with:
-          key-algo: "gcm-aes"
+          key-algo: "rfc4106-gcm-aes"
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}

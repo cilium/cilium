@@ -334,7 +334,7 @@ jobs:
       - name: Create custom IPsec secret
         if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
         run: |
-          cilium encrypt create-key --auth-algo gcm-aes
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
       - name: Install Cilium
         id: install-cilium

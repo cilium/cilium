@@ -324,7 +324,7 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           if ${{ matrix.encryption == 'ipsec' }}; then
-            cilium encrypt create-key --auth-algo gcm-aes
+            cilium encrypt create-key --auth-algo rfc4106-gcm-aes
           fi
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
