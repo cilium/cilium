@@ -39,9 +39,60 @@ func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
 	return true
 }
 
+func (h PortRuleHTTP) Compare(o PortRuleHTTP) int {
+	if n := strings.Compare(h.Path, o.Path); n != 0 {
+		return n
+	}
+	if n := strings.Compare(h.Method, o.Method); n != 0 {
+		return n
+	}
+	if n := strings.Compare(h.Host, o.Host); n != 0 {
+		return n
+	}
+
+	if len(h.Headers) != len(o.Headers) {
+		return len(h.Headers) - len(o.Headers)
+	}
+	for i := range len(h.Headers) {
+		if n := strings.Compare(h.Headers[i], o.Headers[i]); n != 0 {
+			return n
+		}
+	}
+
+	if len(h.HeaderMatches) != len(o.HeaderMatches) {
+		return len(h.HeaderMatches) - len(o.HeaderMatches)
+	}
+	for i, value := range h.HeaderMatches {
+		if n := value.Compare(o.HeaderMatches[i]); n != 0 {
+			return n
+		}
+	}
+
+	return 0
+}
+
 // Equal returns true if both Secrets are equal
 func (a *Secret) Equal(b *Secret) bool {
 	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
+func (a *Secret) Compare(b *Secret) int {
+	if a == nil && b == nil {
+		return 0
+	}
+	if a == nil {
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+	if n := strings.Compare(a.Namespace, b.Namespace); n != 0 {
+		return n
+	}
+	if n := strings.Compare(a.Name, b.Name); n != 0 {
+		return n
+	}
+	return 0
 }
 
 // Equal returns true if both HeaderMatches are equal
@@ -53,6 +104,28 @@ func (h *HeaderMatch) Equal(o *HeaderMatch) bool {
 		return false
 	}
 	return true
+}
+
+func (h *HeaderMatch) Compare(o *HeaderMatch) int {
+	if h == nil && o == nil {
+		return 0
+	}
+	if h == nil {
+		return -1
+	}
+	if o == nil {
+		return 1
+	}
+	if n := strings.Compare(h.Name, o.Name); n != 0 {
+		return n
+	}
+	if n := strings.Compare(h.Value, o.Value); n != 0 {
+		return n
+	}
+	if n := strings.Compare(string(h.Mismatch), string(o.Mismatch)); n != 0 {
+		return n
+	}
+	return h.Secret.Compare(o.Secret)
 }
 
 // Exists returns true if the DNS rule already exists in the list of rules
