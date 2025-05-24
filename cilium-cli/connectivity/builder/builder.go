@@ -289,6 +289,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		echoIngressMutualAuthSpiffe{},
 		podToIngressService{},
 		outsideToIngressService{},
+		l7LB{},
 		dnsOnly{},
 		toFqdns{},
 		toFqdnsWithProxy{},

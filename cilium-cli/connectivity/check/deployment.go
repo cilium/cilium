@@ -76,9 +76,11 @@ const (
 	kindEchoExternalNodeName                   = "echo-external-node"
 	kindClientName                             = "client"
 	kindPerfName                               = "perf"
+	kindL7LBName                               = "l7-lb"
 	lrpBackendDeploymentName                   = "lrp-backend"
 	lrpClientDeploymentName                    = "lrp-client"
 	kindLrpName                                = "lrp"
+	loadbalancerL7DeploymentName               = "l7-lb"
 
 	hostNetNSDeploymentName          = "host-netns"
 	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
@@ -131,6 +133,7 @@ type deploymentParameters struct {
 	Name                          string
 	Kind                          string
 	Image                         string
+	Args                          []string
 	Replicas                      int
 	NamedPort                     string
 	Port                          int
@@ -152,6 +155,10 @@ func (p *deploymentParameters) namedPort() string {
 		return fmt.Sprintf("port-%d", p.Port)
 	}
 	return p.NamedPort
+}
+
+func (p *deploymentParameters) args() []string {
+	return p.Args
 }
 
 func (p *deploymentParameters) ports() (ports []corev1.ContainerPort) {
@@ -206,6 +213,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 							Image:           p.Image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Command:         p.Command,
+							Args:            p.args(),
 							ReadinessProbe:  p.ReadinessProbe,
 							Resources:       p.Resources,
 							SecurityContext: &corev1.SecurityContext{
@@ -1285,6 +1293,66 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	if ct.Features[features.L7LoadBalancer].Enabled {
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
+			containerPort := 8080
+			l7lbDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
+				Name:  loadbalancerL7DeploymentName,
+				Kind:  kindL7LBName,
+				Image: ct.params.EchoImage,
+				Args: []string{
+					"--tcp=9090", "--port=8080", "--grpc=7070", "--port=8443", "--tls=8443", "--crt=/cert.crt", "--key=/cert.key",
+				},
+				Labels: map[string]string{"kind": "l7-lb"},
+				Affinity: &corev1.Affinity{
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{loadbalancerL7DeploymentName}},
+									},
+								},
+								TopologyKey: corev1.LabelHostname,
+							},
+						},
+					},
+					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
+				},
+				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+			}, ct.params.DNSTestServerImage)
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(loadbalancerL7DeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %w", loadbalancerL7DeploymentName, err)
+			}
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, l7lbDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", loadbalancerL7DeploymentName, err)
+			}
+		}
+
+		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), echoOtherNodeDeploymentName)
+			svc := newService(
+				loadbalancerL7DeploymentName,
+				map[string]string{"name": loadbalancerL7DeploymentName},
+				map[string]string{"name": loadbalancerL7DeploymentName, "kind": kindL7LBName},
+				"http",
+				8080,
+				ct.Params().ServiceType)
+
+			svc.ObjectMeta.Annotations = map[string]string{
+				"service.cilium.io/lb-l7": "enabled",
+			}
+			_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -2488,6 +2556,34 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			if err := WaitForIPCache(ctx, ct, cp, pods); err != nil {
 				return err
 			}
+		}
+	}
+
+	if ct.Features[features.L7LoadBalancer].Enabled {
+		l7LBPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
+		if err != nil {
+			return fmt.Errorf("unable to list client pods: %w", err)
+		}
+
+		for _, pod := range l7LBPods.Items {
+			ct.l7LBClientPods[pod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       pod.DeepCopy(),
+			}
+		}
+
+		service, err := ct.client.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
+		if err != nil {
+			return fmt.Errorf("unable to list L7 service: %w", err)
+		}
+
+		testClient := ct.RandomClientPod()
+		for _, svc := range service.Items {
+			s := Service{Service: svc.DeepCopy()}
+			if err := WaitForService(ctx, ct, *testClient, s); err != nil {
+				return err
+			}
+			ct.l7LBService[svc.Name] = s
 		}
 	}
 

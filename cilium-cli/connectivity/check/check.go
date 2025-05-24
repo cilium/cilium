@@ -86,6 +86,7 @@ type Parameters struct {
 	CurlImage                 string
 	JSONMockImage             string
 	TestConnDisruptImage      string
+	EchoImage                 string
 	FRRImage                  string
 	SocatImage                string
 	AgentDaemonSetName        string
