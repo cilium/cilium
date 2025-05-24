@@ -523,7 +523,8 @@ ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct ipv6_ct_tuple *tuple,
 					 struct lb6_reverse_nat *nat,
-					 bool has_l4_header, enum ct_dir dir)
+					 bool has_l4_header, enum ct_dir dir,
+					 bool loopback __maybe_unused)
 {
 	union v6addr old_saddr __align_stack_8;
 	int ret;
@@ -532,6 +533,22 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 	ipv6_addr_copy(&old_saddr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &nat->address);
+
+#ifdef USE_LOOPBACK_LB
+	if (loopback) {
+		union v6addr old_daddr = tuple->daddr;
+
+		ipv6_addr_copy(&old_daddr, &tuple->daddr);
+		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT_REV, old_daddr.p4, old_saddr.p4);
+
+		ret = ipv6_store_daddr(ctx, old_saddr.addr, ETH_HLEN);
+		if (IS_ERR(ret))
+			return DROP_WRITE_ERROR;
+
+		/* Update the tuple address which is representing the destination address */
+		ipv6_addr_copy(&tuple->saddr, &old_saddr);
+    }
+#endif
 
 	ret = ipv6_store_saddr(ctx, nat->address.addr, ETH_HLEN);
 	if (IS_ERR(ret))
@@ -570,9 +587,11 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg ctx		packet
  * @arg l4_off		offset to L4
  * @arg index		reverse NAT index
+ * @arg loopback    loopback connection
  * @arg tuple		tuple
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16 index,
+					   bool loopback,
 				       struct ipv6_ct_tuple *tuple, bool has_l4_header,
 				       enum ct_dir dir)
 {
@@ -582,7 +601,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir);
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir, loopback);
 }
 
 static __always_inline void
@@ -836,7 +855,10 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
 
-static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
+static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
+				     const union v6addr *new_saddr __maybe_unused,
+				     const union v6addr *old_saddr __maybe_unused,
+				     __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     const struct lb6_key *key,
 				     const struct lb6_backend *backend,
@@ -844,16 +866,24 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 {
 	const union v6addr *new_dst = &backend->address;
 	struct csum_offset csum_off = {};
+	__be32 sum;
 
 	if (has_l4_header)
 		csum_l4_offset_and_flags(nexthdr, &csum_off);
 
 	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
-	if (csum_off.offset) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
-				       16, 0);
+	sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+#ifdef USE_LOOPBACK_LB
+	if (new_saddr && (new_saddr->d1 || new_saddr->d2)) {
+		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT, old_saddr->p4, new_saddr->p4);
 
+		if (ipv6_store_saddr(ctx, (void *)new_dst->addr, l3_off) < 0)
+			return DROP_WRITE_ERROR;
+		sum = csum_diff(old_saddr->addr, 16, new_saddr->addr, 16, 0);
+	}
+#endif /* USE_LOOPBACK_LB */
+	if (csum_off.offset) {
 		if (csum_l4_replace(ctx, l4_off, &csum_off, 0, sum,
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
@@ -1017,9 +1047,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
+	union v6addr saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
+	union v6addr new_saddr = {};
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb6_affinity_client_id client_id;
@@ -1121,13 +1153,28 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) || defined(USE_LOOPBACK_LB)
+	if (ipv6_addr_equals(&saddr, &backend->address)) {
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-	    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
-		return CTX_ACT_OK;
+		if (netns_cookie > 0 && lb6_svc_is_localredirect(svc) &&
+		    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->saddr, tuple->sport))
+			return CTX_ACT_OK;
+#endif
+
+#if defined(USE_LOOPBACK_LB)
+			union v6addr loopback_addr = CONFIG(ipv6_loopback);
+
+			ipv6_addr_copy(&new_saddr, &loopback_addr);
+			state->loopback = 1;
+#endif
+	}
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
-	ipv6_addr_copy(&tuple->daddr, &backend->address);
+#ifdef USE_LOOPBACK_LB
+	if (!state->loopback)
+#endif
+
+		ipv6_addr_copy(&tuple->daddr, &backend->address);
 
 	if (lb6_svc_is_l7_punt_proxy(svc) &&
 	    __lookup_ip6_endpoint(&backend->address)) {
@@ -1140,7 +1187,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key,
+	return lb6_xlate(ctx, &new_saddr, &saddr, tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
 no_service:
 	ret = DROP_NO_SERVICE;

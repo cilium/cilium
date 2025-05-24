@@ -16,5 +16,9 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 		node.RouterIPv6 = ([16]byte)(lnc.CiliumInternalIPv6)
 	}
 
+	if option.Config.EnableIPv6 && lnc.LoopbackIPv6 != nil {
+		node.IPv6Loopback = ([16]byte)(lnc.LoopbackIPv6)
+	}
+
 	return node
 }
