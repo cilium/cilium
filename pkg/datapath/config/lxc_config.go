@@ -15,7 +15,7 @@ type BPFLXC struct {
 	// The endpoint's security ID.
 	EndpointID uint16 `config:"endpoint_id"`
 	// The endpoint's IPv4 address.
-	EndpointIPv4 uint32 `config:"endpoint_ipv4"`
+	EndpointIPv4 [4]byte `config:"endpoint_ipv4"`
 	// The endpoint's IPv6 address.
 	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
@@ -25,7 +25,7 @@ type BPFLXC struct {
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
-	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
+	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
@@ -39,10 +39,10 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, 0x0, 0x0,
+	return &BPFLXC{0x5dc, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0,
+		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, false, 0x0, node}
 }
