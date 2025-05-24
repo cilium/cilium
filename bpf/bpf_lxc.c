@@ -709,7 +709,7 @@ ct_recreate6:
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6,
 						   MARK_MAGIC_IDENTITY, ep,
-						   METRIC_EGRESS, from_l7lb, false);
+						   METRIC_EGRESS, from_l7lb, false, false);
 		}
 	}
 
@@ -1201,7 +1201,7 @@ ct_recreate4:
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4,
 						   MARK_MAGIC_IDENTITY, ip4,
 						   ep, METRIC_EGRESS, from_l7lb,
-						   false, 0);
+						   false, 0, false);
 		}
 	}
 
