@@ -285,7 +285,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -634,7 +634,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 }
 
 // Update implements reconciler.Operations.
-func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}

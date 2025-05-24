@@ -141,9 +141,8 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		},
 	})
 
-	group := params.JobRegistry.NewGroup(params.Health)
+	group := params.JobRegistry.NewGroup(params.Health, params.Lifecycle)
 	group.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
-	params.Lifecycle.Append(group)
 
 	return o
 }

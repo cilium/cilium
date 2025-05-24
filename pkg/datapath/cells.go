@@ -165,8 +165,7 @@ func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl
 				option.EnableWireguard, option.EnableIPSecName))
 		}
 
-		jobGroup := registry.NewGroup(health)
-		lc.Append(jobGroup)
+		jobGroup := registry.NewGroup(health, lc)
 
 		var err error
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)

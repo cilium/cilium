@@ -300,10 +300,10 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
+		params.Lifecycle,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
 	)
-	params.Lifecycle.Append(jobGroup)
 
 	// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
 	// version check is performed periodically and any errors are logged
@@ -386,11 +386,10 @@ func registerSecretSyncer(params syncerParams) error {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
+		params.Lifecycle,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
 	)
-
-	params.Lifecycle.Append(jobGroup)
 
 	secretSyncerLogger := params.Logger.With(logfields.Controller, "secretSyncer")
 

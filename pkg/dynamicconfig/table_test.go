@@ -244,9 +244,7 @@ func fixture(t *testing.T, sources string) (*hive.Hive, *statedb.DB, statedb.RWT
 			},
 			func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
 				h := p.ForModule(cell.FullModuleID{"test"})
-				jg := jr.NewGroup(h)
-				lc.Append(jg)
-				return jg
+				return jr.NewGroup(h, lc)
 			},
 			func() Config {
 				return Config{

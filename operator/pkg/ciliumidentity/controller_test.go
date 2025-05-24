@@ -133,9 +133,7 @@ func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*c
 		}),
 		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
 			h := p.ForModule(cell.FullModuleID{"test"})
-			jg := jr.NewGroup(h)
-			lc.Append(jg)
-			return jg
+			return jr.NewGroup(h, lc)
 		}),
 		cell.Invoke(func(p params) error {
 			registerController(p)

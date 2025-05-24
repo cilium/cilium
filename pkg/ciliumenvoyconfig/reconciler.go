@@ -28,7 +28,7 @@ type envoyOps struct {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, res *EnvoyResource) error {
+func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
 	if res.Redirects.Len() > 0 {
 		// Remove redirects from services no longer selected by the CEC
 		wtxn := ops.writer.WriteTxn()
@@ -78,7 +78,7 @@ func (ops *envoyOps) Prune(ctx context.Context, txn statedb.ReadTxn, objects ite
 }
 
 // Update implements reconciler.Operations.
-func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *EnvoyResource) error {
+func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
 	resources := res.Resources
 
 	ctx, cancel := context.WithTimeout(ctx, ops.config.EnvoyConfigTimeout)
