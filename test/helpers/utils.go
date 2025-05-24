@@ -13,11 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
@@ -52,19 +50,6 @@ func HasNewServiceOutput(ver string) bool {
 // Sleep sleeps for the specified duration in seconds
 func Sleep(delay time.Duration) {
 	time.Sleep(delay * time.Second)
-}
-
-// CountValues returns the count of the occurrences of key in data, as well as
-// the length of data.
-func CountValues(key string, data []string) (int, int) {
-	var result int
-
-	for _, x := range data {
-		if x == key {
-			result++
-		}
-	}
-	return result, len(data)
 }
 
 // MakeUID returns a randomly generated string.
@@ -384,80 +369,6 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 	return err
 }
 
-// DNSDeployment returns the manifest to install dns engine on the server.
-func DNSDeployment(base string) string {
-	var DNSEngine = "coredns"
-	k8sVersion := GetCurrentK8SEnv()
-	switch k8sVersion {
-	case "1.8", "1.9", "1.10":
-		DNSEngine = "kubedns"
-	}
-
-	if integration := GetCurrentIntegration(); integration != "" {
-		fullPath := filepath.Join("provision", "manifest", k8sVersion, integration, DNSEngine+"_deployment.yaml")
-		_, err := os.Stat(fullPath)
-		if err == nil {
-			return filepath.Join(base, fullPath)
-		}
-	}
-
-	fullPath := filepath.Join("provision", "manifest", k8sVersion, DNSEngine+"_deployment.yaml")
-	_, err := os.Stat(fullPath)
-	if err == nil {
-		return filepath.Join(base, fullPath)
-	}
-	return filepath.Join(base, "provision", "manifest", DNSEngine+"_deployment.yaml")
-}
-
-// getK8sSupportedConstraints returns the Kubernetes versions supported by
-// a specific Cilium version.
-func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
-	cst, err := versioncheck.Version(ciliumVersion)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case IsCiliumV1_18(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.34.0"), nil
-	case IsCiliumV1_17(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.33.0"), nil
-	case IsCiliumV1_16(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.31.0"), nil
-	case IsCiliumV1_15(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.30.0"), nil
-	case IsCiliumV1_14(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.28.0"), nil
-	case IsCiliumV1_13(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.27.0"), nil
-	case IsCiliumV1_12(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.25.0"), nil
-	case IsCiliumV1_11(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.24.0"), nil
-	case IsCiliumV1_10(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.22.0"), nil
-	case IsCiliumV1_9(cst):
-		return versioncheck.MustCompile(">=1.12.0 <1.20.0"), nil
-	case IsCiliumV1_8(cst):
-		return versioncheck.MustCompile(">=1.10.0 <1.19.0"), nil
-	default:
-		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
-	}
-}
-
-// CanRunK8sVersion returns true if the givel ciliumVersion can run in the given
-// Kubernetes version. If any version is unparsable, an error is returned.
-func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
-	k8sVersion, err := versioncheck.Version(k8sVersionStr)
-	if err != nil {
-		return false, err
-	}
-	constraint, err := getK8sSupportedConstraints(ciliumVersion)
-	if err != nil {
-		return false, err
-	}
-	return constraint(k8sVersion), nil
-}
-
 // failIfContainsBadLogMsg makes a test case to fail if any message from
 // given log messages contains an entry from the blacklist (map key) AND
 // does not contain ignore messages (map value).
@@ -552,16 +463,6 @@ func DoesNotRunOnAKS() bool {
 	return !RunsOnAKS()
 }
 
-// RunsOnEKS returns true if the tests are running on EKS.
-func RunsOnEKS() bool {
-	return GetCurrentIntegration() == CIIntegrationEKS
-}
-
-// DoesNotRunOnEKS is the complement function of DoesNotRunOnEKS.
-func DoesNotRunOnEKS() bool {
-	return !RunsOnEKS()
-}
-
 // RunsWithKubeProxyReplacement returns true if the kernel supports our
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
@@ -575,18 +476,6 @@ func DoesNotRunWithKubeProxyReplacement() bool {
 	return !RunsWithKubeProxyReplacement()
 }
 
-// DoesNotHaveHosts returns a function which returns true if a CI job
-// has less VMs than the given count.
-func DoesNotHaveHosts(count int) func() bool {
-	return func() bool {
-		if c, err := strconv.Atoi(os.Getenv("K8S_NODES")); err != nil {
-			return true
-		} else {
-			return c < count
-		}
-	}
-}
-
 // RunsWithHostFirewall returns true is Cilium runs with the host firewall enabled.
 func RunsWithHostFirewall() bool {
 	return os.Getenv("HOST_FIREWALL") != "0" && os.Getenv("HOST_FIREWALL") != ""
@@ -595,11 +484,6 @@ func RunsWithHostFirewall() bool {
 // RunsWithKubeProxy returns true if cilium runs together with k8s' kube-proxy.
 func RunsWithKubeProxy() bool {
 	return os.Getenv("KUBEPROXY") != "0"
-}
-
-// RunsWithoutKubeProxy is the complement function of RunsWithKubeProxy.
-func RunsWithoutKubeProxy() bool {
-	return !RunsWithKubeProxy()
 }
 
 // ExistNodeWithoutCilium returns true if there is a node in a cluster which does
@@ -678,27 +562,11 @@ func IsNodeWithoutCilium(node string) bool {
 	return slices.Contains(GetNodesWithoutCilium(), node)
 }
 
-// SkipQuarantined returns whether test under quarantine should be skipped
-func SkipQuarantined() bool {
-	return !config.CiliumTestConfig.RunQuarantined
-}
-
 // SkipRaceDetectorEnabled returns whether tests failing with race detector
 // enabled should be skipped.
 func SkipRaceDetectorEnabled() bool {
 	race := os.Getenv("RACE")
 	return race == "1" || race == "true"
-}
-
-// SkipK8sVersions returns true if the current K8s versions matched the
-// constraints passed in argument.
-func SkipK8sVersions(k8sVersions string) bool {
-	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
-	if err != nil {
-		return false
-	}
-	constraint := versioncheck.MustCompile(k8sVersions)
-	return constraint(k8sVersion)
 }
 
 // DualStackSupported returns whether the current environment has DualStack IPv6
