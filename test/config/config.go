@@ -44,9 +44,8 @@ type CiliumTestConfigType struct {
 
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
-	Multinode      bool
-	RunQuarantined bool
-	Help           bool
+	Multinode bool
+	Help      bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -93,8 +92,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Registry credentials to be used to download images")
 	flagset.BoolVar(&c.Multinode, "cilium.multinode", true,
 		"Enable tests across multiple nodes. If disabled, such tests may silently pass")
-	flagset.BoolVar(&c.RunQuarantined, "cilium.runQuarantined", false,
-		"Run tests that are under quarantine.")
 	flagset.BoolVar(&c.Help, "cilium.help", false, "Display this help message.")
 	flagset.StringVar(&c.InstallHelmOverrides, "cilium.install-helm-overrides", "",
 		"Comma separated list of cilium install helm --set overrides. "+

@@ -357,8 +357,6 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Pass the environment invoking ginkgo, including PATH, to subcommands
       -cilium.provision
             Provision Vagrant boxes and Cilium before running test (default true)
-      -cilium.runQuarantined
-            Run tests that are under quarantine.
       -cilium.showCommands
             Output which commands are ran to stdout
       -cilium.skipLogs

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -218,16 +217,6 @@ func (res *CmdRes) ExpectFail(optionalDescription ...any) bool {
 		CMDSuccess(), optionalDescription...)
 }
 
-// ExpectFailWithError asserts whether res failed to execute with the
-// error output containing the given data.  It accepts an optional
-// parameter that can be used to annotate failure messages.
-func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...any) bool {
-	return gomega.ExpectWithOffset(1, res).ShouldNot(
-		CMDSuccess(), optionalDescription...) &&
-		gomega.ExpectWithOffset(1, res.Stderr()).To(
-			gomega.ContainSubstring(data), optionalDescription...)
-}
-
 // ExpectSuccess asserts whether res executed successfully. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectSuccess(optionalDescription ...any) bool {
@@ -265,22 +254,6 @@ func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDes
 	}
 	return gomega.ExpectWithOffset(1, sLines).To(
 		gomega.ContainElement(expected), optionalDescription...)
-}
-
-// ExpectDoesNotContain asserts that a string is not contained in the stdout of
-// the executed command. It accepts an optional parameter that can be used to
-// annotate failure messages.
-func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...any) bool {
-	return gomega.ExpectWithOffset(1, res.Stdout()).ToNot(
-		gomega.ContainSubstring(data), optionalDescription...)
-}
-
-// ExpectDoesNotMatchRegexp asserts that the stdout of the executed command
-// doesn't match the regexp. It accepts an optional parameter that can be used
-// to annotate failure messages.
-func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription ...any) bool {
-	return gomega.ExpectWithOffset(1, res.Stdout()).ToNot(
-		gomega.MatchRegexp(regexp), optionalDescription...)
 }
 
 // ExpectDoesNotContainFilterLine applies the provided JSONPath filter to each
@@ -420,14 +393,6 @@ func (res *CmdRes) OutputPrettyPrint() string {
 		format(res.Stderr()))
 }
 
-// ExpectEqual asserts whether cmdRes.Output().String() and expected are equal.
-// It accepts an optional parameter that can be used to annotate failure
-// messages.
-func (res *CmdRes) ExpectEqual(expected string, optionalDescription ...any) bool {
-	return gomega.ExpectWithOffset(1, res.Stdout()).Should(
-		gomega.Equal(expected), optionalDescription...)
-}
-
 // Reset resets res's stdout buffer to be empty.
 func (res *CmdRes) Reset() {
 	res.stdout.Reset()
@@ -467,20 +432,6 @@ func (res *CmdRes) WaitUntilMatchTimeout(substr string, timeout time.Duration) e
 	return WithTimeout(
 		body,
 		fmt.Sprintf("%s is not in the output after timeout", substr),
-		&TimeoutConfig{Timeout: timeout})
-}
-
-// WaitUntilMatchRegexp waits until the `CmdRes.stdout` matches the given regexp.
-// If the timeout is reached it will return an error.
-func (res *CmdRes) WaitUntilMatchRegexp(expr string, timeout time.Duration) error {
-	r := regexp.MustCompile(expr)
-	body := func() bool {
-		return r.Match(res.GetStdOut().Bytes())
-	}
-
-	return WithTimeout(
-		body,
-		fmt.Sprintf("The output doesn't match regexp %q after timeout", expr),
 		&TimeoutConfig{Timeout: timeout})
 }
 
