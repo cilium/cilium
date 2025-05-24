@@ -26,7 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/devicemap"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -107,6 +109,7 @@ type orchestratorParams struct {
 	XDPConfig           xdp.Config
 	LBConfig            loadbalancer.Config
 	MaglevConfig        maglev.Config
+	DeviceMap           devicemap.Map
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -270,6 +273,10 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 	}
 
 	var errs []error
+	if err := o.reinitializeDeviceMap(localNodeConfig); err != nil {
+		errs = append(errs, err)
+	}
+
 	if err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
@@ -346,4 +353,47 @@ func (o *orchestrator) Unload(ep datapath.Endpoint) {
 func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
 	<-o.dpInitialized
 	return o.params.Loader.WriteEndpointConfig(w, cfg, o.latestLocalNodeConfig.Load())
+}
+
+func (o *orchestrator) reinitializeDeviceMap(lnc *datapath.LocalNodeConfiguration) error {
+	deviceCache := map[uint32]*tables.Device{}
+	// Create or update devices in the device bpf map
+	for _, dev := range lnc.Devices {
+		deviceCache[uint32(dev.Index)] = dev
+		isL3 := uint8(0)
+		parsedMAC, _ := mac.ParseMAC(dev.HardwareAddr.String())
+		uint64MAC, err := parsedMAC.Uint64()
+		if err != nil {
+			o.params.Log.Warn("Failed to parse device mac",
+				logfields.Error, err,
+				logfields.Device, dev,
+			)
+			isL3 = uint8(1)
+		}
+
+		err = o.params.DeviceMap.Update(uint32(dev.Index), uint64MAC, isL3)
+		if err != nil {
+			o.params.Log.Warn("Failed to update entry for device bpf map",
+				logfields.Error, err,
+				logfields.Device, dev,
+			)
+			return err
+		}
+	}
+
+	// Remove non-existent devices in the device bpf map
+	o.params.DeviceMap.IterateWithCallback(
+		func(key *devicemap.DeviceKey, val *devicemap.DeviceValue) {
+			if dev, found := deviceCache[key.IfIndex]; !found {
+				err := o.params.DeviceMap.Delete(key.IfIndex)
+				if err != nil {
+					o.params.Log.Warn("Failed to delete entry from device bpf map",
+						logfields.Error, err,
+						logfields.Device, dev,
+					)
+				}
+			}
+		})
+
+	return nil
 }

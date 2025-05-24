@@ -18,7 +18,6 @@
 
 #define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1
-#define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 
 #define LRU_MEM_FLAVOR 0
 
@@ -143,6 +142,7 @@
 #define CONFIG_MAP_SIZE 256
 #define IPCACHE_MAP_SIZE 512000
 #define NODE_MAP_SIZE 16384
+#define DEVICE_MAP_SIZE 256
 #define EGRESS_POLICY_MAP_SIZE 16384
 #define SRV6_VRF_MAP_SIZE 16384
 #define SRV6_POLICY_MAP_SIZE 16384
@@ -184,10 +184,6 @@
 #  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
 #  define IPV6_RSS_PREFIX_BITS 128
 # endif
-#endif
-
-#ifndef IS_L3_DEV
-# define IS_L3_DEV(ifindex) false
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK

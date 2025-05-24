@@ -467,13 +467,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = strconv.Itoa(NodePortMaxNAT)
 	}
 
-	macByIfIndexMacro, isL3DevMacro, err := devMacros(nativeDevices)
-	if err != nil {
-		return fmt.Errorf("generating device macros: %w", err)
-	}
-	cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macByIfIndexMacro
-	cDefinesMap["IS_L3_DEV(ifindex)"] = isL3DevMacro
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	const (
@@ -828,54 +821,6 @@ return false;`))
 
 		return vlanFilterMacro.String(), nil
 	}
-}
-
-// devMacros generates NATIVE_DEV_MAC_BY_IFINDEX and IS_L3_DEV macros which
-// are written to node_config.h.
-func devMacros(devs []*tables.Device) (string, string, error) {
-	var (
-		macByIfIndexMacro, isL3DevMacroBuf bytes.Buffer
-		isL3DevMacro                       string
-	)
-	macByIfIndex := make(map[int]string)
-	l3DevIfIndices := make([]int, 0)
-
-	for _, dev := range devs {
-		if len(dev.HardwareAddr) != 6 {
-			l3DevIfIndices = append(l3DevIfIndices, dev.Index)
-		}
-		macByIfIndex[dev.Index] = mac.CArrayString(net.HardwareAddr(dev.HardwareAddr))
-	}
-
-	macByIfindexTmpl := template.Must(template.New("macByIfIndex").Parse(
-		`({ \
-union macaddr __mac = {.addr = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}; \
-switch (IFINDEX) { \
-{{range $idx,$mac := .}} case {{$idx}}: {union macaddr __tmp = {.addr = {{$mac}}}; __mac=__tmp;} break; \
-{{end}}} \
-__mac; })`))
-
-	if err := macByIfindexTmpl.Execute(&macByIfIndexMacro, macByIfIndex); err != nil {
-		return "", "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	if len(l3DevIfIndices) == 0 {
-		isL3DevMacro = "false"
-	} else {
-		isL3DevTmpl := template.Must(template.New("isL3Dev").Parse(
-			`({ \
-bool is_l3 = false; \
-switch (ifindex) { \
-{{range $idx := .}} case {{$idx}}: is_l3 = true; break; \
-{{end}}} \
-is_l3; })`))
-		if err := isL3DevTmpl.Execute(&isL3DevMacroBuf, l3DevIfIndices); err != nil {
-			return "", "", fmt.Errorf("failed to execute template: %w", err)
-		}
-		isL3DevMacro = isL3DevMacroBuf.String()
-	}
-
-	return macByIfIndexMacro.String(), isL3DevMacro, nil
 }
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, opts *option.IntOptions) {

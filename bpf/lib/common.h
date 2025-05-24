@@ -448,6 +448,16 @@ struct node_value {
 	__u8  pad;
 };
 
+struct device_key {
+	__u32           ifindex;
+};
+
+struct device_value {
+	union macaddr   mac;
+	__u8            l3;
+	__u8		pad[7];
+};
+
 enum {
 	POLICY_INGRESS = 1,
 	POLICY_EGRESS = 2,
