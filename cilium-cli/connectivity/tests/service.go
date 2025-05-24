@@ -110,14 +110,17 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, a.CurlCommand(svc))
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &pod, svc, ipFam).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, a.CurlCommand(svc))
 
-				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-					DNSRequired: true,
-					AltDstPort:  svc.Port(),
-				}))
+					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+						DNSRequired: true,
+						AltDstPort:  svc.Port(),
+					}))
+				})
 			})
+
 			i++
 		}
 	}

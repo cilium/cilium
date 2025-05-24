@@ -133,6 +133,8 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 		}
 	}
 
+	policy := corev1.IPFamilyPolicyPreferDualStack
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
@@ -149,9 +151,10 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:      serviceType,
-			ClusterIP: clusterIP,
-			Ports:     ports,
+			Type:           serviceType,
+			ClusterIP:      clusterIP,
+			Ports:          ports,
+			IPFamilyPolicy: &policy,
 		},
 	}
 }
