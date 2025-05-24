@@ -440,17 +440,6 @@ Minor version
    - ``contrib/scripts/devcontainer-setup.sh``
    - ``.github/actions/ginkgo/main-focus.yaml``
 
-#. Add the new coredns files specific for the Kubernetes version,
-   for ``1.19`` is ``test/provision/manifest/1.19``. The coredns deployment
-   files can be found upstream as mentioned in the previous k8s version
-   coredns files. Perform a diff with the previous versions to check which
-   changes are required for our CI and which changes were added upstream.
-
-#. Update the constraint in the function ``getK8sSupportedConstraints``, that
-   exists in the ``test/helpers/utils.go``, with the new Kubernetes version that
-   Cilium supports. It is possible that a new ``IsCiliumV1*`` var in that file
-   is required as well.
-
 #. Bump the kindest/node version in
    ``.github/actions/ginkgo/main-k8s-versions.yaml``.
 
