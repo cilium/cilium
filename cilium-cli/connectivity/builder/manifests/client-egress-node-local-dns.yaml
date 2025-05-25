@@ -20,7 +20,7 @@ spec:
         - matchLabels:
             k8s-app: node-local-dns
             io.kubernetes.pod.namespace: kube-system
-            io.cilium.k8s.policy.cluster: {{.ClusterName}}
+            io.cilium.k8s.policy.cluster: {{.ClusterNameLocal}}
     - toFQDNs:
       - matchName: "echo-external-node.{{.TestNamespace}}.svc.cluster.local"
       toPorts:

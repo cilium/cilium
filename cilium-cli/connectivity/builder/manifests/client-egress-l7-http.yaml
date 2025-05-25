@@ -17,6 +17,8 @@ spec:
   - toEndpoints:
     - matchLabels:
         kind: echo
+      matchExpressions:
+      - { key: 'io.cilium.k8s.policy.cluster', operator: In, values: [ "{{.ClusterNameLocal}}", "{{.ClusterNameRemote}}" ] }
     toPorts:
     - ports:
       - port: "8080"
