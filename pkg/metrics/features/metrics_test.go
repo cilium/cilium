@@ -952,13 +952,13 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				IPAM:                    defaultIPAMModes[0],
-				EnableIPv4:              true,
-				IdentityAllocationMode:  defaultIdentityAllocationModes[0],
-				DatapathMode:            defaultDeviceModes[0],
-				NodePortMode:            defaultNodePortModes[0],
-				NodePortAcceleration:    defaultNodePortModeAccelerations[0],
-				EnableIPv4EgressGateway: tt.enableEGW,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+				EnableEgressGateway:    tt.enableEGW,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig
