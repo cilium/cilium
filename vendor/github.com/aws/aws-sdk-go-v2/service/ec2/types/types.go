@@ -476,6 +476,9 @@ type AnalysisLoadBalancerTarget struct {
 	// The Availability Zone.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
+
 	// Information about the instance.
 	Instance *AnalysisComponent
 
@@ -1754,6 +1757,9 @@ type CapacityReservationInfo struct {
 
 	// The Availability Zone for the Capacity Reservation.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// The instance type for the Capacity Reservation.
 	InstanceType *string
@@ -4699,6 +4705,9 @@ type Explanation struct {
 
 	// The resource to which the component is attached.
 	AttachedTo *AnalysisComponent
+
+	// The IDs of the Availability Zones.
+	AvailabilityZoneIds []string
 
 	// The Availability Zones.
 	AvailabilityZones []string
@@ -7758,6 +7767,22 @@ type InstanceMaintenanceOptions struct {
 	// instance.
 	AutoRecovery InstanceAutoRecoveryState
 
+	// Specifies whether to attempt reboot migration during a user-initiated reboot of
+	// an instance that has a scheduled system-reboot event:
+	//
+	//   - default - Amazon EC2 attempts to migrate the instance to new hardware
+	//   (reboot migration). If successful, the system-reboot event is cleared. If
+	//   unsuccessful, an in-place reboot occurs and the event remains scheduled.
+	//
+	//   - disabled - Amazon EC2 keeps the instance on the same hardware (in-place
+	//   reboot). The system-reboot event remains scheduled.
+	//
+	// This setting only applies to supported instances that have a scheduled reboot
+	// event. For more information, see [Enable or disable reboot migration]in the Amazon EC2 User Guide.
+	//
+	// [Enable or disable reboot migration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/schedevents_actions_reboot.html#reboot-migration
+	RebootMigration InstanceRebootMigrationState
+
 	noSmithyDocumentSerde
 }
 
@@ -9323,6 +9348,13 @@ type InstanceTypeInfo struct {
 
 	// Describes the processor.
 	ProcessorInfo *ProcessorInfo
+
+	// Indicates whether reboot migration during a user-initiated reboot is supported
+	// for instances that have a scheduled system-reboot event. For more information,
+	// see [Enable or disable reboot migration]in the Amazon EC2 User Guide.
+	//
+	// [Enable or disable reboot migration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/schedevents_actions_reboot.html#reboot-migration
+	RebootMigrationSupport RebootMigrationSupport
 
 	// The supported boot modes. For more information, see [Boot modes] in the Amazon EC2 User
 	// Guide.
@@ -12414,6 +12446,94 @@ type MacHost struct {
 	noSmithyDocumentSerde
 }
 
+// Information about a System Integrity Protection (SIP) modification task or
+// volume ownership delegation task for an Amazon EC2 Mac instance.
+type MacModificationTask struct {
+
+	// The ID of the Amazon EC2 Mac instance.
+	InstanceId *string
+
+	// The ID of task.
+	MacModificationTaskId *string
+
+	// [SIP modification tasks only] Information about the SIP configuration.
+	MacSystemIntegrityProtectionConfig *MacSystemIntegrityProtectionConfiguration
+
+	// The date and time the task was created, in the UTC timezone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ).
+	StartTime *time.Time
+
+	// The tags assigned to the task.
+	Tags []Tag
+
+	// The state of the task.
+	TaskState MacModificationTaskState
+
+	// The type of task.
+	TaskType MacModificationTaskType
+
+	noSmithyDocumentSerde
+}
+
+// Describes the configuration for a System Integrity Protection (SIP)
+// modification task.
+type MacSystemIntegrityProtectionConfiguration struct {
+
+	// Indicates whether Apple Internal was enabled or disabled by the task.
+	AppleInternal MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates whether Base System was enabled or disabled by the task.
+	BaseSystem MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates whether Dtrace Restrictions was enabled or disabled by the task.
+	DTraceRestrictions MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates whether Debugging Restrictions was enabled or disabled by the task.
+	DebuggingRestrictions MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates whether Filesystem Protections was enabled or disabled by the task.
+	FilesystemProtections MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates whether Kext Signing was enabled or disabled by the task.
+	KextSigning MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates whether NVRAM Protections was enabled or disabled by the task.
+	NvramProtections MacSystemIntegrityProtectionSettingStatus
+
+	// Indicates SIP was enabled or disabled by the task.
+	Status MacSystemIntegrityProtectionSettingStatus
+
+	noSmithyDocumentSerde
+}
+
+// Describes a custom configuration for a System Integrity Protection (SIP)
+// modification task.
+type MacSystemIntegrityProtectionConfigurationRequest struct {
+
+	// Enables or disables Apple Internal.
+	AppleInternal MacSystemIntegrityProtectionSettingStatus
+
+	// Enables or disables Base System.
+	BaseSystem MacSystemIntegrityProtectionSettingStatus
+
+	// Enables or disables Dtrace Restrictions.
+	DTraceRestrictions MacSystemIntegrityProtectionSettingStatus
+
+	// Enables or disables Debugging Restrictions.
+	DebuggingRestrictions MacSystemIntegrityProtectionSettingStatus
+
+	// Enables or disables Filesystem Protections.
+	FilesystemProtections MacSystemIntegrityProtectionSettingStatus
+
+	// Enables or disables Kext Signing.
+	KextSigning MacSystemIntegrityProtectionSettingStatus
+
+	// Enables or disables Nvram Protections.
+	NvramProtections MacSystemIntegrityProtectionSettingStatus
+
+	noSmithyDocumentSerde
+}
+
 // Details for Site-to-Site VPN tunnel endpoint maintenance events.
 type MaintenanceDetails struct {
 
@@ -13609,7 +13729,9 @@ type NetworkInterface struct {
 	// The Amazon Web Services account ID of the owner of the network interface.
 	OwnerId *string
 
-	// The private DNS name.
+	// The private hostname. For more information, see [EC2 instance hostnames, DNS names, and domains] in the Amazon EC2 User Guide.
+	//
+	// [EC2 instance hostnames, DNS names, and domains]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-naming.html
 	PrivateDnsName *string
 
 	// The IPv4 address of the network interface within the subnet.
@@ -13617,6 +13739,17 @@ type NetworkInterface struct {
 
 	// The private IPv4 addresses associated with the network interface.
 	PrivateIpAddresses []NetworkInterfacePrivateIpAddress
+
+	// A public hostname. For more information, see [EC2 instance hostnames, DNS names, and domains] in the Amazon EC2 User Guide.
+	//
+	// [EC2 instance hostnames, DNS names, and domains]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-naming.html
+	PublicDnsName *string
+
+	// Public hostname type options. For more information, see [EC2 instance hostnames, DNS names, and domains] in the Amazon EC2 User
+	// Guide.
+	//
+	// [EC2 instance hostnames, DNS names, and domains]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-naming.html
+	PublicIpDnsNameOptions *PublicIpDnsNameOptions
 
 	// The alias or Amazon Web Services account ID of the principal or service that
 	// created the network interface.
@@ -13773,6 +13906,13 @@ type NetworkInterfaceIpv6Address struct {
 	//
 	// [ModifyNetworkInterfaceAttribute]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyNetworkInterfaceAttribute.html
 	IsPrimaryIpv6 *bool
+
+	// An IPv6-enabled public hostname for a network interface. Requests from within
+	// the VPC or from the internet resolve to the IPv6 GUA of the network interface.
+	// For more information, see [EC2 instance hostnames, DNS names, and domains]in the Amazon EC2 User Guide.
+	//
+	// [EC2 instance hostnames, DNS names, and domains]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-naming.html
+	PublicIpv6DnsName *string
 
 	noSmithyDocumentSerde
 }
@@ -15029,6 +15169,37 @@ type PtrUpdateStatus struct {
 	noSmithyDocumentSerde
 }
 
+// Public hostname type options. For more information, see [EC2 instance hostnames, DNS names, and domains] in the Amazon EC2 User
+// Guide.
+//
+// [EC2 instance hostnames, DNS names, and domains]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-naming.html
+type PublicIpDnsNameOptions struct {
+
+	// The public hostname type. For more information, see [EC2 instance hostnames, DNS names, and domains] in the Amazon EC2 User
+	// Guide.
+	//
+	// [EC2 instance hostnames, DNS names, and domains]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-naming.html
+	DnsHostnameType *string
+
+	// A dual-stack public hostname for a network interface. Requests from within the
+	// VPC resolve to both the private IPv4 address and the IPv6 Global Unicast Address
+	// of the network interface. Requests from the internet resolve to both the public
+	// IPv4 and the IPv6 GUA address of the network interface.
+	PublicDualStackDnsName *string
+
+	// An IPv4-enabled public hostname for a network interface. Requests from within
+	// the VPC resolve to the private primary IPv4 address of the network interface.
+	// Requests from the internet resolve to the public IPv4 address of the network
+	// interface.
+	PublicIpv4DnsName *string
+
+	// An IPv6-enabled public hostname for a network interface. Requests from within
+	// the VPC or from the internet resolve to the IPv6 GUA of the network interface.
+	PublicIpv6DnsName *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes an IPv4 address pool.
 type PublicIpv4Pool struct {
 
@@ -15800,6 +15971,9 @@ type ReservedInstances struct {
 	// The Availability Zone in which the Reserved Instance can be used.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
+
 	// The currency of the Reserved Instance. It's specified using ISO 4217 standard
 	// currency codes. At this time, the only supported currency is USD .
 	CurrencyCode CurrencyCodeValues
@@ -15860,6 +16034,9 @@ type ReservedInstancesConfiguration struct {
 
 	// The Availability Zone for the modified Reserved Instances.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// The number of modified Reserved Instances.
 	//
@@ -15984,6 +16161,9 @@ type ReservedInstancesOffering struct {
 
 	// The Availability Zone in which the Reserved Instance can be used.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// The currency of the Reserved Instance offering you are purchasing. It's
 	// specified using ISO 4217 standard currency codes. At this time, the only
@@ -21986,6 +22166,9 @@ type VolumeStatusItem struct {
 
 	// The Availability Zone of the volume.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// A list of events associated with the volume.
 	Events []VolumeStatusEvent

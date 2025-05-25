@@ -4988,6 +4988,76 @@ func (m *awsEc2query_serializeOpCreateDefaultVpc) HandleSerialize(ctx context.Co
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpCreateDelegateMacVolumeOwnershipTask struct {
+}
+
+func (*awsEc2query_serializeOpCreateDelegateMacVolumeOwnershipTask) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpCreateDelegateMacVolumeOwnershipTask) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*CreateDelegateMacVolumeOwnershipTaskInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("CreateDelegateMacVolumeOwnershipTask")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentCreateDelegateMacVolumeOwnershipTaskInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpCreateDhcpOptions struct {
 }
 
@@ -6646,6 +6716,76 @@ func (m *awsEc2query_serializeOpCreateLocalGatewayVirtualInterfaceGroup) HandleS
 	body.Key("Version").String("2016-11-15")
 
 	if err := awsEc2query_serializeOpDocumentCreateLocalGatewayVirtualInterfaceGroupInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
+type awsEc2query_serializeOpCreateMacSystemIntegrityProtectionModificationTask struct {
+}
+
+func (*awsEc2query_serializeOpCreateMacSystemIntegrityProtectionModificationTask) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpCreateMacSystemIntegrityProtectionModificationTask) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*CreateMacSystemIntegrityProtectionModificationTaskInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("CreateMacSystemIntegrityProtectionModificationTask")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentCreateMacSystemIntegrityProtectionModificationTaskInput(input, bodyEncoder.Value); err != nil {
 		return out, metadata, &smithy.SerializationError{Err: err}
 	}
 
@@ -22326,6 +22466,76 @@ func (m *awsEc2query_serializeOpDescribeMacHosts) HandleSerialize(ctx context.Co
 	body.Key("Version").String("2016-11-15")
 
 	if err := awsEc2query_serializeOpDocumentDescribeMacHostsInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
+type awsEc2query_serializeOpDescribeMacModificationTasks struct {
+}
+
+func (*awsEc2query_serializeOpDescribeMacModificationTasks) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpDescribeMacModificationTasks) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*DescribeMacModificationTasksInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("DescribeMacModificationTasks")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentDescribeMacModificationTasksInput(input, bodyEncoder.Value); err != nil {
 		return out, metadata, &smithy.SerializationError{Err: err}
 	}
 
@@ -39918,6 +40128,76 @@ func (m *awsEc2query_serializeOpModifyPrivateDnsNameOptions) HandleSerialize(ctx
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpModifyPublicIpDnsNameOptions struct {
+}
+
+func (*awsEc2query_serializeOpModifyPublicIpDnsNameOptions) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpModifyPublicIpDnsNameOptions) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*ModifyPublicIpDnsNameOptionsInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("ModifyPublicIpDnsNameOptions")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentModifyPublicIpDnsNameOptionsInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpModifyReservedInstances struct {
 }
 
@@ -53056,6 +53336,61 @@ func awsEc2query_serializeDocumentLocalStorageTypeSet(v []types.LocalStorageType
 	return nil
 }
 
+func awsEc2query_serializeDocumentMacModificationTaskIdList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentMacSystemIntegrityProtectionConfigurationRequest(v *types.MacSystemIntegrityProtectionConfigurationRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if len(v.AppleInternal) > 0 {
+		objectKey := object.Key("AppleInternal")
+		objectKey.String(string(v.AppleInternal))
+	}
+
+	if len(v.BaseSystem) > 0 {
+		objectKey := object.Key("BaseSystem")
+		objectKey.String(string(v.BaseSystem))
+	}
+
+	if len(v.DebuggingRestrictions) > 0 {
+		objectKey := object.Key("DebuggingRestrictions")
+		objectKey.String(string(v.DebuggingRestrictions))
+	}
+
+	if len(v.DTraceRestrictions) > 0 {
+		objectKey := object.Key("DTraceRestrictions")
+		objectKey.String(string(v.DTraceRestrictions))
+	}
+
+	if len(v.FilesystemProtections) > 0 {
+		objectKey := object.Key("FilesystemProtections")
+		objectKey.String(string(v.FilesystemProtections))
+	}
+
+	if len(v.KextSigning) > 0 {
+		objectKey := object.Key("KextSigning")
+		objectKey.String(string(v.KextSigning))
+	}
+
+	if len(v.NvramProtections) > 0 {
+		objectKey := object.Key("NvramProtections")
+		objectKey.String(string(v.NvramProtections))
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentMemoryGiBPerVCpu(v *types.MemoryGiBPerVCpu, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -55452,6 +55787,11 @@ func awsEc2query_serializeDocumentReservedInstancesConfiguration(v *types.Reserv
 	if v.AvailabilityZone != nil {
 		objectKey := object.Key("AvailabilityZone")
 		objectKey.String(*v.AvailabilityZone)
+	}
+
+	if v.AvailabilityZoneId != nil {
+		objectKey := object.Key("AvailabilityZoneId")
+		objectKey.String(*v.AvailabilityZoneId)
 	}
 
 	if v.InstanceCount != nil {
@@ -58631,6 +58971,11 @@ func awsEc2query_serializeOpDocumentAllocateHostsInput(v *AllocateHostsInput, va
 		objectKey.String(*v.AvailabilityZone)
 	}
 
+	if v.AvailabilityZoneId != nil {
+		objectKey := object.Key("AvailabilityZoneId")
+		objectKey.String(*v.AvailabilityZoneId)
+	}
+
 	if v.ClientToken != nil {
 		objectKey := object.Key("ClientToken")
 		objectKey.String(*v.ClientToken)
@@ -60668,6 +61013,40 @@ func awsEc2query_serializeOpDocumentCreateDefaultVpcInput(v *CreateDefaultVpcInp
 	return nil
 }
 
+func awsEc2query_serializeOpDocumentCreateDelegateMacVolumeOwnershipTaskInput(v *CreateDelegateMacVolumeOwnershipTaskInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ClientToken != nil {
+		objectKey := object.Key("ClientToken")
+		objectKey.String(*v.ClientToken)
+	}
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.InstanceId != nil {
+		objectKey := object.Key("InstanceId")
+		objectKey.String(*v.InstanceId)
+	}
+
+	if v.MacCredentials != nil {
+		objectKey := object.Key("MacCredentials")
+		objectKey.String(*v.MacCredentials)
+	}
+
+	if v.TagSpecifications != nil {
+		objectKey := object.FlatKey("TagSpecification")
+		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeOpDocumentCreateDhcpOptionsInput(v *CreateDhcpOptionsInput, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -61705,6 +62084,52 @@ func awsEc2query_serializeOpDocumentCreateLocalGatewayVirtualInterfaceInput(v *C
 	if v.Vlan != nil {
 		objectKey := object.Key("Vlan")
 		objectKey.Integer(*v.Vlan)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeOpDocumentCreateMacSystemIntegrityProtectionModificationTaskInput(v *CreateMacSystemIntegrityProtectionModificationTaskInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ClientToken != nil {
+		objectKey := object.Key("ClientToken")
+		objectKey.String(*v.ClientToken)
+	}
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.InstanceId != nil {
+		objectKey := object.Key("InstanceId")
+		objectKey.String(*v.InstanceId)
+	}
+
+	if v.MacCredentials != nil {
+		objectKey := object.Key("MacCredentials")
+		objectKey.String(*v.MacCredentials)
+	}
+
+	if v.MacSystemIntegrityProtectionConfiguration != nil {
+		objectKey := object.Key("MacSystemIntegrityProtectionConfiguration")
+		if err := awsEc2query_serializeDocumentMacSystemIntegrityProtectionConfigurationRequest(v.MacSystemIntegrityProtectionConfiguration, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.MacSystemIntegrityProtectionStatus) > 0 {
+		objectKey := object.Key("MacSystemIntegrityProtectionStatus")
+		objectKey.String(string(v.MacSystemIntegrityProtectionStatus))
+	}
+
+	if v.TagSpecifications != nil {
+		objectKey := object.FlatKey("TagSpecification")
+		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -68652,6 +69077,42 @@ func awsEc2query_serializeOpDocumentDescribeMacHostsInput(v *DescribeMacHostsInp
 	return nil
 }
 
+func awsEc2query_serializeOpDocumentDescribeMacModificationTasksInput(v *DescribeMacModificationTasksInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.Filters != nil {
+		objectKey := object.FlatKey("Filter")
+		if err := awsEc2query_serializeDocumentFilterList(v.Filters, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MacModificationTaskIds != nil {
+		objectKey := object.FlatKey("MacModificationTaskId")
+		if err := awsEc2query_serializeDocumentMacModificationTaskIdList(v.MacModificationTaskIds, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MaxResults != nil {
+		objectKey := object.Key("MaxResults")
+		objectKey.Integer(*v.MaxResults)
+	}
+
+	if v.NextToken != nil {
+		objectKey := object.Key("NextToken")
+		objectKey.String(*v.NextToken)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeOpDocumentDescribeManagedPrefixListsInput(v *DescribeManagedPrefixListsInput, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -69384,6 +69845,11 @@ func awsEc2query_serializeOpDocumentDescribeReservedInstancesOfferingsInput(v *D
 	if v.AvailabilityZone != nil {
 		objectKey := object.Key("AvailabilityZone")
 		objectKey.String(*v.AvailabilityZone)
+	}
+
+	if v.AvailabilityZoneId != nil {
+		objectKey := object.Key("AvailabilityZoneId")
+		objectKey.String(*v.AvailabilityZoneId)
 	}
 
 	if v.DryRun != nil {
@@ -75709,6 +76175,11 @@ func awsEc2query_serializeOpDocumentModifyInstanceMaintenanceOptionsInput(v *Mod
 		objectKey.String(*v.InstanceId)
 	}
 
+	if len(v.RebootMigration) > 0 {
+		objectKey := object.Key("RebootMigration")
+		objectKey.String(string(v.RebootMigration))
+	}
+
 	return nil
 }
 
@@ -76292,6 +76763,28 @@ func awsEc2query_serializeOpDocumentModifyPrivateDnsNameOptionsInput(v *ModifyPr
 	if len(v.PrivateDnsHostnameType) > 0 {
 		objectKey := object.Key("PrivateDnsHostnameType")
 		objectKey.String(string(v.PrivateDnsHostnameType))
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeOpDocumentModifyPublicIpDnsNameOptionsInput(v *ModifyPublicIpDnsNameOptionsInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if len(v.HostnameType) > 0 {
+		objectKey := object.Key("HostnameType")
+		objectKey.String(string(v.HostnameType))
+	}
+
+	if v.NetworkInterfaceId != nil {
+		objectKey := object.Key("NetworkInterfaceId")
+		objectKey.String(*v.NetworkInterfaceId)
 	}
 
 	return nil

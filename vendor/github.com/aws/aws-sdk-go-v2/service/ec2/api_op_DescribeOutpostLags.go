@@ -12,6 +12,8 @@ import (
 )
 
 // Describes the Outposts link aggregation groups (LAGs).
+//
+// LAGs are only available for second-generation Outposts racks at this time.
 func (c *Client) DescribeOutpostLags(ctx context.Context, params *DescribeOutpostLagsInput, optFns ...func(*Options)) (*DescribeOutpostLagsOutput, error) {
 	if params == nil {
 		params = &DescribeOutpostLagsInput{}

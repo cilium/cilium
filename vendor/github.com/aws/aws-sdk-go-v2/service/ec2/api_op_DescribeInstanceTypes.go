@@ -166,6 +166,9 @@ type DescribeInstanceTypesInput struct {
 	//   - processor-info.supported-features - The supported CPU features ( amd-sev-snp
 	//   ).
 	//
+	//   - reboot-migration-support - Indicates whether enabling reboot migration is
+	//   supported ( supported | unsupported ).
+	//
 	//   - supported-boot-mode - The boot mode ( legacy-bios | uefi ).
 	//
 	//   - supported-root-device-type - The root device type ( ebs | instance-store ).

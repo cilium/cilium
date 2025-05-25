@@ -139,7 +139,9 @@ type CopyImageInput struct {
 	// Specify a completion duration, in 15 minute increments, to initiate a
 	// time-based AMI copy. The specified completion duration applies to each of the
 	// snapshots associated with the AMI. Each snapshot associated with the AMI will be
-	// completed within the specified completion duration, regardless of their size.
+	// completed within the specified completion duration, with copy throughput
+	// automatically adjusted for each snapshot based on its size to meet the timing
+	// target.
 	//
 	// If you do not specify a value, the AMI copy operation is completed on a
 	// best-effort basis.

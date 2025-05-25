@@ -59,14 +59,14 @@ import (
 // other devices attached to the instance persist. When you terminate an instance,
 // any attached EBS volumes with the DeleteOnTermination block device mapping
 // parameter set to true are automatically deleted. For more information about the
-// differences between stopping and terminating instances, see [Amazon EC2 instance state changes]in the Amazon EC2
+// differences between stopping and terminating instances, see [Instance lifecycle]in the Amazon EC2
 // User Guide.
 //
-// For information about troubleshooting, see [Troubleshooting terminating your instance] in the Amazon EC2 User Guide.
+// For more information about troubleshooting, see [Troubleshooting terminating your instance] in the Amazon EC2 User Guide.
 //
 // [idempotent]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
+// [Instance lifecycle]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
 // [Troubleshooting terminating your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesShuttingDown.html
-// [Amazon EC2 instance state changes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
 func (c *Client) TerminateInstances(ctx context.Context, params *TerminateInstancesInput, optFns ...func(*Options)) (*TerminateInstancesOutput, error) {
 	if params == nil {
 		params = &TerminateInstancesInput{}

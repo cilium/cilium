@@ -47,7 +47,14 @@ func (c *Client) DescribeReservedInstancesOfferings(ctx context.Context, params 
 type DescribeReservedInstancesOfferingsInput struct {
 
 	// The Availability Zone in which the Reserved Instance can be used.
+	//
+	// Either AvailabilityZone or AvailabilityZoneId can be specified, but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	//
+	// Either AvailabilityZone or AvailabilityZoneId can be specified, but not both.
+	AvailabilityZoneId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -59,6 +66,9 @@ type DescribeReservedInstancesOfferingsInput struct {
 	//
 	//   - availability-zone - The Availability Zone where the Reserved Instance can be
 	//   used.
+	//
+	//   - availability-zone-id - The ID of the Availability Zone where the Reserved
+	//   Instance can be used.
 	//
 	//   - duration - The duration of the Reserved Instance (for example, one year or
 	//   three years), in seconds ( 31536000 | 94608000 ).

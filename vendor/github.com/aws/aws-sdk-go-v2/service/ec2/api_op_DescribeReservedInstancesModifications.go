@@ -56,6 +56,9 @@ type DescribeReservedInstancesModificationsInput struct {
 	//   - modification-result.target-configuration.availability-zone - The
 	//   Availability Zone for the new Reserved Instances.
 	//
+	//   - modification-result.target-configuration.availability-zone-id - The ID of
+	//   the Availability Zone for the new Reserved Instances.
+	//
 	//   - modification-result.target-configuration.instance-count - The number of new
 	//   Reserved Instances.
 	//
