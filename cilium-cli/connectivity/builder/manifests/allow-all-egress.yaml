@@ -6,7 +6,8 @@ spec:
   endpointSelector: {}
   egress:
   - toEndpoints:
-    - {}
+    - matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
   - toCIDR:
     - 0.0.0.0/0
     - ::/0

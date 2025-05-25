@@ -53,8 +53,10 @@ type ConnectivityTest struct {
 
 	CodeOwners *codeowners.Ruleset
 
-	// ClusterName is the identifier of the local cluster.
-	ClusterName string
+	// ClusterNameLocal is the identifier of the local cluster.
+	ClusterNameLocal string
+	// ClusterNameRemote is the identifier of the destination cluster.
+	ClusterNameRemote string
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
