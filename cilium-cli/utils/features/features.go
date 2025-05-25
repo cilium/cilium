@@ -113,6 +113,8 @@ const (
 	IPsecEnabled                  Feature = "enable-ipsec"
 	ClusterMeshEnableEndpointSync Feature = "clustermesh-enable-endpoint-sync"
 
+	PolicyDefaultLocalCLuster Feature = "policy-default-local-cluster"
+
 	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
 
 	BGPControlPlane Feature = "enable-bgp-control-plane"
@@ -373,6 +375,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[ClusterMeshEnableEndpointSync] = Status{
 		Enabled: cm.Data[string(ClusterMeshEnableEndpointSync)] == "true",
+	}
+
+	fs[PolicyDefaultLocalCLuster] = Status{
+		Enabled: cm.Data[string(PolicyDefaultLocalCLuster)] == "true",
 	}
 
 	fs[LocalRedirectPolicy] = Status{
