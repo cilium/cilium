@@ -353,6 +353,14 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	}
 
 	ct.ClusterName = cmp.Or(cm.Data["cluster-name"], "default")
+	ct.ClusterNameDst = ct.ClusterName
+	if ct.params.MultiCluster != "" {
+		cmDst, err := ct.clients.dst.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to retrieve dst cluster ConfigMap %q: %w", defaults.ConfigMapName, err)
+		}
+		ct.ClusterNameDst = cmp.Or(cmDst.Data["cluster-name"], "default")
+	}
 
 	return nil
 }

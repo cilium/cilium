@@ -55,6 +55,8 @@ type ConnectivityTest struct {
 
 	// ClusterName is the identifier of the local cluster.
 	ClusterName string
+	// ClusterNameDst is the identifier of the destination cluster.
+	ClusterNameDst string
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
