@@ -302,6 +302,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		podToK8sOnControlplane{},
 		podToControlplaneHostCidr{},
 		podToK8sOnControlplaneCidr{},
+		policyLocalCluster{},
 		localRedirectPolicy{},
 		localRedirectPolicyWithNodeDNS{},
 		noFragmentation{},
