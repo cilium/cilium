@@ -19,9 +19,9 @@ runs:
         echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
 
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-        KIND_VERSION="v0.27.0"
+        KIND_VERSION="v0.29.0"
         # renovate: datasource=docker
-        KIND_K8S_IMAGE="kindest/node:v1.30.13@sha256:8673291894dc400e0fb4f57243f5fdc6e355ceaa765505e0e73941aa1b6e0b80"
+        KIND_K8S_IMAGE="kindest/node:v1.30.13@sha256:397209b3d947d154f6641f2d0ce8d473732bd91c87d9575ade99049aa33cd648"
         KIND_K8S_VERSION=$(echo "$KIND_K8S_IMAGE" | sed -r 's|.+:(v[0-9a-z.-]+)(@.+)?|\1|')
 
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
