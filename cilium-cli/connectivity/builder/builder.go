@@ -332,7 +332,7 @@ func finalTests(ct *check.ConnectivityTest) error {
 	}, ct)
 }
 
-func renderTemplates(clusterName string, param check.Parameters) (map[string]string, error) {
+func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Parameters) (map[string]string, error) {
 	templates := map[string]string{
 		"clientEgressToCIDRExternalPolicyYAML":                       clientEgressToCIDRExternalPolicyYAML,
 		"clientEgressToCIDRExternalPolicyKNPYAML":                    clientEgressToCIDRExternalPolicyKNPYAML,
@@ -372,10 +372,12 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 	for key, temp := range templates {
 		val, err := template.Render(temp, struct {
 			check.Parameters
-			ClusterName string
+			ClusterNameLocal  string
+			ClusterNameRemote string
 		}{
-			Parameters:  param,
-			ClusterName: clusterName,
+			Parameters:        param,
+			ClusterNameLocal:  clusterNameLocal,
+			ClusterNameRemote: clusterNameRemote,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to render template %s: %w", key, err)
@@ -392,7 +394,10 @@ func injectTests(tests []testBuilder, connTests ...*check.ConnectivityTest) erro
 	id := 0
 	for i := range tests {
 		if _, ok := templates[connTests[id].Params().TestNamespace]; !ok {
-			nsTemplates, err := renderTemplates(connTests[id].ClusterName, connTests[id].Params())
+			nsTemplates, err := renderTemplates(
+				connTests[id].ClusterNameLocal, connTests[id].ClusterNameRemote,
+				connTests[id].Params(),
+			)
 			if err != nil {
 				return err
 			}

@@ -16,3 +16,4 @@ spec:
         operator: NotIn
         values:
         - echo-other-node
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
