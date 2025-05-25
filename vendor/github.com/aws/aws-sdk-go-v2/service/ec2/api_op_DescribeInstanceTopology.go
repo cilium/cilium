@@ -26,6 +26,8 @@ import (
 //
 //   - Supported instance types
 //
+//   - Returns 3 network nodes in the response
+//
 //   - hpc6a.48xlarge | hpc6id.32xlarge | hpc7a.12xlarge | hpc7a.24xlarge |
 //     hpc7a.48xlarge | hpc7a.96xlarge | hpc7g.4xlarge | hpc7g.8xlarge |
 //     hpc7g.16xlarge
@@ -35,6 +37,10 @@ import (
 //
 //   - trn1.2xlarge | trn1.32xlarge | trn1n.32xlarge | trn2.48xlarge |
 //     trn2u.48xlarge
+//
+//   - Returns 4 network nodes in the response
+//
+//   - p6-b200.48xlarge
 //
 // For more information, see [Amazon EC2 instance topology] in the Amazon EC2 User Guide.
 //

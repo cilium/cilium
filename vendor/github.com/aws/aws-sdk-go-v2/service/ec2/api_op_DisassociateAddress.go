@@ -15,6 +15,15 @@ import (
 //
 // This is an idempotent operation. If you perform the operation more than once,
 // Amazon EC2 doesn't return an error.
+//
+// An address cannot be disassociated if the all of the following conditions are
+// met:
+//
+//   - Network interface has a publicDualStackDnsName publicDnsName
+//
+//   - Public IPv4 address is the primary public IPv4 address
+//
+//   - Network interface only has one remaining public IPv4 address
 func (c *Client) DisassociateAddress(ctx context.Context, params *DisassociateAddressInput, optFns ...func(*Options)) (*DisassociateAddressOutput, error) {
 	if params == nil {
 		params = &DisassociateAddressInput{}

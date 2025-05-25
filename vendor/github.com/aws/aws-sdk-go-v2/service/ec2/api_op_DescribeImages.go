@@ -35,12 +35,19 @@ import (
 // Allowed AMIs criteria, and false for images that don't meet the criteria. For
 // more information, see EnableAllowedImagesSettings.
 //
+// The Amazon EC2 API follows an eventual consistency model. This means that the
+// result of an API command you run that creates or modifies resources might not be
+// immediately available to all subsequent commands you run. For guidance on how to
+// manage eventual consistency, see [Eventual consistency in the Amazon EC2 API]in the Amazon EC2 Developer Guide.
+//
 // We strongly recommend using only paginated requests. Unpaginated requests are
 // susceptible to throttling and timeouts.
 //
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
+//
+// [Eventual consistency in the Amazon EC2 API]: https://docs.aws.amazon.com/ec2/latest/devguide/eventual-consistency.html
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}

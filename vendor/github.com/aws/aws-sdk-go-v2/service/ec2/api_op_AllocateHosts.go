@@ -31,11 +31,6 @@ func (c *Client) AllocateHosts(ctx context.Context, params *AllocateHostsInput, 
 
 type AllocateHostsInput struct {
 
-	// The Availability Zone in which to allocate the Dedicated Host.
-	//
-	// This member is required.
-	AvailabilityZone *string
-
 	// The IDs of the Outpost hardware assets on which to allocate the Dedicated
 	// Hosts. Targeting specific hardware assets on an Outpost can help to minimize
 	// latency between your workloads. This parameter is supported only if you specify
@@ -58,6 +53,12 @@ type AllocateHostsInput struct {
 	//
 	// [Understanding auto-placement and affinity]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-dedicated-hosts-work.html#dedicated-hosts-understanding
 	AutoPlacement types.AutoPlacement
+
+	// The Availability Zone in which to allocate the Dedicated Host.
+	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensuring Idempotency].
@@ -197,9 +198,6 @@ func (c *Client) addOperationAllocateHostsMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
-	if err = addOpAllocateHostsValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAllocateHosts(options.Region), middleware.Before); err != nil {

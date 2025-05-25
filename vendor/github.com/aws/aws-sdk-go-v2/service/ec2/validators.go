@@ -170,26 +170,6 @@ func (m *validateOpAdvertiseByoipCidr) HandleInitialize(ctx context.Context, in 
 	return next.HandleInitialize(ctx, in)
 }
 
-type validateOpAllocateHosts struct {
-}
-
-func (*validateOpAllocateHosts) ID() string {
-	return "OperationInputValidation"
-}
-
-func (m *validateOpAllocateHosts) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
-	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
-) {
-	input, ok := in.Parameters.(*AllocateHostsInput)
-	if !ok {
-		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
-	}
-	if err := validateOpAllocateHostsInput(input); err != nil {
-		return out, metadata, err
-	}
-	return next.HandleInitialize(ctx, in)
-}
-
 type validateOpAllocateIpamPoolCidr struct {
 }
 
@@ -1310,6 +1290,26 @@ func (m *validateOpCreateDefaultSubnet) HandleInitialize(ctx context.Context, in
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateDelegateMacVolumeOwnershipTask struct {
+}
+
+func (*validateOpCreateDelegateMacVolumeOwnershipTask) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateDelegateMacVolumeOwnershipTask) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateDelegateMacVolumeOwnershipTaskInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateDelegateMacVolumeOwnershipTaskInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateDhcpOptions struct {
 }
 
@@ -1705,6 +1705,26 @@ func (m *validateOpCreateLocalGatewayVirtualInterface) HandleInitialize(ctx cont
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateLocalGatewayVirtualInterfaceInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateMacSystemIntegrityProtectionModificationTask struct {
+}
+
+func (*validateOpCreateMacSystemIntegrityProtectionModificationTask) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateMacSystemIntegrityProtectionModificationTask) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateMacSystemIntegrityProtectionModificationTaskInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateMacSystemIntegrityProtectionModificationTaskInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7530,6 +7550,26 @@ func (m *validateOpModifyPrivateDnsNameOptions) HandleInitialize(ctx context.Con
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyPublicIpDnsNameOptions struct {
+}
+
+func (*validateOpModifyPublicIpDnsNameOptions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyPublicIpDnsNameOptions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyPublicIpDnsNameOptionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyPublicIpDnsNameOptionsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyReservedInstances struct {
 }
 
@@ -9642,10 +9682,6 @@ func addOpAdvertiseByoipCidrValidationMiddleware(stack *middleware.Stack) error 
 	return stack.Initialize.Add(&validateOpAdvertiseByoipCidr{}, middleware.After)
 }
 
-func addOpAllocateHostsValidationMiddleware(stack *middleware.Stack) error {
-	return stack.Initialize.Add(&validateOpAllocateHosts{}, middleware.After)
-}
-
 func addOpAllocateIpamPoolCidrValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAllocateIpamPoolCidr{}, middleware.After)
 }
@@ -9870,6 +9906,10 @@ func addOpCreateDefaultSubnetValidationMiddleware(stack *middleware.Stack) error
 	return stack.Initialize.Add(&validateOpCreateDefaultSubnet{}, middleware.After)
 }
 
+func addOpCreateDelegateMacVolumeOwnershipTaskValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateDelegateMacVolumeOwnershipTask{}, middleware.After)
+}
+
 func addOpCreateDhcpOptionsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateDhcpOptions{}, middleware.After)
 }
@@ -9948,6 +9988,10 @@ func addOpCreateLocalGatewayVirtualInterfaceGroupValidationMiddleware(stack *mid
 
 func addOpCreateLocalGatewayVirtualInterfaceValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateLocalGatewayVirtualInterface{}, middleware.After)
+}
+
+func addOpCreateMacSystemIntegrityProtectionModificationTaskValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateMacSystemIntegrityProtectionModificationTask{}, middleware.After)
 }
 
 func addOpCreateManagedPrefixListValidationMiddleware(stack *middleware.Stack) error {
@@ -11112,6 +11156,10 @@ func addOpModifyNetworkInterfaceAttributeValidationMiddleware(stack *middleware.
 
 func addOpModifyPrivateDnsNameOptionsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyPrivateDnsNameOptions{}, middleware.After)
+}
+
+func addOpModifyPublicIpDnsNameOptionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyPublicIpDnsNameOptions{}, middleware.After)
 }
 
 func addOpModifyReservedInstancesValidationMiddleware(stack *middleware.Stack) error {
@@ -12562,21 +12610,6 @@ func validateOpAdvertiseByoipCidrInput(v *AdvertiseByoipCidrInput) error {
 	}
 }
 
-func validateOpAllocateHostsInput(v *AllocateHostsInput) error {
-	if v == nil {
-		return nil
-	}
-	invalidParams := smithy.InvalidParamsError{Context: "AllocateHostsInput"}
-	if v.AvailabilityZone == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("AvailabilityZone"))
-	}
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	} else {
-		return nil
-	}
-}
-
 func validateOpAllocateIpamPoolCidrInput(v *AllocateIpamPoolCidrInput) error {
 	if v == nil {
 		return nil
@@ -13552,6 +13585,24 @@ func validateOpCreateDefaultSubnetInput(v *CreateDefaultSubnetInput) error {
 	}
 }
 
+func validateOpCreateDelegateMacVolumeOwnershipTaskInput(v *CreateDelegateMacVolumeOwnershipTaskInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateDelegateMacVolumeOwnershipTaskInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if v.MacCredentials == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("MacCredentials"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateDhcpOptionsInput(v *CreateDhcpOptionsInput) error {
 	if v == nil {
 		return nil
@@ -13899,6 +13950,24 @@ func validateOpCreateLocalGatewayVirtualInterfaceInput(v *CreateLocalGatewayVirt
 	}
 	if v.PeerAddress == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("PeerAddress"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateMacSystemIntegrityProtectionModificationTaskInput(v *CreateMacSystemIntegrityProtectionModificationTaskInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateMacSystemIntegrityProtectionModificationTaskInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if len(v.MacSystemIntegrityProtectionStatus) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("MacSystemIntegrityProtectionStatus"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -18727,6 +18796,24 @@ func validateOpModifyPrivateDnsNameOptionsInput(v *ModifyPrivateDnsNameOptionsIn
 	invalidParams := smithy.InvalidParamsError{Context: "ModifyPrivateDnsNameOptionsInput"}
 	if v.InstanceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifyPublicIpDnsNameOptionsInput(v *ModifyPublicIpDnsNameOptionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyPublicIpDnsNameOptionsInput"}
+	if v.NetworkInterfaceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceId"))
+	}
+	if len(v.HostnameType) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("HostnameType"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
