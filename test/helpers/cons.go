@@ -230,8 +230,6 @@ const (
 	legacyBGPFeature           = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
 	etcdTimeout                = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
 	endpointRestoreFailed      = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
-	unableRestoreRouterIP      = "Unable to restore router IP from filesystem"                           // cf. https://github.com/cilium/cilium/issues/29715
-	routerIPReallocated        = "Router IP could not be re-allocated"                                   // cf. https://github.com/cilium/cilium/issues/29715
 	cantFindIdentityInCache    = "unable to release identity: unable to find key in local cache"         // cf. https://github.com/cilium/cilium/issues/29732
 	keyAllocFailedFoundMaster  = "Found master key after proceeding with new allocation"                 // cf. https://github.com/cilium/cilium/issues/29738
 	cantRecreateMasterKey      = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
@@ -302,7 +300,7 @@ var badLogMessages = map[string][]string{
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, podCIDRUnavailable,
 		unableGetNode, objectHasBeenModified, legacyBGPFeature,
-		etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP, routerIPReallocated,
+		etcdTimeout, endpointRestoreFailed,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
 		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},
 }
