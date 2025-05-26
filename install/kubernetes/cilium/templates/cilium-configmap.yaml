@@ -765,7 +765,7 @@ data:
 
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
 
-{{- if ne $kubeProxyReplacement "disabled" }}
+{{- if eq $kubeProxyReplacement "true" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
