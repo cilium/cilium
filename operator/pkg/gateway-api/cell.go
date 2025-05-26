@@ -256,7 +256,7 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 	for _, optionalGVK := range optionalGVKs {
 		if err := checkCRD(ctx, clientset, optionalGVK); err != nil {
-			logger.Debug("CRD is not present, will not handle it", logfields.OptionalGVK, optionalGVK)
+			logger.DebugContext(ctx, "CRD is not present, will not handle it", logfields.OptionalGVK, optionalGVK)
 			continue
 		}
 		// note that the .Kind field contains the _resource_ name -

@@ -37,7 +37,7 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		logfields.Controller, gammaHTTPRoute,
 		logfields.Resource, req.NamespacedName,
 	)
-	scopedLog.Info("Reconciling GAMMA HTTPRoute")
+	scopedLog.InfoContext(ctx, "Reconciling GAMMA HTTPRoute")
 
 	// Fetch the HTTPRoute instance
 	original := &gatewayv1.HTTPRoute{}
@@ -81,7 +81,8 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	for _, parent := range hr.Spec.ParentRefs {
 
 		if !helpers.IsGammaService(parent) {
-			scopedLog.Debug("Non GAMMA parentRef in GAMMA HTTPRoute reconciliation",
+			scopedLog.DebugContext(ctx,
+				"Non GAMMA parentRef in GAMMA HTTPRoute reconciliation",
 				logfields.Controller, "gammaHttpRoute",
 				logfields.Resource, client.ObjectKeyFromObject(hr),
 			)
@@ -164,7 +165,7 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
-	scopedLog.Info("Successfully reconciled HTTPRoute")
+	scopedLog.InfoContext(ctx, "Successfully reconciled HTTPRoute")
 	return controllerruntime.Success()
 }
 

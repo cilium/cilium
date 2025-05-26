@@ -26,7 +26,8 @@ func (c *Controller) processNamespaceEvents(ctx context.Context, wg *sync.WaitGr
 		case resource.Sync:
 			wg.Done()
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Namespace event",
+			c.logger.DebugContext(ctx,
+				"Got Upsert Namespace event",
 				logfields.K8sNamespace, event.Key,
 			)
 

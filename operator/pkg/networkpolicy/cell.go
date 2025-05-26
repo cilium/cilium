@@ -134,9 +134,9 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	if errs != nil {
-		log.Error("Detected invalid CNP, setting condition", logfields.Error, errs)
+		log.ErrorContext(ctx, "Detected invalid CNP, setting condition", logfields.Error, errs)
 	} else {
-		log.Debug("CNP now valid, setting condition")
+		log.DebugContext(ctx, "CNP now valid, setting condition")
 	}
 	// Using the UpdateStatus subresource will prevent the generation from being bumped.
 	_, err = pv.params.Clientset.CiliumV2().CiliumNetworkPolicies(pol.Namespace).UpdateStatus(
@@ -148,7 +148,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Error("failed to update CNP status", logfields.Error, err)
+		log.ErrorContext(ctx, "failed to update CNP status", logfields.Error, err)
 	}
 
 	return err
@@ -184,9 +184,9 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	if errs != nil {
-		log.Debug("Detected invalid CCNP, setting condition", logfields.Error, errs)
+		log.DebugContext(ctx, "Detected invalid CCNP, setting condition", logfields.Error, errs)
 	} else {
-		log.Debug("CCNP now valid, setting condition")
+		log.DebugContext(ctx, "CCNP now valid, setting condition")
 	}
 	// Using the UpdateStatus subresource will prevent the generation from being bumped.
 	_, err = pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(
@@ -198,7 +198,7 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Error("failed to update CCNP status", logfields.Error, err)
+		log.ErrorContext(ctx, "failed to update CCNP status", logfields.Error, err)
 	}
 
 	return err

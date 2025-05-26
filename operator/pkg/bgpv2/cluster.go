@@ -229,7 +229,7 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 				errs = errors.Join(errs, err)
 				continue
 			}
-			b.logger.Debug("Creating a new CiliumBGPNodeConfig",
+			b.logger.DebugContext(ctx, "Creating a new CiliumBGPNodeConfig",
 				types.BGPNodeConfigLogField, newNodeConfig.Name,
 				types.LabelClusterConfig, config.Name,
 			)
@@ -241,7 +241,7 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 				errs = errors.Join(errs, err)
 				continue
 			}
-			b.logger.Debug("Updating an existing CiliumBGPNodeConfig",
+			b.logger.DebugContext(ctx, "Updating an existing CiliumBGPNodeConfig",
 				types.BGPNodeConfigLogField, oldNodeConfig.Name,
 				types.LabelClusterConfig, config.Name,
 			)
@@ -283,7 +283,7 @@ func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNode
 			}
 
 		}
-		b.logger.Debug("Deleted BGP node config",
+		b.logger.DebugContext(ctx, "Deleted BGP node config",
 			types.BGPNodeConfigLogField, nodeConfig.Name,
 			types.LabelClusterConfig, config.Name,
 		)

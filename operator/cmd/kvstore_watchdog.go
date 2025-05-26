@@ -84,7 +84,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			keysToDelete2, err := a.RunLocksGC(ctx, keysToDelete)
 			if err != nil {
-				logger.Warn("Unable to run security identity garbage collector", logfields.Error, err)
+				logger.WarnContext(ctx, "Unable to run security identity garbage collector", logfields.Error, err)
 			} else {
 				keysToDelete = keysToDelete2
 			}
@@ -100,7 +100,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 
 			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
 			if err != nil {
-				logger.Warn("Unable to update heartbeat key", logfields.Error, err)
+				logger.WarnContext(ctx, "Unable to update heartbeat key", logfields.Error, err)
 			}
 
 			if option.Config.ClusterName != defaults.ClusterName && option.Config.ClusterID != 0 {
@@ -113,7 +113,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
 				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
-					logger.Warn("Unable to set local cluster config", logfields.Error, err)
+					logger.WarnContext(ctx, "Unable to set local cluster config", logfields.Error, err)
 				}
 			}
 

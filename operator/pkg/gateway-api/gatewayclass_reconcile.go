@@ -34,7 +34,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		logfields.Resource, req.NamespacedName,
 	)
 
-	scopedLog.Info("Reconciling GatewayClass")
+	scopedLog.InfoContext(ctx, "Reconciling GatewayClass")
 	original := &gatewayv1.GatewayClass{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -53,7 +53,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if ref := gwc.Spec.ParametersRef; ref != nil {
 		if !isParameterRefSupported(ref) {
-			scopedLog.Error("Only CiliumGatewayClassConfig is supported for ParametersRef")
+			scopedLog.ErrorContext(ctx, "Only CiliumGatewayClassConfig is supported for ParametersRef")
 			setGatewayClassAccepted(gwc, false)
 			if err := r.ensureStatus(ctx, gwc, original); err != nil {
 				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
@@ -63,7 +63,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 
 		if ref.Namespace == nil || ref.Name == "" {
-			scopedLog.Error("ParametersRef must specify namespace and name")
+			scopedLog.ErrorContext(ctx, "ParametersRef must specify namespace and name")
 			setGatewayClassAccepted(gwc, false)
 			if err := r.ensureStatus(ctx, gwc, original); err != nil {
 				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
@@ -104,7 +104,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return controllerruntime.Fail(err)
 	}
 
-	scopedLog.Info("Successfully reconciled GatewayClass")
+	scopedLog.InfoContext(ctx, "Successfully reconciled GatewayClass")
 	return controllerruntime.Success()
 }
 
