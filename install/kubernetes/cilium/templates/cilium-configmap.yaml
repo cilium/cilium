@@ -789,7 +789,7 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "nodePort" }}
-{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
+{{- if eq $kubeProxyReplacement "false" }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
