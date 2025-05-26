@@ -72,6 +72,7 @@ type ConnectivityTest struct {
 	echoExternalPods     map[string]Pod
 	clientPods           map[string]Pod
 	clientCPPods         map[string]Pod
+	l7LBClientPods       map[string]Pod
 	perfClientPods       []Pod
 	perfServerPod        []Pod
 	perfProfilingPods    map[string]Pod
@@ -79,6 +80,7 @@ type ConnectivityTest struct {
 	echoServices         map[string]Service
 	echoExternalServices map[string]Service
 	ingressService       map[string]Service
+	l7LBService          map[string]Service
 	k8sService           Service
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
@@ -226,6 +228,7 @@ func NewConnectivityTest(
 		echoExternalPods:         make(map[string]Pod),
 		clientPods:               make(map[string]Pod),
 		clientCPPods:             make(map[string]Pod),
+		l7LBClientPods:           make(map[string]Pod),
 		lrpClientPods:            make(map[string]Pod),
 		lrpBackendPods:           make(map[string]Pod),
 		perfProfilingPods:        make(map[string]Pod),
@@ -237,6 +240,7 @@ func NewConnectivityTest(
 		echoServices:             make(map[string]Service),
 		echoExternalServices:     make(map[string]Service),
 		ingressService:           make(map[string]Service),
+		l7LBService:              make(map[string]Service),
 		hostNetNSPodsByNode:      make(map[string]Pod),
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
@@ -1097,6 +1101,10 @@ func (ct *ConnectivityTest) ControlPlaneClientPods() map[string]Pod {
 	return ct.clientCPPods
 }
 
+func (ct *ConnectivityTest) L7LBClientPods() map[string]Pod {
+	return ct.l7LBClientPods
+}
+
 func (ct *ConnectivityTest) HostNetNSPodsByNode() map[string]Pod {
 	return ct.hostNetNSPodsByNode
 }
@@ -1171,6 +1179,10 @@ func (ct *ConnectivityTest) FRRPods() []Pod {
 
 func (ct *ConnectivityTest) IngressService() map[string]Service {
 	return ct.ingressService
+}
+
+func (ct *ConnectivityTest) L7LBService() map[string]Service {
+	return ct.l7LBService
 }
 
 func (ct *ConnectivityTest) K8sService() Service {
