@@ -64,7 +64,7 @@ func registerAgentHealthHTTPService(params agentHealthParams) error {
 		params.JobGroup.Add(job.OneShot(fmt.Sprintf("agent-healthz-server-%s", name), func(ctx context.Context, health cell.Health) error {
 			lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
 			addr := net.JoinHostPort(host, fmt.Sprintf("%d", option.Config.AgentHealthPort))
-			ln, err := lc.Listen(context.Background(), "tcp", addr)
+			ln, err := lc.Listen(ctx, "tcp", addr)
 			if errors.Is(err, unix.EADDRNOTAVAIL) {
 				params.Logger.Info("healthz status API server not available", logfields.Address, addr)
 				return fmt.Errorf("healthz status API server not available: %w", err)
