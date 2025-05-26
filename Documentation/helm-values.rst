@@ -1580,10 +1580,6 @@
      - Enable use of TLS/SSL for connectivity to etcd.
      - bool
      - ``false``
-   * - :spelling:ignore:`externalIPs.enabled`
-     - Enable ExternalIPs service support.
-     - bool
-     - ``false``
    * - :spelling:ignore:`extraArgs`
      - Additional agent container arguments.
      - list
@@ -1694,10 +1690,6 @@
      - ``{"enabled":false}``
    * - :spelling:ignore:`hostFirewall.enabled`
      - Enables the enforcement of host policies in the eBPF datapath.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hostPort.enabled`
-     - Enable hostPort service support.
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.annotations`
