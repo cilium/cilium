@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func (k *K8sInstaller) detectDatapathMode(helmValues map[string]any) error {
@@ -187,12 +186,7 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context, helmValues map[s
 		}
 
 		// Use HelmOpts to set auto kube-proxy installation
-		setIfUnset("kubeProxyReplacement", func() string {
-			if versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
-				return "true"
-			}
-			return "strict"
-		}())
+		setIfUnset("kubeProxyReplacement", "true")
 
 		setIfUnset("k8sServiceHost", apiServerHost)
 		setIfUnset("k8sServicePort", apiServerPort)

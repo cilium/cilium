@@ -6,7 +6,6 @@ package features
 import (
 	"testing"
 
-	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -69,59 +68,39 @@ func TestFeatureSetMatchRequirements(t *testing.T) {
 
 }
 
-func TestFeatureSet_extractFromVersionedConfigMap(t *testing.T) {
+func TestFeatureSet_extractTunnelFromConfigMap(t *testing.T) {
 	tests := []struct {
-		name    string
-		version semver.Version
-		data    map[string]string
+		name string
+		data map[string]string
 
 		enabled bool
 		proto   string
 	}{
 		{
 			name:    "empty config map",
-			version: semver.Version{Major: 1, Minor: 14, Patch: 0},
 			enabled: true,
 			proto:   "vxlan",
-		},
-		{
-			name:    "legacy format, native routing",
-			version: semver.Version{Major: 1, Minor: 13, Patch: 99},
-			data:    map[string]string{"tunnel": "disabled"},
-			enabled: false,
-			proto:   "vxlan",
-		},
-		{
-			name:    "legacy format, tunnel routing",
-			version: semver.Version{Major: 1, Minor: 13, Patch: 99},
-			data:    map[string]string{"tunnel": "geneve"},
-			enabled: true,
-			proto:   "geneve",
 		},
 		{
 			name:    "native routing, default protocol",
-			version: semver.Version{Major: 1, Minor: 14, Patch: 0},
 			data:    map[string]string{"routing-mode": "native"},
 			enabled: false,
 			proto:   "vxlan",
 		},
 		{
 			name:    "native routing, geneve protocol",
-			version: semver.Version{Major: 1, Minor: 14, Patch: 0},
 			data:    map[string]string{"routing-mode": "native", "tunnel-protocol": "geneve"},
 			enabled: false,
 			proto:   "geneve",
 		},
 		{
 			name:    "tunnel routing, default protocol",
-			version: semver.Version{Major: 1, Minor: 14, Patch: 0},
 			data:    map[string]string{"routing-mode": "tunnel"},
 			enabled: true,
 			proto:   "vxlan",
 		},
 		{
 			name:    "tunnel routing, geneve protocol",
-			version: semver.Version{Major: 1, Minor: 14, Patch: 0},
 			data:    map[string]string{"routing-mode": "tunnel", "tunnel-protocol": "geneve"},
 			enabled: true,
 			proto:   "geneve",
@@ -132,7 +111,7 @@ func TestFeatureSet_extractFromVersionedConfigMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := Set{}
 			cm := corev1.ConfigMap{Data: tt.data}
-			fs.ExtractFromVersionedConfigMap(tt.version, &cm)
+			fs.ExtractFromConfigMap(&cm)
 
 			assert.Equal(t, tt.enabled, fs[Tunnel].Enabled)
 			assert.Equal(t, tt.proto, fs[Tunnel].Mode)

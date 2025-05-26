@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumdef "github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"
@@ -2386,14 +2385,7 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 			}()
 
 			// Default flags for cilium-bugtool
-			bugtoolFlags := []string{"--archiveType=gz"}
-			ciliumVersion, err := c.Client.GetCiliumVersion(ctx, p)
-			if err == nil {
-				// This flag is not available in older versions
-				if versioncheck.MustCompile(">=1.13.0")(*ciliumVersion) {
-					bugtoolFlags = append(bugtoolFlags, "--exclude-object-files")
-				}
-			}
+			bugtoolFlags := []string{"--archiveType=gz", "--exclude-object-files"}
 			// Additional flags
 			bugtoolFlags = append(bugtoolFlags, c.Options.CiliumBugtoolFlags...)
 
