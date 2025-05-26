@@ -123,7 +123,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, fmt.Errorf("failed to update TLSRoute status: %w", err)
 	}
 
-	scopedLog.Info("Successfully reconciled TLSRoute")
+	scopedLog.InfoContext(ctx, "Successfully reconciled TLSRoute")
 	return controllerruntime.Success()
 }
 
