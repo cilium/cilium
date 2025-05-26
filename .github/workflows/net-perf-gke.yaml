@@ -293,7 +293,7 @@ jobs:
         id: run-perf
         run: |
           mkdir output
-          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --report-dir=./output --unsafe-capture-kernel-profiles
+          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --crr=true --report-dir=./output --unsafe-capture-kernel-profiles
           sudo chmod -R +r ./output
 
       - name: Features tested
