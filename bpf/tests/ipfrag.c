@@ -159,7 +159,6 @@ PKTGEN("tc", "ipfrag_helpers_ipv6")
 int test_ipfrag_helpers_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct ipv6_frag_hdr *fraghdr;
 	struct udphdr *l4;
@@ -167,17 +166,10 @@ int test_ipfrag_helpers_ipv6_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)v6_node_one, (__u8 *)v6_node_two);
 	if (!l3)
 		return TEST_ERROR;
-
-	ipv6hdr__set_addrs(l3, (__u8 *)v6_node_one, (__u8 *)v6_node_two);
 
 	fraghdr = (struct ipv6_frag_hdr *)
 		pktgen__append_ipv6_extension_header(&builder, NEXTHDR_FRAGMENT, 0);
