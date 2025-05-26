@@ -79,7 +79,7 @@ func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, rout
 			nsList := &corev1.NamespaceList{}
 			selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
 			if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
-				logger.Error("Unable to list namespaces", logfields.Error, err)
+				logger.ErrorContext(ctx, "Unable to list namespaces", logfields.Error, err)
 				return false
 			}
 

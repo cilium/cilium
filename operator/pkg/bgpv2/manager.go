@@ -261,9 +261,9 @@ func (b *BGPResourceManager) Run(ctx context.Context) (err error) {
 
 			err := b.reconcileWithRetry(ctx)
 			if err != nil {
-				b.logger.Error("BGP reconciliation failed", logfields.Error, err)
+				b.logger.ErrorContext(ctx, "BGP reconciliation failed", logfields.Error, err)
 			} else {
-				b.logger.Debug("BGP reconciliation successful")
+				b.logger.DebugContext(ctx, "BGP reconciliation successful")
 			}
 		}
 	}
@@ -291,9 +291,9 @@ func (b *BGPResourceManager) reconcileWithRetry(ctx context.Context) error {
 			// log error, continue retry
 			if isRetryableError(err) && attempt%5 != 0 {
 				// for retryable error print warning only every 5th attempt
-				b.logger.Debug("Transient BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+				b.logger.DebugContext(ctx, "Transient BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
 			} else {
-				b.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+				b.logger.WarnContext(ctx, "BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
 			}
 			return false, nil
 		default:

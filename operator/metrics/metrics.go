@@ -54,7 +54,7 @@ func (mm *metricsManager) Start(ctx cell.HookContext) error {
 	go func() {
 		mm.logger.Info("Starting metrics server", logfields.Address, mm.server.Addr)
 		if err := mm.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			mm.logger.Error("Unable to start metrics server", logfields.Error, err)
+			mm.logger.ErrorContext(ctx, "Unable to start metrics server", logfields.Error, err)
 			mm.shutdowner.Shutdown()
 		}
 	}()
@@ -64,7 +64,7 @@ func (mm *metricsManager) Start(ctx cell.HookContext) error {
 
 func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	if err := mm.server.Shutdown(ctx); err != nil {
-		mm.logger.Error("Shutdown operator metrics server failed", logfields.Error, err)
+		mm.logger.ErrorContext(ctx, "Shutdown operator metrics server failed", logfields.Error, err)
 		return err
 	}
 	return nil

@@ -139,7 +139,7 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.Health) {
 
 	poolChan := ipam.poolResource.Events(ctx, eventsOpts)
 
-	ipam.logger.Info("LB-IPAM initializing")
+	ipam.logger.InfoContext(ctx, "LB-IPAM initializing")
 	if ipam.testCounters != nil {
 		ipam.testCounters.initializing.Add(1)
 	}
@@ -149,7 +149,7 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.Health) {
 	if svcChan == nil {
 		return
 	}
-	ipam.logger.Info("LB-IPAM done initializing")
+	ipam.logger.InfoContext(ctx, "LB-IPAM done initializing")
 	if ipam.testCounters != nil {
 		ipam.testCounters.initialized.Add(1)
 	}
@@ -202,7 +202,7 @@ func (ipam *LBIPAM) initialize(
 		if event.Kind == resource.Sync {
 			err := ipam.settleConflicts(ctx)
 			if err != nil {
-				ipam.logger.Error("Error while settling pool conflicts", logfields.Error, err)
+				ipam.logger.ErrorContext(ctx, "Error while settling pool conflicts", logfields.Error, err)
 				// Keep retrying the handling of the sync event until we succeed.
 				// During this time we may receive further updates and deletes.
 				event.Done(err)
@@ -225,13 +225,13 @@ func (ipam *LBIPAM) initialize(
 	for event := range svcChan {
 		if event.Kind == resource.Sync {
 			if err := ipam.satisfyServices(ctx); err != nil {
-				ipam.logger.Error("Error while satisfying services", logfields.Error, err)
+				ipam.logger.ErrorContext(ctx, "Error while satisfying services", logfields.Error, err)
 				// Keep retrying the handling of the sync event until we succeed.
 				event.Done(err)
 				continue
 			}
 			if err := ipam.updateAllPoolCounts(ctx); err != nil {
-				ipam.logger.Error("Error while updating pool counts", logfields.Error, err)
+				ipam.logger.ErrorContext(ctx, "Error while updating pool counts", logfields.Error, err)
 				event.Done(err)
 				continue
 			}
@@ -255,13 +255,13 @@ func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*c
 	case resource.Upsert:
 		err = ipam.poolOnUpsert(ctx, event.Object)
 		if err != nil {
-			ipam.logger.Error("pool upsert failed", logfields.Error, err)
+			ipam.logger.ErrorContext(ctx, "pool upsert failed", logfields.Error, err)
 			err = fmt.Errorf("poolOnUpsert: %w", err)
 		}
 	case resource.Delete:
 		err = ipam.poolOnDelete(ctx, event.Object)
 		if err != nil {
-			ipam.logger.Error("pool delete failed", logfields.Error, err)
+			ipam.logger.ErrorContext(ctx, "pool delete failed", logfields.Error, err)
 			err = fmt.Errorf("poolOnDelete: %w", err)
 		}
 	}
@@ -278,13 +278,13 @@ func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event
 	case resource.Upsert:
 		err = ipam.svcOnUpsert(ctx, event.Object)
 		if err != nil {
-			ipam.logger.Error("service upsert failed", logfields.Error, err)
+			ipam.logger.ErrorContext(ctx, "service upsert failed", logfields.Error, err)
 			err = fmt.Errorf("svcOnUpsert: %w", err)
 		}
 	case resource.Delete:
 		err = ipam.svcOnDelete(ctx, event.Object)
 		if err != nil {
-			ipam.logger.Error("service delete failed", logfields.Error, err)
+			ipam.logger.ErrorContext(ctx, "service delete failed", logfields.Error, err)
 			err = fmt.Errorf("svcOnDelete: %w", err)
 		}
 	}
@@ -387,7 +387,7 @@ func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service) 
 		}(time.Now())
 	}
 
-	ipam.logger.Debug(fmt.Sprintf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName()))
+	ipam.logger.DebugContext(ctx, fmt.Sprintf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName()))
 
 	ipam.handleDeletedService(svc)
 
@@ -1339,7 +1339,8 @@ func (ipam *LBIPAM) serviceIPFamilyRequest(svc *slim_core_v1.Service) (IPv4Reque
 func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
 	// Sanity check that we do not yet know about this pool.
 	if _, found := ipam.pools[pool.GetName()]; found {
-		ipam.logger.Warn(fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName()),
+		ipam.logger.WarnContext(ctx,
+			fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName()),
 			logfields.PoolName, pool.GetName())
 		return nil
 	}
@@ -1583,10 +1584,10 @@ func (ipam *LBIPAM) revalidateAllServices(ctx context.Context) error {
 }
 
 func (ipam *LBIPAM) updateAllPoolCounts(ctx context.Context) error {
-	ipam.logger.Debug("Updating pool counts")
+	ipam.logger.DebugContext(ctx, "Updating pool counts")
 	for _, pool := range ipam.pools {
 		if ipam.updatePoolCounts(pool) {
-			ipam.logger.Debug(fmt.Sprintf("Pool counts of '%s' changed, patching", pool.Name))
+			ipam.logger.DebugContext(ctx, fmt.Sprintf("Pool counts of '%s' changed, patching", pool.Name))
 			err := ipam.patchPoolStatus(ctx, pool)
 			if err != nil {
 				return fmt.Errorf("patchPoolStatus: %w", err)
@@ -1779,7 +1780,7 @@ func isPoolConflicting(pool *cilium_api_v2.CiliumLoadBalancerIPPool) bool {
 // secondly, it checks if any ranges that are marked as conflicting have been resolved.
 // Any found conflicts are reflected in the IP Pool's status.
 func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
-	ipam.logger.Debug("Settling pool conflicts")
+	ipam.logger.DebugContext(ctx, "Settling pool conflicts")
 
 	// Mark any pools that conflict as conflicting
 	for _, poolOuter := range ipam.pools {
@@ -1878,7 +1879,7 @@ func (ipam *LBIPAM) markPoolConflicting(
 
 	ipam.metrics.ConflictingPools.Inc()
 
-	ipam.logger.Warn(
+	ipam.logger.WarnContext(ctx,
 		fmt.Sprintf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
 			targetPool.Name,
 			ipNetStr(targetRange),

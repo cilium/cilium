@@ -580,9 +580,9 @@ func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 	return nil
 }
 
-// OnOperatorStartLeading is the function called once the operator starts leading
+// onStart is the function called once the operator starts leading
 // in HA mode.
-func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
+func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 	isLeader.Store(true)
 
 	// Restart kube-dns as soon as possible to parallelize re-initialization
@@ -592,9 +592,9 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	// If this logic is modified, make sure the operator's clusterrole logic for
 	// pods/delete is also up-to-date.
 	if !legacy.clientset.IsEnabled() {
-		legacy.logger.Info("KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
+		legacy.logger.InfoContext(ctx, "KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
 	} else if option.Config.DisableCiliumEndpointCRD {
-		legacy.logger.Info(fmt.Sprintf("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName))
+		legacy.logger.InfoContext(ctx, fmt.Sprintf("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName))
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
 		legacy.wg.Add(1)
 		go func() {
@@ -608,7 +608,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		withKVStore bool
 	)
 
-	legacy.logger.Info(
+	legacy.logger.InfoContext(ctx,
 		"Initializing IPAM",
 		logfields.Mode, option.Config.IPAM,
 	)
@@ -650,7 +650,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 	if legacy.clientset.IsEnabled() &&
 		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
-		legacy.logger.Info(
+		legacy.logger.InfoContext(ctx,
 			"Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes",
 			logfields.K8sNamespace, operatorOption.Config.CiliumK8sNamespace,
 			logfields.LabelSelectorFlagOption, operatorOption.Config.CiliumPodLabels,
@@ -729,7 +729,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 	}
 
-	legacy.logger.Info("Initialization complete")
+	legacy.logger.InfoContext(ctx, "Initialization complete")
 	return nil
 }
 
