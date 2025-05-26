@@ -6,16 +6,12 @@ package builder
 import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 type checkLogErrors struct{}
 
 func (t checkLogErrors) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("check-log-errors", ct).
-		WithCondition(func() bool {
-			return versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) || ct.Params().IncludeUnsafeTests
-		}).
 		WithSysdumpPolicy(check.SysdumpPolicyOnce).
 		WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion, ct.Params().LogCheckLevels, ct.Params().ExternalTarget,
 			ct.Params().ExternalOtherTarget))

@@ -1385,7 +1385,7 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 
 		if enabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CNP)); enabled {
 			ipsec, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec"))
-			if ipsec && versioncheck.MustCompile(">=1.14.0 <1.16.0")(ct.CiliumVersion) {
+			if ipsec && versioncheck.MustCompile("<1.16.0")(ct.CiliumVersion) {
 				// https://github.com/cilium/cilium/issues/36681
 				continue
 			}

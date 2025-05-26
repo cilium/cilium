@@ -19,7 +19,7 @@ func TestK8sInstaller_getHelmValuesKind(t *testing.T) {
 	installer := K8sInstaller{
 		params:       Parameters{},
 		flavor:       k8s.Flavor{Kind: k8s.KindKind},
-		chartVersion: semver.MustParse("1.13.0"),
+		chartVersion: semver.MustParse("1.14.0"),
 	}
 	values, err := installer.getHelmValues()
 	assert.NoError(t, err)
