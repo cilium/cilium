@@ -2408,10 +2408,6 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options["ciliumEndpointSlice.enabled"] = "true"
 	}
 
-	if !SupportIPv6Connectivity() {
-		options["ipv6.enabled"] = "false"
-	}
-
 	maps.Copy(options, cliOverrideOptions)
 
 	return nil
@@ -4348,16 +4344,12 @@ func compareServicePortToFrontEnd(sP *v1.ServicePort, fA *models.FrontendAddress
 }
 
 func serviceAddressKey(ip, port, proto, scope string) string {
-	newOutputStyle := HasNewServiceOutput(GetRunningCiliumVersion())
 	k := net.JoinHostPort(ip, port)
-	if newOutputStyle {
-		p := strings.ToLower(proto)
-		if p == "" || p == "none" || p == "any" {
-			proto = "ANY"
-		}
-		return fmt.Sprintf("%s/%s%s", k, proto, scope)
+	p := strings.ToLower(proto)
+	if p == "" || p == "none" || p == "any" {
+		proto = "ANY"
 	}
-	return fmt.Sprintf("%s%s", k, scope)
+	return fmt.Sprintf("%s/%s%s", k, proto, scope)
 }
 
 func (kub *Kubectl) CollectFeatures() {
