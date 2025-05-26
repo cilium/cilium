@@ -788,16 +788,6 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if hasKey .Values "hostPort" }}
-{{- if eq $kubeProxyReplacement "partial" }}
-  enable-host-port: {{ .Values.hostPort.enabled | quote }}
-{{- end }}
-{{- end }}
-{{- if hasKey .Values "externalIPs" }}
-{{- if eq $kubeProxyReplacement "partial" }}
-  enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
-{{- end }}
-{{- end }}
 {{- if hasKey .Values "nodePort" }}
 {{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}

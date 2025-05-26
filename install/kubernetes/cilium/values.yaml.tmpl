@@ -1143,9 +1143,6 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
-externalIPs:
-  # -- Enable ExternalIPs service support.
-  enabled: false
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -1160,9 +1157,6 @@ healthCheckICMPFailureThreshold: 3
 # -- Configure the host firewall.
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
-  enabled: false
-hostPort:
-  # -- Enable hostPort service support.
   enabled: false
 # -- Configure socket LB
 socketLB:
