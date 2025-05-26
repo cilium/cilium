@@ -251,7 +251,8 @@ func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
 // to perform a narrower search on the rule because we know it references the
 // main routing table. Due to multiple routing CIDRs, there might be more than
 // one egress rule. Deletion of any rule only proceeds if the rule matches
-// the IP & priority. If more than one rule matches, then deletion is skipped.
+// the IP & priority. In order to avoid leaving stale rules behind, all the
+// matching rules are removed.
 func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 	if !ip.Is4() && !ip.Is6() && !ip.IsValid() {
 		logger.Warn(
@@ -277,7 +278,13 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 		Table:    route.MainTable,
 	}
 
-	if err := deleteRule(logger, ingress, family); err != nil {
+	if err := deleteRulesFiltered(
+		logger, ingress, family,
+		deleteRuleFilter{
+			fn:  func(r netlink.Rule) bool { return true }, // no further check needed, delete all rules found
+			msg: "",
+		},
+	); err != nil {
 		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
 	}
 	logger.Debug("Deleted ingress rule",
@@ -291,6 +298,11 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 	}
 
 	// Egress rules
+	withENIRouteTableID := deleteRuleFilter{
+		fn:  func(r netlink.Rule) bool { return r.Table >= computeTableIDFromIfaceNumber(compat, 0) },
+		msg: "rule does not refer to a per-ENI routing table ID",
+	}
+
 	// The condition here should mirror the conditions in Configure.
 	info := node.GetRouterInfo()
 	if info != nil && option.Config.EnableIPv4Masquerade && option.Config.IPAM == ipamOption.IPAMENI {
@@ -309,7 +321,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRule(logger, egress, netlink.FAMILY_V4); err != nil {
+			if err := deleteRulesFiltered(logger, egress, netlink.FAMILY_V4, withENIRouteTableID); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
 			logger.Debug("Deleted egress rule",
@@ -323,7 +335,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRule(logger, egress, netlink.FAMILY_V6); err != nil {
+			if err := deleteRulesFiltered(logger, egress, netlink.FAMILY_V6, withENIRouteTableID); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
 			logger.Debug("Deleted egress rule",
@@ -336,7 +348,8 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 			Priority: priority,
 			From:     ipWithMask,
 		}
-		if err := deleteRule(logger, egress, family); err != nil {
+		if err := deleteRulesFiltered(
+			logger, egress, family, withENIRouteTableID); err != nil {
 			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 		}
 		logger.Debug("Deleted egress rule",
@@ -365,31 +378,37 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 	return nil
 }
 
-func deleteRule(logger *slog.Logger, r route.Rule, family int) error {
-	rules, err := route.ListRules(family, &r)
+type deleteRuleFilter struct {
+	fn  func(r netlink.Rule) bool
+	msg string
+}
+
+func deleteRulesFiltered(logger *slog.Logger, template route.Rule, family int, filters ...deleteRuleFilter) error {
+	rules, err := route.ListRules(family, &template)
 	if err != nil {
 		return err
 	}
 
-	length := len(rules)
-	switch {
-	case length > 1:
-		logger.Warn(
-			"Found too many rules matching, skipping deletion",
-			logfields.Candidates, rules,
-			logfields.Rule, r,
-		)
-		return errors.New("unexpected number of rules found to delete")
-	case length == 1:
-		return route.DeleteRule(family, r)
+	if len(rules) == 0 {
+		logger.Warn("No rule matching found", logfields.Rule, template)
+		return errors.New("no rule found to delete")
 	}
 
-	logger.Warn(
-		"No rule matching found",
-		logfields.Rule, r,
-	)
-
-	return errors.New("no rule found to delete")
+	var errs []error
+next:
+	for _, rule := range rules {
+		for _, filter := range filters {
+			if !filter.fn(rule) {
+				logger.Info("Skipping deletion of matching rule",
+					logfields.Rule, rule,
+					logfields.Message, filter.msg,
+				)
+				continue next
+			}
+		}
+		errs = append(errs, netlink.RuleDel(&rule))
+	}
+	return errors.Join(errs...)
 }
 
 // retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a

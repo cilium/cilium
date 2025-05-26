@@ -2537,8 +2537,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 
 		// This is a best-effort attempt to cleanup. We expect there to be one
 		// ingress rule and multiple egress rules. If we find more rules than
-		// expected, then the rules will be left as-is because there was
-		// likely manual intervention.
+		// expected, we delete all rules referring to a per-ENI routing table ID.
 		if e.IPv4.IsValid() {
 			if err := linuxrouting.Delete(e.getLogger(), e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
