@@ -87,14 +87,15 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		}
 	}
 
-	var egressPriority, tableID int
+	var egressPriority, ifaceNum, tableID int
 	if compat {
 		egressPriority = linux_defaults.RulePriorityEgress
-		tableID = ifindex
+		ifaceNum = ifindex
 	} else {
 		egressPriority = linux_defaults.RulePriorityEgressv2
-		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
+		ifaceNum = info.InterfaceNumber
 	}
+	tableID = computeTableIDFromIfaceNumber(compat, ifaceNum)
 
 	// The condition here should mirror the condition in Delete.
 	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {
@@ -136,12 +137,13 @@ func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb
 		return set, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
 
-	var tableID int
+	var ifaceNum, tableID int
 	if compat {
-		tableID = ifindex
+		ifaceNum = ifindex
 	} else {
-		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
+		ifaceNum = info.InterfaceNumber
 	}
+	tableID = computeTableIDFromIfaceNumber(compat, ifaceNum)
 
 	// Get the desired routes.
 	gwRoutes := info.gatewayRoutes(ifindex, tableID)
@@ -440,7 +442,10 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 
 // computeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
 // ENI interface number.
-func computeTableIDFromIfaceNumber(num int) int {
+func computeTableIDFromIfaceNumber(compat bool, num int) int {
+	if compat {
+		return num
+	}
 	return linux_defaults.RouteTableInterfacesOffset + num
 }
 
