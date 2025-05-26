@@ -2351,14 +2351,6 @@
       },
       "type": "object"
     },
-    "externalIPs": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "externalWorkloads": {
       "properties": {
         "enabled": {
@@ -2491,14 +2483,6 @@
       "type": "object"
     },
     "hostFirewall": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "hostPort": {
       "properties": {
         "enabled": {
           "type": "boolean"
