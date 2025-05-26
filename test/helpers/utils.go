@@ -20,32 +20,9 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
-
-var runningCiliumVersion string
-
-// GetRunningCiliumVersion gets the currently running cilium version.
-func GetRunningCiliumVersion() string {
-	return runningCiliumVersion
-}
-
-// HasNewServiceOutput checks to see if the current running cilium
-// version uses the old style service output (e.g. "0.0.0.0:53") vs
-// the new style (e.g. "0.0.0.0:53/TCP").
-func HasNewServiceOutput(ver string) bool {
-	cst, err := versioncheck.Version(ver)
-	// If the version is not parseable it is probably
-	// someone's custom build  or not set.
-	// Either way, it is probably using the new output
-	// format.
-	if err != nil {
-		return true
-	}
-	return versioncheck.MustCompile(">=1.17.0")(cst)
-}
 
 // Sleep sleeps for the specified duration in seconds
 func Sleep(delay time.Duration) {
@@ -572,85 +549,30 @@ func SkipRaceDetectorEnabled() bool {
 // DualStackSupported returns whether the current environment has DualStack IPv6
 // enabled or not for the cluster.
 func DualStackSupported() bool {
-	supportedVersions := versioncheck.MustCompile(">=1.18.0")
-	kubeProxyOnlySupportedVersions := versioncheck.MustCompile(">=1.20.0")
-
-	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
-	if err != nil {
-		// If we cannot conclude the k8s version we assume that dual stack is not
-		// supported.
-		return false
-	}
-
-	// When running with kube-proxy only, some IPv6 family services are not
-	// provisioned in ip6tables on k8s < 1.20. Therefore, skip any DualStack
-	// tests on those versions/configurations.
-	if DoesNotRunWithKubeProxyReplacement() && !kubeProxyOnlySupportedVersions(k8sVersion) {
-		return false
-	}
-
 	// AKS does not support dual stack yet
 	if IsIntegration(CIIntegrationAKS) {
 		return false
 	}
 
 	// We only have DualStack enabled in KIND.
-	return (GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)) &&
-		supportedVersions(k8sVersion)
+	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
 
 // DualStackSupportBeta returns true if the environment has a Kubernetes version that
 // has support for k8s DualStack beta API types.
 func DualStackSupportBeta() bool {
-	// DualStack support was promoted to beta with API types finalized in k8s 1.21
-	// The API types for dualstack services are same in k8s 1.20 and 1.21 so we include
-	// K8s version 1.20 as well.
-	// https://github.com/kubernetes/kubernetes/pull/98969
-	supportedVersions := versioncheck.MustCompile(">=1.20.0")
-	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
-	if err != nil {
-		return false
-	}
-
 	// AKS does not support dual stack yet
 	if IsIntegration(CIIntegrationAKS) {
 		return false
 	}
 
-	return (GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)) &&
-		supportedVersions(k8sVersion)
+	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
 
 // CiliumEndpointSliceFeatureEnabled returns true only if the environment has a kubernetes version
 // greater than or equal to 1.21.
 func CiliumEndpointSliceFeatureEnabled() bool {
-	k8sVersionGreaterEqual121 := versioncheck.MustCompile(">=1.21.0")
-	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
-	if err != nil {
-		return false
-	}
-	return k8sVersionGreaterEqual121(k8sVersion) && (GetCurrentIntegration() == "" ||
-		IsIntegration(CIIntegrationKind))
-}
-
-// SupportIPv6Connectivity returns true if the CI environment supports IPv6
-// connectivity across pods.
-func SupportIPv6Connectivity() bool {
-	supportedVersions := versioncheck.MustCompile(">=1.20.0")
-	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
-	if err != nil {
-		return false
-	}
-
-	if supportedVersions(k8sVersion) {
-		return true
-	}
-
-	if IsIntegration(CIIntegrationKind) {
-		return false
-	}
-
-	return true
+	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
 
 // SupportIPv6ToOutside returns true if the CI environment supports IPv6
