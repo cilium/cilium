@@ -4,7 +4,7 @@ IP6RANGE="fd00:10:64::/64"
 # A CIDR range inside the networks range, not overlapping with first IPs which will be
 # allocated to kind and the gateway.
 IP4EXTERNALRANGE="172.20.1.0/24"
-IP6EXTERNALRANGE="fd00:10:64::ffff:00/112"
+IP6EXTERNALRANGE="fd00:10:64::ffff:0/112"
 
 echo "ipv4_external_cidr=$IP4EXTERNALRANGE" >> $GITHUB_OUTPUT
 echo "ipv6_external_cidr=$IP6EXTERNALRANGE" >> $GITHUB_OUTPUT
