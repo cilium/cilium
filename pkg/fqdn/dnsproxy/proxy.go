@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"syscall"
 
 	"github.com/cilium/dns"
@@ -152,7 +151,7 @@ type DNSProxy struct {
 
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
-	rejectReply atomic.Int32
+	rejectReply int
 
 	// UnbindAddress unbinds dns servers from socket in order to stop serving DNS traffic before proxy shutdown
 	unbindAddress func()
@@ -600,6 +599,7 @@ type DNSProxyConfig struct {
 	MaxRestoreDNSIPs       int
 	ConcurrencyLimit       int
 	ConcurrencyGracePeriod time.Duration
+	RejectReply            string
 }
 
 // NewDNSProxy creates a proxy used for DNS L7 redirects that listens on
@@ -627,12 +627,22 @@ func NewDNSProxy(dnsProxyConfig DNSProxyConfig, ipc IPCache, lookupEPFunc Lookup
 		EnableDNSCompression:     dnsProxyConfig.EnableDNSCompression,
 		maxIPsPerRestoredDNSRule: dnsProxyConfig.MaxRestoreDNSIPs,
 		DNSClients:               NewSharedClients(),
+		rejectReply:              dns.RcodeRefused,
 	}
 	if dnsProxyConfig.ConcurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(dnsProxyConfig.ConcurrencyLimit))
 		p.ConcurrencyGracePeriod = dnsProxyConfig.ConcurrencyGracePeriod
 	}
-	p.rejectReply.Store(dns.RcodeRefused)
+
+	switch strings.ToLower(dnsProxyConfig.RejectReply) {
+	case strings.ToLower(option.FQDNProxyDenyWithNameError):
+		p.rejectReply = dns.RcodeNameError
+	case strings.ToLower(option.FQDNProxyDenyWithRefused), "":
+		p.rejectReply = dns.RcodeRefused
+	default:
+		p.logger.Info(fmt.Sprintf("DNS reject response '%s' is not valid, available options are '%v'",
+			dnsProxyConfig.RejectReply, option.FQDNRejectOptions))
+	}
 
 	return p
 }
@@ -1178,7 +1188,7 @@ func (p *DNSProxy) sendErrorResponse(scopedLog *slog.Logger, w dns.ResponseWrite
 	response := new(dns.Msg)
 	rcode := dns.RcodeServerFailure
 	if policyRejection {
-		rcode = int(p.rejectReply.Load())
+		rcode = p.rejectReply
 	}
 	response.SetRcode(request, rcode)
 
@@ -1190,20 +1200,6 @@ func (p *DNSProxy) sendErrorResponse(scopedLog *slog.Logger, w dns.ResponseWrite
 		err = fmt.Errorf("cannot send error response (rcode=%d): %w", rcode, err)
 	}
 	return err
-}
-
-// SetRejectReply sets the default reject reply on denied dns responses.
-func (p *DNSProxy) SetRejectReply(opt string) {
-	switch strings.ToLower(opt) {
-	case strings.ToLower(option.FQDNProxyDenyWithNameError):
-		p.rejectReply.Store(dns.RcodeNameError)
-	case strings.ToLower(option.FQDNProxyDenyWithRefused):
-		p.rejectReply.Store(dns.RcodeRefused)
-	default:
-		p.logger.Info(fmt.Sprintf("DNS reject response '%s' is not valid, available options are '%v'",
-			opt, option.FQDNRejectOptions))
-		return
-	}
 }
 
 func (p *DNSProxy) GetBindPort() uint16 {

@@ -87,6 +87,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		MaxRestoreDNSIPs:       1000,
 		ConcurrencyLimit:       0,
 		ConcurrencyGracePeriod: 0,
+		RejectReply:            option.Config.FQDNRejectResponse,
 	}
 	proxy := NewDNSProxy(dnsProxyConfig,
 		s,
@@ -130,7 +131,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		if len(s.proxy.cache) > 0 {
 			tb.Error("cache not fully empty after removing all rules. Possible memory leak found.")
 		}
-		s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 		s.dnsServer.Listener.Close()
 		for _, s := range s.proxy.DNSServers {
 			s.Shutdown()
@@ -337,24 +337,30 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(t *testing.T
 }
 
 func TestRejectNonMatchingRefusedResponseWithNameError(t *testing.T) {
+	// reject a query with NXDomain
+	option.Config.FQDNRejectResponse = option.FQDNProxyDenyWithNameError
+	t.Cleanup(func() {
+		option.Config.FQDNRejectResponse = ""
+	})
 	s := setupDNSProxyTestSuite(t)
 
 	request := s.requestRejectNonMatchingRefusedResponse(t)
 
-	// reject a query with NXDomain
-	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoError(t, err, "DNS request from test client failed when it should succeed")
 	require.Equal(t, dns.RcodeNameError, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
 }
 
 func TestRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
+	// reject a query with Refused
+	option.Config.FQDNRejectResponse = option.FQDNProxyDenyWithRefused
+	t.Cleanup(func() {
+		option.Config.FQDNRejectResponse = ""
+	})
 	s := setupDNSProxyTestSuite(t)
 
 	request := s.requestRejectNonMatchingRefusedResponse(t)
 
-	// reject a query with Refused
-	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoError(t, err, "DNS request from test client failed when it should succeed")
 	require.Equal(t, dns.RcodeRefused, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
