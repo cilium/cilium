@@ -36,7 +36,7 @@ func init() {
 // enableCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
 // garbage collects stale CiliumNetworkPolicy status field entries.
 func enableCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, clientset k8sClient.Clientset, clusterName string) {
-	logger.Info("Starting CNP derivative handler")
+	logger.InfoContext(ctx, "Starting CNP derivative handler")
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	ciliumV2Controller := informer.NewInformerWithStore(

@@ -220,7 +220,7 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -233,7 +233,7 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.Info("Enqueued HTTPRoute for resource", logfields.HTTPRoute, route)
+			scopedLog.InfoContext(ctx, "Enqueued HTTPRoute for resource", logfields.HTTPRoute, route)
 		}
 		return requests
 	}
@@ -248,7 +248,7 @@ func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{}); err != nil {
-			scopedLog.Error("Failed to get HTTPRoutes", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -261,7 +261,7 @@ func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.Info("Enqueued HTTPRoute for resource", logfields.HTTPRoute, route)
+			scopedLog.InfoContext(ctx, "Enqueued HTTPRoute for resource", logfields.HTTPRoute, route)
 		}
 		return requests
 	}

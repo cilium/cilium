@@ -34,7 +34,7 @@ func k8sEventMetric(scope, action string) {
 // using CiliumNetworkPolicy itself, the entire implementation uses the methods
 // associated with CiliumNetworkPolicy.
 func enableCCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, clientset k8sClient.Clientset, clusterName string) {
-	logger.Info("Starting CCNP derivative handler")
+	logger.InfoContext(ctx, "Starting CCNP derivative handler")
 
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
