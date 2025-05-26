@@ -32,7 +32,7 @@ func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logg
 	ciliumIngressClass := &networkingv1.IngressClass{}
 	if err := c.Get(ctx, types.NamespacedName{Name: ciliumIngressClassName}, ciliumIngressClass); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Warn("Failed to load Cilium IngressClass", logfields.Error, err)
+			logger.WarnContext(ctx, "Failed to load Cilium IngressClass", logfields.Error, err)
 		}
 
 		return false
@@ -40,7 +40,7 @@ func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logg
 
 	isDefault, err := isIngressClassMarkedAsDefault(*ciliumIngressClass)
 	if err != nil {
-		logger.Warn("Failed to detect default class on IngressClass cilium", logfields.Error, err)
+		logger.WarnContext(ctx, "Failed to detect default class on IngressClass cilium", logfields.Error, err)
 		return false
 	}
 

@@ -84,7 +84,7 @@ func startKvstoreWatchdog(logger *slog.Logger, client kvstore.Client, cfgMCSAPI 
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			keysToDelete2, err := a.RunLocksGC(ctx, keysToDelete)
 			if err != nil {
-				logger.Warn("Unable to run security identity garbage collector", logfields.Error, err)
+				logger.WarnContext(ctx, "Unable to run security identity garbage collector", logfields.Error, err)
 			} else {
 				keysToDelete = keysToDelete2
 			}
@@ -108,7 +108,7 @@ func startKvstoreWatchdog(logger *slog.Logger, client kvstore.Client, cfgMCSAPI 
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
 				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, client); err != nil {
-					logger.Warn("Unable to set local cluster config", logfields.Error, err)
+					logger.WarnContext(ctx, "Unable to set local cluster config", logfields.Error, err)
 				}
 			}
 

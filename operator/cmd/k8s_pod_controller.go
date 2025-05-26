@@ -79,7 +79,7 @@ func enableUnmanagedController(ctx context.Context, logger *slog.Logger, wg *syn
 				for _, podItem := range watchers.UnmanagedPodStore.List() {
 					pod, ok := podItem.(*slim_corev1.Pod)
 					if !ok {
-						logger.Error(fmt.Sprintf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{}))
+						logger.ErrorContext(ctx, fmt.Sprintf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{}))
 						continue
 					}
 					if pod.Spec.HostNetwork {
@@ -87,7 +87,7 @@ func enableUnmanagedController(ctx context.Context, logger *slog.Logger, wg *syn
 					}
 					cep, exists, err := watchers.HasCE(pod.Namespace, pod.Name)
 					if err != nil {
-						logger.Error(
+						logger.ErrorContext(ctx,
 							"Unexpected error when getting CiliumEndpoint",
 							logfields.Error, err,
 							logfields.EndpointID, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
@@ -96,7 +96,7 @@ func enableUnmanagedController(ctx context.Context, logger *slog.Logger, wg *syn
 					}
 					podID := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 					if exists {
-						logger.Debug(
+						logger.DebugContext(ctx,
 							"Found managed pod due to presence of a CEP",
 							logfields.Error, err,
 							logfields.K8sPodName, podID,
@@ -104,7 +104,7 @@ func enableUnmanagedController(ctx context.Context, logger *slog.Logger, wg *syn
 						)
 					} else {
 						countUnmanagedPods++
-						logger.Debug(
+						logger.DebugContext(ctx,
 							"Found unmanaged pod",
 							logfields.K8sPodName, podID,
 						)
@@ -113,7 +113,7 @@ func enableUnmanagedController(ctx context.Context, logger *slog.Logger, wg *syn
 							if age := time.Since((*startTime).Time); age > unmanagedPodMinimalAge {
 								if lastRestart, ok := lastPodRestart[podID]; ok {
 									if timeSinceRestart := time.Since(lastRestart); timeSinceRestart < minimalPodRestartInterval {
-										logger.Debug(
+										logger.DebugContext(ctx,
 											"Not restarting unmanaged pod. Not enough time since last restart",
 											logfields.TimeSinceRestart, timeSinceRestart,
 											logfields.K8sPodName, podID,
@@ -122,13 +122,13 @@ func enableUnmanagedController(ctx context.Context, logger *slog.Logger, wg *syn
 									}
 								}
 
-								logger.Info(
+								logger.InfoContext(ctx,
 									"Restarting unmanaged pod",
 									logfields.TimeSincePodStarted, age,
 									logfields.K8sPodName, podID,
 								)
 								if err := clientset.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
-									logger.Warn(
+									logger.WarnContext(ctx,
 										"Unable to restart pod",
 										logfields.Error, err,
 										logfields.K8sPodName, podID,

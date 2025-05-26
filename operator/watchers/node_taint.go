@@ -124,12 +124,12 @@ func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter sl
 	if running {
 		if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
 			(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
-			logger.Info("Cilium pod running for node; marking accordingly", logfields.NodeName, node.GetName())
+			logger.InfoContext(ctx, "Cilium pod running for node; marking accordingly", logfields.NodeName, node.GetName())
 			return markNode(ctx, c, nodeGetter, node.GetName(), options, true, logger)
 		}
 	} else if scheduled { // Taint nodes where the pod is scheduled but not running
 		if options.SetNodeTaint && !hasAgentNotReadyTaint(node) {
-			logger.Info("Cilium pod scheduled but not running for node; setting taint", logfields.NodeName, node.GetName())
+			logger.InfoContext(ctx, "Cilium pod scheduled but not running for node; setting taint", logfields.NodeName, node.GetName())
 			return markNode(ctx, c, nodeGetter, node.GetName(), options, false, logger)
 		}
 	}
@@ -301,7 +301,8 @@ func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface,
 	patch := fmt.Appendf(nil, `{"status":{"conditions":%s}}`, raw)
 	_, err = c.CoreV1().Nodes().PatchStatus(ctx, nodeName, patch)
 	if err != nil {
-		logger.Info("Failed to patch node while setting condition",
+		logger.InfoContext(ctx,
+			"Failed to patch node while setting condition",
 			logfields.NodeName, nodeName,
 			logfields.Error, err,
 		)
@@ -344,13 +345,15 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter sli
 
 	// No cilium taints found
 	if !taintFound {
-		logger.Debug("Taint not found in node",
+		logger.DebugContext(ctx,
+			"Taint not found in node",
 			logfields.NodeName, nodeName,
 			logfields.Taint, pkgOption.Config.AgentNotReadyNodeTaintValue(),
 		)
 		return nil
 	}
-	logger.Debug("Removing Node Taint",
+	logger.DebugContext(ctx,
+		"Removing Node Taint",
 		logfields.NodeName, nodeName,
 		logfields.Taint, pkgOption.Config.AgentNotReadyNodeTaintValue(),
 	)
@@ -375,7 +378,8 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter sli
 
 	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		logger.Info("Failed to patch node while removing taint",
+		logger.InfoContext(ctx,
+			"Failed to patch node while removing taint",
 			logfields.NodeName, nodeName,
 			logfields.Error, err,
 		)
@@ -401,13 +405,15 @@ func setNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter slimNo
 	}
 
 	if taintFound {
-		logger.Debug("Taint already set in node; skipping",
+		logger.DebugContext(ctx,
+			"Taint already set in node; skipping",
 			logfields.NodeName, nodeName,
 			logfields.Taint, pkgOption.Config.AgentNotReadyNodeTaintValue(),
 		)
 		return nil
 	}
-	logger.Debug("Setting Node Taint",
+	logger.DebugContext(ctx,
+		"Setting Node Taint",
 		logfields.NodeName, nodeName,
 		logfields.Taint, pkgOption.Config.AgentNotReadyNodeTaintValue(),
 	)
@@ -438,7 +444,8 @@ func setNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter slimNo
 
 	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		logger.Info("Failed to patch node while adding taint",
+		logger.InfoContext(ctx,
+			"Failed to patch node while adding taint",
 			logfields.NodeName, nodeName,
 			logfields.Error, err,
 		)
