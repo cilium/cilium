@@ -34,7 +34,7 @@ func newCmdBgpPeers() *cobra.Command {
 		Use:     "peers",
 		Aliases: []string{"neighbors"},
 		Short:   "Lists BGP peering state",
-		Long:    "This command lists the BGP state from all nodes in the cluster - requires cilium >= v1.13.2",
+		Long:    "This command lists the BGP state from all nodes in the cluster",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.CiliumNamespace = namespace
 
@@ -62,7 +62,7 @@ func newCmdBgpRoutes() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>]",
 		Short: "Lists BGP routes",
-		Long:  "Lists BGP routes from all nodes in the cluster - requires cilium >= v1.14.6",
+		Long:  "Lists BGP routes from all nodes in the cluster",
 		Example: `  Get all IPv4 unicast routes available:
     cilium bgp routes available ipv4 unicast
 
