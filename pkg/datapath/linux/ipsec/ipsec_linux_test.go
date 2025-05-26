@@ -293,15 +293,19 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
-	derivedAuthKey := computeNodeIPsecKey(authKey, local.IP, remote.IP, []byte(localBootID), []byte(remoteBootID))
+	derivedAuthKey, err := computeNodeIPsecKey(authKey, local.IP, remote.IP, "auth", localBootID, remoteBootID)
+	require.Nil(t, err)
 	require.Equal(t, derivedAuthKey, state.Auth.Key)
 	require.NotNil(t, state.Crypt)
 	require.Equal(t, "cbc(aes)", state.Crypt.Name)
-	derivedCryptKey := computeNodeIPsecKey(cryptKey, local.IP, remote.IP, []byte(localBootID), []byte(remoteBootID))
+	derivedCryptKey, err := computeNodeIPsecKey(cryptKey, local.IP, remote.IP, "crypt", localBootID, remoteBootID)
+	require.Nil(t, err)
 	require.Equal(t, derivedCryptKey, state.Crypt.Key)
 	// ESN bit is not set, so ReplayWindow should be 0
 	require.Equal(t, 0, state.ReplayWindow)
 	require.Equal(t, state.Mark, encryptionMark)
+	// Derived keys for authentication and encryption should be different
+	require.NotEqual(t, derivedAuthKey, derivedCryptKey)
 
 	tmpls := []netlink.XfrmPolicyTmpl{
 		{
@@ -510,14 +514,18 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
-	derivedAuthKey := computeNodeIPsecKey(authKey, remote.IP, local.IP, []byte(remoteBootID), []byte(localBootID))
+	derivedAuthKey, err := computeNodeIPsecKey(authKey, remote.IP, local.IP, "auth", remoteBootID, localBootID)
+	require.Nil(t, err)
 	require.Equal(t, derivedAuthKey, state.Auth.Key)
 	require.NotNil(t, state.Crypt)
 	require.Equal(t, "cbc(aes)", state.Crypt.Name)
-	derivedCryptKey := computeNodeIPsecKey(cryptKey, remote.IP, local.IP, []byte(remoteBootID), []byte(localBootID))
+	derivedCryptKey, err := computeNodeIPsecKey(cryptKey, remote.IP, local.IP, "crypt", remoteBootID, localBootID)
+	require.Nil(t, err)
 	require.Equal(t, derivedCryptKey, state.Crypt.Key)
 	// ESN bit is not set, so ReplayWindow should be 0
 	require.Equal(t, 0, state.ReplayWindow)
+	// Derived keys for authentication and encryption should be different
+	require.NotEqual(t, derivedAuthKey, derivedCryptKey)
 
 	tmpls := []netlink.XfrmPolicyTmpl{
 		{
