@@ -66,6 +66,7 @@ func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
 		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+		RejectReply:            option.Config.FQDNRejectResponse,
 	}
 
 	proxy := dnsproxy.NewDNSProxy(
@@ -73,7 +74,6 @@ func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
 		params.IPCache,
 		lookupRegisteredEndpointFunc(params.EndpointManager, params.LocalNodeStore),
 		params.DNSRequestHandler.NotifyOnDNSMsg)
-	proxy.SetRejectReply(option.Config.FQDNRejectResponse)
 
 	return proxy, nil
 }
