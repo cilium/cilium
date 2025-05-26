@@ -161,6 +161,11 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          EXTRA_CLI_FLAGS=()
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
                                       --collect-sysdump-on-failure \
                                       --sysdump-hubble-flows-count=1000000 \
@@ -168,7 +173,8 @@ jobs:
                                       --log-code-owners \
                                       --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
                                       --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-                                      --flush-ct"
+                                      --flush-ct \
+                                      ${EXTRA_CLI_FLAGS[*]}"
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
