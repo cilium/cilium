@@ -262,12 +262,12 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 	}
 
 	ipWithMask := netipx.AddrIPNet(ip)
-	var deleteRuleFn func(*slog.Logger, route.Rule) error
 
+	var family int
 	if ip.Is4() {
-		deleteRuleFn = deleteRuleIPv4
+		family = netlink.FAMILY_V4
 	} else {
-		deleteRuleFn = deleteRuleIPv6
+		family = netlink.FAMILY_V6
 	}
 
 	// Ingress rules
@@ -277,7 +277,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 		Table:    route.MainTable,
 	}
 
-	if err := deleteRuleFn(logger, ingress); err != nil {
+	if err := deleteRule(logger, ingress, family); err != nil {
 		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
 	}
 	logger.Debug("Deleted ingress rule",
@@ -309,7 +309,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRuleIPv4(logger, egress); err != nil {
+			if err := deleteRule(logger, egress, netlink.FAMILY_V4); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
 			logger.Debug("Deleted egress rule",
@@ -323,7 +323,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRuleIPv6(logger, egress); err != nil {
+			if err := deleteRule(logger, egress, netlink.FAMILY_V6); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
 			logger.Debug("Deleted egress rule",
@@ -336,7 +336,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 			Priority: priority,
 			From:     ipWithMask,
 		}
-		if err := deleteRuleFn(logger, egress); err != nil {
+		if err := deleteRule(logger, egress, family); err != nil {
 			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 		}
 		logger.Debug("Deleted egress rule",
@@ -363,14 +363,6 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 	}
 
 	return nil
-}
-
-func deleteRuleIPv4(logger *slog.Logger, r route.Rule) error {
-	return deleteRule(logger, r, netlink.FAMILY_V4)
-}
-
-func deleteRuleIPv6(logger *slog.Logger, r route.Rule) error {
-	return deleteRule(logger, r, netlink.FAMILY_V6)
 }
 
 func deleteRule(logger *slog.Logger, r route.Rule, family int) error {
