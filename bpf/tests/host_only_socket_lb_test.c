@@ -70,10 +70,8 @@ int test1_check(__maybe_unused struct xdp_md *ctx)
 		BE_KEY_VALUE(1, v4_pod_one),
 	};
 	struct { struct lb4_key key; struct lb4_service value; } services[] = {
-		SVC_KEY_VALUE(DST_PORT, 0, 0, LB_LOOKUP_SCOPE_INT),
 		SVC_KEY_VALUE(DST_PORT, 0, 0, LB_LOOKUP_SCOPE_EXT),
 		SVC_KEY_VALUE(DST_PORT, 1, 1, LB_LOOKUP_SCOPE_EXT),
-		SVC_KEY_VALUE(DST_PORT_HOSTNS, 0, 0, LB_LOOKUP_SCOPE_INT),
 		SVC_KEY_VALUE(DST_PORT_HOSTNS, 0, 0, LB_LOOKUP_SCOPE_EXT),
 		SVC_KEY_VALUE(DST_PORT_HOSTNS, 1, 1, LB_LOOKUP_SCOPE_EXT),
 	};
