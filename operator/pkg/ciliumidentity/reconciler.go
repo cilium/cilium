@@ -64,7 +64,7 @@ func newReconciler(
 	cesEnabled bool,
 	queueOps queueOperation,
 ) (*reconciler, error) {
-	logger.Info("Creating CID controller Operator reconciler")
+	logger.InfoContext(ctx, "Creating CID controller Operator reconciler")
 
 	minIDValue := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxIDValue := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
@@ -188,7 +188,7 @@ func (r *reconciler) createCID(cidName string, cidKey *key.GlobalIdentity) error
 		SecurityLabels: cidLabels,
 	}
 
-	r.logger.Info("Creating CID",
+	r.logger.InfoContext(r.ctx, "Creating CID",
 		logfields.Labels, cidLabels,
 		logfields.CIDName, cidName,
 	)
@@ -205,7 +205,7 @@ func (r *reconciler) updateCID(cid *cilium_api_v2.CiliumIdentity, cidKey *key.Gl
 	updatedId.Labels = selectedLabels
 	updatedId.SecurityLabels = cidLabels
 
-	r.logger.Info("Updating CID", logfields.CIDName, updatedId.Name)
+	r.logger.InfoContext(r.ctx, "Updating CID", logfields.CIDName, updatedId.Name)
 
 	_, err := r.clientset.CiliumV2().CiliumIdentities().Update(r.ctx, updatedId, metav1.UpdateOptions{})
 	return err
@@ -299,7 +299,7 @@ func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
 	prevCIDName, _ := r.cidUsageInPods.AssignCIDToPod(podName, cidName)
 
 	if cidName != prevCIDName {
-		r.logger.Info("CID allocated for pod",
+		r.logger.InfoContext(r.ctx, "CID allocated for pod",
 			logfields.K8sPodName, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
 			logfields.CIDName, cidName,
 			logfields.IdentityOld, prevCIDName,
@@ -331,7 +331,7 @@ func (r *reconciler) allocateCID(cidKey *key.GlobalIdentity) (string, bool, erro
 		// Return the assignment from the CID store, otherwise allocates a new identity
 		cidName, err = r.handleStoreCIDMatch(storeCIDs)
 		if err != nil {
-			r.logger.Error("Failed to access CID store", logfields.Error, err)
+			r.logger.ErrorContext(r.ctx, "Failed to access CID store", logfields.Error, err)
 		} else {
 			return cidName, false, nil
 		}
@@ -374,7 +374,7 @@ func (r *reconciler) handleStoreCIDMatch(storeCIDs []*cilium_api_v2.CiliumIdenti
 	cidKey := key.GetCIDKeyFromLabels(cid.SecurityLabels, "")
 
 	if err := r.upsertDesiredState(cid.Name, cidKey); err != nil {
-		r.logger.Warn("Failed to add CID to cache",
+		r.logger.WarnContext(r.ctx, "Failed to add CID to cache",
 			logfields.CIDName, cid.Name,
 			logfields.Error, err)
 		return "", err
@@ -393,7 +393,7 @@ func (r *reconciler) reconcileNamespace(nsKey resource.Key) error {
 }
 
 func (r *reconciler) updateAllPodsInNamespace(namespace string) error {
-	r.logger.Info("Reconcile all pods in namespace", logfields.K8sNamespace, namespace)
+	r.logger.InfoContext(r.ctx, "Reconcile all pods in namespace", logfields.K8sNamespace, namespace)
 
 	if r.podStore == nil {
 		return fmt.Errorf("pod store is not initialized")
@@ -407,7 +407,7 @@ func (r *reconciler) updateAllPodsInNamespace(namespace string) error {
 
 	for _, pod := range podList {
 		if !pod.Spec.HostNetwork {
-			r.logger.Debug("Reconcile Pod in namespace", logfields.K8sPodName, pod.Name)
+			r.logger.DebugContext(r.ctx, "Reconcile Pod in namespace", logfields.K8sPodName, pod.Name)
 			r.queueOps.enqueueReconciliation(PodItem{podResourceKey(pod.Name, pod.Namespace)}, 0)
 		}
 	}

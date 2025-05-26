@@ -124,8 +124,8 @@ func registerController(p params) {
 	p.Lifecycle.Append(cidController)
 }
 
-func (c *Controller) Start(_ cell.HookContext) error {
-	c.logger.Info("Starting CID controller Operator")
+func (c *Controller) Start(ctx cell.HookContext) error {
+	c.logger.InfoContext(ctx, "Starting CID controller Operator")
 	defer utilruntime.HandleCrash()
 
 	// The Cilium Identity (CID) controller running in cilium-operator is
@@ -214,17 +214,17 @@ func (c *Controller) initReconciler(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cid reconciler failed to init: %w", err)
 	}
-	c.logger.Info("Starting CID controller reconciler")
+	c.logger.InfoContext(ctx, "Starting CID controller reconciler")
 	return nil
 }
 
-func (c *Controller) runResourceWorker(context context.Context) error {
-	c.logger.Info("Starting resource worker")
-	defer c.logger.Info("Stopping resource worker")
+func (c *Controller) runResourceWorker(ctx context.Context) error {
+	c.logger.InfoContext(ctx, "Starting resource worker")
+	defer c.logger.InfoContext(ctx, "Stopping resource worker")
 
 	for c.processNextItem() {
 		select {
-		case <-context.Done():
+		case <-ctx.Done():
 			return nil
 		default:
 		}

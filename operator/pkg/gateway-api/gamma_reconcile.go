@@ -132,7 +132,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
-	gammaLogger.Debug("Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
+	gammaLogger.DebugContext(ctx, "Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
 	for _, original := range httpRoutes.Items {
 
 		hr := original.DeepCopy()
@@ -257,7 +257,7 @@ func (r *gammaReconciler) updateHTTPRouteStatus(ctx context.Context, original *g
 	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
 		return nil
 	}
-	r.logger.Debug("Updating HTTRRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	r.logger.DebugContext(ctx, "Updating HTTRRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
 

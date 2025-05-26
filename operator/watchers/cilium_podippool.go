@@ -105,7 +105,8 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 	for poolName, poolSpecStr := range poolMap {
 		poolSpec, err := parsePoolSpec(poolSpecStr)
 		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools),
+			logger.ErrorContext(ctx,
+				fmt.Sprintf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools),
 				logfields.PoolName, poolName,
 				logfields.PoolSpec, poolSpecStr,
 				logfields.Error, err)
@@ -123,10 +124,12 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 		if err != nil {
 			if k8sErrors.IsAlreadyExists(err) {
 				// Nothing to do, we will not try to update an existing resource
-				logger.Info("Found existing CiliumPodIPPool resource. Skipping creation",
+				logger.InfoContext(ctx,
+					"Found existing CiliumPodIPPool resource. Skipping creation",
 					logfields.PoolName, poolName)
 			} else {
-				logger.Error("Failed to create CiliumPodIPPool resource",
+				logger.ErrorContext(ctx,
+					"Failed to create CiliumPodIPPool resource",
 					logfields.PoolName, poolName,
 					logfields.Object, pool,
 					logfields.Error, err)
@@ -134,7 +137,7 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 			continue
 		}
 
-		logger.Info("Created CiliumPodIPPool resource", logfields.PoolName, poolName)
+		logger.InfoContext(ctx, "Created CiliumPodIPPool resource", logfields.PoolName, poolName)
 	}
 }
 
@@ -145,7 +148,7 @@ func StartIPPoolAllocator(
 	ipPools resource.Resource[*cilium_v2alpha1.CiliumPodIPPool],
 	logger *slog.Logger,
 ) {
-	logger.Info("Starting CiliumPodIPPool allocator watcher")
+	logger.InfoContext(ctx, "Starting CiliumPodIPPool allocator watcher")
 
 	multiPoolAutoCreatePools(ctx, clientset, operatorOption.Config.IPAMAutoCreateCiliumPodIPPools, logger)
 
@@ -168,7 +171,7 @@ func StartIPPoolAllocator(
 			}
 			ev.Done(err)
 			if err != nil {
-				logger.Error(fmt.Sprintf("failed to %s pool %q", action, ev.Key), logfields.Error, err)
+				logger.ErrorContext(ctx, fmt.Sprintf("failed to %s pool %q", action, ev.Key), logfields.Error, err)
 			}
 		}
 	}()
@@ -176,5 +179,5 @@ func StartIPPoolAllocator(
 	// Block until all pools are restored, so callers can safely start node allocation
 	// right after return.
 	<-synced
-	logger.Info("All CiliumPodIPPool resources synchronized")
+	logger.InfoContext(ctx, "All CiliumPodIPPool resources synchronized")
 }

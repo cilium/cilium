@@ -33,7 +33,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		logfields.Controller, grpcRoute,
 		logfields.ParentResource, req.NamespacedName,
 	)
-	scopedLog.Info("Reconciling GRPCRoute")
+	scopedLog.InfoContext(ctx, "Reconciling GRPCRoute")
 
 	// Fetch the GRPCRoute instance
 	original := &gatewayv1.GRPCRoute{}
@@ -119,7 +119,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to update GRPCRoute status: %w", err)
 	}
 
-	scopedLog.Info("Successfully reconciled GRPCRoute")
+	scopedLog.InfoContext(ctx, "Successfully reconciled GRPCRoute")
 	return controllerruntime.Success()
 }
 

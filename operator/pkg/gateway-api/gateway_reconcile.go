@@ -44,7 +44,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logfields.Controller, gateway,
 		logfields.Resource, req.NamespacedName,
 	)
-	scopedLog.Info("Reconciling Gateway")
+	scopedLog.InfoContext(ctx, "Reconciling Gateway")
 
 	// Step 1: Retrieve the Gateway
 	original := &gatewayv1.Gateway{}
@@ -59,7 +59,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Ignore deleting Gateway, this can happen when foregroundDeletion is enabled
 	// The reconciliation loop will automatically kick off for related Gateway resources.
 	if original.GetDeletionTimestamp() != nil {
-		scopedLog.Info("Gateway is being deleted, doing nothing")
+		scopedLog.InfoContext(ctx, "Gateway is being deleted, doing nothing")
 		return controllerruntime.Success()
 	}
 
@@ -76,7 +76,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if string(gwc.Spec.ControllerName) != controllerName {
-		scopedLog.Debug("GatewayClass does not have matching controller name, doing nothing")
+		scopedLog.DebugContext(ctx, "GatewayClass does not have matching controller name, doing nothing")
 		return controllerruntime.Success()
 	}
 
@@ -199,7 +199,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to update Gateway status: %w", err)
 	}
 
-	scopedLog.Info("Successfully reconciled Gateway")
+	scopedLog.InfoContext(ctx, "Successfully reconciled Gateway")
 	return controllerruntime.Success()
 }
 

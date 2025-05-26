@@ -45,7 +45,7 @@ func EnqueueReferencedTLSSecrets(c client.Client, logger *slog.Logger) handler.E
 				Name:      tls.SecretName,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.Debug("Enqueued secret for Ingress", logfields.Secret, s)
+			scopedLog.DebugContext(ctx, "Enqueued secret for Ingress", logfields.Secret, s)
 		}
 		return reqs
 	})

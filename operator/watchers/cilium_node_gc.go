@@ -76,7 +76,7 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 		return
 	}
 
-	logger.Info("Starting to garbage collect stale CiliumNode custom resources")
+	logger.InfoContext(ctx, "Starting to garbage collect stale CiliumNode custom resources")
 
 	candidateStore := newCiliumNodeGCCandidate()
 	// create the controller to perform mark and sweep operation for cilium nodes
@@ -106,24 +106,24 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 		scopedLog := logger.With(logfields.NodeName, nodeName)
 		_, err := nodeGetter.GetK8sSlimNode(nodeName)
 		if err == nil {
-			scopedLog.Debug("CiliumNode is valid, no garbage collection required")
+			scopedLog.DebugContext(ctx, "CiliumNode is valid, no garbage collection required")
 			continue
 		}
 
 		if !k8serrors.IsNotFound(err) {
-			scopedLog.Error("Unable to fetch k8s node from store", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Unable to fetch k8s node from store", logfields.Error, err)
 			return err
 		}
 
 		obj, _, err := ciliumNodeStore.GetByKey(nodeName)
 		if err != nil {
-			scopedLog.Error("Unable to fetch CiliumNode from store", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Unable to fetch CiliumNode from store", logfields.Error, err)
 			return err
 		}
 
 		cn, ok := obj.(*cilium_v2.CiliumNode)
 		if !ok {
-			scopedLog.Error(fmt.Sprintf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj))
+			scopedLog.ErrorContext(ctx, fmt.Sprintf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj))
 			return err
 		}
 
@@ -139,20 +139,20 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 
 		lastMarkedTime, exists := candidateStore.Get(nodeName)
 		if !exists {
-			scopedLog.Info("Add CiliumNode to garbage collector candidates")
+			scopedLog.InfoContext(ctx, "Add CiliumNode to garbage collector candidates")
 			candidateStore.Add(nodeName)
 			continue
 		}
 
 		// only remove the node if last marked time is more than running interval
 		if lastMarkedTime.Before(time.Now().Add(-interval)) {
-			scopedLog.Info("Perform GC for invalid CiliumNode")
+			scopedLog.InfoContext(ctx, "Perform GC for invalid CiliumNode")
 			err = client.Delete(ctx, nodeName, metav1.DeleteOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
-				scopedLog.Error("Failed to delete invalid CiliumNode", logfields.Error, err)
+				scopedLog.ErrorContext(ctx, "Failed to delete invalid CiliumNode", logfields.Error, err)
 				return err
 			}
-			scopedLog.Info("CiliumNode is garbage collected successfully")
+			scopedLog.InfoContext(ctx, "CiliumNode is garbage collected successfully")
 			candidateStore.Delete(nodeName)
 		}
 	}

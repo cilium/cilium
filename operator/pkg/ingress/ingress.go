@@ -124,7 +124,7 @@ func (r *ingressReconciler) enqueueSharedCiliumIngresses() handler.EventHandler 
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []reconcile.Request {
 		ingressList := networkingv1.IngressList{}
 		if err := r.client.List(ctx, &ingressList); err != nil {
-			r.logger.Warn("Failed to list Ingresses", logfields.Error, err)
+			r.logger.WarnContext(ctx, "Failed to list Ingresses", logfields.Error, err)
 			return nil
 		}
 
@@ -157,7 +157,7 @@ func (r *ingressReconciler) enqueueIngressesWithoutExplicitClass() handler.Event
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []reconcile.Request {
 		ingressList := networkingv1.IngressList{}
 		if err := r.client.List(ctx, &ingressList); err != nil {
-			r.logger.Warn("Failed to list Ingresses", logfields.Error, err)
+			r.logger.WarnContext(ctx, "Failed to list Ingresses", logfields.Error, err)
 			return nil
 		}
 

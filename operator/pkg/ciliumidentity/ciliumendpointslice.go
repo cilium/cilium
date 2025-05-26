@@ -28,16 +28,16 @@ func (c *Controller) processCiliumEndpointSliceEvents(ctx context.Context, wg *s
 		case resource.Sync:
 			wg.Done()
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert CES event", logfields.CESName, event.Key)
+			c.logger.DebugContext(ctx, "Got Upsert CES event", logfields.CESName, event.Key)
 			idsWithNoCESUsage = c.reconciler.cidUsageInCES.ProcessCESUpsert(event.Object.Name, event.Object.Endpoints)
 		case resource.Delete:
-			c.logger.Debug("Got Delete CES event", logfields.CESName, event.Key)
+			c.logger.DebugContext(ctx, "Got Delete CES event", logfields.CESName, event.Key)
 			idsWithNoCESUsage = c.reconciler.cidUsageInCES.ProcessCESDelete(event.Object.Name, event.Object.Endpoints)
 		}
 
 		for _, cid := range idsWithNoCESUsage {
 			cidName := strconv.Itoa(int(cid))
-			c.logger.Info("Reconciling CID as it is no longer used in CESs", logfields.CIDName, cidName)
+			c.logger.InfoContext(ctx, "Reconciling CID as it is no longer used in CESs", logfields.CIDName, cidName)
 			c.enqueueReconciliation(CIDItem{cidResourceKey(cidName)}, 0)
 		}
 

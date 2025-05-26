@@ -153,7 +153,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 
 	// otherwise just log any possible error and continue
 	for _, err := range errs {
-		s.logger.Error("apiserver start failed", logfields.Error, err)
+		s.logger.ErrorContext(ctx, "apiserver start failed", logfields.Error, err)
 	}
 
 	for _, srv := range s.httpSrvs {
@@ -162,7 +162,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 		}
 		go func(srv httpServer) {
 			if err := srv.server.Serve(srv.listener); !errors.Is(err, http.ErrServerClosed) {
-				s.logger.Error("server stopped unexpectedly", logfields.Error, err)
+				s.logger.ErrorContext(ctx, "server stopped unexpectedly", logfields.Error, err)
 				s.shutdowner.Shutdown()
 			}
 		}(srv)
