@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -32,6 +33,7 @@ func TestScript(t *testing.T) {
 	}
 	t.Cleanup(func() { time.Now = now })
 	t.Setenv("TZ", "")
+	nodeTypes.SetName("testnode")
 
 	log := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

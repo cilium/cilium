@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -30,6 +31,8 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 func TestScript(t *testing.T) {
 	// Catch any leaked goroutines.
 	t.Cleanup(func() { goleak.VerifyNone(t) })
+
+	nodeTypes.SetName("testnode")
 
 	version.Force(testutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {

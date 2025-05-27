@@ -1,7 +1,6 @@
 #! --cluster-id=1 --cluster-name=cluster1
 
 hive/start
-db/initialized
 
 # Create a service to which to add the external backends.
 k8s/add service.yaml endpointslice.yaml

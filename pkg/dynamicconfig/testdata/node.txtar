@@ -1,9 +1,8 @@
-#! --config-sources=[{"kind":"node","namespace":"kube-system","name":"foo"}]
+#! --config-sources=[{"kind":"node","name":"testnode"}]
 
 # Test the reflection of the configs as annotations in the Node
 # object.
 hive/start
-db/initialized
 
 # Add node with keys foo and baz as annotations
 k8s/add node.yaml
@@ -42,12 +41,12 @@ k8s/delete cilium-node-config.yaml
 
 -- configs1.table --
 Key   Source          Priority   Value
-baz   node-foo        1          quux
-foo   node-foo        1          bar
+baz   testnode        1          quux
+foo   testnode        1          bar
 
 -- configs2.table --
 Key   Source          Priority   Value
-foo   node-foo        1          bar
+foo   testnode        1          bar
 
 -- node.yaml --
 apiVersion: v1
@@ -59,6 +58,6 @@ metadata:
 
   labels:
     # Labels not relevant
-  name: node-foo
+  name: testnode
 spec:
   # Not relevant for this test

@@ -198,6 +198,7 @@ spec:
         - containerPort: 70
           name: udp
           protocol: UDP
+  nodeName: testnode
 status:
   hostIP: 172.19.0.3
   hostIPs:

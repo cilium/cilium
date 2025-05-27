@@ -11,17 +11,23 @@ hive start
 # coming from the EndpointManager.
 db/insert desired-skiplbmap pod-cookie.yaml
 
-# Add pods, services and endpoints.
-k8s/add endpointslice.yaml
+# Add services and endpoints.
+k8s/add service.yaml endpointslice.yaml
 db/cmp backends backends.table
 
-k8s/add pod.yaml service.yaml lrp-svc.yaml
+# Compare LB maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-case1-pre.expected
+
+# Add the override
+k8s/add pod.yaml lrp-svc.yaml
 db/cmp localredirectpolicies lrp.table
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp desired-skiplbmap skiplbmap.table
 
-# Compare LB maps
+# Compare LB maps. The original backends become orphans and
+# are removed a new backend is created for the pod.
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps-case1.expected
 
@@ -160,6 +166,15 @@ Address                    Type        ServiceName   PortName   Backends        
 169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                     Done
 [1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                      Done
 
+-- maps-case1-pre.expected --
+BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
+BE: ID=2 ADDR=[2001::1]:8080/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[1001::1]:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- maps-case1.expected --
 BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
 BE: ID=4 ADDR=[2002::2]:80/TCP STATE=active
@@ -215,6 +230,7 @@ spec:
         - containerPort: 80
           name: tcp
           protocol: TCP
+  nodeName: testnode
 status:
   hostIP: 172.19.0.3
   hostIPs:
