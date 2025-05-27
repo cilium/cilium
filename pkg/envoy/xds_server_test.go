@@ -223,6 +223,12 @@ var L7Rules12 = &policy.PerSelectorPolicy{
 	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
 }
 
+var L7Rules12Deny = &policy.PerSelectorPolicy{
+	IsDeny:   true,
+	L7Parser: policy.ParserTypeHTTP,
+	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
+}
+
 var L7Rules12HeaderMatch = &policy.PerSelectorPolicy{
 	L7Parser: policy.ParserTypeHTTP,
 	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2HeaderMatch}},
@@ -262,6 +268,11 @@ var ExpectedHttpRule122HeaderMatch = &cilium.PortNetworkPolicyRule_HttpRules{
 var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule12,
+}
+
+var ExpectedPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
+	Deny:           true,
+	RemotePolicies: []uint32{1001, 1002},
 }
 
 var ExpectedPortNetworkPolicyRule12Wildcard = &cilium.PortNetworkPolicyRule{
@@ -318,6 +329,17 @@ var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		Port:     8080,
 		Protocol: api.ProtoTCP,
 		PerSelectorPolicies: policy.L7DataMap{
+			cachedSelector2: L7Rules1,
+		},
+	},
+})
+
+var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+	"8080/TCP": {
+		Port:     8080,
+		Protocol: api.ProtoTCP,
+		PerSelectorPolicies: policy.L7DataMap{
+			cachedSelector1: &policy.PerSelectorPolicy{IsDeny: true},
 			cachedSelector2: L7Rules1,
 		},
 	},
@@ -392,6 +414,18 @@ var ExpectedPerPortPolicies1 = []*cilium.PortNetworkPolicy{
 		},
 	},
 }
+
+var ExpectedPerPortPolicies1Deny2 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     8080,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule12Deny,
+			ExpectedPortNetworkPolicyRule1,
+		},
+	},
+}
+
 var ExpectedPerPortPolicies1Wildcard = []*cilium.PortNetworkPolicy{
 	{
 		Port:     8080,
@@ -520,12 +554,15 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
 		cachedSelector2:           nil,
-		cachedSelector1:           nil,
+		cachedSelector1:           &policy.PerSelectorPolicy{IsDeny: true},
 		cachedRequiresV2Selector1: nil,
 	}
 
 	obtained = xds.getWildcardNetworkPolicyRules(version, perSelectorPolicies)
 	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
+		Deny:           true,
+		RemotePolicies: []uint32{1001, 1002},
+	}, {
 		RemotePolicies: []uint32{1001, 1002, 1003},
 	}}, obtained)
 }
@@ -537,6 +574,10 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule12Deny, obtained)
+	require.False(t, canShortCircuit)
 
 	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
@@ -560,6 +601,10 @@ func TestGetDirectionNetworkPolicy(t *testing.T) {
 	// L4+L7
 	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap2, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies1, obtained)
+
+	// L4+L7 with Deny L3
+	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap1Deny2, true, false, false, "ingress", "")
+	require.Equal(t, ExpectedPerPortPolicies1Deny2, obtained)
 
 	// L4-only
 	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap4, true, false, false, "ingress", "")
