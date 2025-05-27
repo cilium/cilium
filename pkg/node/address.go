@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -229,7 +230,8 @@ func GetInternalIPv6(logger *slog.Logger) net.IP {
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
-	if option.Config.EnableIPv4 {
+	n := getLocalNode(logger)
+	if option.Config.EnableIPv4 && n.UnderlayProtocol == tunnel.IPv4 {
 		return GetIPv4(logger).String()
 	}
 	return GetIPv6(logger).String()
