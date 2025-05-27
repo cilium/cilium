@@ -53,6 +53,7 @@ type roaEvent struct {
 	Src       string
 	Data      []byte
 	conn      *net.TCPConn
+	timestamp time.Time
 }
 
 type roaManager struct {
@@ -149,6 +150,7 @@ func (c *roaClient) lifetimeout() {
 	c.eventCh <- &roaEvent{
 		EventType: roaLifetimeout,
 		Src:       c.host,
+		timestamp: time.Now(),
 	}
 }
 
@@ -407,6 +409,7 @@ func (c *roaClient) tryConnect() {
 				EventType: roaConnected,
 				Src:       c.host,
 				conn:      conn.(*net.TCPConn),
+				timestamp: time.Now(),
 			}
 			return
 		}
@@ -419,6 +422,7 @@ func (c *roaClient) established() (err error) {
 		c.eventCh <- &roaEvent{
 			EventType: roaDisconnected,
 			Src:       c.host,
+			timestamp: time.Now(),
 		}
 	}()
 
@@ -445,6 +449,7 @@ func (c *roaClient) established() (err error) {
 			EventType: roaRTR,
 			Src:       c.host,
 			Data:      append(header, body...),
+			timestamp: time.Now(),
 		}
 	}
 }
