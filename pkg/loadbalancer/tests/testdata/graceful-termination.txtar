@@ -1,4 +1,7 @@
-#! --enable-experimental-lb
+#! --enable-experimental-lb --bpf-lb-algorithm=maglev --bpf-lb-external-clusterip=true
+# Test graceful termination with maglev to verify that both the services map and
+# the maglev table correctly use terminating backends when no active backends are
+# available.
 
 # Start the test application
 hive start
@@ -47,6 +50,10 @@ replace '$READY2' 'false' endpointslice.yaml
 k8s/update endpointslice.yaml
 db/cmp frontends frontends-terminating2.table
 db/cmp backends backends-terminating2.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-terminating2.expected lbmaps.actual
 
 # Cleanup
 k8s/delete service.yaml endpointslice.yaml
@@ -172,19 +179,24 @@ ports:
 -- lbmaps-active.expected --
 BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=active
 BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=active
+MAGLEV: ID=1 INNER=[1(511), 2(510)]
 REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
 -- lbmaps-terminating1.expected --
 BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=terminating
 BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=active
+MAGLEV: ID=1 INNER=[2(1021)]
 REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
 -- lbmaps-terminating2.expected --
 BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=terminating
+BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=terminating
+MAGLEV: ID=1 INNER=[1(511), 2(510)]
 REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP

@@ -870,6 +870,14 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
+	if activeCount == 0 {
+		// If there are no active backends we can use the terminating backends.
+		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
+		activeCount = terminatingCount
+	} else {
+		inactiveCount += terminatingCount
+	}
+
 	// Update Maglev
 	if ops.useMaglev(fe) {
 		ops.log.Debug("Update Maglev", logfields.FrontendID, feID)
@@ -933,7 +941,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		logfields.ProxyRedirect, fe.Service.ProxyRedirect,
 		logfields.Address, fe.Address,
 		logfields.Count, backendCount)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
@@ -944,7 +952,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			logfields.ID, feID,
 			logfields.Count, backendCount,
 			logfields.Previous, numPreviousBackends)
-		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+terminatingCount+inactiveCount); err != nil {
+		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
 			return fmt.Errorf("cleanup service slots: %w", err)
 		}
 	}
@@ -1016,17 +1024,10 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *loadbalancer.Frontend, activeBackends, terminatingBackends, inactiveBackends int) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *loadbalancer.Frontend, activeBackends, inactiveBackends int) error {
+	svcVal.SetCount(activeBackends)
+	svcVal.SetQCount(inactiveBackends)
 	svcKey.SetBackendSlot(0)
-	if activeBackends == 0 {
-		// If there are no active backends we can use the terminating backends.
-		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
-		svcVal.SetCount(terminatingBackends)
-		svcVal.SetQCount(inactiveBackends)
-	} else {
-		svcVal.SetCount(activeBackends)
-		svcVal.SetQCount(terminatingBackends + inactiveBackends)
-	}
 	svcVal.SetBackendID(0)
 	svcVal.SetLbAlg(ops.lbAlgorithm(fe))
 
