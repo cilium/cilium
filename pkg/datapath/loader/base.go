@@ -264,7 +264,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	return nil
 }
 
-func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
+func (l *loader) reinitializeOverlay(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
@@ -281,14 +281,14 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 	// gather compile options for bpf_overlay.c
 	opts := []string{}
 
-	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
+	if err := l.replaceOverlayDatapath(ctx, lnc, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
 	return nil
 }
 
-func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) (err error) {
+func (l *loader) reinitializeWireguard(ctx context.Context, lnc *datapath.LocalNodeConfiguration) (err error) {
 	if !option.Config.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 		return
@@ -299,15 +299,15 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
 
-	if err := replaceWireguardDatapath(ctx, logger, lnc, link); err != nil {
+	if err := l.replaceWireguardDatapath(ctx, lnc, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
 }
 
-func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, extraCArgs []string, devices []string) error {
+func (l *loader) reinitializeXDPLocked(ctx context.Context, lnc *datapath.LocalNodeConfiguration, extraCArgs []string, devices []string) error {
 	xdpConfig := lnc.XDPConfig
-	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
+	maybeUnloadObsoleteXDPPrograms(l.logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
 		return nil
 	}
@@ -320,9 +320,9 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, lnc, dev, xdpConfig.Mode(), extraCArgs); err != nil {
+		if err := l.compileAndLoadXDPProg(ctx, lnc, dev, xdpConfig.Mode(), extraCArgs); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
-				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
+				l.logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
 					logfields.Device, dev,
 				)
@@ -343,7 +343,7 @@ func (l *loader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeCon
 	defer l.compilationLock.Unlock()
 	devices := lnc.DeviceNames()
 
-	return reinitializeXDPLocked(ctx, l.logger, lnc, extraCArgs, devices)
+	return l.reinitializeXDPLocked(ctx, lnc, extraCArgs, devices)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
@@ -480,7 +480,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := reinitializeXDPLocked(ctx, l.logger, lnc, extraArgs, devices); err != nil {
+	if err := l.reinitializeXDPLocked(ctx, lnc, extraArgs, devices); err != nil {
 		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
@@ -504,11 +504,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, lnc, tunnelConfig); err != nil {
+	if err := l.reinitializeOverlay(ctx, lnc, tunnelConfig); err != nil {
 		return err
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
+	if err := l.reinitializeWireguard(ctx, lnc); err != nil {
 		return err
 	}
 

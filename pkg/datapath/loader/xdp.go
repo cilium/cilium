@@ -111,7 +111,7 @@ func xdpCompileArgs(extraCArgs []string) ([]string, error) {
 }
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
+func (l *loader) compileAndLoadXDPProg(ctx context.Context, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
 	args, err := xdpCompileArgs(extraCArgs)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
@@ -130,7 +130,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		Options:    args,
 	}
 
-	objPath, err := compile(ctx, logger, prog, dirs)
+	objPath, err := compile(ctx, l.logger, prog, dirs)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, objPath)
+	spec, err := bpf.LoadCollectionSpec(l.logger, objPath)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
@@ -153,7 +153,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
 
 	var obj xdpObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
@@ -167,7 +167,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 	}
 	defer obj.Close()
 
-	if err := attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
+	if err := attachXDPProgram(l.logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
 		return fmt.Errorf("interface %s: %w", xdpDev, err)
 	}
