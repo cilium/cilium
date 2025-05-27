@@ -37,7 +37,7 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 	newTest("pod-to-ingress-service-allow-ingress-identity", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
-		WithCiliumPolicy(allowIngressIdentityPolicyYAML).
+		//WithCiliumPolicy(allowIngressIdentityPolicyYAML).
 		WithScenarios(tests.PodToIngress())
 
 	newTest("pod-to-ingress-service-deny-all", ct).
