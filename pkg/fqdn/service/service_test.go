@@ -75,56 +75,53 @@ func TestFQDNDataServer(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 
 			h := hive.New(
-				cell.Module(
-					"test-fqdn-grpc-server",
-					"Test FQDN gRPC server",
-					cell.Config(defaultConfig),
-					cell.Provide(
-						func(logger *slog.Logger) endpointmanager.EndpointManager {
-							return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
-						},
+				cell.Config(defaultConfig),
+				cell.Provide(
+					func(logger *slog.Logger) endpointmanager.EndpointManager {
+						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+					},
 
-						func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
-							pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-							return ipcache.NewIPCache(&ipcache.Configuration{
-								Context:           t.Context(),
+					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+						pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+						return ipcache.NewIPCache(&ipcache.Configuration{
+							Context:           t.Context(),
+							Logger:            logger,
+							IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+							PolicyHandler:     pr.GetSelectorCache(),
+							DatapathHandler:   em,
+						})
+					},
+					func(ipc *ipcache.IPCache, logger *slog.Logger) namemanager.NameManager {
+						return namemanager.New(namemanager.ManagerParams{
+							Logger: logger,
+							Config: namemanager.NameManagerConfig{
+								MinTTL:            1,
+								DNSProxyLockCount: defaults.DNSProxyLockCount,
+								StateDir:          defaults.StateDir,
+							},
+							IPCache: ipc,
+						})
+					},
+					func(lc cell.Lifecycle, logger *slog.Logger) messagehandler.DNSMessageHandler {
+						return messagehandler.NewDNSMessageHandler(
+							messagehandler.DNSMessageHandlerParams{
+								Lifecycle:         lc,
 								Logger:            logger,
-								IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
-								PolicyHandler:     pr.GetSelectorCache(),
-								DatapathHandler:   em,
+								NameManager:       nil,
+								ProxyAccessLogger: nil,
 							})
-						},
-						func(ipc *ipcache.IPCache, logger *slog.Logger) namemanager.NameManager {
-							return namemanager.New(namemanager.ManagerParams{
-								Logger: logger,
-								Config: namemanager.NameManagerConfig{
-									MinTTL:            1,
-									DNSProxyLockCount: defaults.DNSProxyLockCount,
-									StateDir:          defaults.StateDir,
-								},
-								IPCache: ipc,
-							})
-						},
-						func(lc cell.Lifecycle, logger *slog.Logger) messagehandler.DNSMessageHandler {
-							return messagehandler.NewDNSMessageHandler(
-								messagehandler.DNSMessageHandlerParams{
-									Lifecycle:         lc,
-									Logger:            logger,
-									NameManager:       nil,
-									ProxyAccessLogger: nil,
-								})
-						},
-						func() *option.DaemonConfig {
-							return &option.DaemonConfig{
-								EnableL7Proxy:    tt.enableL7Proxy,
-								ToFQDNsProxyPort: tt.port,
-							}
-						},
-						func() listenConfig {
-							return newBufconnListener(lis)
-						},
-						newServer,
-					)),
+					},
+					func() *option.DaemonConfig {
+						return &option.DaemonConfig{
+							EnableL7Proxy:    tt.enableL7Proxy,
+							ToFQDNsProxyPort: tt.port,
+						}
+					},
+					func() listenConfig {
+						return newBufconnListener(lis)
+					},
+					newServer,
+				),
 				cell.Invoke(func(_ *FQDNDataServer) {}))
 
 			hive.AddConfigOverride(

@@ -56,14 +56,14 @@ func newFixture(t testing.TB) *fixture {
 
 	hive.New(
 		cell.Provide(tables.NewL2AnnounceTable),
-		cell.Module("test", "test", cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], h_ cell.Health, j job.Registry, jg_ job.Group) {
+		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], h_ cell.Health, j job.Registry, jg_ job.Group) {
 			d.RegisterTable(t)
 			db = d
 			tbl = t
 			jr = j
 			jg = jg_
 			h = h_
-		})),
+		}),
 	).Populate(logger)
 
 	fakeSvcStore := &fakeStore[*slim_corev1.Service]{}
