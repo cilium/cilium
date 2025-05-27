@@ -153,16 +153,18 @@ func TestDelete(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Log("Test: " + tt.name)
-		ns := netns.NewNetNS(t)
-		ns.Do(func() error {
-			ifaceCleanup := createDummyDevice(t, masterMAC)
-			defer ifaceCleanup()
+		t.Run(tt.name, func(t *testing.T) {
+			ns := netns.NewNetNS(t)
+			ns.Do(func() error {
+				ifaceCleanup := createDummyDevice(t, masterMAC)
+				defer ifaceCleanup()
 
-			ip := tt.preRun()
-			err := Delete(hivetest.Logger(t), ip, false)
-			require.Equal(t, tt.wantErr, (err != nil))
-			return nil
+				ip := tt.preRun()
+				err := Delete(hivetest.Logger(t), ip, false)
+				require.Equalf(t, tt.wantErr, (err != nil), "got error: %v", err)
+
+				return nil
+			})
 		})
 	}
 }
