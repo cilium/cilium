@@ -62,9 +62,7 @@ var DefaultLogger = initializeDefaultLogger()
 
 var klogErrorOverrides = []logLevelOverride{
 	{
-		// TODO: We can drop the misspelled case here once client-go version is bumped to include:
-		//	https://github.com/kubernetes/client-go/commit/ae43527480ee9d8750fbcde3d403363873fd3d89
-		matcher:     regexp.MustCompile("Failed to update lock (optimitically|optimistically).*falling back to slow path"),
+		matcher:     regexp.MustCompile("Failed to update lock optimistically.*falling back to slow path"),
 		targetLevel: logrus.InfoLevel,
 	},
 }
