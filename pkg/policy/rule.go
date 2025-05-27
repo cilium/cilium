@@ -187,11 +187,11 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 			}
 
 			// Merge two non-identical sets of non-nil rules
-			if l7Rules != nil && l7Rules.IsDeny {
+			if l7Rules.GetDeny() {
 				// If existing rule is deny then it's a no-op
 				// Denies takes priority over any rule.
 				continue
-			} else if newL7Rules != nil && newL7Rules.IsDeny {
+			} else if newL7Rules.GetDeny() {
 				// Overwrite existing filter if the new rule is a deny case
 				// Denies takes priority over any rule.
 				existingFilter.PerSelectorPolicies[cs] = newL7Rules
