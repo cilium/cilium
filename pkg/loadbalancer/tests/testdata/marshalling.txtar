@@ -77,8 +77,7 @@ Address              Instances
   "PortNames": {
     "http": 80
   },
-  "TrafficDistribution": "",
-  "Properties": []
+  "TrafficDistribution": ""
 }
 -- frontends-expected.json --
 {
@@ -273,7 +272,6 @@ sourceranges: []
 portnames:
     http: 80
 trafficdistribution: ""
-properties: []
 -- frontends-expected.yaml --
 frontendparams:
     address: 10.96.50.104:80/TCP
