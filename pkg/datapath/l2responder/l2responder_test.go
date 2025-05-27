@@ -45,18 +45,13 @@ func newFixture(t testing.TB) *fixture {
 			statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		),
 
-		cell.Module(
-			"l2responder-test",
-			"L2 responder test module",
-
-			cell.Invoke(
-				statedb.RegisterTable[*tables.L2AnnounceEntry],
-				func(d *statedb.DB, lc cell.Lifecycle, h cell.Health, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Group) {
-					db = d
-					tbl = t
-					jg = j
-				}),
-		),
+		cell.Invoke(
+			statedb.RegisterTable[*tables.L2AnnounceEntry],
+			func(d *statedb.DB, lc cell.Lifecycle, h cell.Health, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Group) {
+				db = d
+				tbl = t
+				jg = j
+			}),
 	).Populate(logger)
 
 	nl := &mockNeighborNetlink{}

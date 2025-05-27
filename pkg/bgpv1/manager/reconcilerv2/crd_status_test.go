@@ -86,7 +86,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 		}
 	}
 
-	f.hive = hive.New(cell.Module("test", "test",
+	f.hive = hive.New(
 		daemon_k8s.LocalNodeCell,
 		cell.Provide(
 			func() *option.DaemonConfig {
@@ -116,7 +116,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 			f.db = db
 			f.reconcileErrTbl = table
 		}),
-	))
+	)
 
 	return f, watchersReadyFn
 }
@@ -340,7 +340,7 @@ func TestDisableStatusReport(t *testing.T) {
 	nodeTypes.SetName("node0")
 
 	var cs k8s_client.Clientset
-	hive := hive.New(cell.Module("test", "test",
+	hive := hive.New(
 		daemon_k8s.LocalNodeCell,
 		cell.Provide(
 			func() *option.DaemonConfig {
@@ -401,7 +401,7 @@ func TestDisableStatusReport(t *testing.T) {
 			}
 			jg.Add(job.OneShot("cleanup-status", r.cleanupStatus))
 		}),
-	))
+	)
 
 	require.NoError(t, hive.Start(logger, ctx))
 	t.Cleanup(func() {

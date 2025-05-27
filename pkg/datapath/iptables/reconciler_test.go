@@ -42,37 +42,32 @@ func TestReconciliationLoop(t *testing.T) {
 		params  *reconcilerParams
 	)
 	h := hive.New(
-		cell.Module(
-			"iptables-reconciler-test",
-			"iptables-reconciler-test",
-
-			cell.Provide(
-				tables.NewDeviceTable,
-				statedb.RWTable[*tables.Device].ToTable,
-				func() *node.LocalNodeStore { return node.NewTestLocalNodeStore(node.LocalNode{}) },
-			),
-			cell.Invoke(func(
-				db_ *statedb.DB,
-				devices_ statedb.RWTable[*tables.Device],
-				store_ *node.LocalNodeStore,
-				health_ cell.Health,
-			) {
-				db = db_
-				devices = devices_
-				store = store_
-				db.RegisterTable(devices_)
-				health = health_.NewScope("iptables-reconciler-test")
-				params = &reconcilerParams{
-					clock:          clock,
-					localNodeStore: store_,
-					db:             db_,
-					devices:        devices_,
-					proxies:        make(chan reconciliationRequest[proxyInfo]),
-					addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
-					delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
-				}
-			}),
+		cell.Provide(
+			tables.NewDeviceTable,
+			statedb.RWTable[*tables.Device].ToTable,
+			func() *node.LocalNodeStore { return node.NewTestLocalNodeStore(node.LocalNode{}) },
 		),
+		cell.Invoke(func(
+			db_ *statedb.DB,
+			devices_ statedb.RWTable[*tables.Device],
+			store_ *node.LocalNodeStore,
+			health_ cell.Health,
+		) {
+			db = db_
+			devices = devices_
+			store = store_
+			db.RegisterTable(devices_)
+			health = health_.NewScope("iptables-reconciler-test")
+			params = &reconcilerParams{
+				clock:          clock,
+				localNodeStore: store_,
+				db:             db_,
+				devices:        devices_,
+				proxies:        make(chan reconciliationRequest[proxyInfo]),
+				addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+				delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+			}
+		}),
 	)
 
 	var (

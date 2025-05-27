@@ -55,93 +55,88 @@ func TestManager(t *testing.T) {
 
 	hive := hive.New(
 
-		cell.Module(
-			"ipset-manager-test",
-			"ipset-manager-test",
+		cell.Provide(func() config {
+			return config{NodeIPSetNeeded: true}
+		}),
 
-			cell.Provide(func() config {
-				return config{NodeIPSetNeeded: true}
-			}),
-
-			cell.Provide(
-				newIPSetManager,
-				tables.NewIPSetTable,
-				newOps,
-				newReconciler,
-			),
-			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
-				return ops
-			}),
-
-			cell.Provide(func(logger *slog.Logger) *ipset {
-				return &ipset{
-					executable: funcExecutable(
-						func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
-							mu.Lock()
-							defer mu.Unlock()
-
-							var commands [][]string
-							if arg[0] == "restore" {
-								for line := range strings.SplitSeq(stdin, "\n") {
-									if len(line) > 0 {
-										commands = append(commands, strings.Split(line, " "))
-									}
-								}
-							} else {
-								commands = [][]string{arg}
-							}
-
-							for _, arg := range commands {
-								subCommand := arg[0]
-								name := arg[1]
-								t.Logf("%s %s", subCommand, strings.Join(arg[1:], " "))
-
-								switch subCommand {
-								case "create":
-									if _, found := ipsets[name]; !found {
-										ipsets[name] = AddrSet{}
-									}
-								case "destroy":
-									if _, found := ipsets[name]; !found {
-										return nil, fmt.Errorf("ipset %s not found", name)
-									}
-									delete(ipsets, name)
-								case "list":
-									if _, found := ipsets[name]; !found {
-										return nil, fmt.Errorf("ipset %s not found", name)
-									}
-									var bb bytes.Buffer
-									if err := tmpl.Execute(&bb, map[string]AddrSet{name: ipsets[name]}); err != nil {
-										return nil, err
-									}
-									b := bb.Bytes()
-									return b, nil
-								case "add":
-									if _, found := ipsets[name]; !found {
-										return nil, fmt.Errorf("ipset %s not found", name)
-									}
-									addr := netip.MustParseAddr(arg[len(arg)-2])
-									ipsets[name] = ipsets[name].Insert(addr)
-								case "del":
-									if _, found := ipsets[name]; !found {
-										return nil, fmt.Errorf("ipset %s not found", name)
-									}
-									addr := netip.MustParseAddr(arg[len(arg)-2])
-									if !ipsets[name].Has(addr) {
-										return nil, nil
-									}
-									ipsets[name] = ipsets[name].Delete(addr)
-								default:
-									return nil, fmt.Errorf("unexpected ipset subcommand %s", arg[1])
-								}
-							}
-							return nil, nil
-						},
-					),
-					log: logger,
-				}
-			}),
+		cell.Provide(
+			newIPSetManager,
+			tables.NewIPSetTable,
+			newOps,
+			newReconciler,
 		),
+		cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
+			return ops
+		}),
+
+		cell.Provide(func(logger *slog.Logger) *ipset {
+			return &ipset{
+				executable: funcExecutable(
+					func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
+						mu.Lock()
+						defer mu.Unlock()
+
+						var commands [][]string
+						if arg[0] == "restore" {
+							for line := range strings.SplitSeq(stdin, "\n") {
+								if len(line) > 0 {
+									commands = append(commands, strings.Split(line, " "))
+								}
+							}
+						} else {
+							commands = [][]string{arg}
+						}
+
+						for _, arg := range commands {
+							subCommand := arg[0]
+							name := arg[1]
+							t.Logf("%s %s", subCommand, strings.Join(arg[1:], " "))
+
+							switch subCommand {
+							case "create":
+								if _, found := ipsets[name]; !found {
+									ipsets[name] = AddrSet{}
+								}
+							case "destroy":
+								if _, found := ipsets[name]; !found {
+									return nil, fmt.Errorf("ipset %s not found", name)
+								}
+								delete(ipsets, name)
+							case "list":
+								if _, found := ipsets[name]; !found {
+									return nil, fmt.Errorf("ipset %s not found", name)
+								}
+								var bb bytes.Buffer
+								if err := tmpl.Execute(&bb, map[string]AddrSet{name: ipsets[name]}); err != nil {
+									return nil, err
+								}
+								b := bb.Bytes()
+								return b, nil
+							case "add":
+								if _, found := ipsets[name]; !found {
+									return nil, fmt.Errorf("ipset %s not found", name)
+								}
+								addr := netip.MustParseAddr(arg[len(arg)-2])
+								ipsets[name] = ipsets[name].Insert(addr)
+							case "del":
+								if _, found := ipsets[name]; !found {
+									return nil, fmt.Errorf("ipset %s not found", name)
+								}
+								addr := netip.MustParseAddr(arg[len(arg)-2])
+								if !ipsets[name].Has(addr) {
+									return nil, nil
+								}
+								ipsets[name] = ipsets[name].Delete(addr)
+							default:
+								return nil, fmt.Errorf("unexpected ipset subcommand %s", arg[1])
+							}
+						}
+						return nil, nil
+					},
+				),
+				log: logger,
+			}
+		}),
 
 		cell.Invoke(func(m Manager) {
 			mgr = m
@@ -289,46 +284,41 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 	var mu lock.Mutex                  // protect the ipsets map
 
 	hive := hive.New(
-		cell.Module(
-			"ipset-manager-test",
-			"ipset-manager-test",
+		cell.Provide(func() config {
+			return config{NodeIPSetNeeded: false}
+		}),
 
-			cell.Provide(func() config {
-				return config{NodeIPSetNeeded: false}
-			}),
-
-			cell.Provide(
-				newIPSetManager,
-				tables.NewIPSetTable,
-				newOps,
-				newReconciler,
-			),
-			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
-				return ops
-			}),
-			cell.Provide(func(logger *slog.Logger) *ipset {
-				return &ipset{
-					executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
-						mu.Lock()
-						defer mu.Unlock()
-
-						t.Logf("%s %s", command, strings.Join(arg, " "))
-
-						if arg[0] == "destroy" {
-							name := arg[1]
-							if _, found := ipsets[name]; !found {
-								return nil, fmt.Errorf("ipset %s not found", name)
-							}
-							delete(ipsets, name)
-						}
-						return nil, nil
-					}),
-					log: logger,
-				}
-			}),
-			// force manager instantiation
-			cell.Invoke(func(_ Manager) {}),
+		cell.Provide(
+			newIPSetManager,
+			tables.NewIPSetTable,
+			newOps,
+			newReconciler,
 		),
+		cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
+			return ops
+		}),
+		cell.Provide(func(logger *slog.Logger) *ipset {
+			return &ipset{
+				executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
+					mu.Lock()
+					defer mu.Unlock()
+
+					t.Logf("%s %s", command, strings.Join(arg, " "))
+
+					if arg[0] == "destroy" {
+						name := arg[1]
+						if _, found := ipsets[name]; !found {
+							return nil, fmt.Errorf("ipset %s not found", name)
+						}
+						delete(ipsets, name)
+					}
+					return nil, nil
+				}),
+				log: logger,
+			}
+		}),
+		// force manager instantiation
+		cell.Invoke(func(_ Manager) {}),
 	)
 
 	time.MaxInternalTimerDelay = time.Millisecond
@@ -603,50 +593,45 @@ func BenchmarkManager(b *testing.B) {
 	)
 
 	hive := hive.New(
-		cell.Module(
-			"ipset-manager-test",
-			"ipset-manager-test",
+		cell.Provide(func() config {
+			return config{NodeIPSetNeeded: true}
+		}),
 
-			cell.Provide(func() config {
-				return config{NodeIPSetNeeded: true}
-			}),
-
-			cell.Provide(
-				newIPSetManager,
-				tables.NewIPSetTable,
-				newOps,
-				newReconciler,
-			),
-			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
-				return ops
-			}),
-
-			cell.Provide(func(logger *slog.Logger) *ipset {
-				return &ipset{
-					executable: funcExecutable(
-						func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
-							// exec of ipset add takes about ~0.51ms
-							time.Sleep(time.Millisecond)
-							if arg[0] == "add" {
-								addCount.Add(1)
-							} else if arg[0] == "del" {
-								deleteCount.Add(1)
-							}
-
-							if arg[0] == "restore" {
-								count := strings.Count(stdin, "\n")
-								if strings.HasPrefix(stdin, "add") {
-									addCount.Add(int32(count))
-								} else {
-									deleteCount.Add(int32(count))
-								}
-							}
-							return nil, nil
-						}),
-					log: logger,
-				}
-			}),
+		cell.Provide(
+			newIPSetManager,
+			tables.NewIPSetTable,
+			newOps,
+			newReconciler,
 		),
+		cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
+			return ops
+		}),
+
+		cell.Provide(func(logger *slog.Logger) *ipset {
+			return &ipset{
+				executable: funcExecutable(
+					func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
+						// exec of ipset add takes about ~0.51ms
+						time.Sleep(time.Millisecond)
+						if arg[0] == "add" {
+							addCount.Add(1)
+						} else if arg[0] == "del" {
+							deleteCount.Add(1)
+						}
+
+						if arg[0] == "restore" {
+							count := strings.Count(stdin, "\n")
+							if strings.HasPrefix(stdin, "add") {
+								addCount.Add(int32(count))
+							} else {
+								deleteCount.Add(int32(count))
+							}
+						}
+						return nil, nil
+					}),
+				log: logger,
+			}
+		}),
 
 		cell.Invoke(func(m Manager) {
 			// Add an initializer to stop the pruning

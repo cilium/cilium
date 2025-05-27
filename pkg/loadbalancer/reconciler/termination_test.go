@@ -105,9 +105,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 				}
 			},
 		),
-		cell.Module("test", "test",
-			cell.Invoke(registerSocketTermination),
-		),
+		cell.Invoke(registerSocketTermination),
 		cell.Invoke(func(db_ *statedb.DB, backends_ statedb.RWTable[*loadbalancer.Backend]) {
 			db = db_
 			backends = backends_
