@@ -1,8 +1,7 @@
 # Tests the behavior of device detection without providing explicit --devices option.
 
-# Start the hive and wait for tables to be synchronized.
+# Start the hive
 hive start
-db/initialized
 
 # Create veth0 + veth1 interfaces without default route - should not be selected.
 exec ip link add veth0 type veth peer name veth1

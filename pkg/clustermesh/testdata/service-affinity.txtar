@@ -1,7 +1,6 @@
 #! --cluster-id=1 --cluster-name=cluster1
 
 hive/start
-db/initialized
 
 # Create a service with affinity set to local.
 k8s/add service.yaml endpointslice.yaml

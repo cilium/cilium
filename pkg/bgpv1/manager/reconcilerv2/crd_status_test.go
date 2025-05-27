@@ -28,6 +28,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -336,6 +337,7 @@ func TestCRDConditions(t *testing.T) {
 func TestDisableStatusReport(t *testing.T) {
 	ctx := context.TODO()
 	logger := hivetest.Logger(t)
+	nodeTypes.SetName("node0")
 
 	var cs k8s_client.Clientset
 	hive := hive.New(cell.Module("test", "test",

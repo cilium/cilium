@@ -7,9 +7,8 @@
 # - Because of the above, we can not rely on assignment of particular interface indexes to the newly created interfaces.
 #   Therefore we always omit the Index / DeviceIndex columns in all tables.
 
-# Start the hive and wait for tables to be synchronized.
+# Start the hive
 hive start
-db/initialized
 
 # Start with clean state.
 db/cmp devices --grep dummy devices_empty.table
