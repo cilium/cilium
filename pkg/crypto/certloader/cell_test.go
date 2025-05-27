@@ -11,13 +11,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -42,10 +40,6 @@ func TestCell(t *testing.T) {
 	}
 
 	hive := hive.New(
-		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
-			h := p.ForModule(cell.FullModuleID{"test"})
-			return jr.NewGroup(h, lc)
-		}),
 		cell.ProvidePrivate(func(cfg testConfig) Config {
 			return Config(cfg)
 		}),
@@ -99,10 +93,6 @@ func TestCellConfigError(t *testing.T) {
 	var serverConfig *WatchedServerConfig
 
 	hive := hive.New(
-		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
-			h := p.ForModule(cell.FullModuleID{"test"})
-			return jr.NewGroup(h, lc)
-		}),
 		cell.ProvidePrivate(func(cfg testConfig) Config {
 			return Config(cfg)
 		}),
@@ -163,10 +153,6 @@ func TestCellShutdown(t *testing.T) {
 	}
 
 	hive := hive.New(
-		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
-			h := p.ForModule(cell.FullModuleID{"test"})
-			return jr.NewGroup(h, lc)
-		}),
 		cell.ProvidePrivate(func(cfg testConfig) Config {
 			return Config(cfg)
 		}),
@@ -210,10 +196,6 @@ func TestCellDisabled(t *testing.T) {
 	var cfgPromise promise.Promise[*WatchedServerConfig]
 
 	hive := hive.New(
-		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
-			h := p.ForModule(cell.FullModuleID{"test"})
-			return jr.NewGroup(h, lc)
-		}),
 		cell.ProvidePrivate(func(cfg testConfig) Config {
 			return Config(cfg)
 		}),

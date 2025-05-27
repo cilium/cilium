@@ -84,22 +84,17 @@ func TestWaitForReconciliation(t *testing.T) {
 	)
 
 	hive := hive.New(
-		cell.Module(
-			"sysctl-test",
-			"sysctl-test",
+		cell.Provide(func(db *statedb.DB) (statedb.RWTable[*tables.Sysctl], statedb.Index[*tables.Sysctl, reconciler.StatusKind], error) {
+			return tables.NewSysctlTable(db)
+		}),
+		cell.Invoke(func(db *statedb.DB, settings statedb.RWTable[*tables.Sysctl]) {
+			db.RegisterTable(settings)
+		}),
 
-			cell.Provide(func(db *statedb.DB) (statedb.RWTable[*tables.Sysctl], statedb.Index[*tables.Sysctl, reconciler.StatusKind], error) {
-				return tables.NewSysctlTable(db)
-			}),
-			cell.Invoke(func(db *statedb.DB, settings statedb.RWTable[*tables.Sysctl]) {
-				db.RegisterTable(settings)
-			}),
-
-			cell.Invoke(func(statedb *statedb.DB, tb statedb.RWTable[*tables.Sysctl]) {
-				db = statedb
-				settings = tb
-			}),
-		),
+		cell.Invoke(func(statedb *statedb.DB, tb statedb.RWTable[*tables.Sysctl]) {
+			db = statedb
+			settings = tb
+		}),
 	)
 
 	tlog := hivetest.Logger(t)
@@ -143,22 +138,18 @@ func TestSysctl(t *testing.T) {
 	var sysctl Sysctl
 
 	hive := hive.New(
-		cell.Module(
-			"sysctl-test",
-			"sysctl-test",
-			cell.Config(defaultConfig),
+		cell.Config(defaultConfig),
 
-			cell.Provide(
-				func() afero.Fs {
-					return afero.NewMemMapFs()
-				},
-			),
-			cell.Provide(
-				newReconcilingSysctl,
-				tables.NewSysctlTable,
-				newReconciler,
-				newOps,
-			),
+		cell.Provide(
+			func() afero.Fs {
+				return afero.NewMemMapFs()
+			},
+		),
+		cell.Provide(
+			newReconcilingSysctl,
+			tables.NewSysctlTable,
+			newReconciler,
+			newOps,
 		),
 
 		cell.Invoke(func(s Sysctl) {
@@ -242,22 +233,18 @@ func TestSysctlIgnoreErr(t *testing.T) {
 	var sysctl Sysctl
 
 	hive := hive.New(
-		cell.Module(
-			"sysctl-test",
-			"sysctl-test",
-			cell.Config(defaultConfig),
+		cell.Config(defaultConfig),
 
-			cell.Provide(
-				func() afero.Fs {
-					return afero.NewMemMapFs()
-				},
-			),
-			cell.Provide(
-				newReconcilingSysctl,
-				tables.NewSysctlTable,
-				newReconciler,
-				newOps,
-			),
+		cell.Provide(
+			func() afero.Fs {
+				return afero.NewMemMapFs()
+			},
+		),
+		cell.Provide(
+			newReconcilingSysctl,
+			tables.NewSysctlTable,
+			newReconciler,
+			newOps,
 		),
 
 		cell.Invoke(func(s Sysctl) {

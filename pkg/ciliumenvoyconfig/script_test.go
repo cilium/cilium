@@ -100,31 +100,29 @@ func TestScript(t *testing.T) {
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
-			cell.Module("cec-test", "test",
-				// cecResourceParser and its friends.
-				cell.Group(
-					cell.Provide(
-						newCECResourceParser,
-						func(log *slog.Logger) PortAllocator { return staticPortAllocator{log} },
-						func() FeatureMetrics {
-							return mockFeatureMetrics{}
-						},
-					),
-					node.LocalNodeStoreCell,
-					cell.Invoke(func(lns_ *node.LocalNodeStore) { lns = lns_ }),
-				),
-				tableCells,
-				controllerCells,
-
-				cell.ProvidePrivate(
-					func() promise.Promise[synced.CRDSync] {
-						r, p := promise.New[synced.CRDSync]()
-						r.Resolve(synced.CRDSync{})
-						return p
+			// cecResourceParser and its friends.
+			cell.Group(
+				cell.Provide(
+					newCECResourceParser,
+					func(log *slog.Logger) PortAllocator { return staticPortAllocator{log} },
+					func() FeatureMetrics {
+						return mockFeatureMetrics{}
 					},
-					func() resourceMutator { return fakeEnvoy },
-					func() policyTrigger { return fakeEnvoy },
 				),
+				node.LocalNodeStoreCell,
+				cell.Invoke(func(lns_ *node.LocalNodeStore) { lns = lns_ }),
+			),
+			tableCells,
+			controllerCells,
+
+			cell.ProvidePrivate(
+				func() promise.Promise[synced.CRDSync] {
+					r, p := promise.New[synced.CRDSync]()
+					r.Resolve(synced.CRDSync{})
+					return p
+				},
+				func() resourceMutator { return fakeEnvoy },
+				func() policyTrigger { return fakeEnvoy },
 			),
 		)
 
