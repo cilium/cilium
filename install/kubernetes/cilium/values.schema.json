@@ -4212,6 +4212,12 @@
     "name": {
       "type": "string"
     },
+    "namespaceCreate": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
     "namespaceOverride": {
       "type": [
         "null",

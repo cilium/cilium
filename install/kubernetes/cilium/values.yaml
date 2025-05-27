@@ -9,6 +9,12 @@
 # This property allows to use Cilium as part of an Umbrella Chart with different targets.
 namespaceOverride: ""
 # @schema
+# type: [null, boolean]
+# @schema
+# -- namespaceCreate allows to override the creation of the default namespace
+# This property allows to create a Namespace for Cillium through external tools.
+namespaceCreate: true
+# @schema
 # type: [null, object]
 # @schema
 # -- commonLabels allows users to add common labels for all Cilium resources.
