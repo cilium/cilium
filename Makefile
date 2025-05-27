@@ -444,6 +444,8 @@ endif
 	$(QUIET) contrib/scripts/check-safenetlink.sh
 	@$(ECHO_CHECK) contrib/scripts/check-datapathconfig.sh
 	$(QUIET) contrib/scripts/check-datapathconfig.sh
+	@$(ECHO_CHECK) contrib/scripts/check-fipsonly.sh
+	$(QUIET) contrib/scripts/check-fipsonly.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
