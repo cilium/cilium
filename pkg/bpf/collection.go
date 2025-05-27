@@ -294,7 +294,7 @@ type CollectionOptions struct {
 
 	// Replacements for datapath runtime configs declared using DECLARE_CONFIG.
 	// Pass a pointer to a populated object from pkg/datapath/config.
-	Constants any
+	Constants []any
 
 	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
 	// value is the new name.
@@ -403,30 +403,28 @@ func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
 
 // applyConstants sets the values of BPF C runtime configurables defined using
 // the DECLARE_CONFIG macro.
-func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
-	if obj == nil {
-		return nil
-	}
-
-	constants, err := config.StructToMap(obj)
-	if err != nil {
-		return fmt.Errorf("converting struct to map: %w", err)
-	}
-
-	for name, value := range constants {
-		constName := config.ConstantPrefix + name
-
-		v, ok := spec.Variables[constName]
-		if !ok {
-			return fmt.Errorf("can't set non-existent Variable %s", name)
+func applyConstants(spec *ebpf.CollectionSpec, objs []any) error {
+	for _, obj := range objs {
+		constants, err := config.StructToMap(obj)
+		if err != nil {
+			return fmt.Errorf("converting struct to map: %w", err)
 		}
 
-		if v.MapName() != config.Section {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.MapName(), name)
-		}
+		for name, value := range constants {
+			constName := config.ConstantPrefix + name
 
-		if err := v.Set(value); err != nil {
-			return fmt.Errorf("setting Variable %s: %w", name, err)
+			v, ok := spec.Variables[constName]
+			if !ok {
+				return fmt.Errorf("can't set non-existent Variable %s", name)
+			}
+
+			if v.MapName() != config.Section {
+				return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.MapName(), name)
+			}
+
+			if err := v.Set(value); err != nil {
+				return fmt.Errorf("setting Variable %s: %w", name, err)
+			}
 		}
 	}
 

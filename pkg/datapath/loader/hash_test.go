@@ -45,18 +45,30 @@ func TestHashEndpoint(t *testing.T) {
 	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
 
+	r := newBuiltinRewrites()
+	rewrites := progRewrites{
+		LXC:        []datapath.EndpointProgRewriter{r.LXC},
+		XDP:        []datapath.DeviceProgRewriter{r.XDP},
+		CiliumHost: []datapath.EndpointProgRewriter{r.CiliumHost},
+		CiliumNet:  []datapath.HostProgRewriter{r.CiliumNet},
+		Overlay:    []datapath.DeviceProgRewriter{r.Overlay},
+		Netdev:     []datapath.HostProgRewriter{r.Netdev},
+		IPsec:      []datapath.ProgRewriter{r.IPsec},
+		Wireguard:  []datapath.DeviceProgRewriter{r.Wireguard},
+	}
+
 	// Error from ConfigWriter is forwarded.
-	_, err := base.hashEndpoint(fakeConfigWriter{}, nil, nil)
+	_, err := base.hashEndpoint(rewrites, fakeConfigWriter{}, nil, nil)
 	require.Error(t, err)
 
 	// Hashing the endpoint gives a hash distinct from the base.
-	a, err := base.hashEndpoint(cfg, &localNodeConfig, &ep)
+	a, err := base.hashEndpoint(rewrites, cfg, &localNodeConfig, &ep)
 	require.NoError(t, err)
 	require.NotEqual(t, base.String(), a)
 
 	// When we configure the endpoint differently, it's different
 	ep.Opts.SetBool("foo", true)
-	b, err := base.hashEndpoint(cfg, &localNodeConfig, &ep)
+	b, err := base.hashEndpoint(rewrites, cfg, &localNodeConfig, &ep)
 	require.NoError(t, err)
 	require.NotEqual(t, a, b)
 }

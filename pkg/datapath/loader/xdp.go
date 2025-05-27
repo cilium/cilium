@@ -160,7 +160,7 @@ func (l *loader) compileAndLoadXDPProg(ctx context.Context, lnc *datapath.LocalN
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	co, renames := xdpRewrites(lnc, iface)
+	co, renames := applyDeviceProgRewrites(l.rewrites.XDP, lnc, iface)
 
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{

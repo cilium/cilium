@@ -24,7 +24,7 @@ func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigurat
 	return datapathHash(d.Sum(nil)), nil
 }
 
-func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration) (string, error) {
+func (d datapathHash) hashEndpoint(rewrites progRewrites, c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
 	if err := c.WriteEndpointConfig(h, nodeCfg, epCfg); err != nil {
@@ -34,13 +34,13 @@ func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.Lo
 	// Include endpoint configuration in the hash, otherwise different runtime
 	// configurations will hash to the same value and the update will be skipped.
 	if epCfg.IsHost() {
-		cfg, _ := ciliumHostRewrites(epCfg, nodeCfg)
+		cfg, _ := applyEndpointProgRewrites(rewrites.CiliumHost, epCfg, nodeCfg)
 		_, err := fmt.Fprintf(h, "%+v", cfg)
 		if err != nil {
 			return "", fmt.Errorf("hashing host rewrites: %w", err)
 		}
 	} else {
-		cfg, _ := endpointRewrites(epCfg, nodeCfg)
+		cfg, _ := applyEndpointProgRewrites(rewrites.LXC, epCfg, nodeCfg)
 		_, err := fmt.Fprintf(h, "%+v", cfg)
 		if err != nil {
 			return "", fmt.Errorf("hashing endpoint rewrites: %w", err)

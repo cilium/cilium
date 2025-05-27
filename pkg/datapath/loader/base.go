@@ -226,7 +226,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
-	co, renames := ipsecRewrites(lnc)
+	co, renames := applyProgRewrites(l.rewrites.IPsec, lnc)
 
 	var obj networkObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{

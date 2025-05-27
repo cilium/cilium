@@ -83,6 +83,7 @@ type loader struct {
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
 	nodeHandler     datapath.NodeHandler
+	rewrites        progRewrites
 }
 
 type Params struct {
@@ -94,6 +95,7 @@ type Params struct {
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
 	NodeHandler     datapath.NodeHandler
+	Rewrites        progRewrites
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -111,6 +113,7 @@ func newLoader(p Params) *loader {
 		compilationLock:   p.CompilationLock,
 		configWriter:      p.ConfigWriter,
 		nodeHandler:       p.NodeHandler,
+		rewrites:          p.Rewrites,
 	}
 }
 
@@ -362,7 +365,7 @@ func (l *loader) attachCiliumHost(ep datapath.Endpoint, lnc *datapath.LocalNodeC
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
 
-	co, renames := ciliumHostRewrites(ep, lnc)
+	co, renames := applyEndpointProgRewrites(l.rewrites.CiliumHost, ep, lnc)
 
 	var hostObj hostObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &hostObj, spec, &bpf.CollectionOptions{
@@ -437,7 +440,7 @@ func (l *loader) attachCiliumNet(ep datapath.Endpoint, lnc *datapath.LocalNodeCo
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
 
-	co, renames := ciliumNetRewrites(ep, lnc, net)
+	co, renames := applyHostProgRewrites(l.rewrites.CiliumNet, ep, lnc, net)
 
 	var netObj hostNetObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &netObj, spec, &bpf.CollectionOptions{
@@ -499,7 +502,7 @@ func (l *loader) attachNetworkDevices(ep datapath.Endpoint, lnc *datapath.LocalN
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		co, renames := netdevRewrites(ep, lnc, iface)
+		co, renames := applyHostProgRewrites(l.rewrites.Netdev, ep, lnc, iface)
 
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(l.logger, &netdevObj, spec, &bpf.CollectionOptions{
@@ -600,7 +603,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 func (l *loader) reloadEndpoint(ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
-	co, renames := endpointRewrites(ep, lnc)
+	co, renames := applyEndpointProgRewrites(l.rewrites.LXC, ep, lnc)
 
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
@@ -703,7 +706,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, lnc *datapath.Local
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
-	co, renames := overlayRewrite(lnc, device)
+	co, renames := applyDeviceProgRewrites(l.rewrites.Overlay, lnc, device)
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
@@ -760,7 +763,7 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, lnc *datapath.Loc
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
 
-	co, renames := wireguardRewrites(lnc, device)
+	co, renames := applyDeviceProgRewrites(l.rewrites.Wireguard, lnc, device)
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
@@ -929,7 +932,7 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
 func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) (string, error) {
-	return l.templateCache.baseHash.hashEndpoint(l.templateCache, lnCfg, cfg)
+	return l.templateCache.baseHash.hashEndpoint(l.rewrites, l.templateCache, lnCfg, cfg)
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
