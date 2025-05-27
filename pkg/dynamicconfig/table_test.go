@@ -13,13 +13,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/health/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option/resolver"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -241,10 +239,6 @@ func fixture(t *testing.T, sources string) (*hive.Hive, *statedb.DB, statedb.RWT
 			NewConfigMapReflector,
 			func(table statedb.RWTable[DynamicConfig]) statedb.Table[DynamicConfig] {
 				return table
-			},
-			func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
-				h := p.ForModule(cell.FullModuleID{"test"})
-				return jr.NewGroup(h, lc)
 			},
 			func() Config {
 				return Config{
