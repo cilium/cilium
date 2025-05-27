@@ -213,19 +213,22 @@ However, if we then again try to invoke ``SetAccessCode``, it is denied:
     Traceback (most recent call last):
       File "/cloudcity/cc_door_client.py", line 71, in <module>
         run()
-      File "/cloudcity/cc_door_client.py", line 53, in run
-        door_id=int(arg2), access_code=int(arg3)))
-      File "/usr/local/lib/python3.4/dist-packages/grpc/_channel.py", line 492, in __call__
-        return _end_unary_response_blocking(state, call, False, deadline)
-      File "/usr/local/lib/python3.4/dist-packages/grpc/_channel.py", line 440, in _end_unary_response_blocking
-        raise _Rendezvous(state, None, None, deadline)
-    grpc._channel._Rendezvous: <_Rendezvous of RPC that terminated with (StatusCode.CANCELLED, Received http2 header with status: 403)>
+      File "/cloudcity/cc_door_client.py", line 52, in run
+        response = stub.SetAccessCode(cloudcity_pb2.DoorAccessCodeRequest(
+      File "/usr/local/lib/python3.8/dist-packages/grpc/_channel.py", line 826, in __call__
+        return _end_unary_response_blocking(state, call, False, None)
+      File "/usr/local/lib/python3.8/dist-packages/grpc/_channel.py", line 729, in _end_unary_response_blocking
+        raise _InactiveRpcError(state)
+    grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.PERMISSION_DENIED
+        details = "Access denied"
+	      debug_error_string = "{"created":"@1748342370.953859451","description":"Error received from peer ipv4:10.96.86.105:50051","file":"src/core/lib/surface/call.cc","file_line":1055,"grpc_message":"Access denied\r\n","grpc_status":7}"
 
 
 This is now blocked, thanks to the Cilium network policy. And notice that unlike
 a traditional firewall which would just drop packets in a way indistinguishable
 from a network failure, because Cilium operates at the API-layer, it can
-explicitly reply with an custom HTTP 403 Unauthorized error, indicating that the
+explicitly reply with a custom gRPC status code 7 PERMISSION_DENIED, indicating that the
 request was intentionally denied for security reasons.
 
 Thank goodness that the empire IT staff hadn't had time to deploy Cilium on
