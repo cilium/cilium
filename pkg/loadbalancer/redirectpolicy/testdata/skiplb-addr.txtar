@@ -220,6 +220,7 @@ spec:
         - containerPort: 80
           name: tcp
           protocol: TCP
+  nodeName: testnode
 status:
   hostIP: 172.19.0.3
   hostIPs:
