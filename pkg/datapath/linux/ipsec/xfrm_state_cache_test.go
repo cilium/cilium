@@ -27,7 +27,7 @@ func newTestableXfrmStateListCache(ttl time.Duration, clock clock.PassiveClock) 
 }
 
 func TestXfrmStateListCache(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	backupOption := option.Config.EnableIPSecXfrmStateCaching
 	defer func() {
@@ -107,7 +107,7 @@ func TestXfrmStateListCache(t *testing.T) {
 }
 
 func TestXfrmStateListCacheDisabled(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	backupOption := option.Config.EnableIPSecXfrmStateCaching
 	defer func() {

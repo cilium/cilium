@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func setupIPSecSuitePrivileged(tb testing.TB) {
+func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 	testutils.PrivilegedTest(tb)
 	node.SetTestLocalNodeStore()
 	err := rlimit.RemoveMemlock()
@@ -65,16 +65,49 @@ var (
 	log *slog.Logger
 )
 
+func TestAll(t *testing.T) {
+	for _, tt := range []string{"ipv4"} {
+		t.Run(tt, func(t *testing.T) {
+			t.Run("testInvalidLoadKeys", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testInvalidLoadKeys(t)
+			})
+			t.Run("testUpsertIPSecEquals", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testUpsertIPSecEquals(t)
+			})
+			t.Run("testUpsertIPSecEndpointOut", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testUpsertIPSecEndpointOut(t)
+			})
+			t.Run("testUpsertIPSecEndpointFwd", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testUpsertIPSecEndpointFwd(t)
+			})
+			t.Run("testUpsertIPSecEndpointIn", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testUpsertIPSecEndpointIn(t)
+			})
+			t.Run("testUpsertIPSecKeyMissing", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testUpsertIPSecKeyMissing(t)
+			})
+			t.Run("testUpdateExistingIPSecEndpoint", func(t *testing.T) {
+				setupIPSecSuitePrivileged(t, tt)
+				testUpdateExistingIPSecEndpoint(t)
+			})
+		})
+	}
+}
+
 func TestLoadKeysNoFile(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	_, _, err := LoadIPSecKeysFile(log, path)
 	require.True(t, os.IsNotExist(err))
 }
 
-func TestInvalidLoadKeys(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testInvalidLoadKeys(t *testing.T) {
 	keys := bytes.NewReader(invalidKeysDat)
 	_, _, err := LoadIPSecKeys(log, keys)
 	require.Error(t, err)
@@ -98,7 +131,7 @@ func TestInvalidLoadKeys(t *testing.T) {
 }
 
 func TestLoadKeys(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
@@ -112,7 +145,7 @@ func TestLoadKeys(t *testing.T) {
 }
 
 func TestLoadKeysLenChange(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
 	_, _, err := LoadIPSecKeys(log, keys)
@@ -120,7 +153,7 @@ func TestLoadKeysLenChange(t *testing.T) {
 }
 
 func TestLoadKeysSameSPI(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	keys := bytes.NewReader(keysSameSpiDat)
 	_, _, err := LoadIPSecKeys(log, keys)
@@ -128,7 +161,7 @@ func TestLoadKeysSameSPI(t *testing.T) {
 }
 
 func TestParseSPI(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t, "ipv4")
 
 	testCases := []struct {
 		input    string
@@ -158,9 +191,7 @@ func TestParseSPI(t *testing.T) {
 	}
 }
 
-func TestUpsertIPSecEquals(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testUpsertIPSecEquals(t *testing.T) {
 	// Set source and destination to same IP.
 	local = remote
 
@@ -239,9 +270,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 //     the well-defined Encryption mark.
 //
 // 2. A state should be created with similar properties as above.
-func TestUpsertIPSecEndpointOut(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testUpsertIPSecEndpointOut(t *testing.T) {
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
@@ -355,9 +384,7 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 //   - Template destination is the ESP tunnel IP of the local node forwarding
 //     the traffic.
 //   - A ReqID of 1
-func TestUpsertIPSecEndpointFwd(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testUpsertIPSecEndpointFwd(t *testing.T) {
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
@@ -450,9 +477,7 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 //     the exception that the mark match should be the TO_PROXY mark.
 //
 // 2. A state should be created with similar properties as above.
-func TestUpsertIPSecEndpointIn(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testUpsertIPSecEndpointIn(t *testing.T) {
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
@@ -550,9 +575,7 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
 }
 
-func TestUpsertIPSecKeyMissing(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testUpsertIPSecKeyMissing(t *testing.T) {
 	params := &IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
@@ -571,9 +594,7 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
-func TestUpdateExistingIPSecEndpoint(t *testing.T) {
-	setupIPSecSuitePrivileged(t)
-
+func testUpdateExistingIPSecEndpoint(t *testing.T) {
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
