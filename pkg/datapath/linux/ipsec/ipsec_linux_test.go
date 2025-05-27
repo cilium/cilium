@@ -29,6 +29,11 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	require.NoError(tb, err)
 	log := hivetest.Logger(tb)
 
+	_, local, err = net.ParseCIDR("1.1.3.4/16")
+	require.NoError(tb, err)
+	_, remote, err = net.ParseCIDR("1.2.3.4/16")
+	require.NoError(tb, err)
+
 	tb.Cleanup(func() {
 		UnsetTestIPSecKey()
 		node.UnsetTestLocalNodeStore()
@@ -54,6 +59,9 @@ var (
 	keysAeadDat256 = []byte("5 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
 	invalidKeysDat = []byte("6 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
 	keysSameSpiDat = []byte("7 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n7 digest_null \"\" cipher_null \"\"\n")
+
+	local  *net.IPNet
+	remote *net.IPNet
 )
 
 func TestLoadKeysNoFile(t *testing.T) {
@@ -69,11 +77,6 @@ func TestInvalidLoadKeys(t *testing.T) {
 	keys := bytes.NewReader(invalidKeysDat)
 	_, _, err := LoadIPSecKeys(log, keys)
 	require.Error(t, err)
-
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
-	require.NoError(t, err)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
 
 	params := &IPSecParameters{
 		LocalBootID:    localBootID,
@@ -157,10 +160,8 @@ func TestParseSPI(t *testing.T) {
 func TestUpsertIPSecEquals(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	_, local, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
+	// Set source and destination to same IP.
+	local = remote
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -173,7 +174,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
@@ -211,7 +212,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 		Auth:  nil,
 	}
 
-	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
 	_, err = UpsertIPsecEndpoint(log, params)
@@ -240,11 +241,6 @@ func TestUpsertIPSecEquals(t *testing.T) {
 func TestUpsertIPSecEndpointOut(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
-	require.NoError(t, err)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
-
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
@@ -256,8 +252,8 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.1.3.4"] = key
-	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[local.IP.String()] = key
+	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
@@ -361,9 +357,6 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 func TestUpsertIPSecEndpointFwd(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
-	require.NoError(t, err)
-
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
@@ -375,8 +368,8 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.1.3.4"] = key
-	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[local.IP.String()] = key
+	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
@@ -459,11 +452,6 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 func TestUpsertIPSecEndpointIn(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
-	require.NoError(t, err)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
-
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
@@ -475,8 +463,8 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.1.3.4"] = key
-	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[local.IP.String()] = key
+	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
@@ -564,11 +552,6 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 func TestUpsertIPSecKeyMissing(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
-	require.NoError(t, err)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
-
 	params := &IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
@@ -583,17 +566,12 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err := UpsertIPsecEndpoint(log, params)
 	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
 func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
-
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
-	require.NoError(t, err)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
-	require.NoError(t, err)
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -606,8 +584,8 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.1.3.4"] = key
-	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[local.IP.String()] = key
+	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
