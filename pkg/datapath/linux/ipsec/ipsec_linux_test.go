@@ -22,12 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
+func setupIPSecSuitePrivileged(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 	node.SetTestLocalNodeStore()
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
-	log := hivetest.Logger(tb)
+	log = hivetest.Logger(tb)
 
 	_, local, err = net.ParseCIDR("1.1.3.4/16")
 	require.NoError(tb, err)
@@ -42,7 +42,6 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 			tb.Errorf("Failed cleaning XFRM state: %v", err)
 		}
 	})
-	return log
 }
 
 const (
@@ -62,17 +61,19 @@ var (
 
 	local  *net.IPNet
 	remote *net.IPNet
+
+	log *slog.Logger
 )
 
 func TestLoadKeysNoFile(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	_, _, err := LoadIPSecKeysFile(log, path)
 	require.True(t, os.IsNotExist(err))
 }
 
 func TestInvalidLoadKeys(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	keys := bytes.NewReader(invalidKeysDat)
 	_, _, err := LoadIPSecKeys(log, keys)
@@ -97,7 +98,7 @@ func TestInvalidLoadKeys(t *testing.T) {
 }
 
 func TestLoadKeys(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
@@ -111,7 +112,7 @@ func TestLoadKeys(t *testing.T) {
 }
 
 func TestLoadKeysLenChange(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
 	_, _, err := LoadIPSecKeys(log, keys)
@@ -119,7 +120,7 @@ func TestLoadKeysLenChange(t *testing.T) {
 }
 
 func TestLoadKeysSameSPI(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	keys := bytes.NewReader(keysSameSpiDat)
 	_, _, err := LoadIPSecKeys(log, keys)
@@ -127,7 +128,7 @@ func TestLoadKeysSameSPI(t *testing.T) {
 }
 
 func TestParseSPI(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	testCases := []struct {
 		input    string
@@ -158,7 +159,7 @@ func TestParseSPI(t *testing.T) {
 }
 
 func TestUpsertIPSecEquals(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	// Set source and destination to same IP.
 	local = remote
@@ -239,7 +240,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 //
 // 2. A state should be created with similar properties as above.
 func TestUpsertIPSecEndpointOut(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -355,7 +356,7 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 //     the traffic.
 //   - A ReqID of 1
 func TestUpsertIPSecEndpointFwd(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -450,7 +451,7 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 //
 // 2. A state should be created with similar properties as above.
 func TestUpsertIPSecEndpointIn(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -550,7 +551,7 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 }
 
 func TestUpsertIPSecKeyMissing(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	params := &IPSecParameters{
 		LocalBootID:    localBootID,
@@ -571,7 +572,7 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 }
 
 func TestUpdateExistingIPSecEndpoint(t *testing.T) {
-	log := setupIPSecSuitePrivileged(t)
+	setupIPSecSuitePrivileged(t)
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
