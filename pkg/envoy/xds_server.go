@@ -1313,7 +1313,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, versio
 		return r, true
 	}
 
-	if l7Rules.IsDeny {
+	if l7Rules.GetDeny() {
 		r.Deny = true
 		return r, false
 	}
