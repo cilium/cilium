@@ -1496,7 +1496,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 		return r, true
 	}
 
-	if l7Rules.IsDeny {
+	if l7Rules.GetDeny() {
 		r.Deny = true
 		return r, false
 	}
