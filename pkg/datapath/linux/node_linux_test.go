@@ -279,6 +279,10 @@ func TestAll(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeChurnXFRMLeaks(t)
 			})
+			t.Run("TestNodeChurnXFRMLeaksEncryptedOverlay", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeChurnXFRMLeaksEncryptedOverlay(t)
+			})
 			t.Run("TestNodeChurnXFRMLeaksSubnetMode", func(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeChurnXFRMLeaksSubnetMode(t)
@@ -702,8 +706,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 
 // Tests the same as TestNodeChurnXFRMLeaks, but in tunneling mode. As a
 // consequence, encrypted overlay will kick in.
-func TestNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
-	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
+func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
 	config.EnableEncapsulation = true
