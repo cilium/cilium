@@ -113,7 +113,7 @@ func (cm *clusterMesh) Start(cell.HookContext) error {
 
 // Close stops watching for remote cluster configuration files to appear and
 // will close all connections to remote clusters
-func (cm *clusterMesh) Stop(cell.HookContext) error {
+func (cm *clusterMesh) Stop(ctx cell.HookContext) error {
 	if cm.configWatcher != nil {
 		cm.configWatcher.close()
 	}
@@ -127,7 +127,7 @@ func (cm *clusterMesh) Stop(cell.HookContext) error {
 	defer cm.mutex.Unlock()
 
 	for name, cluster := range cm.clusters {
-		cluster.onStop()
+		cluster.onStop(ctx)
 		delete(cm.clusters, name)
 	}
 
