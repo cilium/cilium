@@ -281,7 +281,11 @@ func (a *PerSelectorPolicy) IsRedirect() bool {
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
 func (a *PerSelectorPolicy) HasL7Rules() bool {
-	return !a.L7Rules.IsEmpty()
+	return a != nil && !a.L7Rules.IsEmpty()
+}
+
+func (a *PerSelectorPolicy) GetDeny() bool {
+	return a != nil && a.IsDeny
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -684,7 +688,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 			continue
 		}
 
-		isDenyRule := currentRule != nil && currentRule.IsDeny
+		isDenyRule := currentRule.GetDeny()
 		isRedirect := currentRule.IsRedirect()
 		listener := currentRule.GetListener()
 		priority := currentRule.GetPriority()
@@ -1207,7 +1211,7 @@ func (l4 *L4Filter) String() string {
 func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 	if l4.wildcard != nil {
 		perSelectorPolicy := l4.PerSelectorPolicies[l4.wildcard]
-		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
+		isDeny := perSelectorPolicy.GetDeny()
 		return true, isDeny
 	} else if len(labels) == 0 {
 		return false, false
@@ -1218,10 +1222,9 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 		// slow, but OK for tracing
 		idSel := sel.(*identitySelector)
 		if lis, ok := idSel.source.(*labelIdentitySelector); ok && lis.xxxMatches(labels) {
-			isDeny := rule != nil && rule.IsDeny
 			selected = true
-			if isDeny {
-				return true, isDeny
+			if rule.GetDeny() {
+				return true, true
 			}
 		}
 	}
@@ -1725,7 +1728,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 	listener := perSelectorPolicy.GetListener()
 	priority := perSelectorPolicy.GetPriority()
 	authReq := perSelectorPolicy.getAuthRequirement()
-	isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
+	isDeny := perSelectorPolicy.GetDeny()
 
 	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
 	// takes the Endpoint lock below.
