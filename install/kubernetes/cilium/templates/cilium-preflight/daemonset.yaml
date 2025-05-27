@@ -206,15 +206,6 @@ spec:
               - /tmp/ready
             initialDelaySeconds: 5
             periodSeconds: 5
-          env:
-          - name: K8S_NODE_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: spec.nodeName
-          {{- with .Values.preflight.extraEnv }}
-          {{- toYaml . | trim | nindent 10 }}
-          {{- end }}
           volumeMounts:
           - name: envoy-sockets
             mountPath: /var/run/cilium/envoy/sockets
