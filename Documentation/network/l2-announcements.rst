@@ -352,7 +352,7 @@ should size the client rate limit accordingly.
 
 In a worst case scenario, services are distributed unevenly, so we will assume
 a peak load based on the renew deadline. In complex scenarios with multiple 
-policies over disjoint sets of node, max QPS per node will be lower.
+policies over disjointed sets of node, max QPS per node will be lower.
 
 .. code-block:: text
 
