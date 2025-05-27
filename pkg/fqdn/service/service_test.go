@@ -197,7 +197,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 			cell.Config(defaultConfig),
 			cell.Provide(
 				func(logger *slog.Logger) endpointmanager.EndpointManager {
-					return endpointmanager.New(logger, &dummyEpSyncher{}, nil, nil, nil)
+					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
 				},
 
 				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {

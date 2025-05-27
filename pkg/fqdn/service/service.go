@@ -226,7 +226,7 @@ func (s *FQDNDataServer) receiveDNSPolicyACKs(stream pb.FQDNData_StreamPolicySta
 
 			// Delete the request from the map
 			s.policyRulesResponse.Delete(requestId)
-			s.log.Debug("Deleted request id from the map: ", logfields.ID, requestId)
+			s.log.Debug("Deleted request id from the map", logfields.ID, requestId)
 		}
 	}
 }
@@ -257,10 +257,10 @@ func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg m
 func (s *FQDNDataServer) deleteStream(stream pb.FQDNData_StreamPolicyStateServer) {
 	_, ok := s.streams.Load(stream)
 	if ok {
-		s.log.Info("Deleting stream: ", logfields.ID, stream)
+		s.log.Debug("Deleting stream", logfields.ID, stream)
 		s.streams.Delete(stream)
 	} else {
-		s.log.Warn("Stream not found: ", logfields.ID, stream)
+		s.log.Warn("Stream not found", logfields.ID, stream)
 	}
 }
 
@@ -338,7 +338,7 @@ func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity
 		s.log.Debug("Sending DNS policies to client", logfields.ID, requestId)
 		s.policyRulesResponse.Store(requestId, pb.ResponseCode_RESPONSE_CODE_NO_ERROR)
 		if err := stream.Send(policyState); err != nil {
-			s.log.Error("Error sending DNS policies to client: ", logfields.Error, err)
+			s.log.Error("Error sending DNS policies to client", logfields.Error, err)
 			// Cancel the goroutine and remove the stream from the map eventually
 			cancel()
 		}
