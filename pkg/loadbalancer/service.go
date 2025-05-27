@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-	"github.com/cilium/statedb/part"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/labels"
@@ -94,10 +93,6 @@ type Service struct {
 	// TrafficDistribution if not default will influence how backends are chosen for
 	// frontends associated with this service.
 	TrafficDistribution TrafficDistribution
-
-	// Properties are additional untyped properties that can carry feature
-	// specific metadata about the service.
-	Properties part.Map[string, any]
 }
 
 type TrafficDistribution string
@@ -238,15 +233,6 @@ func (svc *Service) TableRow() []string {
 
 	if svc.ForwardingMode != SVCForwardingModeUndef {
 		flags = append(flags, "ForwardingMode="+string(svc.ForwardingMode))
-	}
-
-	if svc.Properties.Len() != 0 {
-		// Since the property is an "any", we'll just show the keys.
-		propKeys := make([]string, 0, svc.Properties.Len())
-		for k := range svc.Properties.All() {
-			propKeys = append(propKeys, k)
-		}
-		flags = append(flags, "Properties="+strings.Join(propKeys, ", "))
 	}
 
 	if svc.TrafficDistribution != TrafficDistributionDefault {
