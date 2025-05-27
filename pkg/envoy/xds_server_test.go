@@ -504,7 +504,7 @@ var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
 	},
 }
 
-func Test_getWildcardNetworkPolicyRule(t *testing.T) {
+func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 	version := versioned.Latest()
 	perSelectorPoliciesWithWildcard := policy.L7DataMap{
 		cachedSelector1:           nil,
@@ -514,8 +514,8 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 
 	xds := testXdsServer(t)
 
-	obtained := xds.getWildcardNetworkPolicyRule(version, perSelectorPoliciesWithWildcard)
-	require.Equal(t, &cilium.PortNetworkPolicyRule{}, obtained)
+	obtained := xds.getWildcardNetworkPolicyRules(version, perSelectorPoliciesWithWildcard)
+	require.Equal(t, []*cilium.PortNetworkPolicyRule{{}}, obtained)
 
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
@@ -524,10 +524,10 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 		cachedRequiresV2Selector1: nil,
 	}
 
-	obtained = xds.getWildcardNetworkPolicyRule(version, perSelectorPolicies)
-	require.Equal(t, &cilium.PortNetworkPolicyRule{
+	obtained = xds.getWildcardNetworkPolicyRules(version, perSelectorPolicies)
+	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
 		RemotePolicies: []uint32{1001, 1002, 1003},
-	}, obtained)
+	}}, obtained)
 }
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
