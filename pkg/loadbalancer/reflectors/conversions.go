@@ -81,6 +81,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
 		ForwardingMode:      loadbalancer.SVCForwardingModeUndef,
+		LoadBalancerClass:   svc.Spec.LoadBalancerClass,
 	}
 
 	if cfg.LBModeAnnotation {
