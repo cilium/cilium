@@ -69,6 +69,7 @@ Address              Instances
   "ForwardingMode": "",
   "SessionAffinity": false,
   "SessionAffinityTimeout": 0,
+  "LoadBalancerClass": null,
   "ProxyRedirect": null,
   "HealthCheckNodePort": 0,
   "LoopbackHostPort": false,
@@ -264,6 +265,7 @@ inttrafficpolicy: Cluster
 forwardingmode: ""
 sessionaffinity: false
 sessionaffinitytimeout: 0s
+loadbalancerclass: null
 proxyredirect: null
 healthchecknodeport: 0
 loopbackhostport: false

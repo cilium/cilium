@@ -59,8 +59,16 @@ type Service struct {
 	// to the backend. If undefined the default mode is used (--bpf-lb-mode).
 	ForwardingMode SVCForwardingMode
 
-	SessionAffinity        bool
+	// SessionAffinity if true will enable the client IP based session affinity.
+	SessionAffinity bool
+
+	// SessionAffinityTimeout is the duration of inactivity before the session
+	// affinity is cleared for a specific client IP.
 	SessionAffinityTimeout time.Duration
+
+	// LoadBalancerClass if set specifies the load-balancer class to be used
+	// for a LoadBalancer service. If unset the default implementation is used.
+	LoadBalancerClass *string
 
 	// ProxyRedirect if non-nil redirects the traffic going to the frontends
 	// towards a locally running proxy.
@@ -243,6 +251,10 @@ func (svc *Service) TableRow() []string {
 
 	if svc.TrafficDistribution != TrafficDistributionDefault {
 		flags = append(flags, "TrafficDistribution="+string(svc.TrafficDistribution))
+	}
+
+	if svc.LoadBalancerClass != nil {
+		flags = append(flags, "LoadBalancerClass="+*svc.LoadBalancerClass)
 	}
 
 	sort.Strings(flags)
