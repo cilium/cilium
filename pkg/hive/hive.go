@@ -34,8 +34,6 @@ var (
 )
 
 // New wraps the hive.New to create a hive with defaults used by cilium-agent.
-// pkg/hive should eventually go away and this code should live in e.g. daemon/cmd
-// or operator/cmd.
 func New(cells ...cell.Cell) *Hive {
 	cells = append(
 		slices.Clone(cells),
@@ -68,6 +66,12 @@ func New(cells ...cell.Cell) *Hive {
 		cell.Provide(
 			func() logging.FieldLogger {
 				return logging.DefaultSlogLogger
+			},
+
+			// Root job group. This is mostly provided for tests so that we don't need a cell.Module
+			// wrapper to get a job.Group.
+			func(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle) job.Group {
+				return reg.NewGroup(h, lc, job.WithLogger(l))
 			},
 		),
 	)
