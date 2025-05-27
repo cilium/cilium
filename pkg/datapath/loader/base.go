@@ -177,6 +177,10 @@ func cleanCallsMaps(mapNamePattern string) error {
 	return err
 }
 
+func ipsecRewrites(lnc *datapath.LocalNodeConfiguration) (*config.BPFNetwork, map[string]string) {
+	return config.NewBPFNetwork(nodeConfig(lnc)), nil
+}
+
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// We need to take care not to load bpf_network and bpf_host onto the same
@@ -222,12 +226,15 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
+	co, renames := ipsecRewrites(lnc)
+
 	var obj networkObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(nodeConfig(lnc)),
+		Constants:  co,
+		MapRenames: renames,
 	})
 	if err != nil {
 		return err

@@ -682,6 +682,17 @@ func (l *loader) reloadEndpoint(ep datapath.Endpoint, lnc *datapath.LocalNodeCon
 	return nil
 }
 
+func overlayRewrite(lnc *datapath.LocalNodeConfiguration, device netlink.Link) (*config.BPFOverlay, map[string]string) {
+	cfg := config.NewBPFOverlay(nodeConfig(lnc))
+	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+
+	renames := map[string]string{
+		"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
+	}
+
+	return cfg, renames
+}
+
 func (l *loader) replaceOverlayDatapath(ctx context.Context, lnc *datapath.LocalNodeConfiguration, cArgs []string, device netlink.Link) error {
 	if err := compileOverlay(ctx, l.logger, cArgs); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
@@ -692,15 +703,12 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, lnc *datapath.Local
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
-	cfg := config.NewBPFOverlay(nodeConfig(lnc))
-	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+	co, renames := overlayRewrite(lnc, device)
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
-		},
+		Constants:  co,
+		MapRenames: renames,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -727,6 +735,21 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, lnc *datapath.Local
 	return nil
 }
 
+func wireguardRewrites(lnc *datapath.LocalNodeConfiguration, device netlink.Link) (*config.BPFWireguard, map[string]string) {
+	cfg := config.NewBPFWireguard(nodeConfig(lnc))
+	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+
+	if !option.Config.EnableHostLegacyRouting {
+		cfg.SecctxFromIPCache = true
+	}
+
+	renames := map[string]string{
+		"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
+	}
+
+	return cfg, renames
+}
+
 func (l *loader) replaceWireguardDatapath(ctx context.Context, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, l.logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
@@ -737,19 +760,12 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, lnc *datapath.Loc
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
 
-	cfg := config.NewBPFWireguard(nodeConfig(lnc))
-	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
-
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
+	co, renames := wireguardRewrites(lnc, device)
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
-		},
+		Constants:  co,
+		MapRenames: renames,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

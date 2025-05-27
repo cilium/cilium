@@ -110,6 +110,18 @@ func xdpCompileArgs(extraCArgs []string) ([]string, error) {
 	return args, nil
 }
 
+func xdpRewrites(lnc *datapath.LocalNodeConfiguration, iface netlink.Link) (*config.BPFXDP, map[string]string) {
+	cfg := config.NewBPFXDP(nodeConfig(lnc))
+	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
+	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
+
+	renames := map[string]string{
+		"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
+	}
+
+	return cfg, renames
+}
+
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
 func (l *loader) compileAndLoadXDPProg(ctx context.Context, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
 	args, err := xdpCompileArgs(extraCArgs)
@@ -148,16 +160,12 @@ func (l *loader) compileAndLoadXDPProg(ctx context.Context, lnc *datapath.LocalN
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	cfg := config.NewBPFXDP(nodeConfig(lnc))
-	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
-	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
+	co, renames := xdpRewrites(lnc, iface)
 
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
-		},
+		Constants:  co,
+		MapRenames: renames,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
