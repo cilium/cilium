@@ -66,6 +66,10 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (n *EndpointSelector) ParseExtendedKey() {
 	if n.MatchLabels != nil {
 		ml := map[string]string{}
 		for k, v := range n.MatchLabels {
@@ -81,9 +85,9 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		}
 		n.MatchExpressions = newMatchExpr
 	}
-	n.requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.cachedLabelSelectorString = n.LabelSelector.String()
-	return nil
+
+	//n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	//n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
 // MarshalJSON returns a JSON representation of the byte array.
@@ -208,8 +212,8 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav
 	}
 	return EndpointSelector{
 		LabelSelector:             labelSelector,
-		requirements:              labelSelectorToRequirements(labelSelector),
-		cachedLabelSelectorString: labelSelector.String(),
+		requirements:              nil,
+		cachedLabelSelectorString: "",
 	}
 }
 
@@ -283,8 +287,8 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 		n.MatchLabels = map[string]string{}
 	}
 	n.MatchLabels[key] = value
-	n.requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.cachedLabelSelectorString = n.LabelSelector.String()
+	n.requirements = nil
+	n.cachedLabelSelectorString = ""
 }
 
 // AddMatchExpression adds a match expression to label selector of the endpoint selector.
@@ -297,8 +301,8 @@ func (n *EndpointSelector) AddMatchExpression(key string, op slim_metav1.LabelSe
 
 	// Update cache of the EndopintSelector from the embedded label selector.
 	// This is to make sure we have updates caches containing the required selectors.
-	n.requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.cachedLabelSelectorString = n.LabelSelector.String()
+	n.requirements = nil
+	n.cachedLabelSelectorString = ""
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.

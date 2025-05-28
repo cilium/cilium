@@ -189,6 +189,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 	}
 
 	if r.Spec != nil {
+		r.Spec.ReplaceExtendedKey()
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
@@ -200,6 +201,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
+			rule.ReplaceExtendedKey()
 			if err := rule.Sanitize(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 
