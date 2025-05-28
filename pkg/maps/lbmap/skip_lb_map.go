@@ -11,6 +11,8 @@ import (
 	"net"
 	"unsafe"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -63,7 +65,7 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
 			ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
 			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      bpf.BPF_F_NO_PREALLOC,
+			Flags:      unix.BPF_F_NO_PREALLOC,
 			Pinning:    pinning,
 		})
 	}
@@ -74,7 +76,7 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
 			ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
 			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      bpf.BPF_F_NO_PREALLOC,
+			Flags:      unix.BPF_F_NO_PREALLOC,
 			Pinning:    pinning,
 		})
 	}
