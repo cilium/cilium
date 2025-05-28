@@ -102,6 +102,7 @@ jobs:
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+          RUN_AS_ROOT: "true"
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' &&
               steps.check.outputs.build != ''
            }}
