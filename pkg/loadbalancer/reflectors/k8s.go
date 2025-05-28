@@ -162,9 +162,11 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
-				if err := deleteHostPort(p, txn, obj); err != nil {
-					p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-						logfields.Error, err)
+				if p.ExtConfig.EnableHostPort {
+					if err := deleteHostPort(p, txn, obj); err != nil {
+						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+							logfields.Error, err)
+					}
 				}
 			} else {
 				switch obj.Status.Phase {
@@ -172,18 +174,24 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// Pod has been terminated. Clean up the HostPort already even before the Pod object
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
-					if err := deleteHostPort(p, txn, obj); err != nil {
-						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-							logfields.Error, err)
+					if p.ExtConfig.EnableHostPort {
+						if err := deleteHostPort(p, txn, obj); err != nil {
+							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+								logfields.Error, err)
+						}
 					}
 				case slim_corev1.PodRunning:
+					var err error
+
 					if obj.ObjectMeta.DeletionTimestamp != nil {
 						// The pod has been marked for deletion. Stop processing HostPort changes
 						// for it.
 						continue
 					}
 
-					err := upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					if p.ExtConfig.EnableHostPort {
+						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					}
 					rh.update(podName, err)
 				}
 			}
