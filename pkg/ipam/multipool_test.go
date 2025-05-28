@@ -21,13 +21,20 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/trigger"
+)
+
+var (
+	tick    = 10 * time.Millisecond
+	timeout = 5 * time.Second
 )
 
 func Test_MultiPoolManager(t *testing.T) {
 	fakeConfig := testConfiguration
 	fakeOwner := &ownerMock{}
+	fakeLocalNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	events := make(chan string, 1)
 	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPIResource{
 		node: &ciliumv2.CiliumNode{},
@@ -44,7 +51,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			events <- "upsert"
 		},
 	}
-	c := newMultiPoolManager(hivetest.Logger(t), fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
+	c := newMultiPoolManager(hivetest.Logger(t), fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeLocalNodeStore, fakeK8sCiliumNodeAPI)
 	// set custom preAllocMap to not rely on option.Config in unit tests
 	c.preallocatedIPsPerPool = preAllocatePerPool{
 		"default": 16,
@@ -177,6 +184,27 @@ func Test_MultiPoolManager(t *testing.T) {
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools.Requested)
+	// Check that the local node store has been updated
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		localNode, err := fakeLocalNodeStore.Get(t.Context())
+		assert.NoError(c, err)
+		assert.Equalf(c,
+			defaultIPv4CIDR1, localNode.IPv4AllocCIDR,
+			"IPv4 primary allocation CIDR do not match",
+		)
+		assert.ElementsMatch(c,
+			localNode.IPv4SecondaryAllocCIDRs, []*cidr.CIDR{marsIPv4CIDR1, unusedIPv4CIDR1},
+			"IPv4 secondary allocation CIDRs do not match",
+		)
+		assert.Equalf(c,
+			defaultIPv6CIDR1, localNode.IPv6AllocCIDR,
+			"IPv6 primary allocation CIDR do not match",
+		)
+		assert.ElementsMatch(c,
+			localNode.IPv6SecondaryAllocCIDRs, []*cidr.CIDR{marsIPv6CIDR1, unusedIPv6CIDR1},
+			"IPv6 secondary allocation CIDRs do not match",
+		)
+	}, timeout, tick)
 
 	c.restoreFinished(IPv4)
 	c.restoreFinished(IPv6)
@@ -271,6 +299,27 @@ func Test_MultiPoolManager(t *testing.T) {
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools)
+	// Wait for the agent to update the local node store after jupiter and unused release
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		localNode, err := fakeLocalNodeStore.Get(t.Context())
+		assert.NoError(c, err)
+		assert.Equalf(c,
+			defaultIPv4CIDR1, localNode.IPv4AllocCIDR,
+			"IPv4 primary allocation CIDR do not match",
+		)
+		assert.ElementsMatch(c,
+			localNode.IPv4SecondaryAllocCIDRs, []*cidr.CIDR{marsIPv4CIDR1},
+			"IPv4 secondary allocation CIDRs do not match",
+		)
+		assert.Equalf(c,
+			defaultIPv6CIDR1, localNode.IPv6AllocCIDR,
+			"IPv6 primary allocation CIDR do not match",
+		)
+		assert.ElementsMatch(c,
+			localNode.IPv6SecondaryAllocCIDRs, []*cidr.CIDR{marsIPv6CIDR1},
+			"IPv6 secondary allocation CIDRs do not match",
+		)
+	}, timeout, tick)
 
 	// exhaust mars ipv4 pool (/27 contains 30 IPs)
 	allocatedMarsIPs := []net.IP{}
@@ -379,6 +428,28 @@ func Test_MultiPoolManager(t *testing.T) {
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools.Allocated)
+
+	// Wait for the agent to update the local node store after initial mars CIDR release
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		localNode, err := fakeLocalNodeStore.Get(t.Context())
+		assert.NoError(c, err)
+		assert.Equalf(c,
+			defaultIPv4CIDR1, localNode.IPv4AllocCIDR,
+			"IPv4 primary allocation CIDR do not match",
+		)
+		assert.ElementsMatch(c,
+			localNode.IPv4SecondaryAllocCIDRs, []*cidr.CIDR{marsIPv4CIDR2},
+			"IPv4 secondary allocation CIDRs do not match",
+		)
+		assert.Equalf(c,
+			defaultIPv6CIDR1, localNode.IPv6AllocCIDR,
+			"IPv6 primary allocation CIDR do not match",
+		)
+		assert.ElementsMatch(c,
+			localNode.IPv6SecondaryAllocCIDRs, []*cidr.CIDR{marsIPv6CIDR1},
+			"IPv6 secondary allocation CIDRs do not match",
+		)
+	}, timeout, tick)
 
 	ipv4Dump, ipv4Summary := c.dump(IPv4)
 	assert.Equal(t, map[Pool]map[string]string{
