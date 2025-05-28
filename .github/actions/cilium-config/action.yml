@@ -143,10 +143,6 @@ runs:
           fi
 
           MASQ=""
-          if [ "${{ inputs.kpr }}" == "true" ]; then
-            # BPF-masq requires KPR=true.
-            MASQ="--helm-set=bpf.masquerade=true"
-          fi
 
           EGRESS_GATEWAY=""
           if [ "${{ inputs.egress-gateway }}" == "true" ]; then
