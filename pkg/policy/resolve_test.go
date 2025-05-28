@@ -137,6 +137,26 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	return rules, generateCIDRIdentities(rules)
 }
 
+func GenerateL7Rules(httpPortRulesNumber int) func(int) (api.Rules, identity.IdentityMap) {
+	return func(numRules int) (api.Rules, identity.IdentityMap) {
+		parseFooLabel := labels.ParseSelectLabel("k8s:foo")
+		fooSelector := api.NewESFromLabels(parseFooLabel)
+
+		var rules api.Rules
+		uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
+		for i := 1; i <= numRules; i++ {
+			rule := api.Rule{
+				EndpointSelector: fooSelector,
+				Egress:           []api.EgressRule{generateL7EgressRule(i, httpPortRulesNumber)},
+				Labels:           utils.GetPolicyLabels("default", "l7-policy", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			}
+			rule.Sanitize()
+			rules = append(rules, &rule)
+		}
+		return rules, generateNumIdentities(3000)
+	}
+}
+
 type DummyOwner struct {
 	logger       *slog.Logger
 	mapStateSize int
@@ -207,6 +227,36 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	}
 	ip.detach(true, 0)
 	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
+}
+
+func benchmarkL7Helper(httpPortRules, rules int, b *testing.B) {
+	td := newTestData(hivetest.Logger(b))
+	td.bootstrapRepo(GenerateL7Rules(httpPortRules), rules, b)
+
+	for b.Loop() {
+		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
+		policy.Ready()
+		ip.detach(true, 0)
+	}
+	b.ReportMetric(float64(b.N*rules*httpPortRules)/b.Elapsed().Seconds(), "rules/sec")
+	b.ReportMetric(b.Elapsed().Seconds()/float64(b.N), "sec")
+}
+
+func BenchmarkRegenerateL7PolicyRules(b *testing.B) {
+	benchmarkL7Helper(1000, 50, b)
+}
+
+func BenchmarkRegenerateL7PolicyRules2(b *testing.B) {
+	benchmarkL7Helper(50, 1000, b)
+}
+
+func BenchmarkRegenerateL7PolicyRules3(b *testing.B) {
+	benchmarkL7Helper(1, 1000, b)
+}
+
+func BenchmarkRegenerateL7PolicyRules4(b *testing.B) {
+	benchmarkL7Helper(1, 10000, b)
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
