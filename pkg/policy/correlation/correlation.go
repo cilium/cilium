@@ -230,13 +230,9 @@ func policyFromModel(model []string, info policyTypes.PolicyCorrelationInfo) *fl
 		Revision: info.Revision,
 	}
 
-	for _, str := range model {
-		k8sLen := len(source.Kubernetes)
-		if len(str) > k8sLen && str[k8sLen] == ':' {
-			str = str[k8sLen+1:]
-			if i := strings.IndexByte(str, '='); i > 0 {
-				key := str[:i]
-				value := str[i+1:]
+	for _, lbl := range model {
+		if lbl, isK8sLabel := strings.CutPrefix(lbl, string(source.Kubernetes)+":"); isK8sLabel {
+			if key, value, found := strings.Cut(lbl, "="); found {
 				switch key {
 				case k8sConst.PolicyLabelName:
 					f.Name = value
