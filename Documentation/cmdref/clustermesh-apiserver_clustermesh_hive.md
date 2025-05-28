@@ -23,7 +23,6 @@ clustermesh-apiserver clustermesh hive [flags]
       --enable-gops                                  Enable gops server (default true)
       --enable-k8s                                   Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                     Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice                    Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --gops-port uint16                             Port for gops server to listen on (default 9892)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
   -h, --help                                         help for hive
