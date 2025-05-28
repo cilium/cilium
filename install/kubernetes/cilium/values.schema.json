@@ -1685,6 +1685,9 @@
         "minTtl": {
           "type": "integer"
         },
+        "preAllocateIdentities": {
+          "type": "boolean"
+        },
         "preCache": {
           "type": "string"
         },
