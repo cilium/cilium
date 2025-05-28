@@ -504,6 +504,9 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+
+	// The following options will be removed in v1.19
+	EnableHostPort bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -516,6 +519,7 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		EnableHostPort:                         kprCfg.EnableHostPort,
 	}
 }
 
