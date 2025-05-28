@@ -16,6 +16,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -59,7 +60,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 		return
 	}
 
-	derivedFrom, rev, ok := lookupPolicyForKey(epInfo,
+	info, ok := lookupPolicyForKey(epInfo,
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
 		f.GetPolicyMatchType())
 	if !ok {
@@ -73,7 +74,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 		return
 	}
 
-	rules := toProto(derivedFrom, rev)
+	rules := toProto(info)
 	switch {
 	case direction == trafficdirection.Egress && allowed:
 		f.EgressAllowedBy = rules
@@ -132,7 +133,7 @@ func extractFlowKey(f *flowpb.Flow) (
 	return
 }
 
-func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom string, rev uint64, ok bool) {
+func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (policyTypes.PolicyCorrelationInfo, bool) {
 	switch matchType {
 	case monitorAPI.PolicyMatchL3L4:
 		// Check for L4 policy rules.
@@ -148,7 +149,6 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//    ports:
 		//    - port: 80
 		//      protocol: TCP
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
 	case monitorAPI.PolicyMatchL3Proto:
 		// Check for L3 policy rules with protocol (but no port).
 		//
@@ -162,8 +162,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//        app: client
 		//    ports:
 		//    - protocol: TCP
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity).WithProto(key.Nexthdr))
+		key = policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity).WithProto(key.Nexthdr)
 	case monitorAPI.PolicyMatchL4Only:
 		// Check for port-specific rules.
 		// This covers the case where one or more identities are allowed by network policy.
@@ -176,8 +175,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  - ports:
 		//    - port: 80
 		//      protocol: TCP // protocol is optional for this match.
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.KeyForDirection(key.TrafficDirection()).WithPortProto(key.Nexthdr, key.DestPort))
+		key = policy.KeyForDirection(key.TrafficDirection()).WithPortProto(key.Nexthdr, key.DestPort)
 	case monitorAPI.PolicyMatchProtoOnly:
 		// Check for protocol-only policies.
 		//
@@ -188,8 +186,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  ingress:
 		//  - ports:
 		//    - protocol: TCP
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.KeyForDirection(key.TrafficDirection()).WithProto(key.Nexthdr))
+		key = policy.KeyForDirection(key.TrafficDirection()).WithProto(key.Nexthdr)
 	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules.
 		//
@@ -201,8 +198,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  - podSelector:
 		//      matchLabels:
 		//        app: client
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity))
+		key = policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity)
 	case monitorAPI.PolicyMatchAll:
 		// Check for allow-all policy rules.
 		//
@@ -212,30 +208,28 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  podSelector: {}
 		//  ingress:
 		//  - {}
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.KeyForDirection(key.TrafficDirection()))
+		key = policy.KeyForDirection(key.TrafficDirection())
 	}
-
-	return derivedFrom, rev, ok
+	return ep.GetPolicyCorrelationInfoForKey(key)
 }
 
-func toProto(derivedFrom string, rev uint64) (policies []*flowpb.Policy) {
-	for model := range labels.ModelsFromLabelArrayListString(derivedFrom) {
-		policy := &flowpb.Policy{
-			Labels:   model,
-			Revision: rev,
-		}
-		populate(policy, model)
-		policies = append(policies, policy)
+func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy) {
+	for model := range labels.ModelsFromLabelArrayListString(info.RuleLabels) {
+		policies = append(policies, policyFromModel(model, info))
 	}
-
 	return policies
 }
 
-// populate derives and sets fields in the flow policy from the label set array.
+// policyFromModel derives and sets fields in the flow policy from the label set array and policy
+// correlation information.
 //
 // This function supports namespaced and cluster-scoped resources.
-func populate(f *flowpb.Policy, model []string) {
+func policyFromModel(model []string, info policyTypes.PolicyCorrelationInfo) *flowpb.Policy {
+	f := &flowpb.Policy{
+		Labels:   model,
+		Revision: info.Revision,
+	}
+
 	for _, str := range model {
 		k8sLen := len(source.Kubernetes)
 		if len(str) > k8sLen && str[k8sLen] == ':' {
@@ -252,10 +246,12 @@ func populate(f *flowpb.Policy, model []string) {
 					f.Kind = value
 				default:
 					if f.Kind != "" && f.Name != "" && f.Namespace != "" {
-						return
+						return f
 					}
 				}
 			}
 		}
 	}
+
+	return f
 }
