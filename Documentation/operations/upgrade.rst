@@ -360,6 +360,8 @@ Deprecated Options
   ``--kube-proxy-replacent`` is set to ``true``.
 * The flag ``--enable-k8s-endpoint-slice`` have been deprecated and will be removed in Cilium 1.19.
   The K8s Endpoint Slice feature will be unconditionally enabled.
+* The flag ``--enable-internal-traffic-policy`` has been deprecated and will be removed in Cilium 1.19. The
+  ``internalTrafficPolicy`` field in a Kubernetes Service object will be unconditionally respected.
 
 Helm Options
 ~~~~~~~~~~~~
