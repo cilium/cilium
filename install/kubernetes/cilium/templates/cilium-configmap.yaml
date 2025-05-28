@@ -1334,6 +1334,7 @@ data:
   {{- if .Values.dnsProxy.proxyResponseMaxDelay }}
   tofqdns-proxy-response-max-delay: {{ .Values.dnsProxy.proxyResponseMaxDelay | quote }}
   {{- end }}
+  tofqdns-preallocate-identities:  {{ .Values.dnsProxy.preAllocateIdentities | quote }}
 {{- end }}
 
 {{- if hasKey .Values "agentNotReadyTaintKey" }}
