@@ -330,6 +330,9 @@ func icmpPing(logger *slog.Logger, node string, ip string, ctx context.Context, 
 }
 
 func per(nodes int, duration time.Duration) rate.Limit {
+	if nodes == 0 {
+		nodes = 1
+	}
 	return rate.Every(duration / time.Duration(nodes))
 }
 
