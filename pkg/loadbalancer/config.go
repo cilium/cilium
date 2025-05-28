@@ -498,6 +498,9 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+
+	// The following options will be removed in v1.19
+	EnableSessionAffinity bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -510,6 +513,7 @@ func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         cfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		EnableSessionAffinity:                  cfg.EnableSessionAffinity,
 	}
 }
 
