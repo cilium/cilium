@@ -130,6 +130,18 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	return realID, true, nil
 }
 
+func (f *MockIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, _ bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+		return reservedIdentity, false, nil
+	}
+
+	scope := identity.ScopeForLabels(lbls)
+	if scope == identity.IdentityScopeGlobal {
+		return nil, false, fmt.Errorf("non-local labels")
+	}
+	return f.AllocateIdentity(context.Background(), lbls, false, oldNID)
+}
+
 // Release releases a fake identity. It is meant to generally mock the
 // canonical identity release logic.
 func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity, _ bool) (released bool, err error) {
