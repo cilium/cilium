@@ -1527,3 +1527,57 @@ func generateUniqueCIDRs(n int) []cmtypes.PrefixCluster {
 
 	return slices.Collect(maps.Keys(unique))
 }
+
+// TestResolveFQDNLabels ensures that FQDN labels are resolved consistently across the codebase.
+// This should match the logic in preallocator_test.go
+func TestResolveFQDNLabels(t *testing.T) {
+	v4old := option.Config.EnableIPv4
+	v6old := option.Config.EnableIPv6
+	t.Cleanup(func() {
+		option.Config.EnableIPv4 = v4old
+		option.Config.EnableIPv6 = v6old
+	})
+
+	pfx4 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
+	pfx6 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1::1/128"))
+	fqdnLabels := labels.NewLabelsFromSortedList("fqdn:foo.com")
+
+	for i, tc := range []struct {
+		prefix   cmtypes.PrefixCluster
+		v4, v6   bool
+		expected labels.Labels
+	}{
+		{
+			prefix:   pfx4,
+			v4:       true,
+			expected: testidentity.FQDNLabelsSingleStack,
+		},
+		{
+			prefix:   pfx6,
+			v6:       true,
+			expected: testidentity.FQDNLabelsSingleStack,
+		},
+		{
+			prefix:   pfx4,
+			v4:       true,
+			v6:       true,
+			expected: testidentity.FQDNLabelsV4,
+		},
+		{
+			prefix:   pfx6,
+			v4:       true,
+			v6:       true,
+			expected: testidentity.FQDNLabelsV6,
+		},
+	} {
+
+		option.Config.EnableIPv4 = tc.v4
+		option.Config.EnableIPv6 = tc.v6
+
+		lbls := labels.NewFrom(fqdnLabels)
+		resolveLabels(lbls, tc.prefix)
+
+		require.Equal(t, tc.expected, lbls, "row %d", i)
+	}
+
+}
