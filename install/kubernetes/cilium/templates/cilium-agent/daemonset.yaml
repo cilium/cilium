@@ -449,6 +449,10 @@ spec:
       - name: config
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.initResources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         command:
         - cilium-dbg
         - build-config
