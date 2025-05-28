@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
@@ -50,7 +51,7 @@ func Test_MapOps(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	err := testMap.OpenOrCreate()
@@ -109,7 +110,7 @@ func Test_MapOpsPrune(t *testing.T) {
 		&TestLPMKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 	err := testMap.OpenOrCreate()
 	require.NoError(t, err, "OpenOrCreate")
@@ -147,7 +148,7 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 	err := exampleMap.OpenOrCreate()
 	require.NoError(t, err)
