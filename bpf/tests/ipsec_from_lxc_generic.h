@@ -120,7 +120,7 @@ int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_ipv4_from_lxc_encrypt")
 int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
-	node_v4_add_entry(v4_node_two, NODE_ID, 0);
+	node_v4_add_entry(v4_node_two, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -323,7 +323,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&cilium_encrypt_state, &encrypt_key, &encrypt_value, BPF_ANY);
 
-	node_v4_add_entry(v4_node_two, NODE_ID, 0);
+	node_v4_add_entry(v4_node_two, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
