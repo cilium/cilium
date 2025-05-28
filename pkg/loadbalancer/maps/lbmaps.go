@@ -333,10 +333,17 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
-	mapsToCreate := []mapDesc{
-		{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries},
-	}
+	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
+
+	mapsToCreate := []mapDesc{}
 	mapsToDelete := []mapDesc{}
+
+	if r.ExtCfg.EnableSessionAffinity {
+		mapsToCreate = append(mapsToCreate, affinityMap)
+	} else {
+		mapsToDelete = append(mapsToDelete, affinityMap)
+	}
+
 	if r.ExtCfg.EnableIPv4 {
 		mapsToCreate = append(mapsToCreate, v4Maps...)
 	} else {
