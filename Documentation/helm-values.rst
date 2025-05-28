@@ -1108,6 +1108,10 @@
      - The minimum time, in seconds, to use DNS data for toFQDNs policies. If the upstream DNS server returns a DNS record with a shorter TTL, Cilium overwrites the TTL with this value. Setting this value to zero means that Cilium will honor the TTLs returned by the upstream DNS server.
      - int
      - ``0``
+   * - :spelling:ignore:`dnsProxy.preAllocateIdentities`
+     - Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
+     - bool
+     - ``true``
    * - :spelling:ignore:`dnsProxy.preCache`
      - DNS cache data at this path is preloaded on agent startup.
      - string

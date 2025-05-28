@@ -3769,6 +3769,9 @@ dnsProxy:
   proxyResponseMaxDelay: 100ms
   # -- DNS proxy operation mode (true/false, or unset to use version dependent defaults)
   # enableTransparentMode: true
+  # -- Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some
+  # unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
+  preAllocateIdentities: true
 # -- SCTP Configuration Values
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
