@@ -500,7 +500,8 @@ type ExternalConfig struct {
 	EnableSocketLBPodConnectionTermination bool
 
 	// The following options will be removed in v1.19
-	EnableHostPort bool
+	EnableHostPort        bool
+	EnableSessionAffinity bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -514,6 +515,7 @@ func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		EnableSocketLB:                         cfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 		EnableHostPort:                         cfg.EnableHostPort,
+		EnableSessionAffinity:                  cfg.EnableSessionAffinity,
 	}
 }
 

@@ -362,13 +362,15 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	// Clean up any potential affinity match entries. We do this regardless of
-	// whether or not SessionAffinity is enabled as it might've been toggled by
-	// the user. Could optimize this by holding some more state if needed.
-	for addr := range ops.backendReferences[fe.Address] {
-		err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
-		if err != nil {
-			return fmt.Errorf("delete affinity match %d: %w", feID, err)
+	if ops.extCfg.EnableSessionAffinity {
+		// Clean up any potential affinity match entries. We do this regardless of
+		// whether or not SessionAffinity is enabled as it might've been toggled by
+		// the user. Could optimize this by holding some more state if needed.
+		for addr := range ops.backendReferences[fe.Address] {
+			err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
+			if err != nil {
+				return fmt.Errorf("delete affinity match %d: %w", feID, err)
+			}
 		}
 	}
 
@@ -777,8 +779,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
-		if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
-			return fmt.Errorf("delete affinity match: %w", err)
+		if ops.extCfg.EnableSessionAffinity {
+			if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
+				return fmt.Errorf("delete affinity match: %w", err)
+			}
 		}
 		ops.releaseBackend(orphanState.id, orphanState.addr)
 	}
@@ -829,22 +833,24 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			return fmt.Errorf("upsert service: %w", err)
 		}
 
-		// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
-		// state to avoid the extra syscalls when session affinity is not enabled.
-		// For now we update these regardless so that we handle properly the SessionAffinity being
-		// flipped on and then off.
-		if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
-			ops.log.Debug("Update affinity",
-				logfields.ID, feID,
-				logfields.BackendID, beID)
-			if err := ops.upsertAffinityMatch(feID, beID); err != nil {
-				return fmt.Errorf("upsert affinity match: %w", err)
-			}
-		} else {
-			// SessionAffinity either disabled or backend not active, no matter which
-			// clean up any affinity match that might exist.
-			if err := ops.deleteAffinityMatch(feID, beID); err != nil {
-				return fmt.Errorf("delete affinity match: %w", err)
+		if ops.extCfg.EnableSessionAffinity {
+			// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
+			// state to avoid the extra syscalls when session affinity is not enabled.
+			// For now we update these regardless so that we handle properly the SessionAffinity being
+			// flipped on and then off.
+			if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
+				ops.log.Debug("Update affinity",
+					logfields.ID, feID,
+					logfields.BackendID, beID)
+				if err := ops.upsertAffinityMatch(feID, beID); err != nil {
+					return fmt.Errorf("upsert affinity match: %w", err)
+				}
+			} else {
+				// SessionAffinity either disabled or backend not active, no matter which
+				// clean up any affinity match that might exist.
+				if err := ops.deleteAffinityMatch(feID, beID); err != nil {
+					return fmt.Errorf("delete affinity match: %w", err)
+				}
 			}
 		}
 
@@ -1034,7 +1040,7 @@ func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVal
 	svc := fe.Service
 
 	// Set the SessionAffinity/L7ProxyPort. These re-use the "backend ID".
-	if svc.SessionAffinity {
+	if svc.SessionAffinity && ops.extCfg.EnableSessionAffinity {
 		if err := svcVal.SetSessionAffinityTimeoutSec(uint32(svc.SessionAffinityTimeout.Seconds())); err != nil {
 			return err
 		}
