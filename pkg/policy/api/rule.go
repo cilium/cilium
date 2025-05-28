@@ -44,6 +44,16 @@ type DefaultDenyConfig struct {
 	Egress *bool `json:"egress,omitempty"`
 }
 
+// LogConfig specifies custom policy-specific Hubble logging configration.
+type LogConfig struct {
+	// Value is a free-form string that is included in Hubble flows
+	// that match this policy. The string is limited to 32 printable characters.
+	//
+	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:Pattern=`^\PC*$`
+	Value string `json:"value,omitempty"`
+}
+
 // Rule is a policy rule which must be applied to all endpoints which match the
 // labels contained in the endpointSelector
 //
@@ -133,6 +143,11 @@ type Rule struct {
 	//
 	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
+
+	// Log specifies custom policy-specific Hubble logging configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Log LogConfig `json:"log,omitzero"`
 }
 
 func (r *Rule) DeepEqual(o *Rule) bool {

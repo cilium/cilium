@@ -384,6 +384,7 @@ func ParseToCiliumRule(logger *slog.Logger, clusterName, namespace, name string,
 
 	retRule.Description = r.Description
 	retRule.EnableDefaultDeny = r.EnableDefaultDeny
+	retRule.Log = r.Log
 
 	return retRule
 }
