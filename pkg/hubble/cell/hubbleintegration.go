@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
-	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/build"
@@ -81,6 +80,7 @@ type hubbleIntegration struct {
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	recorder          *recorder.Recorder
+	tlsConfigPromise  tlsConfigPromise
 	exporters         []exporter.FlowLogExporter
 
 	// payloadParser is used to decode monitor events into Hubble events.
@@ -109,6 +109,7 @@ func new(
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	recorder *recorder.Recorder,
+	tlsConfigPromise tlsConfigPromise,
 	observerOptions []observeroption.Option,
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
 	payloadParser parser.Decoder,
@@ -141,6 +142,7 @@ func new(
 		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
 		recorder:             recorder,
+		tlsConfigPromise:     tlsConfigPromise,
 		observerOptions:      observerOptions,
 		exporters:            exporters,
 		payloadParser:        payloadParser,
@@ -309,12 +311,14 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	go hubbleObserver.Start()
 	h.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
 
+	tlsEnabled := h.tlsConfigPromise != nil
+
 	// configure a local hubble server listening on a local UNIX domain socket.
 	// This server can be used by the Hubble CLI when invoked from within the
 	// cilium Pod, typically in troubleshooting scenario.
 	sockPath := "unix://" + h.config.SocketPath
 	var peerServiceOptions []serviceoption.Option
-	if h.config.DisableServerTLS {
+	if !tlsEnabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
 	if h.config.PreferIpv6 {
@@ -384,7 +388,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	// typically queried by Hubble Relay.
 	address := h.config.ListenAddress
 	if address != "" {
-		if h.config.DisableServerTLS {
+		if !tlsEnabled {
 			h.log.Warn("Hubble server will be exposing its API insecurely on this address",
 				logfields.Address, sockPath,
 			)
@@ -399,44 +403,25 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		}
 
 		// Hubble TLS/mTLS setup.
-		var tlsServerConfig *certloader.WatchedServerConfig
-		if h.config.DisableServerTLS {
+		if !tlsEnabled {
 			options = append(options, serveroption.WithInsecure())
 		} else {
-			tlsServerConfigChan, err := certloader.FutureWatchedServerConfig(
-				h.log.With(logfields.Config, "tls-server"),
-				h.config.ServerTLSClientCAFiles,
-				h.config.ServerTLSCertFile,
-				h.config.ServerTLSKeyFile,
-			)
+			tlsConfig, err := h.tlsConfigPromise.Await(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to initialize hubble server TLS configuration: %w", err)
+				return nil, fmt.Errorf("failed waiting for TLS certificates to become available: %w", err)
 			}
-			waitingMsgTimeout := time.After(30 * time.Second)
-			for tlsServerConfig == nil {
-				select {
-				case tlsServerConfig = <-tlsServerConfigChan:
-				case <-waitingMsgTimeout:
-					h.log.Info("Waiting for Hubble server TLS certificate and key files to be created")
-				case <-ctx.Done():
-					return nil, fmt.Errorf("timeout while waiting for hubble server TLS certificate and key files to be created: %w", ctx.Err())
-				}
-			}
-			options = append(options, serveroption.WithServerTLS(tlsServerConfig))
+			options = append(options, serveroption.WithServerTLS(tlsConfig))
 		}
 
 		srv, err := server.NewServer(h.log, options...)
 		if err != nil {
-			if tlsServerConfig != nil {
-				tlsServerConfig.Stop()
-			}
 			return nil, fmt.Errorf("failed to initialize hubble server: %w", err)
 		}
 
 		h.log.Info(
 			"Starting Hubble server",
 			logfields.Address, address,
-			logfields.TLS, !h.config.DisableServerTLS,
+			logfields.TLS, tlsEnabled,
 		)
 		go func() {
 			if err := srv.Serve(); err != nil {
@@ -445,18 +430,12 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 					logfields.Error, err,
 					logfields.Address, address,
 				)
-				if tlsServerConfig != nil {
-					tlsServerConfig.Stop()
-				}
 			}
 		}()
 
 		go func() {
 			<-ctx.Done()
 			srv.Stop()
-			if tlsServerConfig != nil {
-				tlsServerConfig.Stop()
-			}
 		}()
 	}
 
