@@ -275,7 +275,12 @@ static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
 	if (!is_defined(ENABLE_WIREGUARD))
 		return false;
 
-	return (ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED;
+	/*
+	 * Handle downgrades from v1.18, where we use MARK_MAGIC_ENCRYPT also for
+	 * WireGuard-encrypted traffic.
+	 */
+	return (ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED ||
+			(ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT;
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
