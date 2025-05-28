@@ -108,7 +108,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(ipam.logger, ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.clientset.CiliumV2().CiliumNodes())
+		manager := newMultiPoolManager(ipam.logger, ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset.CiliumV2().CiliumNodes())
 
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = manager.Allocator(IPv6)
