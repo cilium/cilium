@@ -108,6 +108,10 @@ const (
 	// interfering with that bit.
 	MagicMarkWireGuardEncrypted int = 0x1E00
 
+	// MagicMarkWireGuardEncrypted is set by the WireGuard tunnel device
+	// in order to indicate that a packet has been decrypted.
+	MagicMarkWireGuardDecrypted int = 0x1D00
+
 	// MagicMarkDecrypt is the packet mark used to indicate the datapath needs
 	// to decrypt a packet.
 	MagicMarkDecrypt = 0x0D00
