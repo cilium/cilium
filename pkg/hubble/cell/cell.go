@@ -42,6 +42,9 @@ var Cell = cell.Module(
 
 	Core,
 
+	// Hubble TLS certificates
+	certloaderGroup,
+
 	// Hubble flow log exporters
 	exportercell.Cell,
 
@@ -79,6 +82,8 @@ type hubbleParams struct {
 	MonitorAgent      monitorAgent.Agent
 	Recorder          *recorder.Recorder
 
+	TLSConfigPromise tlsConfigPromise
+
 	// NOTE: ordering is not guaranteed, do not rely on it.
 	ObserverOptions  []observeroption.Option                `group:"hubble-observer-options"`
 	ExporterBuilders []*exportercell.FlowLogExporterBuilder `group:"hubble-exporter-builders"`
@@ -111,6 +116,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.NodeLocalStore,
 		params.MonitorAgent,
 		params.Recorder,
+		params.TLSConfigPromise,
 		params.ObserverOptions,
 		params.ExporterBuilders,
 		params.PayloadParser,
