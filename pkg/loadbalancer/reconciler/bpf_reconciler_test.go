@@ -1055,6 +1055,7 @@ func TestBPFOps(t *testing.T) {
 		EnableIPv4:           true,
 		EnableIPv6:           true,
 		KubeProxyReplacement: true,
+		EnableHostPort:       true,
 	}
 
 	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
