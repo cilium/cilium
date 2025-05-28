@@ -506,7 +506,8 @@ type ExternalConfig struct {
 	EnableSocketLBPodConnectionTermination bool
 
 	// The following options will be removed in v1.19
-	EnableHostPort bool
+	EnableHostPort        bool
+	EnableSessionAffinity bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -520,6 +521,7 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 		EnableHostPort:                         kprCfg.EnableHostPort,
+		EnableSessionAffinity:                  kprCfg.EnableSessionAffinity,
 	}
 }
 

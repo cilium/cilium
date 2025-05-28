@@ -1051,11 +1051,12 @@ func TestBPFOps(t *testing.T) {
 
 	// Enable features.
 	extCfg := loadbalancer.ExternalConfig{
-		ZoneMapper:           &option.DaemonConfig{},
-		EnableIPv4:           true,
-		EnableIPv6:           true,
-		KubeProxyReplacement: true,
-		EnableHostPort:       true,
+		ZoneMapper:            &option.DaemonConfig{},
+		EnableIPv4:            true,
+		EnableIPv6:            true,
+		KubeProxyReplacement:  true,
+		EnableHostPort:        true,
+		EnableSessionAffinity: true,
 	}
 
 	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
