@@ -676,6 +676,11 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 		}
 	}
 
+	// skip updating policy maps if nothing has changed
+	if !mutated {
+		return mutated
+	}
+
 	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
 	policyImplementedWG.Wait()
 
