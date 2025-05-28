@@ -98,6 +98,7 @@ func TestScript(t *testing.T) {
 							EnableIPv6:           true,
 							KubeProxyReplacement: option.KubeProxyReplacementTrue,
 							EnableNodePort:       true,
+							EnableHostPort:       true,
 						}
 					},
 					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {

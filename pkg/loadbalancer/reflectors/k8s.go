@@ -121,17 +121,22 @@ func RegisterK8sReflector(p reflectorParams) {
 	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
 		return
 	}
-	podsComplete := p.Writer.RegisterInitializer("k8s-pods")
 	epsComplete := p.Writer.RegisterInitializer("k8s-endpoints")
 	svcComplete := p.Writer.RegisterInitializer("k8s-services")
 	p.JobGroup.Add(
 		job.OneShot("reflect-services-endpoints", func(ctx context.Context, health cell.Health) error {
 			return runServiceEndpointsReflector(ctx, health, p, svcComplete, epsComplete)
 		}),
-		job.OneShot("reflect-pods", func(ctx context.Context, health cell.Health) error {
-			return runPodReflector(ctx, health, p, podsComplete)
-		}),
 	)
+
+	if p.ExtConfig.EnableHostPort {
+		podsComplete := p.Writer.RegisterInitializer("k8s-pods")
+		p.JobGroup.Add(
+			job.OneShot("reflect-pods", func(ctx context.Context, health cell.Health) error {
+				return runPodReflector(ctx, health, p, podsComplete)
+			}),
+		)
+	}
 }
 
 func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(writer.WriteTxn)) error {
