@@ -10,74 +10,28 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
-
-type mockStore[T comparable] map[resource.Key]T
-
-func (m mockStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {
-	item, exists = m[key]
-	return item, exists, nil
-}
-
-func (m mockStore[T]) Get(obj T) (item T, exists bool, err error) {
-	panic("not implemented")
-}
-
-func (m mockStore[T]) List() []T {
-	panic("not implemented")
-}
-
-func (m mockStore[T]) IterKeys() resource.KeyIter {
-	panic("not implemented")
-}
-
-func (m mockStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
-	panic("not implemented")
-}
-
-func (m mockStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
-	panic("not implemented")
-}
-
-func (m mockStore[T]) CacheStore() cache.Store {
-	panic("not implemented")
-}
-
-func namespaceKey(name string) resource.Key {
-	return resource.Key{
-		Name: name,
-	}
-}
 
 func TestManager_GetIPPoolForPod(t *testing.T) {
 	db := statedb.New()
 	pods, err := k8s.NewPodTable(db)
 	require.NoError(t, err, "NewPodTable")
+	namespaces, err := k8s.NewNamespaceTable(db)
+	require.NoError(t, err, "NewNamespaceTable")
 	m := &manager{
-		logger: hivetest.Logger(t),
-		db:     db,
-		namespaceStore: mockStore[*slim_core_v1.Namespace]{
-			namespaceKey("default"): &slim_core_v1.Namespace{},
-			namespaceKey("special"): &slim_core_v1.Namespace{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.IPAMPoolKey: "namespace-pool",
-					},
-				},
-			},
-		},
-		pods: pods,
+		logger:     hivetest.Logger(t),
+		db:         db,
+		namespaces: namespaces,
+		pods:       pods,
 	}
 
-	txn := db.WriteTxn(pods)
+	txn := db.WriteTxn(pods, namespaces)
 	newPod := func(namespace, name string, annotations map[string]string) k8s.LocalPod {
 		return k8s.LocalPod{Pod: &slim_core_v1.Pod{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
@@ -119,6 +73,21 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 			annotation.IPAMPoolKey: "pod-pool",
 		}))
 	pods.Insert(txn, newPod("missing-ns", "pod", nil))
+
+	namespaces.Insert(
+		txn,
+		k8s.Namespace{
+			Name: "default",
+		})
+	namespaces.Insert(
+		txn,
+		k8s.Namespace{
+			Name: "special",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "namespace-pool",
+			},
+		})
+
 	txn.Commit()
 
 	tests := []struct {
