@@ -33,11 +33,27 @@ type parserCache struct {
 	udp     layers.UDP
 	sctp    layers.SCTP
 	decoded []gopacket.LayerType
+
+	overlay struct {
+		vxlan   layers.VXLAN
+		geneve  layers.Geneve
+		eth     layers.Ethernet
+		ip4     layers.IPv4
+		ip6     layers.IPv6
+		icmp4   layers.ICMPv4
+		icmp6   layers.ICMPv6
+		tcp     layers.TCP
+		udp     layers.UDP
+		sctp    layers.SCTP
+		decoded []gopacket.LayerType
+	}
 }
 
 type decodeOpts struct {
 	IsL3Device bool
 	IsIPv6     bool
+	IsVXLAN    bool
+	IsGeneve   bool
 }
 
 var (
@@ -49,6 +65,10 @@ var (
 		IPv4 *gopacket.DecodingLayerParser
 		IPv6 *gopacket.DecodingLayerParser
 	}
+	parserOverlay struct {
+		VXLAN  *gopacket.DecodingLayerParser
+		Geneve *gopacket.DecodingLayerParser
+	}
 )
 
 // getParser must be called with dissectLock held
@@ -57,9 +77,9 @@ func initParser() {
 		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Info("Initializing dissection cache...")
 
-		cache = &parserCache{
-			decoded: []gopacket.LayerType{},
-		}
+		cache = &parserCache{}
+		cache.decoded = []gopacket.LayerType{}
+		cache.overlay.decoded = []gopacket.LayerType{}
 
 		decoders := []gopacket.DecodingLayer{
 			&cache.eth,
@@ -67,13 +87,24 @@ func initParser() {
 			&cache.icmp4, &cache.icmp6,
 			&cache.tcp, &cache.udp, &cache.sctp,
 		}
+		overlayDecoders := []gopacket.DecodingLayer{
+			&cache.overlay.vxlan, &cache.overlay.geneve,
+			&cache.overlay.eth,
+			&cache.overlay.ip4, &cache.overlay.ip6,
+			&cache.overlay.icmp4, &cache.overlay.icmp6,
+			&cache.overlay.tcp, &cache.overlay.udp, &cache.overlay.sctp,
+		}
 		parserL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
 		parserL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
 		parserL3Dev.IPv6 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv6, decoders...)
+		parserOverlay.VXLAN = gopacket.NewDecodingLayerParser(layers.LayerTypeVXLAN, overlayDecoders...)
+		parserOverlay.Geneve = gopacket.NewDecodingLayerParser(layers.LayerTypeGeneve, overlayDecoders...)
 
 		parserL2Dev.IgnoreUnsupported = true
 		parserL3Dev.IPv4.IgnoreUnsupported = true
 		parserL3Dev.IPv6.IgnoreUnsupported = true
+		parserOverlay.VXLAN.IgnoreUnsupported = true
+		parserOverlay.Geneve.IgnoreUnsupported = true
 	}
 }
 
@@ -113,6 +144,7 @@ type ConnectionInfo struct {
 	DstPort  uint16
 	Proto    string
 	IcmpCode string
+	Tunnel   *ConnectionInfo
 }
 
 // getConnectionInfoFromCache assume dissectLock is obtained at the caller and data is already
@@ -146,7 +178,61 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 			c.IcmpCode = cache.icmp6.TypeCode.String()
 		}
 	}
-	return c, hasIP, hasEth
+
+	// Return in case we have not decoded any overlay layer.
+	if len(cache.overlay.decoded) == 0 {
+		return
+	}
+
+	// Expect VXLAN/Geneve encap as first overlay layer, if not we bail out.
+	switch cache.overlay.decoded[0] {
+	case layers.LayerTypeVXLAN:
+		c.Proto = "vxlan"
+	case layers.LayerTypeGeneve:
+		c.Proto = "geneve"
+	default:
+		return
+	}
+
+	// Reset return values. This ensures the resulting flow does not misrepresent
+	// what is happening (e.g. same IP addresses for overlay and underlay).
+	hasEth, hasIP = false, false
+	c = &ConnectionInfo{Tunnel: c}
+
+	// Parse the rest of the overlay layers as we would do for a non-encapsulated packet.
+	// It is possible we're not parsing any layer here. This is because the overlay
+	// decoders failed (e.g., not enough data). We would still return empty values
+	// for the inner packet (ethernet, ip, l4, basically the re-init variables)
+	// while returning the non-empty `tunnel` field.
+	for _, typ := range cache.overlay.decoded[1:] {
+		switch typ {
+		case layers.LayerTypeEthernet:
+			hasEth = true
+		case layers.LayerTypeIPv4:
+			hasIP = true
+			c.SrcIP, c.DstIP = cache.overlay.ip4.SrcIP, cache.overlay.ip4.DstIP
+		case layers.LayerTypeIPv6:
+			hasIP = true
+			c.SrcIP, c.DstIP = cache.overlay.ip6.SrcIP, cache.overlay.ip6.DstIP
+		case layers.LayerTypeTCP:
+			c.Proto = "tcp"
+			c.SrcPort, c.DstPort = uint16(cache.overlay.tcp.SrcPort), uint16(cache.overlay.tcp.DstPort)
+		case layers.LayerTypeUDP:
+			c.Proto = "udp"
+			c.SrcPort, c.DstPort = uint16(cache.overlay.udp.SrcPort), uint16(cache.overlay.udp.DstPort)
+		case layers.LayerTypeSCTP:
+			c.Proto = "sctp"
+			c.SrcPort, c.DstPort = uint16(cache.overlay.sctp.SrcPort), uint16(cache.overlay.sctp.DstPort)
+		case layers.LayerTypeICMPv4:
+			c.Proto = "icmp"
+			c.IcmpCode = cache.overlay.icmp4.TypeCode.String()
+		case layers.LayerTypeICMPv6:
+			c.Proto = "icmp"
+			c.IcmpCode = cache.overlay.icmp6.TypeCode.String()
+		}
+	}
+
+	return
 }
 
 // GetConnectionSummary decodes the data into layers and returns a connection
@@ -154,6 +240,7 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 //
 // - sIP:sPort -> dIP:dPort, e.g. 1.1.1.1:2000 -> 2.2.2.2:80
 // - sIP -> dIP icmpCode, 1.1.1.1 -> 2.2.2.2 echo-request
+// - <inner> [tunnel sIP:sPort -> dIP:dPort type], e.g. 1.1.1.1:2000 -> 2.2.2.2:80 [tunnel 5.5.5.5:8472 -> 6.6.6.6:32767 vxlan]
 func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	dissectLock.Lock()
 	defer dissectLock.Unlock()
@@ -163,49 +250,76 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
 	// https://github.com/google/gopacket/issues/846
 	// TODO: reconsider this check if the issue is fixed upstream
-	if len(data) > 0 {
-		var err error
-		switch {
-		case opts == nil || !opts.IsL3Device:
-			err = parserL2Dev.DecodeLayers(data, &cache.decoded)
-		case opts.IsIPv6:
-			err = parserL3Dev.IPv6.DecodeLayers(data, &cache.decoded)
-		default:
-			err = parserL3Dev.IPv4.DecodeLayers(data, &cache.decoded)
-		}
-
-		if err != nil {
-			return "[error]"
-		}
-	} else {
+	if len(data) == 0 {
 		// Truncate layers to avoid accidental re-use.
 		cache.decoded = cache.decoded[:0]
+		cache.overlay.decoded = cache.overlay.decoded[:0]
+		return "[unknown]"
 	}
 
-	c, hasIP, hasEth := getConnectionInfoFromCache()
-	srcIP, dstIP := c.SrcIP, c.DstIP
-	srcPort, dstPort := strconv.Itoa(int(c.SrcPort)), strconv.Itoa(int(c.DstPort))
-	icmpCode, proto := c.IcmpCode, c.Proto
-
+	var err error
+	// Identify correct decoder. For L3 packets (no ethernet), rely on opts.IsIPv6.
 	switch {
-	case icmpCode != "":
-		return fmt.Sprintf("%s -> %s %s %s", srcIP, dstIP, proto, icmpCode)
-	case proto != "":
-		s := fmt.Sprintf("%s -> %s %s",
-			net.JoinHostPort(srcIP.String(), srcPort),
-			net.JoinHostPort(dstIP.String(), dstPort),
-			proto)
-		if proto == "tcp" {
-			s += " " + getTCPInfo()
-		}
-		return s
-	case hasIP:
-		return fmt.Sprintf("%s -> %s", srcIP, dstIP)
-	case hasEth:
-		return fmt.Sprintf("%s -> %s %s", cache.eth.SrcMAC, cache.eth.DstMAC, cache.eth.EthernetType.String())
+	case opts == nil || !opts.IsL3Device:
+		err = parserL2Dev.DecodeLayers(data, &cache.decoded)
+	case opts.IsIPv6:
+		err = parserL3Dev.IPv6.DecodeLayers(data, &cache.decoded)
+	default:
+		err = parserL3Dev.IPv4.DecodeLayers(data, &cache.decoded)
 	}
 
-	return "[unknown]"
+	if err != nil {
+		return "[error]"
+	}
+
+	// In case of overlay, identify correct decoder and proceed from the UDP payload.
+	switch {
+	case opts != nil && opts.IsVXLAN:
+		err = parserOverlay.VXLAN.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+	case opts != nil && opts.IsGeneve:
+		err = parserOverlay.Geneve.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+	default:
+		// Truncate layers to avoid accidental re-use.
+		cache.overlay.decoded = cache.overlay.decoded[:0]
+	}
+
+	if err != nil {
+		return "[error]"
+	}
+
+	var str string
+	c, hasIP, hasEth := getConnectionInfoFromCache()
+
+	// Dump the outer packet.
+	switch {
+	case c.Proto == "icmp":
+		str += fmt.Sprintf("%s -> %s %s %s", c.SrcIP, c.DstIP, c.Proto, c.IcmpCode)
+	case c.Proto != "":
+		str += fmt.Sprintf("%s -> %s %s",
+			net.JoinHostPort(c.SrcIP.String(), strconv.Itoa(int(c.SrcPort))),
+			net.JoinHostPort(c.DstIP.String(), strconv.Itoa(int(c.DstPort))),
+			c.Proto)
+
+		if c.Proto == "tcp" {
+			str += " " + getTCPInfo()
+		}
+	case hasIP:
+		str += fmt.Sprintf("%s -> %s", c.SrcIP, c.DstIP)
+	case hasEth:
+		str += fmt.Sprintf("%s -> %s %s", cache.eth.SrcMAC, cache.eth.DstMAC, cache.eth.EthernetType.String())
+	default:
+		str += "[unknown]"
+	}
+
+	// In case of an overlay packet, dump also the tunnel.
+	if c.Tunnel != nil {
+		str += fmt.Sprintf(" [tunnel %s -> %s %s]",
+			net.JoinHostPort(c.Tunnel.SrcIP.String(), strconv.Itoa(int(c.Tunnel.SrcPort))),
+			net.JoinHostPort(c.Tunnel.DstIP.String(), strconv.Itoa(int(c.Tunnel.DstPort))),
+			c.Tunnel.Proto)
+	}
+
+	return str
 }
 
 // Dissect parses and prints the provided data if dissect is set to true,

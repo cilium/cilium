@@ -32,6 +32,10 @@ const (
 	DropNotifyFlagIsIPv6 uint8 = 1 << iota
 	// DropNotifyFlagIsL3Device is set in DropNotify.Flags when it refers to a L3 device.
 	DropNotifyFlagIsL3Device
+	// DropNotifyFlagIsVXLAN is set in DropNotify.Flags when it refers to an overlay VXLAN packet.
+	DropNotifyFlagIsVXLAN
+	// DropNotifyFlagIsGeneve is set in DropNotify.Flags when it refers to an overlay Geneve packet.
+	DropNotifyFlagIsGeneve
 )
 
 var (
@@ -127,6 +131,16 @@ func (n *DropNotify) IsIPv6() bool {
 	return n.Flags&DropNotifyFlagIsIPv6 != 0
 }
 
+// IsGeneve returns true if the trace refers to an overlay Geneve packet.
+func (n *DropNotify) IsGeneve() bool {
+	return n.Flags&DropNotifyFlagIsGeneve != 0
+}
+
+// IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
+func (n *DropNotify) IsVXLAN() bool {
+	return n.Flags&DropNotifyFlagIsVXLAN != 0
+}
+
 // DataOffset returns the offset from the beginning of DropNotify where the
 // notification data begins.
 //
@@ -141,7 +155,7 @@ func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
-	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
+	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 
