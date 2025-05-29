@@ -685,7 +685,7 @@ func (s *ServiceCacheImpl) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == annotation.ServiceAffinityLocal
 		}
 	} else {
-		endpoints = newEndpoints()
+		endpoints = NewEndpoints()
 	}
 
 	var hasExternalEndpoints bool

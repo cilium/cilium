@@ -16,7 +16,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -25,8 +24,8 @@ var (
 	kvs store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
-	serviceHandler := func(event k8s.ServiceEvent) {
+func k8sServiceHandler(ctx context.Context, K8sSvcCache *serviceCache, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
+	serviceHandler := func(event serviceEvent) {
 		defer event.SWGDone()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
@@ -49,7 +48,7 @@ func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, c
 		}
 
 		switch event.Action {
-		case k8s.UpdateService:
+		case UpdateService:
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
@@ -60,7 +59,7 @@ func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, c
 				)
 			}
 
-		case k8s.DeleteService:
+		case DeleteService:
 			kvs.DeleteKey(ctx, &svc)
 		}
 	}
@@ -80,13 +79,14 @@ func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, c
 }
 
 type ServiceSyncParameters struct {
-	ClusterInfo  cmtypes.ClusterInfo
-	Clientset    k8sClient.Clientset
-	Services     resource.Resource[*slim_corev1.Service]
-	Endpoints    resource.Resource[*k8s.Endpoints]
-	Backend      store.SyncStoreBackend
-	StoreFactory store.Factory
-	SyncCallback func(context.Context)
+	ClusterInfo     cmtypes.ClusterInfo
+	Clientset       k8sClient.Clientset
+	Services        resource.Resource[*slim_corev1.Service]
+	Endpoints       resource.Resource[*k8s.Endpoints]
+	Backend         store.SyncStoreBackend
+	StoreFactory    store.Factory
+	SyncCallback    func(context.Context)
+	ServiceMutators ServiceMutators `optional:"true"`
 }
 
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
@@ -94,7 +94,7 @@ type ServiceSyncParameters struct {
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger) {
-	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, nil, nil, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := newServiceCache(logger, cfg.ServiceMutators)
 
 	kvstoreReady := make(chan struct{})
 
