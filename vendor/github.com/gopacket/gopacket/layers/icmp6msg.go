@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -52,6 +53,10 @@ const (
 	// is not well known. This option MUST be silently ignored for other
 	// Neighbor Discovery messages.
 	ICMPv6OptMTU
+
+	// ICMPv6OptRecursiveDNSServer is used in Router Advertisement messages to
+	// advertise recursive DNS servers.
+	ICMPv6OptRecursiveDNSServer = 25
 )
 
 // ICMPv6Echo represents the structure of a ping.
@@ -124,6 +129,8 @@ func (i ICMPv6Opt) String() string {
 		return "RedirectedHeader"
 	case ICMPv6OptMTU:
 		return "MTU"
+	case ICMPv6OptRecursiveDNSServer:
+		return "RecursiveDNSServer"
 	default:
 		return fmt.Sprintf("Unknown(%d)", i)
 	}
@@ -488,7 +495,17 @@ func (i ICMPv6Option) String() string {
 				i.Type,
 				binary.BigEndian.Uint32(i.Data[2:]))
 		}
-
+	case ICMPv6OptRecursiveDNSServer:
+		lifetime := time.Duration(binary.BigEndian.Uint32(i.Data[2:6])) * time.Second
+		num := (len(i.Data) - 6) / 16
+		ips := make([]string, num)
+		for j := 0; j < num; j++ {
+			ips[j] = net.IP(i.Data[6+j*16 : 6+(j+1)*16]).String()
+		}
+		return fmt.Sprintf("ICMPv6Option(%s:%v:%v)",
+			i.Type,
+			lifetime,
+			strings.Join(ips, ":"))
 	}
 	return fmt.Sprintf("ICMPv6Option(%s:%s)", i.Type, hd)
 }
