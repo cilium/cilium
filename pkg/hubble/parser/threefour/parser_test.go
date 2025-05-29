@@ -103,6 +103,135 @@ func TestL34DecodeEmpty(t *testing.T) {
 	assert.Equal(t, err, errors.ErrEmptyData)
 }
 
+func TestL34DecodeOverlay(t *testing.T) {
+	// Packet generated via Scapy:
+	// Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="192.168.1.1",dst="192.168.1.2")/UDP(sport=8472,dport=9999)/VXLAN(vni=2)/Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="10.1.0.1",dst="10.1.0.2")/TCP(sport=54222,dport=8080)
+	d := []byte{
+		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		0, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		1,          // "established" trace reason
+		4,          // flags
+		0, 0, 0, 0, // ifindex
+		17, 18, 19, 20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0,
+		0, 90, 0, 1, 0, 0, 64, 17, 247, 62, 192, 168, 1, 1, 192,
+		168, 1, 2, 33, 24, 39, 15, 0, 70, 144, 135, 12, 0, 0, 3,
+		0, 0, 2, 0, 2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137,
+		171, 8, 0, 69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 102, 203, 10,
+		1, 0, 1, 10, 1, 0, 2, 211, 206, 31, 144, 0, 0, 0, 0, 0,
+		0, 0, 0, 80, 16, 32, 0, 136, 113, 0, 0}
+
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+			switch {
+			case ip == netip.MustParseAddr("10.1.0.1"):
+				return &testutils.FakeEndpointInfo{
+					ID:           1234,
+					Identity:     5678,
+					PodName:      "pod-10.1.0.1",
+					PodNamespace: "default",
+					Pod: &slim_corev1.Pod{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							OwnerReferences: []slim_metav1.OwnerReference{
+								{
+									Kind: "ReplicaSet",
+									Name: "pod",
+								},
+							},
+						},
+					},
+				}, true
+			case ip == netip.MustParseAddr("10.1.0.2"):
+				return &testutils.FakeEndpointInfo{
+					ID:           4321,
+					Identity:     8765,
+					PodName:      "pod-10.1.0.2",
+					PodNamespace: "default",
+					Pod: &slim_corev1.Pod{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							OwnerReferences: []slim_metav1.OwnerReference{
+								{
+									Kind: "ReplicaSet",
+									Name: "pod",
+								},
+							},
+						},
+					},
+				}, true
+			}
+			return nil, false
+		},
+	}
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+	parser, err := New(hivetest.Logger(t), endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(t, err)
+
+	f := &flowpb.Flow{}
+	err = parser.Decode(d, f)
+	require.NoError(t, err)
+
+	// Check source pod.
+	assert.Empty(t, f.GetSourceNames())
+	assert.Empty(t, f.GetIP().GetSourceXlated())
+	assert.Equal(t, flowpb.TraceReason_ESTABLISHED, f.GetTraceReason())
+	assert.Equal(t, "10.1.0.1", f.GetIP().GetSource())
+	assert.Equal(t, uint32(5678), f.GetSource().GetIdentity())
+	assert.Equal(t, "pod-10.1.0.1", f.GetSource().GetPodName())
+	assert.Equal(t, "default", f.GetSource().GetNamespace())
+	assert.Equal(t, uint32(54222), f.GetL4().GetTCP().GetSourcePort())
+
+	// Check destination pod.
+	assert.Empty(t, f.GetDestinationNames())
+	assert.Equal(t, "10.1.0.2", f.GetIP().GetDestination())
+	assert.Equal(t, uint32(8080), f.GetL4().GetTCP().GetDestinationPort())
+	assert.Equal(t, "pod-10.1.0.2", f.GetDestination().GetPodName())
+	assert.Equal(t, "default", f.GetDestination().GetNamespace())
+	assert.Equal(t, uint32(8765), f.GetDestination().GetIdentity())
+
+	// Check general info.
+	assert.Equal(t, int32(monitorAPI.MessageTypeTrace), f.GetEventType().GetType())
+	assert.Equal(t, int32(monitorAPI.TraceFromHost), f.GetEventType().GetSubType())
+	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
+	assert.Equal(t, &flowpb.TCPFlags{ACK: true}, f.GetL4().GetTCP().GetFlags())
+	assert.Equal(t, flowpb.TraceObservationPoint_FROM_HOST, f.GetTraceObservationPoint())
+
+	// Check tunnel.
+	assert.Equal(t, "192.168.1.1", f.GetTunnel().GetIP().GetSource())
+	assert.Equal(t, "192.168.1.2", f.GetTunnel().GetIP().GetDestination())
+	assert.Equal(t, uint32(8472), f.GetTunnel().GetL4().GetUDP().GetSourcePort())
+	assert.Equal(t, uint32(9999), f.GetTunnel().GetL4().GetUDP().GetDestinationPort())
+}
+
+func BenchmarkL34DecodeOverlay(b *testing.B) {
+	d := []byte{4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 0, 0, 0, 0, 17, 18, 19,
+		20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0, 0, 90, 0, 1, 0, 0,
+		64, 17, 247, 62, 192, 168, 1, 1, 192, 168, 1, 2, 33, 24, 39,
+		15, 0, 70, 144, 135, 12, 0, 0, 3, 0, 0, 2, 0, 2, 51, 69, 103,
+		137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1,
+		0, 0, 64, 6, 102, 203, 10, 1, 0, 1, 10, 1, 0, 2, 211, 206, 31,
+		144, 0, 0, 0, 0, 0, 0, 0, 0, 80, 16, 32, 0, 136, 113, 0, 0}
+
+	endpointGetter := &testutils.NoopEndpointGetter
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+	parser, err := New(hivetest.Logger(b), endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(b, err)
+
+	f := &flowpb.Flow{}
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = parser.Decode(d, f)
+	}
+}
+
 func TestL34Decode(t *testing.T) {
 	// SOURCE          					DESTINATION           TYPE   SUMMARY
 	// 192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
