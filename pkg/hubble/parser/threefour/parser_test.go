@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -23,6 +24,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -101,6 +103,176 @@ func TestL34DecodeEmpty(t *testing.T) {
 	f := &flowpb.Flow{}
 	err = parser.Decode(d, f)
 	assert.Equal(t, err, errors.ErrEmptyData)
+}
+
+func TestL34DecodeVXLANOverlay(t *testing.T) {
+	payload := []byte{
+		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		0, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		1,          // trace reason = TraceReasonCtEstablished
+		4,          // flags = TraceNotifyFlagIsVXLAN
+		0, 0, 0, 0, // ifindex
+		// Packet generated via Scapy:
+		// p = Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="192.168.1.1",dst="192.168.1.2")/UDP(sport=8472,dport=9999)/VXLAN(vni=2)/Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="10.1.0.1",dst="10.1.0.2")/TCP(sport=54222,dport=8080)
+		// print(", ".join(hex(b) for b in raw(p)))
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x1, 0x2, 0x3, 0x4, 0x5,
+		0x6, 0x8, 0x0, 0x45, 0x0, 0x0, 0x5a, 0x0, 0x1, 0x0, 0x0, 0x40,
+		0x11, 0xf7, 0x3e, 0xc0, 0xa8, 0x1, 0x1, 0xc0, 0xa8, 0x1, 0x2,
+		0x21, 0x18, 0x27, 0xf, 0x0, 0x46, 0x90, 0x87, 0xc, 0x0, 0x0,
+		0x3, 0x0, 0x0, 0x2, 0x0, 0x2, 0x33, 0x45, 0x67, 0x89, 0xab,
+		0x1, 0x23, 0x45, 0x67, 0x89, 0xab, 0x8, 0x0, 0x45, 0x0, 0x0,
+		0x28, 0x0, 0x1, 0x0, 0x0, 0x40, 0x6, 0x66, 0xcb, 0xa, 0x1, 0x0,
+		0x1, 0xa, 0x1, 0x0, 0x2, 0xd3, 0xce, 0x1f, 0x90, 0x0, 0x0, 0x0,
+		0x0, 0x0, 0x0, 0x0, 0x0, 0x50, 0x2, 0x20, 0x0, 0x88, 0x7f, 0x0,
+		0x0,
+	}
+
+	// parser setup.
+	endpointGetter := &testutils.NoopEndpointGetter
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+	parser, err := New(hivetest.Logger(t), endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(t, err)
+
+	// decode the payload.
+	f := &flowpb.Flow{}
+	err = parser.Decode(payload, f)
+	require.NoError(t, err)
+
+	// Check tunnel containing the underlay info.
+	assert.Equal(t, flowpb.Tunnel_VXLAN, f.GetTunnel().GetProtocol())
+	assert.Equal(t, "192.168.1.1", f.GetTunnel().GetIP().GetSource())
+	assert.Equal(t, "192.168.1.2", f.GetTunnel().GetIP().GetDestination())
+	assert.Equal(t, uint32(defaults.TunnelPortVXLAN), f.GetTunnel().GetL4().GetUDP().GetSourcePort())
+	assert.Equal(t, uint32(9999), f.GetTunnel().GetL4().GetUDP().GetDestinationPort())
+	// Check l3 and l4 expecting be the overlay info.
+	assert.Equal(t, "10.1.0.1", f.GetIP().GetSource())
+	assert.Equal(t, "10.1.0.2", f.GetIP().GetDestination())
+	assert.Equal(t, uint32(54222), f.GetL4().GetTCP().GetSourcePort())
+	assert.Equal(t, uint32(8080), f.GetL4().GetTCP().GetDestinationPort())
+	assert.Equal(t, &flowpb.TCPFlags{SYN: true}, f.GetL4().GetTCP().GetFlags())
+
+	notunnel := slices.Clone(payload)
+	// reset the trace notification flags, i.e. clear TraceNotifyFlagIsVXLAN
+	notunnel[27] = 0
+	// decode the new payload.
+	f = &flowpb.Flow{}
+	err = parser.Decode(notunnel, f)
+	require.NoError(t, err)
+
+	// since datapath did not inform us of any tunnel protocol, we should not
+	// have attempted to parse tunnel and overlay regardless of the packet
+	// payload received.
+	assert.Equal(t, flowpb.Tunnel_UNKNOWN, f.GetTunnel().GetProtocol())
+	assert.Empty(t, f.GetTunnel().GetIP())
+	assert.Empty(t, f.GetTunnel().GetL4())
+	// and the src/dst info should be the outer layers.
+	assert.Equal(t, "192.168.1.1", f.GetIP().GetSource())
+	assert.Equal(t, "192.168.1.2", f.GetIP().GetDestination())
+	assert.Equal(t, uint32(defaults.TunnelPortVXLAN), f.GetL4().GetUDP().GetSourcePort())
+	assert.Equal(t, uint32(9999), f.GetL4().GetUDP().GetDestinationPort())
+}
+
+func TestL34DecodeGeneveOverlay(t *testing.T) {
+	payload := []byte{
+		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		0, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		1,          // trace reason = TraceReasonCtEstablished
+		8,          // flags = TraceNotifyFlagIsGeneve
+		0, 0, 0, 0, // ifindex
+		// Packet generated via Scapy:
+		// Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="192.168.1.1",dst="192.168.1.2")/UDP(sport=6081,dport=9999)/GENEVE(vni=2)/Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="10.1.0.1",dst="10.1.0.2")/TCP(sport=54222,dport=8080)
+		// print(", ".join(hex(b) for b in raw(p)))
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x1, 0x2, 0x3, 0x4, 0x5,
+		0x6, 0x8, 0x0, 0x45, 0x0, 0x0, 0x5a, 0x0, 0x1, 0x0, 0x0, 0x40,
+		0x11, 0xf7, 0x3e, 0xc0, 0xa8, 0x1, 0x1, 0xc0, 0xa8, 0x1, 0x2,
+		0x17, 0xc1, 0x27, 0xf, 0x0, 0x46, 0x40, 0x89, 0x0, 0x0, 0x65,
+		0x58, 0x0, 0x0, 0x2, 0x0, 0x2, 0x33, 0x45, 0x67, 0x89, 0xab,
+		0x1, 0x23, 0x45, 0x67, 0x89, 0xab, 0x8, 0x0, 0x45, 0x0, 0x0,
+		0x28, 0x0, 0x1, 0x0, 0x0, 0x40, 0x6, 0x66, 0xcb, 0xa, 0x1, 0x0,
+		0x1, 0xa, 0x1, 0x0, 0x2, 0xd3, 0xce, 0x1f, 0x90, 0x0, 0x0, 0x0,
+		0x0, 0x0, 0x0, 0x0, 0x0, 0x50, 0x2, 0x20, 0x0, 0x88, 0x7f, 0x0,
+		0x0,
+	}
+
+	// parser setup.
+	endpointGetter := &testutils.NoopEndpointGetter
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+	parser, err := New(hivetest.Logger(t), endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(t, err)
+
+	// decode the payload.
+	f := &flowpb.Flow{}
+	err = parser.Decode(payload, f)
+	require.NoError(t, err)
+
+	// Check tunnel containing the underlay info.
+	assert.Equal(t, flowpb.Tunnel_GENEVE, f.GetTunnel().GetProtocol())
+	assert.Equal(t, "192.168.1.1", f.GetTunnel().GetIP().GetSource())
+	assert.Equal(t, "192.168.1.2", f.GetTunnel().GetIP().GetDestination())
+	assert.Equal(t, uint32(defaults.TunnelPortGeneve), f.GetTunnel().GetL4().GetUDP().GetSourcePort())
+	assert.Equal(t, uint32(9999), f.GetTunnel().GetL4().GetUDP().GetDestinationPort())
+	// Check l3 and l4 expecting be the overlay info.
+	assert.Equal(t, "10.1.0.1", f.GetIP().GetSource())
+	assert.Equal(t, "10.1.0.2", f.GetIP().GetDestination())
+	assert.Equal(t, uint32(54222), f.GetL4().GetTCP().GetSourcePort())
+	assert.Equal(t, uint32(8080), f.GetL4().GetTCP().GetDestinationPort())
+	assert.Equal(t, &flowpb.TCPFlags{SYN: true}, f.GetL4().GetTCP().GetFlags())
+
+	notunnel := slices.Clone(payload)
+	// reset the trace notification flags, i.e. clear TraceNotifyFlagIsGeneve
+	notunnel[27] = 0
+	// decode the new payload.
+	f = &flowpb.Flow{}
+	err = parser.Decode(notunnel, f)
+	require.NoError(t, err)
+
+	// since datapath did not inform us of any tunnel protocol, we should not
+	// have attempted to parse tunnel and overlay regardless of the packet
+	// payload received.
+	assert.Equal(t, flowpb.Tunnel_UNKNOWN, f.GetTunnel().GetProtocol())
+	assert.Empty(t, f.GetTunnel().GetIP())
+	assert.Empty(t, f.GetTunnel().GetL4())
+	// and the src/dst info should be the outer layers.
+	assert.Equal(t, "192.168.1.1", f.GetIP().GetSource())
+	assert.Equal(t, "192.168.1.2", f.GetIP().GetDestination())
+	assert.Equal(t, uint32(defaults.TunnelPortGeneve), f.GetL4().GetUDP().GetSourcePort())
+	assert.Equal(t, uint32(9999), f.GetL4().GetUDP().GetDestinationPort())
+}
+
+func BenchmarkL34DecodeOverlay(b *testing.B) {
+	d := []byte{4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 0, 0, 0, 0, 17, 18, 19,
+		20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0, 0, 90, 0, 1, 0, 0,
+		64, 17, 247, 62, 192, 168, 1, 1, 192, 168, 1, 2, 33, 24, 39,
+		15, 0, 70, 144, 135, 12, 0, 0, 3, 0, 0, 2, 0, 2, 51, 69, 103,
+		137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1,
+		0, 0, 64, 6, 102, 203, 10, 1, 0, 1, 10, 1, 0, 2, 211, 206, 31,
+		144, 0, 0, 0, 0, 0, 0, 0, 0, 80, 16, 32, 0, 136, 113, 0, 0}
+
+	endpointGetter := &testutils.NoopEndpointGetter
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+	parser, err := New(hivetest.Logger(b), endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(b, err)
+
+	f := &flowpb.Flow{}
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = parser.Decode(d, f)
+	}
 }
 
 func TestL34Decode(t *testing.T) {
