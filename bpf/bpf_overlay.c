@@ -182,14 +182,9 @@ not_esp:
 			set_identity_mark(ctx, *identity, MARK_MAGIC_EGW_DONE);
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
-			ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
-								   &daddr, egress_ifindex,
-								   ext_err);
-			if (ret != CTX_ACT_OK)
-				return ret;
-
-			if (!revalidate_data(ctx, &data, &data_end, &ip6))
-				return DROP_INVALID;
+			return egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
+								    &daddr, egress_ifindex,
+								    ext_err);
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
@@ -505,14 +500,9 @@ not_esp:
 			set_identity_mark(ctx, *identity, MARK_MAGIC_EGW_DONE);
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
-			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
-								daddr, egress_ifindex,
-								ext_err);
-			if (ret != CTX_ACT_OK)
-				return ret;
-
-			if (!revalidate_data(ctx, &data, &data_end, &ip4))
-				return DROP_INVALID;
+			return egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
+								 daddr, egress_ifindex,
+								 ext_err);
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
