@@ -1,0 +1,72 @@
+name: "Common Post Steps"
+
+description: "Performs common post-test steps like uploading artifacts and publishing test results."
+inputs:
+  job_status:
+    description: "Status of the job, used to determine if some post steps should run."
+    required: true
+    type: string
+  artifacts_suffix:
+    description: "Suffix added to the artifacts name. This is useful to distinguish artifacts from parallel runs."
+    type: string
+  capture_features_tested:
+    description: "Capture features tested in the test."
+    type: boolean
+    default: true
+  capture_sysdump:
+    description: "Capture sysdump in case of a test failure."
+    type: boolean
+    default: true
+  junits-directory:
+    description: "Directory where JUnit XML files are stored."
+    type: string
+    default: cilium-junits
+
+runs:
+  using: "composite"
+  steps:
+    - name: Features tested
+      if: ${{ inputs.capture_features_tested }}
+      uses: ./.github/actions/feature-status
+      with:
+        title: "Summary of all features tested"
+        json-filename: "features-tested-${{ inputs.artifacts_suffix }}"
+
+    - name: Post-test information gathering
+      if: ${{ inputs.job_status == 'failure' && inputs.capture_sysdump }}
+      shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+      run: |
+        echo "=== Retrieve cluster state ==="
+        kubectl get pods --all-namespaces -o wide
+        cilium status
+        cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}"
+
+    - name: Upload artifacts
+      if: ${{ inputs.job_status == 'failure' }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: "cilium-sysdumps-${{ inputs.artifacts_suffix }}"
+        path: cilium-sysdump-*.zip
+
+    - name: Upload JUnits [junit]
+      if: ${{ always() }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: "cilium-junits-${{ inputs.artifacts_suffix }}"
+        path: ${{ inputs.junits-directory }}/*.xml
+
+    - name: Upload features tested
+      # Always run this step even if inputs.capture_features_tested is false,
+      # as features might have been captured in a previous step outside of this
+      # composite action.
+      if: ${{ always() }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: "features-tested-${{ inputs.artifacts_suffix }}"
+        path: ./*.json
+
+    - name: Publish Test Results As GitHub Summary
+      if: ${{ always() }}
+      uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+      with:
+        junit-directory: "${{ inputs.junits-directory }}"
