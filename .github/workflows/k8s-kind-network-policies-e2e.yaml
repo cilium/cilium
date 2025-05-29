@@ -216,35 +216,15 @@ jobs:
             fi
           done
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
-
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
+          # Move the all artifacts to cilium-junits directory since that's the
+          # directory used in the common post steps.
+          mv _artifacts cilium-junits
+          mkdir -p ./_artifacts/logs
           /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --verbosity=3 ./_artifacts/logs
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
-          retention-days: 5
-
-      - name: Upload features tested
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: features-tested
-          path: ${{ env.job_name }}*.json
 
       - name: Upload cluster logs
         if: ${{ !success() }}
@@ -254,15 +234,9 @@ jobs:
           path: ./_artifacts/logs
           retention-days: 5
 
-      - name: Upload Kubernetes e2e Junit Reports
-        if: ${{ success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: kubernetes-e2e-junit
-          path: './_artifacts/*.xml'
-
-      - name: Publish Test Results As GitHub Summary
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        uses: ./.github/actions/post-logic
         with:
-          junit-directory: "_artifacts"
+          artifacts_suffix: "${{ matrix.ipFamily }}"
+          job_status: "${{ job.status }}"
