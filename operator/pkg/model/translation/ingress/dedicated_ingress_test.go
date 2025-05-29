@@ -37,6 +37,7 @@ func Test_getService(t *testing.T) {
 	t.Run("Default LB service", func(t *testing.T) {
 		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, nil, false)
+		policy := corev1.IPFamilyPolicyPreferDualStack
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",
@@ -66,6 +67,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: &policy,
 			},
 		}, res)
 	})
@@ -73,6 +75,7 @@ func Test_getService(t *testing.T) {
 	t.Run("Default LB service with TLS only", func(t *testing.T) {
 		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, nil, true)
+		policy := corev1.IPFamilyPolicyPreferDualStack
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",
@@ -97,6 +100,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: &policy,
 			},
 		}, res)
 	})
@@ -106,6 +110,7 @@ func Test_getService(t *testing.T) {
 		res := it.getService(resource, &model.Service{
 			Type: "InvalidServiceType",
 		}, false)
+		policy := corev1.IPFamilyPolicyPreferDualStack
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",
@@ -135,6 +140,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: &policy,
 			},
 		}, res)
 	})
@@ -148,6 +154,7 @@ func Test_getService(t *testing.T) {
 			InsecureNodePort: &insecureNodePort,
 			SecureNodePort:   &secureNodePort,
 		}, false)
+		policy := corev1.IPFamilyPolicyPreferDualStack
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",
@@ -179,6 +186,7 @@ func Test_getService(t *testing.T) {
 						NodePort: 3001,
 					},
 				},
+				IPFamilyPolicy: &policy,
 			},
 		}, res)
 	})
