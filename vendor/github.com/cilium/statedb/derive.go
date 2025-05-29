@@ -52,14 +52,12 @@ type DeriveParams[In, Out any] struct {
 //	)
 func Derive[In, Out any](jobName string, transform func(obj In, deleted bool) (Out, DeriveResult)) func(DeriveParams[In, Out]) {
 	return func(p DeriveParams[In, Out]) {
-		g := p.Jobs.NewGroup(p.Health)
+		g := p.Jobs.NewGroup(p.Health, p.Lifecycle)
 		g.Add(job.OneShot(
 			jobName,
 			derive[In, Out]{p, jobName, transform}.loop),
 		)
-		p.Lifecycle.Append(g)
 	}
-
 }
 
 type derive[In, Out any] struct {

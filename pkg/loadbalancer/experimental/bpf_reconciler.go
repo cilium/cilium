@@ -171,7 +171,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) error {
+func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *Frontend) error {
 	ops.log.Debug("Delete", "address", fe.Address)
 
 	if err := ops.deleteFrontend(fe); err != nil {
@@ -475,7 +475,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Fron
 }
 
 // Update implements reconciler.Operations.
-func (ops *BPFOps) Update(_ context.Context, _ statedb.ReadTxn, fe *Frontend) error {
+func (ops *BPFOps) Update(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *Frontend) error {
 	if err := ops.updateFrontend(fe); err != nil {
 		ops.log.Warn("Updating frontend failed, retrying", "error", err)
 		return err

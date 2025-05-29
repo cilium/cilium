@@ -28,7 +28,7 @@ func newOps(log *slog.Logger, mgr types.BandwidthManager) reconciler.Operations[
 }
 
 // Delete implements reconciler.Operations.
-func (*ops) Delete(context.Context, statedb.ReadTxn, *tables.BandwidthQDisc) error {
+func (*ops) Delete(context.Context, statedb.ReadTxn, statedb.Revision, *tables.BandwidthQDisc) error {
 	// We don't restore the original qdisc on delete.
 	return nil
 }
@@ -40,7 +40,7 @@ func (*ops) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*tables.BandwidthQ
 }
 
 // Update implements reconciler.Operations.
-func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.BandwidthQDisc) error {
+func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, q *tables.BandwidthQDisc) error {
 	if !ops.isEnabled() {
 		// Probe results show that the system doesn't support BandwidthManager, so
 		// bail out.

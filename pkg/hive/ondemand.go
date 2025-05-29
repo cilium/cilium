@@ -36,7 +36,7 @@ type onDemand[Resource any] struct {
 	log      *slog.Logger
 	refCount int
 	resource Resource
-	hook     cell.HookInterface
+	lc       cell.Lifecycle
 }
 
 // NewOnDemand wraps a resource that will be started and stopped on-demand.
@@ -44,12 +44,12 @@ type onDemand[Resource any] struct {
 // of course be the same thing. They're separate to support the use-case
 // where the resource is a state object (e.g. StateDB table) and the hook is
 // a job group that populates the object.
-func NewOnDemand[Resource any](log *slog.Logger, resource Resource, hook cell.HookInterface) OnDemand[Resource] {
+func NewOnDemand[Resource any](log *slog.Logger, resource Resource, lc cell.Lifecycle) OnDemand[Resource] {
 	return &onDemand[Resource]{
 		log:      log,
 		refCount: 0,
 		resource: resource,
-		hook:     hook,
+		lc:       lc,
 	}
 }
 
@@ -60,7 +60,7 @@ func (o *onDemand[Resource]) Acquire(ctx context.Context) (r Resource, err error
 
 	if o.refCount == 0 {
 		// This is the first acquisition of the resource. Start it.
-		if err = o.hook.Start(ctx); err != nil {
+		if err = o.lc.Start(o.log, ctx); err != nil {
 			return r, fmt.Errorf("failed to start resource %T: %w", r, err)
 		}
 	}
@@ -80,7 +80,7 @@ func (o *onDemand[Resource]) Release(r Resource) error {
 
 	o.refCount--
 	if o.refCount == 0 {
-		if err := o.hook.Stop(context.Background()); err != nil {
+		if err := o.lc.Stop(o.log, context.Background()); err != nil {
 			return fmt.Errorf("failed to stop resource %T: %w", r, err)
 		}
 	}
