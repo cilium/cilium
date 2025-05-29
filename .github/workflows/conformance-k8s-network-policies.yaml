@@ -152,30 +152,9 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
-
-      - name: Report cluster failure status and capture cilium-sysdump
-        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
-        run: |
-          echo "=== Retrieve cluster state ==="
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
-
-      - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: ${{ failure() }}
-        with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested
-          path: ${{ env.job_name }}*.json
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"

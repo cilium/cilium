@@ -296,25 +296,12 @@ jobs:
           cilium connectivity perf --duration=30s --host-net=true --pod-net=true --crr=true --report-dir=./output --unsafe-capture-kernel-profiles
           sudo chmod -R +r ./output
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
-
-      - name: Get sysdump
-        if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' && matrix.mode != 'baseline' }}
-        run: |
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
-          sudo chmod +r cilium-sysdump-final.zip
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested-${{ matrix.name }}
-          path: ${{ env.job_name }}*.json
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
+          job_status: "${{ job.status }}"
 
       - name: Clean up GKE
         if: ${{ always() }}
@@ -334,33 +321,13 @@ jobs:
           artifacts: ./output/*
           other_files: ${{ matrix.mode != 'baseline' && 'cilium-sysdump-final.zip' || '' }}
 
-  merge-upload:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
     needs: installation-and-perf
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-
-      - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: features-tested
-          pattern: features-tested-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: installation-and-perf
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.installation-and-perf.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-perf.result }}
