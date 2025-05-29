@@ -16,10 +16,13 @@ type DNSProxier interface {
 	RemoveRestoredRules(uint16)
 	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error)
 	GetBindPort() uint16
-	SetRejectReply(string)
 	RestoreRules(op *endpoint.Endpoint)
 	Cleanup()
+
+	Listen(port uint16) error
 }
+
+var _ DNSProxier = (*MockFQDNProxy)(nil)
 
 type MockFQDNProxy struct{}
 
@@ -38,11 +41,12 @@ func (m MockFQDNProxy) GetBindPort() uint16 {
 	return 0
 }
 
-func (m MockFQDNProxy) SetRejectReply(s string) {
-}
-
 func (m MockFQDNProxy) RestoreRules(op *endpoint.Endpoint) {
 }
 
 func (m MockFQDNProxy) Cleanup() {
+}
+
+func (m MockFQDNProxy) Listen(uint16) error {
+	return nil
 }
