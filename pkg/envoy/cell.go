@@ -308,12 +308,22 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 	// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
 	// version check is performed periodically and any errors are logged
 	// and reported via health reporter.
+	var previousError error
 	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
 		if err := checker.checkEnvoyVersion(envoyVersionFunc); err != nil {
-			params.Logger.Error("Envoy: Version check failed", logfields.Error, err)
+			// We only log it as an error if it happens at least twice,
+			// as it is expected that during upgrade of Cilium, the Envoy version might differ
+			// for a short period of time.
+			logger := params.Logger.Info
+			if previousError != nil {
+				logger = params.Logger.Error
+			}
+			logger("Envoy: Version check failed", logfields.Error, err)
+			previousError = err
 			return err
 		}
 
+		previousError = nil
 		return nil
 	}, 5*time.Minute))
 }
