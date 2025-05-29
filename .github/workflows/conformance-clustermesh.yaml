@@ -126,6 +126,7 @@ jobs:
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: true
 
           - name: '2'
             tunnel: 'disabled'
@@ -138,6 +139,7 @@ jobs:
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: false
 
           - name: '3'
             tunnel: 'disabled'
@@ -150,6 +152,7 @@ jobs:
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -164,6 +167,7 @@ jobs:
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: false
 
           - name: '5'
             tunnel: 'disabled'
@@ -174,6 +178,7 @@ jobs:
             tls-auto-method: helm
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
 
           - name: '6'
             tunnel: 'vxlan'
@@ -186,6 +191,7 @@ jobs:
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: false
 
           - name: '7'
             tunnel: 'geneve'
@@ -198,6 +204,7 @@ jobs:
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
 
           - name: '8'
             tunnel: 'vxlan'
@@ -210,6 +217,7 @@ jobs:
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: false
 
         # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
         #  - name: '9'
@@ -231,6 +239,7 @@ jobs:
             tls-auto-method: helm
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
 
     steps:
       - name: Collect Workflow Telemetry
@@ -274,6 +283,7 @@ jobs:
             --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.group=cert-manager.io \
             --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.kind=Issuer \
             --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.name=cilium \
+            --helm-set=clustermesh.policyDefaultLocalCluster=${{ matrix.policy-default-local-cluster }} \
             --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             "
