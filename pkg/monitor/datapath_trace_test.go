@@ -106,6 +106,16 @@ func TestIsEncrypted(t *testing.T) {
 	}
 }
 
+func TestTraceFlags(t *testing.T) {
+	tn := &TraceNotify{
+		Flags: 0x0f,
+	}
+	require.True(t, tn.IsIPv6())
+	require.True(t, tn.IsL3Device())
+	require.True(t, tn.IsVXLAN())
+	require.True(t, tn.IsGeneve())
+}
+
 func TestTraceReason(t *testing.T) {
 	tt := []struct {
 		name   string
