@@ -50,7 +50,6 @@ cilium-operator-generic [flags]
       --enable-ipv6                                          Enable IPv6 support (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-l7-proxy                                      Enable L7 proxy for L7 policy enforcement (default true)
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-metrics                                       Enable Prometheus metrics
@@ -122,6 +121,7 @@ cilium-operator-generic [flags]
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string                          cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
+      --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --remove-cilium-node-taints                            Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                           Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)

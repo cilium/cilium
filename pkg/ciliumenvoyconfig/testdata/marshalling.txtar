@@ -2,7 +2,6 @@
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
-db/initialized
 
 # Add the objects and wait for it to be ingested.
 k8s/add service.yaml endpointslice.yaml cec.yaml

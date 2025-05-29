@@ -11,6 +11,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -23,8 +24,9 @@ import (
 )
 
 type policyWatcher struct {
-	log    *slog.Logger
-	config *option.DaemonConfig
+	log                     *slog.Logger
+	config                  *option.DaemonConfig
+	clusterMeshPolicyConfig cmtypes.PolicyConfig
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
@@ -156,7 +158,10 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.addK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
+					err = p.addK8sNetworkPolicyV1(
+						event.Object, k8sAPIGroupNetworkingV1Core, knpDone,
+						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName),
+					)
 				case resource.Delete:
 					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
 				}

@@ -1544,6 +1544,8 @@ const (
 
 	Candidates = "candidates"
 
+	Location = "location"
+
 	Skipped = "skipped"
 
 	AliveEntries = "aliveEntries"

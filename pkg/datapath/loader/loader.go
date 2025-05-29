@@ -21,7 +21,6 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -198,7 +197,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		ipv4, ipv6 := bpfMasqAddrs(link.Attrs().Name, lnc)
 
 		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
-			cfg.NATIPv4Masquerade = byteorder.NetIPv4ToHost32(ipv4.AsSlice())
+			cfg.NATIPv4Masquerade = ipv4.As4()
 		}
 		if option.Config.EnableIPv6Masquerade && ipv6.IsValid() {
 			cfg.NATIPv6Masquerade = ipv6.As16()
@@ -557,11 +556,11 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (*config.BPFLXC, map[string]string) {
 	cfg := config.NewBPFLXC(nodeConfig(lnc))
 
+	if ep.IPv4Address().IsValid() {
+		cfg.EndpointIPv4 = ep.IPv4Address().As4()
+	}
 	if ep.IPv6Address().IsValid() {
 		cfg.EndpointIPv6 = ep.IPv6Address().As16()
-	}
-	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
-		cfg.EndpointIPv4 = byteorder.NetIPv4ToHost32(net.IP(ipv4))
 	}
 
 	// Netkit devices can be L2-less, meaning they operate with a zero MAC

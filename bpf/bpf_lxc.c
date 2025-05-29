@@ -1169,8 +1169,8 @@ ct_recreate4:
 		__be32 daddr = ip4->daddr;
 		struct endpoint_info *ep;
 
-		/* Loopback replies are addressed to IPV4_LOOPBACK, so
-		 * an endpoint lookup with ip4->daddr won't work.
+		/* Loopback replies are addressed to config service_loopback_ipv4,
+		 * so an endpoint lookup with ip4->daddr won't work.
 		 *
 		 * But as it is loopback traffic, the clientIP and backendIP
 		 * are identical and we can just use the packet's saddr
@@ -1463,7 +1463,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	 * of the LXC IP (to avoid specific problems, like IP duplicate address
 	 * detection checks that might run within the container).
 	 */
-	if (tip == LXC_IPV4)
+	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
@@ -1953,10 +1953,11 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		 * want to execute the conntrack logic so that replies can be correctly
 		 * matched.
 		 *
-		 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
-		 * connection. Populate .loopback, so that policy enforcement is bypassed.
+		 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
+		 * a loopback connection. Populate .loopback, so that policy enforcement
+		 * is bypassed.
 		 */
-		if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
+		if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
 		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
 			ct_state_new.loopback = true;
 			break;

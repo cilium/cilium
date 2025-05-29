@@ -501,12 +501,12 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 		}
 
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4 := net.ParseIP(option.Config.LoopbackIPv4)
+		loopbackIPv4 := net.ParseIP(option.Config.ServiceLoopbackIPv4)
 		if loopbackIPv4 == nil {
-			return fmt.Errorf("Invalid IPv4 loopback address %s", option.Config.LoopbackIPv4)
+			return fmt.Errorf("Invalid IPv4 loopback address %s", option.Config.ServiceLoopbackIPv4)
 		}
-		node.SetIPv4Loopback(loopbackIPv4)
-		d.logger.Info(fmt.Sprintf("  Loopback IPv4: %s", node.GetIPv4Loopback(d.logger).String()))
+		node.SetServiceLoopbackIPv4(loopbackIPv4)
+		d.logger.Info(fmt.Sprintf("  Loopback IPv4: %s", node.GetServiceLoopbackIPv4(d.logger).String()))
 
 		d.logger.Info("  Local IPv4 addresses:")
 		for _, addr := range addrs {

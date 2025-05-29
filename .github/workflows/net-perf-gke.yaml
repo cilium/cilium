@@ -112,6 +112,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - index: 0
+            name: "baseline"
+            mode: "baseline"
+            encryption: "baseline"
+
           - index: 1
             name: "native"
             mode: "gke"
@@ -221,6 +226,11 @@ jobs:
       - name: Create GKE cluster
         id: create-cluster
         run: |
+          if [ "${{ matrix.mode }}" = "baseline" ] ; then
+            TAINTS=""
+          else
+            TAINTS="--node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
+          fi
           gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.gcp_zone }} \
@@ -234,7 +244,7 @@ jobs:
             --machine-type n2-standard-2 \
             --disk-type pd-standard \
             --disk-size 20GB \
-            --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute
+            ${TAINTS}
 
           native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
           echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
@@ -266,12 +276,14 @@ jobs:
               --from-literal=keys="3+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
 
       - name: Install Cilium
+        if: ${{ matrix.mode != 'baseline' }}
         id: install-cilium
         run: |
           cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
 
       - name: Wait for Cilium to be ready
+        if: ${{ matrix.mode != 'baseline' }}
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
@@ -281,7 +293,7 @@ jobs:
         id: run-perf
         run: |
           mkdir output
-          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --report-dir=./output --unsafe-capture-kernel-profiles
+          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --crr=true --report-dir=./output --unsafe-capture-kernel-profiles
           sudo chmod -R +r ./output
 
       - name: Features tested
@@ -291,7 +303,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
 
       - name: Get sysdump
-        if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
+        if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' && matrix.mode != 'baseline' }}
         run: |
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
@@ -320,7 +332,7 @@ jobs:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./output/*
-          other_files: cilium-sysdump-final.zip
+          other_files: ${{ matrix.mode != 'baseline' && 'cilium-sysdump-final.zip' || '' }}
 
   merge-upload:
     if: ${{ always() }}

@@ -48,3 +48,7 @@ func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}
 func (m *ProxyUpdaterMock) GetPolicyVersionHandle() *versioned.VersionHandle {
 	return m.VersionHandle
 }
+
+func (m *ProxyUpdaterMock) GetListenerProxyPort(listener string) uint16 {
+	return 0
+}

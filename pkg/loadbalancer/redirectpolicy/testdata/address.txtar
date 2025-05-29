@@ -1,5 +1,4 @@
 hive start
-db/initialized
 
 # Add a pod and an address-based redirection. Add IPv4 first then
 # IPv6 for consistent ordering.
@@ -107,6 +106,7 @@ spec:
         - containerPort: 80
           name: tcp
           protocol: TCP
+  nodeName: testnode
 status:
   hostIP: 172.19.0.3
   hostIPs:

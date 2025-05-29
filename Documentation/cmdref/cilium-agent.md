@@ -156,7 +156,6 @@ cilium-agent [flags]
       --enable-ipv6-ndp                                           Enable IPv6 NDP support
       --enable-k8s                                                Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                  Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice                                 Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-l2-announcements                                   Enable L2 announcements
       --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec (default true)
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP
@@ -273,7 +272,7 @@ cilium-agent [flags]
       --ipv4-node string                                          IPv4 address of node (default "auto")
       --ipv4-pod-subnets strings                                  List of IPv4 pod subnets to preconfigure for encryption
       --ipv4-range string                                         Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
-      --ipv4-service-loopback-address string                      IPv4 address for service loopback SNAT (default "169.254.42.1")
+      --ipv4-service-loopback-address string                      IPv4 source address to use for SNAT when a Pod talks to itself over a Service. (default "169.254.42.1")
       --ipv4-service-range string                                 Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
       --ipv6-cluster-alloc-cidr string                            IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
       --ipv6-mcast-device string                                  Device that joins a Solicited-Node multicast group for IPv6
@@ -342,6 +341,7 @@ cilium-agent [flags]
       --policy-accounting                                         Enable policy accounting (default true)
       --policy-audit-mode                                         Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes'
+      --policy-default-local-cluster                              Control whether policy rules assume by default the local cluster if not explicitly selected
       --policy-queue-size uint                                    Size of queue for policy-related events (default 100)
       --policy-secrets-namespace string                           PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
       --policy-secrets-only-from-secrets-namespace                Configures the agent to only read policy Secrets from the policy-secrets-namespace

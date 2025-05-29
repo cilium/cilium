@@ -6,18 +6,15 @@ package fswatcher
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/counter"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fswatcher")
 
 // Event currently wraps fsnotify.Event
 type Event fsnotify.Event
@@ -49,6 +46,8 @@ type Event fsnotify.Event
 // itself does not emit an event. Only if the target of the symlink observes
 // an event is the symlink re-evaluated.
 type Watcher struct {
+	logger *slog.Logger
+
 	watcher *fsnotify.Watcher
 
 	// Internally, we distinguish between
@@ -70,13 +69,14 @@ type Watcher struct {
 
 // New creates a new Watcher which watches all trackedFile paths (they do not
 // need to exist yet).
-func New(trackedFiles []string) (*Watcher, error) {
+func New(defaultLogger *slog.Logger, trackedFiles []string) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
 	w := &Watcher{
+		logger:               defaultLogger.With(logfields.LogSubsys, "fswatcher"),
 		watcher:              watcher,
 		watchedPathCount:     counter.Counter[string]{},
 		trackedToWatchedPath: map[string]string{},
@@ -209,11 +209,11 @@ func (w *Watcher) loop() {
 	for {
 		select {
 		case event := <-w.watcher.Events:
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.Path: event.Name,
-				"operation":    event.Op,
-			})
-			scopedLog.Debug("Received fsnotify event")
+			w.logger.Debug(
+				"Received fsnotify event",
+				logfields.Path, event.Name,
+				logfields.Operation, event.Op,
+			)
 
 			eventPath := event.Name
 			removed := event.Has(fsnotify.Remove)
@@ -332,12 +332,18 @@ func (w *Watcher) loop() {
 				}
 			}
 		case err := <-w.watcher.Errors:
-			log.WithError(err).Debug("Received fsnotify error while watching")
+			w.logger.Debug(
+				"Received fsnotify error while watching",
+				logfields.Error, err,
+			)
 			w.sendError(err)
 		case <-w.stop:
 			err := w.watcher.Close()
 			if err != nil {
-				log.WithError(err).Warn("Received fsnotify error on close")
+				w.logger.Warn(
+					"Received fsnotify error on close",
+					logfields.Error, err,
+				)
 			}
 			close(w.Events)
 			close(w.Errors)

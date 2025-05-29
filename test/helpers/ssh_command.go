@@ -174,20 +174,6 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 	return true, nil
 }
 
-// RunCommand runs a SSHCommand using SSHClient client. The returned error is
-// nil if the command runs, has no problems copying stdin, stdout, and stderr,
-// and exits with a zero exit status.
-func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
-	session, err := client.newSession()
-	if err != nil {
-		return err
-	}
-	defer session.Close()
-
-	_, err = runCommand(session, cmd)
-	return err
-}
-
 // RunCommandInBackground runs an SSH command in a similar way to
 // RunCommandContext, but with a context which allows the command to be
 // cancelled at any time. When cancel is called the error of the command is

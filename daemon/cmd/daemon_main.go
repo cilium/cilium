@@ -237,10 +237,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(vp, option.DebugVerbose)
 
-	flags.Bool(option.EnableRuntimeDeviceDetection, true, "Enable runtime device detection and datapath reconfiguration (experimental)")
-	option.BindEnv(vp, option.EnableRuntimeDeviceDetection)
-	flags.MarkDeprecated(option.EnableRuntimeDeviceDetection, "Runtime device detection and datapath reconfiguration is now the default and only mode of operation")
-
 	flags.String(option.DatapathMode, defaults.DatapathMode,
 		fmt.Sprintf("Datapath mode name (%s, %s, %s)",
 			datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2))
@@ -620,8 +616,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	option.BindEnv(vp, option.LogSystemLoadConfigName)
 
-	flags.String(option.LoopbackIPv4, defaults.LoopbackIPv4, "IPv4 address for service loopback SNAT")
-	option.BindEnv(vp, option.LoopbackIPv4)
+	flags.String(option.ServiceLoopbackIPv4, defaults.ServiceLoopbackIPv4, "IPv4 source address to use for SNAT "+
+		"when a Pod talks to itself over a Service.")
+	option.BindEnv(vp, option.ServiceLoopbackIPv4)
 
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
@@ -1074,7 +1071,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	logger.Info(fmt.Sprintf("Cilium %s", version.Version))
 
 	if option.Config.LogSystemLoadConfig {
-		loadinfo.StartBackgroundLogger()
+		loadinfo.StartBackgroundLogger(logging.DefaultSlogLogger)
 	}
 
 	if option.Config.PreAllocateMaps {
@@ -1191,7 +1188,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
 	bpf.CheckOrMountFS(logging.DefaultSlogLogger, option.Config.BPFRoot)
-	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
+	cgroups.CheckOrMountCgrpFS(logging.DefaultSlogLogger, option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, debugDatapath)
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
@@ -1693,7 +1690,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	if option.Config.EnableIPMasqAgent {
-		ipmasqAgent, err := ipmasq.NewIPMasqAgent(d.metricsRegistry, option.Config.IPMasqAgentConfigPath)
+		ipmasqAgent, err := ipmasq.NewIPMasqAgent(logging.DefaultSlogLogger, d.metricsRegistry, option.Config.IPMasqAgentConfigPath)
 		if err != nil {
 			return fmt.Errorf("failed to create ipmasq agent: %w", err)
 		}

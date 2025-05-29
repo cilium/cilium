@@ -236,6 +236,14 @@ kubeadmConfigPatches:
     apiServer:
       extraArgs:
         "v": "3"
+    controllerManager:
+      extraArgs:
+        authorization-always-allow-paths: /healthz,/readyz,/livez,/metrics
+        bind-address: 0.0.0.0
+    scheduler:
+      extraArgs:
+        authorization-always-allow-paths: /healthz,/readyz,/livez,/metrics
+        bind-address: 0.0.0.0
 EOF
 
 if [ "${secondary_network_flag}" = true ]; then

@@ -345,7 +345,6 @@ func newIptablesManager(p params) datapath.IptablesManager {
 
 	// init haveIp6tables argument before using it in a reconciliation loop
 	iptMgr.startDone = iptMgr.argsInit.Add()
-	p.Lifecycle.Append(iptMgr)
 
 	p.JobGroup.Add(
 		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.Health) error {
@@ -367,6 +366,10 @@ func newIptablesManager(p params) datapath.IptablesManager {
 			)
 		}),
 	)
+
+	// Add the manager after the reconciler, otherwise there is a deadlock on shutdown
+	// between closing and draining the channels.
+	p.Lifecycle.Append(iptMgr)
 
 	return iptMgr
 }

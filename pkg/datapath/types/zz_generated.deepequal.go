@@ -115,8 +115,8 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
-	if ((in.LoopbackIPv4 != nil) && (other.LoopbackIPv4 != nil)) || ((in.LoopbackIPv4 == nil) != (other.LoopbackIPv4 == nil)) {
-		in, other := &in.LoopbackIPv4, &other.LoopbackIPv4
+	if ((in.ServiceLoopbackIPv4 != nil) && (other.ServiceLoopbackIPv4 != nil)) || ((in.ServiceLoopbackIPv4 == nil) != (other.ServiceLoopbackIPv4 == nil)) {
+		in, other := &in.ServiceLoopbackIPv4, &other.ServiceLoopbackIPv4
 		if other == nil {
 			return false
 		}

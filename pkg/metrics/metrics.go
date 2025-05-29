@@ -223,19 +223,6 @@ const (
 	// LabelTargetCluster is the label for target cluster name
 	LabelTargetCluster = "target_cluster"
 
-	// LabelTargetNodeIP is the label for target node IP
-	LabelTargetNodeIP = "target_node_ip"
-
-	// LabelTargetNodeName is the label for target node name
-	LabelTargetNodeName = "target_node_name"
-
-	// LabelTargetNodeType is the label for target node type (local_node, remote_intra_cluster, vs remote_inter_cluster)
-	LabelTargetNodeType = "target_node_type"
-
-	LabelLocationLocalNode          = "local_node"
-	LabelLocationRemoteIntraCluster = "remote_intra_cluster"
-	LabelLocationRemoteInterCluster = "remote_inter_cluster"
-
 	// Rule label is a label for a L7 rule name.
 	LabelL7Rule = "rule"
 
@@ -282,14 +269,6 @@ var (
 
 	// Status
 
-	// NodeConnectivityStatus is the connectivity status between local node to
-	// other node intra or inter cluster.
-	NodeConnectivityStatus = NoOpGaugeDeletableVec
-
-	// NodeConnectivityLatency is the connectivity latency between local node to
-	// other node intra or inter cluster.
-	NodeConnectivityLatency = NoOpGaugeDeletableVec
-
 	// NodeHealthConnectivityStatus is the number of connections with connectivity status
 	// between local node to other node intra or inter cluster.
 	NodeHealthConnectivityStatus = NoOpGaugeVec
@@ -327,15 +306,6 @@ var (
 	// Policy is the number of policies loaded into the agent
 	Policy = NoOpGauge
 
-	// PolicyRegenerationCount is the total number of successful policy
-	// regenerations.
-	// Deprecated: Use EndpointRegenerationTotal.
-	PolicyRegenerationCount = NoOpCounter
-
-	// PolicyRegenerationTimeStats is the total time taken to generate policies.
-	// Deprecated: Use EndpointRegenerationTimeStats.
-	PolicyRegenerationTimeStats = NoOpObserverVec
-
 	// PolicyRevision is the current policy revision number for this agent
 	PolicyRevision = NoOpGauge
 
@@ -357,12 +327,6 @@ var (
 	// to the policy engine. An incremental update is a newly-learned identity that can be
 	// directly added to policy maps without a full policy recalculation.
 	PolicyIncrementalUpdateDuration = NoOpObserverVec
-
-	// CIDRGroup
-
-	// CIDRGroupsReferenced is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
-	// CNPs with empty or non-existing CIDRGroupRefs are not considered.
-	CIDRGroupsReferenced = NoOpGauge
 
 	// Identity
 
@@ -476,10 +440,6 @@ var (
 	// KubernetesAPICallsTotal is the counter for all API calls made to
 	// kube-apiserver.
 	KubernetesAPICallsTotal = NoOpCounterVec
-
-	// KubernetesCNPStatusCompletion is the number of seconds it takes to
-	// complete a CNP status update
-	KubernetesCNPStatusCompletion = NoOpObserverVec
 
 	// TerminatingEndpointsEvents is the number of terminating endpoint events received from kubernetes.
 	TerminatingEndpointsEvents = NoOpCounter
@@ -660,8 +620,6 @@ var (
 type LegacyMetrics struct {
 	BootstrapTimes                   metric.Vec[metric.Gauge]
 	APIInteractions                  metric.Vec[metric.Observer]
-	NodeConnectivityStatus           metric.DeletableVec[metric.Gauge]
-	NodeConnectivityLatency          metric.DeletableVec[metric.Gauge]
 	NodeHealthConnectivityStatus     metric.Vec[metric.Gauge]
 	NodeHealthConnectivityLatency    metric.Vec[metric.Observer]
 	Endpoint                         metric.GaugeFunc
@@ -671,14 +629,11 @@ type LegacyMetrics struct {
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
 	EndpointPropagationDelay         metric.Vec[metric.Observer]
 	Policy                           metric.Gauge
-	PolicyRegenerationCount          metric.Counter
-	PolicyRegenerationTimeStats      metric.Vec[metric.Observer]
 	PolicyRevision                   metric.Gauge
 	PolicyChangeTotal                metric.Vec[metric.Counter]
 	PolicyEndpointStatus             metric.Vec[metric.Gauge]
 	PolicyImplementationDelay        metric.Vec[metric.Observer]
 	PolicyIncrementalUpdateDuration  metric.Vec[metric.Observer]
-	CIDRGroupsReferenced             metric.Gauge
 	Identity                         metric.Vec[metric.Gauge]
 	IdentityLabelSources             metric.Vec[metric.Gauge]
 	EventTS                          metric.Vec[metric.Gauge]
@@ -706,7 +661,6 @@ type LegacyMetrics struct {
 	KubernetesAPIInteractions        metric.Vec[metric.Observer]
 	KubernetesAPIRateLimiterLatency  metric.Vec[metric.Observer]
 	KubernetesAPICallsTotal          metric.Vec[metric.Counter]
-	KubernetesCNPStatusCompletion    metric.Vec[metric.Observer]
 	TerminatingEndpointsEvents       metric.Counter
 	IPAMEvent                        metric.Vec[metric.Counter]
 	IPAMCapacity                     metric.Vec[metric.Gauge]
@@ -797,20 +751,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of policies currently loaded",
 		}),
 
-		PolicyRegenerationCount: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_regeneration_total",
-			Namespace:  Namespace,
-			Name:       "policy_regeneration_total",
-			Help:       "Total number of successful policy regenerations",
-		}),
-
-		PolicyRegenerationTimeStats: metric.NewHistogramVec(metric.HistogramOpts{
-			ConfigName: Namespace + "_policy_regeneration_time_stats_seconds",
-			Namespace:  Namespace,
-			Name:       "policy_regeneration_time_stats_seconds",
-			Help:       "Policy regeneration time stats labeled by the scope",
-		}, []string{LabelScope, LabelStatus}),
-
 		PolicyRevision: metric.NewGauge(metric.GaugeOpts{
 			ConfigName: Namespace + "_policy_max_revision",
 			Namespace:  Namespace,
@@ -860,14 +800,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Time between learning about a new identity and it being fully added to all policies.",
 			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
 		}, []string{"scope"}),
-
-		CIDRGroupsReferenced: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: Namespace + "cidrgroups_referenced",
-
-			Namespace: Namespace,
-			Name:      "cidrgroups_referenced",
-			Help:      "Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup. CNPs with empty or non-existing CIDRGroupRefs are not considered",
-		}),
 
 		Identity: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_identity",
@@ -1089,14 +1021,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of API calls made to kube-apiserver labeled by host, method and return code.",
 		}, []string{"host", LabelMethod, LabelAPIReturnCode}),
 
-		KubernetesCNPStatusCompletion: metric.NewHistogramVec(metric.HistogramOpts{
-			ConfigName: Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemK8s,
-			Name:       "cnp_status_completion_seconds",
-			Help:       "Duration in seconds in how long it took to complete a CNP status update",
-		}, []string{LabelAttempts, LabelOutcome}),
-
 		TerminatingEndpointsEvents: metric.NewCounter(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total",
 			Namespace:  Namespace,
@@ -1310,37 +1234,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Buckets:    []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
 		}, []string{}),
 
-		NodeConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_node_connectivity_status",
-			Namespace:  Namespace,
-			Name:       "node_connectivity_status",
-			Help:       "The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
-		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
-			LabelTargetCluster,
-			LabelTargetNodeName,
-			LabelTargetNodeType,
-			LabelType,
-		}),
-
-		NodeConnectivityLatency: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_node_connectivity_latency_seconds",
-			Namespace:  Namespace,
-			Name:       "node_connectivity_latency_seconds",
-			Help:       "The last observed latency between the current Cilium agent and other Cilium nodes in seconds",
-		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
-			LabelTargetCluster,
-			LabelTargetNodeName,
-			LabelTargetNodeIP,
-			LabelTargetNodeType,
-			LabelType,
-			LabelProtocol,
-			LabelAddressType,
-		}),
-
 		NodeHealthConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_node_health_connectivity_status",
 			Namespace:  Namespace,
@@ -1391,8 +1284,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 	BootstrapTimes = lm.BootstrapTimes
 	APIInteractions = lm.APIInteractions
-	NodeConnectivityStatus = lm.NodeConnectivityStatus
-	NodeConnectivityLatency = lm.NodeConnectivityLatency
 	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
 	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
@@ -1402,14 +1293,11 @@ func NewLegacyMetrics() *LegacyMetrics {
 	EndpointRegenerationTimeStats = lm.EndpointRegenerationTimeStats
 	EndpointPropagationDelay = lm.EndpointPropagationDelay
 	Policy = lm.Policy
-	PolicyRegenerationCount = lm.PolicyRegenerationCount
-	PolicyRegenerationTimeStats = lm.PolicyRegenerationTimeStats
 	PolicyRevision = lm.PolicyRevision
 	PolicyChangeTotal = lm.PolicyChangeTotal
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
 	PolicyIncrementalUpdateDuration = lm.PolicyIncrementalUpdateDuration
-	CIDRGroupsReferenced = lm.CIDRGroupsReferenced
 	Identity = lm.Identity
 	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS
@@ -1437,7 +1325,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	KubernetesAPIInteractions = lm.KubernetesAPIInteractions
 	KubernetesAPIRateLimiterLatency = lm.KubernetesAPIRateLimiterLatency
 	KubernetesAPICallsTotal = lm.KubernetesAPICallsTotal
-	KubernetesCNPStatusCompletion = lm.KubernetesCNPStatusCompletion
 	TerminatingEndpointsEvents = lm.TerminatingEndpointsEvents
 	IPAMEvent = lm.IPAMEvent
 	IPAMCapacity = lm.IPAMCapacity

@@ -171,7 +171,7 @@ are announced. They are both set to ``false`` by default, so a functional policy
 have one or both set to ``true``.
 
 If ``externalIPs`` is ``true`` all IPs in `.spec.externalIPs <https://kubernetes.io/docs/concepts/services-networking/service/#external-ips>`__
-field are announced. These IPs are are managed by service authors.
+field are announced. These IPs are managed by service authors.
 
 If ``loadBalancerIPs`` is ``true`` all IPs in the service's ``.status.loadbalancer.ingress`` field
 are announced. These can be assigned by :ref:`lb_ipam` which can be configured
@@ -351,8 +351,8 @@ default limit is quickly reached when utilizing L2 announcements and thus users
 should size the client rate limit accordingly.
 
 In a worst case scenario, services are distributed unevenly, so we will assume
-a peek load based on the renew deadline. In complex scenarios with multiple 
-policies over disjunct sets of node, max QPS per node will be lower.
+a peak load based on the renew deadline. In complex scenarios with multiple 
+policies over disjointed sets of node, max QPS per node will be lower.
 
 .. code-block:: text
 
@@ -421,7 +421,7 @@ Next, ensure you have at least one policy configured, L2 announcements will not 
     NAME      AGE
     policy1   6m16s
 
-L2 announcements should not create a lease for very service matched by the policy. We can check the leases like so:
+L2 announcements should now create a lease for every service matched by the policy. We can check the leases like so:
 
 .. code-block:: shell-session
 

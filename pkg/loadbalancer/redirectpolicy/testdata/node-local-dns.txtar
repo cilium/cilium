@@ -4,7 +4,6 @@
 
 # Start and wait for reflectors to catch up.
 hive start
-db/initialized
 
 # Add the kubedns service and endpoints
 k8s/add svc-kubedns.yaml eps-kubedns.yaml
@@ -180,14 +179,14 @@ endpoints:
     ready: true
     serving: true
     terminating: false
-  nodeName: kind-worker
+  nodeName: testnode
 - addresses:
   - 10.244.1.51
   conditions:
     ready: true
     serving: true
     terminating: false
-  nodeName: kind-worker
+  nodeName: testnode
 kind: EndpointSlice
 metadata:
   labels:
@@ -255,7 +254,7 @@ spec:
     - containerPort: 9253
       name: metrics
       protocol: TCP
-  nodeName: kind-control-plane
+  nodeName: testnode
 status:
   conditions:
   - lastProbeTime: null
@@ -301,7 +300,7 @@ spec:
     - containerPort: 9253
       name: metrics
       protocol: TCP
-  nodeName: kind-control-plane
+  nodeName: testnode
 status:
   conditions:
   - lastProbeTime: null
