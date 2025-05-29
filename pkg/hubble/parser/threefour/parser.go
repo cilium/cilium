@@ -177,40 +177,13 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return fmt.Errorf("not enough bytes to decode %d", data)
 	}
 
-	p.packet.Lock()
-	defer p.packet.Unlock()
-
-	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
-	// https://github.com/google/gopacket/issues/846
-	// TODO: reconsider this check if the issue is fixed upstream
-	if len(data[packetOffset:]) > 0 {
-		var isL3Device, isIPv6 bool
-		if (tn != nil && tn.IsL3Device()) || (dn != nil && dn.IsL3Device()) {
-			isL3Device = true
-		}
-		if tn != nil && tn.IsIPv6() || (dn != nil && dn.IsIPv6()) {
-			isIPv6 = true
-		}
-
-		var err error
-		switch {
-		case !isL3Device:
-			err = p.packet.decLayerL2Dev.DecodeLayers(data[packetOffset:], &p.packet.Layers)
-		case isIPv6:
-			err = p.packet.decLayerL3Dev.IPv6.DecodeLayers(data[packetOffset:], &p.packet.Layers)
-		default:
-			err = p.packet.decLayerL3Dev.IPv4.DecodeLayers(data[packetOffset:], &p.packet.Layers)
-		}
-
-		if err != nil {
-			return err
-		}
-	} else {
-		// Truncate layers to avoid accidental re-use.
-		p.packet.Layers = p.packet.Layers[:0]
+	isL3Device := tn != nil && tn.IsL3Device() || dn != nil && dn.IsL3Device()
+	isIPv6 := tn != nil && tn.IsIPv6() || dn != nil && dn.IsIPv6()
+	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary, err := decodeLayers(data[packetOffset:], p.packet, isL3Device, isIPv6)
+	if err != nil {
+		return err
 	}
 
-	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary := decodeLayers(p.packet)
 	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
 			// Ignore invalid IP - getters will handle invalid value.
@@ -287,13 +260,40 @@ func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	return nil
 }
 
-func decodeLayers(packet *packet) (
+func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6 bool) (
 	ethernet *pb.Ethernet,
 	ip *pb.IP,
 	l4 *pb.Layer4,
 	sourceIP, destinationIP netip.Addr,
 	sourcePort, destinationPort uint16,
-	summary string) {
+	summary string,
+	err error,
+) {
+	packet.Lock()
+	defer packet.Unlock()
+
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
+	// https://github.com/google/gopacket/issues/846
+	// TODO: reconsider this check if the issue is fixed upstream
+	if len(payload) == 0 {
+		// Truncate layers to avoid accidental re-use.
+		packet.Layers = packet.Layers[:0]
+		return
+	}
+
+	switch {
+	case !isL3Device:
+		err = packet.decLayerL2Dev.DecodeLayers(payload, &packet.Layers)
+	case isIPv6:
+		err = packet.decLayerL3Dev.IPv6.DecodeLayers(payload, &packet.Layers)
+	default:
+		err = packet.decLayerL3Dev.IPv4.DecodeLayers(payload, &packet.Layers)
+	}
+
+	if err != nil {
+		return
+	}
+
 	for _, typ := range packet.Layers {
 		summary = typ.String()
 		switch typ {
