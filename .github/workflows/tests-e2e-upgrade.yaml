@@ -523,82 +523,27 @@ jobs:
         if: ${{ !success() }}
         shell: bash
         run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          mkdir -p cilium-sysdumps
-          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-
           if [ "${{ matrix.kvstore }}" == "true" ]; then
             echo
             echo "# Retrieving Cilium etcd logs"
             kubectl -n kube-system logs kvstore
           fi
 
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.name }}
-          path: cilium-sysdump-*.zip
-
-      - name: Upload JUnits [junit]
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-junits-${{ matrix.name }}
-          path: cilium-junits/*.xml
+          artifacts_suffix: "${{ matrix.name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
 
-      - name: Upload features tested
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: features-tested-${{ matrix.name }}
-          path: ${{ env.job_name }}*.json
-
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
-
-  merge-upload:
+  merge-upload-and-status:
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
+    name: Merge Upload and Status
     needs: setup-and-test
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-junits
-          pattern: cilium-junits-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: features-tested
-          pattern: features-tested-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: setup-and-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.setup-and-test.result }}
