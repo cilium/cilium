@@ -33,6 +33,8 @@ message Flow {
     // l4
     Layer4 l4 = 6;
 
+    Tunnel tunnel = 39;
+
     reserved 7; // removed, do not use
 
     Endpoint source = 8;
@@ -348,6 +350,18 @@ enum IPVersion {
     IP_NOT_USED = 0;
     IPv4 = 1;
     IPv6 = 2;
+}
+
+message Tunnel {
+    enum Protocol {
+        UNKNOWN = 0;
+        VXLAN = 1;
+        GENEVE = 2;
+    }
+
+    Protocol protocol = 1;
+    IP IP = 2;
+    Layer4 l4 = 3;
 }
 
 enum Verdict {

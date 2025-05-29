@@ -347,6 +347,15 @@ const DebugEventType_DBG_SKIP_POLICY = flow.DebugEventType_DBG_SKIP_POLICY
 var DebugEventType_name = flow.DebugEventType_name
 var DebugEventType_value = flow.DebugEventType_value
 
+type Tunnel_Protocol = flow.Tunnel_Protocol
+
+const Tunnel_UNKNOWN = flow.Tunnel_UNKNOWN
+const Tunnel_VXLAN = flow.Tunnel_VXLAN
+const Tunnel_GENEVE = flow.Tunnel_GENEVE
+
+var Tunnel_Protocol_name = flow.Tunnel_Protocol_name
+var Tunnel_Protocol_value = flow.Tunnel_Protocol_value
+
 type Flow = flow.Flow
 type FileInfo = flow.FileInfo
 type Layer4 = flow.Layer4
@@ -371,6 +380,7 @@ type UDP = flow.UDP
 type SCTP = flow.SCTP
 type ICMPv4 = flow.ICMPv4
 type ICMPv6 = flow.ICMPv6
+type Tunnel = flow.Tunnel
 type Policy = flow.Policy
 type EventTypeFilter = flow.EventTypeFilter
 type CiliumEventType = flow.CiliumEventType

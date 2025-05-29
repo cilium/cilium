@@ -41,6 +41,7 @@
     - [TimeNotification](#flow-TimeNotification)
     - [TraceContext](#flow-TraceContext)
     - [TraceParent](#flow-TraceParent)
+    - [Tunnel](#flow-Tunnel)
     - [UDP](#flow-UDP)
     - [Workload](#flow-Workload)
   
@@ -58,6 +59,7 @@
     - [TraceObservationPoint](#flow-TraceObservationPoint)
     - [TraceReason](#flow-TraceReason)
     - [TrafficDirection](#flow-TrafficDirection)
+    - [Tunnel.Protocol](#flow-Tunnel-Protocol)
     - [Verdict](#flow-Verdict)
   
 - [Scalar Value Types](#scalar-value-types)
@@ -292,6 +294,7 @@ EventTypeFilter is a filter describing a particular event type.
 | ethernet | [Ethernet](#flow-Ethernet) |  | l2 |
 | IP | [IP](#flow-IP) |  | l3 |
 | l4 | [Layer4](#flow-Layer4) |  | l4 |
+| tunnel | [Tunnel](#flow-Tunnel) |  |  |
 | source | [Endpoint](#flow-Endpoint) |  |  |
 | destination | [Endpoint](#flow-Endpoint) |  |  |
 | Type | [FlowType](#flow-FlowType) |  |  |
@@ -809,6 +812,23 @@ TraceParent identifies the incoming request in a tracing system.
 
 
 
+<a name="flow-Tunnel"></a>
+
+### Tunnel
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| protocol | [Tunnel.Protocol](#flow-Tunnel-Protocol) |  |  |
+| IP | [IP](#flow-IP) |  |  |
+| l4 | [Layer4](#flow-Layer4) |  |  |
+
+
+
+
+
+
 <a name="flow-UDP"></a>
 
 ### UDP
@@ -1200,6 +1220,19 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | TRAFFIC_DIRECTION_UNKNOWN | 0 |  |
 | INGRESS | 1 |  |
 | EGRESS | 2 |  |
+
+
+
+<a name="flow-Tunnel-Protocol"></a>
+
+### Tunnel.Protocol
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| UNKNOWN | 0 |  |
+| VXLAN | 1 |  |
+| GENEVE | 2 |  |
 
 
 
