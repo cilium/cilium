@@ -178,7 +178,7 @@ func (r *tlsRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 		if err := r.Client.List(context.Background(), rList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.Error("Failed to get related TLSRoutes", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get related TLSRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -191,7 +191,7 @@ func (r *tlsRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.Info("Enqueued TLSRoute for resource", tlsRoute, route)
+			scopedLog.InfoContext(ctx, "Enqueued TLSRoute for resource", tlsRoute, route)
 		}
 		return requests
 	}
@@ -207,7 +207,7 @@ func (r *tlsRouteReconciler) enqueueAll() handler.MapFunc {
 		trList := &gatewayv1alpha2.TLSRouteList{}
 
 		if err := r.Client.List(ctx, trList, &client.ListOptions{}); err != nil {
-			scopedLog.Error("Failed to get TLSRoutes", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get TLSRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -220,7 +220,7 @@ func (r *tlsRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.Info("Enqueued TLSRoute for resource", tlsRoute, route)
+			scopedLog.InfoContext(ctx, "Enqueued TLSRoute for resource", tlsRoute, route)
 		}
 		return requests
 	}

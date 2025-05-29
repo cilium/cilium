@@ -33,7 +33,8 @@ func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, c
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
-		logger.Debug("Kubernetes service definition changed",
+		logger.DebugContext(ctx,
+			"Kubernetes service definition changed",
 			logfields.K8sSvcName, event.ID.Name,
 			logfields.K8sNamespace, event.ID.Namespace,
 			logfields.Action, event.Action,
@@ -53,7 +54,8 @@ func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, c
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
-				logger.Warn("Failed synchronizing service",
+				logger.WarnContext(ctx,
+					"Failed synchronizing service",
 					logfields.Error, err,
 					logfields.K8sSvcName, event.ID.Name,
 					logfields.K8sNamespace, event.ID.Namespace,
@@ -122,7 +124,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		// Wait for kvstore
 		<-kvstoreReady
 
-		logger.Info("Starting to synchronize Kubernetes services to kvstore")
+		logger.InfoContext(ctx, "Starting to synchronize Kubernetes services to kvstore")
 		k8sServiceHandler(ctx, k8sSvcCache, cfg.ClusterInfo, logger)
 	}()
 
@@ -144,7 +146,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			swg.Stop()
 			swg.Wait()
 
-			logger.Info("Initial list of services successfully received from Kubernetes")
+			logger.InfoContext(ctx, "Initial list of services successfully received from Kubernetes")
 			kvs.Synced(ctx, cfg.SyncCallback)
 		}
 

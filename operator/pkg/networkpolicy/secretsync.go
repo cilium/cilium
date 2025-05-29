@@ -164,7 +164,7 @@ func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, log
 
 	cnpList := &cilium_api_v2.CiliumNetworkPolicyList{}
 	if err := c.List(ctx, cnpList); err != nil {
-		scopedLog.Warn("Unable to list CiliumNetworkPolicies", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list CiliumNetworkPolicies", logfields.Error, err)
 		return false
 	}
 
@@ -209,7 +209,7 @@ func IsReferencedByCiliumClusterwideNetworkPolicy(ctx context.Context, c client.
 
 	ccnpList := &cilium_api_v2.CiliumClusterwideNetworkPolicyList{}
 	if err := c.List(ctx, ccnpList); err != nil {
-		scopedLog.Warn("Unable to list CiliumClusterwideNetworkPolicies", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list CiliumClusterwideNetworkPolicies", logfields.Error, err)
 		return false
 	}
 
