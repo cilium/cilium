@@ -31,6 +31,12 @@ const (
 	// TraceNotifyFlagIsL3Device is set in TraceNotify.Flags when the
 	// notification refers to a L3 device.
 	TraceNotifyFlagIsL3Device
+	// TraceNotifyFlagIsVXLAN is set in TraceNotify.Flags when the
+	// notification refers to an overlay VXLAN packet.
+	TraceNotifyFlagIsVXLAN
+	// TraceNotifyFlagIsGeneve is set in TraceNotify.Flags when the
+	// notification refers to an overlay Geneve packet.
+	TraceNotifyFlagIsGeneve
 )
 
 const (
@@ -255,6 +261,16 @@ func (n *TraceNotify) IsIPv6() bool {
 	return n.Flags&TraceNotifyFlagIsIPv6 != 0
 }
 
+// IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
+func (n *TraceNotify) IsVXLAN() bool {
+	return n.Flags&TraceNotifyFlagIsVXLAN != 0
+}
+
+// IsGeneve returns true if the trace refers to an overlay Geneve packet.
+func (n *TraceNotify) IsGeneve() bool {
+	return n.Flags&TraceNotifyFlagIsGeneve != 0
+}
+
 // OriginalIP returns the original source IP if reverse NAT was performed on
 // the flow
 func (n *TraceNotify) OriginalIP() net.IP {
@@ -285,7 +301,7 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
+		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 
