@@ -85,7 +85,7 @@ jobs:
           kind: Cluster
           apiVersion: kind.x-k8s.io/v1alpha4
           networking:
-            ipFamily: ${IP_FAMILY}
+            ipFamily: ${{ env.IP_FAMILY }}
             kubeProxyMode: "none"
             disableDefaultCNI: true
           nodes:
@@ -96,7 +96,7 @@ jobs:
           EOF
 
       - name: Workaround CoreDNS for IPv6 airgapped
-        if: ${{ matrix.ipFamily == 'ipv6' }}
+        if: ${{ env.IP_FAMILY == 'ipv6' }}
         run: |
           # Patch CoreDNS to work in Github CI
           # 1. Github CI doesn´t offer IPv6 connectivity, so CoreDNS should be configured
@@ -212,10 +212,10 @@ jobs:
           # IPv6 : tests that are IPv6 specific
 
           SKIP_FLAG="Alpha|Beta|Experimental|Federation|PerformanceDNS|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy"
-          if [ "${IP_FAMILY}" != "dual" ]; then
+          if [ "${{ env.IP_FAMILY }}" != "dual" ]; then
             SKIP_FLAG="${SKIP_FLAG}|DualStack"
           fi
-          if [ "${IP_FAMILY}" == "ipv4" ]; then
+          if [ "${{ env.IP_FAMILY }}" == "ipv4" ]; then
             SKIP_FLAG="${SKIP_FLAG}|IPv6"
           fi
 
