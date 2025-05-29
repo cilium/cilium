@@ -61,6 +61,7 @@ struct trace_sock_notify {
 	__u8 l4_proto;
 	__u8 ipv6 : 1;
 	__u8 pad : 7;
+	__u16 pad2; 
 } __packed;
 
 #ifdef TRACE_SOCK_NOTIFY
