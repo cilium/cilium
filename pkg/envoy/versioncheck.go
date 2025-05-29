@@ -14,7 +14,9 @@ import (
 )
 
 type envoyVersionChecker struct {
-	logger *slog.Logger
+	logger        *slog.Logger
+	externalEnvoy bool
+	adminClient   *EnvoyAdminClient
 }
 
 // requiredEnvoyVersionSHA is set during build
@@ -22,8 +24,8 @@ type envoyVersionChecker struct {
 // By default, cilium-agent will fail to start if there is a version mismatch.
 var requiredEnvoyVersionSHA string
 
-func (r *envoyVersionChecker) checkEnvoyVersion(envoyVersionFunc func() (string, error)) error {
-	envoyVersion, err := envoyVersionFunc()
+func (r *envoyVersionChecker) checkEnvoyVersion() error {
+	envoyVersion, err := r.getEnvoyVersion()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve Envoy version: %w", err)
 	}
@@ -41,13 +43,21 @@ func (r *envoyVersionChecker) checkEnvoyVersion(envoyVersionFunc func() (string,
 	return nil
 }
 
-func (r *envoyVersionChecker) getRemoteEnvoyVersion(envoyAdminClient *EnvoyAdminClient) (string, error) {
+func (r *envoyVersionChecker) getEnvoyVersion() (string, error) {
+	if r.externalEnvoy {
+		return r.getRemoteEnvoyVersion()
+	} else {
+		return getEmbeddedEnvoyVersion()
+	}
+}
+
+func (r *envoyVersionChecker) getRemoteEnvoyVersion() (string, error) {
 	const versionRetryAttempts = 20
 	const versionRetryWait = 500 * time.Millisecond
 
 	// Retry is necessary because Envoy might not be ready yet
 	for i := 0; i <= versionRetryAttempts; i++ {
-		envoyVersion, err := envoyAdminClient.GetEnvoyVersion()
+		envoyVersion, err := r.adminClient.GetEnvoyVersion()
 		if err != nil {
 			if i < versionRetryAttempts {
 				r.logger.Info("Envoy: Unable to retrieve Envoy version - retry")
