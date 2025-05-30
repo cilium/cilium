@@ -332,6 +332,8 @@ Removed Options
   The K8s terminating endpoints feature is unconditionally enabled.
 * The previously deprecated ``CONNTRACK_LOCAL`` option has been removed
 * The previously deprecated ``enableRuntimeDeviceDetection`` option has been removed
+* The previously deprecated and ignored operator flags ``ces-write-qps-limit``, ``ces-write-qps-burst``, ``ces-enable-dynamic-rate-limit``,
+  ``ces-dynamic-rate-limit-nodes``, ``ces-dynamic-rate-limit-qps-limit``, ``ces-dynamic-rate-limit-qps-burst`` have been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
