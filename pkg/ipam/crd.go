@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -709,22 +710,24 @@ type crdAllocator struct {
 	// family is the address family this allocator is allocator for
 	family Family
 
-	conf   *option.DaemonConfig
-	logger *slog.Logger
+	conf        *option.DaemonConfig
+	logger      *slog.Logger
+	ipMasqAgent *ipmasq.IPMasqAgent
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) Allocator {
+func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) Allocator {
 	initNodeStore.Do(func() {
 		sharedNodeStore = newNodeStore(logger, nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig, sysctl)
 	})
 
 	allocator := &crdAllocator{
-		logger:    logger,
-		allocated: ipamTypes.AllocationMap{},
-		family:    family,
-		store:     sharedNodeStore,
-		conf:      c,
+		logger:      logger,
+		allocated:   ipamTypes.AllocationMap{},
+		family:      family,
+		store:       sharedNodeStore,
+		conf:        c,
+		ipMasqAgent: ipMasqAgent,
 	}
 
 	sharedNodeStore.addAllocator(allocator)
@@ -773,6 +776,19 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				// Add manually configured Native Routing CIDR
 				if a.conf.IPv4NativeRoutingCIDR != nil {
 					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
+				}
+				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
+				// Note that the resulting ip rules will not be dynamically regenerated if the
+				// ip-masq-agent configuration changes.
+				if a.conf.EnableIPMasqAgent {
+					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
+					for _, prefix := range nonMasqCidrs {
+						if ip.To4() != nil && prefix.Addr().Is4() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						} else if ip.To4() == nil && prefix.Addr().Is6() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						}
+					}
 				}
 				if eni.Subnet.CIDR != "" {
 					// The gateway for a subnet and VPC is always x.x.x.1
