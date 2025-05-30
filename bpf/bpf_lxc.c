@@ -729,7 +729,8 @@ ct_recreate6:
 			 * (b) packet was redirected to tunnel device so return.
 			 */
 			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
-						     *dst_sec_identity, &trace);
+						     *dst_sec_identity, &trace,
+						     bpf_htons(ETH_P_IPV6));
 			switch (ret) {
 			case CTX_ACT_OK:
 				goto encrypt_to_stack;
@@ -1228,7 +1229,8 @@ ct_recreate4:
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								SECLABEL_IPV4, WORLD_IPV4_ID,
-								WORLD_IPV4_ID, &trace);
+								WORLD_IPV4_ID, &trace,
+								bpf_htons(ETH_P_IP));
 		}
 	}
 skip_vtep:
@@ -1273,7 +1275,8 @@ skip_vtep:
 
 		if (info && info->flag_has_tunnel_ep) {
 			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV4,
-						     *dst_sec_identity, &trace);
+						     *dst_sec_identity, &trace,
+						     bpf_htons(ETH_P_IP));
 			switch (ret) {
 			case CTX_ACT_OK:
 				/* IPsec, pass up to stack for XFRM processing. */
