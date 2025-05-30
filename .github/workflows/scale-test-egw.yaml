@@ -316,13 +316,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
 
-      - name: Run aws configure
-        run: |
-          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
-          aws configure set default.region ${{ steps.vars.outputs.eks_region }}
-
       - name: Display version info of installed tools
         run: |
           echo "--- go ---"
