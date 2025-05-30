@@ -118,7 +118,6 @@ int test1_setup(struct __ctx_buff *ctx)
 		struct lb4_key key;
 		struct lb4_service value;
 	} services[] = {
-		SVC_KEY_VALUE(0, 100 /* affinity timeout */, LB_LOOKUP_SCOPE_INT),
 		SVC_KEY_VALUE(0, 100 /* affinity timeout */, LB_LOOKUP_SCOPE_EXT),
 
 		SVC_KEY_VALUE(1, BACKEND_ID1, LB_LOOKUP_SCOPE_EXT),
