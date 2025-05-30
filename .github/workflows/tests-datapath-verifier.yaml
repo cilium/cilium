@@ -87,7 +87,7 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'rhel8.6-20250521.025913'
+          - kernel: 'rhel8.9-20250527.055456'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '5.10-20250521.025913'
