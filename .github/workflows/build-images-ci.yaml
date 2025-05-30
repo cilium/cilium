@@ -84,6 +84,18 @@ jobs:
           mkdir -p ../cilium-base-branch
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
+      - name: Check for disk usage and cleanup /mnt
+        shell: bash
+        run: |
+          echo "# Disk usage"
+          df -h
+          echo "# Usage for /mnt"
+          sudo du --human-readable \
+                --threshold 50m \
+                -- /mnt
+          echo "# Removing /mnt/tmp-pv.img"
+          sudo rm -f '/mnt/tmp-pv.img'
+
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
         shell: bash
