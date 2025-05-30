@@ -116,12 +116,14 @@ func (l *LimitsGetter) updateFromEC2API(ctx context.Context, api ec2API) error {
 		ipv4PerAdapter := aws.ToInt32(instanceTypeInfo.NetworkInfo.Ipv4AddressesPerInterface)
 		ipv6PerAdapter := aws.ToInt32(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
 		hypervisorType := instanceTypeInfo.Hypervisor
+		isBareMetal := aws.ToBool(instanceTypeInfo.BareMetal)
 
 		l.m[instanceType] = ipamTypes.Limits{
 			Adapters:       int(adapterLimit),
 			IPv4:           int(ipv4PerAdapter),
 			IPv6:           int(ipv6PerAdapter),
 			HypervisorType: string(hypervisorType),
+			IsBareMetal:    isBareMetal,
 		}
 	}
 	l.lastUpdate = time.Now()
