@@ -141,7 +141,7 @@ func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *slog.Logger) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
 
 	n.mutex.Lock()
@@ -153,9 +153,68 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	// addresses available for release
 	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
 		e := n.enis[eniId]
+		ipPrefixes := e.Prefixes
+		if len(ipPrefixes) > 0 {
+			usedIPs := n.k8sObj.Status.IPAM.Used
+			if excessIPPrefixes > 0 {
+				unusedIPPrefixes := []string{}
+				matchedIPs := []string{}
+				secondaryIPs := []string{}
+				// Identify unused secondary IP addresses to release
+				for _, ipStr := range e.Addresses {
+					matched := false
+					ip := netip.MustParseAddr(ipStr)
+					for _, prefix := range ipPrefixes {
+						prefixAddr, err := netip.ParsePrefix(prefix)
+						if err != nil {
+							continue
+						}
+						if prefixAddr.Contains(ip) {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						secondaryIPs = append(secondaryIPs, ipStr)
+					}
+				}
 
-		// IP release for prefixes is not currently supported. Will skip releasing from this ENI
-		if len(e.Prefixes) > 0 {
+				// Identify unused IP prefixes to release
+				for _, prefix := range ipPrefixes {
+					if len(unusedIPPrefixes) >= excessIPPrefixes {
+						break
+					}
+					prefixAddr, err := netip.ParsePrefix(prefix)
+					if err != nil {
+						continue
+					}
+
+					found := false
+					for ip := range usedIPs {
+						if prefixAddr.Contains(netip.MustParseAddr(ip)) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						unusedIPPrefixes = append(unusedIPPrefixes, prefix)
+						for _, ipStr := range e.Addresses {
+							ip := netip.MustParseAddr(ipStr)
+							if prefixAddr.Contains(ip) {
+								matchedIPs = append(matchedIPs, ipStr)
+							}
+						}
+					}
+				}
+				if len(unusedIPPrefixes) > 0 {
+					r.InterfaceID = eniId
+					r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
+					r.IPsToRelease = append(matchedIPs, secondaryIPs...)
+					r.IPPrefixesToRelease = unusedIPPrefixes
+					r.StandalonePrivateIPs = secondaryIPs
+					return r
+				}
+			}
 			continue
 		}
 		scopedLog.Debug(
@@ -205,6 +264,35 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	}
 
 	return r
+}
+
+// CalculateExcessIPPrefixes calculates number of unused IPPrefixes to unassign
+func (n *Node) CalculateExcessIPPrefixes() int {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	ipsPerPrefix := option.ENIPDBlockSizeIPv4
+	excessIPPrefixes := 0
+	if !n.IsPrefixDelegated() {
+		return 0
+	}
+	usedIPsCount := len(n.k8sObj.Status.IPAM.Used)
+	requiredIPPrefixes := (usedIPsCount + n.k8sObj.Spec.IPAM.PreAllocate + ipsPerPrefix - 1) / ipsPerPrefix
+	for _, e := range n.enis {
+		if len(e.Prefixes) > 0 {
+			excessIPPrefixes += len(e.Prefixes) - requiredIPPrefixes
+		}
+	}
+	return excessIPPrefixes
+}
+
+// ReleaseIPPrefixes performs the ENI IPPrefixes release operation
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	if err := n.manager.api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // ReleaseIPs performs the ENI IP release operation
