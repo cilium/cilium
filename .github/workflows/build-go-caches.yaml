@@ -33,10 +33,6 @@ jobs:
           - name: cilium
             make-target: build-container
 
-          - name: cilium-cli
-            make-target: -C cilium-cli
-            require-dir: cilium-cli
-
           - name: operator-aws
             make-target: build-container-operator-aws
 
