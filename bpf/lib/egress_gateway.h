@@ -264,7 +264,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 	fake_info.flag_has_tunnel_ep = true;
 	return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						src_sec_identity, dst_sec_identity,
-						NOT_VTEP_DST, trace);
+						NOT_VTEP_DST, trace, bpf_htons(ETH_P_IP));
 }
 
 #ifdef ENABLE_IPV6
@@ -487,7 +487,8 @@ int egress_gw_handle_packet_v6(struct __ctx_buff *ctx,
 	fake_info.tunnel_endpoint.ip4 = gateway_ip;
 	fake_info.flag_has_tunnel_ep = true;
 	return __encap_and_redirect_with_nodeid(ctx, &fake_info, src_sec_identity,
-						dst_sec_identity, NOT_VTEP_DST, trace);
+						dst_sec_identity, NOT_VTEP_DST, trace,
+						bpf_htons(ETH_P_IPV6));
 }
 #endif /* ENABLE_IPV6 */
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
