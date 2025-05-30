@@ -15,7 +15,7 @@ import (
 
 var Cell = cell.Module("metrics", "Metrics",
 	// Provide registry to hive, but also invoke if case no cells decide to use as dependency
-	cell.Provide(NewRegistry),
+	cell.Provide(NewAgentRegistry),
 	Metric(NewLegacyMetrics),
 	cell.Config(defaultRegistryConfig),
 	cell.Invoke(func(_ *Registry) {
@@ -28,6 +28,12 @@ var Cell = cell.Module("metrics", "Metrics",
 		metricsCommands,
 		newSampler,
 	),
+)
+
+var OperatorCell = cell.Module("operator-metrics", "Operator Metrics",
+	cell.Config(defaultSamplerConfig),
+	cell.Provide(NewRegistry),
+	cell.Provide(metricsCommands, newSampler),
 )
 
 // Metric constructs a new metric cell.
