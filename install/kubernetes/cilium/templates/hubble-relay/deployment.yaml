@@ -74,6 +74,8 @@ spec:
             - --debug
           {{- end }}
           ports:
+            - name: health
+              containerPort: 4222
             - name: grpc
               containerPort: {{ include "hubble-relay.config.listenPort" . }}
             {{- if .Values.hubble.relay.prometheus.enabled }}
@@ -83,14 +85,14 @@ spec:
             {{- end }}
           readinessProbe:
             grpc:
-              port: 4222
+              port: health
             timeoutSeconds: 3
           # livenessProbe will kill the pod, we should be very conservative
           # here on failures since killing the pod should be a last resort, and
           # we should provide enough time for relay to retry before killing it.
           livenessProbe:
             grpc:
-              port: 4222
+              port: health
             timeoutSeconds: 10
             # Give relay time to establish connections and make a few retries
             # before starting livenessProbes.
@@ -105,7 +107,7 @@ spec:
             failureThreshold: 12
           startupProbe:
             grpc:
-              port: 4222
+              port: health
             # Give relay time to get it's certs and establish connections and
             # make a few retries before starting startupProbes.
             initialDelaySeconds: 10
