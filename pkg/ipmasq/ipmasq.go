@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -99,23 +100,11 @@ type IPMasqAgent struct {
 	handlerFinished        chan struct{}
 }
 
-func NewIPMasqAgent(logger *slog.Logger, reg *metrics.Registry, configPath string) (*IPMasqAgent, error) {
+func NewIPMasqAgent(logger *slog.Logger, reg *metrics.Registry, configPath string) *IPMasqAgent {
 	return newIPMasqAgent(logger, configPath, &ipmasq.IPMasqBPFMap{MetricsRegistry: reg})
 }
 
-func newIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create fsnotify watcher: %w", err)
-	}
-
-	configDir := filepath.Dir(configPath)
-	// The directory of the config should exist at this time, otherwise
-	// the watcher will fail to add
-	if err := watcher.Add(configDir); err != nil {
-		watcher.Close()
-		return nil, fmt.Errorf("Failed to add %q dir to fsnotify watcher: %w", configDir, err)
-	}
+func newIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap) *IPMasqAgent {
 
 	a := &IPMasqAgent{
 		logger:                 logger,
@@ -123,15 +112,27 @@ func newIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap)
 		nonMasqCIDRsFromConfig: map[string]netip.Prefix{},
 		nonMasqCIDRsInMap:      map[string]netip.Prefix{},
 		ipMasqMap:              ipMasqMap,
-		watcher:                watcher,
 	}
-
-	return a, nil
+	return a
 }
 
 // Start starts the ip-masq-agent goroutine which tracks the config file and
 // updates the BPF map accordingly.
-func (a *IPMasqAgent) Start() {
+func (a *IPMasqAgent) Start() error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("Failed to create fsnotify watcher: %w", err)
+	}
+	a.watcher = watcher
+
+	configDir := filepath.Dir(a.configPath)
+	// The directory of the config should exist at this time, otherwise
+	// the watcher will fail to add
+	if err := watcher.Add(configDir); err != nil {
+		watcher.Close()
+		return fmt.Errorf("Failed to add %q dir to fsnotify watcher: %w", configDir, err)
+	}
+
 	if err := a.restore(); err != nil {
 		a.logger.Warn("Failed to restore", logfields.Error, err)
 	}
@@ -169,6 +170,8 @@ func (a *IPMasqAgent) Start() {
 			}
 		}
 	}()
+
+	return nil
 }
 
 // Stop stops the ip-masq-agent goroutine and the watcher.
@@ -260,6 +263,31 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 	a.masqLinkLocalIPv6 = cfg.MasqLinkLocalIPv6
 
 	return false, nil
+}
+
+func (a *IPMasqAgent) NonMasqCIDRsFromConfig() []netip.Prefix {
+	// Try to fetch the CIDRs from memory first
+	if len(a.nonMasqCIDRsFromConfig) > 0 {
+		return slices.Collect(maps.Values(a.nonMasqCIDRsFromConfig))
+	}
+
+	// If it's empty, populate from config file
+	isEmpty, err := a.readConfig()
+	if err != nil || isEmpty {
+		// Fallback to defaults
+		defaultCIDRs := slices.Collect(maps.Values(defaultNonMasqCIDRs))
+		defaultCIDRs = append(defaultCIDRs, linkLocalCIDRIPv4, linkLocalCIDRIPv6)
+		return defaultCIDRs
+	}
+
+	if !a.masqLinkLocalIPv4 {
+		a.nonMasqCIDRsFromConfig[linkLocalCIDRIPv4Str] = linkLocalCIDRIPv4
+	}
+
+	if !a.masqLinkLocalIPv6 {
+		a.nonMasqCIDRsFromConfig[linkLocalCIDRIPv6Str] = linkLocalCIDRIPv6
+	}
+	return slices.Collect(maps.Values(a.nonMasqCIDRsFromConfig))
 }
 
 // restore dumps the ipmasq BPF map and populates IPMasqAgent.nonMasqCIDRsInMap
