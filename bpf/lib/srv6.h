@@ -420,9 +420,9 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 	if (ret < 0)
 		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_SRV6_ENCAP, 0);
+	send_trace_notify6(ctx, TRACE_TO_STACK, SECLABEL_IPV6, UNKNOWN_ID,
+			   TRACE_EP_ID_UNKNOWN,
+			   TRACE_IFINDEX_UNKNOWN, TRACE_REASON_SRV6_ENCAP, 0);
 
 	return ret;
 }
@@ -448,18 +448,18 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 	switch (nexthdr) {
 #ifdef ENABLE_IPV4
 	case IPPROTO_IPIP:
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV4, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-				  TRACE_REASON_SRV6_DECAP, 0);
+		send_trace_notify4(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV4, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				   TRACE_REASON_SRV6_DECAP, 0);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case IPPROTO_IPV6:
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV6, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-				  TRACE_REASON_SRV6_DECAP, 0);
+		send_trace_notify6(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV6, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				   TRACE_REASON_SRV6_DECAP, 0);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);

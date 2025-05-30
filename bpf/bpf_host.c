@@ -1106,8 +1106,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify6(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+				   ctx->ingress_ifindex, trace.reason, trace.monitor);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
@@ -1149,8 +1149,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 #endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify4(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+				   ctx->ingress_ifindex, trace.reason, trace.monitor);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
 							  CILIUM_CALL_IPV4_FROM_NETDEV,
@@ -1822,9 +1822,9 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 						  METRIC_INGRESS);
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify6(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN,
+				   CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1850,9 +1850,9 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 						  METRIC_INGRESS);
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify4(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN,
+				   CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 }

@@ -580,10 +580,10 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
-			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
-					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
+			send_trace_notify6(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
+					   UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+					   TRACE_IFINDEX_UNKNOWN, trace.reason,
+					   trace.monitor);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
@@ -629,10 +629,10 @@ ct_recreate6:
 #ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
+			send_trace_notify6(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
+					   *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
+					   TRACE_IFINDEX_UNKNOWN,
+					   trace.reason, trace.monitor);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
@@ -667,9 +667,9 @@ ct_recreate6:
 	 */
 	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
+		send_trace_notify6(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
+				   bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				   trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
@@ -744,9 +744,9 @@ ct_recreate6:
 
 		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
 		if (fib_ok(ret))
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor);
+			send_trace_notify6(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
+					   *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
+					   trace.reason, trace.monitor);
 		return ret;
 	}
 
@@ -757,9 +757,9 @@ to_host:
 #endif
 #ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
-		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify6(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
+				   TRACE_EP_ID_UNKNOWN,
+				   CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -783,9 +783,9 @@ pass_to_stack:
 #ifdef TUNNEL_MODE
 encrypt_to_stack:
 #endif
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+	send_trace_notify6(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
+			   TRACE_EP_ID_UNKNOWN,
+			   TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
@@ -1015,10 +1015,10 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
-			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
-					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
+			send_trace_notify4(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
+					   UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+					   TRACE_IFINDEX_UNKNOWN, trace.reason,
+					   trace.monitor);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
@@ -1090,10 +1090,10 @@ ct_recreate4:
 		 * so make sure that we only send TCP/UDP/SCTP down this way.
 		 */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
+			send_trace_notify4(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
+					   *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
+					   TRACE_IFINDEX_UNKNOWN,
+					   trace.reason, trace.monitor);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
 		}
@@ -1131,9 +1131,9 @@ ct_recreate4:
 	 */
 	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
+		send_trace_notify4(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
+				   bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				   trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
 
@@ -1295,9 +1295,9 @@ skip_vtep:
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
 		if (fib_ok(ret))
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor);
+			send_trace_notify4(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
+					   *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
+					   trace.reason, trace.monitor);
 		return ret;
 	}
 
@@ -1308,9 +1308,9 @@ to_host:
 #endif
 #ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
-		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+		send_trace_notify4(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
+				   TRACE_EP_ID_UNKNOWN,
+				   CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -1334,9 +1334,9 @@ pass_to_stack:
 #if defined(TUNNEL_MODE)
 encrypt_to_stack:
 #endif
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+	send_trace_notify4(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
+			   TRACE_EP_ID_UNKNOWN,
+			   TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1494,11 +1494,10 @@ int cil_from_container(struct __ctx_buff *ctx)
 	 */
 	ctx->queue_mapping = 0;
 
-	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-
 	if (!validate_ethertype(ctx, &proto)) {
+		send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
@@ -1507,27 +1506,42 @@ int cil_from_container(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		edt_set_aggregate(ctx, LXC_ID);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
+		send_trace_notify6(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				   TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		edt_set_aggregate(ctx, LXC_ID);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
+		send_trace_notify4(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				   TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		break;
 #ifdef ENABLE_ARP_PASSTHROUGH
 	case bpf_htons(ETH_P_ARP):
+		send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = CTX_ACT_OK;
 		break;
 #elif defined(ENABLE_ARP_RESPONDER)
 	case bpf_htons(ETH_P_ARP):
+		send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
 		break;
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 	default:
+		send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = DROP_UNKNOWN_L3;
 	}
 
@@ -1674,15 +1688,15 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		goto redirect_to_proxy;
 
 	/* Not redirected to host / proxy. */
-	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
-			   LXC_ID, ifindex, trace.reason, trace.monitor);
+	send_trace_notify_xlated6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
+				  LXC_ID, ifindex, trace.reason, trace.monitor);
 
 	return CTX_ACT_OK;
 
 redirect_to_proxy:
-	send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
-			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-			   trace.monitor);
+	send_trace_notify_xlated6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
+				  bpf_ntohs(*proxy_port), ifindex, trace.reason,
+				  trace.monitor);
 	if (tuple_out)
 		memcpy(tuple_out, tuple, sizeof(*tuple));
 	return POLICY_ACT_PROXY_REDIRECT;
@@ -2020,15 +2034,15 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		goto redirect_to_proxy;
 
 	/* Not redirected to host / proxy. */
-	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
-			   LXC_ID, ifindex, trace.reason, trace.monitor);
+	send_trace_notify_xlated4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
+				  LXC_ID, ifindex, trace.reason, trace.monitor);
 
 	return CTX_ACT_OK;
 
 redirect_to_proxy:
-	send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
-			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-			   trace.monitor);
+	send_trace_notify_xlated4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
+				  bpf_ntohs(*proxy_port), ifindex, trace.reason,
+				  trace.monitor);
 	if (tuple_out)
 		*tuple_out = *tuple;
 	return POLICY_ACT_PROXY_REDIRECT;
@@ -2295,24 +2309,30 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 	ctx_store_meta(ctx, CB_FROM_HOST, FROM_HOST_L7_LB);
 
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
-	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
+		send_trace_notify6(ctx, TRACE_FROM_PROXY, sec_label, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				   TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
+		send_trace_notify4(ctx, TRACE_FROM_PROXY, sec_label, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				   TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		break;
 #endif /* ENABLE_IPV4 */
 	default:
+		send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
@@ -2364,9 +2384,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
 		trace = TRACE_FROM_PROXY;
 
-	send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
-			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,
 	 * jump to bpf_host to enforce egress host policies before anything else.
@@ -2377,6 +2394,9 @@ int cil_to_container(struct __ctx_buff *ctx)
 	 * identity won't match HOST_ID anymore.
 	 */
 	if (identity == HOST_ID) {
+		send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
+				  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
 
@@ -2390,12 +2410,16 @@ int cil_to_container(struct __ctx_buff *ctx)
 	switch (proto) {
 #if defined(ENABLE_ARP_PASSTHROUGH) || defined(ENABLE_ARP_RESPONDER)
 	case bpf_htons(ETH_P_ARP):
+		send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
+				  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = CTX_ACT_OK;
 		break;
 #endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		sec_label = SECLABEL_IPV6;
+		send_trace_notify6(ctx, trace, identity, sec_label, LXC_ID,
+				   ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS, &ext_err);
 		break;
@@ -2403,11 +2427,15 @@ int cil_to_container(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		sec_label = SECLABEL_IPV4;
+		send_trace_notify4(ctx, trace, identity, sec_label, LXC_ID,
+				   ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS, &ext_err);
 		break;
 #endif /* ENABLE_IPV4 */
 	default:
+		send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
+				  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}

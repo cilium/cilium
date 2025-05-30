@@ -153,9 +153,9 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify6(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN,
+				   ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
 	}
@@ -477,9 +477,9 @@ skip_vtep:
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify4(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN,
+				   ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
 	}
@@ -663,9 +663,14 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
 __section_entry
 int cil_from_overlay(struct __ctx_buff *ctx)
 {
+	enum trace_point obs_point = TRACE_FROM_OVERLAY;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	bool decrypted;
+	bool __maybe_unused decrypted;
 	__u16 proto;
 	int ret;
 
@@ -736,29 +741,23 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	}
 
 #ifdef ENABLE_IPSEC
-	if (is_esp(ctx, proto))
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
-	else
-#endif
-	{
-		enum trace_point obs_point = TRACE_FROM_OVERLAY;
-
+	if (is_esp(ctx, proto)) {
+		trace.reason = TRACE_REASON_ENCRYPTED;
+		trace.monitor = 0;
+	} else if (decrypted) {
 		/* Non-ESP packet marked with MARK_MAGIC_DECRYPT is a packet
 		 * re-inserted from the stack.
 		 */
-		if (decrypted)
-			obs_point = TRACE_FROM_STACK;
-
-		send_trace_notify(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+		obs_point = TRACE_FROM_STACK;
 	}
+#endif /* ENABLE_IPSEC */
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
+		send_trace_notify6(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				   trace.reason, trace.monitor);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY, &ext_err);
 #else
 		ret = DROP_UNKNOWN_L3;
@@ -767,6 +766,9 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
+		send_trace_notify4(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				   trace.reason, trace.monitor);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY, &ext_err);
 #else
 		ret = DROP_UNKNOWN_L3;
@@ -775,11 +777,17 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_VTEP
 	case bpf_htons(ETH_P_ARP):
+		send_trace_notify(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  trace.reason, trace.monitor);
 		ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
 		break;
 #endif
 
 	default:
+		send_trace_notify(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  trace.reason, trace.monitor);
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
 	}

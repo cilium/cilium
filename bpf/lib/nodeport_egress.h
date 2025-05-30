@@ -141,9 +141,9 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				   trace.reason, trace.monitor);
+		send_trace_notify_xlated6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					  &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					  trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -276,9 +276,9 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -454,9 +454,9 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				   trace.reason, trace.monitor);
+		send_trace_notify_xlated4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+					  saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+					  trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -597,9 +597,9 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+				   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   trace.reason, trace.monitor);
 
 	return ret;
 }

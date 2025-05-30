@@ -154,9 +154,9 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 
 	if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace->reason, trace->monitor);
+		send_trace_notify6(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
+				   bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				   trace->reason, trace->monitor);
 		return ctx_redirect_to_proxy_host_egress(ctx, proxy_port);
 	}
 
@@ -451,9 +451,9 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 
 	if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace->reason, trace->monitor);
+		send_trace_notify4(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
+				   bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				   trace->reason, trace->monitor);
 		return ctx_redirect_to_proxy_host_egress(ctx, proxy_port);
 	}
 

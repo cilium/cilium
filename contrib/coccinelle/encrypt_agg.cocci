@@ -21,12 +21,12 @@ position p;
 @@
 
 (
-  send_trace_notify@f(e1, e2, e3, e4, e5, e6,
+  \(send_trace_notify@f\|send_trace_notify4@f\|send_trace_notify6@f\)(e1, e2, e3, e4, e5, e6,
   TRACE_REASON_ENCRYPTED,
 - m@p);
 + 0);
 |
-  \(send_trace_notify4@f\|send_trace_notify6@f\)(e1, e2, e3, e4, e5, e6, e7,
+  \(send_trace_notify_xlated4@f\|send_trace_notify_xlated6@f\)(e1, e2, e3, e4, e5, e6, e7,
   TRACE_REASON_ENCRYPTED,
 - m@p);
 + 0);
