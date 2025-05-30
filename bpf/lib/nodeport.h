@@ -1310,7 +1310,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
+				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor,
+				  bpf_htons(ETH_P_IPV6));
 
 #  if defined(ENABLE_TPROXY)
 		return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
@@ -2623,7 +2624,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port),
-				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
+				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor,
+				  bpf_htons(ETH_P_IP));
 
 #  if defined(ENABLE_TPROXY)
 		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
