@@ -1,12 +1,12 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: client-egress-to-echo-deny
+  name: client-egress-to-echo-no-cluster-policy
 spec:
   endpointSelector:
     matchLabels:
       kind: client
-  egressDeny:
+  egress:
   - toPorts:
     - ports:
       - port: "8080"
@@ -15,5 +15,3 @@ spec:
     - matchLabels:
         io.kubernetes.pod.namespace: cilium-test
         kind: echo
-      matchExpressions:
-      - { key: io.cilium.k8s.policy.cluster, operator: Exists }

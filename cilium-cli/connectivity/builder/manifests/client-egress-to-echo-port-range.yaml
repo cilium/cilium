@@ -16,6 +16,8 @@ spec:
     - matchLabels:
         io.kubernetes.pod.namespace: cilium-test
         kind: echo
+      matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
   - toPorts:
     - ports:
       - port: "53"

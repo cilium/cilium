@@ -6,4 +6,5 @@ spec:
   endpointSelector: {}
   ingress:
   - fromEndpoints:
-    - {}
+    - matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
