@@ -298,6 +298,9 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
+			// Setup logging with the options directly from Viper. There's no dependency
+			// from this function with the rest of the DaemonConfig.
+			option.Config.SetupLogging(h.Viper(), binaryName)
 			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
 
 			initEnv(logger, h.Viper())
@@ -366,9 +369,6 @@ func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifec
 }
 
 func initEnv(logger *slog.Logger, vp *viper.Viper) {
-	// Setup logging with the options directly from Viper. There's no dependency
-	// from this function with the rest of the DaemonConfig.
-	option.Config.SetupLogging(vp, binaryName)
 	// Populate the global config with the options from Viper
 	option.Config.Populate(logger, vp)
 
