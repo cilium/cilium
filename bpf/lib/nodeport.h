@@ -105,7 +105,7 @@ static __always_inline int
 nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			  const struct remote_endpoint_info *info,
 			  __u32 src_sec_identity, enum trace_reason ct_reason,
-			  __u32 monitor, int *ifindex)
+			  __u32 monitor, int *ifindex, __be16 proto)
 {
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
@@ -126,10 +126,10 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	if (info->flag_ipv6_tunnel_ep)
 		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
 					    src_sec_identity, info->sec_identity,
-					    ct_reason, monitor, ifindex);
+					    ct_reason, monitor, ifindex, proto);
 	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
 				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-				    ct_reason, monitor, ifindex);
+				    ct_reason, monitor, ifindex, proto);
 }
 
 # if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
@@ -138,7 +138,7 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			      const struct remote_endpoint_info *info,
 			      __u32 src_sec_identity, void *opt, __u32 opt_len,
 			      enum trace_reason ct_reason, __u32 monitor,
-			      int *ifindex)
+			      int *ifindex, __be16 proto)
 {
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
@@ -160,10 +160,10 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 		return __encap_with_nodeid_opt6(ctx, &info->tunnel_endpoint.ip6,
 						src_sec_identity, info->sec_identity,
 						opt, opt_len, ct_reason, monitor,
-						ifindex);
+						ifindex, proto);
 	return __encap_with_nodeid_opt4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
 					src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-					opt, opt_len, ct_reason, monitor, ifindex);
+					opt, opt_len, ct_reason, monitor, ifindex, proto);
 }
 # endif
 #endif /* HAVE_ENCAP */
@@ -426,7 +426,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						     sizeof(gopt),
 						     (enum trace_reason)CT_NEW,
 						     TRACE_PAYLOAD_LEN,
-						     ifindex);
+						     ifindex,
+						     bpf_htons(ETH_P_IPV6));
 
 	return nodeport_add_tunnel_encap(ctx,
 					 IPV4_DIRECT_ROUTING,
@@ -435,7 +436,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 					 WORLD_IPV6_ID,
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
-					 ifindex);
+					 ifindex,
+					 bpf_htons(ETH_P_IPV6));
 }
 #endif /* DSR_ENCAP_MODE */
 
@@ -968,7 +970,7 @@ encap_redirect:
 
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 					info, src_sec_identity, trace->reason,
-					trace->monitor, &ifindex);
+					trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6));
 	if (IS_ERR(ret))
 		return ret;
 
@@ -1228,7 +1230,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 						WORLD_IPV6_ID,
 						trace.reason,
 						trace.monitor,
-						&oif);
+						&oif,
+						bpf_htons(ETH_P_IPV6));
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -1794,7 +1797,8 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 						     sizeof(gopt),
 						     (enum trace_reason)CT_NEW,
 						     TRACE_PAYLOAD_LEN,
-						     ifindex);
+						     ifindex,
+						     bpf_htons(ETH_P_IP));
 
 	return nodeport_add_tunnel_encap(ctx,
 					 IPV4_DIRECT_ROUTING,
@@ -1803,7 +1807,8 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 					 src_sec_identity,
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
-					 ifindex);
+					 ifindex,
+					 bpf_htons(ETH_P_IP));
 }
 #endif /* DSR_ENCAP_MODE */
 
@@ -2296,7 +2301,8 @@ redirect:
 		fake_info.sec_identity = dst_sec_identity;
 		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 						&fake_info, src_sec_identity,
-						trace->reason, trace->monitor, &ifindex);
+						trace->reason, trace->monitor, &ifindex,
+						bpf_htons(ETH_P_IP));
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2553,7 +2559,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 						src_sec_identity,
 						trace.reason,
 						trace.monitor,
-						&oif);
+						&oif,
+						bpf_htons(ETH_P_IP));
 		if (IS_ERR(ret))
 			goto drop_err;
 
