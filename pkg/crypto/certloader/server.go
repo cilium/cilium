@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"log/slog"
 	"slices"
 
@@ -130,13 +129,6 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 				)
 			}
 			return tlsConfig, nil
-		},
-		// Same issue as https://github.com/golang/go/issues/29139 but for
-		// http.Server.ServeTLS.
-		// Can be removed after https://github.com/golang/go/pull/66795 is merged
-		// and included in a release.
-		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return nil, fmt.Errorf("all certificates configured via GetConfigForClient")
 		},
 		// NOTE: this MinVersion is not used as this tls.Config will be
 		// overridden by the one returned by GetConfigForClient. The effective
