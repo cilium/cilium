@@ -12,6 +12,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -23,6 +24,8 @@ type GammaInput struct {
 	HTTPRoutes      []gatewayv1.HTTPRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
+	ServiceImports  []mcsapiv1alpha1.ServiceImport
+	GammaService    corev1.Service
 }
 
 // GammaHTTPRoutes takes a GammaInput and gives back the associated HTTP Listeners
@@ -44,6 +47,14 @@ func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 	// ReferenceGrants are only relevant for backends, I think, because parents
 	//  _can_ be across namespace boundaries, but that makes them a consumer
 	// route, not a producer one.
+
+	// new search algorithm:
+	// Loop through all HTTPRoutes in input, validate that each has at least one
+	//   parentRef that's the GammaService this GammaInput is for.
+	// Create a new HTTPListener for that GammaService (for each port?)
+	// Add rules from each HTTPRoute to the relevant HTTPListener, with the oldest
+	//   HTTPRoute winning on conflict.
+	// ReferenceGrants are only relevant for backends in this case.
 
 	// Set of services that will be parents for these HTTPRoutes
 	parentServices := make(map[types.NamespacedName]model.FullyQualifiedResource)

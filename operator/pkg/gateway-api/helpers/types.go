@@ -40,6 +40,16 @@ func IsGammaService(parent gatewayv1.ParentReference) bool {
 		parent.Group != nil && *parent.Group == corev1.GroupName
 }
 
+func IsGammaServiceEqual(parent gatewayv1.ParentReference, gammaService *corev1.Service, objNamespace string) bool {
+	gammaServiceGroup := gammaService.GroupVersionKind().Group
+	parentNamespace := NamespaceDerefOr(parent.Namespace, objNamespace)
+
+	return parent.Kind != nil && *parent.Kind == (gatewayv1.Kind)(gammaService.Kind) &&
+		parent.Group != nil && *parent.Group == (gatewayv1.Group)(gammaServiceGroup) &&
+		parent.Name == gatewayv1.ObjectName(gammaService.Name) &&
+		parentNamespace == gammaService.Namespace
+}
+
 func IsService(be gatewayv1.BackendObjectReference) bool {
 	return (be.Kind == nil || *be.Kind == kindService) && (be.Group == nil || *be.Group == corev1.GroupName)
 }

@@ -21,8 +21,6 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
-	"github.com/cilium/cilium/operator/pkg/model"
-	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -136,32 +134,6 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.updateStatus(ctx, original, hr); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
-	}
-
-	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
-		HTTPRoutes:      []gatewayv1.HTTPRoute{*hr},
-		Services:        servicesList.Items,
-		ReferenceGrants: grants.Items,
-	})
-
-	cec, svc, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
-	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
-	}
-
-	scopedLog.DebugContext(ctx, "GAMMA translation result",
-		logfields.Service, svc,
-		logfields.Endpoint, cep)
-
-	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
-	}
-
-	if err = r.ensureEndpoints(ctx, cep); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
 	scopedLog.Info("Successfully reconciled HTTPRoute")
