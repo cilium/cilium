@@ -583,7 +583,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
 					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
+					  trace.monitor, bpf_htons(ETH_P_IPV6));
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
@@ -632,7 +632,8 @@ ct_recreate6:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor,
+					  bpf_htons(ETH_P_IPV6));
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
@@ -669,7 +670,7 @@ ct_recreate6:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
@@ -747,7 +748,7 @@ ct_recreate6:
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ret;
 	}
 
@@ -759,8 +760,8 @@ to_host:
 #ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -785,8 +786,8 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
@@ -1019,7 +1020,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
 					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
+					  trace.monitor, bpf_htons(ETH_P_IP));
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
@@ -1094,7 +1095,8 @@ ct_recreate4:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor,
+					  bpf_htons(ETH_P_IP));
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
 		}
@@ -1134,7 +1136,7 @@ ct_recreate4:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
 
@@ -1300,7 +1302,7 @@ skip_vtep:
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ret;
 	}
 
@@ -1312,8 +1314,8 @@ to_host:
 #ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -1338,8 +1340,8 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1484,6 +1486,7 @@ int cil_from_container(struct __ctx_buff *ctx)
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
 	int ret;
+	bool valid_ethertype = validate_ethertype(ctx, &proto);
 
 	bpf_clear_meta(ctx);
 
@@ -1499,9 +1502,9 @@ int cil_from_container(struct __ctx_buff *ctx)
 
 	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
-	if (!validate_ethertype(ctx, &proto)) {
+	if (!valid_ethertype) {
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
@@ -2300,7 +2303,7 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -2368,7 +2371,8 @@ int cil_to_container(struct __ctx_buff *ctx)
 		trace = TRACE_FROM_PROXY;
 
 	send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
-			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN,
+			  TRACE_PAYLOAD_LEN, proto);
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,

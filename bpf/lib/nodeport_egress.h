@@ -278,7 +278,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	return ret;
 }
@@ -599,7 +599,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
 	return ret;
 }
