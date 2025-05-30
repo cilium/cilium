@@ -7,12 +7,43 @@ import (
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-func CreateManagerEndpoint(name string, identity int64) capi_v2a1.CoreCiliumEndpoint {
+var (
+	TestLbsA = map[string]string{
+		"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "ns",
+		"k8s:io.cilium.k8s.policy.cluster":                               "",
+		"k8s:io.kubernetes.pod.namespace":                                "ns",
+		"key-a":                                                          "val-1"}
+	TestLbsB = map[string]string{
+		"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "ns",
+		"k8s:io.cilium.k8s.policy.cluster":                               "",
+		"k8s:io.kubernetes.pod.namespace":                                "ns",
+		"key-b":                                                          "val-2"}
+	TestLbsC = map[string]string{
+		"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "ns",
+		"k8s:io.cilium.k8s.policy.cluster":                               "",
+		"k8s:io.kubernetes.pod.namespace":                                "ns",
+		"key-c":                                                          "val-3"}
+)
+
+var (
+	// Map of node names to their IP addresses that can be used in tests.
+	NodeIPs = map[string]string{
+		"node1": "10.0.0.0",
+		"node2": "10.0.0.1",
+		"node3": "10.0.0.2",
+	}
+)
+
+func CreateManagerEndpoint(name string, identity int64, node string) capi_v2a1.CoreCiliumEndpoint {
 	return capi_v2a1.CoreCiliumEndpoint{
 		Name:       name,
 		IdentityID: identity,
+		Networking: &v2.EndpointNetworking{
+			NodeIP: NodeIPs[node],
+		},
 	}
 }
 
@@ -27,6 +58,25 @@ func CreateStoreEndpoint(name string, namespace string, identity int64) *v2.Cili
 				ID: identity,
 			},
 			Networking: &v2.EndpointNetworking{},
+		},
+	}
+}
+
+func CreateStoreNode(name string) *v2.CiliumNode {
+	return &v2.CiliumNode{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: name,
+		},
+		Spec: v2.NodeSpec{
+			Addresses: []v2.NodeAddress{
+				{
+					Type: addressing.AddressType("InternalIP"),
+					IP:   NodeIPs[name],
+				},
+			},
+			Encryption: v2.EncryptionSpec{
+				Key: 0,
+			},
 		},
 	}
 }

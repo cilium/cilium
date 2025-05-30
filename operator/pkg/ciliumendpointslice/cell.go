@@ -108,4 +108,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature and the CES Controller.
 	EnableCiliumEndpointSlice bool
+	// EnableWireguard enables Wireguard encryption
+	EnableWireguard bool
+	// EnableIPSec is true when IPSec is enabled
+	EnableIPSec bool
 }
