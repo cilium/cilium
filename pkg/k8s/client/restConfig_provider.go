@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -351,7 +350,7 @@ func (r *restConfigManager) k8sAPIServerFileWatcher(ctx context.Context, watcher
 			watcher.Close()
 			return nil
 		case event := <-watcher.Events:
-			if !event.Op.Has(fsnotify.Write) {
+			if !event.Op.Has(fswatcher.Write) {
 				continue
 			}
 			r.log.Info("Processing write event",
