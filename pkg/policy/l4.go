@@ -251,7 +251,7 @@ func (sp *PerSelectorPolicy) HasL7Rules() bool {
 	return sp != nil && !sp.L7Rules.IsEmpty()
 }
 
-func (a *PerSelectorPolicy) getDeny() bool {
+func (a *PerSelectorPolicy) GetDeny() bool {
 	return a != nil && a.IsDeny
 }
 
@@ -748,7 +748,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			l4.RuleOrigin[cs],
 			proxyPort,
 			currentRule.GetPriority(),
-			currentRule.getDeny(),
+			currentRule.GetDeny(),
 			currentRule.getAuthRequirement(),
 		)
 	}
@@ -1288,7 +1288,7 @@ func (l4 *L4Filter) String() string {
 func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 	if l4.wildcard != nil {
 		perSelectorPolicy := l4.PerSelectorPolicies[l4.wildcard]
-		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
+		isDeny := perSelectorPolicy.GetDeny()
 		return true, isDeny
 	} else if len(labels) == 0 {
 		return false, false
@@ -1299,10 +1299,9 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 		// slow, but OK for tracing
 		idSel := sel.(*identitySelector)
 		if lis, ok := idSel.source.(*labelIdentitySelector); ok && lis.xxxMatches(labels) {
-			isDeny := rule != nil && rule.IsDeny
 			selected = true
-			if isDeny {
-				return true, isDeny
+			if rule.GetDeny() {
+				return true, true
 			}
 		}
 	}
@@ -1753,7 +1752,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	listener := perSelectorPolicy.GetListener()
 	priority := perSelectorPolicy.GetPriority()
 	authReq := perSelectorPolicy.getAuthRequirement()
-	isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
+	isDeny := perSelectorPolicy.GetDeny()
 
 	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
 	// takes the Endpoint lock below.
