@@ -5,8 +5,10 @@ package ipmasq
 
 import (
 	"fmt"
+	"maps"
 	"net/netip"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -559,4 +561,23 @@ func TestParseCIDR(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestNonMasqCIDRsFromConfig(t *testing.T) {
+	var err error
+
+	i := setUpTest(t)
+	err = i.ipMasqAgent.Start()
+	require.NoError(t, err)
+
+	// When the config is empty, the default non-masquerade CIDRs should be returned
+	defaultCidrs := slices.Collect(maps.Values(defaultNonMasqCIDRs))
+	defaultCidrs = append(defaultCidrs, linkLocalCIDRIPv4, linkLocalCIDRIPv6)
+	require.ElementsMatch(t, defaultCidrs, i.ipMasqAgent.NonMasqCIDRsFromConfig())
+
+	// When the config is populated, the configured CIDRs should be returned
+	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 3.3.0.0/16\nmasqLinkLocal: true\nmasqLinkLocalIPv6: true")
+	err = i.ipMasqAgent.Update()
+	require.NoError(t, err)
+	require.ElementsMatch(t, []netip.Prefix{netip.MustParsePrefix("3.3.0.0/16")}, i.ipMasqAgent.NonMasqCIDRsFromConfig())
 }
