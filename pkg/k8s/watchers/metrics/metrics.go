@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package metrics
 
 import (
 	"context"
@@ -41,8 +41,18 @@ func init() {
 	k8s_metrics.RateLimiterLatency = registerOps.RateLimiterLatency
 	k8s_metrics.RequestResult = registerOps.RequestResult
 
-	workqueue.SetProvider(workqueueMetricsProvider{})
+	// Note: Workqueues should have the metric provider set directly
+	// via the [TypedRateLimitingQueueConfig.MetricsProvider] field.
+	// The workqueue.SetProvider call is inherently prone to breaking
+	// (see: above commment), however we will still attempt to register
+	// it for the sake of posterity.
+	workqueue.SetProvider(MetricsProvider)
 }
+
+// MetricsProvider is the global metrics provider for k8s controller runtime
+// watcher work queues. This should be set directly in TypedRateLimitingQueueConfig
+// when configuring work queues.
+var MetricsProvider = workqueueMetricsProvider{}
 
 type workqueueMetricsProvider struct{}
 

@@ -28,6 +28,7 @@ import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
@@ -93,7 +94,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 	)
 
 	var ciliumNodeManagerQueueConfig = workqueue.TypedRateLimitingQueueConfig[string]{
-		Name: "node_manager",
+		Name:            "node_manager",
+		MetricsProvider: metrics.MetricsProvider,
 	}
 	var kvStoreQueueConfig = workqueue.TypedRateLimitingQueueConfig[string]{
 		Name: "kvstore",

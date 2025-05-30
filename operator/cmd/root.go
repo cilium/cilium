@@ -531,20 +531,33 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger, workqueueMetricsProvider workqueue.MetricsProvider) {
+type params struct {
+	cell.In
+	Lifecycle                cell.Lifecycle
+	Clientset                k8sClient.Clientset
+	KVStoreClient            kvstore.Client
+	Resources                operatorK8s.Resources
+	SvcResolver              *dial.ServiceResolver
+	CfgClusterMeshPolicy     cmtypes.PolicyConfig
+	Metrics                  *UnmanagedPodsMetric
+	Logger                   *slog.Logger
+	WorkQueueMetricsProvider workqueue.MetricsProvider
+}
+
+func registerLegacyOnLeader(p params) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:                      ctx,
 		cancel:                   cancel,
-		clientset:                clientset,
-		kvstoreClient:            kvstoreClient,
-		resources:                resources,
-		cfgClusterMeshPolicy:     cfgClusterMeshPolicy,
-		metrics:                  metrics,
-		workqueueMetricsProvider: workqueueMetricsProvider,
-		logger:                   logger,
+		clientset:                p.Clientset,
+		kvstoreClient:            p.KVStoreClient,
+		resources:                p.Resources,
+		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
+		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
+		metrics:                  p.Metrics,
+		logger:                   p.Logger,
 	}
-	lc.Append(cell.Hook{
+	p.Lifecycle.Append(cell.Hook{
 		OnStart: legacy.onStart,
 		OnStop:  legacy.onStop,
 	})
