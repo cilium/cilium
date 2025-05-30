@@ -159,7 +159,27 @@ func (n *Node) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *
 			if excessIPPrefixes > 0 {
 				unusedIPPrefixes := []string{}
 				matchedIPs := []string{}
-				// Check each prefix to determine if at least one IP is used in IPAM.
+				secondaryIPs := []string{}
+				// Identify unused secondary IP addresses to release
+				for _, ipStr := range e.Addresses {
+					matched := false
+					ip := netip.MustParseAddr(ipStr)
+					for _, prefix := range ipPrefixes {
+						prefixAddr, err := netip.ParsePrefix(prefix)
+						if err != nil {
+							continue
+						}
+						if prefixAddr.Contains(ip) {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						secondaryIPs = append(secondaryIPs, ipStr)
+					}
+				}
+
+				// Identify unused IP prefixes to release
 				for _, prefix := range ipPrefixes {
 					if len(unusedIPPrefixes) >= excessIPPrefixes {
 						break
@@ -189,8 +209,9 @@ func (n *Node) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *
 				if len(unusedIPPrefixes) > 0 {
 					r.InterfaceID = eniId
 					r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-					r.IPsToRelease = matchedIPs
+					r.IPsToRelease = append(matchedIPs, secondaryIPs...)
 					r.IPPrefixesToRelease = unusedIPPrefixes
+					r.StandalonePrivateIPs = secondaryIPs
 					return r
 				}
 			}
@@ -254,11 +275,11 @@ func (n *Node) CalculateExcessIPPrefixes() int {
 	if !n.IsPrefixDelegated() {
 		return 0
 	}
+	usedIPsCount := len(n.k8sObj.Status.IPAM.Used)
+	requiredIPPrefixes := (usedIPsCount + n.k8sObj.Spec.IPAM.PreAllocate + ipsPerPrefix - 1) / ipsPerPrefix
 	for _, e := range n.enis {
-		ipPrefixesCount := len(e.Prefixes)
-		if ipPrefixesCount > 0 {
-			usedIPsCount := len(n.k8sObj.Status.IPAM.Used)
-			excessIPPrefixes += ipPrefixesCount - (usedIPsCount+n.k8sObj.Spec.IPAM.PreAllocate+ipsPerPrefix-1)/ipsPerPrefix
+		if len(e.Prefixes) > 0 {
+			excessIPPrefixes += len(e.Prefixes) - requiredIPPrefixes
 		}
 	}
 	return excessIPPrefixes

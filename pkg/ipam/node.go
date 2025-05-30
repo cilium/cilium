@@ -649,6 +649,9 @@ type ReleaseAction struct {
 
 	// IPPrefixes is the list of prefixes to release
 	IPPrefixesToRelease []string
+
+	// StandalonePrivateIPs is the list of Private IPs not associated with any ipPrefix
+	StandalonePrivateIPs []string
 }
 
 // maintenanceAction represents the resources available for allocation for a
@@ -883,22 +886,29 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			logfields.SelectedInterface, a.release.InterfaceID,
 			logfields.SelectedPoolID, a.release.PoolID)
 		start := time.Now()
-		// Unassign IPPrefixes instead of IPs
+		// Unassign unneeded IPPrefixes
 		if len(a.release.IPPrefixesToRelease) > 0 {
 			err := n.ops.ReleaseIPPrefixes(ctx, a.release)
-			if err == nil {
-				n.manager.metricsAPI.ReleaseAttempt(releaseIPPrefixes, success, string(a.release.PoolID), metrics.SinceInSeconds(start))
-				n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
+			if err != nil {
+				n.manager.metricsAPI.ReleaseAttempt(releaseIPPrefixes, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
+				scopedLog.Warn(
+					"Unable to unassign ipPrefixes from interface",
+					logfields.Error, err,
+					logfields.SelectedInterface, a.release.InterfaceID,
+					logfields.ReleasingAddresses, a.release.IPPrefixesToRelease,
+				)
+				return false, err
+			}
+			n.manager.metricsAPI.ReleaseAttempt(releaseIPPrefixes, success, string(a.release.PoolID), metrics.SinceInSeconds(start))
+			n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
+
+			if len(a.release.StandalonePrivateIPs) <= 0 {
+				// No more IPs to release
 				return true, nil
 			}
-			n.manager.metricsAPI.ReleaseAttempt(releaseIPPrefixes, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
-			scopedLog.Warn(
-				"Unable to unassign ipPrefixes from interface",
-				logfields.Error, err,
-				logfields.SelectedInterface, a.release.InterfaceID,
-				logfields.ReleasingAddresses, a.release.IPPrefixesToRelease,
-			)
-			return false, err
+			// Update IPsToRelease with StandalonePrivateIPs if there are secondary IPs to release.
+			a.release.IPsToRelease = a.release.StandalonePrivateIPs
+
 		}
 
 		err := n.ops.ReleaseIPs(ctx, a.release)
