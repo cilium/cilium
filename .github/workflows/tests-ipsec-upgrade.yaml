@@ -374,7 +374,6 @@ jobs:
         shell: bash
         run: |
           cilium upgrade --reset-values=true \
-            --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }} \
             --set extraConfig.boot-id-file=/var/run/cilium/boot_id
@@ -430,6 +429,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
+          # disableEnvoyVersionCheck can be removed after v1.18 is released
           cilium upgrade --reset-values=true \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
