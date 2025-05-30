@@ -4,6 +4,12 @@ Key-Value Store
 Cilium uses an external key-value store to exchange information across multiple
 Cilium instances:
 
+.. note::
+
+    Cilium does not support removing and recreating a kvstore that is currently in use.
+    Depending on the active configuration (e.g., IPSec transparent encryption enabled), this
+    may lead to a permanent connectivity disruption. 
+
 Layout
 ======
 

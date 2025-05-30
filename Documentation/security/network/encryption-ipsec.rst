@@ -328,6 +328,21 @@ errors.
    from the anti-reply oseq on the destination node. This can be fixed by
    properly performing a new key rotation.
 
+  * KVStore Mode (e.g., etcd): XFRM state inconsistencies can occur if the KVStore
+    is deleted and subsequently recreated — a scenario that is explicitly unsupported
+    by Cilium. When a Cilium agent connects too late to the newly created KVStore,
+    it may miss the node delete and create events for entries that were restored or
+    reinitialized. This can result in the agent preserving stale XFRM state, causing
+    permanent network disruption. Perform a proper key rotation to mitigate this and
+    ensure consistent and valid XFRM states across all nodes.
+
+  * CRD Mode: a similar issue may occur when a CiliumNode resource is deleted and the
+    Cilium agent DaemonSet is restarted. While other agents will recreate fresh XFRM
+    states for the new CiliumNode, the restarted agent may continue to hold obsolete
+    XFRM states referencing all peer nodes, resulting in network breakage due to
+    inconsistent state. As with KVStore mode, key rotation is the recommended mitigation
+    strategy to restore connectivity.
+   
  * ``XfrmFwdHdrError`` and ``XfrmInError`` happen when the kernel fails to
    lookup the route for a packet it decrypted. This can legitimately happen
    when a pod was deleted but some packets are still in transit. Note these
