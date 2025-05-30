@@ -440,6 +440,12 @@ func newConnDisruptCNP(ns string) *ciliumv2.CiliumNetworkPolicy {
 	selector := policyapi.EndpointSelector{
 		LabelSelector: &slimmetav1.LabelSelector{
 			MatchLabels: map[string]string{"kind": KindTestConnDisrupt},
+			MatchExpressions: []slimmetav1.LabelSelectorRequirement{
+				{
+					Key:      "io.cilium.k8s.policy.cluster",
+					Operator: slimmetav1.LabelSelectorOpExists,
+				},
+			},
 		},
 	}
 

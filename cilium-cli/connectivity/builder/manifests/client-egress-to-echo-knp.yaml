@@ -11,6 +11,8 @@ spec:
         - podSelector:
             matchLabels:
               kind: echo
+            matchExpressions:
+              - { key: io.cilium.k8s.policy.cluster, operator: Exists }
       ports:
         - port: 8080
           protocol: TCP

@@ -14,3 +14,4 @@ spec:
     toEndpoints:
     - matchExpressions:
       - { key: 'kind', operator: In, values: [ "echo" ] }
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
