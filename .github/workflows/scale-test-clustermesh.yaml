@@ -367,33 +367,12 @@ jobs:
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-output.txt
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
-
-      - name: Get sysdump
-        if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        run: |
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
-          sudo chmod +r cilium-sysdump-final.zip
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested
-          path: ${{ env.job_name }}*.json
-
-      - name: Upload sysdump
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdump
-          path: cilium-sysdump-final.zip
-          retention-days: 1
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
