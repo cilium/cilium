@@ -12,14 +12,12 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/health/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -185,10 +183,6 @@ func fixture(t *testing.T, cellAllSettings map[string]any) (*hive.Hive, *statedb
 			dynamicconfig.NewConfigTable,
 			func(table statedb.RWTable[dynamicconfig.DynamicConfig]) statedb.Table[dynamicconfig.DynamicConfig] {
 				return table
-			},
-			func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
-				h := p.ForModule(cell.FullModuleID{"test"})
-				return jr.NewGroup(h, lc)
 			},
 			func() config {
 				return config{

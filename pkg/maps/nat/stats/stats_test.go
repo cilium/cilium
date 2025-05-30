@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -104,9 +103,6 @@ func Test_countNat(t *testing.T) {
 	ms := make(fakeMetrics)
 	h := hive.New(
 		cell.Provide(newTables),
-		cell.Provide(func(jg job.Registry, lc cell.Lifecycle) job.Group {
-			return jg.NewGroup(nil, lc)
-		}),
 		cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 		cell.Provide(func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6], Config, natMetrics) {
 			r4, p4 := promise.New[nat.NatMap4]()
