@@ -89,21 +89,13 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	struct ipv6hdr *l3;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)node_mac);
-
-	/* Push IPv6 header and DSR extension */
-	l3 = pktgen__push_default_ipv6hdr(&builder);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)client_mac, (__u8 *)node_mac,
+				      (__u8 *)&client_ip, (__u8 *)&backend_ip);
 	if (!l3)
 		return TEST_ERROR;
 
