@@ -24,6 +24,7 @@ import (
 
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -414,7 +415,10 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		options:   options,
 		debugInfo: debugInfo,
 		wq: workqueue.NewTypedRateLimitingQueueWithConfig[WorkItem](options.rateLimiter,
-			workqueue.TypedRateLimitingQueueConfig[WorkItem]{Name: r.resourceName()}),
+			workqueue.TypedRateLimitingQueueConfig[WorkItem]{
+				Name:            r.resourceName(),
+				MetricsProvider: watcherMetrics.MetricsProvider,
+			}),
 	}
 
 	// Fork a goroutine to process the queued keys and pass them to the subscriber.
