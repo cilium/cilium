@@ -7,6 +7,8 @@ import (
 	"net/netip"
 	"sync"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -59,7 +61,7 @@ func IPMasq4Map(registry *metrics.Registry) *bpf.Map {
 			&Key4{},
 			&Value{},
 			MaxEntriesIPv4,
-			bpf.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4))
 	})
@@ -74,7 +76,7 @@ func IPMasq6Map(registry *metrics.Registry) *bpf.Map {
 			&Key6{},
 			&Value{},
 			MaxEntriesIPv6,
-			bpf.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6))
 	})

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -154,7 +156,7 @@ func initSourceRange(registry *metrics.Registry, params InitParams) {
 			&SourceRangeKey4{},
 			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
-			bpf.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange4MapName))
 	}
@@ -166,7 +168,7 @@ func initSourceRange(registry *metrics.Registry, params InitParams) {
 			&SourceRangeKey6{},
 			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
-			bpf.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))
 	}

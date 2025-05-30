@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/option"
@@ -66,7 +67,7 @@ func setup(tb testing.TB) *Map {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	).WithCache()
 
 	err = testMap.OpenOrCreate()
@@ -129,7 +130,7 @@ func TestOpen(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	defer func() {
 		err = existingMap.Close()
 		require.NoError(t, err)
@@ -163,11 +164,11 @@ func TestOpenOrCreate(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := existingMap.OpenOrCreate()
 	require.NoError(t, err)
 
-	// preallocMap unsets BPF_F_NO_PREALLOC. OpenOrCreate should recreate map.
+	// preallocMap unsets unix.BPF_F_NO_PREALLOC. OpenOrCreate should recreate map.
 	EnableMapPreAllocation() // prealloc on/off is controllable in HASH map case.
 	preallocMap := NewMap("cilium_test",
 		ebpf.Hash,
@@ -193,7 +194,7 @@ func TestRecreateMap(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := parallelMap.Recreate()
 	defer parallelMap.Close()
 	require.NoError(t, err)
@@ -237,7 +238,7 @@ func TestBasicManipulation(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).
+		unix.BPF_F_NO_PREALLOC).
 		WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
@@ -429,7 +430,7 @@ func TestSubscribe(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).
+		unix.BPF_F_NO_PREALLOC).
 		WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
@@ -603,7 +604,7 @@ func TestDumpReliablyWithCallbackOverlapping(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		int(maxEntries),
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := m.OpenOrCreate()
 	require.NoError(t, err)
 	defer func() {
@@ -691,7 +692,7 @@ func TestDumpReliablyWithCallback(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		int(maxEntries),
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := m.OpenOrCreate()
 	require.NoError(t, err)
 	defer func() {
@@ -822,7 +823,7 @@ func TestCheckAndUpgrade(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := upgradeMap.OpenOrCreate()
 	require.NoError(t, err)
 	defer func() {
@@ -834,7 +835,7 @@ func TestCheckAndUpgrade(t *testing.T) {
 	upgrade := upgradeMap.CheckAndUpgrade(upgradeMap)
 	require.False(t, upgrade)
 
-	// preallocMap unsets BPF_F_NO_PREALLOC so upgrade is needed.
+	// preallocMap unsets unix.BPF_F_NO_PREALLOC so upgrade is needed.
 	EnableMapPreAllocation()
 	preallocMap := NewMap("cilium_test_upgrade",
 		ebpf.Hash,
@@ -856,7 +857,7 @@ func TestUnpin(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := unpinMap.OpenOrCreate()
 	require.NoError(t, err)
 	exist, err = unpinMap.exist()
@@ -894,7 +895,7 @@ func TestCreateUnpinned(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC).WithCache()
+		unix.BPF_F_NO_PREALLOC).WithCache()
 	err := m.CreateUnpinned()
 	require.NoError(t, err)
 	exist, err := m.exist()
@@ -919,7 +920,7 @@ func BenchmarkMapLookup(b *testing.B) {
 		&TestKey{},
 		&TestValue{},
 		1,
-		BPF_F_NO_PREALLOC)
+		unix.BPF_F_NO_PREALLOC)
 
 	if err := m.CreateUnpinned(); err != nil {
 		b.Fatal(err)
@@ -975,7 +976,7 @@ func TestErrorResolver(t *testing.T) {
 				&TestKey{},
 				&TestValue{},
 				1, // Only one entry, so that the second insertion will fail
-				BPF_F_NO_PREALLOC,
+				unix.BPF_F_NO_PREALLOC,
 			).WithCache()
 
 			t.Cleanup(func() {
