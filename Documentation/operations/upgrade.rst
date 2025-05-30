@@ -383,6 +383,8 @@ Helm Options
 * The Helm option ``l2PodAnnouncements.interface`` has been deprecated in favor of ``l2PodAnnouncements.interfacePattern``
   and will be removed in Cilium 1.19.
 * The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
+* The Helm option ``clustermesh.apiserver.kvstoremesh.enabled`` has been deprecated and will be removed in Cilium 1.19.
+  Starting from 1.19 KVStoreMesh will be unconditionally enabled when the Cluster Mesh API Server is enabled.
 
 Agent Options
 ~~~~~~~~~~~~~
