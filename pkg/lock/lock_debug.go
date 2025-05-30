@@ -9,13 +9,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"runtime/debug"
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
 
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -30,8 +30,6 @@ const (
 )
 
 var (
-	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "lock-lib")
-
 	// selfishThresholdMsg is the message that will be printed when a lock was
 	// held for more than selfishThresholdSec.
 	selfishThresholdMsg = fmt.Sprintf("Goroutine took lock for more than %.2f seconds", selfishThresholdSec)
@@ -101,7 +99,7 @@ func printStackTo(sec float64, stack []byte, writer io.Writer) {
 		goRoutineNumber = stack[:goroutineLine]
 	}
 
-	log.Debug(
+	logger.Debug(
 		selfishThresholdMsg,
 		logfields.Duration, sec,
 		logfields.Goroutine, string(goRoutineNumber[len("goroutine"):len(goRoutineNumber)-1]),
@@ -121,4 +119,12 @@ func printStackTo(sec float64, stack []byte, writer io.Writer) {
 		// Don't replace the last '\n'
 		newLines-1),
 	)
+}
+
+var (
+	logger *slog.Logger
+)
+
+func SetLogger(log *slog.Logger) {
+	logger = log
 }
