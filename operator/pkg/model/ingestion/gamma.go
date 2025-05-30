@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -160,7 +160,7 @@ func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 					Type: string(corev1.ServiceTypeClusterIP),
 				}
 				res.Gamma = true
-				res.Routes = append(res.Routes, extractRoutes(int32(portVal), []string{res.Hostname}, hr, input.Services, []v1alpha1.ServiceImport{}, input.ReferenceGrants)...)
+				res.Routes = append(res.Routes, extractRoutes(int32(portVal), []string{res.Hostname}, hr, input.Services, []mcsapiv1alpha1.ServiceImport{}, input.ReferenceGrants)...)
 				resHTTP = append(resHTTP, res)
 			}
 

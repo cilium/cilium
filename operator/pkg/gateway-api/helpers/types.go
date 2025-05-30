@@ -40,6 +40,36 @@ func IsGammaService(parent gatewayv1.ParentReference) bool {
 		parent.Group != nil && *parent.Group == corev1.GroupName
 }
 
+func IsGammaServiceEqual(parent gatewayv1.ParentReference, gammaService *corev1.Service, objNamespace string) bool {
+	gammaServiceGroup := gammaService.GroupVersionKind().Group
+	parentNamespace := NamespaceDerefOr(parent.Namespace, objNamespace)
+
+	// Broken out from one line to make testing easier.
+
+	// Kind or Group are nil, can't be a Gamma Service
+	if parent.Kind == nil || parent.Group == nil {
+		return false
+	}
+
+	if string(*parent.Kind) != gammaService.Kind {
+		return false
+	}
+
+	if string(*parent.Group) != gammaServiceGroup {
+		return false
+	}
+
+	if string(parentNamespace) != gammaService.Namespace {
+		return false
+	}
+
+	if string(parent.Name) != gammaService.Name {
+		return false
+	}
+
+	return true
+}
+
 func IsService(be gatewayv1.BackendObjectReference) bool {
 	return (be.Kind == nil || *be.Kind == kindService) && (be.Group == nil || *be.Group == corev1.GroupName)
 }
