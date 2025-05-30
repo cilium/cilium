@@ -128,13 +128,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
 
-      - name: Run aws configure
-        run: |
-          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
-          aws configure set default.region ${{ env.AWS_REGION }}
-
       - name: Filter Matrix
         id: set-matrix
         run: |
@@ -269,13 +262,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
-
-      - name: Run aws configure
-        run: |
-          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
-          aws configure set default.region ${{ env.AWS_REGION }}
 
       - name: Create EKS cluster
         uses: ./.github/actions/setup-eks-cluster
