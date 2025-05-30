@@ -38,11 +38,14 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 			// Validate the daemon-specific global options.
 			if err := option.Config.Validate(h.Viper()); err != nil {
-				logging.Fatal(daemonLogger, fmt.Sprintf("invalid daemon configuration: %s", err))
+				logging.Fatal(logging.DefaultSlogLogger, fmt.Sprintf("invalid daemon configuration: %s", err))
 			}
 
+			// Pass the DefaultSlogLogger to the hive after being initialized
+			// with the initEnv which sets up the logging.DefaultSlogLogger with
+			// the user-options.
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
-				logging.Fatal(daemonLogger, fmt.Sprintf("unable to run agent: %s", err))
+				logging.Fatal(logging.DefaultSlogLogger, fmt.Sprintf("unable to run agent: %s", err))
 			}
 		},
 	}

@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -200,7 +199,7 @@ func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardCl
 		Logger:  logger,
 	})
 	wgAgent := &Agent{
-		logger:           logging.DefaultSlogLogger.With(subsysLogAttr...),
+		logger:           logger.With(subsysLogAttr...),
 		wgClient:         wgClient,
 		ipCache:          ipCache,
 		listenPort:       types.ListenPort,

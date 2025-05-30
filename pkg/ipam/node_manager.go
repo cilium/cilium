@@ -387,7 +387,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.poolMaintainer = poolMaintainer
 		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
-		node.logger.Load().Info("Discovered new CiliumNode custom resource", fieldName, resource.Name)
+		node.logger.Load().Info("Discovered new CiliumNode custom resource")
 	}
 	// Update the resource in the node while holding the lock, otherwise resyncs can be
 	// triggered prior to the update being applied.

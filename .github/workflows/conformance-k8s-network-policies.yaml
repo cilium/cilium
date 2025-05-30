@@ -106,8 +106,10 @@ jobs:
             --set-string=extraEnv[0].value=true \
             --set-string=extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
             --set-string=extraEnv[1].value=true \
-            --set-string=extraEnv[2].name=KUBE_CACHE_MUTATION_DETECTOR \
+            --set-string=extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
             --set-string=extraEnv[2].value=true \
+            --set-string=extraEnv[3].name=KUBE_CACHE_MUTATION_DETECTOR \
+            --set-string=extraEnv[3].value=true \
             --set nodeinit.enabled=true \
             --set kubeProxyReplacement=false \
             --set socketLB.enabled=false \

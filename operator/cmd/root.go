@@ -302,8 +302,11 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 
 			initEnv(logger, h.Viper())
 
-			if err := h.Run(logger); err != nil {
-				logging.Fatal(logger, err.Error())
+			// Pass the DefaultSlogLogger to the hive after being initialized
+			// with the initEnv which sets up the logging.DefaultSlogLogger with
+			// the user-options.
+			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+				logging.Fatal(logging.DefaultSlogLogger, err.Error())
 			}
 		},
 	}
