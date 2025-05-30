@@ -32,7 +32,9 @@ Setting the routable CIDR
   in which case all destinations within that CIDR will **not** be masqueraded.
 
   In the public cloud environment, if you don't configure ``ipv4-native-routing-cidr``, 
-  Cilium will automatically detect the VPC CIDR range as the native routing range. 
+  Cilium will automatically detect the VPC CIDR range as the native routing range.
+  If you run in AWS, you can also enable the ``aws-auto-detect-peered-vpcs`` flag to
+  allow Cilium to automatically detect peered VPC CIDR ranges as well.
   Cilium does not masquerade the source address for traffic that is natively
   routable in the network, because it is possible for the endpoints to
   communicate directly without NAT.

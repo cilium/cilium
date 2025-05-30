@@ -12,6 +12,7 @@ cilium-operator-aws [flags]
 
 ```
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
+      --aws-auto-detect-peered-vpcs                          Enable auto-detection of peered VPC CIDRs (useful for excluding them from masquerading)
       --aws-enable-prefix-delegation                         Allows operator to allocate prefixes to ENIs instead of individual IP addresses
       --aws-pagination-enabled                               Enable pagination for AWS EC2 API requests. The default page size is 1000 items. (default true)
       --aws-release-excess-ips                               Enable releasing excess free IP addresses from AWS ENI.

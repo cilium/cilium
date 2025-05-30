@@ -711,6 +711,12 @@ spec:
                             id:
                               description: / ID is the ID of a VPC
                               type: string
+                            peered-cidrs:
+                              description: PeeredCIDRs is the list of IPv4 CIDR ranges
+                                from peered VPCs
+                              items:
+                                type: string
+                              type: array
                             primary-cidr:
                               description: PrimaryCIDR is the primary CIDR of the
                                 VPC

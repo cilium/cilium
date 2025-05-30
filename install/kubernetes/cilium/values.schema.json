@@ -1909,6 +1909,9 @@
     },
     "eni": {
       "properties": {
+        "awsAutoDetectPeeredVPCs": {
+          "type": "boolean"
+        },
         "awsEnablePrefixDelegation": {
           "type": "boolean"
         },

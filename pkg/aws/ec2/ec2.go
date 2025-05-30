@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -25,6 +26,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ip"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -434,6 +436,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 			if vpc, ok := vpcs[eni.VPC.ID]; ok {
 				eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
 				eni.VPC.CIDRs = vpc.CIDRs
+				eni.VPC.PeeredCIDRs = vpc.PeeredCIDRs
 			}
 		}
 	}
@@ -547,6 +550,24 @@ func (c *Client) describeVpcs(ctx context.Context) ([]ec2_types.Vpc, error) {
 		}
 		result = append(result, output.Vpcs...)
 	}
+
+	return result, nil
+}
+
+// describeVpcPeeringConnections lists all VPC peering connections
+func (c *Client) describeVpcPeeringConnections(ctx context.Context) ([]ec2_types.VpcPeeringConnection, error) {
+	var result []ec2_types.VpcPeeringConnection
+	paginator := ec2.NewDescribeVpcPeeringConnectionsPaginator(c.ec2Client, &ec2.DescribeVpcPeeringConnectionsInput{})
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeVpcPeeringConnections")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeVpcPeeringConnections", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.VpcPeeringConnections...)
+	}
 	return result, nil
 }
 
@@ -559,6 +580,7 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 		return nil, err
 	}
 
+	// First pass: create VPC objects with their own CIDRs
 	for _, v := range vpcList {
 		vpc := &ipamTypes.VirtualNetwork{ID: aws.ToString(v.VpcId)}
 
@@ -575,7 +597,88 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 		vpcs[vpc.ID] = vpc
 	}
 
+	// Second pass: add IPv4 CIDRs from peered VPCs if enabled
+	if operatorOption.Config.AWSAutoDetectPeeredVPCs {
+		peeringConnections, err := c.describeVpcPeeringConnections(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, pc := range peeringConnections {
+			// Only process active peering connections
+			if pc.Status == nil || pc.Status.Code != ec2_types.VpcPeeringConnectionStateReasonCodeActive {
+				continue
+			}
+
+			// Get requester and accepter VPC info
+			if pc.RequesterVpcInfo != nil && pc.AccepterVpcInfo != nil {
+				requesterVPCID := aws.ToString(pc.RequesterVpcInfo.VpcId)
+				accepterVPCID := aws.ToString(pc.AccepterVpcInfo.VpcId)
+
+				// Add accepter VPC CIDRs to requester VPC
+				if requesterVPC, ok := vpcs[requesterVPCID]; ok {
+					if pc.AccepterVpcInfo.CidrBlock != nil {
+						cidr := aws.ToString(pc.AccepterVpcInfo.CidrBlock)
+						if cidr != requesterVPC.PrimaryCIDR {
+							requesterVPC.PeeredCIDRs = append(requesterVPC.PeeredCIDRs, cidr)
+						}
+					}
+					for _, cidrBlock := range pc.AccepterVpcInfo.CidrBlockSet {
+						if cidr := aws.ToString(cidrBlock.CidrBlock); cidr != requesterVPC.PrimaryCIDR {
+							requesterVPC.PeeredCIDRs = append(requesterVPC.PeeredCIDRs, cidr)
+						}
+					}
+				}
+
+				// Add requester VPC CIDRs to accepter VPC
+				if accepterVPC, ok := vpcs[accepterVPCID]; ok {
+					if pc.RequesterVpcInfo.CidrBlock != nil {
+						cidr := aws.ToString(pc.RequesterVpcInfo.CidrBlock)
+						if cidr != accepterVPC.PrimaryCIDR {
+							accepterVPC.PeeredCIDRs = append(accepterVPC.PeeredCIDRs, cidr)
+						}
+					}
+					for _, cidrBlock := range pc.RequesterVpcInfo.CidrBlockSet {
+						if cidr := aws.ToString(cidrBlock.CidrBlock); cidr != accepterVPC.PrimaryCIDR {
+							accepterVPC.PeeredCIDRs = append(accepterVPC.PeeredCIDRs, cidr)
+						}
+					}
+				}
+			}
+		}
+
+		// Coalesce peered CIDRs for each VPC
+		for _, vpc := range vpcs {
+			if len(vpc.PeeredCIDRs) > 1 {
+				vpc.PeeredCIDRs = coalesceCIDRStrings(vpc.PeeredCIDRs)
+			}
+		}
+	}
+
 	return vpcs, nil
+}
+
+// coalesceCIDRStrings coalesces IPv4 CIDR strings
+func coalesceCIDRStrings(cidrStrings []string) []string {
+	var cidrs []*net.IPNet
+	for _, cidrStr := range cidrStrings {
+		_, ipnet, err := net.ParseCIDR(cidrStr)
+		if err == nil {
+			cidrs = append(cidrs, ipnet)
+		}
+	}
+
+	if len(cidrs) == 0 {
+		return cidrStrings
+	}
+
+	ipv4CIDRs, _ := ip.CoalesceCIDRs(cidrs)
+
+	result := make([]string, len(ipv4CIDRs))
+	for i, cidr := range ipv4CIDRs {
+		result[i] = cidr.String()
+	}
+	return result
 }
 
 // describeSubnets lists all subnets
