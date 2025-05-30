@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/maps/socktermfilter"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
@@ -130,6 +131,7 @@ func init() {
 		"ratelimit_value":         {ratelimitmap.Value{}},
 		"ratelimit_metrics_key":   {ratelimitmap.MetricsKey{}},
 		"ratelimit_metrics_value": {ratelimitmap.MetricsValue{}},
+		"sock_term_filter":        {socktermfilter.SockTermFilterValue{}},
 	})
 
 	registerToCheckSizes(map[string][]any{

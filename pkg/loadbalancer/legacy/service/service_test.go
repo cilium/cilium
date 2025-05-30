@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/sockets"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -225,7 +226,7 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 }
 
 func (m *ManagerTestSuite) newServiceMock(ctx context.Context, lbcfg lb.Config, lbmap datapathTypes.LBMap) {
-	m.svc = newService(m.logger, nil, lbcfg, lbmap, nil, nil, true, option.Config)
+	m.svc = newService(m.logger, nil, lbcfg, lbmap, nil, nil, true, option.Config, nil)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 	health, _ := cell.NewSimpleHealth()
 	go m.svc.handleHealthCheckEvent(ctx, health)
@@ -764,7 +765,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
 			logger := hivetest.Logger(t)
-			svc := newService(logger, nil, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
+			svc := newService(logger, nil, lb.DefaultConfig, lbmap, nil, nil, true, option.Config, nil)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -774,7 +775,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = newService(logger, nil, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
+			svc = newService(logger, nil, lb.DefaultConfig, lbmap, nil, nil, true, option.Config, nil)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -2358,7 +2359,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	require.Len(t, m.lbmap.BackendByID, len(backends)+4)
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	logger := hivetest.Logger(t)
-	m.svc = newService(logger, nil, lb.DefaultConfig, lbmap, nil, nil, true, option.Config)
+	m.svc = newService(logger, nil, lb.DefaultConfig, lbmap, nil, nil, true, option.Config, nil)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
@@ -2786,7 +2787,7 @@ func TestTerminateUDPConnectionsToBackend(t *testing.T) {
 			BPFSocketLBHostnsOnly:                  false,
 		},
 
-		backendConnectionHandler: &backendConnectionHandler{},
+		backendConnectionHandler: &sockets.NetlinkSocketDestroyer{Logger: logger},
 
 		// Don't need to pin ns's for the purpose of the test.
 		nsIterator: func() (iter.Seq2[string, *netns.NetNS], <-chan error) {
