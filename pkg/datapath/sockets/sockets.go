@@ -137,7 +137,7 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 }
 
 func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.SocketID, err error)) error {
-	return iterateNetlinkSockets(unix.IPPROTO_UDP, syscall.AF_INET, 0xffff, func(sockInfo *Socket, err error) error {
+	return iterateNetlinkSockets(unix.IPPROTO_UDP, family, 0xffff, func(sockInfo *Socket, err error) error {
 		socketCB(sockInfo.ID, err)
 		return nil
 	})
