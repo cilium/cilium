@@ -167,25 +167,6 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
-          EXTRA_CLI_FLAGS=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
-          fi
-
-          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
-            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
-            EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
-          fi
-
-          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[*]}"
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
-
-          CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"
-          fi
-          echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
-
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
@@ -255,12 +236,48 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
+        id: lvh-kind
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+
+      - name: Set up job variables for connectivity tests
+        id: vars-conn
+        run: |
+          EXTRA_CLI_FLAGS=(
+            "\"--external-target=${{ steps.lvh-kind.outputs.external_target_name }}\""
+            "\"--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}\""
+            "\"--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}\""
+            "\"--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}\""
+            "\"--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}\""
+            "\"--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}\""
+            "\"--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}\""
+            "\"--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}\""
+            "\"--external-target-ca-namespace=external-target-secrets\""
+            "\"--external-target-ca-name=custom-ca\""
+            "\"--external-target-ipv6-capable\""
+          )
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          fi
+
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
+          fi
+
+          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[*]}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
+
+          CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"
+          fi
+          echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
       - name: Setup bootid file
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -396,7 +413,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-precheck
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -412,22 +429,22 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*,!pod-to-world.*'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-concurrent
-          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          tests: ${{ steps.vars-conn.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Check for unexpected packet drops during connectivity tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-postcheck
           tests: 'no-unexpected-packet-drops'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -474,7 +491,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-precheck
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}
@@ -490,16 +507,16 @@ jobs:
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*,!pod-to-world.*'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-concurrent
-          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          tests: ${{ steps.vars-conn.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Check for unexpected packet drops during connectivity tests
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -507,7 +524,7 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-postcheck
           tests: 'no-unexpected-packet-drops'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}

@@ -41,7 +41,7 @@ runs:
           TEST_ARG=""
           EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
         fi
-        ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+        ${{ inputs.cilium-cli }} connectivity test -v --include-unsafe-tests --collect-sysdump-on-failure \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
           --flush-ct \
