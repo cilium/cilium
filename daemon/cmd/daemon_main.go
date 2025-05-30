@@ -63,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -1408,7 +1407,6 @@ type daemonParams struct {
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
-	IPMasqAgent         *ipmasq.IPMasqAgent
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
