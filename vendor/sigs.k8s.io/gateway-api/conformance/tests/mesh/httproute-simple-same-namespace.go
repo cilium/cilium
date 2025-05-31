@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
@@ -26,34 +26,27 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshBasic)
+	MeshConformanceTests = append(MeshConformanceTests, MeshHTTPRouteSimpleSameNamespace)
 }
 
-var MeshBasic = suite.ConformanceTest{
-	ShortName:   "MeshBasic",
-	Description: "A mesh client can communicate with a mesh server. This tests basic reachability with no configuration applied.",
+var MeshHTTPRouteSimpleSameNamespace = suite.ConformanceTest{
+	ShortName:   "MeshHTTPRouteSimpleSameNamespace",
+	Description: "A single HTTPRoute in the gateway-conformance-mesh namespace attaches to a Service in the same namespace",
 	Features: []features.FeatureName{
 		features.SupportMesh,
+		features.SupportHTTPRoute,
 	},
-	Manifests: []string{},
+	Manifests: []string{"tests/mesh/httproute-simple-same-namespace.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
+		ns := "gateway-conformance-mesh"
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
-		cases := []http.ExpectedResponse{{
-			Request: http.Request{
-				Host:   "echo",
-				Method: "GET",
-			},
-			Response: http.Response{
-				StatusCode: 200,
-			},
-		}}
-		for i := range cases {
-			// Declare tc here to avoid loop variable
-			// reuse issues across parallel tests.
-			tc := cases[i]
-			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
-				client.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, s.TimeoutConfig)
-			})
-		}
+		t.Run("Simple HTTP request should reach infra-backend", func(t *testing.T) {
+			client.MakeRequestAndExpectEventuallyConsistentResponse(t, http.ExpectedResponse{
+				Request:   http.Request{Path: "/", Host: "echo"},
+				Response:  http.Response{StatusCode: 200},
+				Backend:   "echo-v1",
+				Namespace: ns,
+			}, s.TimeoutConfig)
+		})
 	},
 }

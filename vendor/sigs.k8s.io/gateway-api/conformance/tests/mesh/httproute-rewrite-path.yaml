@@ -1,0 +1,101 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-rewrite-path
+  namespace: gateway-conformance-mesh
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo
+    port: 80
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /prefix/one
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /one
+    backendRefs:
+    - name: echo-v1
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /strip-prefix
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: echo-v1
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full/one
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /one
+    backendRefs:
+    - name: echo-v1
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full/rewrite-path-and-modify-headers
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /test
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Header-Set
+          value: set-overwrites-values
+        add:
+        - name: X-Header-Add
+          value: header-val-1
+        - name: X-Header-Add-Append
+          value: header-val-2
+        remove:
+        - X-Header-Remove
+    backendRefs:
+    - name: echo-v1
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /prefix/rewrite-path-and-modify-headers
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /prefix
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Header-Set
+          value: set-overwrites-values
+        add:
+        - name: X-Header-Add
+          value: header-val-1
+        - name: X-Header-Add-Append
+          value: header-val-2
+        remove:
+        - X-Header-Remove
+    backendRefs:
+    - name: echo-v1
+      port: 80

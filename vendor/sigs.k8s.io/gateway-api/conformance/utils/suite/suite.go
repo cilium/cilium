@@ -74,6 +74,7 @@ type ConformanceTestSuite struct {
 	SkipTests                sets.Set[string]
 	SkipProvisionalTests     bool
 	RunTest                  string
+	Hook                     func(t *testing.T, test ConformanceTest, suite *ConformanceTestSuite)
 	ManifestFS               []fs.FS
 	UsableNetworkAddresses   []v1beta1.GatewaySpecAddress
 	UnusableNetworkAddresses []v1beta1.GatewaySpecAddress
@@ -121,7 +122,7 @@ type ConformanceTestSuite struct {
 	lock sync.RWMutex
 }
 
-// Options can be used to initialize a ConformanceTestSuite.
+// ConformanceOptions can be used to initialize a ConformanceTestSuite.
 type ConformanceOptions struct {
 	Client               client.Client
 	ClientOptions        client.Options
@@ -152,7 +153,8 @@ type ConformanceOptions struct {
 	SkipProvisionalTests bool
 	// RunTest is a single test to run, mostly for development/debugging convenience.
 	RunTest string
-
+	// Hook is an optional function that can be used to run custom logic after each test at suite level.
+	Hook       func(t *testing.T, test ConformanceTest, suite *ConformanceTestSuite)
 	ManifestFS []fs.FS
 
 	// UsableNetworkAddresses is an optional pool of usable addresses for
@@ -268,6 +270,7 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		mode:                        mode,
 		apiVersion:                  apiVersion,
 		apiChannel:                  apiChannel,
+		Hook:                        options.Hook,
 	}
 
 	for _, conformanceProfileName := range options.ConformanceProfiles.UnsortedList() {
@@ -469,6 +472,13 @@ func (suite *ConformanceTestSuite) Run(t *testing.T, tests []ConformanceTest) er
 		}
 		if res == testSucceeded || res == testFailed {
 			sleepForTestIsolation = true
+		}
+
+		// call the hook function if it was provided,
+		// this's useful for running custom logic after each test at suite level,
+		// such as collecting current state of the cluster for debugging.
+		if suite.Hook != nil {
+			suite.Hook(t, test, suite)
 		}
 	}
 
