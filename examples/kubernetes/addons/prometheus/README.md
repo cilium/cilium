@@ -59,3 +59,41 @@ kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 -
 ```
 
 Access it via your browser: `https://localhost:9090`
+
+## Dashboard Management Tools
+
+This directory includes tools for managing Grafana dashboards within the monitoring example:
+
+### Available Commands
+
+```bash
+# Show all available dashboard management commands
+make dashboard-tools
+
+# Extract dashboard JSON files from monitoring-example.yaml
+make extract-dashboards
+
+# Update Hubble dashboard with a new JSON file
+make update-hubble HUBBLE_JSON=path/to/hubble-dashboard.json
+
+# Run tests for the dashboard tools
+make test-tools
+
+# Set up the tools (make scripts executable)
+make setup-tools
+```
+
+### Tools Directory
+
+The `tools/` directory contains:
+
+- **Dashboard management scripts**: Python utilities for extracting and updating dashboard configurations
+- **Dashboard JSON files**: Generated or custom dashboard configurations
+- **Makefile**: Comprehensive build system for dashboard operations
+- **Tests**: Unit tests for the dashboard management utilities
+
+For detailed usage of the dashboard tools, run:
+
+```bash
+make -C tools help
+```
