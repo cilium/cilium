@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
@@ -26,27 +26,50 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshBasic)
+	MeshConformanceTests = append(MeshConformanceTests, MeshFrontend)
 }
 
-var MeshBasic = suite.ConformanceTest{
-	ShortName:   "MeshBasic",
-	Description: "A mesh client can communicate with a mesh server. This tests basic reachability with no configuration applied.",
+var MeshFrontend = suite.ConformanceTest{
+	ShortName:   "MeshFrontend",
+	Description: "Mesh rules should only apply to the associated frontend",
 	Features: []features.FeatureName{
 		features.SupportMesh,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteResponseHeaderModification,
 	},
-	Manifests: []string{},
+	Manifests: []string{"tests/mesh/mesh-frontend.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
-		cases := []http.ExpectedResponse{{
-			Request: http.Request{
-				Host:   "echo",
-				Method: "GET",
+		v2 := echo.ConnectToApp(t, s, echo.MeshAppEchoV2)
+		cases := []http.ExpectedResponse{
+			{
+				TestCaseName: "Send to service",
+				Request: http.Request{
+					Host:   "echo-v2",
+					Method: "GET",
+				},
+				Response: http.Response{
+					StatusCode: 200,
+					// Make sure the route actually did something
+					Headers: map[string]string{
+						"X-Header-Set": "set",
+					},
+				},
+				Backend: "echo-v2",
 			},
-			Response: http.Response{
-				StatusCode: 200,
+			{
+				TestCaseName: "Send to pod IP",
+				Request: http.Request{
+					Host:   http.Ipv6SafeHost(v2.Address) + ":8080",
+					Method: "GET",
+				},
+				Response: http.Response{
+					StatusCode:    200,
+					AbsentHeaders: []string{"X-Header-Set"},
+				},
+				Backend: "echo-v2",
 			},
-		}}
+		}
 		for i := range cases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.

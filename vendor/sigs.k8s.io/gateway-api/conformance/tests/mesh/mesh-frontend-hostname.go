@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
@@ -26,46 +26,48 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshConsumerRoute)
+	MeshConformanceTests = append(MeshConformanceTests, MeshFrontendHostname)
 }
 
-var MeshConsumerRoute = suite.ConformanceTest{
-	ShortName:   "MeshConsumerRoute",
-	Description: "An HTTPRoute in a namespace other than its parentRef's namespace only affects requests from the route's namespace",
+var MeshFrontendHostname = suite.ConformanceTest{
+	ShortName:   "MeshFrontendHostname",
+	Description: "Mesh parentRef matches Service IP (not Host)",
 	Features: []features.FeatureName{
 		features.SupportMesh,
-		features.SupportMeshConsumerRoute,
+		features.SupportMeshClusterIPMatching,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteResponseHeaderModification,
 	},
-	Manifests: []string{"tests/mesh-consumer-route.yaml"},
+	Manifests: []string{"tests/mesh/mesh-frontend.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		consumerClient := echo.ConnectToAppInNamespace(t, s, echo.MeshAppEchoV1, "gateway-conformance-mesh-consumer")
-		consumerCases := []http.ExpectedResponse{
+		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
+		cases := []http.ExpectedResponse{
 			{
-				TestCaseName: "request from consumer route's namespace modified by HTTPRoute",
+				TestCaseName: "Send to service with wrong hostname",
 				Request: http.Request{
-					Host:   "echo-v1.gateway-conformance-mesh",
+					Host: "echo-v2",
+					Headers: map[string]string{
+						"Host": "echo-v1",
+					},
 					Method: "GET",
-					Path:   "/",
 				},
 				Response: http.Response{
 					StatusCode: 200,
+					// Make sure the route actually did something
 					Headers: map[string]string{
 						"X-Header-Set": "set",
 					},
 				},
-				Backend: "echo-v1",
+				Backend: "echo-v2",
 			},
-		}
-		producerClient := echo.ConnectToAppInNamespace(t, s, echo.MeshAppEchoV1, "gateway-conformance-mesh")
-		producerCases := []http.ExpectedResponse{
 			{
-				TestCaseName: "request not from consumer route's namespace not modified by HTTPRoute",
+				TestCaseName: "Send to other service with matching hostname",
 				Request: http.Request{
-					Host:   "echo-v1.gateway-conformance-mesh",
+					Host: "echo-v1",
+					Headers: map[string]string{
+						"Host": "echo-v2",
+					},
 					Method: "GET",
-					Path:   "/",
 				},
 				Response: http.Response{
 					StatusCode:    200,
@@ -74,14 +76,12 @@ var MeshConsumerRoute = suite.ConformanceTest{
 				Backend: "echo-v1",
 			},
 		}
-		for i, tc := range consumerCases {
+		for i := range cases {
+			// Declare tc here to avoid loop variable
+			// reuse issues across parallel tests.
+			tc := cases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
-				consumerClient.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, s.TimeoutConfig)
-			})
-		}
-		for i, tc := range producerCases {
-			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
-				producerClient.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, s.TimeoutConfig)
+				client.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, s.TimeoutConfig)
 			})
 		}
 	},

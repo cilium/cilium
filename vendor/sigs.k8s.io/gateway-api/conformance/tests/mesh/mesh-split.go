@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
@@ -26,75 +26,39 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshPorts)
+	MeshConformanceTests = append(MeshConformanceTests, MeshTrafficSplit)
 }
 
-var MeshPorts = suite.ConformanceTest{
-	ShortName:   "MeshPorts",
-	Description: "A mesh route can optionally configure 'port' in parentRef",
+var MeshTrafficSplit = suite.ConformanceTest{
+	ShortName:   "MeshTrafficSplit",
+	Description: "A mesh client can send traffic to a Service which is split between two versions",
 	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportHTTPRoute,
-		features.SupportHTTPRouteParentRefPort,
-		features.SupportHTTPRouteResponseHeaderModification,
 	},
-	Manifests: []string{"tests/mesh-ports.yaml"},
+	Manifests: []string{"tests/mesh/mesh-split.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 		cases := []http.ExpectedResponse{
 			{
-				TestCaseName: "Explicit port set, send to that port",
 				Request: http.Request{
-					Host:   "echo-v1",
+					Host:   "echo",
 					Method: "GET",
+					Path:   "/v1",
 				},
 				Response: http.Response{
 					StatusCode: 200,
-					// Make sure the route actually did something
-					Headers: map[string]string{
-						"X-Header-Set": "v1",
-					},
 				},
 				Backend: "echo-v1",
 			},
 			{
-				TestCaseName: "Explicit port, send to an excluded port",
 				Request: http.Request{
-					Host:   "echo-v1:8080",
+					Host:   "echo",
 					Method: "GET",
+					Path:   "/v2",
 				},
 				Response: http.Response{
 					StatusCode: 200,
-					// Route should not apply
-					AbsentHeaders: []string{"X-Header-Set"},
-				},
-				Backend: "echo-v1",
-			},
-			{
-				TestCaseName: "No port set",
-				Request: http.Request{
-					Host:   "echo-v2",
-					Method: "GET",
-				},
-				Response: http.Response{
-					StatusCode: 200,
-					Headers: map[string]string{
-						"X-Header-Set": "v2",
-					},
-				},
-				Backend: "echo-v2",
-			},
-			{
-				TestCaseName: "No port set",
-				Request: http.Request{
-					Host:   "echo-v2:8080",
-					Method: "GET",
-				},
-				Response: http.Response{
-					StatusCode: 200,
-					Headers: map[string]string{
-						"X-Header-Set": "v2",
-					},
 				},
 				Backend: "echo-v2",
 			},
