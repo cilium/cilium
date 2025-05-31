@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
@@ -26,50 +26,27 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshFrontend)
+	MeshConformanceTests = append(MeshConformanceTests, MeshBasic)
 }
 
-var MeshFrontend = suite.ConformanceTest{
-	ShortName:   "MeshFrontend",
-	Description: "Mesh rules should only apply to the associated frontend",
+var MeshBasic = suite.ConformanceTest{
+	ShortName:   "MeshBasic",
+	Description: "A mesh client can communicate with a mesh server. This tests basic reachability with no configuration applied.",
 	Features: []features.FeatureName{
 		features.SupportMesh,
-		features.SupportHTTPRoute,
-		features.SupportHTTPRouteResponseHeaderModification,
 	},
-	Manifests: []string{"tests/mesh-frontend.yaml"},
+	Manifests: []string{},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
-		v2 := echo.ConnectToApp(t, s, echo.MeshAppEchoV2)
-		cases := []http.ExpectedResponse{
-			{
-				TestCaseName: "Send to service",
-				Request: http.Request{
-					Host:   "echo-v2",
-					Method: "GET",
-				},
-				Response: http.Response{
-					StatusCode: 200,
-					// Make sure the route actually did something
-					Headers: map[string]string{
-						"X-Header-Set": "set",
-					},
-				},
-				Backend: "echo-v2",
+		cases := []http.ExpectedResponse{{
+			Request: http.Request{
+				Host:   "echo",
+				Method: "GET",
 			},
-			{
-				TestCaseName: "Send to pod IP",
-				Request: http.Request{
-					Host:   http.Ipv6SafeHost(v2.Address) + ":8080",
-					Method: "GET",
-				},
-				Response: http.Response{
-					StatusCode:    200,
-					AbsentHeaders: []string{"X-Header-Set"},
-				},
-				Backend: "echo-v2",
+			Response: http.Response{
+				StatusCode: 200,
 			},
-		}
+		}}
 		for i := range cases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.

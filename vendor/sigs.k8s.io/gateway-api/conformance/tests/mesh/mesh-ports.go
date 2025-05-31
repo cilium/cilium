@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
@@ -26,54 +26,77 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshFrontendHostname)
+	MeshConformanceTests = append(MeshConformanceTests, MeshPorts)
 }
 
-var MeshFrontendHostname = suite.ConformanceTest{
-	ShortName:   "MeshFrontendHostname",
-	Description: "Mesh parentRef matches Service IP (not Host)",
+var MeshPorts = suite.ConformanceTest{
+	ShortName:   "MeshPorts",
+	Description: "A mesh route can optionally configure 'port' in parentRef",
 	Features: []features.FeatureName{
 		features.SupportMesh,
-		features.SupportMeshClusterIPMatching,
 		features.SupportHTTPRoute,
+		features.SupportHTTPRouteParentRefPort,
 		features.SupportHTTPRouteResponseHeaderModification,
 	},
-	Manifests: []string{"tests/mesh-frontend.yaml"},
+	Manifests: []string{"tests/mesh/mesh-ports.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 		cases := []http.ExpectedResponse{
 			{
-				TestCaseName: "Send to service with wrong hostname",
+				TestCaseName: "Explicit port set, send to that port",
 				Request: http.Request{
-					Host: "echo-v2",
-					Headers: map[string]string{
-						"Host": "echo-v1",
-					},
+					Host:   "echo-v1",
 					Method: "GET",
 				},
 				Response: http.Response{
 					StatusCode: 200,
 					// Make sure the route actually did something
 					Headers: map[string]string{
-						"X-Header-Set": "set",
+						"X-Header-Set": "v1",
+					},
+				},
+				Backend: "echo-v1",
+			},
+			{
+				TestCaseName: "Explicit port, send to an excluded port",
+				Request: http.Request{
+					Host:   "echo-v1:8080",
+					Method: "GET",
+				},
+				Response: http.Response{
+					StatusCode: 200,
+					// Route should not apply
+					AbsentHeaders: []string{"X-Header-Set"},
+				},
+				Backend: "echo-v1",
+			},
+			{
+				TestCaseName: "No port set",
+				Request: http.Request{
+					Host:   "echo-v2",
+					Method: "GET",
+				},
+				Response: http.Response{
+					StatusCode: 200,
+					Headers: map[string]string{
+						"X-Header-Set": "v2",
 					},
 				},
 				Backend: "echo-v2",
 			},
 			{
-				TestCaseName: "Send to other service with matching hostname",
+				TestCaseName: "No port set",
 				Request: http.Request{
-					Host: "echo-v1",
-					Headers: map[string]string{
-						"Host": "echo-v2",
-					},
+					Host:   "echo-v2:8080",
 					Method: "GET",
 				},
 				Response: http.Response{
-					StatusCode:    200,
-					AbsentHeaders: []string{"X-Header-Set"},
+					StatusCode: 200,
+					Headers: map[string]string{
+						"X-Header-Set": "v2",
+					},
 				},
-				Backend: "echo-v1",
+				Backend: "echo-v2",
 			},
 		}
 		for i := range cases {
