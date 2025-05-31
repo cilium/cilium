@@ -32,6 +32,7 @@
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
 #include "lib/eth.h"
+#include "lib/exits.h"
 #include "lib/dbg.h"
 #include "lib/proxy.h"
 #include "lib/policy.h"
@@ -2082,5 +2083,7 @@ drop_err:
 	return 0;
 #endif /* ENABLE_HOST_FIREWALL */
 }
+
+EXIT_HANDLER();
 
 BPF_LICENSE("Dual BSD/GPL");

@@ -19,6 +19,7 @@
 	#error "Include bpf/ctx/skb.h or xdp.h before section.h!"
 #endif
 #define __section_entry		__section(PROG_TYPE "/entry")
+#define __section_exit		__section(PROG_TYPE "/exit")
 
 #define __section_license	__section("license")
 #define __section_maps_btf	__section(".maps")

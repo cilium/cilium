@@ -22,6 +22,7 @@
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
 #include "lib/eth.h"
+#include "lib/exits.h"
 #include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/l3.h"
@@ -368,5 +369,7 @@ out:
 
 	return TC_ACT_OK;
 }
+
+EXIT_HANDLER();
 
 BPF_LICENSE("Dual BSD/GPL");

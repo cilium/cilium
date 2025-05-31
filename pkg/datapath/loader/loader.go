@@ -16,10 +16,12 @@ import (
 	"sync"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/cilium/hive/cell"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -83,17 +85,19 @@ type loader struct {
 	compilationLock    datapath.CompilationLock
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
+	pluginManager      DatapathPluginManager
 }
 
 type Params struct {
 	cell.In
 
-	Logger             *slog.Logger
-	Sysctl             sysctl.Sysctl
-	Prefilter          datapath.PreFilter
-	CompilationLock    datapath.CompilationLock
-	ConfigWriter       datapath.ConfigWriter
-	NodeConfigNotifier *manager.NodeConfigNotifier
+	Logger                *slog.Logger
+	Sysctl                sysctl.Sysctl
+	Prefilter             datapath.PreFilter
+	CompilationLock       datapath.CompilationLock
+	ConfigWriter          datapath.ConfigWriter
+	NodeConfigNotifier    *manager.NodeConfigNotifier
+	DatapathPluginManager DatapathPluginManager
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -111,6 +115,7 @@ func newLoader(p Params) *loader {
 		compilationLock:    p.CompilationLock,
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
+		pluginManager:      p.DatapathPluginManager,
 	}
 }
 
@@ -318,17 +323,17 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
-func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func reloadHostEndpoint(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
-	if err := attachCiliumHost(logger, ep, lnc, spec); err != nil {
+	if err := attachCiliumHost(ctx, logger, pluginManager, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachCiliumNet(logger, ep, lnc, spec); err != nil {
+	if err := attachCiliumNet(ctx, logger, pluginManager, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachNetworkDevices(logger, ep, lnc, spec); err != nil {
+	if err := attachNetworkDevices(ctx, logger, pluginManager, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -363,7 +368,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
-func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachCiliumHost(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
@@ -374,7 +379,8 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 	var hostObj hostObjects
 	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			MapReplacements: pluginManager.ReplaceMaps(),
 		},
 		Constants:  co,
 		MapRenames: renames,
@@ -390,12 +396,12 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 	}
 
 	// Attach cil_to_host to cilium_host ingress.
-	if err := attachSKBProgram(logger, host, hostObj.ToHost, symbolToHostEp,
+	if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_HOST, ep, lnc, host, hostObj.ToHost, symbolToHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", ep.InterfaceName(), err)
 	}
 	// Attach cil_from_host to cilium_host egress.
-	if err := attachSKBProgram(logger, host, hostObj.FromHost, symbolFromHostEp,
+	if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_HOST, ep, lnc, host, hostObj.FromHost, symbolFromHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", ep.InterfaceName(), err)
 	}
@@ -442,7 +448,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 }
 
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
-func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachCiliumNet(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
@@ -453,7 +459,8 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 	var netObj hostNetObjects
 	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			MapReplacements: pluginManager.ReplaceMaps(),
 		},
 		Constants:  co,
 		MapRenames: renames,
@@ -464,7 +471,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 	defer netObj.Close()
 
 	// Attach cil_to_host to cilium_net.
-	if err := attachSKBProgram(logger, net, netObj.ToHost, symbolToHostEp,
+	if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_NET, ep, lnc, net, netObj.ToHost, symbolToHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), net), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", defaults.SecondHostDevice, err)
 	}
@@ -479,7 +486,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
 // devices and the wireguard device. Attaches cil_from_netdev to ingress and
 // optionally cil_to_netdev to egress if enabled features require it.
-func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachNetworkDevices(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	devices := lnc.DeviceNames()
 
 	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
@@ -515,7 +522,8 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				MapReplacements: pluginManager.ReplaceMaps(),
 			},
 			Constants:  co,
 			MapRenames: renames,
@@ -526,14 +534,14 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 		defer netdevObj.Close()
 
 		// Attach cil_from_netdev to ingress.
-		if err := attachSKBProgram(logger, iface, netdevObj.FromNetdev, symbolFromHostNetdevEp,
+		if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_NETDEV, ep, lnc, iface, netdevObj.FromNetdev, symbolFromHostNetdevEp,
 			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
 		if option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
 			// Attach cil_to_netdev to egress.
-			if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
+			if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_NETDEV, ep, lnc, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
 				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 				return fmt.Errorf("interface %s egress: %w", device, err)
 			}
@@ -610,15 +618,22 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func reloadEndpoint(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
+
+	if pluginManager.IsEnabled() {
+		if err := pluginManager.PrepareSpec(logger, spec); err != nil {
+			return fmt.Errorf("instrumenting program exits: %w", err)
+		}
+	}
 
 	co, renames := endpointRewrites(ep, lnc)
 
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			MapReplacements: pluginManager.ReplaceMaps(),
 		},
 		Constants:  co,
 		MapRenames: renames,
@@ -648,13 +663,13 @@ func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Loc
 	}
 
 	linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
-	if err := attachSKBProgram(logger, iface, obj.FromContainer, symbolFromEndpoint,
+	if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_LXC, ep, lnc, iface, obj.FromContainer, symbolFromEndpoint,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
 
 	if ep.RequireEgressProg() {
-		if err := attachSKBProgram(logger, iface, obj.ToContainer, symbolToEndpoint,
+		if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_LXC, ep, lnc, iface, obj.ToContainer, symbolToEndpoint,
 			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)
 		}
@@ -695,7 +710,7 @@ func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Loc
 	return nil
 }
 
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, cArgs []string, device netlink.Link) error {
+func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, lnc *datapath.LocalNodeConfiguration, cArgs []string, device netlink.Link) error {
 	if err := compileOverlay(ctx, logger, cArgs); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
@@ -703,6 +718,12 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	spec, err := bpf.LoadCollectionSpec(logger, overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
+	}
+
+	if pluginManager.IsEnabled() {
+		if err := pluginManager.PrepareSpec(logger, spec); err != nil {
+			return fmt.Errorf("instrumenting program exits: %w", err)
+		}
 	}
 
 	cfg := config.NewBPFOverlay(nodeConfig(lnc))
@@ -717,7 +738,8 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 		},
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			MapReplacements: pluginManager.ReplaceMaps(),
 		},
 	})
 	if err != nil {
@@ -726,11 +748,11 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(logger, device, obj.FromOverlay, symbolFromOverlay,
+	if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_OVERLAY, nil, lnc, device, obj.FromOverlay, symbolFromOverlay,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
-	if err := attachSKBProgram(logger, device, obj.ToOverlay, symbolToOverlay,
+	if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_OVERLAY, nil, lnc, device, obj.ToOverlay, symbolToOverlay,
 		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", device, err)
 	}
@@ -742,7 +764,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	return nil
 }
 
-func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
+func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
@@ -750,6 +772,12 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	spec, err := bpf.LoadCollectionSpec(logger, wireguardObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
+	}
+
+	if pluginManager.IsEnabled() {
+		if err := pluginManager.PrepareSpec(logger, spec); err != nil {
+			return fmt.Errorf("instrumenting program exits: %w", err)
+		}
 	}
 
 	cfg := config.NewBPFWireguard(nodeConfig(lnc))
@@ -768,7 +796,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
 		},
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			MapReplacements: pluginManager.ReplaceMaps(),
 		},
 	})
 	if err != nil {
@@ -779,7 +808,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
 	// Attach/detach cil_to_wireguard to/from egress.
 	if option.Config.NeedEgressOnWireGuardDevice(lnc.KPRConfig, lnc.EnableWireguard) {
-		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,
+		if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_WIREGUARD, nil, lnc, device, obj.ToWireguard, symbolToWireguard,
 			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)
 		}
@@ -794,7 +823,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 	// Attach/detach cil_from_wireguard to/from ingress.
 	if option.Config.NeedIngressOnWireGuardDevice(lnc.KPRConfig, lnc.EnableWireguard) {
-		if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
+		if err := attachSKBPrograms(ctx, logger, pluginManager, datapathplugins.DeviceType_CILIUM_WIREGUARD, nil, lnc, device, obj.FromWireguard, symbolFromWireguard,
 			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
@@ -825,6 +854,146 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	return nil
 }
 
+func loadPluginSKBPrograms(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager,
+	deviceType datapathplugins.DeviceType, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration,
+	device netlink.Link, parent uint32) (preHook *ebpf.Program, postHook *ebpf.Program, err error) {
+	req := &datapathplugins.LoadSKBProgramRequest{
+		AttachmentPoint: &datapathplugins.AttachmentPoint{
+			DeviceName: device.Attrs().Name,
+		},
+		DeviceType:      deviceType,
+		EndpointConfig:  &datapathplugins.EndpointConfig{},  // TODO
+		LocalNodeConfig: &datapathplugins.LocalNodeConfig{}, // TODO
+	}
+
+	if ep != nil {
+		req.EndpointConfig.Id = ep.GetID()
+	}
+
+	switch parent {
+	case netlink.HANDLE_MIN_INGRESS:
+		req.AttachmentPoint.Direction = datapathplugins.Direction_INGRESS
+	case netlink.HANDLE_MIN_EGRESS:
+		req.AttachmentPoint.Direction = datapathplugins.Direction_EGRESS
+	}
+
+	req.AttachmentPoint.Anchor = datapathplugins.Anchor_BEFORE
+	preHook, err = pluginManager.LoadSKBProgram(ctx, req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invoking plugin: pre hook: %w", err)
+	}
+
+	req.AttachmentPoint.Anchor = datapathplugins.Anchor_AFTER
+	postHook, err = pluginManager.LoadSKBProgram(ctx, req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invoking plugin: post hook: %w", err)
+	}
+
+	return preHook, postHook, nil
+}
+
+func attachSKBPrograms(ctx context.Context, logger *slog.Logger, pluginManager DatapathPluginManager,
+	deviceType datapathplugins.DeviceType, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration,
+	device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
+	var preHookProgName string
+	var postHookProgName string
+
+	switch parent {
+	case netlink.HANDLE_MIN_INGRESS:
+		preHookProgName = ciliumPreHookName + "_ingress"
+		postHookProgName = ciliumPostHookName + "_ingress"
+	case netlink.HANDLE_MIN_EGRESS:
+		preHookProgName = ciliumPreHookName + "_egress"
+		postHookProgName = ciliumPostHookName + "_egress"
+	default:
+		return fmt.Errorf("unrecognized parent: %d", parent)
+	}
+
+	if !tcxEnabled || !pluginManager.IsEnabled() {
+		logger.Debug("Skipping datapath plugins; not enabled")
+		if err := detachSKBProgram(logger, device, preHookProgName, bpffsDir, parent); err != nil {
+			logger.Error(
+				"Failed to remove pre hook from interface",
+				logfields.Error, err,
+				logfields.Interface, device.Attrs().Name,
+			)
+		}
+		if err := detachSKBProgram(logger, device, postHookProgName, bpffsDir, parent); err != nil {
+			logger.Error(
+				"Failed to remove post hook from interface",
+				logfields.Error, err,
+				logfields.Interface, device.Attrs().Name,
+			)
+		}
+		return attachSKBProgram(logger, device, prog, progName, bpffsDir, parent, tcxEnabled)
+	}
+
+	preHook, postHook, err := loadPluginSKBPrograms(ctx, logger, pluginManager, deviceType, ep, lnc, device, parent)
+	if err != nil {
+		return fmt.Errorf("loading plugin SKB programs: %w", err)
+	}
+	if preHook != nil {
+		defer preHook.Close()
+	}
+	if postHook != nil {
+		defer postHook.Close()
+	}
+
+	progLink, err := attachSKBProgramTCX(logger, device, prog, progName, bpffsDir, parent, link.Tail())
+	if err != nil {
+		return fmt.Errorf("attaching program: %w", err)
+	}
+	defer progLink.Close()
+
+	if preHook != nil {
+		l, err := attachSKBProgramTCX(logger, device, preHook, preHookProgName, bpffsDir, parent, link.BeforeLink(progLink))
+		if err != nil {
+			return fmt.Errorf("attaching pre hook: %w", err)
+		}
+		defer l.Close()
+	} else {
+		if err := detachSKBProgram(logger, device, preHookProgName, bpffsDir, parent); err != nil {
+			return fmt.Errorf("detaching post hook: %w", err)
+		}
+	}
+
+	var commit func() error
+	if postHook == nil {
+		// Use default exit hook that just returns what Cilium intended.
+		exitSpecs, err := loadExits()
+		if err != nil {
+			return fmt.Errorf("loading exits collection spec: %w", err)
+		}
+		var exitObjs exitsObjects
+		commit, err = bpf.LoadAndAssign(logger, &exitObjs, exitSpecs, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{
+				Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				MapReplacements: pluginManager.ReplaceMaps(),
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("loading exit program: %w", err)
+		}
+		defer exitObjs.Close()
+
+		postHook = exitObjs.CilExit
+	}
+
+	l, err := attachSKBProgramTCX(logger, device, postHook, postHookProgName, bpffsDir, parent, link.AfterLink(progLink))
+	if err != nil {
+		return fmt.Errorf("attaching exit handler: %w", err)
+	}
+	defer l.Close()
+
+	if commit != nil {
+		if err := commit(); err != nil {
+			return fmt.Errorf("committing bpf pins: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
 //
 // It attempts to find a pre-compiled
@@ -851,10 +1020,16 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 		return "", err
 	}
 
+	if l.pluginManager.IsEnabled() {
+		if err := l.pluginManager.PrepareSpec(l.logger, spec); err != nil {
+			return "", fmt.Errorf("instrumenting program exits: %w", err)
+		}
+	}
+
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(l.logger, ep, lnc, spec)
+		err = reloadHostEndpoint(ctx, l.logger, l.pluginManager, ep, lnc, spec)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
@@ -867,7 +1042,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, ep, lnc, spec)
+	err = reloadEndpoint(ctx, l.logger, l.pluginManager, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }

@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+syntax = "proto3";
+
+package peer;
+
+option go_package = "github.com/cilium/cilium/api/v1/datapathplugins";
+
+service DatapathPlugin {
+    rpc LoadSKBProgram(LoadSKBProgramRequest) returns (LoadSKBProgramResponse) {}
+}
+
+enum DeviceType {
+    UNKNOWN_DEVICE_TYPE = 0;
+    LXC = 1;
+    NETDEV = 2;
+    CILIUM_HOST = 3;
+    CILIUM_NET = 4;
+    CILIUM_OVERLAY = 5;
+    CILIUM_WIREGUARD = 6;
+}
+
+enum Direction {
+    UNKNOWN_DIRECTION = 0;
+    INGRESS = 1;
+    EGRESS = 2;
+}
+
+enum Anchor {
+    UNKNOWN_ANCHOR = 0;
+    BEFORE = 1;
+    AFTER = 2;
+}
+
+// AttachmentPoint is a unique identifier for a program.
+message AttachmentPoint {
+	// Ingress or egress.
+	Direction direction = 1;
+	// Before or after the main Cilium program.
+	Anchor anchor = 2;
+	// Name of the interface.
+	string device_name = 3;
+}
+
+message EndpointConfig {
+    uint64 id = 1;
+}
+
+message LocalNodeConfig {
+}
+
+// Maps contains a list of map IDs pointing to Cilium-managed maps that may
+// be consumed by a plugin's programs as well.
+message Maps {
+    // For AFTER programs, this contains the main Cilium program's return code.
+    uint32 cilium_return_map_id = 1;
+}
+
+message LoadSKBProgramRequest {
+	AttachmentPoint attachment_point = 1;
+	DeviceType device_type = 2;
+	EndpointConfig endpoint_config = 3;
+	LocalNodeConfig local_node_config = 4;
+	Maps maps = 5;
+}
+
+message LoadSKBProgramResponse {
+	string program_pin_path = 1;
+}
+

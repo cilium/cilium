@@ -1,0 +1,62 @@
+{{- define "cilium.image" -}}
+{{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
+{{- $tag := .tag | default "" | eq "" | ternary "" (printf ":%s" .tag) -}}
+{{- if .override -}}
+{{- printf "%s" .override -}}
+{{- else -}}
+{{- printf "%s%s%s" .repository $tag $digest -}}
+{{- end -}}
+{{- end -}}
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cilium-datapath-plugin
+  namespace: kube-system
+  labels:
+    k8s-app: cilium-datapath-plugin
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-datapath-plugin
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-datapath-plugin
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-datapath-plugin
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-datapath-plugin
+    spec:
+      hostNetwork: true
+      containers:
+      - name: datapath-plugin
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - --bpffs-pin-path=/sys/fs/bpf/datapath-plugin
+        - --unix-socket-path=/var/run/cilium/datapath-plugin.sock
+        securityContext:
+          privileged: true
+          # capabilities: # TODO probably
+          #   add: []
+          #   drop:
+          #     - ALL
+        volumeMounts:
+        - name: cilium-run
+          mountPath: /var/run/cilium
+          mountPropagation: HostToContainer
+        - name: bpf-maps
+          mountPath: /sys/fs/bpf
+          mountPropagation: HostToContainer
+      restartPolicy: Always
+      volumes:
+      - name: cilium-run
+        hostPath:
+          path: /var/run/cilium
+          type: DirectoryOrCreate
+      - name: bpf-maps
+        hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+

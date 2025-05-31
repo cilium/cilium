@@ -816,6 +816,12 @@ crdWaitTimeout: ""
 customCalls:
   # -- Enable tail call hooks for custom eBPF programs.
   enabled: false
+# -- Plugins to inject custom BPF into the datapath.
+datapathPlugins:
+  # -- Enable datapath plugins.
+  enabled: false
+  # -- Unix domain socket path where the datapath plugin is listening.
+  socketPath: /var/run/cilium/datapath-plugin.sock
 daemon:
   # -- Configure where Cilium runtime state should be stored.
   runPath: "/var/run/cilium"

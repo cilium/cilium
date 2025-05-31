@@ -11,6 +11,10 @@
 #include "common.h"
 #include "../helpers_skb.h"
 
+#ifndef TC_ACT_UNSPEC
+# define TC_ACT_UNSPEC		-1
+#endif
+
 #ifndef TC_ACT_OK
 # define TC_ACT_OK		0
 #endif
@@ -23,6 +27,7 @@
 # define TC_ACT_REDIRECT	7
 #endif
 
+#define CTX_ACT_UNSPEC		TC_ACT_UNSPEC
 #define CTX_ACT_OK		TC_ACT_OK
 #define CTX_ACT_DROP		TC_ACT_SHOT
 #define CTX_ACT_TX		TC_ACT_REDIRECT

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
+	"github.com/cilium/cilium/pkg/datapath/plugins"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -121,6 +122,9 @@ var Cell = cell.Module(
 
 	// Provides the loader, which compiles and loads the datapath programs.
 	loader.Cell,
+
+	// Starts up datapath plugin client if enabled.
+	plugins.Cell,
 
 	// Provides prefilter, a means of configuring XDP pre-filters for DDoS-mitigation.
 	prefilter.Cell,

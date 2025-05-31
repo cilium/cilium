@@ -30,34 +30,12 @@ func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progr
 	}
 
 	if tcxEnabled {
-		// If the device is a netkit device, we know that netkit links are
-		// supported, therefore use netkit instead of tcx. For all others like
-		// host devices, rely on tcx.
-		if device.Type() == "netkit" {
-			if err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent); err != nil {
-				return fmt.Errorf("attaching netkit program %s: %w", progName, err)
-			}
+		l, err := attachSKBProgramTCX(logger, device, prog, progName, bpffsDir, parent, link.Tail())
+		if err != nil {
+			return err
+		} else if l != nil {
+			l.Close()
 			return nil
-		}
-
-		// Attach using tcx if available. This is seamless on interfaces with
-		// existing tc programs since attaching tcx disables legacy tc evaluation.
-		err := upsertTCXProgram(logger, device, prog, progName, bpffsDir, parent)
-		if err == nil {
-			// Created tcx link, clean up any leftover legacy tc attachments.
-			if err := removeTCFilters(device, parent); err != nil {
-				logger.Warn(
-					"Cleaning up legacy tc after attaching tcx program",
-					logfields.Error, err,
-					logfields.ProgName, progName,
-				)
-			}
-			// Don't fall back to legacy tc.
-			return nil
-		}
-		if !errors.Is(err, link.ErrNotSupported) {
-			// Unrecoverable error, surface to the caller.
-			return fmt.Errorf("attaching tcx program %s: %w", progName, err)
 		}
 	}
 
@@ -74,6 +52,41 @@ func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progr
 	}
 
 	return nil
+}
+
+func attachSKBProgramTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, anchor link.Anchor) (link.Link, error) {
+	// If the device is a netkit device, we know that netkit links are
+	// supported, therefore use netkit instead of tcx. For all others like
+	// host devices, rely on tcx.
+	if device.Type() == "netkit" {
+		l, err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent, anchor)
+		if err != nil {
+			return nil, fmt.Errorf("attaching netkit program %s: %w", progName, err)
+		}
+		return l, nil
+	}
+
+	// Attach using tcx if available. This is seamless on interfaces with
+	// existing tc programs since attaching tcx disables legacy tc evaluation.
+	l, err := upsertTCXProgram(logger, device, prog, progName, bpffsDir, parent, anchor)
+	if err == nil {
+		// Created tcx link, clean up any leftover legacy tc attachments.
+		if err := removeTCFilters(device, parent); err != nil {
+			logger.Warn(
+				"Cleaning up legacy tc after attaching tcx program",
+				logfields.Error, err,
+				logfields.ProgName, progName,
+			)
+		}
+		// Don't fall back to legacy tc.
+		return l, nil
+	}
+	if !errors.Is(err, link.ErrNotSupported) {
+		// Unrecoverable error, surface to the caller.
+		return nil, fmt.Errorf("attaching tcx program %s: %w", progName, err)
+	}
+
+	return nil, nil
 }
 
 func detachGeneric(logger *slog.Logger, bpffsDir, progName, what string) error {
