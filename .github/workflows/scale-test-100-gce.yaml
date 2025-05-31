@@ -148,7 +148,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }}-RACE &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Go

@@ -11,6 +11,7 @@ triggers:
     - conformance-eks.yaml
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
+    - conformance-ginkgo-race.yaml
     - conformance-ingress.yaml
     - conformance-multi-pool.yaml
     - conformance-runtime.yaml
@@ -50,6 +51,9 @@ triggers:
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
+  /ci-ginkgo-race:
+    workflows:
+    - conformance-ginkgo-race.yaml
   /ci-gke(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)))?:
     workflows:
     - conformance-gke.yaml
@@ -106,7 +110,9 @@ workflows:
   conformance-gateway-api.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md|.*_test\.go)$)
   conformance-ginkgo.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|USERS.md)$)
+  conformance-ginkgo-race.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|USERS.md)$)
   conformance-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md|.*_test\.go)$)
   conformance-ingress.yaml:
