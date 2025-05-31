@@ -97,13 +97,12 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
+	StandardCFlags = []string{"-O2", "--target=bpf", "-std=gnu99",
 		"-nostdinc",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
 		"-Wno-gnu-variable-sized-type-not-at-end",
-		"-Wdeclaration-after-statement",
 		"-Wimplicit-int-conversion",
 		"-Wenum-conversion",
 		"-Wimplicit-fallthrough"}
@@ -173,7 +172,7 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		compileArgs = append(compileArgs, "-g")
 	}
 
-	compileArgs = append(compileArgs, standardCFlags...)
+	compileArgs = append(compileArgs, StandardCFlags...)
 	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU(logger))
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,
