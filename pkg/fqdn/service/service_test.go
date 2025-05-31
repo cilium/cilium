@@ -187,6 +187,169 @@ func TestFQDNDataServer(t *testing.T) {
 	}
 }
 
+func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNSProxy bool, standaloneDNSProxyServerPort int, lis *bufconn.Listener) (*hive.Hive, *FQDNDataServer) {
+
+	var fqdnDataServer *FQDNDataServer
+	h := hive.New(
+		cell.Module(
+			"test-fqdn-grpc-server",
+			"Test FQDN gRPC server",
+			cell.Config(defaultConfig),
+			cell.Provide(
+				func(logger *slog.Logger) endpointmanager.EndpointManager {
+					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+				},
+
+				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+					pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+					return ipcache.NewIPCache(&ipcache.Configuration{
+						Context:           t.Context(),
+						IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+						PolicyHandler:     pr.GetSelectorCache(),
+						DatapathHandler:   em,
+					})
+				},
+				func(ipc *ipcache.IPCache) namemanager.NameManager {
+					return namemanager.New(namemanager.ManagerParams{
+						Config: namemanager.NameManagerConfig{
+							MinTTL:            1,
+							DNSProxyLockCount: defaults.DNSProxyLockCount,
+							StateDir:          defaults.StateDir,
+						},
+						IPCache: ipc,
+					})
+				},
+				func(lc cell.Lifecycle, logger *slog.Logger) messagehandler.DNSMessageHandler {
+					return messagehandler.NewDNSMessageHandler(
+						messagehandler.DNSMessageHandlerParams{
+							Lifecycle:         lc,
+							Logger:            logger,
+							NameManager:       nil,
+							ProxyInstance:     nil,
+							ProxyAccessLogger: nil,
+						})
+				},
+				func() *option.DaemonConfig {
+					return &option.DaemonConfig{
+						EnableL7Proxy:    enableL7Proxy,
+						ToFQDNsProxyPort: port,
+					}
+				},
+				func() listenConfig {
+					return newBufconnListener(lis)
+				},
+				newServer,
+			)),
+		cell.Invoke(func(_f *FQDNDataServer) {
+			fqdnDataServer = _f
+		}))
+
+	hive.AddConfigOverride(
+		h,
+		func(cfg *FQDNConfig) {
+			cfg.EnableStandaloneDNSProxy = true
+			cfg.StandaloneDNSProxyServerPort = 40045
+		})
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, t.Context()); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	t.Cleanup(func() {
+		// Stop the server
+		if err := h.Stop(tlog, context.TODO()); err != nil {
+			t.Fatalf("failed to stop: %s", err)
+		}
+	})
+	return h, fqdnDataServer
+}
+
+// Test the gRPC server and client connection
+// GRPC server should be able to create a stream and store the stream
+// in the server. The grpc server should be able to reuse the stream
+// and send the response to the client.
+// The client should be able to receive the response from the server.
+// The client should be able to send the request to the server.
+// The server should be able to receive the request from the client.
+func TestSuccessfullyStreamPolicyState(t *testing.T) {
+	buffer := 1024 * 1024
+	lis := bufconn.Listen(buffer)
+	_, fqdnDataServer := setupServer(t, 1234, true, true, 40045, lis)
+
+	conn, err := grpc.NewClient("passthrough://bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return lis.Dial()
+	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+
+	c := pb.NewFQDNDataClient(conn)
+
+	connected := false
+	var receivedResultClient *pb.PolicyState
+	var clientStream pb.FQDNData_StreamPolicyStateClient
+	testutils.WaitUntil(func() bool {
+		clientStream, err = c.StreamPolicyState(t.Context())
+		if err != nil {
+			return false
+		}
+		receivedResultClient, err = clientStream.Recv()
+		if err != nil {
+			return false
+		}
+
+		if receivedResultClient.GetRequestId() == "" {
+			return false
+		} else {
+			connected = true
+			return true
+		}
+	}, 5*time.Second)
+
+	// If the server is running, we should get a response from the server
+	if !connected {
+		t.Fatalf("failed to connect to server")
+	}
+
+	require.False(t, fqdnDataServer.streams.IsEmpty())
+	require.False(t, fqdnDataServer.policyRulesResponse.IsEmpty())
+
+	// Send the response from client to the server
+	// and check if the server received the response
+	if clientStream != nil {
+		clientStream.Send(&pb.PolicyStateResponse{
+			RequestId: receivedResultClient.GetRequestId(),
+			Response:  pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+		})
+	} else {
+		t.Fatalf("clientStream is nil, cannot send PolicyStateResponse")
+	}
+
+	// Check if the server received the response
+	err = testutils.WaitUntil(func() bool {
+		return fqdnDataServer.policyRulesResponse.IsEmpty()
+	}, 5*time.Second)
+	require.NoError(t, err)
+
+	// check to make sure stream are not empty
+	require.False(t, fqdnDataServer.streams.IsEmpty())
+
+	// close the connection from the client
+	// and check if the server received the response
+	if clientStream != nil {
+		clientStream.CloseSend()
+	} else {
+		t.Fatalf("clientStream is nil, cannot close stream")
+	}
+	err = testutils.WaitUntil(func() bool {
+		return fqdnDataServer.streams.IsEmpty()
+	}, 5*time.Second)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		//Stop the client
+		conn.Close()
+	})
+}
+
 type dummyEpSyncher struct{}
 
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
