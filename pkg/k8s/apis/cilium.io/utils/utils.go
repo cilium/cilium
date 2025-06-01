@@ -69,6 +69,14 @@ func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.
 	return append(labelsArr, srcLabel)
 }
 
+// addClusterFilterByDefault attempt to add a cluster filter if the cluster name
+// is defined and that the EndpointSelector doesn't already have a cluster selector
+func addClusterFilterByDefault(es *api.EndpointSelector, clusterName string) {
+	if clusterName != cmtypes.PolicyAnyCluster && !es.HasKey(clusterPrefixLbl) && !es.HasKey(clusterAnyPrefixLbl) {
+		es.AddMatch(clusterPrefixLbl, clusterName)
+	}
+}
+
 // getEndpointSelector converts the provided labelSelector into an EndpointSelector,
 // adding the relevant matches for namespaces and clusters based on the provided options.
 // If no namespace is provided then it is assumed that the selector is global to the cluster
@@ -109,9 +117,7 @@ func getEndpointSelector(clusterName, namespace string, labelSelector *slim_meta
 	// Similarly to namespace, the user can explicitly specify the cluster in the
 	// FromEndpoints selector. If omitted, we limit the
 	// scope to the cluster the policy lives in.
-	if clusterName != cmtypes.PolicyAnyCluster && !es.HasKey(clusterPrefixLbl) && !es.HasKey(clusterAnyPrefixLbl) {
-		es.AddMatch(clusterPrefixLbl, clusterName)
-	}
+	addClusterFilterByDefault(&es, clusterName)
 
 	return es
 }
@@ -132,6 +138,7 @@ func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.Endpoi
 		for j, node := range ing.FromNodes {
 			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
 			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
+			addClusterFilterByDefault(&es, clusterName)
 			retRule.FromNodes[j] = es
 		}
 	}
@@ -253,6 +260,7 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 		for j, node := range egr.ToNodes {
 			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
 			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
+			addClusterFilterByDefault(&es, clusterName)
 			retRule.ToNodes[j] = es
 		}
 	}
