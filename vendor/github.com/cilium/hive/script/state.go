@@ -42,6 +42,8 @@ type State struct {
 	FileUpdates map[string]string
 	RetryCount  int
 
+	retriesRequested bool
+
 	BreakOnError bool
 
 	background []backgroundCmd

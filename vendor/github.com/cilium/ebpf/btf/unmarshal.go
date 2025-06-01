@@ -165,6 +165,31 @@ func allBtfTypeOffsets(buf []byte, bo binary.ByteOrder, header *btfType) iter.Se
 	}
 }
 
+func rebaseDecoder(d *decoder, base *decoder) (*decoder, error) {
+	if d.base == nil {
+		return nil, fmt.Errorf("rebase split spec: not a split spec")
+	}
+
+	if &d.base.raw[0] != &base.raw[0] || len(d.base.raw) != len(base.raw) {
+		return nil, fmt.Errorf("rebase split spec: raw BTF differs")
+	}
+
+	return &decoder{
+		base,
+		d.byteOrder,
+		d.raw,
+		d.strings,
+		d.firstTypeID,
+		d.offsets,
+		d.declTags,
+		d.namedTypes,
+		sync.Mutex{},
+		make(map[TypeID]Type),
+		make(map[Type]TypeID),
+		make(map[TypeID][2]Bits),
+	}, nil
+}
+
 // Copy performs a deep copy of a decoder and its base.
 func (d *decoder) Copy() *decoder {
 	if d == nil {
