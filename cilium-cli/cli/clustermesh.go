@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium/cilium-cli/defaults"
@@ -29,6 +31,7 @@ func newCmdClusterMesh() *cobra.Command {
 		newCmdClusterMeshDisconnectWithHelm(),
 		newCmdClusterMeshEnableWithHelm(),
 		newCmdClusterMeshDisableWithHelm(),
+		newCmdClusterMeshPolicyDefaultClusterPrepare(),
 	)
 
 	return cmd
@@ -172,6 +175,43 @@ func newCmdClusterMeshDisconnectWithHelm() *cobra.Command {
 	cmd.Flags().StringVar(&params.ConnectionMode, "connection-mode", defaults.ClusterMeshConnectionModeBidirectional,
 		fmt.Sprintf("Connection mode: %s, %s or %s", defaults.ClusterMeshConnectionModeUnicast, defaults.ClusterMeshConnectionModeBidirectional, defaults.ClusterMeshConnectionModeMesh))
 	cmd.Flags().StringSliceVar(&params.DestinationContext, "destination-context", []string{}, "Comma separated list of Kubernetes configuration contexts of destination cluster")
+
+	return cmd
+}
+
+func newCmdClusterMeshPolicyDefaultClusterPrepare() *cobra.Command {
+	namespace := ""
+	allNamespaces := false
+	output := status.OutputSummary
+
+	cmd := &cobra.Command{
+		Use:   "prepare-policy-default-local-cluster",
+		Short: "List policies that would be affected by changing policy-default-local-cluster on a cluster",
+		Long:  ``,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			var err error
+			if namespace == "" {
+				if namespace, _, err = k8sClient.RESTClientGetter.ToRawKubeConfigLoader().Namespace(); err != nil {
+					namespace = metav1.NamespaceDefault
+				}
+			}
+			if allNamespaces {
+				namespace = corev1.NamespaceAll
+			}
+			res, err := clustermesh.PolicyDefaultLocalClusterPrepare(context.Background(), k8sClient, namespace)
+			if err != nil {
+				fatalf("Unable to prepare policy default local cluster: %s", err)
+			}
+			if err := res.OutputPolicyDefaultLocalClusterPrepare(output); err != nil {
+				fatalf("Unable to output prepare policy default local cluster: %s", err)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", namespace, "Namespace used for listing resources")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", allNamespaces, "Namespace used for listing resources")
+	cmd.Flags().StringVarP(&output, "output", "o", output, "Output format. One of: json, summary")
 
 	return cmd
 }
