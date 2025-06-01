@@ -55,6 +55,11 @@ type ModifyVpnTunnelOptionsInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Specifies the storage mode for the pre-shared key (PSK). Valid values are
+	// Standard (stored in Site-to-Site VPN service) or SecretsManager (stored in
+	// Amazon Web Services Secrets Manager).
+	PreSharedKeyStorage *string
+
 	// Choose whether or not to trigger immediate tunnel replacement. This is only
 	// applicable when turning on or off EnableTunnelLifecycleControl .
 	//

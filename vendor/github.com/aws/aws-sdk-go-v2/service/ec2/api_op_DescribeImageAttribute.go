@@ -115,9 +115,9 @@ type DescribeImageAttributeOutput struct {
 
 	// Base64 representation of the non-volatile UEFI variable store. To retrieve the
 	// UEFI data, use the [GetInstanceUefiData]command. You can inspect and modify the UEFI data by using
-	// the [python-uefivars tool]on GitHub. For more information, see [UEFI Secure Boot] in the Amazon EC2 User Guide.
+	// the [python-uefivars tool]on GitHub. For more information, see [UEFI Secure Boot for Amazon EC2 instances] in the Amazon EC2 User Guide.
 	//
-	// [UEFI Secure Boot]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html
+	// [UEFI Secure Boot for Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html
 	// [GetInstanceUefiData]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceUefiData
 	// [python-uefivars tool]: https://github.com/awslabs/python-uefivars
 	UefiData *types.AttributeValue

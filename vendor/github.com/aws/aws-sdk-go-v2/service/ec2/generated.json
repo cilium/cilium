@@ -486,6 +486,7 @@
         "api_op_ExportImage.go",
         "api_op_ExportTransitGatewayRoutes.go",
         "api_op_ExportVerifiedAccessInstanceClientConfiguration.go",
+        "api_op_GetActiveVpnTunnelStatus.go",
         "api_op_GetAllowedImagesSettings.go",
         "api_op_GetAssociatedEnclaveCertificateIamRoles.go",
         "api_op_GetAssociatedIpv6PoolCidrs.go",

@@ -50,6 +50,11 @@ type GetVpnConnectionDeviceSampleConfigurationInput struct {
 	// gateway device. You can specify one of the following versions: ikev1 or ikev2 .
 	InternetKeyExchangeVersion *string
 
+	// The type of sample configuration to generate. Valid values are "compatibility"
+	// (includes IKEv1) or "recommended" (throws UnsupportedOperationException for
+	// IKEv1).
+	SampleType *string
+
 	noSmithyDocumentSerde
 }
 

@@ -21,7 +21,7 @@ import (
 //
 // For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
 //
-// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis
+// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-public-access-to-amis.html
 // [GetImageBlockPublicAccessState]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetImageBlockPublicAccessState.html
 func (c *Client) EnableImageBlockPublicAccess(ctx context.Context, params *EnableImageBlockPublicAccessInput, optFns ...func(*Options)) (*EnableImageBlockPublicAccessOutput, error) {
 	if params == nil {
