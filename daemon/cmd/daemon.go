@@ -63,6 +63,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -160,38 +161,56 @@ func removeOldRouterState(logger *slog.Logger, ipv6 bool, restoredIP net.IP) err
 		return resiliency.Retryable(err)
 	}
 
-	family := netlink.FAMILY_V4
+	family := unix.AF_INET
 	if ipv6 {
-		family = netlink.FAMILY_V6
+		family = unix.AF_INET6
 	}
 	addrs, err := safenetlink.AddrList(l, family)
 	if err != nil {
 		return resiliency.Retryable(err)
 	}
 
-	isRestoredIP := func(a netlink.Addr) bool {
-		return restoredIP != nil && restoredIP.Equal(a.IP)
-	}
-	if len(addrs) == 0 || (len(addrs) == 1 && isRestoredIP(addrs[0])) {
-		return nil // nothing to clean up
+	// If there are no addresses or only the restored IP, we're done
+	if len(addrs) == 0 {
+		return nil
 	}
 
-	logger.Info("More than one stale router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
-
+	// Check if we have any stale IPs
+	hasStaleIPs := false
 	for _, a := range addrs {
-		if isRestoredIP(a) {
+		if restoredIP != nil && restoredIP.Equal(a.IP) {
+			continue
+		}
+		hasStaleIPs = true
+		break
+	}
+
+	if !hasStaleIPs {
+		return nil
+	}
+
+	logger.Info("Found stale router IPs on the cilium_host device, cleaning up...")
+
+	// Remove all stale IPs
+	var errs []error
+	for _, a := range addrs {
+		if restoredIP != nil && restoredIP.Equal(a.IP) {
 			continue
 		}
 		logger.Debug(
 			"Removing stale router IP from cilium_host device",
 			logfields.IPAddr, a.IP,
 		)
-		if e := netlink.AddrDel(l, &a); e != nil {
-			err = errors.Join(err, resiliency.Retryable(fmt.Errorf("failed to remove IP %s: %w", a.IP, e)))
+		if err := netlink.AddrDel(l, &a); err != nil {
+			errs = append(errs, resiliency.Retryable(fmt.Errorf("failed to remove IP %s: %w", a.IP, err)))
 		}
 	}
 
-	return err
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
 }
 
 // removeOldCiliumHostIPs calls removeOldRouterState() for both IPv4 and IPv6

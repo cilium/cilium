@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,12 +39,14 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/netlink"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -249,4 +252,132 @@ func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
 	upd.DoneChan = dc
 	ds.PolicyImporter.UpdatePolicy(upd)
 	<-dc
+}
+
+func TestRemoveOldRouterState(t *testing.T) {
+	tests := []struct {
+		name       string
+		ipv6       bool
+		restoredIP net.IP
+		addrs      []netlink.Addr
+		wantErr    bool
+	}{
+		{
+			name:       "no stale IPs",
+			ipv6:       false,
+			restoredIP: net.ParseIP("192.168.1.1"),
+			addrs: []netlink.Addr{
+				{IPNet: &net.IPNet{IP: net.ParseIP("192.168.1.1"), Mask: net.CIDRMask(24, 32)}},
+			},
+			wantErr: false,
+		},
+		{
+			name:       "has stale IPv4 IPs",
+			ipv6:       false,
+			restoredIP: net.ParseIP("192.168.1.1"),
+			addrs: []netlink.Addr{
+				{IPNet: &net.IPNet{IP: net.ParseIP("192.168.1.1"), Mask: net.CIDRMask(24, 32)}},
+				{IPNet: &net.IPNet{IP: net.ParseIP("192.168.1.2"), Mask: net.CIDRMask(24, 32)}},
+				{IPNet: &net.IPNet{IP: net.ParseIP("192.168.1.3"), Mask: net.CIDRMask(24, 32)}},
+			},
+			wantErr: false,
+		},
+		{
+			name:       "has stale IPv6 IPs",
+			ipv6:       true,
+			restoredIP: net.ParseIP("2001:db8::1"),
+			addrs: []netlink.Addr{
+				{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::1"), Mask: net.CIDRMask(64, 128)}},
+				{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::2"), Mask: net.CIDRMask(64, 128)}},
+			},
+			wantErr: false,
+		},
+		{
+			name:       "link not found",
+			ipv6:       false,
+			restoredIP: net.ParseIP("192.168.1.1"),
+			addrs:      nil,
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock netlink interface
+			mockNetlink := &mockNetlinkHandler{
+				link: &mockLink{
+					addrs: tt.addrs,
+				},
+			}
+
+			// Replace the real netlink handler with our mock
+			oldNetlink := safenetlink.LinkByName
+			safenetlink.LinkByName = mockNetlink.LinkByName
+			defer func() { safenetlink.LinkByName = oldNetlink }()
+
+			oldAddrList := safenetlink.AddrList
+			safenetlink.AddrList = mockNetlink.AddrList
+			defer func() { safenetlink.AddrList = oldAddrList }()
+
+			oldAddrDel := netlink.AddrDel
+			netlink.AddrDel = mockNetlink.AddrDel
+			defer func() { netlink.AddrDel = oldAddrDel }()
+
+			err := removeOldRouterState(slog.Default(), tt.ipv6, tt.restoredIP)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("removeOldRouterState() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Verify that stale IPs were removed
+			if mockNetlink.removedAddrs != nil {
+				for _, addr := range tt.addrs {
+					if !addr.IP.Equal(tt.restoredIP) {
+						found := false
+						for _, removed := range mockNetlink.removedAddrs {
+							if removed.IP.Equal(addr.IP) {
+								found = true
+								break
+							}
+						}
+						if !found {
+							t.Errorf("stale IP %v was not removed", addr.IP)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// Mock implementations for testing
+type mockLink struct {
+	netlink.Link
+	addrs []netlink.Addr
+}
+
+type mockNetlinkHandler struct {
+	link         *mockLink
+	removedAddrs []netlink.Addr
+}
+
+func (m *mockNetlinkHandler) LinkByName(name string) (netlink.Link, error) {
+	if m.link == nil {
+		return nil, &netlink.LinkNotFoundError{}
+	}
+	return m.link, nil
+}
+
+func (m *mockNetlinkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	if m.link == nil {
+		return nil, nil
+	}
+	return m.link.addrs, nil
+}
+
+func (m *mockNetlinkHandler) AddrDel(link netlink.Link, addr *netlink.Addr) error {
+	if m.removedAddrs == nil {
+		m.removedAddrs = make([]netlink.Addr, 0)
+	}
+	m.removedAddrs = append(m.removedAddrs, *addr)
+	return nil
 }
