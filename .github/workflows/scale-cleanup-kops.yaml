@@ -26,7 +26,7 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 522.0.0
+  gcloud_version: 524.0.0
 
 jobs:
   cleanup-kops-clusters:

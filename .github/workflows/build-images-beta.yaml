@@ -105,7 +105,7 @@ jobs:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_release
         with:
           provenance: false
