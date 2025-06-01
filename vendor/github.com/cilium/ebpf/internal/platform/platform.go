@@ -28,8 +28,8 @@ func SelectVersion(versions []string) (string, error) {
 	}
 
 	for _, version := range versions {
-		if strings.HasPrefix(version, prefix) {
-			return strings.TrimPrefix(version, prefix), nil
+		if after, ok := strings.CutPrefix(version, prefix); ok {
+			return after, nil
 		}
 
 		if IsLinux && !strings.ContainsRune(version, ':') {

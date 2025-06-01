@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -eux
 shopt -s expand_aliases
 
 DOCKER=${DOCKER:-docker}
@@ -53,8 +53,8 @@ main() {
         exit 1
     fi
 
-    remote=$(git remote -v | grep "${ORG}/${PROJECT}" | awk '{print $1;exit}')
-    default_branch=$(symbolic_ref "refs/remotes/${remote}/${target}" "${remote}")
+    remote=$(git remote -v | grep "${ORG}/charts" | awk '{print $1;exit}')
+    default_branch=$(symbolic_ref "refs/remotes/${remote}/HEAD" "${remote}")
     if [ "$(symbolic_ref HEAD "${remote}")" !=  "${default_branch}" ]; then
         git stash
         git checkout $default_branch

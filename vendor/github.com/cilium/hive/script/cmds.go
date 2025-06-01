@@ -250,13 +250,21 @@ func doCompare(s *State, env bool, args ...string) error {
 	}
 
 	if text1 != text2 {
-		if s.DoUpdate && s.RetryCount > 0 {
-			// Updates requested and we've already retried at least once
-			// (and given time for things to settle down).
-			// Store the file contents and ignore the mismatch.
-			s.FileUpdates[name1] = text2
-			s.FileUpdates[name2] = text1
-			return nil
+		if s.DoUpdate {
+			switch {
+			case len(text1) == 0 || len(text2) == 0:
+				s.Logf("cmp: refusing to update empty files, use 'empty' command instead")
+			case !s.retriesRequested:
+				// Not retrying, just take the contents right away
+				fallthrough
+			case s.retriesRequested && s.RetryCount >= 2:
+				// Updates requested and we've already retried at least twice
+				// (and given time for things to settle down).
+				// Store the file contents and ignore the mismatch.
+				s.FileUpdates[name1] = text2
+				s.FileUpdates[name2] = text1
+				return nil
+			}
 		}
 
 		if !quiet {
@@ -1272,14 +1280,6 @@ func doEmpty(s *State, args ...string) error {
 	}
 
 	if text != "" {
-		if s.DoUpdate && s.RetryCount > 0 {
-			// Updates requested and we've already retried at least once
-			// (and given time for things to settle down).
-			// Store the file contents and ignore the mismatch.
-			s.FileUpdates[name] = ""
-			return nil
-		}
-
 		if !quiet {
 			diffText := diff.Diff(name, []byte(text), "<empty>", []byte{})
 			s.Logf("%s\n", diffText)

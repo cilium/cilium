@@ -18,12 +18,12 @@ package yaml
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 
 	"sigs.k8s.io/yaml"
 
 	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
-	"go.etcd.io/etcd/client/v3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type yamlConfig struct {
@@ -42,7 +42,7 @@ type yamlConfig struct {
 
 // NewConfig creates a new clientv3.Config from a yaml file.
 func NewConfig(fpath string) (*clientv3.Config, error) {
-	b, err := ioutil.ReadFile(fpath)
+	b, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, err
 	}
