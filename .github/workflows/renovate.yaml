@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@f5c3383cb7cbf7711d8b66b809375b2d5f4e2d1d # v42.0.2
+        uses: renovatebot/github-action@8058cfe11252651a837a58e2e3370fbc0e72c658 # v42.0.4
         env:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}

@@ -194,7 +194,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           provenance: false
           context: /tmp/.cache/go
@@ -221,7 +221,7 @@ jobs:
         uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
 
       - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci
         if: ${{ steps.check.outputs.build != '' }}
         with:
@@ -237,7 +237,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci_detect_race_condition
         if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.race_tag != ''}}
         with:
@@ -255,7 +255,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci_unstripped
         if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.unstripped_tag != ''}}
         with:
