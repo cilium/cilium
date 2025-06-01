@@ -5890,6 +5890,26 @@ func (m *validateOpExportVerifiedAccessInstanceClientConfiguration) HandleInitia
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetActiveVpnTunnelStatus struct {
+}
+
+func (*validateOpGetActiveVpnTunnelStatus) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetActiveVpnTunnelStatus) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetActiveVpnTunnelStatusInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetActiveVpnTunnelStatusInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetAssociatedEnclaveCertificateIamRoles struct {
 }
 
@@ -10824,6 +10844,10 @@ func addOpExportTransitGatewayRoutesValidationMiddleware(stack *middleware.Stack
 
 func addOpExportVerifiedAccessInstanceClientConfigurationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpExportVerifiedAccessInstanceClientConfiguration{}, middleware.After)
+}
+
+func addOpGetActiveVpnTunnelStatusValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetActiveVpnTunnelStatus{}, middleware.After)
 }
 
 func addOpGetAssociatedEnclaveCertificateIamRolesValidationMiddleware(stack *middleware.Stack) error {
@@ -17397,6 +17421,24 @@ func validateOpExportVerifiedAccessInstanceClientConfigurationInput(v *ExportVer
 	invalidParams := smithy.InvalidParamsError{Context: "ExportVerifiedAccessInstanceClientConfigurationInput"}
 	if v.VerifiedAccessInstanceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VerifiedAccessInstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetActiveVpnTunnelStatusInput(v *GetActiveVpnTunnelStatusInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetActiveVpnTunnelStatusInput"}
+	if v.VpnConnectionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnConnectionId"))
+	}
+	if v.VpnTunnelOutsideIpAddress == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnTunnelOutsideIpAddress"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

@@ -33268,6 +33268,76 @@ func (m *awsEc2query_serializeOpExportVerifiedAccessInstanceClientConfiguration)
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpGetActiveVpnTunnelStatus struct {
+}
+
+func (*awsEc2query_serializeOpGetActiveVpnTunnelStatus) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpGetActiveVpnTunnelStatus) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*GetActiveVpnTunnelStatusInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("GetActiveVpnTunnelStatus")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentGetActiveVpnTunnelStatusInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpGetAllowedImagesSettings struct {
 }
 
@@ -64607,6 +64677,11 @@ func awsEc2query_serializeOpDocumentCreateVpnConnectionInput(v *CreateVpnConnect
 		}
 	}
 
+	if v.PreSharedKeyStorage != nil {
+		objectKey := object.Key("PreSharedKeyStorage")
+		objectKey.String(*v.PreSharedKeyStorage)
+	}
+
 	if v.TagSpecifications != nil {
 		objectKey := object.FlatKey("TagSpecification")
 		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
@@ -66299,6 +66374,11 @@ func awsEc2query_serializeOpDocumentDeprovisionPublicIpv4PoolCidrInput(v *Deprov
 func awsEc2query_serializeOpDocumentDeregisterImageInput(v *DeregisterImageInput, value query.Value) error {
 	object := value.Object()
 	_ = object
+
+	if v.DeleteAssociatedSnapshots != nil {
+		objectKey := object.Key("DeleteAssociatedSnapshots")
+		objectKey.Boolean(*v.DeleteAssociatedSnapshots)
+	}
 
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
@@ -73500,6 +73580,28 @@ func awsEc2query_serializeOpDocumentExportVerifiedAccessInstanceClientConfigurat
 	return nil
 }
 
+func awsEc2query_serializeOpDocumentGetActiveVpnTunnelStatusInput(v *GetActiveVpnTunnelStatusInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.VpnConnectionId != nil {
+		objectKey := object.Key("VpnConnectionId")
+		objectKey.String(*v.VpnConnectionId)
+	}
+
+	if v.VpnTunnelOutsideIpAddress != nil {
+		objectKey := object.Key("VpnTunnelOutsideIpAddress")
+		objectKey.String(*v.VpnTunnelOutsideIpAddress)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeOpDocumentGetAllowedImagesSettingsInput(v *GetAllowedImagesSettingsInput, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -74939,6 +75041,11 @@ func awsEc2query_serializeOpDocumentGetVpnConnectionDeviceSampleConfigurationInp
 	if v.InternetKeyExchangeVersion != nil {
 		objectKey := object.Key("InternetKeyExchangeVersion")
 		objectKey.String(*v.InternetKeyExchangeVersion)
+	}
+
+	if v.SampleType != nil {
+		objectKey := object.Key("SampleType")
+		objectKey.String(*v.SampleType)
 	}
 
 	if v.VpnConnectionDeviceTypeId != nil {
@@ -78152,6 +78259,11 @@ func awsEc2query_serializeOpDocumentModifyVpnTunnelOptionsInput(v *ModifyVpnTunn
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
 		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.PreSharedKeyStorage != nil {
+		objectKey := object.Key("PreSharedKeyStorage")
+		objectKey.String(*v.PreSharedKeyStorage)
 	}
 
 	if v.SkipTunnelReplacement != nil {

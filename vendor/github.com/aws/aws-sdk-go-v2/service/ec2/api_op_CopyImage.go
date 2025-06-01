@@ -24,11 +24,11 @@ import (
 // by default using the default encryption key for the Region or the key that you
 // specify. Outposts do not support unencrypted snapshots.
 //
-// For information about the prerequisites when copying an AMI, see [Copy an AMI] in the Amazon
+// For information about the prerequisites when copying an AMI, see [Copy an Amazon EC2 AMI] in the Amazon
 // EC2 User Guide.
 //
 // [CreateStoreImageTask]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateStoreImageTask.html
-// [Copy an AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/CopyingAMIs.html
+// [Copy an Amazon EC2 AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/CopyingAMIs.html
 func (c *Client) CopyImage(ctx context.Context, params *CopyImageInput, optFns ...func(*Options)) (*CopyImageOutput, error) {
 	if params == nil {
 		params = &CopyImageInput{}
@@ -63,9 +63,9 @@ type CopyImageInput struct {
 	SourceRegion *string
 
 	// Unique, case-sensitive identifier you provide to ensure idempotency of the
-	// request. For more information, see [Ensuring idempotency]in the Amazon EC2 API Reference.
+	// request. For more information, see [Ensuring idempotency in Amazon EC2 API requests]in the Amazon EC2 API Reference.
 	//
-	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency in Amazon EC2 API requests]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Indicates whether to include your user-defined AMI tags when copying the AMI.
@@ -146,9 +146,9 @@ type CopyImageInput struct {
 	// If you do not specify a value, the AMI copy operation is completed on a
 	// best-effort basis.
 	//
-	// For more information, see [Time-based copies].
+	// For more information, see [Time-based copies for Amazon EBS snapshots and EBS-backed AMIs].
 	//
-	// [Time-based copies]: https://docs.aws.amazon.com/ebs/latest/userguide/time-based-copies.html
+	// [Time-based copies for Amazon EBS snapshots and EBS-backed AMIs]: https://docs.aws.amazon.com/ebs/latest/userguide/time-based-copies.html
 	SnapshotCopyCompletionDurationMinutes *int64
 
 	// The tags to apply to the new AMI and new snapshots. You can tag the AMI, the

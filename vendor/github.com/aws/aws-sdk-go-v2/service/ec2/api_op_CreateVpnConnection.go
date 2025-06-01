@@ -69,6 +69,11 @@ type CreateVpnConnectionInput struct {
 	// The options for the VPN connection.
 	Options *types.VpnConnectionOptionsSpecification
 
+	// Specifies the storage mode for the pre-shared key (PSK). Valid values are
+	// Standard " (stored in the Site-to-Site VPN service) or SecretsManager (stored
+	// in Amazon Web Services Secrets Manager).
+	PreSharedKeyStorage *string
+
 	// The tags to apply to the VPN connection.
 	TagSpecifications []types.TagSpecification
 

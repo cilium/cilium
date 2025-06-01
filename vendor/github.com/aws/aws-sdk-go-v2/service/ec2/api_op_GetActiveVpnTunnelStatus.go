@@ -11,49 +11,48 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disables block public access for AMIs at the account level in the specified
-// Amazon Web Services Region. This removes the block public access restriction
-// from your account. With the restriction removed, you can publicly share your
-// AMIs in the specified Amazon Web Services Region.
-//
-// The API can take up to 10 minutes to configure this setting. During this time,
-// if you run [GetImageBlockPublicAccessState], the response will be block-new-sharing . When the API has completed
-// the configuration, the response will be unblocked .
-//
-// For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
-//
-// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-public-access-to-amis.html
-// [GetImageBlockPublicAccessState]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetImageBlockPublicAccessState.html
-func (c *Client) DisableImageBlockPublicAccess(ctx context.Context, params *DisableImageBlockPublicAccessInput, optFns ...func(*Options)) (*DisableImageBlockPublicAccessOutput, error) {
+// Returns the currently negotiated security parameters for an active VPN tunnel,
+// including IKE version, DH groups, encryption algorithms, and integrity
+// algorithms.
+func (c *Client) GetActiveVpnTunnelStatus(ctx context.Context, params *GetActiveVpnTunnelStatusInput, optFns ...func(*Options)) (*GetActiveVpnTunnelStatusOutput, error) {
 	if params == nil {
-		params = &DisableImageBlockPublicAccessInput{}
+		params = &GetActiveVpnTunnelStatusInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DisableImageBlockPublicAccess", params, optFns, c.addOperationDisableImageBlockPublicAccessMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetActiveVpnTunnelStatus", params, optFns, c.addOperationGetActiveVpnTunnelStatusMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DisableImageBlockPublicAccessOutput)
+	out := result.(*GetActiveVpnTunnelStatusOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DisableImageBlockPublicAccessInput struct {
+type GetActiveVpnTunnelStatusInput struct {
+
+	// The ID of the VPN connection for which to retrieve the active tunnel status.
+	//
+	// This member is required.
+	VpnConnectionId *string
+
+	// The external IP address of the VPN tunnel for which to retrieve the active
+	// status.
+	//
+	// This member is required.
+	VpnTunnelOutsideIpAddress *string
 
 	// Checks whether you have the required permissions for the action, without
-	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation . Otherwise, it is
-	// UnauthorizedOperation .
+	// actually making the request.
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
-type DisableImageBlockPublicAccessOutput struct {
+type GetActiveVpnTunnelStatusOutput struct {
 
-	// Returns unblocked if the request succeeds; otherwise, it returns an error.
-	ImageBlockPublicAccessState types.ImageBlockPublicAccessDisabledState
+	// Information about the current security configuration of the VPN tunnel.
+	ActiveVpnTunnelStatus *types.ActiveVpnTunnelStatus
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -61,19 +60,19 @@ type DisableImageBlockPublicAccessOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDisableImageBlockPublicAccessMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetActiveVpnTunnelStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDisableImageBlockPublicAccess{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpGetActiveVpnTunnelStatus{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDisableImageBlockPublicAccess{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetActiveVpnTunnelStatus{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DisableImageBlockPublicAccess"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "GetActiveVpnTunnelStatus"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -128,7 +127,10 @@ func (c *Client) addOperationDisableImageBlockPublicAccessMiddlewares(stack *mid
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableImageBlockPublicAccess(options.Region), middleware.Before); err != nil {
+	if err = addOpGetActiveVpnTunnelStatusValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetActiveVpnTunnelStatus(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -161,10 +163,10 @@ func (c *Client) addOperationDisableImageBlockPublicAccessMiddlewares(stack *mid
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDisableImageBlockPublicAccess(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opGetActiveVpnTunnelStatus(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DisableImageBlockPublicAccess",
+		OperationName: "GetActiveVpnTunnelStatus",
 	}
 }

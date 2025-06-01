@@ -8646,6 +8646,31 @@ func (SnapshotLocationEnum) Values() []SnapshotLocationEnum {
 	}
 }
 
+type SnapshotReturnCodes string
+
+// Enum values for SnapshotReturnCodes
+const (
+	SnapshotReturnCodesSuccess                 SnapshotReturnCodes = "success"
+	SnapshotReturnCodesWarnSkipped             SnapshotReturnCodes = "skipped"
+	SnapshotReturnCodesErrorMissingPermissions SnapshotReturnCodes = "missing-permissions"
+	SnapshotReturnCodesErrorCodeInternalError  SnapshotReturnCodes = "internal-error"
+	SnapshotReturnCodesErrorCodeClientError    SnapshotReturnCodes = "client-error"
+)
+
+// Values returns all known values for SnapshotReturnCodes. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SnapshotReturnCodes) Values() []SnapshotReturnCodes {
+	return []SnapshotReturnCodes{
+		"success",
+		"skipped",
+		"missing-permissions",
+		"internal-error",
+		"client-error",
+	}
+}
+
 type SnapshotState string
 
 // Enum values for SnapshotState
@@ -10580,6 +10605,27 @@ const (
 func (VpnStaticRouteSource) Values() []VpnStaticRouteSource {
 	return []VpnStaticRouteSource{
 		"Static",
+	}
+}
+
+type VpnTunnelProvisioningStatus string
+
+// Enum values for VpnTunnelProvisioningStatus
+const (
+	VpnTunnelProvisioningStatusAvailable VpnTunnelProvisioningStatus = "available"
+	VpnTunnelProvisioningStatusPending   VpnTunnelProvisioningStatus = "pending"
+	VpnTunnelProvisioningStatusFailed    VpnTunnelProvisioningStatus = "failed"
+)
+
+// Values returns all known values for VpnTunnelProvisioningStatus. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (VpnTunnelProvisioningStatus) Values() []VpnTunnelProvisioningStatus {
+	return []VpnTunnelProvisioningStatus{
+		"available",
+		"pending",
+		"failed",
 	}
 }
 
