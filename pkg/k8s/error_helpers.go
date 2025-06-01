@@ -63,7 +63,33 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...any) {
 	// trying to connect.
 	case strings.Contains(errstr, "connection refused"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			logger.Error("k8sError", logfields.Error, e)
+			logger.Error("Unable to contact k8s api-server. Possible causes:",
+				logfields.Error, e,
+				logfields.Hint, "1. kube-proxy is not running or crash looping. Check with 'kubectl get pods -n kube-system | grep kube-proxy'",
+				logfields.Hint, "2. API server is not reachable. Check if the API server is running and accessible",
+				logfields.Hint, "3. Network connectivity issues between Cilium and the API server",
+				logfields.Hint, "4. If using KPR=strict, ensure kube-apiserver node IP address is correctly specified",
+			)
+		}
+	case strings.Contains(errstr, "no route to host"):
+		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
+			logger.Error("Network route to API server is not available. Possible causes:",
+				logfields.Error, e,
+				logfields.Hint, "1. Network routing issues between Cilium and the API server",
+				logfields.Hint, "2. Firewall rules blocking the connection",
+				logfields.Hint, "3. If using KPR=strict, verify the API server node IP is correct",
+				logfields.Hint, "4. Check if the API server's ClusterIP is correctly configured",
+			)
+		}
+	case strings.Contains(errstr, "connection timed out"):
+		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
+			logger.Error("Connection to API server timed out. Possible causes:",
+				logfields.Error, e,
+				logfields.Hint, "1. API server is overloaded or not responding",
+				logfields.Hint, "2. Network latency issues between Cilium and the API server",
+				logfields.Hint, "3. Check if the API server's health endpoint is accessible",
+				logfields.Hint, "4. Verify network policies are not blocking the connection",
+			)
 		}
 
 	// k8s does not allow us to watch both ThirdPartyResource and
