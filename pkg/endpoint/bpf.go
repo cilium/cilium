@@ -450,6 +450,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	dir := datapathRegenCtxt.currentDir
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
 		if err := e.writeHeaderfile(datapathRegenCtxt.nextDir); err != nil {
+			e.unlock()
 			return 0, fmt.Errorf("write endpoint header file: %w", err)
 		}
 		dir = datapathRegenCtxt.nextDir
@@ -469,12 +470,14 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		// Ingress endpoint needs entries in the endpoints map so that the return traffic,
 		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
 		if e.isProperty(PropertyAtHostNS) {
+			mapSyncSuccess := false
 			stats.mapSync.Start()
+			defer func() { stats.mapSync.End(mapSyncSuccess) }()
 			err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
-			stats.mapSync.End(err == nil)
 			if err != nil {
 				return 0, fmt.Errorf("Exposing endpoint in endpoints BPF map failed: %w", err)
 			}
+			mapSyncSuccess = true
 		}
 
 		// Allow another builder to start while we wait for the proxy
@@ -482,35 +485,41 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 			regenContext.DoneFunc()
 		}
 
+		proxyWaitForAckSuccess := false
 		stats.proxyWaitForAck.Start()
+		defer func() { stats.proxyWaitForAck.End(proxyWaitForAckSuccess) }()
 		err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
-		stats.proxyWaitForAck.End(err == nil)
 		if err != nil {
 			return 0, fmt.Errorf("Error while updating network policy: %w", err)
 		}
+		proxyWaitForAckSuccess = true
 
 		return e.nextPolicyRevision, nil
 	}
 
 	// Wait for connection tracking cleaning to complete
+	waitingForCTCleanSuccess := false
 	stats.waitingForCTClean.Start()
+	defer func() { stats.waitingForCTClean.End(waitingForCTCleanSuccess) }()
 	<-datapathRegenCtxt.ctCleaned
-	stats.waitingForCTClean.End(true)
+	waitingForCTCleanSuccess = true
 
 	err = e.realizeBPFState(regenContext)
 	if err != nil {
 		return datapathRegenCtxt.epInfoCache.revision, err
 	}
 
+	mapSyncSuccess := false
+	stats.mapSync.Start()
+	defer func() { stats.mapSync.End(mapSyncSuccess) }()
 	if !datapathRegenCtxt.epInfoCache.IsHost() || option.Config.EnableHostFirewall {
 		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
-		stats.mapSync.Start()
 		err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
-		stats.mapSync.End(err == nil)
 		if err != nil {
 			return 0, fmt.Errorf("Exposing new BPF failed: %w", err)
 		}
 	}
+	mapSyncSuccess = true // Assuming success if WriteEndpoint doesn't error
 
 	// Signal that BPF program has been generated.
 	// The endpoint has at least L3/L4 connectivity at this point.
@@ -521,12 +530,14 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		regenContext.DoneFunc()
 	}
 
+	proxyWaitForAckSuccess := false
 	stats.proxyWaitForAck.Start()
+	defer func() { stats.proxyWaitForAck.End(proxyWaitForAckSuccess) }()
 	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
-	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, fmt.Errorf("error while configuring proxy redirects: %w", err)
 	}
+	proxyWaitForAckSuccess = true
 
 	stats.waitingForLock.Start()
 	err = e.lockAlive()
@@ -539,10 +550,14 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	e.ctCleaned = true
 
 	if !datapathRegenCtxt.policyMapSyncDone {
+		mapSyncSuccess := false
+		stats.mapSync.Start()
+		defer func() { stats.mapSync.End(mapSyncSuccess) }()
 		err = e.policyMapSync(datapathRegenCtxt.policyMapDump, stats)
 		if err != nil {
 			return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
 		}
+		mapSyncSuccess = true
 		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
@@ -567,7 +582,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 // Sync is done against 'policyMapDump' if non-empty, otherwise it is done against e.realizedPolicy
 // e.mutex must be held!
 func (e *Endpoint) policyMapSync(policyMapDump policy.MapStateMap, stats *regenerationStatistics) (err error) {
-	stats.mapSync.Start()
+	// stats.mapSync is started by the caller, regenerateBPF
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy != e.desiredPolicy {
 		if len(policyMapDump) > 0 {
@@ -576,7 +591,6 @@ func (e *Endpoint) policyMapSync(policyMapDump policy.MapStateMap, stats *regene
 			err = e.syncPolicyMap()
 		}
 	}
-	stats.mapSync.End(err == nil)
 	return err
 }
 
@@ -603,6 +617,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
+		// stats.datapathRealization is passed directly to ReloadDatapath
 		templateHash, err := e.orchestrator.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
@@ -666,12 +681,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		datapathRegenCtxt.policyResult.endpointPolicy == nil ||
 		datapathRegenCtxt.policyResult.identityRevision < identityRevision ||
 		datapathRegenCtxt.policyResult.policyRevision < policyRevision {
+		policyCalculationSuccess := false
 		stats.policyCalculation.Start()
+		defer func() { stats.policyCalculation.End(policyCalculationSuccess) }()
 		err := e.regeneratePolicy(stats, datapathRegenCtxt)
-		stats.policyCalculation.End(err == nil)
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
 		}
+		policyCalculationSuccess = true
 	}
 
 	// Once the policy has been calculated, we can update the standalone dns proxy as well.
@@ -802,20 +819,28 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		// Sync policy map before bpf compilation if the bpf policymap is empty.
 		// This allows for upgrades and downgrades from versions using a different policy map
 		if len(datapathRegenCtxt.policyMapDump) == 0 {
+			mapSyncSuccess := false
+			stats.mapSync.Start()
+			defer func() { stats.mapSync.End(mapSyncSuccess) }()
 			err = e.policyMapSync(nil, stats)
 			if err != nil {
 				return fmt.Errorf("policymap synchronization failed: %w", err)
 			}
+			mapSyncSuccess = true
 		}
 		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
 	// sync policy map for fake endpoints, bpf compilation will be skipped for them.
 	if e.isProperty(PropertyFakeEndpoint) {
+		mapSyncSuccess := false
+		stats.mapSync.Start()
+		defer func() { stats.mapSync.End(mapSyncSuccess) }()
 		err = e.policyMapSync(nil, stats)
 		if err != nil {
 			return fmt.Errorf("fake ep policymap synchronization failed: %w", err)
 		}
+		mapSyncSuccess = true
 	}
 
 	if e.isProperty(PropertySkipBPFRegeneration) {
@@ -1182,12 +1207,14 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 				"applyPolicyMapChanges: Updating Envoy NetworkPolicy",
 				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
 			)
+			proxyPolicyCalculationSuccess := false
 			stats.proxyPolicyCalculation.Start()
+			defer func() { stats.proxyPolicyCalculation.End(proxyPolicyCalculationSuccess) }()
 			var rf revert.RevertFunc
 			err, rf = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
-			stats.proxyPolicyCalculation.End(err == nil)
 			if err == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
+				proxyPolicyCalculationSuccess = true
 			}
 		} else if hasEnvoyRedirect {
 			// Wait for a possible ongoing update to be done if there were no current changes.

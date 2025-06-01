@@ -164,23 +164,6 @@ func GetPathConnectivityStatusType(cp *models.PathStatus) ConnectivityStatusType
 	return status
 }
 
-func SummarizePathConnectivityStatus(cps []*models.PathStatus) ConnectivityStatusType {
-	status := ConnStatusReachable
-	for _, cp := range cps {
-		switch GetPathConnectivityStatusType(cp) {
-		case ConnStatusUnreachable:
-			// If any status is unreachable, return it immediately.
-			return ConnStatusUnreachable
-		case ConnStatusUnknown:
-			// If the status is unknown, prepare to return it. It's
-			// going to be returned if there is no unreachable
-			// status in next iterations.
-			status = ConnStatusUnknown
-		}
-	}
-	return status
-}
-
 // Returns a map of ConnectivityStatusType --> # of paths with ConnectivityStatusType
 func SummarizePathConnectivityStatusType(cps []*models.PathStatus) map[ConnectivityStatusType]int {
 	status := make(map[ConnectivityStatusType]int)

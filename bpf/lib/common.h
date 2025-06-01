@@ -80,6 +80,11 @@ enum {
 
 typedef __u64 mac_t;
 
+union v4addr {
+	__be32 be32;
+	__u8 addr[4];
+};
+
 union v6addr {
 	struct {
 		__u32 p1;
@@ -401,6 +406,8 @@ struct egress_gw_policy_entry6 {
 	union v6addr egress_ip;
 	__u32 gateway_ip;
 	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+	__u32 egress_ifindex;
+	__u32 reserved2; /* for even more future extension */
 };
 
 struct srv6_vrf_key4 {

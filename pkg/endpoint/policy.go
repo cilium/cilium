@@ -245,9 +245,11 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
+		proxyConfigurationSuccess := true // Assuming success unless addNewRedirects errors, though it doesn't return error
 		stats.proxyConfiguration.Start()
 		desiredRedirects, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
-		stats.proxyConfiguration.End(true)
+		// TODO: Determine actual success of addNewRedirects if possible, for now assuming true
+		stats.proxyConfiguration.End(proxyConfigurationSuccess)
 		datapathRegenCtxt.revertStack.Push(rf)
 
 		// Add a finalize function to clear out stale redirects. This will be called after
@@ -267,9 +269,10 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	e.runlock()
 
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
+	endpointPolicyCalculationSuccess := true // Assuming success, DistillPolicy doesn't return error
 	stats.endpointPolicyCalculation.Start()
 	result.endpointPolicy = selectorPolicy.DistillPolicy(logging.DefaultSlogLogger, e, desiredRedirects)
-	stats.endpointPolicyCalculation.End(true)
+	stats.endpointPolicyCalculation.End(endpointPolicyCalculationSuccess)
 
 	datapathRegenCtxt.policyResult = result
 	return nil
@@ -379,6 +382,8 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	ctx.Stats = regenerationStatistics{}
 	stats := &ctx.Stats
 	stats.totalTime.Start()
+	// placeholder for actual success value
+	defer func() { stats.totalTime.End(retErr == nil) }()
 	debugLogsEnabled := e.getLogger().Enabled(context.Background(), slog.LevelDebug)
 
 	if debugLogsEnabled {
@@ -392,6 +397,8 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	defer func() {
 		// This has to be within a func(), not deferred directly, so that the
 		// value of retErr is passed in from when regenerate returns.
+		// The success flag for totalTime is set above.
+		ctx.Stats.success = retErr == nil
 		e.updateRegenerationStatistics(ctx, retErr)
 	}()
 
@@ -431,7 +438,6 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 
 	e.unlock()
 
-	stats.prepareBuild.Start()
 	origDir := e.StateDirectoryPath()
 	ctx.datapathRegenerationContext.currentDir = origDir
 
@@ -443,18 +449,19 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
+	prepareBuildSuccess := false
+	stats.prepareBuild.Start()
+	defer func() { stats.prepareBuild.End(prepareBuildSuccess) }()
 	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
-		stats.prepareBuild.End(false)
 		return fmt.Errorf("unable to remove old temporary directory: %w", err)
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
-		stats.prepareBuild.End(false)
 		return fmt.Errorf("Failed to create endpoint directory: %w", err)
 	}
 
-	stats.prepareBuild.End(true)
+	prepareBuildSuccess = true
 
 	defer func() {
 		if err := e.lockAlive(); err != nil {
@@ -567,11 +574,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 }
 
 func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err error) {
-	success := err == nil
+	// success field for stats.totalTime is set in the defer func in regenerate()
+	// success field for ctx.Stats is set in the defer func in regenerate()
 	stats := &ctx.Stats
-
-	stats.totalTime.End(success)
-	stats.success = success
 
 	e.mutex.RLock()
 	stats.endpointID = e.ID
@@ -859,9 +864,11 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	defer e.buildMutex.Unlock()
 
 	// Compute Endpoint's policy
+	var err error
+	policyCalculationSuccess := false
 	stats.policyCalculation.Start()
-	err := e.regeneratePolicy(stats, datapathRegenCtxt)
-	stats.policyCalculation.End(err == nil)
+	defer func() { stats.policyCalculation.End(policyCalculationSuccess) }()
+	err = e.regeneratePolicy(stats, datapathRegenCtxt)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			e.getLogger().Warn(
@@ -872,6 +879,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 		// Do not error out so that the policy regeneration is tried again.
 		return nil, func() {}
 	}
+	policyCalculationSuccess = true
 
 	err = e.lockAlive()
 	if err != nil {
@@ -905,10 +913,11 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 			logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
 		)
 
+		proxyPolicyCalculationSuccess := false
 		stats.proxyPolicyCalculation.Start()
+		defer func() { stats.proxyPolicyCalculation.End(proxyPolicyCalculationSuccess) }()
 		// Initial NetworkPolicy is not reverted
 		err, _ = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, nil)
-		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.getLogger().Warn(
 				"Initial Envoy NetworkPolicy failed",
@@ -917,6 +926,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 			// Do not error out so that the policy regeneration is tried again.
 			return nil, release
 		}
+		proxyPolicyCalculationSuccess = true
 	}
 
 	// Signal computation of the initial Envoy policy if not done yet
@@ -942,7 +952,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				e.getLogger().Debug("received signal that regeneration failed")
 			case <-ctx.Done():
 				e.getLogger().Debug("exiting retrying regeneration goroutine due to endpoint being deleted")
-				return nil
+				return controller.NewExitReason("endpoint being deleted")
 			}
 
 			regenMetadata := &regeneration.ExternalRegenerationMetadata{
@@ -952,7 +962,10 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				// of the failure, simply that something failed.
 				RegenerationLevel: regeneration.RegenerateWithDatapath,
 			}
-			regen, _ := e.SetRegenerateStateIfAlive(regenMetadata)
+			regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
+			if err != nil {
+				return controller.NewExitReason("endpoint being deleted")
+			}
 			if !regen {
 				// We don't need to regenerate because the endpoint is d
 				// disconnecting / is disconnected, or another regeneration has

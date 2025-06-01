@@ -932,6 +932,10 @@
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int
      - ``255``
+   * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
+     - Control whether policy rules assume by default the local cluster if not explicitly selected
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.useAPIServer`
      - Deploy clustermesh-apiserver for clustermesh
      - bool
@@ -1162,10 +1166,6 @@
      - ``false``
    * - :spelling:ignore:`enableNonDefaultDenyPolicies`
      - Enable Non-Default-Deny policies
-     - bool
-     - ``true``
-   * - :spelling:ignore:`enableRuntimeDeviceDetection`
-     - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
      - bool
      - ``true``
    * - :spelling:ignore:`enableXTSocketFallback`
@@ -1584,10 +1584,6 @@
      - Enable use of TLS/SSL for connectivity to etcd.
      - bool
      - ``false``
-   * - :spelling:ignore:`externalIPs.enabled`
-     - Enable ExternalIPs service support.
-     - bool
-     - ``false``
    * - :spelling:ignore:`extraArgs`
      - Additional agent container arguments.
      - list
@@ -1698,10 +1694,6 @@
      - ``{"enabled":false}``
    * - :spelling:ignore:`hostFirewall.enabled`
      - Enables the enforcement of host policies in the eBPF datapath.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hostPort.enabled`
-     - Enable hostPort service support.
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.annotations`

@@ -154,8 +154,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		ctx_change_type(ctx, PACKET_HOST);
 
 		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, 0, bpf_htons(ETH_P_IPV6));
 
 		return CTX_ACT_OK;
 	}
@@ -182,17 +182,25 @@ not_esp:
 			set_identity_mark(ctx, *identity, MARK_MAGIC_EGW_DONE);
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
-			ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
-								   &daddr, egress_ifindex,
-								   ext_err);
-			if (ret != CTX_ACT_OK)
-				return ret;
-
-			if (!revalidate_data(ctx, &data, &data_end, &ip6))
-				return DROP_INVALID;
+			return egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
+								    &daddr, egress_ifindex,
+								    ext_err);
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
+#if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass incoming packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * Geneve DSR reply packets are processed by the host-stack,
+	 * so this logic is needed to prevent the packets from being handled
+	 * by netfilter in an unintended way.
+	 */
+	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr) {
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
+#endif
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
@@ -465,8 +473,8 @@ skip_vtep:
 		ctx_change_type(ctx, PACKET_HOST);
 
 		send_trace_notify(ctx, TRACE_TO_STACK, *identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, 0, bpf_htons(ETH_P_IP));
 
 		return CTX_ACT_OK;
 	}
@@ -492,17 +500,25 @@ not_esp:
 			set_identity_mark(ctx, *identity, MARK_MAGIC_EGW_DONE);
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
-			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
-								daddr, egress_ifindex,
-								ext_err);
-			if (ret != CTX_ACT_OK)
-				return ret;
-
-			if (!revalidate_data(ctx, &data, &data_end, &ip4))
-				return DROP_INVALID;
+			return egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
+								 daddr, egress_ifindex,
+								 ext_err);
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
+#if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass incoming packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * Geneve DSR reply packets are processed by the host-stack,
+	 * so this logic is needed to prevent the packets from being handled
+	 * by netfilter in an unintended way.
+	 */
+	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr) {
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
+#endif
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
@@ -579,7 +595,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 		fake_info.flag_has_tunnel_ep = true;
 		ret = __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						       LOCAL_NODE_ID, WORLD_IPV4_ID,
-						       WORLD_IPV4_ID, &trace);
+						       WORLD_IPV4_ID, &trace,
+						       bpf_htons(ETH_P_ARP));
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -593,7 +610,7 @@ drop_err:
 pass_to_stack:
 	send_trace_notify(ctx, TRACE_TO_STACK, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-			  trace.reason, trace.monitor);
+			  trace.reason, trace.monitor, bpf_htons(ETH_P_ARP));
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_VTEP */
@@ -712,8 +729,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
 		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, 0, proto);
 	else
 #endif
 	{
@@ -727,7 +744,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 		send_trace_notify(ctx, obs_point, src_sec_identity, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 	}
 
 	switch (proto) {

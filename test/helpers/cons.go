@@ -9,8 +9,6 @@ import (
 	"os"
 	"time"
 
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
 )
@@ -61,9 +59,6 @@ const (
 	// CiliumAgentLabel is the label used for Cilium
 	CiliumAgentLabel = "k8s-app=cilium"
 
-	// CiliumOperatorLabel is the label used in the Cilium Operator deployment
-	CiliumOperatorLabel = "io.cilium/app=operator"
-
 	// HubbleRelayLabel is the label used for the Hubble Relay deployment
 	HubbleRelayLabel = "k8s-app=hubble-relay"
 
@@ -79,11 +74,6 @@ const (
 	// for Cilium in which traffic is denied by default even when no policy
 	// is imported.
 	PolicyEnforcementAlways = "always"
-
-	// PolicyEnforcementNever represents the PolicyEnforcement mode
-	// for Cilium in which traffic is always allowed even if there is a policy
-	// selecting endpoints.
-	PolicyEnforcementNever = "never"
 
 	// CiliumDockerNetwork is the name of the Docker network which Cilium manages.
 	CiliumDockerNetwork = "cilium-net"
@@ -124,19 +114,7 @@ const (
 	// functions instead of using basic strings.
 
 	OptionConntrackAccounting = "ConntrackAccounting"
-	OptionDebug               = "Debug"
-	OptionDropNotify          = "DropNotification"
-	OptionTraceNotify         = "TraceNotification"
-	OptionIngressPolicy       = "IngressPolicy"
-	OptionEgressPolicy        = "EgressPolicy"
-	OptionIngress             = "ingress"
-	OptionEgress              = "egress"
-	OptionNone                = "none"
-	OptionDisabled            = "Disabled"
 	OptionEnabled             = "Enabled"
-
-	StateTerminating = "Terminating"
-	StateRunning     = "Running"
 
 	PingCount   = 5
 	PingTimeout = 5
@@ -164,14 +142,9 @@ const (
 	CiliumBugtool          = "cilium-bugtool"
 	CiliumBugtoolArgs      = "--exclude-object-files"
 	CiliumDockerDaemonName = "cilium-docker"
-	AgentDaemon            = "cilium-agent"
 
-	KubectlCreate = ResourceLifeCycleAction("create")
 	KubectlDelete = ResourceLifeCycleAction("delete")
 	KubectlApply  = ResourceLifeCycleAction("apply")
-
-	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
-	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
 	MonitorLogFileName = "monitor.log"
 
@@ -227,11 +200,8 @@ const (
 	podCIDRUnavailable         = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
 	unableGetNode              = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
 	objectHasBeenModified      = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
-	legacyBGPFeature           = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
 	etcdTimeout                = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
 	endpointRestoreFailed      = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
-	unableRestoreRouterIP      = "Unable to restore router IP from filesystem"                           // cf. https://github.com/cilium/cilium/issues/29715
-	routerIPReallocated        = "Router IP could not be re-allocated"                                   // cf. https://github.com/cilium/cilium/issues/29715
 	cantFindIdentityInCache    = "unable to release identity: unable to find key in local cache"         // cf. https://github.com/cilium/cilium/issues/29732
 	keyAllocFailedFoundMaster  = "Found master key after proceeding with new allocation"                 // cf. https://github.com/cilium/cilium/issues/29738
 	cantRecreateMasterKey      = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
@@ -264,20 +234,6 @@ const (
 	ReservedIdentityHost = 1
 )
 
-var (
-	IsCiliumV1_8  = versioncheck.MustCompile(">=1.7.90 <1.9.0")
-	IsCiliumV1_9  = versioncheck.MustCompile(">=1.8.90 <1.10.0")
-	IsCiliumV1_10 = versioncheck.MustCompile(">=1.9.90 <1.11.0")
-	IsCiliumV1_11 = versioncheck.MustCompile(">=1.10.90 <1.12.0")
-	IsCiliumV1_12 = versioncheck.MustCompile(">=1.11.90 <1.13.0")
-	IsCiliumV1_13 = versioncheck.MustCompile(">=1.12.90 <1.14.0")
-	IsCiliumV1_14 = versioncheck.MustCompile(">=1.13.90 <1.15.0")
-	IsCiliumV1_15 = versioncheck.MustCompile(">=1.14.90 <1.16.0")
-	IsCiliumV1_16 = versioncheck.MustCompile(">=1.15.90 <1.17.0")
-	IsCiliumV1_17 = versioncheck.MustCompile(">=1.16.90 <1.18.0")
-	IsCiliumV1_18 = versioncheck.MustCompile(">=1.17.90 <1.19.0")
-)
-
 // badLogMessages is a map which key is a part of a log message which indicates
 // a failure if the message does not contain any part from value list.
 var badLogMessages = map[string][]string{
@@ -301,8 +257,7 @@ var badLogMessages = map[string][]string{
 		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, podCIDRUnavailable,
-		unableGetNode, objectHasBeenModified, legacyBGPFeature,
-		etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP, routerIPReallocated,
+		unableGetNode, objectHasBeenModified, etcdTimeout, endpointRestoreFailed,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
 		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},
 }
@@ -347,11 +302,6 @@ var ciliumKubCLICommandsKVStore = map[string]string{
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.
 func K8s1VMName() string {
 	return fmt.Sprintf("k8s1-%s", GetCurrentK8SEnv())
-}
-
-// K8s2VMName is the name of the Kubernetes worker node when running K8s tests.
-func K8s2VMName() string {
-	return fmt.Sprintf("k8s2-%s", GetCurrentK8SEnv())
 }
 
 // GetBadLogMessages returns a deep copy of badLogMessages to allow removing

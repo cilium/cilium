@@ -819,8 +819,8 @@ const (
 	// EndpointRegenInterval is the interval of the periodic endpoint regeneration loop.
 	EndpointRegenInterval = "endpoint-regen-interval"
 
-	// LoopbackIPv4 is the address to use for service loopback SNAT
-	LoopbackIPv4 = "ipv4-service-loopback-address"
+	// ServiceLoopbackIPv4 is the address to use for service loopback SNAT
+	ServiceLoopbackIPv4 = "ipv4-service-loopback-address"
 
 	// LocalRouterIPv4 is the link-local IPv4 address to use for Cilium router device
 	LocalRouterIPv4 = "local-router-ipv4"
@@ -1020,10 +1020,6 @@ const (
 
 	// BGP router-id allocation IP pool
 	BGPRouterIDAllocationIPPool = "bgp-router-id-allocation-ip-pool"
-
-	// EnableRuntimeDeviceDetection is the name of the option to enable detection
-	// of new and removed datapath devices during the agent runtime.
-	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
 
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
@@ -1271,11 +1267,6 @@ type DaemonConfig struct {
 	HostV6Addr         net.IP   // Host v6 address of the snooping device
 	EncryptInterface   []string // Set of network facing interface to encrypt over
 	EncryptNode        bool     // Set to true for encrypting node IP traffic
-
-	// If set to true the daemon will detect new and deleted datapath devices
-	// at runtime and reconfigure the datapath to load programs onto the new
-	// devices.
-	EnableRuntimeDeviceDetection bool
 
 	DatapathMode string // Datapath mode
 	RoutingMode  string // Routing mode
@@ -1746,8 +1737,8 @@ type DaemonConfig struct {
 	// the specified maximum value.
 	ConntrackGCMaxInterval time.Duration
 
-	// LoopbackIPv4 is the address to use for service loopback SNAT
-	LoopbackIPv4 string
+	// ServiceLoopbackIPv4 is the address to use for service loopback SNAT
+	ServiceLoopbackIPv4 string
 
 	// LocalRouterIPv4 is the link-local IPv4 address used for Cilium's router device
 	LocalRouterIPv4 string
@@ -2139,7 +2130,7 @@ var (
 		FixedIdentityMapping:            make(map[string]string),
 		KVStoreOpt:                      make(map[string]string),
 		LogOpt:                          make(map[string]string),
-		LoopbackIPv4:                    defaults.LoopbackIPv4,
+		ServiceLoopbackIPv4:             defaults.ServiceLoopbackIPv4,
 		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
 		K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
@@ -2785,7 +2776,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.Labels = vp.GetStringSlice(Labels)
 	c.LibDir = vp.GetString(LibDir)
 	c.LogSystemLoadConfig = vp.GetBool(LogSystemLoadConfigName)
-	c.LoopbackIPv4 = vp.GetString(LoopbackIPv4)
+	c.ServiceLoopbackIPv4 = vp.GetString(ServiceLoopbackIPv4)
 	c.LocalRouterIPv4 = vp.GetString(LocalRouterIPv4)
 	c.LocalRouterIPv6 = vp.GetString(LocalRouterIPv6)
 	c.EnableBPFClockProbe = vp.GetBool(EnableBPFClockProbe)
@@ -2857,7 +2848,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	c.populateLoadBalancerSettings(logger, vp)
-	c.EnableRuntimeDeviceDetection = vp.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
 	c.InstallUplinkRoutesForDelegatedIPAM = vp.GetBool(InstallUplinkRoutesForDelegatedIPAM)
 

@@ -281,7 +281,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 
 		send_trace_notify(ctx, TRACE_FROM_CRYPTO, identity, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_WIREGUARD, &ext_err);
 		/* See the equivalent v4 path for comments */
@@ -299,7 +299,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 
 		send_trace_notify(ctx, TRACE_FROM_CRYPTO, identity, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_WIREGUARD, &ext_err);
 		/* We are not returning an error here to always allow traffic to
@@ -315,7 +315,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 
 	send_trace_notify(ctx, TRACE_FROM_CRYPTO, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 	/* Pass unknown traffic to the stack */
 	return TC_ACT_OK;
@@ -355,7 +355,7 @@ out:
 
 	send_trace_notify(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-			  trace.reason, trace.monitor);
+			  trace.reason, trace.monitor, proto);
 
 	return TC_ACT_OK;
 }

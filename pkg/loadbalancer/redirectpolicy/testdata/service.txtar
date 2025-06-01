@@ -1,11 +1,9 @@
 hive start
-db/initialized
 
 # Add pods, services and endpoints.
 k8s/add pod.yaml service.yaml endpointslice.yaml
 db/cmp services services-before.table
 db/cmp frontends frontends-before.table
-
 
 # Compare maps
 lb/maps-dump lbmaps.actual
@@ -200,6 +198,7 @@ spec:
         - containerPort: 70
           name: udp
           protocol: UDP
+  nodeName: testnode
 status:
   hostIP: 172.19.0.3
   hostIPs:

@@ -2,7 +2,6 @@
 
 # Start the test application
 hive start
-db/initialized
 
 # Add service w/o "service.cilium.io/forwarding-mode"
 k8s/add service.yaml endpointslice.yaml

@@ -49,7 +49,9 @@ runs:
           --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
           --helm-set=hubble.relay.image.useDigest=false \
           --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
-          --set-string=extraEnv[0].value=true"
+          --set-string=extraEnv[0].value=true \
+          --set-string=extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
+          --set-string=extraEnv[1].value=true"
 
         if [ "${{ inputs.debug }}" == "true" ]; then
           CILIUM_INSTALL_DEFAULTS+=" --helm-set=debug.enabled=true \
@@ -57,8 +59,8 @@ runs:
         fi
 
         if [ "${{ inputs.mutation-detection }}" == "true" ]; then
-          CILIUM_INSTALL_DEFAULTS+="--set-string=extraEnv[1].name=KUBE_CACHE_MUTATION_DETECTOR \
-            --set-string=extraEnv[1].value=true"
+          CILIUM_INSTALL_DEFAULTS+="--set-string=extraEnv[2].name=KUBE_CACHE_MUTATION_DETECTOR \
+            --set-string=extraEnv[2].value=true"
         fi
 
         echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT

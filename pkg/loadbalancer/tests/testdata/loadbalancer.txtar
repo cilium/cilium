@@ -7,11 +7,6 @@ db/cmp node-addresses nodeaddrs.table
 # Start the test application
 hive start
 
-# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-# (otherwise might miss events due to List() vs Watch() race in fake client).
-# NOTE: The 100ms delay you might see is from WaitForCacheSync polling at 100ms.
-db/initialized
-
 # Add the endpoints and service
 k8s/add endpointslice.yaml
 db/cmp backends backends.table
@@ -50,7 +45,7 @@ Address NodePort Primary DeviceName
 
 -- services.table --
 Name         Source   PortNames  TrafficPolicy   Flags
-test/echo    k8s      http=80    Cluster         
+test/echo    k8s      http=80    Cluster         LoadBalancerClass=test
 
 -- frontends.table --
 Address               Type         ServiceName   PortName   Status  Backends
@@ -115,6 +110,7 @@ spec:
   selector:
     name: echo
   sessionAffinity: None
+  loadBalancerClass: "test"
   type: LoadBalancer
 status:
   loadBalancer:

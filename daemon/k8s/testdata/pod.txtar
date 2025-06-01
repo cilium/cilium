@@ -5,18 +5,7 @@
 # api-server.
 #
 
-# Start and wait for reflector to sync up (List & Watch). This is needed
-# as the fake k8s client is dumb and would miss events between the List
-# and Watch calls.
 hive start
-db/initialized
-
-# We can also use the k8s/wait-watchers to wait for a watcher to appear.
-# This is useful when we don't have a StateDB table and thus cannot use
-# 'db/initialized'.
-# This is only here as an example for other tests. You don't need both
-# this and db/initialized!
-k8s/wait-watchers v1.pods
 
 # At the start the table is empty
 db/cmp k8s-pods empty.table 
@@ -80,7 +69,7 @@ default/nginx
     "name": "nginx",
     "namespace": "default",
     "uid": "d96be1eb-51df-4383-87ab-bc29d5b42933",
-    "resourceVersion": "482057",
+    "resourceVersion": "1",
     "labels": {
       "run": "nginx"
     }
@@ -171,7 +160,7 @@ metadata:
     run: nginx
   name: nginx
   namespace: default
-  resourceVersion: "482057"
+  resourceVersion: "1"
   uid: d96be1eb-51df-4383-87ab-bc29d5b42933
 spec:
   containers:

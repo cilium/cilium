@@ -84,11 +84,11 @@ int cil_from_network(struct __ctx_buff *ctx)
 out:
 	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+			  trace.reason, trace.monitor, proto);
 
 	send_trace_notify(ctx, obs_point_to, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+			  trace.reason, trace.monitor, proto);
 
 	return ret;
 }

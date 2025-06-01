@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -510,7 +511,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			args.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 			want.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
-			rules, policyImportErr := args.cnp.Parse(hivetest.Logger(t))
+			rules, policyImportErr := args.cnp.Parse(hivetest.Logger(t), cmtypes.PolicyAnyCluster)
 			require.Equal(t, want.err, policyImportErr)
 
 			// Only add policies if we have successfully parsed them. Otherwise, if

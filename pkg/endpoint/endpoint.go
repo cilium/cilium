@@ -1631,6 +1631,10 @@ func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
 	return nil
 }
 
+func (e *Endpoint) GetListenerProxyPort(listener string) uint16 {
+	return e.proxy.GetListenerProxyPort(listener)
+}
+
 // getProxyStatistics gets the ProxyStatistics for the flows with the
 // given characteristics, or adds a new one and returns it.
 func (e *Endpoint) getProxyStatistics(key string, l7Protocol string, port uint16, ingress bool, redirectPort uint16) *models.ProxyStatistics {
@@ -2537,8 +2541,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 
 		// This is a best-effort attempt to cleanup. We expect there to be one
 		// ingress rule and multiple egress rules. If we find more rules than
-		// expected, then the rules will be left as-is because there was
-		// likely manual intervention.
+		// expected, we delete all rules referring to a per-ENI routing table ID.
 		if e.IPv4.IsValid() {
 			if err := linuxrouting.Delete(e.getLogger(), e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))

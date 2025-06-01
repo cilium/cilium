@@ -32,8 +32,8 @@ func k8sEventMetric(scope, action string) {
 // enableCCNPWatcher is similar to enableCNPWatcher but handles the watch events for
 // clusterwide policies. Since, internally Clusterwide policies are implemented
 // using CiliumNetworkPolicy itself, the entire implementation uses the methods
-// associcated with CiliumNetworkPolicy.
-func enableCCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
+// associated with CiliumNetworkPolicy.
+func enableCCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, clientset k8sClient.Clientset, clusterName string) {
 	logger.Info("Starting CCNP derivative handler")
 
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
@@ -51,7 +51,7 @@ func enableCCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGr
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					groups.AddDerivativePolicyIfNeeded(logger, clientset, cnpCpy.CiliumNetworkPolicy, true)
+					groups.AddDerivativePolicyIfNeeded(logger, clientset, clusterName, cnpCpy.CiliumNetworkPolicy, true)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj any) {
@@ -68,7 +68,7 @@ func enableCCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGr
 						newCNPCpy := newCNP.DeepCopy()
 						oldCNPCpy := oldCNP.DeepCopy()
 
-						groups.UpdateDerivativePolicyIfNeeded(logger, clientset, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy, true)
+						groups.UpdateDerivativePolicyIfNeeded(logger, clientset, clusterName, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy, true)
 					}
 				}
 			},
@@ -100,7 +100,7 @@ func enableCCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGr
 		controller.ControllerParams{
 			Group: ccnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				groups.UpdateCNPInformation(logger, clientset)
+				groups.UpdateCNPInformation(logger, clientset, clusterName)
 				return nil
 			},
 			RunInterval: 5 * time.Minute,

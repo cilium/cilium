@@ -583,7 +583,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
 					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
+					  trace.monitor, bpf_htons(ETH_P_IPV6));
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
@@ -632,7 +632,8 @@ ct_recreate6:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor,
+					  bpf_htons(ETH_P_IPV6));
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
@@ -669,7 +670,7 @@ ct_recreate6:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
@@ -729,7 +730,8 @@ ct_recreate6:
 			 * (b) packet was redirected to tunnel device so return.
 			 */
 			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
-						     *dst_sec_identity, &trace);
+						     *dst_sec_identity, &trace,
+						     bpf_htons(ETH_P_IPV6));
 			switch (ret) {
 			case CTX_ACT_OK:
 				goto encrypt_to_stack;
@@ -746,7 +748,7 @@ ct_recreate6:
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ret;
 	}
 
@@ -758,8 +760,8 @@ to_host:
 #ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -784,8 +786,8 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
@@ -1018,7 +1020,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
 					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
+					  trace.monitor, bpf_htons(ETH_P_IP));
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
@@ -1093,7 +1095,8 @@ ct_recreate4:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor,
+					  bpf_htons(ETH_P_IP));
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
 		}
@@ -1133,7 +1136,7 @@ ct_recreate4:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
 
@@ -1169,8 +1172,8 @@ ct_recreate4:
 		__be32 daddr = ip4->daddr;
 		struct endpoint_info *ep;
 
-		/* Loopback replies are addressed to IPV4_LOOPBACK, so
-		 * an endpoint lookup with ip4->daddr won't work.
+		/* Loopback replies are addressed to config service_loopback_ipv4,
+		 * so an endpoint lookup with ip4->daddr won't work.
 		 *
 		 * But as it is loopback traffic, the clientIP and backendIP
 		 * are identical and we can just use the packet's saddr
@@ -1228,7 +1231,8 @@ ct_recreate4:
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								SECLABEL_IPV4, WORLD_IPV4_ID,
-								WORLD_IPV4_ID, &trace);
+								WORLD_IPV4_ID, &trace,
+								bpf_htons(ETH_P_IP));
 		}
 	}
 skip_vtep:
@@ -1273,7 +1277,8 @@ skip_vtep:
 
 		if (info && info->flag_has_tunnel_ep) {
 			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV4,
-						     *dst_sec_identity, &trace);
+						     *dst_sec_identity, &trace,
+						     bpf_htons(ETH_P_IP));
 			switch (ret) {
 			case CTX_ACT_OK:
 				/* IPsec, pass up to stack for XFRM processing. */
@@ -1297,7 +1302,7 @@ skip_vtep:
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor);
+					  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ret;
 	}
 
@@ -1309,8 +1314,8 @@ to_host:
 #ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -1335,8 +1340,8 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1463,7 +1468,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	 * of the LXC IP (to avoid specific problems, like IP duplicate address
 	 * detection checks that might run within the container).
 	 */
-	if (tip == LXC_IPV4)
+	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
@@ -1481,6 +1486,7 @@ int cil_from_container(struct __ctx_buff *ctx)
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
 	int ret;
+	bool valid_ethertype = validate_ethertype(ctx, &proto);
 
 	bpf_clear_meta(ctx);
 
@@ -1496,9 +1502,9 @@ int cil_from_container(struct __ctx_buff *ctx)
 
 	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
-	if (!validate_ethertype(ctx, &proto)) {
+	if (!valid_ethertype) {
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
@@ -1953,10 +1959,11 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		 * want to execute the conntrack logic so that replies can be correctly
 		 * matched.
 		 *
-		 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
-		 * connection. Populate .loopback, so that policy enforcement is bypassed.
+		 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
+		 * a loopback connection. Populate .loopback, so that policy enforcement
+		 * is bypassed.
 		 */
-		if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
+		if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
 		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
 			ct_state_new.loopback = true;
 			break;
@@ -2296,7 +2303,7 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -2364,7 +2371,8 @@ int cil_to_container(struct __ctx_buff *ctx)
 		trace = TRACE_FROM_PROXY;
 
 	send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
-			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN,
+			  TRACE_PAYLOAD_LEN, proto);
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,

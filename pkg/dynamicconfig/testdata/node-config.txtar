@@ -2,7 +2,6 @@
 
 # Test the reflection of the CiliumNodeConfig
 hive/start
-db/initialized
 
 # Add cilium-config with keys foo and baz
 k8s/add cilium-node-config.yaml
@@ -38,20 +37,20 @@ k8s/delete cilium-node-config.yaml
 ####
 
 -- configs1.table --
-Key   Source          Priority   Value
-baz   cnc-foo         1          quux
-foo   cnc-foo         1          bar
+Key   Source      Priority   Value
+baz   foo         1          quux
+foo   foo         1          bar
 
 -- configs2.table --
-Key   Source          Priority   Value
-foo   cnc-foo         1          bar
+Key   Source      Priority   Value
+foo   foo         1          bar
 
 -- cilium-node-config.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNodeConfig
 metadata:
   namespace: kube-system
-  name: cnc-foo
+  name: foo
 spec:
   nodeSelector:
     matchLabels:

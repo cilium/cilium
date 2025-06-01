@@ -42,22 +42,14 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	__u32 oif;
 	int ret;
 
-	/* Immediate redirect to egress_ifindex requires L2 resolution.
-	 * Fall back to FIB lookup on older kernels.
-	 */
-	if (egress_ifindex && neigh_resolver_available())
+	if (egress_ifindex)
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		/* Don't redirect if we can't update the L2 DMAC: */
-		if (!neigh_resolver_available())
-			return CTX_ACT_OK;
-
 		break;
 	default:
 		*ext_err = (__s8)ret;
@@ -264,7 +256,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 	fake_info.flag_has_tunnel_ep = true;
 	return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						src_sec_identity, dst_sec_identity,
-						NOT_VTEP_DST, trace);
+						NOT_VTEP_DST, trace, bpf_htons(ETH_P_IP));
 }
 
 #ifdef ENABLE_IPV6
@@ -404,7 +396,7 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	__u32 oif;
 	int ret;
 
-	if (egress_ifindex && neigh_resolver_available())
+	if (egress_ifindex)
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	ret = (__s8)fib_lookup_v6(ctx, &fib_params,
@@ -413,10 +405,7 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		if (!neigh_resolver_available())
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
@@ -487,7 +476,8 @@ int egress_gw_handle_packet_v6(struct __ctx_buff *ctx,
 	fake_info.tunnel_endpoint.ip4 = gateway_ip;
 	fake_info.flag_has_tunnel_ep = true;
 	return __encap_and_redirect_with_nodeid(ctx, &fake_info, src_sec_identity,
-						dst_sec_identity, NOT_VTEP_DST, trace);
+						dst_sec_identity, NOT_VTEP_DST, trace,
+						bpf_htons(ETH_P_IPV6));
 }
 #endif /* ENABLE_IPV6 */
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */

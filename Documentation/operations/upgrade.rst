@@ -331,6 +331,7 @@ Removed Options
 * The previously deprecated flag ``--enable-k8s-terminating-endpoint`` has been removed.
   The K8s terminating endpoints feature is unconditionally enabled.
 * The previously deprecated ``CONNTRACK_LOCAL`` option has been removed
+* The previously deprecated ``enableRuntimeDeviceDetection`` option has been removed
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -357,6 +358,8 @@ Deprecated Options
 * The flags ``--enable-node-port``, ``--enable-host-port``, ``--enable-external-ips`` have been deprecated
   and will be removed in Cilium 1.19. The kube-proxy replacement features will be only enabled when
   ``--kube-proxy-replacent`` is set to ``true``.
+* The flag ``--enable-k8s-endpoint-slice`` have been deprecated and will be removed in Cilium 1.19.
+  The K8s Endpoint Slice feature will be unconditionally enabled.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -400,6 +403,11 @@ Added Metrics
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
+
+The following deprecated metrics were removed:
+
+* ``node_connectivity_status``
+* ``node_connectivity_latency_seconds``
 
 Changed Metrics
 ~~~~~~~~~~~~~~~

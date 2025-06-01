@@ -15,8 +15,6 @@
 
 #define FROM_NETDEV 0
 
-#define V6_ALEN 16
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -67,7 +65,7 @@ int __ipv6_from_netdev_ns_pktgen(struct __ctx_buff *ctx,
 		return TEST_ERROR;
 
 	data = pktgen__push_data(&builder, (__u8 *)&args->icmp_ns_addr,
-				 V6_ALEN);
+				 IPV6_ALEN);
 	if (!data)
 		return TEST_ERROR;
 
@@ -122,10 +120,10 @@ int __ipv6_from_netdev_ns_check(const struct __ctx_buff *ctx,
 	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (memcmp((__u8 *)&l3->saddr, (__u8 *)&args->ip_src, V6_ALEN) != 0)
+	if (memcmp((__u8 *)&l3->saddr, (__u8 *)&args->ip_src, IPV6_ALEN) != 0)
 		test_fatal("Incorrect ip_src");
 
-	if (memcmp((__u8 *)&l3->daddr, (__u8 *)&args->ip_dst, V6_ALEN) != 0)
+	if (memcmp((__u8 *)&l3->daddr, (__u8 *)&args->ip_dst, IPV6_ALEN) != 0)
 		test_fatal("Incorrect ip_dst");
 
 	l4 = (void *)l3 + sizeof(struct ipv6hdr);
@@ -137,14 +135,14 @@ int __ipv6_from_netdev_ns_check(const struct __ctx_buff *ctx,
 		test_fatal("Invalid ICMP type");
 
 	target_addr = (void *)l4 + sizeof(struct icmp6hdr);
-	if ((void *)target_addr + V6_ALEN > data_end)
+	if ((void *)target_addr + IPV6_ALEN > data_end)
 		test_fatal("Target addr out of bounds");
 
-	if (memcmp(target_addr, (__u8 *)&args->icmp_ns_addr, V6_ALEN) != 0)
+	if (memcmp(target_addr, (__u8 *)&args->icmp_ns_addr, IPV6_ALEN) != 0)
 		test_fatal("Incorrect icmp6 payload target addr");
 
 	if (args->llsrc_opt) {
-		opt = target_addr + V6_ALEN;
+		opt = target_addr + IPV6_ALEN;
 
 		if ((void *)opt + ICMP6_ND_OPT_LEN > data_end)
 			test_fatal("llsrc_opt out of bounds");
@@ -179,10 +177,10 @@ void __ipv6_from_netdev_ns_pod_pktgen_args(struct test_args *args,
 	memcpy((__u8 *)args->mac_src, (__u8 *)mac_one, ETH_ALEN);
 	memcpy((__u8 *)args->mac_dst, (__u8 *)mac_two, ETH_ALEN);
 
-	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, V6_ALEN);
-	memcpy((__u8 *)&args->ip_dst, (__u8 *)v6_pod_two, V6_ALEN);
+	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, IPV6_ALEN);
+	memcpy((__u8 *)&args->ip_dst, (__u8 *)v6_pod_two, IPV6_ALEN);
 
-	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, V6_ALEN);
+	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, IPV6_ALEN);
 
 	args->llsrc_opt = llsrc_opt;
 	args->icmp_opt.type = 0x1;
@@ -201,11 +199,11 @@ void __ipv6_from_netdev_ns_pod_check_args(struct test_args *args,
 	memcpy((__u8 *)args->mac_src, (__u8 *)&node_mac.addr, ETH_ALEN);
 	memcpy((__u8 *)args->mac_dst, (__u8 *)mac_one, ETH_ALEN);
 
-	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_three, V6_ALEN);
-	memcpy((__u8 *)&args->ip_dst, (__u8 *)v6_pod_one, V6_ALEN);
+	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_three, IPV6_ALEN);
+	memcpy((__u8 *)&args->ip_dst, (__u8 *)v6_pod_one, IPV6_ALEN);
 
 	args->icmp_type = ICMP6_NA_MSG_TYPE;
-	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, V6_ALEN);
+	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, IPV6_ALEN);
 
 	args->llsrc_opt = llsrc_opt;
 	args->icmp_opt.type = 0x2;
@@ -279,18 +277,15 @@ void __ipv6_from_netdev_ns_pod_pktgen_mcast_args(struct test_args *args,
 	__u8 llsrc_mac[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
 
 	memcpy((__u8 *)args->mac_src, (__u8 *)mac_one, ETH_ALEN);
-	/* IPv6 mcast mac addr is 33:33 followed by 32 LSBs from target IP */
-	memcpy(args->mac_dst, (void *)mac_v6mcast_base, 2);
-	memcpy((__u8 *)args->mac_dst + 2, (__u8 *)v6_pod_three + 12, 4);
 
-	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, V6_ALEN);
-	/* IPv6 mcast addr has the 24 LSBs from the target IP */
-	memcpy(&args->ip_dst, (void *)v6_mcast_base, V6_ALEN);
-	args->ip_dst.addr[13] = v6_pod_three[13];
-	args->ip_dst.addr[14] = v6_pod_three[14];
-	args->ip_dst.addr[15] = v6_pod_three[15];
+	ipv6_mc_mac_set((union v6addr *)v6_pod_three,
+			(union macaddr *)args->mac_dst);
 
-	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, V6_ALEN);
+	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, IPV6_ALEN);
+
+	ipv6_mc_addr_set((union v6addr *)v6_pod_three, &args->ip_dst);
+
+	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, IPV6_ALEN);
 
 	args->llsrc_opt = llsrc_opt;
 	args->icmp_opt.type = 0x1;
@@ -371,10 +366,10 @@ void __ipv6_from_netdev_ns_node_ip_pktgen_args(struct test_args *args,
 	memcpy((__u8 *)args->mac_src, (__u8 *)mac_one, ETH_ALEN);
 	memcpy((__u8 *)args->mac_dst, (__u8 *)mac_two, ETH_ALEN);
 
-	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, V6_ALEN);
-	memcpy((__u8 *)&args->ip_dst, (__u8 *)v6_pod_two, V6_ALEN);
+	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, IPV6_ALEN);
+	memcpy((__u8 *)&args->ip_dst, (__u8 *)v6_pod_two, IPV6_ALEN);
 
-	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)&v6_node_one, V6_ALEN);
+	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)&v6_node_one, IPV6_ALEN);
 
 	args->icmp_type = ICMP6_NS_MSG_TYPE;
 
@@ -461,18 +456,15 @@ void __ipv6_from_netdev_ns_node_ip_pktgen_mcast_args(struct test_args *args,
 	__u8 llsrc_mac[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
 
 	memcpy((__u8 *)args->mac_src, (__u8 *)mac_one, ETH_ALEN);
-	/* IPv6 mcast mac addr is 33:33 followed by 32 LSBs from target IP */
-	memcpy(args->mac_dst, (void *)mac_v6mcast_base, 2);
-	memcpy((__u8 *)args->mac_dst + 2, (__u8 *)v6_node_one + 12, 4);
 
-	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, V6_ALEN);
-	/* IPv6 mcast addr has the 24 LSBs from the target IP */
-	memcpy(&args->ip_dst, (void *)v6_mcast_base, V6_ALEN);
-	args->ip_dst.addr[13] = v6_node_one[13];
-	args->ip_dst.addr[14] = v6_node_one[14];
-	args->ip_dst.addr[15] = v6_node_one[15];
+	ipv6_mc_mac_set((union v6addr *)v6_pod_one,
+			(union macaddr *)args->mac_dst);
 
-	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)&v6_node_one, V6_ALEN);
+	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, IPV6_ALEN);
+
+	ipv6_mc_addr_set((union v6addr *)v6_pod_one, &args->ip_dst);
+
+	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)&v6_node_one, IPV6_ALEN);
 
 	args->icmp_type = ICMP6_NS_MSG_TYPE;
 

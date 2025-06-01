@@ -80,6 +80,12 @@ func registerAgentHealthHTTPService(params agentHealthParams) error {
 				Addr:    addr,
 				Handler: mux,
 			}
+
+			go func() {
+				<-ctx.Done()
+				srv.Shutdown(context.Background()) // does not use job context, as it has already been closed!
+			}()
+
 			params.Logger.Info("Starting healthz status API server", logfields.Address, addr)
 			if err := srv.Serve(ln); errors.Is(err, http.ErrServerClosed) {
 				params.Logger.Info("healthz status API server shutdown", logfields.Address, addr)

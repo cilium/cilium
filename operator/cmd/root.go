@@ -134,6 +134,7 @@ var (
 		"Operator Control Plane",
 
 		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Config(cmtypes.DefaultPolicyConfig),
 		cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
 		cell.Invoke(cmtypes.ClusterInfo.Validate),
 
@@ -508,18 +509,19 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:          ctx,
-		cancel:       cancel,
-		clientset:    clientset,
-		resources:    resources,
-		storeFactory: factory,
-		svcResolver:  svcResolver,
-		cfgMCSAPI:    cfgMCSAPI,
-		metrics:      metrics,
-		logger:       logger,
+		ctx:                  ctx,
+		cancel:               cancel,
+		clientset:            clientset,
+		resources:            resources,
+		storeFactory:         factory,
+		svcResolver:          svcResolver,
+		cfgMCSAPI:            cfgMCSAPI,
+		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
+		metrics:              metrics,
+		logger:               logger,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -528,15 +530,16 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 }
 
 type legacyOnLeader struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
-	clientset    k8sClient.Clientset
-	wg           sync.WaitGroup
-	resources    operatorK8s.Resources
-	storeFactory store.Factory
-	svcResolver  *dial.ServiceResolver
-	cfgMCSAPI    cmoperator.MCSAPIConfig
-	metrics      *UnmanagedPodsMetric
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	clientset            k8sClient.Clientset
+	wg                   sync.WaitGroup
+	resources            operatorK8s.Resources
+	storeFactory         store.Factory
+	svcResolver          *dial.ServiceResolver
+	cfgMCSAPI            cmoperator.MCSAPIConfig
+	cfgClusterMeshPolicy cmtypes.PolicyConfig
+	metrics              *UnmanagedPodsMetric
 
 	logger *slog.Logger
 }
@@ -739,12 +742,14 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 	}
 
+	clusterNamePolicy := cmtypes.LocalClusterNameForPolicies(legacy.cfgClusterMeshPolicy, option.Config.ClusterName)
+
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
-		enableCNPWatcher(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset)
+		enableCNPWatcher(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset, clusterNamePolicy)
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumClusterwideNetworkPolicy {
-		enableCCNPWatcher(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset)
+		enableCCNPWatcher(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset, clusterNamePolicy)
 	}
 
 	if legacy.clientset.IsEnabled() {

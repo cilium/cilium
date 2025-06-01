@@ -6,7 +6,6 @@
 # dumped using e.g. "kubectl get svc/details -o yaml".
 
 hive/start
-db/initialized
 
 # Add the objects
 k8s/add svc-ingress.yaml eps-ingress.yaml cec.yaml

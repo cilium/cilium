@@ -140,31 +140,6 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 
 }
 
-// WaitDockerPluginReady waits up until timeout reached for Cilium docker plugin to be ready
-func (s *SSHMeta) WaitDockerPluginReady() bool {
-	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitDockerPluginReady"})
-
-	body := func() bool {
-		// check that docker plugin socket exists
-		cmd := `stat /run/docker/plugins/cilium.sock`
-		res := s.ExecWithSudo(cmd)
-		if !res.WasSuccessful() {
-			return false
-		}
-		// check that connect works
-		cmd = `nc -U -z /run/docker/plugins/cilium.sock`
-		res = s.ExecWithSudo(cmd)
-		return res.WasSuccessful()
-	}
-	err := WithTimeout(body, "Docker plugin is not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
-	if err != nil {
-		logger.WithError(err).Warn("Docker plugin is not ready after timeout")
-		s.ExecWithSudo("ls -l /run/docker/plugins/cilium.sock") // This function is only for debugginag.
-		return false
-	}
-	return true
-}
-
 func (s *SSHMeta) MonitorDebug(on bool, epID string) bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "MonitorDebug"})
 	dbg := "Disabled"
@@ -431,16 +406,6 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 		logfields.PolicyRevision: revision,
 	}).Infof("policy import finished and revision increased")
 	return revision, err
-}
-
-// PolicyImport imports a new policy into Cilium.
-func (s *SSHMeta) PolicyImport(path string) error {
-	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
-	if !res.WasSuccessful() {
-		s.logger.Errorf("could not import policy: %s", res.CombineOutput())
-		return fmt.Errorf("could not import policy %s", path)
-	}
-	return nil
 }
 
 // PolicyRenderAndImport receives an string with a policy, renders it in the
@@ -732,18 +697,6 @@ func (s *SSHMeta) RestartCilium() error {
 		return fmt.Errorf("Endpoints are not ready after timeout")
 	}
 	return nil
-}
-
-// AddIPToLoopbackDevice adds the specified IP (assumed to be in form <ip>/<mask>)
-// to the loopback device on s.
-func (s *SSHMeta) AddIPToLoopbackDevice(ip string) *CmdRes {
-	return s.ExecWithSudo(fmt.Sprintf("ip addr add dev lo %s", ip))
-}
-
-// RemoveIPFromLoopbackDevice removes the specified IP (assumed to be in form <ip>/<mask>)
-// from the loopback device on s.
-func (s *SSHMeta) RemoveIPFromLoopbackDevice(ip string) *CmdRes {
-	return s.ExecWithSudo(fmt.Sprintf("ip addr del dev lo %s", ip))
 }
 
 // FlushGlobalConntrackTable flushes the global connection tracking table.

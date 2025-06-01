@@ -838,13 +838,6 @@ daemon:
 # a non-local route. This should be used only when autodetection is not suitable.
 # devices: ""
 
-# -- Enables experimental support for the detection of new and removed datapath
-# devices. When devices change the eBPF datapath is reloaded and services updated.
-# If "devices" is set then only those devices, or devices matching a wildcard will
-# be considered.
-#
-# This option has been deprecated and is a no-op.
-enableRuntimeDeviceDetection: true
 # -- Forces the auto-detection of devices, even if specific devices are explicitly listed
 forceDeviceDetection: false
 # -- Chains to ignore when installing feeder rules.
@@ -1131,9 +1124,6 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
-externalIPs:
-  # -- Enable ExternalIPs service support.
-  enabled: false
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -1148,9 +1138,6 @@ healthCheckICMPFailureThreshold: 3
 # -- Configure the host firewall.
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
-  enabled: false
-hostPort:
-  # -- Enable hostPort service support.
   enabled: false
 # -- Configure socket LB
 socketLB:
@@ -3263,6 +3250,8 @@ clustermesh:
   enableEndpointSliceSynchronization: false
   # -- Enable Multi-Cluster Services API support
   enableMCSAPISupport: false
+  # -- Control whether policy rules assume by default the local cluster if not explicitly selected
+  policyDefaultLocalCluster: false
   # -- Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
   annotations: {}
   # -- Clustermesh explicit configuration.

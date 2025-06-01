@@ -135,3 +135,33 @@ func (_ QuirksConfig) Flags(flags *pflag.FlagSet) {
 			"policy both within and across clusters")
 	flags.MarkHidden("allow-unsafe-policy-skb-usage")
 }
+
+const PolicyAnyCluster = ""
+
+// PolicyConfig allows the user to configure config related to ClusterMesh and policies
+type PolicyConfig struct {
+	// PolicyDefaultLocalCluster control whether policy rules assume
+	// by default the local cluster if not explicitly selected
+	PolicyDefaultLocalCluster bool
+}
+
+var DefaultPolicyConfig = PolicyConfig{
+	PolicyDefaultLocalCluster: false,
+}
+
+func (p PolicyConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(
+		"policy-default-local-cluster", p.PolicyDefaultLocalCluster,
+		"Control whether policy rules assume by default the local cluster if not explicitly selected",
+	)
+}
+
+// LocalClusterNameForPolicies returns what should be considered the local cluster
+// name in network policies
+func LocalClusterNameForPolicies(cfg PolicyConfig, localClusterName string) string {
+	if cfg.PolicyDefaultLocalCluster {
+		return localClusterName
+	} else {
+		return PolicyAnyCluster
+	}
+}

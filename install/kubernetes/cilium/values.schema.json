@@ -1467,6 +1467,9 @@
         "maxConnectedClusters": {
           "type": "integer"
         },
+        "policyDefaultLocalCluster": {
+          "type": "boolean"
+        },
         "useAPIServer": {
           "type": "boolean"
         }
@@ -1735,9 +1738,6 @@
       "type": "boolean"
     },
     "enableNonDefaultDenyPolicies": {
-      "type": "boolean"
-    },
-    "enableRuntimeDeviceDetection": {
       "type": "boolean"
     },
     "enableXTSocketFallback": {
@@ -2433,14 +2433,6 @@
       },
       "type": "object"
     },
-    "externalIPs": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "extraArgs": {
       "items": {},
       "type": "array"
@@ -2557,14 +2549,6 @@
       "type": "integer"
     },
     "hostFirewall": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "hostPort": {
       "properties": {
         "enabled": {
           "type": "boolean"
