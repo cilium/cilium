@@ -502,6 +502,12 @@ This example shows how to allow all endpoints with the label ``env=prod`` to rec
 traffic **only** from control plane (labeled
 ``node-role.kubernetes.io/control-plane=""``) nodes in the cluster (or clustermesh).
 
+Note that by default policies automatically select nodes from all the clusters in
+a Cluster Mesh environment unless it is explicitly specified. To restrict node
+selection to the local cluster by default you can enable the option
+``--policy-default-local-cluster`` via the ConfigMap option ``policy-default-local-cluster``
+or the Helm value ``clustermesh.policyDefaultLocalCluster``.
+
 .. only:: html
 
    .. tabs::

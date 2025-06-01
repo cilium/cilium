@@ -602,6 +602,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// for reserved:remote-node to allow only nodes and not endpoints
 			name: "parse-from-to-nodes-rule",
 			args: args{
+				clusterName: "cluster1",
 				overrideConfig: func() {
 					option.Config.EnableNodeSelectorLabels = true
 				},
@@ -649,6 +650,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 												Operator: slim_metav1.LabelSelectorOpExists,
 												Values:   []string{},
 											},
+										},
+									},
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											clusterPrefixLbl: "cluster1",
 										},
 									}),
 							},
