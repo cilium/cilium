@@ -412,6 +412,7 @@ type collectionLoader struct {
 	maps     map[string]*Map
 	programs map[string]*Program
 	vars     map[string]*Variable
+	types    *btf.Cache
 }
 
 func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collectionLoader, error) {
@@ -436,6 +437,7 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 		make(map[string]*Map),
 		make(map[string]*Program),
 		make(map[string]*Variable),
+		newBTFCache(&opts.Programs),
 	}, nil
 }
 
@@ -587,7 +589,7 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 		}
 	}
 
-	prog, err := newProgramWithOptions(progSpec, cl.opts.Programs)
+	prog, err := newProgramWithOptions(progSpec, cl.opts.Programs, cl.types)
 	if err != nil {
 		return nil, fmt.Errorf("program %s: %w", progName, err)
 	}

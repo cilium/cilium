@@ -336,11 +336,12 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 		cmd.origArgs = expandArgs(s, cmd.rawArgs, regexpArgs)
 		cmd.args = cmd.origArgs
 		s.RetryCount = 0
+		s.retriesRequested = cmd.want == successRetryOnFailure || cmd.want == failureRetryOnSuccess
 
 		// Run the command.
 		err = e.runCommand(s, cmd, impl)
 		if err != nil {
-			if cmd.want == successRetryOnFailure || cmd.want == failureRetryOnSuccess {
+			if s.retriesRequested {
 				retryStart := sectionStart
 
 				// Clear the section start to avoid the deferred endSection() printing a timestamp.
