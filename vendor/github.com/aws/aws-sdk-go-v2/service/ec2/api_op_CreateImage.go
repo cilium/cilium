@@ -19,9 +19,9 @@ import (
 // mapping information for those volumes. When you launch an instance from this new
 // AMI, the instance automatically launches with those additional volumes.
 //
-// For more information, see [Create an Amazon EBS-backed Linux AMI] in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Create an Amazon EBS-backed AMI] in the Amazon Elastic Compute Cloud User Guide.
 //
-// [Create an Amazon EBS-backed Linux AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
+// [Create an Amazon EBS-backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
 func (c *Client) CreateImage(ctx context.Context, params *CreateImageInput, optFns ...func(*Options)) (*CreateImageOutput, error) {
 	if params == nil {
 		params = &CreateImageInput{}
