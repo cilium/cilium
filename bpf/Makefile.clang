@@ -1,0 +1,14 @@
+CLANG      ?= clang
+HOST_CC    ?= gcc
+HOST_STRIP ?= strip
+
+# Base CFLAGS (CLANG_FLAGS) are read from pkg/datapath/loader/compile.go
+# to keep them synced with the loader
+CLANG_FLAGS := $(FLAGS) $(shell $(GO) run $(ROOT_DIR)/pkg/datapath/loader/tools/clang_cflags.go)
+
+# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
+ifneq ($(KERNEL),54)
+CLANG_FLAGS += -mcpu=v3
+else
+CLANG_FLAGS += -mcpu=v2
+endif
