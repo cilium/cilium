@@ -418,18 +418,20 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
 	}
 
-	for cidr := range ops.prevSourceRanges[fe.Address] {
-		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
-			continue
+	if ops.extCfg.EnableSVCSourceRangeCheck {
+		for cidr := range ops.prevSourceRanges[fe.Address] {
+			if cidr.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
+			err := ops.LBMaps.DeleteSourceRange(
+				srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
+			)
+			if err != nil {
+				return fmt.Errorf("update source range: %w", err)
+			}
 		}
-		err := ops.LBMaps.DeleteSourceRange(
-			srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
-		)
-		if err != nil {
-			return fmt.Errorf("update source range: %w", err)
-		}
+		delete(ops.prevSourceRanges, fe.Address)
 	}
-	delete(ops.prevSourceRanges, fe.Address)
 
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
@@ -557,6 +559,10 @@ func (ops *BPFOps) pruneRevNat() error {
 }
 
 func (ops *BPFOps) pruneSourceRanges() error {
+	if !ops.extCfg.EnableSVCSourceRangeCheck {
+		return nil
+	}
+
 	toDelete := []lbmap.SourceRangeKey{}
 	cb := func(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) {
 		key = key.ToHost()
@@ -892,45 +898,47 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
-	// always reflects what was successfully added to the BPF maps in order
-	// not to leak a source range on failed operation.
-	prevSourceRanges := ops.prevSourceRanges[fe.Address]
-	if prevSourceRanges == nil {
-		prevSourceRanges = sets.New[netip.Prefix]()
-		ops.prevSourceRanges[fe.Address] = prevSourceRanges
-	}
-	orphanSourceRanges := prevSourceRanges.Clone()
-	srcRangeValue := &lbmap.SourceRangeValue{}
-	for _, prefix := range fe.Service.SourceRanges {
-		if prefix.Addr().Is6() != fe.Address.IsIPv6() {
-			continue
+	if ops.extCfg.EnableSVCSourceRangeCheck {
+		// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
+		// always reflects what was successfully added to the BPF maps in order
+		// not to leak a source range on failed operation.
+		prevSourceRanges := ops.prevSourceRanges[fe.Address]
+		if prevSourceRanges == nil {
+			prevSourceRanges = sets.New[netip.Prefix]()
+			ops.prevSourceRanges[fe.Address] = prevSourceRanges
 		}
+		orphanSourceRanges := prevSourceRanges.Clone()
+		srcRangeValue := &lbmap.SourceRangeValue{}
+		for _, prefix := range fe.Service.SourceRanges {
+			if prefix.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
 
-		err := ops.LBMaps.UpdateSourceRange(
-			srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
-			srcRangeValue,
-		)
-		if err != nil {
-			return fmt.Errorf("update source range: %w", err)
-		}
+			err := ops.LBMaps.UpdateSourceRange(
+				srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
+				srcRangeValue,
+			)
+			if err != nil {
+				return fmt.Errorf("update source range: %w", err)
+			}
 
-		orphanSourceRanges.Delete(prefix)
-		prevSourceRanges.Insert(prefix)
-	}
-	// Remove orphan source ranges.
-	for cidr := range orphanSourceRanges {
-		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
-			continue
+			orphanSourceRanges.Delete(prefix)
+			prevSourceRanges.Insert(prefix)
 		}
-		err := ops.LBMaps.DeleteSourceRange(
-			srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
-		)
-		if err != nil {
-			return fmt.Errorf("update source range: %w", err)
-		}
+		// Remove orphan source ranges.
+		for cidr := range orphanSourceRanges {
+			if cidr.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
+			err := ops.LBMaps.DeleteSourceRange(
+				srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
+			)
+			if err != nil {
+				return fmt.Errorf("update source range: %w", err)
+			}
 
-		prevSourceRanges.Delete(cidr)
+			prevSourceRanges.Delete(cidr)
+		}
 	}
 
 	// Update RevNat
