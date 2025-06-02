@@ -524,4 +524,86 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 #endif /* ENABLE_HOST_FIREWALL */
 }
 
+/**
+ * icmp6_send_echo_reply - Send ICMPv6 echo reply
+ * @ctx:	Packet context
+ *
+ * Converts an ICMPv6 echo request packet to an echo reply by:
+ * - Swapping source and destination MAC addresses
+ * - Swapping source and destination IPv6 addresses
+ * - Converting ICMPv6 type from ECHO_REQUEST to ECHO_REPLY
+ * - Updating checksums
+ *
+ * Returns:
+ *   - 0 on success
+ *   - Negative error code on failure
+ */
+static __always_inline
+int icmp6_send_echo_reply(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ethhdr *ethhdr;
+	struct ipv6hdr *ip6;
+	struct icmp6hdr *icmphdr;
+	union macaddr smac = {};
+	union macaddr dmac = {};
+	union v6addr saddr;
+	union v6addr daddr;
+	__wsum csum;
+	int ret;
+
+	if (!__revalidate_data_pull(ctx, &data, &data_end, (void **)&ip6,
+				    ETH_HLEN, sizeof(struct ipv6hdr), false))
+		return DROP_INVALID;
+
+	/* Copy the incoming src and dest IPs and mac addresses to the stack.
+	 * The pointers will not be valid after modifying the packet.
+	 */
+	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+		return DROP_INVALID;
+
+	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
+		return DROP_INVALID;
+
+	ipv6_addr_copy(&saddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+
+	/* Load ICMP header */
+	icmphdr = (struct icmp6hdr *)(data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr));
+	if ((void *)(icmphdr + 1) > data_end)
+		return DROP_INVALID;
+
+	/* Only respond to ICMPv6 echo requests */
+	if (icmphdr->icmp6_type != ICMPV6_ECHO_REQUEST)
+		return DROP_INVALID;
+
+	/* Rewrite ethernet header */
+	ethhdr = (struct ethhdr *)data;
+	if ((void *)(ethhdr + 1) > data_end)
+		return DROP_INVALID;
+
+	/* Swap src/dst MAC addresses */
+	memcpy(ethhdr->h_dest, smac.addr, ETH_ALEN);
+	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
+
+	/* Rewrite IPv6 header */
+	ipv6_addr_copy((union v6addr *)&ip6->saddr, &daddr); /* Swap src/dst IP */
+	ipv6_addr_copy((union v6addr *)&ip6->daddr, &saddr);
+	ip6->hop_limit = IPDEFTTL;
+
+	/* Convert ICMPv6 echo request to echo reply */
+	icmphdr->icmp6_type = ICMPV6_ECHO_REPLY;
+	icmphdr->icmp6_code = 0;
+
+	/* Update ICMPv6 checksum - need to recalculate due to IP address changes */
+	csum = csum_diff(&icmphdr->icmp6_type, 2, &((__u8[]){ICMPV6_ECHO_REQUEST, 0}), 2, 0);
+	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
+			      offsetof(struct icmp6hdr, icmp6_cksum),
+			      0, csum, BPF_F_PSEUDO_HDR);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 #endif

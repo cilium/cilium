@@ -28,6 +28,8 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "icmp.h"
+#include "icmp6.h"
 
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
@@ -1443,6 +1445,37 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	l4_off = ETH_HLEN + ret;
 
+	/* Handle ICMPv6 echo requests to service IPs before tuple extraction */
+	if (tuple.nexthdr == IPPROTO_ICMPV6) {
+		struct icmp6hdr icmp6hdr;
+		if (ctx_load_bytes(ctx, l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+		    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+			/* Create a service lookup key for ICMP */
+			struct lb6_key icmp_key = {};
+			memcpy(&icmp_key.address, &ip6->daddr, sizeof(icmp_key.address));
+			icmp_key.dport = 0; /* ICMP doesn't have ports */
+			icmp_key.proto = IPPROTO_ICMPV6;
+
+			svc = lb6_lookup_service(&icmp_key, false);
+			if (svc) {
+				/* This is an ICMPv6 echo request to a service IP.
+				 * Generate an echo reply instead of load balancing.
+				 */
+				ret = icmp6_send_echo_reply(ctx);
+				if (!ret) {
+					/* Redirect ICMP to the interface we received it on. */
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+							   ctx_get_ifindex(ctx));
+					ret = redirect_self(ctx);
+				}
+				if (IS_ERR(ret))
+					return send_drop_notify_error(ctx, src_sec_identity, ret,
+								      METRIC_INGRESS);
+				return ret;
+			}
+		}
+	}
+
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
@@ -2779,6 +2812,37 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	/* Handle ICMP echo requests to service IPs before tuple extraction */
+	if (ip4->protocol == IPPROTO_ICMP) {
+		struct icmphdr icmphdr;
+		if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+		    icmphdr.type == ICMP_ECHO) {
+			/* Create a service lookup key for ICMP */
+			struct lb4_key icmp_key = {};
+			icmp_key.address = ip4->daddr;
+			icmp_key.dport = 0; /* ICMP doesn't have ports */
+			icmp_key.proto = IPPROTO_ICMP;
+
+			svc = lb4_lookup_service(&icmp_key, false);
+			if (svc) {
+				/* This is an ICMP echo request to a service IP.
+				 * Generate an echo reply instead of load balancing.
+				 */
+				ret = icmp_send_echo_reply(ctx);
+				if (!ret) {
+					/* Redirect ICMP to the interface we received it on. */
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+							   ctx_get_ifindex(ctx));
+					ret = redirect_self(ctx);
+				}
+				if (IS_ERR(ret))
+					return send_drop_notify_error(ctx, src_sec_identity, ret,
+								      METRIC_INGRESS);
+				return ret;
+			}
+		}
+	}
 
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
