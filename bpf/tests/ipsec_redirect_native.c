@@ -3,10 +3,35 @@
 
 #include "ipsec_redirect_generic.h"
 
+#include "bpf_host.c"
+
 #include "node_config.h"
 #include "lib/encrypt.h"
 #include "tests/lib/ipcache.h"
 #include "tests/lib/node.h"
+
+#define TO_NETDEV 0
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 1);
+	__array(values, int());
+} entry_call_map __section(".maps") = {
+	.values = {
+		[TO_NETDEV] = &cil_to_netdev,
+	},
+};
+
+static __always_inline
+void set_src_identity(bool is_ipv4, __u32 identity)
+{
+	if (is_ipv4)
+		ipcache_v4_add_entry(SOURCE_IP, 0, identity, SOURCE_NODE_IP, BAD_SPI);
+	else
+		ipcache_v6_add_entry((const union v6addr *)SOURCE_IP_6, 0,
+				     identity, SOURCE_NODE_IP, BAD_SPI);
+}
 
 static __always_inline
 void set_dst_identity(bool is_ipv4, __u32 identity)
@@ -19,14 +44,9 @@ void set_dst_identity(bool is_ipv4, __u32 identity)
 }
 
 static __always_inline
-int ipsec_redirect_checks(struct __ctx_buff *ctx, bool is_ipv4)
+int ipsec_redirect_setup(struct __ctx_buff *ctx, bool is_ipv4)
 {
-	union macaddr expected_l2_addr = CILIUM_NET_MAC;
-
-	test_init();
-
-	int ret = 0;
-	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
+	__u32 encrypt_key = 0;
 
 	if (is_ipv4)
 		node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
@@ -37,32 +57,40 @@ int ipsec_redirect_checks(struct __ctx_buff *ctx, bool is_ipv4)
 	struct encrypt_config cfg = {
 		.encrypt_key = BAD_SPI,
 	};
-	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
+	map_update_elem(&cilium_encrypt_state, &encrypt_key, &cfg, BPF_ANY);
 
-	/*
-	 * Set destination identity for DST_IP / DST_IP_6.
-	 * There is no need to set also for the source, as it is passed as
-	 * parameter to `ipsec_maybe_redirect_to_encrypt`.
-	 */
+	set_src_identity(is_ipv4, SOURCE_IDENTITY);
 	set_dst_identity(is_ipv4, DST_IDENTITY);
 
-	ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
-	assert(ret == CTX_ACT_REDIRECT);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	return TEST_ERROR;
+}
 
-	/* assert we set the correct mark */
+static __always_inline
+int ipsec_redirect_checks(const struct __ctx_buff *ctx)
+{
+	union macaddr expected_l2_addr = CILIUM_NET_MAC;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	int i;
+
+	test_init();
+
 	assert(ctx->mark == ipsec_encode_encryption_mark(TARGET_SPI, DST_NODE_ID));
 
-	/* the original source layer 2 address should be the destination for
-	 * hairpin redirect
-	 */
 	void *data = (void *)(long)ctx->data;
 	void *data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_REDIRECT);
 
 	if (data + sizeof(struct ethhdr) > data_end)
 		test_fatal("packet too small for eth header");
 
-	struct ethhdr *l2 = data;
-	int i;
+	l2 = data + sizeof(*status_code);
 
 	for (i = 0; i < 6; i++)
 		assert(l2->h_dest[i] == expected_l2_addr.addr[i]);
@@ -151,10 +179,16 @@ int ipsec_redirect4_pktgen(struct __ctx_buff *ctx)
 	return generate_native_packet(ctx, true);
 }
 
+SETUP("tc", "ipsec_redirect4")
+int ipsec_redirect4_setup(struct __ctx_buff *ctx)
+{
+	return ipsec_redirect_setup(ctx, true);
+}
+
 CHECK("tc", "ipsec_redirect4")
 int ipsec_redirect4_check(struct __ctx_buff *ctx)
 {
-	return ipsec_redirect_checks(ctx, true);
+	return ipsec_redirect_checks(ctx);
 }
 
 PKTGEN("tc", "ipsec_redirect6")
@@ -163,10 +197,16 @@ int ipsec_redirect6_pktgen(struct __ctx_buff *ctx)
 	return generate_native_packet(ctx, false);
 }
 
+SETUP("tc", "ipsec_redirect6")
+int ipsec_redirect6_setup(struct __ctx_buff *ctx)
+{
+	return ipsec_redirect_setup(ctx, false);
+}
+
 CHECK("tc", "ipsec_redirect6")
 int ipsec_redirect6_check(struct __ctx_buff *ctx)
 {
-	return ipsec_redirect_checks(ctx, false);
+	return ipsec_redirect_checks(ctx);
 }
 
 PKTGEN("tc", "ipsec_redirect_bad_identities4")
