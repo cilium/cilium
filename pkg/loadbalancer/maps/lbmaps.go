@@ -319,7 +319,6 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.service4Map, NewService4Map, r.Cfg.LBServiceMapEntries},
 		{&r.backend4Map, NewBackend4Map, r.Cfg.LBBackendMapEntries},
 		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
-		{&r.sourceRange4Map, NewSourceRange4Map, r.Cfg.LBSourceRangeMapEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
@@ -328,12 +327,13 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.service6Map, NewService6Map, r.Cfg.LBServiceMapEntries},
 		{&r.backend6Map, NewBackend6Map, r.Cfg.LBBackendMapEntries},
 		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
-		{&r.sourceRange6Map, NewSourceRange6Map, r.Cfg.LBSourceRangeMapEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
+	v4SourceRangeMap := mapDesc{&r.sourceRange4Map, NewSourceRange4Map, r.Cfg.LBSourceRangeMapEntries}
+	v6SourceRangeMap := mapDesc{&r.sourceRange6Map, NewSourceRange6Map, r.Cfg.LBSourceRangeMapEntries}
 
 	mapsToCreate := []mapDesc{}
 	mapsToDelete := []mapDesc{}
@@ -344,15 +344,32 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		mapsToDelete = append(mapsToDelete, affinityMap)
 	}
 
+	if r.ExtCfg.EnableSVCSourceRangeCheck {
+		if r.ExtCfg.EnableIPv4 {
+			mapsToCreate = append(mapsToCreate, v4SourceRangeMap)
+		} else {
+			mapsToDelete = append(mapsToDelete, v4SourceRangeMap)
+		}
+		if r.ExtCfg.EnableIPv6 {
+			mapsToCreate = append(mapsToCreate, v6SourceRangeMap)
+		} else {
+			mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
+		}
+	} else {
+		mapsToDelete = append(mapsToDelete, v4SourceRangeMap, v6SourceRangeMap)
+	}
+
 	if r.ExtCfg.EnableIPv4 {
 		mapsToCreate = append(mapsToCreate, v4Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v4Maps...)
+		mapsToDelete = append(mapsToDelete, v4SourceRangeMap)
 	}
 	if r.ExtCfg.EnableIPv6 {
 		mapsToCreate = append(mapsToCreate, v6Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v6Maps...)
+		mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
 	}
 	return mapsToCreate, mapsToDelete
 }
