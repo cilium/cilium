@@ -43,6 +43,10 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
 				logging.Fatal(daemonLogger, fmt.Sprintf("unable to run agent: %s", err))
+			} else {
+				// If h.Run() exits with no errors, it means the agent gracefully shut down.
+				// (There is a CI job that ensures this is the case)
+				daemonLogger.Info("All stop hooks executed successfully.")
 			}
 		},
 	}
