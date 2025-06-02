@@ -66,14 +66,14 @@ func NewWatchedServerConfig(log *slog.Logger, caFiles []string, certFile, privke
 // themselves don't exist yet. both certFile and privkeyFile must be provided.
 // To configure a mTLS capable ServerConfigBuilder, caFiles must contains at
 // least one file path.
-func FutureWatchedServerConfig(log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *WatchedServerConfig, error) {
+func FutureWatchedServerConfig(ctx context.Context, log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *WatchedServerConfig, error) {
 	if certFile == "" {
 		return nil, ErrMissingCertFile
 	}
 	if privkeyFile == "" {
 		return nil, ErrMissingPrivkeyFile
 	}
-	ew, err := FutureWatcher(log, caFiles, certFile, privkeyFile)
+	ew, err := FutureWatcher(ctx, log, caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}

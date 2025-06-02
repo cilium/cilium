@@ -138,6 +138,69 @@ func TestCellConfigError(t *testing.T) {
 	}
 }
 
+func TestCellShutdown(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
+	// create directory structure and config inputs
+	// do not setup certs for this test, we want to test
+	// that we can shutdown cleanly before finding certs
+	dir, hubble, _ := directories(t)
+	t.Cleanup(func() {
+		cleanup(dir)
+	})
+
+	// init hive
+	ctx := t.Context()
+	var serverConfig *WatchedServerConfig
+
+	config := testConfig{
+		TLS:              true,
+		TLSCertFile:      hubble.certFile,
+		TLSKeyFile:       hubble.privkeyFile,
+		TLSClientCAFiles: hubble.caFiles,
+	}
+
+	hive := hive.New(
+		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
+			h := p.ForModule(cell.FullModuleID{"test"})
+			return jr.NewGroup(h, lc)
+		}),
+		cell.ProvidePrivate(func(cfg testConfig) Config {
+			return Config(cfg)
+		}),
+		cell.Provide(NewWatchedServerConfigPromise),
+		cell.Config(config),
+		cell.Invoke(func(p promise.Promise[*WatchedServerConfig]) {
+			if p != nil {
+				go func() {
+					serverConfig, _ = p.Await(ctx)
+				}()
+			}
+		}),
+	)
+
+	// start hive
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, ctx); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	// add a small delay
+	time.Sleep(time.Second)
+
+	// ensure we can stop the hive cleanly, and consequently our cert watcher
+	// even when certs have not been resolved yet
+	if err := hive.Stop(tlog, ctx); err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("failed to stop: %s", err)
+	}
+
+	if serverConfig != nil {
+		t.Fatalf("serverConfig unexpectedly resolved")
+	}
+}
+
 func TestCellDisabled(t *testing.T) {
 	t.Cleanup(func() {
 		goleak.VerifyNone(t)

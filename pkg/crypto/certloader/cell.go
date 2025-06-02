@@ -49,7 +49,8 @@ func NewWatchedServerConfigPromise(lc cell.Lifecycle, jobGroup job.Group, log *s
 
 	jobGroup.Add(job.OneShot("certloader-tls", func(ctx context.Context, _ cell.Health) error {
 		metricsTLSConfigChan, err := FutureWatchedServerConfig(
-			log, cfg.TLSClientCAFiles, cfg.TLSCertFile, cfg.TLSKeyFile,
+			ctx, log,
+			cfg.TLSClientCAFiles, cfg.TLSCertFile, cfg.TLSKeyFile,
 		)
 		if err != nil {
 			err := fmt.Errorf("failed to initialize certloader TLS configuration: %w", err)
