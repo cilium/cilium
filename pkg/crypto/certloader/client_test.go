@@ -11,9 +11,14 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 )
 
 func TestWatchedClientConfigIsMutualTLS(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -72,6 +77,10 @@ func TestWatchedClientConfigIsMutualTLS(t *testing.T) {
 }
 
 func TestNewWatchedClientConfig(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -105,6 +114,10 @@ func TestNewWatchedClientConfig(t *testing.T) {
 }
 
 func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -129,6 +142,10 @@ func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 }
 
 func TestWatchedClientConfigRotation(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
