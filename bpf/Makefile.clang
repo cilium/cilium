@@ -1,0 +1,19 @@
+CLANG      ?= clang
+HOST_CC    ?= gcc
+HOST_STRIP ?= strip
+
+# Base CFLAGS (CLANG_FLAGS) are read from pkg/datapath/loader/compile.go
+# to keep them synced with the loader
+
+CLANG_FLAGS_FILE := $(shell realpath --relative-to=$(CURDIR) $(ROOT_DIR)/bpf/.clang_flags.mk)
+CLANG_CFLAGS_GO  := $(ROOT_DIR)/pkg/datapath/loader/tools/clang_cflags.go
+LOADER_GO_FILES := $(shell find $(ROOT_DIR)/pkg/datapath/loader -type f -name '*.go')
+
+# Rebuild only when go files are modified in the loader
+$(CLANG_FLAGS_FILE): $(LOADER_GO_FILES)
+	$(QUIET) echo 'CLANG_FLAGS := $(FLAGS) '`$(GO) run $(CLANG_CFLAGS_GO)` > $@
+
+-include $(CLANG_FLAGS_FILE)
+
+# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
+CLANG_FLAGS += -mcpu=v3
