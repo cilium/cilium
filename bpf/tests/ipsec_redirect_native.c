@@ -145,14 +145,14 @@ int bad_identities_check(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
 	test_finish();
 }
 
-PKTGEN("tc", "ipsec_redirect")
-int ipsec_redirect_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ipsec_redirect4")
+int ipsec_redirect4_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, true);
 }
 
-CHECK("tc", "ipsec_redirect")
-int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
+CHECK("tc", "ipsec_redirect4")
+int ipsec_redirect4_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true);
 }
@@ -169,14 +169,14 @@ int ipsec_redirect6_check(__maybe_unused struct __ctx_buff *ctx)
 	return ipsec_redirect_checks(ctx, false);
 }
 
-PKTGEN("tc", "ipsec_redirect_bad_identities")
-int ipsec_redirect_bad_identities_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ipsec_redirect_bad_identities4")
+int ipsec_redirect_bad_identities4_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, true);
 }
 
-CHECK("tc", "ipsec_redirect_bad_identities")
-int ipsec_redirect_bad_identities_check(__maybe_unused struct __ctx_buff *ctx)
+CHECK("tc", "ipsec_redirect_bad_identities4")
+int ipsec_redirect_bad_identities4_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return bad_identities_check(ctx, true);
 }
