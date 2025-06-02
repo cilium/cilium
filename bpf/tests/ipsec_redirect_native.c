@@ -48,10 +48,8 @@ int ipsec_redirect_setup(struct __ctx_buff *ctx, bool is_ipv4)
 {
 	__u32 encrypt_key = 0;
 
-	if (is_ipv4)
-		node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
-	else
-		node_v6_add_entry((const union v6addr *)DST_NODE_IP_6, DST_NODE_ID, TARGET_SPI);
+	/* Setup IPv4 only has we're using a IPv4 tunnel endpoint in all cases. */
+	node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
 
 	/* fill encrypt map with node's current SPI 3 */
 	struct encrypt_config cfg = {
