@@ -262,7 +262,7 @@ func TestNeighborReconciler(t *testing.T) {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
 			t.Cleanup(func() {
-				testSC.Server.Stop()
+				testSC.Server.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 			})
 
 			r := NewNeighborReconciler(hivetest.Logger(t), tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler

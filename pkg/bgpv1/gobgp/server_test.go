@@ -31,7 +31,7 @@ func TestGlobalImportPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		router.Stop()
+		router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 	})
 
 	gobgpServer := router.(*GoBGPServer).server
@@ -81,7 +81,7 @@ func TestAddRemoveRoutePolicy(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
-				router.Stop()
+				router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 			})
 			gobgpServer := router.(*GoBGPServer).server
 

@@ -118,8 +118,8 @@ func TestPreflightReconciler(t *testing.T) {
 			// later
 			originalServer := testSC.Server
 			t.Cleanup(func() {
-				originalServer.Stop() // stop our test server
-				testSC.Server.Stop()  // stop any recreated server
+				originalServer.Stop(context.Background(), types.StopRequest{FullDestroy: true}) // stop our test server
+				testSC.Server.Stop(context.Background(), types.StopRequest{FullDestroy: true})  // stop any recreated server
 			})
 
 			// attach original config
@@ -218,8 +218,8 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 
 	originalServer := testSC.Server
 	t.Cleanup(func() {
-		originalServer.Stop() // stop our test server
-		testSC.Server.Stop()  // stop any recreated server
+		originalServer.Stop(context.Background(), types.StopRequest{FullDestroy: true}) // stop our test server
+		testSC.Server.Stop(context.Background(), types.StopRequest{FullDestroy: true})  // stop any recreated server
 	})
 
 	// Validate pod CIDR and service announcements work as expected

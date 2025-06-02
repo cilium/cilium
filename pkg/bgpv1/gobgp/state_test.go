@@ -257,7 +257,7 @@ func TestGetPeerState(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
-				testSC.Stop()
+				testSC.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 			})
 
 			// add neighbours
@@ -362,7 +362,7 @@ func TestGetRoutes(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		testSC.Stop()
+		testSC.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 	})
 
 	err = testSC.AddNeighbor(context.TODO(), types.ToNeighborV1(neighbor64125, ""))

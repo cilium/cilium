@@ -25,6 +25,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 
@@ -139,6 +140,7 @@ func TestScript(t *testing.T) {
 			}),
 			cell.Invoke(func(m agent.BGPRouterManager) {
 				bgpMgr = m
+				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
 			}),
 		)
 

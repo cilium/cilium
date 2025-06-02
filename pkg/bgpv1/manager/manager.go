@@ -147,6 +147,10 @@ type BGPRouterManager struct {
 	// running is set when the manager is running, and unset when it is stopped.
 	running bool
 
+	// destroyRouterOnStop should be true if the underlying router should be fully destroyed upon Stop().
+	// Note that this causes sending a Cease notification to BGP peers, which terminates Graceful Restart progress.
+	destroyRouterOnStop bool
+
 	// state management
 	state State
 
@@ -179,6 +183,11 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		// statedb
 		DB:                  params.DB,
 		ReconcileErrorTable: params.ReconcileErrorTable,
+
+		// By default, do not destroy the GobGP router on Stop() as that causes sending Cease notification to peers,
+		// which terminates Graceful Restart progress. We set this to true only for tests, where GR is not needed
+		// and full cleanup is necessary.
+		destroyRouterOnStop: false,
 
 		// state
 		state: State{
@@ -397,7 +406,7 @@ func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) erro
 		for _, r := range m.Reconcilers {
 			r.Cleanup(s)
 		}
-		s.Server.Stop()
+		s.Server.Stop(ctx, types.StopRequest{FullDestroy: m.destroyRouterOnStop})
 		delete(m.Servers, asn)
 		l.Info("Removed BGP server with local ASN", types.LocalASNLogField, asn)
 	}
@@ -748,17 +757,17 @@ func (m *BGPRouterManager) Start(_ cell.HookContext) error {
 }
 
 // Stop cleans up all servers, called by hive lifecycle at shutdown
-func (m *BGPRouterManager) Stop(_ cell.HookContext) error {
+func (m *BGPRouterManager) Stop(ctx cell.HookContext) error {
 	m.Lock()
 	defer m.Unlock()
 
 	for _, s := range m.Servers {
-		s.Server.Stop()
+		s.Server.Stop(ctx, types.StopRequest{FullDestroy: m.destroyRouterOnStop})
 	}
 
 	for name, i := range m.BGPInstances {
 		i.CancelCtx()
-		i.Router.Stop()
+		i.Router.Stop(ctx, types.StopRequest{FullDestroy: m.destroyRouterOnStop})
 		notifCh, exists := m.state.notifications[name]
 		if exists {
 			close(notifCh)
@@ -770,6 +779,16 @@ func (m *BGPRouterManager) Stop(_ cell.HookContext) error {
 	m.state.notifications = make(map[string]types.StateNotificationCh)
 	m.running = false
 	return nil
+}
+
+// DestroyRouterOnStop should be set to true if the underlying router should be fully destroyed upon Stop().
+// Note that this causes sending a Cease notification to BGP peers, which terminates Graceful Restart.
+// Full destroy is useful especially for tests, where multiple instances of the RouterManager may be running.
+func (m *BGPRouterManager) DestroyRouterOnStop(destroy bool) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.destroyRouterOnStop = destroy
 }
 
 // ReconcileInstances is a API for configuring the BGP Instances from the
@@ -1072,7 +1091,7 @@ func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) 
 			r.Cleanup(i)
 		}
 		i.CancelCtx()
-		i.Router.Stop()
+		i.Router.Stop(ctx, types.StopRequest{FullDestroy: m.destroyRouterOnStop})
 		notifCh, exists := m.state.notifications[name]
 		if exists {
 			close(notifCh)

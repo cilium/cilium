@@ -341,10 +341,18 @@ type GetRoutePoliciesResponse struct {
 	Policies []*RoutePolicy
 }
 
+// StopRequest contains parameters for stopping the underlying router
+type StopRequest struct {
+	// FullDestroy should be set to true if full destroy of the router instance should be performed.
+	// Note that this causes sending a Cease notification to BGP peers, which terminates Graceful Restart progress.
+	FullDestroy bool
+}
+
 // Router is vendor-agnostic cilium bgp configuration layer. Parameters of this layer
 // are standard BGP RFC complaint and not specific to any underlying implementation.
 type Router interface {
-	Stop()
+	// Stop stops the router
+	Stop(ctx context.Context, r StopRequest)
 
 	// AddNeighbor configures BGP peer
 	AddNeighbor(ctx context.Context, n *Neighbor) error

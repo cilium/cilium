@@ -355,7 +355,7 @@ func TestNeighborReconciler_StaticPeer(t *testing.T) {
 			req.NoError(err)
 
 			t.Cleanup(func() {
-				testInstance.Router.Stop()
+				testInstance.Router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 			})
 
 			params, nodeConfig := setupNeighbors(t, tt.neighbors)
@@ -521,7 +521,7 @@ func TestNeighborReconciler_DefaultGateway(t *testing.T) {
 			req.NoError(err)
 
 			t.Cleanup(func() {
-				testInstance.Router.Stop()
+				testInstance.Router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 			})
 
 			params, nodeConfig := setupNeighbors(t, tt.neighbors)

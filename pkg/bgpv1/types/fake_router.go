@@ -17,7 +17,7 @@ func NewFakeRouter() Router {
 	}
 }
 
-func (f *FakeRouter) Stop() {}
+func (f *FakeRouter) Stop(ctx context.Context, r StopRequest) {}
 
 func (f *FakeRouter) AddNeighbor(ctx context.Context, n *Neighbor) error {
 	return nil
