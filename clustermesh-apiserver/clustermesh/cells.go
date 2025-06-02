@@ -8,13 +8,17 @@ import (
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 var Cell = cell.Module(
@@ -49,6 +53,19 @@ var Cell = cell.Module(
 	heartbeat.Cell,
 
 	HealthAPIEndpointsCell,
+
+	cell.Group(
+		cell.Provide(
+			func(backend promise.Promise[kvstore.BackendOperations], syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
+				return operatorWatchers.ServiceSyncConfig{
+					Enabled: true,
+					Backend: backend,
+					Synced:  syncState.WaitForResource(),
+				}
+			},
+		),
+		operatorWatchers.ServiceSyncCell,
+	),
 
 	usersManagementCell,
 	cell.Invoke(registerHooks),

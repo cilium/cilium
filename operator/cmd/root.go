@@ -255,6 +255,14 @@ var (
 			// Resources might be K8s `Ingress` or Gateway API `Gateway`.
 			secretsync.Cell,
 
+			// Synchronizes K8s services to KVStore.
+			cell.Provide(func(cfg *operatorOption.OperatorConfig, dcfg *option.DaemonConfig) operatorWatchers.ServiceSyncConfig {
+				return operatorWatchers.ServiceSyncConfig{
+					Enabled: cfg.SyncK8sServices && dcfg.KVStore != "",
+				}
+			}),
+			operatorWatchers.ServiceSyncCell,
+
 			// Cilium L7 LoadBalancing with Envoy.
 			ciliumenvoyconfig.Cell,
 
@@ -628,23 +636,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		)
 
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
-			clusterInfo := cmtypes.ClusterInfo{
-				ID:   option.Config.ClusterID,
-				Name: option.Config.ClusterName,
-			}
-			operatorWatchers.StartSynchronizingServices(legacy.ctx, &legacy.wg, operatorWatchers.ServiceSyncParameters{
-				ClusterInfo:  clusterInfo,
-				Clientset:    legacy.clientset,
-				Services:     legacy.resources.Services,
-				Endpoints:    legacy.resources.Endpoints,
-				StoreFactory: legacy.storeFactory,
-				SyncCallback: func(_ context.Context) {},
-			}, legacy.logger)
 			legacy.wg.Add(1)
 			go func() {
 				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
 					Logger:                  legacy.logger,
-					ClusterName:             clusterInfo.Name,
+					ClusterName:             option.Config.ClusterName,
 					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					Clientset:               legacy.clientset,
 					ServiceExports:          legacy.resources.ServiceExports,

@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"path"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
@@ -18,7 +17,6 @@ import (
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
-	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -460,15 +458,6 @@ func startServer(
 		go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource(), enableCiliumEndpointSlice))
 	}
 
-	operatorWatchers.StartSynchronizingServices(ctx, &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
-		ClusterInfo:  cinfo,
-		Clientset:    clientset,
-		Services:     resources.Services,
-		Endpoints:    resources.Endpoints,
-		Backend:      backend,
-		StoreFactory: factory,
-		SyncCallback: syncState.WaitForResource(),
-	}, logger)
 	go mcsapi.StartSynchronizingServiceExports(ctx, mcsapi.ServiceExportSyncParameters{
 		Logger:                  logger,
 		ClusterName:             cinfo.Name,

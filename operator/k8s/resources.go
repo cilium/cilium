@@ -34,7 +34,7 @@ var (
 		cell.Provide(
 			k8s.ServiceResource,
 			mcsapi.ServiceExportResource,
-			k8s.EndpointsResource,
+			EndpointsResource,
 			LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
