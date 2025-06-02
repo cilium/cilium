@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -243,6 +244,10 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 		// local bgp state for inspection
 		cell.Invoke(func(bgp *agent.Controller) {
 			f.bgp = bgp
+		}),
+
+		cell.Invoke(func(m agent.BGPRouterManager) {
+			m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
 		}),
 
 		metrics.Cell,
