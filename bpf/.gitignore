@@ -7,6 +7,9 @@ compile_commands.json
 # ignore CLANG intermediate compilation tmp files
 *.o.tmp
 
+# ignore generated CFLAGS
+**.clang_flags.mk
+
 # ignore scapy autgen and python cache
 tests/scapy/__pycache__/*
 tests/output/*
