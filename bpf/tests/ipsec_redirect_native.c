@@ -21,6 +21,8 @@ void set_dst_identity(bool is_ipv4, __u32 identity)
 static __always_inline
 int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
 {
+	union macaddr expected_l2_addr = CILIUM_NET_MAC;
+
 	test_init();
 
 	int ret = 0;
@@ -63,7 +65,7 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
 	int i;
 
 	for (i = 0; i < 6; i++)
-		assert(l2->h_dest[i] = SOURCE_MAC[i]);
+		assert(l2->h_dest[i] == expected_l2_addr.addr[i]);
 
 	/* ctx_redirect should be called with INGRESS flag for hairpin redirect
 	 */
