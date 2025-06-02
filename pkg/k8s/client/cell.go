@@ -340,7 +340,7 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 			logfields.Hint, "Please check if kube-proxy is running and if the API server is accessible",
 			logfields.Hint, "For more detailed diagnostics, check the Cilium logs",
 			logfields.Hint, fmt.Sprintf("Current connection attempt to: %s", c.restConfigManager.getConfig().Host),
-			logfields.Hint, "If using KPR=strict, verify the API server node IP is correctly specified",
+			logfields.Hint, "If using kubeProxyReplacement=true, verify the API server node IP is correctly specified",
 		)
 		close(stop)
 	}, connRetryInterval, stop)
