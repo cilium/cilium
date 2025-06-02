@@ -606,7 +606,7 @@ bpf:
   # @schema
   policyStatsMapMax: 65536
   # @schema
-  # type: [null, number]
+  # type: [null, number, string]
   # @schema
   # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
   # ref: https://docs.cilium.io/en/stable/network/ebpf/maps/
