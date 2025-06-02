@@ -23,6 +23,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 		cnpPath        string
 		ciliumFilename string
 		testDSService  = "testds-service"
+		skipLogTest    bool // error messages are OK for SIGTERM tests
 	)
 
 	BeforeAll(func() {
@@ -39,13 +40,34 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 	})
 
 	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		if !skipLogTest {
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		}
 		kubectl.CollectFeatures()
 	})
 
 	AfterAll(func() {
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
+	})
+
+	Context("Graceful shutdown", func() {
+		skipLogTest = true
+
+		It("exits with a success message on SIGTERM", func() {
+			Expect(kubectl).NotTo(BeNil(), "test")
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).To(BeNil(), "Could not list Cilium pods")
+
+			By("Sending SIGTERM to cilium pod %s", ciliumPodK8s1)
+			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPodK8s1, "kill 1")
+			// error code will either be 0 or 137
+			Expect(res.GetExitCode()).To(BeElementOf(0, 137))
+
+			By("Looking for successful exit error in the previous logs")
+			// Need to retry this a few times, as previous logs don't immediately show up after sigterm
+			Eventually(func() string { return kubectl.LogsPrevious(helpers.CiliumNamespace, ciliumPodK8s1).Stdout() }, helpers.MidCommandTimeout).Should(ContainSubstring("All stop hooks executed successfully"))
+		})
 	})
 
 	Context("Connectivity demo application", func() {

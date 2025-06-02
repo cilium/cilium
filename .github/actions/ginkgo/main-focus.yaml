@@ -34,6 +34,7 @@ focus:
 - "f20-datapath-misc-3"
 include:
   ###
+  # K8sAgentChaosTest Graceful shutdown exits with a success message on SIGTERM
   # K8sAgentChaosTest Connectivity demo application Endpoint can still connect while Cilium is not running
   # K8sAgentChaosTest Restart with long lived connections L3/L4 policies still work while Cilium is restarted
   # K8sAgentChaosTest Restart with long lived connections TCP connection is not dropped when cilium restarts
