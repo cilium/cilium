@@ -184,9 +184,8 @@ func ParseResponse(output string) Response {
 		if len(sl) != 2 {
 			continue
 		}
-		out.RequestHeaders.Set(sl[0], sl[1])
+		out.RequestHeaders.Add(sl[0], sl[1])
 	}
-
 	matches = responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
 		sl := strings.SplitN(kv[1], ":", 2)

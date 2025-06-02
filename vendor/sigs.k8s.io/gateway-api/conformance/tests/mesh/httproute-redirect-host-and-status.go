@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,60 +14,69 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tests
+package meshtests
 
 import (
 	"testing"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
+	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, MeshTrafficSplit)
+	MeshConformanceTests = append(MeshConformanceTests, MeshHTTPRouteRedirectHostAndStatus)
 }
 
-var MeshTrafficSplit = suite.ConformanceTest{
-	ShortName:   "MeshTrafficSplit",
-	Description: "A mesh client can send traffic to a Service which is split between two versions",
+var MeshHTTPRouteRedirectHostAndStatus = suite.ConformanceTest{
+	ShortName:   "MeshHTTPRouteRedirectHostAndStatus",
+	Description: "An HTTPRoute with hostname and statusCode redirect filters",
 	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportHTTPRoute,
 	},
-	Manifests: []string{"tests/mesh-split.yaml"},
+	Manifests: []string{"tests/mesh/httproute-redirect-host-and-status.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
+		ns := "gateway-conformance-mesh"
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
-		cases := []http.ExpectedResponse{
+
+		testCases := []http.ExpectedResponse{
 			{
 				Request: http.Request{
-					Host:   "echo",
-					Method: "GET",
-					Path:   "/v1",
+					Host:             "echo",
+					Path:             "/hostname-redirect",
+					UnfollowRedirect: true,
 				},
 				Response: http.Response{
-					StatusCode: 200,
+					StatusCode: 302,
 				},
-				Backend: "echo-v1",
-			},
-			{
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+				},
+				Namespace: ns,
+			}, {
 				Request: http.Request{
-					Host:   "echo",
-					Method: "GET",
-					Path:   "/v2",
+					Host:             "echo",
+					Path:             "/host-and-status",
+					UnfollowRedirect: true,
 				},
 				Response: http.Response{
-					StatusCode: 200,
+					StatusCode: 301,
 				},
-				Backend: "echo-v2",
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+				},
+				Namespace: ns,
 			},
 		}
-		for i := range cases {
+		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.
-			tc := cases[i]
+			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
+				t.Parallel()
 				client.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, s.TimeoutConfig)
 			})
 		}

@@ -58,7 +58,7 @@ func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T,
 	t.Helper()
 
 	http.AwaitConvergence(t, timeoutConfig.RequiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency, func(elapsed time.Duration) bool {
-		req := makeRequest(t, exp.Request)
+		req := makeRequest(t, &exp)
 
 		resp, err := m.request(req)
 		if err != nil {
@@ -76,7 +76,19 @@ func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T,
 	tlog.Logf(t, "Request passed")
 }
 
-func makeRequest(t *testing.T, r http.Request) []string {
+func makeRequest(t *testing.T, exp *http.ExpectedResponse) []string {
+	if exp.Request.Host == "" {
+		exp.Request.Host = "echo"
+	}
+	if exp.Request.Method == "" {
+		exp.Request.Method = "GET"
+	}
+
+	if exp.Response.StatusCode == 0 {
+		exp.Response.StatusCode = 200
+	}
+
+	r := exp.Request
 	protocol := strings.ToLower(r.Protocol)
 	if protocol == "" {
 		protocol = "http"
@@ -87,22 +99,53 @@ func makeRequest(t *testing.T, r http.Request) []string {
 		args = append(args, "--method="+r.Method)
 	}
 	for k, v := range r.Headers {
-		args = append(args, "-H", fmt.Sprintf("%v: %v", k, v))
+		args = append(args, "-H", fmt.Sprintf("%v:%v", k, v))
 	}
 	return args
 }
 
 func compareRequest(exp http.ExpectedResponse, resp Response) error {
-	want := exp.Response
-	if fmt.Sprint(want.StatusCode) != resp.Code {
-		return fmt.Errorf("wanted status code %v, got %v", want.StatusCode, resp.Code)
+	wantReq := exp.ExpectedRequest
+	wantResp := exp.Response
+	if fmt.Sprint(wantResp.StatusCode) != resp.Code {
+		return fmt.Errorf("wanted status code %v, got %v", wantResp.StatusCode, resp.Code)
 	}
-	for _, name := range want.AbsentHeaders {
+	if wantReq.Headers != nil {
+		if resp.RequestHeaders == nil {
+			return fmt.Errorf("no headers captured, expected %v", len(wantReq.Headers))
+		}
+		for name, val := range resp.RequestHeaders {
+			resp.RequestHeaders[strings.ToLower(name)] = val
+		}
+		for name, expectedVal := range wantReq.Headers {
+			actualVal, ok := resp.RequestHeaders[strings.ToLower(name)]
+			if !ok {
+				return fmt.Errorf("expected %s header to be set, actual headers: %v", name, resp.RequestHeaders)
+			}
+			if strings.Join(actualVal, ",") != expectedVal {
+				return fmt.Errorf("expected %s header to be set to %s, got %s", name, expectedVal, strings.Join(actualVal, ","))
+			}
+		}
+	}
+	if len(wantReq.AbsentHeaders) > 0 {
+		for name, val := range resp.RequestHeaders {
+			resp.RequestHeaders[strings.ToLower(name)] = val
+		}
+
+		for _, name := range wantReq.AbsentHeaders {
+			val, ok := resp.RequestHeaders[strings.ToLower(name)]
+			if ok {
+				return fmt.Errorf("expected %s header to not be set, got %s", name, val)
+			}
+		}
+	}
+
+	for _, name := range wantResp.AbsentHeaders {
 		if v := resp.ResponseHeaders.Values(name); len(v) != 0 {
 			return fmt.Errorf("expected no header %q, got %v", name, v)
 		}
 	}
-	for k, v := range want.Headers {
+	for k, v := range wantResp.Headers {
 		if got := resp.ResponseHeaders.Get(k); got != v {
 			return fmt.Errorf("expected header %v=%v, got %v", k, v, got)
 		}

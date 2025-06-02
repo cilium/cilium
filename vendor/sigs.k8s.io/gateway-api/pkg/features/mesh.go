@@ -48,6 +48,16 @@ const (
 	SupportMeshClusterIPMatching FeatureName = "MeshClusterIPMatching"
 	// This option indicates support for "consumer" routes, where a namespace creates a route for a service in another namespace.
 	SupportMeshConsumerRoute FeatureName = "MeshConsumerRoute"
+	// This option indicates mesh support for HTTPRoute path rewrite (extended conformance)
+	SupportMeshHTTPRouteRewritePath FeatureName = "MeshHTTPRouteRewritePath"
+	// This option indicates mesh support for HTTPRoute scheme redirect (extended conformance)
+	SupportMeshHTTPRouteSchemeRedirect FeatureName = "MeshHTTPRouteSchemeRedirect"
+	// This option indicates mesh support for HTTPRoute port redirect (extended conformance)
+	SupportMeshHTTPRouteRedirectPort FeatureName = "MeshHTTPRouteRedirectPort"
+	// This option indicates mesh support for HTTPRoute path redirect (extended conformance)
+	SupportMeshHTTPRouteRedirectPath FeatureName = "MeshHTTPRouteRedirectPath"
+	// This option indicates support for HTTPRoute backend request header modification
+	SupportMeshHTTPRouteBackendRequestHeaderModification FeatureName = "MeshHTTPRouteBackendRequestHeaderModification"
 )
 
 var (
@@ -61,6 +71,36 @@ var (
 		Name:    SupportMeshConsumerRoute,
 		Channel: FeatureChannelStandard,
 	}
+
+	// MeshHTTPRouteRewritePath contains metadata for the MeshHTTPRouteRewritePath feature.
+	MeshHTTPRouteRewritePath = Feature{
+		Name:    SupportMeshHTTPRouteRewritePath,
+		Channel: FeatureChannelStandard,
+	}
+
+	// MeshHTTPRouteSchemeRedirect contains metadata for the MeshHTTPRouteSchemeRedirect feature.
+	MeshHTTPRouteSchemeRedirect = Feature{
+		Name:    SupportMeshHTTPRouteRewritePath,
+		Channel: FeatureChannelStandard,
+	}
+
+	// MeshHTTPRouteRedirectPort contains metadata for the MeshHTTPRouteRedirectPort feature.
+	MeshHTTPRouteRedirectPort = Feature{
+		Name:    SupportMeshHTTPRouteRedirectPort,
+		Channel: FeatureChannelStandard,
+	}
+
+	// MeshHTTPRouteRedirectPath contains metadata for the MeshHTTPRouteRedirectPath feature.
+	MeshHTTPRouteRedirectPath = Feature{
+		Name:    SupportMeshHTTPRouteRedirectPath,
+		Channel: FeatureChannelStandard,
+	}
+
+	// MeshHTTPRouteRedirectPath contains metadata for the MeshHTTPRouteRedirectPath feature.
+	MeshHTTPRouteBackendRequestHeaderModification = Feature{
+		Name:    SupportMeshHTTPRouteBackendRequestHeaderModification,
+		Channel: FeatureChannelStandard,
+	}
 )
 
 // MeshExtendedFeatures includes all the supported features for the service mesh at
@@ -68,4 +108,8 @@ var (
 var MeshExtendedFeatures = sets.New(
 	MeshClusterIPMatchingFeature,
 	MeshConsumerRouteFeature,
+	MeshHTTPRouteRewritePath,
+	MeshHTTPRouteSchemeRedirect,
+	MeshHTTPRouteRedirectPath,
+	MeshHTTPRouteBackendRequestHeaderModification,
 )
