@@ -142,7 +142,7 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	}
 
 	// stop the old BgpServer
-	p.CurrentServer.Server.Stop()
+	p.CurrentServer.Server.Stop(ctx, types.StopRequest{FullDestroy: true})
 
 	// create a new one via ServerWithConfig constructor
 	s, err := instance.NewServerWithConfig(ctx, r.logger, globalConfig)
