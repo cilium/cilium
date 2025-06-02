@@ -284,7 +284,6 @@ func (c *inMemoryClient) LockPath(ctx context.Context, path string) (KVLocker, e
 
 // RegisterLeaseExpiredObserver implements BackendOperations.
 func (c *inMemoryClient) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {
-	panic("unimplemented")
 }
 
 // Status implements BackendOperations.

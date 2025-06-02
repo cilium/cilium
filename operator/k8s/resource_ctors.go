@@ -6,12 +6,14 @@ package k8s
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -128,4 +130,26 @@ func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*met
 		opts...,
 	)
 	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](lc, lw, resource.WithMetric("CiliumLoadBalancerIPPool")), nil
+}
+
+const ServiceIndex = "service"
+
+func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (resource.Resource[*k8s.Endpoints], error) {
+	return k8s.EndpointsResourceWithIndexers(
+		logger,
+		lc,
+		cfg,
+		cs,
+		cache.Indexers{
+			// Index endpoints by their service identifier. Used by [ServiceSyncCell].
+			ServiceIndex: func(obj any) ([]string, error) {
+				eps, ok := obj.(*k8s.Endpoints)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object type: %T", obj)
+				}
+				return []string{eps.ServiceID.String()}, nil
+			},
+		},
+	)
+
 }
