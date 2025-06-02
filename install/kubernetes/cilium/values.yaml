@@ -13,6 +13,8 @@ namespaceOverride: ""
 # @schema
 # -- namespaceCreate allows to override the creation of the default namespace
 # This property allows to create a Namespace for Cillium through external tools.
+# WARNING: enabling this and _not_ creating the namespace correctly will cause
+# the installation to fail to apply.
 namespaceCreate: true
 # @schema
 # type: [null, object]
