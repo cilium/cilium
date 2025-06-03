@@ -48,8 +48,6 @@ type Notifier interface {
 }
 
 type NodeManager interface {
-	datapath.NodeNeighborEnqueuer
-
 	Notifier
 
 	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
@@ -76,14 +74,6 @@ type NodeManager interface {
 	// can be used to control sync intervals of shared or centralized resources to
 	// avoid overloading these resources as the cluster grows.
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
-
-	// StartNeighborRefresh spawns a controller which refreshes neighbor table
-	// by sending arping periodically.
-	StartNeighborRefresh(nh datapath.NodeNeighbors)
-
-	// StartNodeNeighborLinkUpdater spawns a controller that watches a queue
-	// for node neighbor link updates.
-	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
 
 	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
 	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom,

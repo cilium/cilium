@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"iter"
 	"log/slog"
-	"math/rand/v2"
 	"net"
 	"net/netip"
 	"os"
@@ -25,9 +24,7 @@ import (
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
 	"go4.org/netipx"
-	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -68,10 +65,6 @@ const (
 
 var (
 	baseBackgroundSyncInterval = time.Minute
-	defaultNodeUpdateInterval  = 10 * time.Second
-
-	neighborTableRefreshControllerGroup = controller.NewGroup("neighbor-table-refresh")
-	neighborTableUpdateControllerGroup  = controller.NewGroup("neighbor-table-update")
 )
 
 type nodeEntry struct {
@@ -168,9 +161,6 @@ type manager struct {
 	// health reports on the current health status of the node manager module.
 	health cell.Health
 
-	// nodeNeighborQueue tracks node neighbor link updates.
-	nodeNeighborQueue queue[nodeQueueEntry]
-
 	// nodeCheckpointer triggers writing the current set of nodes to disk
 	nodeCheckpointer *trigger.Trigger
 	checkpointerDone chan struct{} // Closed once the checkpointer is shut down.
@@ -185,21 +175,6 @@ type manager struct {
 
 	// custom mutator function to enrich prefixCluster(s) from node objects.
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
-}
-
-type nodeQueueEntry struct {
-	node *nodeTypes.Node
-}
-
-// Enqueue add a node to a controller managed queue which sets up the neighbor link.
-func (m *manager) Enqueue(n *nodeTypes.Node) {
-	if n == nil {
-		m.logger.Warn(
-			"Skipping nodeNeighbor insert: No node given",
-			logfields.LogSubsys, "enqueue",
-		)
-	}
-	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n})
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -332,7 +307,6 @@ func (m *manager) Start(cell.HookContext) error {
 	}
 
 	m.jobGroup.Add(job.OneShot("backgroundSync", m.backgroundSync))
-	m.jobGroup.Add(job.OneShot("carrierDownReconciler", m.carrierDownReconciler))
 
 	return nil
 }
@@ -393,105 +367,6 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
 }
 
-func (m *manager) carrierDownReconciler(ctx context.Context, health cell.Health) error {
-	runningDevices := make(sets.Set[int])
-
-	// Collect all up and running devices, and start watching for changes
-	txn := m.db.WriteTxn(m.devices)
-	devChanges, err := m.devices.Changes(txn)
-	if err != nil {
-		txn.Abort()
-		return fmt.Errorf("failed to watch device table: %w", err)
-	}
-
-	devices, watch := m.devices.AllWatch(txn)
-	for dev := range devices {
-		if !deviceIsUpAndRunning(dev) {
-			continue
-		}
-
-		runningDevices = runningDevices.Insert(dev.Index)
-	}
-	txn.Commit()
-
-	health.OK("Watching for device changes")
-
-loop:
-	for {
-		select {
-		case <-ctx.Done():
-			// If the context is done, we should stop the background sync.
-			return nil
-		case <-watch:
-			// On changes to the device table
-
-			revalidate := false
-
-		changesLoop:
-			for {
-				// Use change iterator instead of [statedb.Table.AllWatch] so we can catch when a device
-				// goes down for a short time. Something we would miss by looking at just the latest state.
-				var changes iter.Seq2[statedb.Change[*tables.Device], uint64]
-				changes, watch = devChanges.Next(m.db.ReadTxn())
-				for change := range changes {
-					isRunning := runningDevices.Has(change.Object.Index)
-
-					if change.Deleted {
-						// If a running device has been deleted, we just need to track that.
-						// No need for revalidation.
-						runningDevices = runningDevices.Delete(change.Object.Index)
-						continue
-					}
-
-					upAndRunning := deviceIsUpAndRunning(change.Object)
-					if !isRunning && upAndRunning {
-						// This device is new, or was not up and running before.
-						// We should revalidate the node implementations.
-						runningDevices = runningDevices.Insert(change.Object.Index)
-						revalidate = true
-					} else if isRunning && !upAndRunning {
-						// This device was up and running, but is no longer.
-						// Keep track so we know to revalidate when it comes back up.
-						runningDevices = runningDevices.Delete(change.Object.Index)
-					}
-				}
-
-				// The change iterator will return an already closed channel if there are more changes.
-				// So lets process all changes until we get a channel that will block for optimal batching.
-				select {
-				case <-watch:
-				default:
-					break changesLoop
-				}
-			}
-
-			if !revalidate {
-				health.OK("Processed device change, not revalidating")
-				continue loop
-			}
-
-			// A device went down, was removed, added, or went up. We need to
-			// trigger node neighbor system to reconcile neighbor entries
-
-			m.mutex.RLock()
-			for _, entry := range m.nodes {
-				entry.mutex.Lock()
-				entryNode := entry.node
-				entry.mutex.Unlock()
-
-				if entryNode.IsLocal() {
-					continue
-				}
-
-				m.Enqueue(&entryNode)
-			}
-			m.mutex.RUnlock()
-
-			health.OK("Processed device change, enqueued all nodes")
-		}
-	}
-}
-
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *manager) backgroundSync(ctx context.Context, health cell.Health) error {
@@ -523,31 +398,6 @@ func (m *manager) backgroundSync(ctx context.Context, health cell.Health) error 
 			health.OK("Node validation successful")
 		}
 	}
-}
-
-const (
-	upAndRunningFlags = unix.IFF_UP | unix.IFF_RUNNING
-	LoopbackFlags     = unix.IFF_LOOPBACK
-)
-
-// Check if a given device is up and running (not down or carrier down).
-// Always returns false for non-physical devices so we never detect a
-// transition from down to up.
-func deviceIsUpAndRunning(dev *tables.Device) bool {
-	// We only care about physical devices. So we select for [netlink.Device].
-	// This technically also include loopback devices, but those are filtered
-	// in a later step.
-	if dev.Type != "device" {
-		return false
-	}
-
-	loopbackDevice := dev.RawFlags&LoopbackFlags != 0
-	if loopbackDevice {
-		return false
-	}
-
-	upAndRunning := dev.RawFlags&upAndRunningFlags == upAndRunningFlags
-	return upAndRunning
 }
 
 func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime time.Duration) error {
@@ -1387,89 +1237,6 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	}
 
 	return nodes
-}
-
-// StartNodeNeighborLinkUpdater manages node neighbors links sync.
-// This provides a central location for all node neighbor link updates.
-// Under proper conditions, publisher enqueues the node which requires a link update.
-// This controller is agnostic of the condition under which the links must be established, thus
-// that responsibility lies on the publishers.
-// This controller also provides for module health to be reported in a single central location.
-func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
-	sc := m.health.NewScope("neighbor-link-updater")
-	controller.NewManager().UpdateController(
-		"node-neighbor-link-updater",
-		controller.ControllerParams{
-			Group: neighborTableUpdateControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				var errs error
-				if m.nodeNeighborQueue.isEmpty() {
-					return nil
-				}
-				for {
-					e, ok := m.nodeNeighborQueue.pop()
-					if !ok {
-						break
-					} else if e == nil || e.node == nil {
-						errs = errors.Join(errs, fmt.Errorf("invalid node spec found in queue: %#v", e))
-						break
-					}
-
-					m.logger.Debug(
-						"Refreshing node neighbor link",
-						logfields.Name, e.node.Name,
-					)
-					hr := sc.NewScope(e.node.Name)
-					if err := nh.NodeNeighborRefresh(ctx, *e.node); err != nil {
-						hr.Degraded("Failed node neighbor link update", err)
-						errs = errors.Join(errs, err)
-					} else {
-						hr.OK("Node neighbor link update successful")
-					}
-				}
-				return errs
-			},
-			RunInterval: defaultNodeUpdateInterval,
-		},
-	)
-}
-
-// StartNeighborRefresh spawns a controller which refreshes neighbor table
-// by forcing node neighbors refresh periodically based on the arping settings.
-func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
-	ctx, cancel := context.WithCancel(context.Background())
-	controller.NewManager().UpdateController(
-		"neighbor-table-refresh",
-		controller.ControllerParams{
-			Group: neighborTableRefreshControllerGroup,
-			DoFunc: func(controllerCtx context.Context) error {
-				// Cancel previous goroutines from previous controller run
-				cancel()
-				ctx, cancel = context.WithCancel(controllerCtx)
-				m.mutex.RLock()
-				defer m.mutex.RUnlock()
-				for _, entry := range m.nodes {
-					entry.mutex.Lock()
-					entryNode := entry.node
-					entry.mutex.Unlock()
-					if entryNode.IsLocal() {
-						continue
-					}
-					go func(ctx context.Context, e *nodeTypes.Node) {
-						// TODO Should this be moved to dequeue instead?
-						// To avoid flooding network with arping requests
-						// at the same time, spread them over the
-						// [0; ARPPingRefreshPeriod/2) period.
-						n := rand.Int64N(int64(m.conf.ARPPingRefreshPeriod / 2))
-						time.Sleep(time.Duration(n))
-						m.Enqueue(e)
-					}(ctx, &entryNode)
-				}
-				return nil
-			},
-			RunInterval: m.conf.ARPPingRefreshPeriod,
-		},
-	)
 }
 
 // SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.

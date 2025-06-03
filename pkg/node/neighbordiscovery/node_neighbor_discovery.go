@@ -13,7 +13,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -33,7 +32,6 @@ var (
 func NewNodeNeighborHandler(
 	nodeManger manager.NodeManager,
 	forwardableIPManager *neighbor.ForwardableIPManager,
-	deamonConfig *option.DaemonConfig,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 ) {
 	// If the forwardable IP manager is not enabled, then there is no point to
@@ -47,10 +45,8 @@ func NewNodeNeighborHandler(
 		initializer:          forwardableIPManager.RegisterInitializer("node-neighbor-discovery"),
 	}
 
-	if deamonConfig.EnableL2NeighDiscovery {
-		nodeManger.Subscribe(nnh)
-		nodeConfigNotifier.Subscribe(nnh)
-	}
+	nodeManger.Subscribe(nnh)
+	nodeConfigNotifier.Subscribe(nnh)
 }
 
 type nodeNeighborHandler struct {
