@@ -1,13 +1,13 @@
 package kallsyms
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/platform"
@@ -114,11 +114,11 @@ func assignModules(f io.Reader, symbols map[string]string) error {
 			continue
 		}
 
-		if _, requested := symbols[s.name]; !requested {
+		if _, requested := symbols[string(s.name)]; !requested {
 			continue
 		}
 
-		if _, ok := found[s.name]; ok {
+		if _, ok := found[string(s.name)]; ok {
 			// We've already seen this symbol. Return an error to avoid silently
 			// attaching to a symbol in the wrong module. libbpf also rejects
 			// referring to ambiguous symbols.
@@ -129,8 +129,8 @@ func assignModules(f io.Reader, symbols map[string]string) error {
 				s.name, s.addr, s.mod, errAmbiguousKsym)
 		}
 
-		symbols[s.name] = s.mod
-		found[s.name] = struct{}{}
+		symbols[string(s.name)] = string(s.mod)
+		found[string(s.name)] = struct{}{}
 	}
 	if err := r.Err(); err != nil {
 		return fmt.Errorf("reading kallsyms: %w", err)
@@ -230,7 +230,7 @@ func assignAddresses(f io.Reader, symbols map[string]uint64) error {
 			continue
 		}
 
-		existing, requested := symbols[s.name]
+		existing, requested := symbols[string(s.name)]
 		if existing != 0 {
 			// Multiple addresses for a symbol have been found. Return a friendly
 			// error to avoid silently attaching to the wrong symbol. libbpf also
@@ -238,7 +238,7 @@ func assignAddresses(f io.Reader, symbols map[string]uint64) error {
 			return fmt.Errorf("symbol %s(0x%x): duplicate found at address 0x%x: %w", s.name, existing, s.addr, errAmbiguousKsym)
 		}
 		if requested {
-			symbols[s.name] = s.addr
+			symbols[string(s.name)] = s.addr
 		}
 	}
 	if err := r.Err(); err != nil {
@@ -250,15 +250,18 @@ func assignAddresses(f io.Reader, symbols map[string]uint64) error {
 
 type ksym struct {
 	addr uint64
-	name string
-	mod  string
+	name []byte
+	mod  []byte
 }
 
 // parseSymbol parses a line from /proc/kallsyms into an address, type, name and
 // module. Skip will be true if the symbol doesn't match any of the given symbol
 // types. See `man 1 nm` for all available types.
 //
-// Example line: `ffffffffc1682010 T nf_nat_init  [nf_nat]`
+// Only yields symbols whose type is contained in types. An empty value for types
+// disables this filtering.
+//
+// Example line: `ffffffffc1682010 T nf_nat_init\t[nf_nat]`
 func parseSymbol(r *reader, types []rune) (s ksym, err error, skip bool) {
 	for i := 0; r.Word(); i++ {
 		switch i {
@@ -276,10 +279,10 @@ func parseSymbol(r *reader, types []rune) (s ksym, err error, skip bool) {
 			}
 		// Name of the symbol.
 		case 2:
-			s.name = r.Text()
+			s.name = r.Bytes()
 		// Kernel module the symbol is provided by.
 		case 3:
-			s.mod = strings.Trim(r.Text(), "[]")
+			s.mod = bytes.Trim(r.Bytes(), "[]")
 		// Ignore any future fields.
 		default:
 			return

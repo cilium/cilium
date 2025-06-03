@@ -281,9 +281,11 @@ type Map struct {
 	memory *Memory
 }
 
-// NewMapFromFD creates a map from a raw fd.
+// NewMapFromFD creates a [Map] around a raw fd.
 //
 // You should not use fd after calling this function.
+//
+// Requires at least Linux 4.13.
 func NewMapFromFD(fd int) (*Map, error) {
 	f, err := sys.NewFD(fd)
 	if err != nil {
@@ -294,7 +296,7 @@ func NewMapFromFD(fd int) (*Map, error) {
 }
 
 func newMapFromFD(fd *sys.FD) (*Map, error) {
-	info, err := newMapInfoFromFd(fd)
+	info, err := minimalMapInfoFromFd(fd)
 	if err != nil {
 		fd.Close()
 		return nil, fmt.Errorf("get map info: %w", err)
@@ -699,7 +701,7 @@ func (m *Map) Flags() uint32 {
 // but newer kernels support more MapInfo fields with the introduction of more
 // features. See [MapInfo] and its methods for more details.
 //
-// Returns an error wrapping ErrNotSupported if the kernel supports neither
+// Returns an error wrapping [ErrNotSupported] if the kernel supports neither
 // BPF_OBJ_GET_INFO_BY_FD nor reading map information from /proc/self/fdinfo.
 func (m *Map) Info() (*MapInfo, error) {
 	return newMapInfoFromFd(m.fd)
@@ -707,7 +709,7 @@ func (m *Map) Info() (*MapInfo, error) {
 
 // Handle returns a reference to the Map's type information in the kernel.
 //
-// Returns ErrNotSupported if the kernel has no BTF support, or if there is no
+// Returns [ErrNotSupported] if the kernel has no BTF support, or if there is no
 // BTF associated with the Map.
 func (m *Map) Handle() (*btf.Handle, error) {
 	info, err := m.Info()
@@ -1777,9 +1779,10 @@ func MapGetNextID(startID MapID) (MapID, error) {
 	return MapID(attr.NextId), sys.MapGetNextId(attr)
 }
 
-// NewMapFromID returns the map for a given id.
+// NewMapFromID returns the [Map] for a given map id. Returns [ErrNotExist] if
+// there is no eBPF map with the given id.
 //
-// Returns ErrNotExist, if there is no eBPF map with the given id.
+// Requires at least Linux 4.13.
 func NewMapFromID(id MapID) (*Map, error) {
 	fd, err := sys.MapGetFdById(&sys.MapGetFdByIdAttr{
 		Id: uint32(id),

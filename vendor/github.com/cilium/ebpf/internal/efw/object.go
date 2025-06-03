@@ -87,3 +87,31 @@ func EbpfGetNextPinnedObjectPath(startPath string, objectType ObjectType) (strin
 	))
 	return windows.ByteSliceToString(tmp), objectType, err
 }
+
+/*
+Canonicalize a path using filesystem canonicalization rules.
+
+	_Must_inspect_result_ ebpf_result_t
+		ebpf_canonicalize_pin_path(_Out_writes_(output_size) char* output, size_t output_size, _In_z_ const char* input)
+*/
+var ebpfCanonicalizePinPath = newProc("ebpf_canonicalize_pin_path")
+
+func EbpfCanonicalizePinPath(input string) (string, error) {
+	addr, err := ebpfCanonicalizePinPath.Find()
+	if err != nil {
+		return "", err
+	}
+
+	inputBytes, err := windows.ByteSliceFromString(input)
+	if err != nil {
+		return "", err
+	}
+
+	output := make([]byte, _EBPF_MAX_PIN_PATH_LENGTH)
+	err = errorResult(syscall.SyscallN(addr,
+		uintptr(unsafe.Pointer(&output[0])),
+		uintptr(len(output)),
+		uintptr(unsafe.Pointer(&inputBytes[0])),
+	))
+	return windows.ByteSliceToString(output), err
+}
