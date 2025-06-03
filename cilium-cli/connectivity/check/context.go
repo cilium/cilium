@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/utils/github"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -539,7 +540,11 @@ func (ct *ConnectivityTest) report() error {
 			ct.Logf("Test [%s]:", t.Name())
 			for _, a := range t.failedActions() {
 				failedActions++
-				ct.Log("  ❌", a)
+				if a.failureMessage != "" {
+					ct.Logf("  🟥 %s: %s", a, a.failureMessage)
+				} else {
+					ct.Log("  ❌", a)
+				}
 				ct.LogOwners(a.Scenario())
 			}
 		}

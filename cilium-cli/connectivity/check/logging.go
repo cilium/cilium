@@ -414,24 +414,28 @@ func (a *Action) Infof(format string, s ...any) {
 // Fail must be called when the Action is unsuccessful.
 func (a *Action) Fail(s ...any) {
 	a.fail()
+	a.failureMessage = fmt.Sprint(s...)
 	a.test.Fail(s...)
 }
 
 // Failf must be called when the Action is unsuccessful.
 func (a *Action) Failf(format string, s ...any) {
 	a.fail()
+	a.failureMessage = fmt.Sprintf(format, s...)
 	a.test.Failf(format, s...)
 }
 
 // Fatal must be called when an irrecoverable error was encountered during the Action.
 func (a *Action) Fatal(s ...any) {
 	a.fail()
+	a.failureMessage = fmt.Sprint(s...)
 	a.test.Fatal(s...)
 }
 
 // Fatalf must be called when an irrecoverable error was encountered during the Action.
 func (a *Action) Fatalf(format string, s ...any) {
 	a.fail()
+	a.failureMessage = fmt.Sprintf(format, s...)
 	a.test.Fatalf(format, s...)
 }
 
