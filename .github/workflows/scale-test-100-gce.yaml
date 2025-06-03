@@ -107,6 +107,13 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          # Retrieve the desired version from the arguments.
+          if [[ ${{ inputs.extra-args }} =~ version=([-+.0-9a-z]+) ]]; then
+            VERSION=${BASH_REMATCH[1]}
+          else
+            VERSION=""
+          fi
+
           # Adding k8s.local to the end makes kops happy
           # has stricter DNS naming requirements.
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
@@ -121,8 +128,8 @@ jobs:
             --set=operator.replicas=1 \
             --wait=false"
 
-          # only add SHA to the image tags if it was set
-          if [ -n "${SHA}" ]; then
+          # only add SHA to the image tags if VERSION is not set
+          if [ -z "${VERSION}" ]; then
             echo sha=${SHA} >> $GITHUB_OUTPUT
             CILIUM_INSTALL_DEFAULTS+=" --set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --set=image.useDigest=false \
@@ -142,8 +149,10 @@ jobs:
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+          echo VERSION=${VERSION} >> $GITHUB_OUTPUT
 
       - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.vars.outputs.version == '' }} # We don't need to checkout the PR if it's released version
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
@@ -153,6 +162,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Wait for images
+        if: ${{ steps.vars.outputs.version == '' }} # We don't need to wait for images if it's released version
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ steps.vars.outputs.SHA }}
@@ -255,8 +265,13 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          helm install -n kube-system cilium ./untrusted/install/kubernetes/cilium ${{ steps.vars.outputs.cilium_install_defaults }} --dry-run
-          helm install -n kube-system cilium ./untrusted/install/kubernetes/cilium ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium_install_args="${{ steps.vars.outputs.cilium_install_defaults }}"
+          if [[ -z "${{ steps.vars.outputs.version }}" ]]; then
+            helm install -n kube-system cilium ./untrusted/install/kubernetes/cilium $cilium_install_args
+          else
+            helm repo add cilium https://helm.cilium.io/
+            helm install -n kube-system cilium cilium/cilium --version ${{ steps.vars.outputs.version }} $cilium_install_args
+          fi
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
@@ -388,6 +403,8 @@ jobs:
         uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
         with:
           test_name: ${{ env.test_name }}
+          tested_version: ${{ steps.vars.outputs.version }}
+          tested_sha: ${{ steps.vars.outputs.sha }} # Makes sense only if version is not set
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt

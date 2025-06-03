@@ -71,7 +71,7 @@ triggers:
   /fqdn-perf:
     workflows:
     - fqdn-perf.yaml
-  /scale-100:
+  /scale-100(\s+(?:\s*version=[-+.0-9a-z]+)?)?:
     workflows:
     - scale-test-100-gce.yaml
   /scale-clustermesh:
