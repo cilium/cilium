@@ -582,7 +582,7 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	eps := mgr.GetEndpoints()
 	wg.Add(len(eps))
 
-	mgr.logger.Info("regenerating all endpoints", logfields.Reason, regenMetadata.Reason)
+	mgr.logger.Debug("regenerating all endpoints", logfields.Reason, regenMetadata.Reason)
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			<-ep.RegenerateIfAlive(regenMetadata)
