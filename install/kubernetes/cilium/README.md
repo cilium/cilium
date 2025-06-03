@@ -733,7 +733,9 @@ contributors across the globe, there is almost always someone available to help.
 | loadBalancer.l7.algorithm | string | `"round_robin"` | Default LB algorithm The default LB algorithm to be used for services, which can be overridden by the service annotation (e.g. service.cilium.io/lb-l7-algorithm) Applicable values: round_robin, least_request, random |
 | loadBalancer.l7.backend | string | `"disabled"` | Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing by way of service annotation. |
 | loadBalancer.l7.ports | list | `[]` | List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation. |
-| localRedirectPolicy | bool | `false` | Enable Local Redirect Policy. |
+| localRedirectPolicies.addressMatcherCIDRs | string | `nil` | Limit the allowed addresses in Address Matcher rule of Local Redirect Policies to the given CIDRs. @schema@ type: [null, array] @schema@ |
+| localRedirectPolicies.enabled | bool | `false` | Enable local redirect policies. |
+| localRedirectPolicy | bool | `false` | Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead) |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
 | monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |

@@ -727,8 +727,12 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if hasKey .Values "localRedirectPolicy" }}
-  enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
+{{ if or .Values.localRedirectPolicies.enabled .Values.localRedirectPolicy }}
+  enable-local-redirect-policy: "true"
+{{- end }}
+
+{{- if .Values.localRedirectPolicies.addressMatcherCIDRs }}
+  lrp-address-matcher-cidrs: {{ .Values.localRedirectPolicies.addressMatcherCIDRs | join "," | quote }}
 {{- end }}
 
 {{- if .Values.ipv4NativeRoutingCIDR }}
