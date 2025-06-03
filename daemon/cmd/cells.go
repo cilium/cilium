@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
@@ -179,6 +180,11 @@ var (
 
 		// NodeManager maintains a collection of other nodes in the cluster.
 		nodeManager.Cell,
+
+		// NodeNeighborDiscovery is a node handler that subscribes to the NodeManager
+		// and ensures node IPs are "forwardable" by adding them to the forwardable IP table.
+		// The neighbor subsystem will create neighbor entries for these forwardable IPs.
+		neighbordiscovery.Cell,
 
 		// Certificate manager provides an API for retrieving secrets and certificate in the form of TLS contexts.
 		certificatemanager.Cell,

@@ -597,6 +597,7 @@ Makefile* @cilium/build
 /pkg/murmur3/ @cilium/sig-datapath
 /pkg/netns/ @cilium/sig-datapath @cilium/sig-k8s
 /pkg/node @cilium/sig-agent
+/pkg/node/neighbordiscovery @cilium/sig-agent @cilium/sig-datapath
 /pkg/nodediscovery/ @cilium/sig-agent
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
