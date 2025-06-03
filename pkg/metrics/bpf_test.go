@@ -48,6 +48,7 @@ func TestGetBPFUsage(t *testing.T) {
 
 func BenchmarkGetBPFUsage(b *testing.B) {
 	testutils.PrivilegedTest(b)
+	b.ReportAllocs()
 
 	prefix := "_ciltest_"
 	for range 1000 {
