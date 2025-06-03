@@ -35,7 +35,7 @@ import (
 func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.logger.With(
 		logfields.Controller, gammaHTTPRoute,
-		logfields.Resource, req.NamespacedName,
+		logfields.ParentResource, req.NamespacedName,
 	)
 	scopedLog.Info("Reconciling GAMMA HTTPRoute")
 

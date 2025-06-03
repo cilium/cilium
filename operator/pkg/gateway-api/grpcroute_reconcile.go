@@ -31,7 +31,7 @@ import (
 func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.logger.With(
 		logfields.Controller, grpcRoute,
-		logfields.Resource, req.NamespacedName,
+		logfields.ParentResource, req.NamespacedName,
 	)
 	scopedLog.Info("Reconciling GRPCRoute")
 

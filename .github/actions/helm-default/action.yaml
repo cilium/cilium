@@ -51,7 +51,9 @@ runs:
           --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
           --set-string=extraEnv[0].value=true \
           --set-string=extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
-          --set-string=extraEnv[1].value=true"
+          --set-string=extraEnv[1].value=true \
+          --set-string=extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
+          --set-string=extraEnv[2].value=true"
 
         if [ "${{ inputs.debug }}" == "true" ]; then
           CILIUM_INSTALL_DEFAULTS+=" --helm-set=debug.enabled=true \
