@@ -406,7 +406,9 @@ func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) erro
 		for _, r := range m.Reconcilers {
 			r.Cleanup(s)
 		}
-		s.Server.Stop(ctx, types.StopRequest{FullDestroy: m.destroyRouterOnStop})
+		// Full destroy of the router instance upon Stop() is needed in this case, to not end up with stale routers running.
+		// Note that this makes Graceful Restart inefficient by removing & re-adding the instance or by switching between BGPv1 and BGPv2.
+		s.Server.Stop(ctx, types.StopRequest{FullDestroy: true})
 		delete(m.Servers, asn)
 		l.Info("Removed BGP server with local ASN", types.LocalASNLogField, asn)
 	}
@@ -1091,7 +1093,11 @@ func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) 
 			r.Cleanup(i)
 		}
 		i.CancelCtx()
-		i.Router.Stop(ctx, types.StopRequest{FullDestroy: m.destroyRouterOnStop})
+
+		// Full destroy of the router instance upon Stop() is needed in this case, to not end up with stale routers running.
+		// Note that this makes Graceful Restart inefficient by removing & re-adding the instance or by switching between BGPv1 and BGPv2.
+		i.Router.Stop(ctx, types.StopRequest{FullDestroy: true})
+
 		notifCh, exists := m.state.notifications[name]
 		if exists {
 			close(notifCh)
