@@ -626,6 +626,7 @@ Makefile* @cilium/build
 /pkg/spanstat/ @cilium/sig-agent
 /pkg/status/ @cilium/sig-agent
 /pkg/testutils/ @cilium/ci-structure
+/pkg/testutils/scriptnet @cilium/sig-foundations
 /pkg/time @cilium/sig-agent
 /pkg/trigger/ @cilium/sig-agent
 /pkg/tuple @cilium/sig-datapath
