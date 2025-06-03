@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
