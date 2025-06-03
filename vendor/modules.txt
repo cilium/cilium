@@ -261,7 +261,7 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.18.1-0.20250521101936-dd4d949f2f7b
+# github.com/cilium/ebpf v0.18.1-0.20250603151700-df9ebe841740
 ## explicit; go 1.23.0
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
