@@ -8,16 +8,21 @@ import (
 	"log/slog"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 )
 
-const MaglevInnerMapName = "cilium_maglev_inner"
+const MaglevInnerMapName = maps.MaglevInnerMapName
+
+type (
+	MaglevInnerKey = maps.MaglevInnerKey
+	MaglevInnerVal = maps.MaglevInnerVal
+)
 
 // MaglevBackendLen represents the length of a single backend ID
 // in a Maglev lookup table.
-var MaglevBackendLen = uint32(unsafe.Sizeof(loadbalancer.BackendID(0)))
+var MaglevBackendLen = maps.MaglevBackendLen
 
 // MaglevInnerMap represents a maglev inner map.
 type MaglevInnerMap ebpf.Map
@@ -32,20 +37,6 @@ func (m *MaglevInnerMap) UpdateBackends(backends []loadbalancer.BackendID) error
 	// Backends are stored at inner map key zero.
 	var key MaglevInnerKey
 	return m.Map.Update(key, backends, 0)
-}
-
-// MaglevInnerKey is the key of a maglev inner map.
-type MaglevInnerKey struct {
-	Zero uint32
-}
-
-// New and String implement bpf.MapKey
-func (k *MaglevInnerKey) New() bpf.MapKey { return &MaglevInnerKey{} }
-func (k *MaglevInnerKey) String() string  { return fmt.Sprintf("%d", k.Zero) }
-
-// MaglevInnerVal is the value of a maglev inner map.
-type MaglevInnerVal struct {
-	BackendIDs []loadbalancer.BackendID
 }
 
 // newMaglevInnerMapSpec returns the spec for a maglev inner map.

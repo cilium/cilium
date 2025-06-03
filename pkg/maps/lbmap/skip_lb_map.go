@@ -13,24 +13,36 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
 	// SkipLB4MapName is the name of the IPv4 BPF map that stores entries to skip LB.
-	SkipLB4MapName = "cilium_skip_lb4"
+	SkipLB4MapName = maps.SkipLB4MapName
 
 	// SkipLB6MapName is the name of the IPv6 BPF map that stores entries to skip LB.
-	SkipLB6MapName = "cilium_skip_lb6"
+	SkipLB6MapName = maps.SkipLB6MapName
 
 	// SkipLBMapMaxEntries is the maximum number of entries in the skip LB BPF maps.
 	SkipLBMapMaxEntries = 100
+)
+
+type (
+	SkipLB4Key = maps.SkipLB4Key
+	SkipLB6Key = maps.SkipLB6Key
+
+	SkipLB4Value = maps.SkipLB4Value
+	SkipLB6Value = maps.SkipLB6Value
+)
+
+var (
+	NewSkipLB4Key = maps.NewSkipLB4Key
+	NewSkipLB6Key = maps.NewSkipLB6Key
 )
 
 // SkipLBMap provides access to the eBPF map that stores entries for which load-balancing is skipped.
@@ -319,96 +331,6 @@ func (m *skipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
 		logfields.NetnsCookie, cookie,
 	)
 }
-
-// SkipLB4Key is the tuple with netns cookie, address and port and used as key in
-// the skip LB4 map.
-type SkipLB4Key struct {
-	NetnsCookie uint64     `align:"netns_cookie"`
-	Address     types.IPv4 `align:"address"`
-	Port        uint16     `align:"port"`
-	Pad         int16      `align:"pad"`
-}
-
-type SkipLB4Value struct {
-	Pad uint8 `align:"pad"`
-}
-
-// NewSkipLB4Key creates the SkipLB4Key
-func NewSkipLB4Key(netnsCookie uint64, address net.IP, port uint16) *SkipLB4Key {
-	key := SkipLB4Key{
-		NetnsCookie: netnsCookie,
-		Port:        byteorder.HostToNetwork16(port),
-	}
-	copy(key.Address[:], address.To4())
-
-	return &key
-}
-
-func (k *SkipLB4Key) New() bpf.MapKey { return &SkipLB4Key{} }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *SkipLB4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
-// String converts the key into a human-readable string format.
-func (k *SkipLB4Key) String() string {
-	return fmt.Sprintf("[%d]:%d, %d", k.NetnsCookie, k.Address, k.Port)
-}
-
-func (v *SkipLB4Value) New() bpf.MapValue { return &SkipLB4Value{} }
-
-// String converts the value into a human-readable string format.
-func (v *SkipLB4Value) String() string {
-	return ""
-}
-
-// SkipLB6Key is the tuple with netns cookie, address and port and used as key in
-// the skip LB6 map.
-type SkipLB6Key struct {
-	NetnsCookie uint64     `align:"netns_cookie"`
-	Address     types.IPv6 `align:"address"`
-	Pad         uint32     `align:"pad"`
-	Port        uint16     `align:"port"`
-	Pad2        uint16     `align:"pad2"`
-}
-
-type SkipLB6Value struct {
-	Pad uint8 `align:"pad"`
-}
-
-// NewSkipLB6Key creates the SkipLB6Key
-func NewSkipLB6Key(netnsCookie uint64, address net.IP, port uint16) *SkipLB6Key {
-	key := SkipLB6Key{
-		NetnsCookie: netnsCookie,
-		Port:        byteorder.HostToNetwork16(port),
-	}
-	copy(key.Address[:], address.To16())
-
-	return &key
-}
-
-func (k *SkipLB6Key) New() bpf.MapKey { return &SkipLB6Key{} }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *SkipLB6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *SkipLB6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
-// String converts the key into a human-readable string format.
-func (k *SkipLB6Key) String() string {
-	return fmt.Sprintf("[%d]:%d, %d", k.NetnsCookie, k.Address, k.Port)
-}
-
-func (v *SkipLB6Value) New() bpf.MapValue { return &SkipLB6Value{} }
-
-// String converts the value into a human-readable string format.
-func (v *SkipLB6Value) String() string {
-	return ""
-}
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k *SkipLB6Key) NewValue() bpf.MapValue { return &SkipLB6Value{} }
 
 type skipLBMap struct {
 	logger  *slog.Logger

@@ -354,7 +354,7 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 		logfields.BackendID, key.GetID(),
 	)
 
-	val, err := key.Map().Lookup(key)
+	val, err := lbmap.BackendMap(key).Lookup(key)
 	if err != nil {
 		msg := "lookup of purged entry failed"
 		errMetric := a.metrics.Errors.WithLabelValues(msg)

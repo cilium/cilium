@@ -12,13 +12,14 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 )
 
 const (
 	// Both outer maps are pinned though given we need to insert
 	// inner maps into them.
-	MaglevOuter4MapName = "cilium_lb4_maglev"
-	MaglevOuter6MapName = "cilium_lb6_maglev"
+	MaglevOuter4MapName = maps.MaglevOuter4MapName
+	MaglevOuter6MapName = maps.MaglevOuter6MapName
 )
 
 var (
@@ -140,7 +141,7 @@ func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
 	}
 
 	outerKey := MaglevOuterKey{RevNatID: revNATID}
-	if err := outerMap.Delete(outerKey.toNetwork()); err != nil {
+	if err := outerMap.Delete(outerKey.ToNetwork()); err != nil {
 		return err
 	}
 
