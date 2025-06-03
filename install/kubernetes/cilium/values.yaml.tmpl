@@ -2135,6 +2135,15 @@ l2NeighDiscovery:
 l7Proxy: true
 # -- Enable Local Redirect Policy.
 localRedirectPolicy: false
+
+localRedirectPolicies:
+  # -- Limit the allowed addresses in Address Matcher rule of
+  # Local Redirect Policies to the given CIDRs.
+  # @schema@
+  # type: [null, array]
+  # @schema@
+  addressMatcherCIDRs: ~
+
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
