@@ -2112,8 +2112,17 @@ l2NeighDiscovery:
   enabled: false
 # -- Enable Layer 7 network policy.
 l7Proxy: true
-# -- Enable Local Redirect Policy.
+# -- Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
 localRedirectPolicy: false
+localRedirectPolicies:
+  # -- Enable local redirect policies.
+  enabled: false
+  # -- Limit the allowed addresses in Address Matcher rule of
+  # Local Redirect Policies to the given CIDRs.
+  # @schema@
+  # type: [null, array]
+  # @schema@
+  addressMatcherCIDRs: ~
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
