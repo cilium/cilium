@@ -279,10 +279,6 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		return nil
 	}
 
-	if option.Config.DryMode {
-		return nil
-	}
-
 	// +-------------------------------------------------------+
 	// | After this point, BPF NodePort should not be disabled |
 	// +-------------------------------------------------------+
