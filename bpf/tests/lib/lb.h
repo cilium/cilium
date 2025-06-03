@@ -89,6 +89,32 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend
 {
 	__lb_v4_add_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			    flags, flags2, false, 0);
+	
+#ifdef ENABLE_DROP_VIRTUAL_IP_TRAFFIC
+	/* Automatically create wildcard entry for ClusterIP and LoadBalancer services
+	 * to enable dropping traffic to non-existent ports on virtual IPs
+	 */
+	if (!(flags & SVC_FLAG_ROUTABLE) || (flags2 & SVC_FLAG_LOADBALANCER)) {
+		/* This is a ClusterIP (not routable) or LoadBalancer service.
+		 * Create a wildcard entry (port=0, IPPROTO_ANY) with 0 backends
+		 * to trigger drops for non-existent ports.
+		 */
+		struct lb4_key wildcard_key = {
+			.address = addr,
+			.dport = 0,
+			.proto = IPPROTO_ANY,
+			.scope = LB_LOOKUP_SCOPE_EXT,
+		};
+		struct lb4_service *existing = map_lookup_elem(&cilium_lb4_services_v2, &wildcard_key);
+		
+		/* Only create wildcard if it doesn't exist yet */
+		if (!existing) {
+			__lb_v4_add_service(addr, 0, IPPROTO_ANY, IPPROTO_ANY, 0, rev_nat_index,
+					    flags, flags2, false, 0);
+		}
+	}
+#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC */
+	
 }
 
 static __always_inline void
@@ -197,6 +223,32 @@ lb_v6_add_service_with_flags(const union v6addr *addr, __be16 port, __u8 proto,
 {
 	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index, flags,
 			    flags2);
+	
+#ifdef ENABLE_DROP_VIRTUAL_IP_TRAFFIC
+	/* Automatically create wildcard entry for ClusterIP and LoadBalancer services
+	 * to enable dropping traffic to non-existent ports on virtual IPs
+	 */
+	if (!(flags & SVC_FLAG_ROUTABLE) || (flags2 & SVC_FLAG_LOADBALANCER)) {
+		/* This is a ClusterIP (not routable) or LoadBalancer service.
+		 * Create a wildcard entry (port=0, IPPROTO_ANY) with 0 backends
+		 * to trigger drops for non-existent ports.
+		 */
+		struct lb6_key wildcard_key __align_stack_8 = {
+			.dport = 0,
+			.proto = IPPROTO_ANY,
+			.scope = LB_LOOKUP_SCOPE_EXT,
+		};
+		memcpy(&wildcard_key.address, addr, sizeof(*addr));
+		struct lb6_service *existing = map_lookup_elem(&cilium_lb6_services_v2, &wildcard_key);
+		
+		/* Only create wildcard if it doesn't exist yet */
+		if (!existing) {
+			__lb_v6_add_service(addr, 0, IPPROTO_ANY, 0, rev_nat_index,
+					    flags, flags2);
+		}
+	}
+#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC */
+	
 }
 
 static __always_inline void

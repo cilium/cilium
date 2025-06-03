@@ -10,6 +10,7 @@
 #define ENABLE_NODEPORT
 #define SERVICE_NO_BACKEND_RESPONSE
 #define ENABLE_MASQUERADE_IPV4		1
+#define ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
 
 #define CLIENT_IP		v4_ext_one
 #define ICMP_ID			__bpf_htons(0x1234)

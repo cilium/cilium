@@ -420,6 +420,29 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
+	// Delete wildcard service entry for ClusterIP and LoadBalancer services
+	if ops.cfg.DropTrafficToVirtualIPs && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
+		var wildcardKey lbmap.ServiceKey
+		if fe.Address.IsIPv6() {
+			wildcardKey = lbmap.NewService6Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
+		} else {
+			wildcardKey = lbmap.NewService4Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
+		}
+
+		ops.log.Debug("Delete wildcard service entry for virtual IP",
+			logfields.ID, feID,
+			logfields.Type, fe.Type,
+			logfields.Address, fe.Address.AddrCluster)
+
+		if err := ops.LBMaps.DeleteService(wildcardKey.ToNetwork()); err != nil {
+			// Don't fail the whole operation if wildcard entry deletion fails
+			ops.log.Warn("Failed to delete wildcard service entry",
+				logfields.Error, err,
+				logfields.Type, fe.Type,
+				logfields.Address, fe.Address)
+		}
+	}
+
 	err = ops.LBMaps.DeleteRevNat(revNatKey.ToNetwork())
 	if err != nil {
 		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
@@ -972,6 +995,42 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		logfields.Count, backendCount)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
+	}
+
+	// Create wildcard service entry (port 0) for ClusterIP and LoadBalancer services
+	// to enable dropping traffic to non-existent ports on virtual IPs
+	if ops.cfg.DropTrafficToVirtualIPs && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
+		// Create a new key for the wildcard entry
+		var wildcardKey lbmap.ServiceKey
+		var wildcardVal lbmap.ServiceValue
+
+		if fe.Address.IsIPv6() {
+			wildcardKey = lbmap.NewService6Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
+			wildcardVal = &lbmap.Service6Value{}
+		} else {
+			wildcardKey = lbmap.NewService4Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
+			wildcardVal = &lbmap.Service4Value{}
+		}
+
+		// Set the same flags as the main service
+		wildcardVal.SetFlags(svcVal.GetFlags())
+		wildcardVal.SetRevNat(int(feID))
+		// Set count to 0 to trigger drops for non-existent ports
+		wildcardVal.SetCount(0)
+		wildcardVal.SetQCount(0)
+
+		ops.log.Debug("Update wildcard service entry for virtual IP",
+			logfields.ID, feID,
+			logfields.Type, fe.Type,
+			logfields.Address, fe.Address.AddrCluster)
+
+		if err := ops.upsertService(wildcardKey, wildcardVal); err != nil {
+			// Don't fail the whole operation if wildcard entry fails
+			ops.log.Warn("Failed to create wildcard service entry",
+				logfields.Error, err,
+				logfields.Type, fe.Type,
+				logfields.Address, fe.Address)
+		}
 	}
 
 	numPreviousBackends := len(ops.backendReferences[fe.Address])

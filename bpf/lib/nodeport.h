@@ -28,8 +28,10 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
 #include "icmp.h"
 #include "icmp6.h"
+#endif
 
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
@@ -1445,37 +1447,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	l4_off = ETH_HLEN + ret;
 
-	/* Handle ICMPv6 echo requests to service IPs before tuple extraction */
-	if (tuple.nexthdr == IPPROTO_ICMPV6) {
-		struct icmp6hdr icmp6hdr;
-		if (ctx_load_bytes(ctx, l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
-		    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
-			/* Create a service lookup key for ICMP */
-			struct lb6_key icmp_key = {};
-			memcpy(&icmp_key.address, &ip6->daddr, sizeof(icmp_key.address));
-			icmp_key.dport = 0; /* ICMP doesn't have ports */
-			icmp_key.proto = IPPROTO_ICMPV6;
-
-			svc = lb6_lookup_service(&icmp_key, false);
-			if (svc) {
-				/* This is an ICMPv6 echo request to a service IP.
-				 * Generate an echo reply instead of load balancing.
-				 */
-				ret = icmp6_send_echo_reply(ctx);
-				if (!ret) {
-					/* Redirect ICMP to the interface we received it on. */
-					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
-							   ctx_get_ifindex(ctx));
-					ret = redirect_self(ctx);
-				}
-				if (IS_ERR(ret))
-					return send_drop_notify_error(ctx, src_sec_identity, ret,
-								      METRIC_INGRESS);
-				return ret;
-			}
-		}
-	}
-
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
@@ -1497,7 +1468,71 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
 	} else {
+#ifdef ENABLE_DROP_VIRTUAL_IP_TRAFFIC
+		/* Drop Traffic to Virtual IPs Feature
+		 *
+		 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+		 * on ports where no service is configured, instead of forwarding them to the host.
+		 * This provides better network security by preventing unintended access to
+		 * virtual IP addresses. Controlled by ENABLE_DROP_VIRTUAL_IP_TRAFFIC flag and
+		 * bpf-lb-drop-traffic-to-virtual-ips configuration option.
+		 *
+		 * Check if the destination IP is a virtual service IP by looking for a
+		 * wildcard service entry (port 0). If found, drop the packet since
+		 * there's no specific service on the requested port.
+		 */
+		if (is_svc_proto) {
+			struct lb6_key wildcard_key = {};
+			struct lb6_service *wildcard_svc;
+			
+			memcpy(&wildcard_key.address, &ip6->daddr, sizeof(wildcard_key.address));
+			wildcard_key.dport = 0;
+			wildcard_key.scope = LB_LOOKUP_SCOPE_EXT;
+			wildcard_key.backend_slot = 0;
+			lb6_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+			wildcard_svc = __lb6_lookup_service(&wildcard_key);
+			if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the packet.
+				 */
+				return DROP_NO_SERVICE;
+			}
+		}
+#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC */
 skip_service_lookup:
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+		/* Handle ICMPv6 echo requests to service IPs when no service found */
+		if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
+			struct icmp6hdr icmp6hdr;
+			if (ctx_load_bytes(ctx, l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+			    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+				/* Create a service lookup key for ICMP */
+				struct lb6_key icmp_key = {};
+				memcpy(&icmp_key.address, &ip6->daddr, sizeof(icmp_key.address));
+				icmp_key.dport = 0; /* ICMP doesn't have ports */
+				icmp_key.proto = IPPROTO_ICMPV6;
+				icmp_key.scope = LB_LOOKUP_SCOPE_EXT;
+
+				svc = lb6_lookup_service(&icmp_key, false);
+				if (svc) {
+					/* This is an ICMPv6 echo request to a service IP.
+					 * Generate an echo reply instead of load balancing.
+					 */
+					ret = icmp6_send_echo_reply(ctx);
+					if (!ret) {
+						/* Redirect ICMP to the interface we received it on. */
+						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+								   ctx_get_ifindex(ctx));
+						ret = redirect_self(ctx);
+					}
+					if (IS_ERR(ret))
+						return send_drop_notify_error(ctx, src_sec_identity, ret,
+									      METRIC_INGRESS);
+					return ret;
+				}
+			}
+		}
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
 			ret = neigh_record_ip6(ctx);
@@ -2813,37 +2848,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	/* Handle ICMP echo requests to service IPs before tuple extraction */
-	if (ip4->protocol == IPPROTO_ICMP) {
-		struct icmphdr icmphdr;
-		if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
-		    icmphdr.type == ICMP_ECHO) {
-			/* Create a service lookup key for ICMP */
-			struct lb4_key icmp_key = {};
-			icmp_key.address = ip4->daddr;
-			icmp_key.dport = 0; /* ICMP doesn't have ports */
-			icmp_key.proto = IPPROTO_ICMP;
-
-			svc = lb4_lookup_service(&icmp_key, false);
-			if (svc) {
-				/* This is an ICMP echo request to a service IP.
-				 * Generate an echo reply instead of load balancing.
-				 */
-				ret = icmp_send_echo_reply(ctx);
-				if (!ret) {
-					/* Redirect ICMP to the interface we received it on. */
-					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
-							   ctx_get_ifindex(ctx));
-					ret = redirect_self(ctx);
-				}
-				if (IS_ERR(ret))
-					return send_drop_notify_error(ctx, src_sec_identity, ret,
-								      METRIC_INGRESS);
-				return ret;
-			}
-		}
-	}
-
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
@@ -2865,7 +2869,72 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
 	} else {
+#ifdef ENABLE_DROP_VIRTUAL_IP_TRAFFIC
+		/* Drop Traffic to Virtual IPs Feature
+		 *
+		 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+		 * on ports where no service is configured, instead of forwarding them to the host.
+		 * This provides better network security by preventing unintended access to
+		 * virtual IP addresses. Controlled by ENABLE_DROP_VIRTUAL_IP_TRAFFIC flag and
+		 * bpf-lb-drop-traffic-to-virtual-ips configuration option.
+		 *
+		 * Check if the destination IP is a virtual service IP by looking for a
+		 * wildcard service entry (port 0). If found, drop the packet since
+		 * there's no specific service on the requested port.
+		 */
+		if (is_svc_proto) {
+			struct lb4_key wildcard_key = {
+				.address = ip4->daddr,
+				.dport = 0,
+				.scope = LB_LOOKUP_SCOPE_EXT,
+				.backend_slot = 0,
+			};
+			struct lb4_service *wildcard_svc;
+			
+			lb4_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+			wildcard_svc = __lb4_lookup_service(&wildcard_key);
+			if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the packet.
+				 */
+				return DROP_NO_SERVICE;
+			}
+		}
+#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC */
 skip_service_lookup:
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+		/* Handle ICMP echo requests to service IPs when no service found */
+		if (unlikely(ip4->protocol == IPPROTO_ICMP)) {
+			struct icmphdr icmphdr;
+			if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+			    icmphdr.type == ICMP_ECHO) {
+				/* Create a service lookup key for ICMP */
+				struct lb4_key icmp_key = {};
+				icmp_key.address = ip4->daddr;
+				icmp_key.dport = 0; /* ICMP doesn't have ports */
+				icmp_key.proto = IPPROTO_ICMP;
+				icmp_key.scope = LB_LOOKUP_SCOPE_EXT;
+
+				svc = lb4_lookup_service(&icmp_key, false);
+				if (svc) {
+					/* This is an ICMP echo request to a service IP.
+					 * Generate an echo reply instead of load balancing.
+					 */
+					ret = icmp_send_echo_reply(ctx);
+					if (!ret) {
+						/* Redirect ICMP to the interface we received it on. */
+						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+								   ctx_get_ifindex(ctx));
+						ret = redirect_self(ctx);
+					}
+					if (IS_ERR(ret))
+						return send_drop_notify_error(ctx, src_sec_identity, ret,
+									      METRIC_INGRESS);
+					return ret;
+				}
+			}
+		}
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING)
 			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);

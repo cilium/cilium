@@ -85,6 +85,16 @@ const (
 
 	// EnableServiceTopologyName is the flag name of for the EnableServiceTopology option
 	EnableServiceTopologyName = "enable-service-topology"
+
+	// DropTrafficToVirtualIPsName is the name of the option to drop traffic to virtual IPs
+	// (ClusterIP and LoadBalancer) on ports without services instead of forwarding them.
+	// This enhances security by preventing unintended access to virtual service addresses.
+	DropTrafficToVirtualIPsName = "bpf-lb-drop-traffic-to-virtual-ips"
+
+	// ReplyToICMPEchoOnVirtualIPsName is the name of the option to reply to ICMP echo
+	// requests sent to virtual IPs (ClusterIP and LoadBalancer) with ICMP echo replies.
+	// This makes virtual service IPs appear "pingable" for network diagnostics.
+	ReplyToICMPEchoOnVirtualIPsName = "bpf-lb-reply-icmp-echo-virtual-ips"
 )
 
 // Configuration option defaults
@@ -190,6 +200,16 @@ type UserConfig struct {
 	// EnableHealthCheckNodePort enables health checking of NodePort by
 	// cilium
 	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
+
+	// DropTrafficToVirtualIPs enables dropping traffic to virtual IPs (ClusterIP
+	// and LoadBalancer) on ports without services instead of forwarding them.
+	// This provides better security by preventing access to non-existent services.
+	DropTrafficToVirtualIPs bool `mapstructure:"bpf-lb-drop-traffic-to-virtual-ips"`
+
+	// ReplyToICMPEchoOnVirtualIPs enables responding to ICMP echo requests sent to
+	// virtual IPs (ClusterIP and LoadBalancer) with ICMP echo replies.
+	// This allows virtual service IPs to respond to ping for network diagnostics.
+	ReplyToICMPEchoOnVirtualIPs bool `mapstructure:"bpf-lb-reply-icmp-echo-virtual-ips"`
 
 	// LBPressureMetricsInterval sets the interval for updating the load-balancer BPF map
 	// pressure metrics. A batch lookup is performed for all maps periodically to count
@@ -300,6 +320,12 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(AlgorithmAnnotationName, def.AlgorithmAnnotation, "Enable service-level annotation for configuring BPF load balancing algorithm")
 
 	flags.Bool(EnableHealthCheckNodePortName, def.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
+
+	flags.Bool(DropTrafficToVirtualIPsName, def.DropTrafficToVirtualIPs, "Drop traffic to virtual IPs (ClusterIP/LoadBalancer) on ports without services instead of forwarding (experimental)")
+	flags.MarkHidden(DropTrafficToVirtualIPsName)
+
+	flags.Bool(ReplyToICMPEchoOnVirtualIPsName, def.ReplyToICMPEchoOnVirtualIPs, "Reply to ICMP echo requests sent to virtual IPs (ClusterIP/LoadBalancer) with ICMP echo replies (experimental)")
+	flags.MarkHidden(ReplyToICMPEchoOnVirtualIPsName)
 
 	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
 	flags.MarkHidden("lb-pressure-metrics-interval")
@@ -418,6 +444,20 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 		return Config{}, fmt.Errorf("The value --%s=%s is not supported as default under annotation mode", LoadBalancerModeName, cfg.LBMode)
 	}
 
+	// Validate experimental feature combinations
+	if cfg.DropTrafficToVirtualIPs && cfg.ReplyToICMPEchoOnVirtualIPs {
+		log.Warn("Both virtual IP traffic dropping and ICMP echo reply features are enabled. " +
+			"ICMP echo requests will be processed before traffic dropping rules.")
+	}
+
+	if cfg.ReplyToICMPEchoOnVirtualIPs {
+		log.Info("Virtual IP ICMP echo reply feature enabled. Service IPs will respond to ping requests.")
+	}
+
+	if cfg.DropTrafficToVirtualIPs {
+		log.Info("Virtual IP traffic dropping feature enabled. Traffic to non-existent service ports will be dropped.")
+	}
+
 	/* FIXME:
 
 	if cfg.NodePortMode == option.NodePortModeDSR &&
@@ -474,6 +514,9 @@ var DefaultUserConfig = UserConfig{
 	EnableHealthCheckNodePort: true,
 
 	EnableServiceTopology: false,
+
+	DropTrafficToVirtualIPs:     false, // Experimental feature, disabled by default
+	ReplyToICMPEchoOnVirtualIPs: false, // Experimental feature, disabled by default
 }
 
 var DefaultConfig = Config{
