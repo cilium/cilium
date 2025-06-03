@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -234,17 +233,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.TunnelingEnabled() && params.TunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
 		if option.Config.EnableWireguard {
 			return nil, nil, fmt.Errorf("WireGuard requires an IPv4 underlay")
-		}
-	}
-
-	// Check the kernel if we can make use of managed neighbor entries which
-	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
-	if !option.Config.DryMode {
-		if err := probes.HaveManagedNeighbors(); err == nil {
-			params.Logger.Info("Using Managed Neighbor Kernel support")
-			option.Config.ARPPingKernelManaged = true
-		} else if !errors.Is(err, probes.ErrNotSupported) {
-			return nil, nil, fmt.Errorf("failed to probe managed neighbor support: %w", err)
 		}
 	}
 

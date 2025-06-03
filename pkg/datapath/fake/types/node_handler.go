@@ -4,11 +4,9 @@
 package types
 
 import (
-	"context"
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -58,23 +56,6 @@ func (n *FakeNodeHandler) AllNodeValidateImplementation() {
 
 func (n *FakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	return nil
-}
-
-func (n *FakeNodeHandler) NodeNeighDiscoveryEnabled() bool {
-	return false
-}
-
-func (n *FakeNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) error {
-	return nil
-}
-
-func (n *FakeNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
-}
-
-func (n *FakeNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
-}
-
-func (n *FakeNodeHandler) DeleteMiscNeighbor(oldNode *nodeTypes.Node) {
 }
 
 func (n *FakeNodeHandler) GetNodeIP(_ uint16) string {

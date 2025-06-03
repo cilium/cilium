@@ -191,12 +191,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(vp, option.AnnotateK8sNode)
 
-	flags.Duration(option.ARPPingRefreshPeriod, defaults.ARPBaseReachableTime, "Period for remote node ARP entry refresh (set 0 to disable)")
-	option.BindEnv(vp, option.ARPPingRefreshPeriod)
-
-	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
-	option.BindEnv(vp, option.EnableL2NeighDiscovery)
-
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(vp, option.AutoCreateCiliumNodeResource)
 
@@ -1423,7 +1417,6 @@ type daemonParams struct {
 	K8sAPIGroups        *k8sSynced.APIGroups
 	NodeManager         nodeManager.NodeManager
 	NodeHandler         datapath.NodeHandler
-	NodeNeighbors       datapath.NodeNeighbors
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
@@ -1706,22 +1699,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
 		d.logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
-	}
-
-	// Watches for node neighbors link updates.
-	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(params.NodeNeighbors)
-
-	if !params.NodeNeighbors.NodeNeighDiscoveryEnabled() {
-		// Remove all non-GC'ed neighbor entries that might have previously set
-		// by a Cilium instance.
-		params.NodeNeighbors.NodeCleanNeighbors(false)
-	} else {
-		// If we came from an agent upgrade, migrate entries.
-		params.NodeNeighbors.NodeCleanNeighbors(true)
-		// Start periodical refresh of the neighbor table from the agent if needed.
-		if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-			d.nodeDiscovery.Manager.StartNeighborRefresh(params.NodeNeighbors)
-		}
 	}
 
 	d.logger.Info(

@@ -338,6 +338,7 @@ Removed Options
 * The previously deprecated ``enableRuntimeDeviceDetection`` option has been removed
 * The previously deprecated and ignored operator flags ``ces-write-qps-limit``, ``ces-write-qps-burst``, ``ces-enable-dynamic-rate-limit``,
   ``ces-dynamic-rate-limit-nodes``, ``ces-dynamic-rate-limit-qps-limit``, ``ces-dynamic-rate-limit-qps-burst`` have been removed.
+* The ``arping-refresh-period`` option has been removed. Cilium will now refresh neighbor entries based on the ``base_reachable_time_ms`` sysctl value associated with that entry.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -401,6 +402,8 @@ Helm Options
 * The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
 * The Helm option ``clustermesh.apiserver.kvstoremesh.enabled`` has been deprecated and will be removed in Cilium 1.19.
   Starting from 1.19 KVStoreMesh will be unconditionally enabled when the Cluster Mesh API Server is enabled.
+* The ``l2NeighDiscovery.refreshPeriod`` option has been removed. Cilium will now refresh neighbor entries based on the ``base_reachable_time_ms`` sysctl value associated with that entry.
+* The ``l2NeighDiscovery.enabled`` option has been changed to default to ``false``.
 
 Agent Options
 ~~~~~~~~~~~~~
@@ -408,6 +411,7 @@ Agent Options
 * The new agent flag ``underlay-protocol`` allows selecting the IP family for the underlay. It defaults to IPv4.
 * ``k8s-api-server-urls``: This option specifies a list of URLs for Kubernetes API server instances to support high availability
   for the servers. The agent will fail over to an active instance in case of connectivity failures at runtime.
+* The ``--enable-l2-neigh-discovery`` flag has been changed to default to ``false``.
 * The ``kvstore-connectivity-timeout`` flag is renamed to ``identity-allocation-timeout`` to better reflect its purpose.
 * The ``kvstore-periodic-sync`` flag is renamed to ``identity-allocation-sync-interval`` to better reflect its purpose.
 
@@ -422,7 +426,6 @@ Bugtool Options
 
 * The deprecated flag ``k8s-mode`` (and related flags ``cilium-agent-container-name``, ``k8s-namespace`` & ``k8s-label``)
   have been removed. Cilium CLI should be used to gather a sysdump from a K8s cluster.
-
 
 Added Metrics
 ~~~~~~~~~~~~~
