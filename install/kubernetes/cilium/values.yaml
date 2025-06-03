@@ -2117,9 +2117,7 @@ readinessProbe:
 kubeProxyReplacementHealthzBindAddr: ""
 l2NeighDiscovery:
   # -- Enable L2 neighbor discovery in the agent
-  enabled: true
-  # -- Override the agent's default neighbor resolution refresh period.
-  refreshPeriod: "30s"
+  enabled: false
 # -- Enable Layer 7 network policy.
 l7Proxy: true
 # -- Enable Local Redirect Policy.
