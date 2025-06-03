@@ -19,6 +19,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -83,6 +84,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
+		neighbor.ForwarableIPCell,
 		prefilter.Cell,
 		monitorAgent.Cell,
 		metrics.Cell,
