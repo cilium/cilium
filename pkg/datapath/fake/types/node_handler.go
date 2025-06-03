@@ -60,10 +60,6 @@ func (n *FakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error 
 	return nil
 }
 
-func (n *FakeNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
-	return nil
-}
-
 func (n *FakeNodeHandler) NodeNeighDiscoveryEnabled() bool {
 	return false
 }
