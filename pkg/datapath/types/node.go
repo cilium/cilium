@@ -235,7 +235,9 @@ type NodeHandler interface {
 	// the node in the datapath. This function is intended to be run on an
 	// interval to ensure that the datapath is consistently converged.
 	NodeValidateImplementation(node nodeTypes.Node) error
+}
 
+type NodeConfigChangeHandler interface {
 	// NodeConfigurationChanged is called when the local node configuration
 	// has changed
 	NodeConfigurationChanged(config LocalNodeConfiguration) error

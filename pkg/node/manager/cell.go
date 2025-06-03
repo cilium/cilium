@@ -29,6 +29,7 @@ var Cell = cell.Module(
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
 	cell.Provide(newGetClusterNodesRestAPIHandler),
+	cell.Provide(newNodeConfigNotifier),
 	metrics.Metric(NewNodeMetrics),
 )
 

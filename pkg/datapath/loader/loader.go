@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -77,22 +78,22 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl          sysctl.Sysctl
-	prefilter       datapath.PreFilter
-	compilationLock datapath.CompilationLock
-	configWriter    datapath.ConfigWriter
-	nodeHandler     datapath.NodeHandler
+	sysctl             sysctl.Sysctl
+	prefilter          datapath.PreFilter
+	compilationLock    datapath.CompilationLock
+	configWriter       datapath.ConfigWriter
+	nodeConfigNotifier *manager.NodeConfigNotifier
 }
 
 type Params struct {
 	cell.In
 
-	Logger          *slog.Logger
-	Sysctl          sysctl.Sysctl
-	Prefilter       datapath.PreFilter
-	CompilationLock datapath.CompilationLock
-	ConfigWriter    datapath.ConfigWriter
-	NodeHandler     datapath.NodeHandler
+	Logger             *slog.Logger
+	Sysctl             sysctl.Sysctl
+	Prefilter          datapath.PreFilter
+	CompilationLock    datapath.CompilationLock
+	ConfigWriter       datapath.ConfigWriter
+	NodeConfigNotifier *manager.NodeConfigNotifier
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -102,14 +103,14 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	return &loader{
-		logger:            p.Logger,
-		templateCache:     newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
-		sysctl:            p.Sysctl,
-		hostDpInitialized: make(chan struct{}),
-		prefilter:         p.Prefilter,
-		compilationLock:   p.CompilationLock,
-		configWriter:      p.ConfigWriter,
-		nodeHandler:       p.NodeHandler,
+		logger:             p.Logger,
+		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
+		sysctl:             p.Sysctl,
+		hostDpInitialized:  make(chan struct{}),
+		prefilter:          p.Prefilter,
+		compilationLock:    p.CompilationLock,
+		configWriter:       p.ConfigWriter,
+		nodeConfigNotifier: p.NodeConfigNotifier,
 	}
 }
 

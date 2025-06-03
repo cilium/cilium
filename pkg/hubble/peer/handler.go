@@ -112,13 +112,6 @@ func (h handler) NodeValidateImplementation(_ types.Node) error {
 	return nil
 }
 
-// NodeConfigurationChanged implements
-// datapath.NodeHandler.NodeValidateImplementation. It is a no-op.
-func (h handler) NodeConfigurationChanged(_ datapath.LocalNodeConfiguration) error {
-	// no-op
-	return nil
-}
-
 // Close frees handler resources.
 func (h *handler) Close() {
 	close(h.stop)

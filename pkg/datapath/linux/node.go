@@ -107,6 +107,7 @@ func NewNodeHandler(
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
 	nodeManager manager.NodeManager,
+	nodeConfigNotifier *manager.NodeConfigNotifier,
 ) (datapath.NodeHandler, datapath.NodeIDHandler, datapath.NodeNeighbors) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
@@ -116,6 +117,7 @@ func NewNodeHandler(
 	handler := newNodeHandler(log, datapathConfig, nodeMap, nodeManager)
 
 	nodeManager.Subscribe(handler)
+	nodeConfigNotifier.Subscribe(handler)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {

@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonrestapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -176,11 +175,6 @@ func (c *clusterNodesClient) AllNodeValidateImplementation() {
 }
 
 func (c *clusterNodesClient) NodeValidateImplementation(node nodeTypes.Node) error {
-	// no-op
-	return nil
-}
-
-func (c *clusterNodesClient) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
 	// no-op
 	return nil
 }

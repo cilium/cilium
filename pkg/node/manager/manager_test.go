@@ -246,10 +246,6 @@ func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) erro
 	return n.NodeValidateImplementationEventError
 }
 
-func (n *signalNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
-	return nil
-}
-
 func setup(tb testing.TB) {
 	node.SetTestLocalNodeStore()
 
