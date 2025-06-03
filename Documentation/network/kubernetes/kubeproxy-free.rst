@@ -1585,9 +1585,7 @@ pushes L3 addresses of new nodes into the kernel for dynamic resolution, but wit
 agent triggered periodic refresh. For introspection, iproute2 displays them only as
 "extern_learn" in this case. If there is no active traffic for a certain period of
 time, then a Cilium agent controller triggers the Linux kernel-based re-resolution for
-attempting to keep them in REACHABLE state. The refresh interval can be changed if needed
-through a ``--arping-refresh-period=30s`` flag passed to the cilium-agent. The default
-period is ``30s`` which corresponds to the kernel's base reachable time.
+attempting to keep them in REACHABLE state.
 
 The neighbor discovery supports multi-device environments where each node has multiple devices
 and multiple next-hops to another node. The Cilium agent pushes neighbor entries for all target
