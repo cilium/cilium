@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/iana"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -216,4 +217,69 @@ func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto) (
 		return 0, err
 	}
 	return port, nil
+}
+
+/// POC
+
+type perIdentityNamedPortMultiMap struct {
+	lock.RWMutex
+	m map[identity.NumericIdentity]*namedPortMultiMap
+}
+
+func NewPerIdentityNamedPortMultiMap() *perIdentityNamedPortMultiMap {
+	return &perIdentityNamedPortMultiMap{
+		m: make(map[identity.NumericIdentity]*namedPortMultiMap),
+	}
+}
+
+// Update applies potential changes in named ports, and returns whether there were any.
+func (npm *perIdentityNamedPortMultiMap) Update(old, new NamedPortMap, oldIdentity, newIdentity identity.NumericIdentity) (namedPortsChanged bool) {
+	npm.Lock()
+	defer npm.Unlock()
+
+	if oldIdentity != newIdentity {
+		pm, ok := npm.m[oldIdentity]
+		if ok {
+			if pm.Update(old, nil) {
+				namedPortsChanged = true
+				if pm.Len() == 0 {
+					delete(npm.m, oldIdentity)
+				}
+			}
+		}
+
+		pm, ok = npm.m[newIdentity]
+		if !ok {
+			pm = NewNamedPortMultiMap()
+			npm.m[newIdentity] = pm
+		}
+
+		if pm.Update(nil, new) {
+			namedPortsChanged = true
+		}
+
+		return namedPortsChanged
+	}
+
+	pm, ok := npm.m[newIdentity]
+	if !ok {
+		pm = NewNamedPortMultiMap()
+		npm.m[newIdentity] = pm
+	}
+
+	return pm.Update(old, new)
+}
+
+func (npm *perIdentityNamedPortMultiMap) GetPeersNamedPorts(id identity.NumericIdentity) map[identity.NumericIdentity]NamedPortMultiMap {
+	npm.RLock()
+	defer npm.RUnlock()
+
+	peersNamedPortMap := make(map[identity.NumericIdentity]NamedPortMultiMap)
+	for peerId, pm := range npm.m {
+		if peerId != id {
+			peersNamedPortMap[peerId] = pm
+		}
+	}
+
+	return peersNamedPortMap
 }

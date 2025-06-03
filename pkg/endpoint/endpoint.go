@@ -507,8 +507,12 @@ func (e *Endpoint) Close() {
 	}
 }
 
+// type namedPortsGetter interface {
+// 	GetNamedPorts() (npm types.NamedPortMultiMap)
+// }
+
 type namedPortsGetter interface {
-	GetNamedPorts() (npm types.NamedPortMultiMap)
+	GetPeersNamedPorts(id identity.NumericIdentity) map[identity.NumericIdentity]types.NamedPortMultiMap
 }
 
 type DNSRulesAPI interface {

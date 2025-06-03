@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/identity"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -57,7 +58,32 @@ func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto
 		return e.getNamedPortIngress(e.GetK8sPorts(), name, proto)
 	}
 	// egress needs named ports of all the pods
-	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
+	// return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
+	return 0
+}
+
+func (e *Endpoint) GetEgressPortNameMappings(name string, proto u8proto.U8proto) map[identity.NumericIdentity]uint16 {
+	peerNamedPortMapping := e.namedPortsGetter.GetPeersNamedPorts(e.SecurityIdentity.ID)
+	egressPortMappings := make(map[identity.NumericIdentity]uint16)
+
+	for id, npMap := range peerNamedPortMapping {
+		port, err := npMap.GetNamedPort(name, proto)
+		if err != nil && e.logLimiter.Allow() {
+			e.getLogger().Warn(
+				"Skipping named port",
+				logfields.Error, err,
+				logfields.PortName, name,
+				logfields.Protocol, proto,
+				logfields.SecID, id,
+			)
+		}
+
+		if port != 0 {
+			egressPortMappings[id] = port
+		}
+	}
+
+	return egressPortMappings
 }
 
 func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, proto u8proto.U8proto) uint16 {

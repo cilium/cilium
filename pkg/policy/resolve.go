@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -242,6 +243,7 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, 
 type PolicyOwner interface {
 	GetID() uint64
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
+	GetEgressPortNameMappings(name string, proto u8proto.U8proto) map[identity.NumericIdentity]uint16
 	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	MapStateSize() int

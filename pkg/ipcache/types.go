@@ -67,6 +67,12 @@ type namedPortMultiMapUpdater interface {
 	Update(old, new types.NamedPortMap) (namedPortChanged bool)
 }
 
+type perIdentityNamedPortMultiMapUpdater interface {
+	Update(old, new types.NamedPortMap, oldIdentity, newIdentity identity.NumericIdentity) (namedPortChanged bool)
+
+	GetPeersNamedPorts(id identity.NumericIdentity) map[identity.NumericIdentity]types.NamedPortMultiMap
+}
+
 // merge overwrites the field in 'resourceInfo' corresponding to 'info'. This
 // associates the new information with the prefix and ResourceID that this
 // 'resourceInfo' resides under in the outer metadata map.

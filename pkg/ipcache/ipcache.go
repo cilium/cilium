@@ -143,6 +143,8 @@ type IPCache struct {
 	// interface.
 	namedPorts namedPortMultiMapUpdater
 
+	identityToNamedPortCache perIdentityNamedPortMultiMapUpdater
+
 	// Configuration provides pointers towards other agent components that
 	// the IPCache relies upon at runtime.
 	*Configuration
@@ -163,18 +165,19 @@ type IPCache struct {
 // identity (and vice-versa) initialized.
 func NewIPCache(c *Configuration) *IPCache {
 	ipc := &IPCache{
-		logger:            c.Logger,
-		mutex:             lock.NewSemaphoredMutex(),
-		ipToIdentityCache: map[string]Identity{},
-		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
-		ipToHostIPCache:   map[string]IPKeyPair{},
-		ipToK8sMetadata:   map[string]K8sMetadata{},
-		ipToEndpointFlags: map[string]uint8{},
-		controllers:       controller.NewManager(),
-		namedPorts:        types.NewNamedPortMultiMap(),
-		metadata:          newMetadata(c.Logger),
-		prefixLengths:     counter.DefaultPrefixLengthCounter(),
-		Configuration:     c,
+		logger:                   c.Logger,
+		mutex:                    lock.NewSemaphoredMutex(),
+		ipToIdentityCache:        map[string]Identity{},
+		identityToIPCache:        map[identity.NumericIdentity]map[string]struct{}{},
+		ipToHostIPCache:          map[string]IPKeyPair{},
+		ipToK8sMetadata:          map[string]K8sMetadata{},
+		ipToEndpointFlags:        map[string]uint8{},
+		controllers:              controller.NewManager(),
+		namedPorts:               types.NewNamedPortMultiMap(),
+		identityToNamedPortCache: types.NewPerIdentityNamedPortMultiMap(),
+		metadata:                 newMetadata(c.Logger),
+		prefixLengths:            counter.DefaultPrefixLengthCounter(),
+		Configuration:            c,
 	}
 	return ipc
 }
@@ -487,6 +490,12 @@ func (ipc *IPCache) upsertLocked(
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
 	}
 
+	if !metaEqual || !cachedIdentity.equals(newIdentity) {
+		if ipc.identityToNamedPortCache.Update(oldK8sMeta.NamedPorts, newNamedPorts, cachedIdentity.ID, newIdentity.ID) {
+			namedPortsChanged = true
+		}
+	}
+
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(Upsert, cidrCluster, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta, endpointFlags)
@@ -746,6 +755,10 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		namedPortsChanged = ipc.namedPorts.Update(oldK8sMeta.NamedPorts, nil)
 		// Only trigger policy updates if named ports are used in policy.
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
+
+		if ipc.identityToNamedPortCache.Update(oldK8sMeta.NamedPorts, nil, cachedIdentity.ID, newIdentity.ID) {
+			namedPortsChanged = true
+		}
 	}
 
 	if callbackListeners {
@@ -777,6 +790,11 @@ func (ipc *IPCache) GetNamedPorts() (npm types.NamedPortMultiMap) {
 
 	// Caller can keep using the map, operations on it are protected by its mutex.
 	return ipc.namedPorts
+}
+
+func (ipc *IPCache) GetPeersNamedPorts(id identity.NumericIdentity) map[identity.NumericIdentity]types.NamedPortMultiMap {
+	ipc.needNamedPorts.Store(true)
+	return ipc.identityToNamedPortCache.GetPeersNamedPorts(id)
 }
 
 // DeleteOnMetadataMatch removes the provided IP to security identity mapping from the IPCache

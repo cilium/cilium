@@ -130,6 +130,15 @@ func (ei *EndpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8
 	return 0
 }
 
+func (ei *EndpointInfo) GetEgressPortNameMappings(name string, proto u8proto.U8proto) map[identity.NumericIdentity]uint16 {
+	npMap := make(map[identity.NumericIdentity]uint16)
+	if ei.remoteEndpoint != nil {
+		npMap[identity.NumericIdentity(ei.remoteEndpoint.ID)] = ei.GetNamedPort(false, name, proto)
+	}
+
+	return npMap
+}
+
 func (ei *EndpointInfo) PolicyDebug(msg string, attrs ...any) {
 	if ei.Logger != nil {
 		ei.Logger.Debug(msg, attrs...)

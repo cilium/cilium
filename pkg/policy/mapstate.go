@@ -917,7 +917,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 	defer mc.mutex.Unlock()
 	for _, id := range adds {
 		for _, k := range keys {
-			k.Identity = id
+			if k.Identity == 0 {
+				k.Identity = id
+			}
 			mc.changes = append(mc.changes, mapChange{
 				Add:   true,
 				Key:   k,
@@ -927,7 +929,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 	}
 	for _, id := range deletes {
 		for _, k := range keys {
-			k.Identity = id
+			if k.Identity == 0 {
+				k.Identity = id
+			}
 			mc.changes = append(mc.changes, mapChange{
 				Add:   false,
 				Key:   k,

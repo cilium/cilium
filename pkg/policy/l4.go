@@ -712,17 +712,27 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 	}
 
 	// resolve named port
+	portsList := make(map[identity.NumericIdentity]uint16)
 	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-		if port == 0 {
-			return // nothing to be done for undefined named port
+		if l4.Ingress {
+			port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+			if port == 0 {
+				return // nothing to be done for undefined named port
+			}
+		} else {
+			// Redirect port handling??
+			portsList = p.PolicyOwner.GetEgressPortNameMappings(l4.PortName, proto)
 		}
+	} else {
+		portsList[0] = port
 	}
 
 	var keysToAdd []Key
-	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
-		keysToAdd = append(keysToAdd,
-			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+	for id, port := range portsList {
+		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
+			keysToAdd = append(keysToAdd,
+				KeyForDirection(direction).WithIdentity(id).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+		}
 	}
 
 	// makeEntry creates a mapStateEntry for the given selector and policy
@@ -763,7 +773,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 
 		if !wildcardEntry.Invalid {
 			for _, keyToAdd := range keysToAdd {
-				keyToAdd.Identity = 0
+				// keyToAdd.Identity = 0
 				p.policyMapState.insertWithChanges(keyToAdd, wildcardEntry, features, changes)
 
 				if port == 0 {
@@ -823,7 +833,9 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		}
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
-				keyToAdd.Identity = id
+				if keyToAdd.Identity == 0 {
+					keyToAdd.Identity = id
+				}
 				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
 			}
 		}
@@ -1762,13 +1774,21 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	defer l4Policy.mutex.RUnlock()
 
 	for epPolicy := range l4Policy.users {
-		// resolve named port
+		portsList := make(map[identity.NumericIdentity]uint16)
 		if port == 0 && l4.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-			if port == 0 {
-				continue
+			if l4.Ingress {
+				port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+				if port == 0 {
+					return // nothing to be done for undefined named port
+				}
+			} else {
+				// Redirect port handling??
+				portsList = epPolicy.PolicyOwner.GetEgressPortNameMappings(l4.PortName, proto)
 			}
+		} else {
+			portsList[0] = port
 		}
+
 		var proxyPort uint16
 		if redirect {
 			var err error
@@ -1787,10 +1807,13 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 				continue
 			}
 		}
+
 		var keysToAdd []Key
-		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
-			keysToAdd = append(keysToAdd,
-				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+		for id, port := range portsList {
+			for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
+				keysToAdd = append(keysToAdd,
+					KeyForDirection(direction).WithIdentity(id).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+			}
 		}
 		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
 
