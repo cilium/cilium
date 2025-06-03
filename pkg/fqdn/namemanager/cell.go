@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
+	identityCell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -58,6 +59,8 @@ type ManagerParams struct {
 	Config  NameManagerConfig
 	IPCache ipc
 	EPMgr   endpoints
+	// To be able to pre-allocate locally-scoped identities for FQDN selectors.
+	IdentityAllocator identityCell.CachingIdentityAllocator
 }
 
 func adaptors(ipcache *ipcache.IPCache, epLookup endpointmanager.EndpointsLookup) (ipc, endpoints) {
