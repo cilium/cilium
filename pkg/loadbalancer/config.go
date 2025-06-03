@@ -506,9 +506,10 @@ type ExternalConfig struct {
 	EnableSocketLBPodConnectionTermination bool
 
 	// The following options will be removed in v1.19
-	EnableHostPort            bool
-	EnableSessionAffinity     bool
-	EnableSVCSourceRangeCheck bool
+	EnableHostPort              bool
+	EnableSessionAffinity       bool
+	EnableSVCSourceRangeCheck   bool
+	EnableInternalTrafficPolicy bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -524,6 +525,7 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		EnableHostPort:                         kprCfg.EnableHostPort,
 		EnableSessionAffinity:                  kprCfg.EnableSessionAffinity,
 		EnableSVCSourceRangeCheck:              kprCfg.EnableSVCSourceRangeCheck,
+		EnableInternalTrafficPolicy:            cfg.EnableInternalTrafficPolicy,
 	}
 }
 
