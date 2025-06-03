@@ -19,7 +19,7 @@ void set_dst_identity(bool is_ipv4, __u32 identity)
 }
 
 static __always_inline
-int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
+int ipsec_redirect_checks(struct __ctx_buff *ctx, bool is_ipv4)
 {
 	union macaddr expected_l2_addr = CILIUM_NET_MAC;
 
@@ -75,7 +75,7 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
 }
 
 static __always_inline
-int bad_identities_check(__maybe_unused struct __ctx_buff *ctx, bool is_ipv4)
+int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 {
 	test_init();
 
@@ -152,7 +152,7 @@ int ipsec_redirect4_pktgen(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipsec_redirect4")
-int ipsec_redirect4_check(__maybe_unused struct __ctx_buff *ctx)
+int ipsec_redirect4_check(struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true);
 }
@@ -164,7 +164,7 @@ int ipsec_redirect6_pktgen(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipsec_redirect6")
-int ipsec_redirect6_check(__maybe_unused struct __ctx_buff *ctx)
+int ipsec_redirect6_check(struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false);
 }
@@ -176,7 +176,7 @@ int ipsec_redirect_bad_identities4_pktgen(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipsec_redirect_bad_identities4")
-int ipsec_redirect_bad_identities4_check(__maybe_unused struct __ctx_buff *ctx)
+int ipsec_redirect_bad_identities4_check(struct __ctx_buff *ctx)
 {
 	return bad_identities_check(ctx, true);
 }
@@ -188,7 +188,7 @@ int ipsec_redirect_bad_identities6_pktgen(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipsec_redirect_bad_identities6")
-int ipsec_redirect_bad_identities6_check(__maybe_unused struct __ctx_buff *ctx)
+int ipsec_redirect_bad_identities6_check(struct __ctx_buff *ctx)
 {
 	return bad_identities_check(ctx, false);
 }
