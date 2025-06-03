@@ -167,6 +167,19 @@ type IngressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	Authentication *Authentication `json:"authentication,omitempty"`
+
+	// IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+	// that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+	//
+	// Example:
+	// - number: 2 #IGMP (Internet Group Management Protocol)
+	// - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+	//
+	// These protocols do not use layer 4 transport port numbers and are identified solely
+	// by their IP protocol number (as defined in the IP header 'Protocol' field).
+	//
+	// +kubebuilder:validation:Optional
+	IPProtocols IPProtocols `json:"ipProtocols,omitempty"`
 }
 
 // IngressDenyRule contains all rule types which can be applied at ingress,
