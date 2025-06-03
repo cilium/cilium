@@ -310,6 +310,9 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 					logfields.Error, err)
 			}
 		}
+	case lrpConfigTypeNone:
+		cleanup(wtxn)
+		return ws, func(writer.WriteTxn) {}
 	}
 
 	// For each matching pod create a backend and associate it with the LocalRedirect
