@@ -14,10 +14,9 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -28,24 +27,22 @@ func TestBackendNeighborSync(t *testing.T) {
 	t.Cleanup(func() { goleak.VerifyNone(t, goleakOpt) })
 
 	var (
-		db       *statedb.DB
-		backends statedb.RWTable[*loadbalancer.Backend]
+		db             *statedb.DB
+		backends       statedb.RWTable[*loadbalancer.Backend]
+		forwardableIPs statedb.Table[*neighbor.ForwardableIP]
 	)
-	mock := &mockNodeNeighbors{
-		updates: make(chan *nodeTypes.Node),
-		deletes: make(chan *nodeTypes.Node),
-	}
 
 	h := hive.New(
 		cell.Provide(
 			loadbalancer.NewBackendsTable,
 			statedb.RWTable[*loadbalancer.Backend].ToTable,
-			func() types.NodeNeighbors { return mock },
 		),
+		neighbor.ForwarableIPCell,
 		linux.BackendNeighborSyncCell,
-		cell.Invoke(func(db_ *statedb.DB, backends_ statedb.RWTable[*loadbalancer.Backend]) {
+		cell.Invoke(func(db_ *statedb.DB, backends_ statedb.RWTable[*loadbalancer.Backend], forwardableIPs_ statedb.Table[*neighbor.ForwardableIP]) {
 			db = db_
 			backends = backends_
+			forwardableIPs = forwardableIPs_
 		}),
 	)
 	log := hivetest.Logger(t)
@@ -63,52 +60,26 @@ func TestBackendNeighborSync(t *testing.T) {
 	backends.Insert(wtxn, &loadbalancer.Backend{Address: addr2})
 	wtxn.Commit()
 
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancel)
+	requireHasAddress := func(addr loadbalancer.L3n4Addr, invert bool) func() bool {
+		return func() bool {
+			rx := db.ReadTxn()
+			for fip := range forwardableIPs.All(rx) {
+				if fip.IP == addr.AddrCluster.Addr() {
+					return !invert
+				}
+			}
 
-	requireHasAddress := func(ch chan *nodeTypes.Node, addr loadbalancer.L3n4Addr) {
-		select {
-		case n := <-ch:
-			require.True(t, nodeHasAddress(n, addr))
-		case <-ctx.Done():
-			t.Fatalf("timeout waiting for address")
+			return invert
 		}
 	}
 
-	requireHasAddress(mock.updates, addr1)
-	requireHasAddress(mock.updates, addr2)
+	require.Eventually(t, requireHasAddress(addr1, false), 5*time.Second, 100*time.Millisecond)
+	require.Eventually(t, requireHasAddress(addr2, false), 5*time.Second, 100*time.Millisecond)
 
 	wtxn = db.WriteTxn(backends)
 	backends.DeleteAll(wtxn)
 	wtxn.Commit()
 
-	requireHasAddress(mock.deletes, addr1)
-	requireHasAddress(mock.deletes, addr2)
+	require.Eventually(t, requireHasAddress(addr1, true), 5*time.Second, 100*time.Millisecond)
+	require.Eventually(t, requireHasAddress(addr2, true), 5*time.Second, 100*time.Millisecond)
 }
-
-type mockNodeNeighbors struct {
-	updates chan *nodeTypes.Node
-	deletes chan *nodeTypes.Node
-}
-
-func nodeHasAddress(n *nodeTypes.Node, addr loadbalancer.L3n4Addr) bool {
-	return len(n.IPAddresses) > 0 && n.IPAddresses[0].IP.Equal(addr.AddrCluster.AsNetIP())
-}
-
-// DeleteMiscNeighbor implements types.NodeNeighbors.
-func (m *mockNodeNeighbors) DeleteMiscNeighbor(oldNode *nodeTypes.Node) {
-	m.deletes <- oldNode
-}
-
-// InsertMiscNeighbor implements types.NodeNeighbors.
-func (m *mockNodeNeighbors) InsertMiscNeighbor(newNode *nodeTypes.Node) {
-	m.updates <- newNode
-}
-
-func (m *mockNodeNeighbors) NodeCleanNeighbors(migrateOnly bool) { panic("unimplemented") }
-func (m *mockNodeNeighbors) NodeNeighDiscoveryEnabled() bool     { panic("unimplemented") }
-func (m *mockNodeNeighbors) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) error {
-	panic("unimplemented")
-}
-
-var _ types.NodeNeighbors = &mockNodeNeighbors{}
