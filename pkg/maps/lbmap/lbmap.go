@@ -390,15 +390,15 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	if err := key.Map().OpenOrCreate(); err != nil {
+	if err := RevNatMap(key).OpenOrCreate(); err != nil {
 		return err
 	}
 
-	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
+	return RevNatMap(key).Update(key.ToNetwork(), value.ToNetwork())
 }
 
 func deleteRevNatLocked(key RevNatKey) error {
-	_, err := key.Map().SilentDelete(key.ToNetwork())
+	_, err := RevNatMap(key).SilentDelete(key.ToNetwork())
 	return err
 }
 
@@ -664,7 +664,7 @@ func updateMasterService(logger *slog.Logger, lbConfig loadbalancer.Config, fe S
 }
 
 func deleteServiceLocked(key ServiceKey) error {
-	_, err := key.Map().SilentDelete(key.ToNetwork())
+	_, err := ServiceMap(key).SilentDelete(key.ToNetwork())
 	return err
 }
 
@@ -700,15 +700,15 @@ func getBackend(backend *loadbalancer.LegacyBackend, ipv6 bool) (Backend, error)
 }
 
 func updateBackend(backend Backend) error {
-	if err := backend.Map().OpenOrCreate(); err != nil {
+	if err := BackendMap(backend.GetKey()).OpenOrCreate(); err != nil {
 		return err
 	}
 
-	return backend.Map().Update(backend.GetKey(), backend.GetValue().ToNetwork())
+	return BackendMap(backend.GetKey()).Update(backend.GetKey(), backend.GetValue().ToNetwork())
 }
 
 func deleteBackendLocked(key BackendKey) error {
-	_, err := key.Map().SilentDelete(key)
+	_, err := BackendMap(key).SilentDelete(key)
 	return err
 }
 
@@ -716,11 +716,11 @@ func updateServiceEndpoint(logger *slog.Logger, key ServiceKey, value ServiceVal
 	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
-	if err := key.Map().OpenOrCreate(); err != nil {
+	if err := ServiceMap(key).OpenOrCreate(); err != nil {
 		return err
 	}
 
-	if err := key.Map().Update(key.ToNetwork(), value.ToNetwork()); err != nil {
+	if err := ServiceMap(key).Update(key.ToNetwork(), value.ToNetwork()); err != nil {
 		return err
 	}
 
@@ -808,12 +808,12 @@ func Init(registry *metrics.Registry, params InitParams) {
 func (*LBBPFMap) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
 	if addr.To4() != nil {
 		key := NewSockRevNat4Key(cookie, addr, port)
-		if _, err := key.Map().Lookup(key); err == nil {
+		if _, err := SockRevNat4Map.Lookup(key); err == nil {
 			return true
 		}
 	} else {
 		key := NewSockRevNat6Key(cookie, addr, port)
-		if _, err := key.Map().Lookup(key); err == nil {
+		if _, err := SockRevNat6Map.Lookup(key); err == nil {
 			return true
 		}
 	}
@@ -831,4 +831,41 @@ type InitParams struct {
 	SourceRangeMapMaxEntries                                        int
 	MaglevMapMaxEntries                                             int
 	PerSvcLbEnabled                                                 bool
+}
+
+func BackendMap(key BackendKey) *bpf.Map {
+	switch key.(type) {
+	case *Backend4Key:
+		return Backend4Map
+	case *Backend4KeyV3:
+		return Backend4MapV3
+	case *Backend6Key:
+		return Backend6Map
+	case *Backend6KeyV3:
+		return Backend6MapV3
+	default:
+		return nil
+	}
+}
+
+func ServiceMap(key ServiceKey) *bpf.Map {
+	switch key.(type) {
+	case *Service4Key:
+		return Service4MapV2
+	case *Service6Key:
+		return Service6MapV2
+	default:
+		return nil
+	}
+}
+
+func RevNatMap(key RevNatKey) *bpf.Map {
+	switch key.(type) {
+	case *RevNat4Key:
+		return RevNat4Map
+	case *RevNat6Key:
+		return RevNat6Map
+	default:
+		return nil
+	}
 }
