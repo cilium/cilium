@@ -539,7 +539,11 @@ func (ct *ConnectivityTest) report() error {
 			ct.Logf("Test [%s]:", t.Name())
 			for _, a := range t.failedActions() {
 				failedActions++
-				ct.Log("  ❌", a)
+				if a.failureMessage != "" {
+					ct.Logf("  🟥 %s: %s", a, a.failureMessage)
+				} else {
+					ct.Log("  ❌", a)
+				}
 				ct.LogOwners(a.Scenario())
 			}
 		}
