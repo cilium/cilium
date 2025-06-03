@@ -12,8 +12,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
 // bpfMaglevListCmd represents the bpf lb maglev list command
