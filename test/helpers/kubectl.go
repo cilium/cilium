@@ -126,6 +126,8 @@ var (
 		"extraEnv[1].value":      "'true'",
 		"extraEnv[2].name":       "CILIUM_INVALID_METRIC_VALUE_DETECTOR",
 		"extraEnv[2].value":      "'true'",
+		"extraEnv[3].name":       "CILIUM_SLOG_DUP_ATTR_DETECTOR",
+		"extraEnv[3].value":      "'true'",
 
 		// We need CNP node status to know when a policy is being enforced
 		"ipv4NativeRoutingCIDR": IPv4NativeRoutingCIDR,

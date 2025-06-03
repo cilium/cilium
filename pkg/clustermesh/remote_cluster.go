@@ -114,7 +114,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if config.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
-		mgr = store.NewWatchStoreManagerImmediate(rc.log, rc.name)
+		mgr = store.NewWatchStoreManagerImmediate(rc.log)
 	}
 
 	adapter := func(prefix string) string { return prefix }

@@ -1781,4 +1781,6 @@ const (
 	Goroutine = "goroutine"
 
 	Matcher = "matcher"
+
+	ParentResource = "parentResource"
 )

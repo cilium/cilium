@@ -68,7 +68,7 @@ func TestWatchStoreManager(t *testing.T) {
 	}))
 
 	t.Run("immediate", runnable(func() WatchStoreManager {
-		return NewWatchStoreManagerImmediate(hivetest.Logger(t), "foo")
+		return NewWatchStoreManagerImmediate(hivetest.Logger(t))
 	}))
 }
 
@@ -94,6 +94,6 @@ func TestWatchStoreManagerPanic(t *testing.T) {
 	}))
 
 	t.Run("immediate", runnable(func() WatchStoreManager {
-		return NewWatchStoreManagerImmediate(hivetest.Logger(t), "foo")
+		return NewWatchStoreManagerImmediate(hivetest.Logger(t))
 	}))
 }
