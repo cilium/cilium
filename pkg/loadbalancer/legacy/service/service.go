@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -298,7 +298,7 @@ type Service struct {
 	backendConnectionHandler sockets.SocketDestroyer
 	nsIterator               func() (iter.Seq2[string, *netns.NetNS], <-chan error)
 
-	backendDiscovery       datapathTypes.NodeNeighbors
+	forwardableIPManager   *neighbor.ForwardableIPManager
 	k8sControlplaneEnabled bool
 
 	config *option.DaemonConfig
@@ -312,7 +312,7 @@ func newService(
 	registry *metrics.Registry,
 	lbConfig lb.Config,
 	lbmap datapathTypes.LBMap,
-	backendDiscoveryHandler datapathTypes.NodeNeighbors,
+	forwardableIPManager *neighbor.ForwardableIPManager,
 	healthCheckers []HealthChecker,
 	k8sControlplaneEnabled bool,
 	config *option.DaemonConfig,
@@ -334,7 +334,7 @@ func newService(
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
 		backendConnectionHandler: backendConnectionHandler{logger: logger},
-		backendDiscovery:         backendDiscoveryHandler,
+		forwardableIPManager:     forwardableIPManager,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
 		config:                   config,
@@ -2351,31 +2351,52 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 	return nil
 }
 
-func backendToNode(b *lb.LegacyBackend) *nodeTypes.Node {
-	return &nodeTypes.Node{
-		Name: fmt.Sprintf("backend-%s", b.L3n4Addr.AddrCluster.AsNetIP()),
-		IPAddresses: []nodeTypes.Address{{
-			Type: addressing.NodeInternalIP,
-			IP:   b.L3n4Addr.AddrCluster.AsNetIP(),
-		}},
+func forwardableIPOwner(b *lb.LegacyBackend) neighbor.ForwardableIPOwner {
+	return neighbor.ForwardableIPOwner{
+		Type: neighbor.ForwardableIPOwnerService,
+		ID:   fmt.Sprintf("backend-%s", b.L3n4Addr.AddrCluster.AsNetIP()),
 	}
 }
 
 func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.LegacyBackend) {
-	if s.backendDiscovery == nil {
+	// Forwardable IP manager may not nil in certain tests
+	if s.forwardableIPManager == nil {
 		return
 	}
+
 	for _, b := range newBackends {
-		s.backendDiscovery.InsertMiscNeighbor(backendToNode(b))
+		err := s.forwardableIPManager.Insert(
+			b.L3n4Addr.AddrCluster.Addr(),
+			forwardableIPOwner(b),
+		)
+		if err != nil {
+			s.logger.Error("Failed to insert forwardable IP for backend",
+				logfields.BackendID, b.ID,
+				logfields.L3n4Addr, b.L3n4Addr,
+				logfields.Error, err,
+			)
+		}
 	}
 	s.deleteBackendNeighbors(oldBackends)
 }
 
 func (s *Service) deleteBackendNeighbors(obsoleteBackends []*lb.LegacyBackend) {
-	if s.backendDiscovery == nil {
+	// Forwardable IP manager may not nil in certain tests
+	if s.forwardableIPManager == nil {
 		return
 	}
+
 	for _, b := range obsoleteBackends {
-		s.backendDiscovery.DeleteMiscNeighbor(backendToNode(b))
+		err := s.forwardableIPManager.Delete(
+			b.L3n4Addr.AddrCluster.Addr(),
+			forwardableIPOwner(b),
+		)
+		if err != nil {
+			s.logger.Error("Failed to delete forwardable IP for backend",
+				logfields.BackendID, b.ID,
+				logfields.L3n4Addr, b.L3n4Addr,
+				logfields.Error, err,
+			)
+		}
 	}
 }

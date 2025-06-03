@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -57,6 +58,8 @@ type reconcilerParams struct {
 	LocalNodeStore *node.LocalNodeStore
 
 	EndpointResources resource.Resource[*k8s.Endpoints]
+
+	ForwardableIPManager *neighbor.ForwardableIPManager
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
