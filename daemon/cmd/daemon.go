@@ -537,9 +537,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 				option.DirectRoutingDevice)
 		}
-
-		d.logger.Warn("failed to detect devices, disabling BPF NodePort", logfields.Error, err)
-		disableNodePort()
 	} else {
 		drdName = directRoutingDevice.Name
 		d.logger.Info(
