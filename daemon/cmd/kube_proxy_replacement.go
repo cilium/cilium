@@ -352,7 +352,7 @@ func disableNodePort() {
 	option.Config.EnableNodePort = false
 	option.Config.EnableHostPort = false
 	option.Config.EnableExternalIPs = false
-	option.Config.EnableSVCSourceRangeCheck = false
+	//option.Config.EnableSVCSourceRangeCheck = false
 	option.Config.EnableHostLegacyRouting = true
 }
 
