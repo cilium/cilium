@@ -94,13 +94,14 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                true,
-							EnableIPv6:                true,
-							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
-							EnableNodePort:            true,
-							EnableHostPort:            true,
-							EnableSessionAffinity:     true,
-							EnableSVCSourceRangeCheck: true,
+							EnableIPv4:                  true,
+							EnableIPv6:                  true,
+							KubeProxyReplacement:        option.KubeProxyReplacementTrue,
+							EnableNodePort:              true,
+							EnableHostPort:              true,
+							EnableSessionAffinity:       true,
+							EnableSVCSourceRangeCheck:   true,
+							EnableInternalTrafficPolicy: true,
 						}
 					},
 					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
