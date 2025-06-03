@@ -532,6 +532,15 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 #endif /* ENABLE_HOST_FIREWALL */
 }
 
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+/*
+ * ICMPv6 Echo Reply Support for Virtual IPs
+ *
+ * This provides ICMPv6 echo reply functionality for virtual service IPs,
+ * complementing the IPv4 ICMP support in icmp.h. This allows IPv6 services
+ * to respond to ping6 requests.
+ */
+
 /**
  * icmp6_send_echo_reply - Send ICMPv6 echo reply
  * @ctx:	Packet context
@@ -555,8 +564,8 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	struct icmp6hdr *icmphdr;
 	union macaddr smac = {};
 	union macaddr dmac = {};
-	union v6addr saddr;
-	union v6addr daddr;
+	struct in6_addr saddr;
+	struct in6_addr daddr;
 	__wsum csum;
 	int ret;
 
@@ -573,8 +582,8 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
 		return DROP_INVALID;
 
-	ipv6_addr_copy(&saddr, (union v6addr *)&ip6->saddr);
-	ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+	saddr = ip6->saddr;
+	daddr = ip6->daddr;
 
 	/* Load ICMP header */
 	icmphdr = (struct icmp6hdr *)(data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr));
@@ -595,8 +604,8 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
 
 	/* Rewrite IPv6 header */
-	ipv6_addr_copy((union v6addr *)&ip6->saddr, &daddr); /* Swap src/dst IP */
-	ipv6_addr_copy((union v6addr *)&ip6->daddr, &saddr);
+	ip6->saddr = daddr; /* Swap src/dst IP */
+	ip6->daddr = saddr;
 	ip6->hop_limit = IPDEFTTL;
 
 	/* Convert ICMPv6 echo request to echo reply */
@@ -613,5 +622,6 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 
 	return 0;
 }
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 
 #endif

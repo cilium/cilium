@@ -1,7 +1,19 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#if !defined(__LIB_ICMP__) && defined(ENABLE_IPV4)
+/*
+ * ICMP Echo Reply Support for Virtual IPs
+ *
+ * This module provides functionality to respond to ICMP echo requests (ping)
+ * sent to virtual service IPs (ClusterIP and LoadBalancer IPs) with ICMP echo
+ * replies, making services appear "pingable" even when they don't have actual
+ * ICMP services running.
+ *
+ * This feature is controlled by the ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY flag
+ * and the bpf-lb-reply-icmp-echo-virtual-ips configuration option.
+ */
+
+#if !defined(__LIB_ICMP__) && defined(ENABLE_IPV4) && defined(ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY)
 #define __LIB_ICMP__
 
 #include <linux/icmp.h>
@@ -34,8 +46,6 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	union macaddr dmac = {};
 	__be32 saddr;
 	__be32 daddr;
-	__u8 tos;
-	__u8 icmp_type;
 	__wsum csum;
 	int ret;
 
@@ -53,7 +63,6 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 
 	saddr = ip4->saddr;
 	daddr = ip4->daddr;
-	tos = ip4->tos;
 
 	/* Load ICMP header and check bounds */
 	icmphdr = (struct icmphdr *)(data + sizeof(struct ethhdr) + sizeof(struct iphdr));
@@ -61,8 +70,7 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 		return DROP_INVALID;
 
 	/* Only respond to ICMP echo requests */
-	icmp_type = icmphdr->type;
-	if (icmp_type != ICMP_ECHO)
+	if (icmphdr->type != ICMP_ECHO)
 		return DROP_INVALID;
 
 	/* Rewrite ethernet header */
@@ -77,7 +85,6 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	/* Rewrite IP header */
 	ip4->saddr = daddr; /* Swap src/dst IP */
 	ip4->daddr = saddr;
-	ip4->tos = tos;
 	ip4->ttl = IPDEFTTL;
 
 	/* Update IP checksum */
