@@ -84,6 +84,9 @@ type Action struct {
 	// failed is true when Fail was called on the Action
 	failed bool
 
+	// failureMessage contains the reason why the action failed
+	failureMessage string
+
 	// Output from action if there is any
 	cmdOutput string
 
@@ -1059,7 +1062,7 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 		// Collect the new metrics.
 		newMetrics, err := a.collectPrometheusMetricsForNode(result.Source, node)
 		if err != nil {
-			a.Failf("failed to collect new metrics on node %s: %w", node, err)
+			a.Failf("failed to collect new metrics on node %s: %s\n", node, err)
 			return
 		}
 
