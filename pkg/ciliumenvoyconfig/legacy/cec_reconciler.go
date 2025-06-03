@@ -13,6 +13,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -44,6 +45,9 @@ type ciliumEnvoyConfigReconciler struct {
 	mutex           lock.Mutex
 	configs         map[resource.Key]*config
 	localNodeLabels map[string]string
+
+	forwardableIPManager     *neighbor.ForwardableIPManager
+	forwardableIPInitializer neighbor.ForwardableIPInitializer
 }
 
 type config struct {
@@ -56,13 +60,21 @@ type config struct {
 }
 
 func newCiliumEnvoyConfigReconciler(params reconcilerParams) *ciliumEnvoyConfigReconciler {
-	return &ciliumEnvoyConfigReconciler{
+	r := &ciliumEnvoyConfigReconciler{
 		logger:            params.Logger,
 		k8sResourceSynced: params.K8sResourceSynced,
 		k8sAPIGroups:      params.K8sAPIGroups,
 		manager:           params.Manager,
 		configs:           map[resource.Key]*config{},
 	}
+
+	// Allow forwardable IP manager to be nil during testing.
+	if params.ForwardableIPManager != nil {
+		r.forwardableIPManager = params.ForwardableIPManager
+		r.forwardableIPInitializer = params.ForwardableIPManager.RegisterInitializer("cilium-envoy-config-reconciler")
+	}
+
+	return r
 }
 
 func (r *ciliumEnvoyConfigReconciler) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
@@ -84,6 +96,14 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 	case resource.Sync:
 		scopedLogger.Debug("Received CiliumEnvoyConfig sync event")
 		r.cecSynced.Store(true)
+
+		// Service backends are registered as forwardable IPs, this happens
+		// in [Service.upsertBackendNeighbors]. But that that level there is
+		// no signal available to indicate we have processed the initial set of services.
+		// So we have to add the initializer logic here.
+		if r.forwardableIPManager != nil {
+			r.forwardableIPManager.FinishInitializer(r.forwardableIPInitializer)
+		}
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
 		//exhaustruct:ignore // CEC config does not need to be fully specified

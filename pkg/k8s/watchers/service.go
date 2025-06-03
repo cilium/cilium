@@ -16,6 +16,7 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -51,22 +52,26 @@ type k8sServiceWatcherParams struct {
 	LRPManager     *redirectpolicy.Manager
 	LocalNodeStore *node.LocalNodeStore
 
+	ForwardableIPManager *neighbor.ForwardableIPManager
+
 	LBConfig loadbalancer.Config
 }
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 	return &K8sServiceWatcher{
-		logger:                params.Logger,
-		k8sEventReporter:      params.K8sEventReporter,
-		k8sResourceSynced:     params.K8sResourceSynced,
-		k8sAPIGroups:          params.K8sAPIGroups,
-		resources:             params.Resources,
-		k8sSvcCache:           params.ServiceCache,
-		svcManager:            params.ServiceManager,
-		redirectPolicyManager: params.LRPManager,
-		localNodeStore:        params.LocalNodeStore,
-		lbConfig:              params.LBConfig,
-		stop:                  make(chan struct{}),
+		logger:                   params.Logger,
+		k8sEventReporter:         params.K8sEventReporter,
+		k8sResourceSynced:        params.K8sResourceSynced,
+		k8sAPIGroups:             params.K8sAPIGroups,
+		resources:                params.Resources,
+		k8sSvcCache:              params.ServiceCache,
+		svcManager:               params.ServiceManager,
+		redirectPolicyManager:    params.LRPManager,
+		localNodeStore:           params.LocalNodeStore,
+		lbConfig:                 params.LBConfig,
+		forwardableIPManager:     params.ForwardableIPManager,
+		forwardableIPInitializer: params.ForwardableIPManager.RegisterInitializer("k8s-service-watcher"),
+		stop:                     make(chan struct{}),
 	}
 }
 
@@ -87,6 +92,9 @@ type K8sServiceWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	localNodeStore        *node.LocalNodeStore
 	lbConfig              loadbalancer.Config
+
+	forwardableIPManager     *neighbor.ForwardableIPManager
+	forwardableIPInitializer neighbor.ForwardableIPInitializer
 
 	stop chan struct{}
 }
@@ -127,6 +135,12 @@ func (k *K8sServiceWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.Stop
 			switch event.Kind {
 			case resource.Sync:
 				synced.Store(true)
+
+				// Service backends are registered as forwardable IPs, this happens
+				// in [Service.upsertBackendNeighbors]. But that that level there is
+				// no signal available to indicate we have processed the initial set of services.
+				// So we have to add the initializer logic here.
+				k.forwardableIPManager.FinishInitializer(k.forwardableIPInitializer)
 			case resource.Upsert:
 				svc := event.Object
 				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
