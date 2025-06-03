@@ -173,7 +173,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 					s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
 					s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
 					wtxn.Commit()
-				} else {
+				} else if extCfg.EnableHealthCheckLoadBalancerIP {
 					// Create a LoadBalancer service to expose the health server on the $LB_VIP.
 					// For NodePort we don't need anything as the HealthServer is already listening on
 					// all node addresses.
