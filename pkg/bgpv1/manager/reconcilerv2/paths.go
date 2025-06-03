@@ -269,7 +269,6 @@ func withdrawPath(params *reconcilePathsParams, pathKey string, path *types.Path
 	params.Logger.Debug(
 		"Withdrawing path",
 		types.PathLogField, path.NLRI,
-		types.FamilyLogField, path.Family,
 	)
 
 	if err := params.Router.WithdrawPath(params.Ctx, types.PathRequest{Path: path}); err != nil {

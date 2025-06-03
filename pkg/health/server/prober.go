@@ -322,7 +322,6 @@ func icmpPing(logger *slog.Logger, node string, ip string, ctx context.Context, 
 		scopedLog.Debug(
 			"Failed to run pinger for IP",
 			logfields.Error, err,
-			logfields.IPAddr, ip,
 		)
 		result.Status = err.Error()
 	}
