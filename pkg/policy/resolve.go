@@ -245,10 +245,9 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 // that verdict, and 'true' if found.
 // Returns a deny entry when a match is not found, mirroring the datapath default deny behavior.
 // 'key' must not have a wildcard identity or port.
-func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
+func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, RuleMeta, bool) {
 	entry, found := p.policyMapState.lookup(key)
-	lbls := labels.LabelArrayListFromString(entry.derivedFromRules.LabelsString())
-	return entry.MapStateEntry, lbls, found
+	return entry.MapStateEntry, entry.derivedFromRules.Value(), found
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
