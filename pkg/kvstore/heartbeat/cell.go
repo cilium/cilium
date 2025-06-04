@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 type Config struct {
@@ -24,8 +23,8 @@ var Cell = cell.Module(
 	"kvstore-heartbeat-updater",
 	"KVStore Heartbeat Updater",
 
-	cell.Invoke(func(config Config, logger *slog.Logger, lc cell.Lifecycle, backendPromise promise.Promise[kvstore.BackendOperations]) {
-		if !config.EnableHeartBeat {
+	cell.Invoke(func(config Config, logger *slog.Logger, lc cell.Lifecycle, backend kvstore.Client) {
+		if !backend.IsEnabled() || !config.EnableHeartBeat {
 			return
 		}
 
@@ -37,13 +36,6 @@ var Cell = cell.Module(
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-
-					backend, err := backendPromise.Await(ctx)
-					if err != nil {
-						// There's nothing we can actually do here. We are already shutting down
-						// (either user-requested or caused by the backend initialization failure).
-						return
-					}
 
 					Heartbeat(ctx, logger, backend)
 				}()

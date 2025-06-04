@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -550,11 +549,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 		cell.Provide(
 			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
 			func() Config { return DefaultConfig },
-			func() promise.Promise[kvstore.BackendOperations] {
-				clr, clp := promise.New[kvstore.BackendOperations]()
-				clr.Resolve(client)
-				return clp
-			},
+			func() kvstore.Client { return client },
 		),
 
 		cell.Invoke(func(km_ *KVStoreMesh) { km = km_ }),
