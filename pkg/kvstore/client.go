@@ -10,17 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
-)
-
-var (
-	// defaultClient is the default client initialized by initClient
-	defaultClient BackendOperations
-	// defaultClientSet is a channel that is closed whenever the defaultClient
-	// is set.
-	defaultClientSet = make(chan struct{})
 )
 
 // Client is the client to interact with the kvstore (i.e., etcd).
@@ -72,10 +62,6 @@ func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {
 	cl.logger.Info("Connection to kvstore successfully established")
 	cl.BackendOperations = client
 
-	// Set the global variables, to allow for a gradual migration.
-	defaultClient = client
-	close(defaultClientSet)
-
 	return nil
 }
 
@@ -84,38 +70,6 @@ func (cl *clientImpl) Stop(cell.HookContext) error {
 		cl.BackendOperations.Close()
 	}
 	return nil
-}
-
-func initClient(ctx context.Context, logger *slog.Logger, module backendModule, opts ExtraOptions) error {
-	scopedLog := logger.With(fieldKVStoreBackend, module.getName())
-	c, errChan := module.newClient(ctx, scopedLog, opts)
-	if c == nil {
-		err := <-errChan
-		logging.Fatal(scopedLog, "Unable to create kvstore client", logfields.Error, err)
-	}
-
-	defaultClient = c
-	select {
-	case <-defaultClientSet:
-		// avoid closing channel already closed.
-	default:
-		close(defaultClientSet)
-	}
-
-	go func() {
-		err, isErr := <-errChan
-		if isErr && err != nil {
-			logging.Fatal(scopedLog, "Unable to connect to kvstore", logfields.Error, err)
-		}
-	}()
-
-	return nil
-}
-
-// LegacyClient returns the global kvstore, blocking until it has been configured
-func LegacyClient() BackendOperations {
-	<-defaultClientSet
-	return defaultClient
 }
 
 // NewClient returns a new kvstore client based on the configuration
