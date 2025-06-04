@@ -26,14 +26,14 @@ runs:
   using: "composite"
   steps:
     - name: Features tested
-      if: ${{ inputs.capture_features_tested }}
+      if: ${{ always() && inputs.capture_features_tested }}
       uses: ./.github/actions/feature-status
       with:
         title: "Summary of all features tested"
         json-filename: "features-tested-${{ inputs.artifacts_suffix }}"
 
     - name: Post-test information gathering
-      if: ${{ inputs.job_status == 'failure' && inputs.capture_sysdump }}
+      if: ${{ always() && inputs.job_status == 'failure' && inputs.capture_sysdump }}
       shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
       run: |
         echo "=== Retrieve cluster state ==="
@@ -42,7 +42,7 @@ runs:
         cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}"
 
     - name: Upload artifacts
-      if: ${{ inputs.job_status == 'failure' }}
+      if: ${{ always() && inputs.job_status == 'failure' }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: "cilium-sysdumps-${{ inputs.artifacts_suffix }}"
