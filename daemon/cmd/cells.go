@@ -4,11 +4,14 @@
 package cmd
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"google.golang.org/grpc"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
@@ -46,6 +49,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -97,6 +101,17 @@ var (
 
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
+
+		// Provide the logic to map DNS names matching Kubernetes services to the
+		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+		// and clustermesh. Note that it depends on k8s.ServiceResource, which is
+		// currently provided as part of the ControlPlane module.
+		dial.ServiceResolverCell,
+
+		// Provides the Client to access the KVStore.
+		cell.Provide(kvstoreExtraOptions),
+		kvstore.Cell(kvstore.DisabledBackendName),
+		cell.Invoke(kvstoreLocksGC),
 
 		cni.Cell,
 
@@ -261,11 +276,6 @@ var (
 		// NAT stats provides stat computation and tables for NAT map bpf maps.
 		natStats.Cell,
 
-		// Provide the logic to map DNS names matching Kubernetes services to the
-		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
-		// and clustermesh.
-		dial.ServiceResolverCell,
-
 		// Provide resource groups to watch.
 		cell.Provide(func() watchers.ResourceGroupFunc { return allResourceGroups }),
 
@@ -376,4 +386,40 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (
 	waitForCachesOnly = append(waitForCachesOnly, waitOnlyList...)
 
 	return append(k8sGroups, ciliumGroups...), waitForCachesOnly
+}
+
+// kvstoreExtraOptions provides the extra options to initialize the kvstore client.
+func kvstoreExtraOptions(in struct {
+	cell.In
+
+	Logger *slog.Logger
+
+	NodeManager nodeManager.NodeManager
+	ClientSet   k8sClient.Clientset
+	Resolver    *dial.ServiceResolver
+}) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
+	goopts := kvstore.ExtraOptions{
+		ClusterSizeDependantInterval: in.NodeManager.ClusterSizeDependantInterval,
+	}
+
+	// If K8s is enabled we can do the service translation automagically by
+	// looking at services from k8s and retrieve the service IP from that.
+	// This makes cilium to not depend on kube dns to interact with etcd
+	if in.ClientSet.IsEnabled() {
+		goopts.DialOption = []grpc.DialOption{
+			grpc.WithContextDialer(dial.NewContextDialer(in.Logger, in.Resolver)),
+		}
+	}
+
+	return goopts, &bootstrapStats.kvstore
+}
+
+// kvstoreLocksGC registers the kvstore locks GC logic.
+func kvstoreLocksGC(logger *slog.Logger, jg job.Group, client kvstore.Client) {
+	if client.IsEnabled() {
+		jg.Add(job.Timer("kvstore-locks-gc", func(ctx context.Context) error {
+			kvstore.RunLockGC(logger)
+			return nil
+		}, defaults.KVStoreStaleLockTimeout))
+	}
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -47,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
@@ -476,19 +474,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
 	option.BindEnv(vp, option.KeepConfig)
-
-	flags.String(option.KVStore, "", "Key-value store type")
-	option.BindEnv(vp, option.KVStore)
-
-	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	option.BindEnv(vp, option.KVstoreLeaseTTL)
-
-	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure")
-	option.BindEnv(vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
-
-	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	option.BindEnv(vp, option.KVStoreOpt)
 
 	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout after last K8s event for synchronizing k8s resources before exiting")
 	flags.MarkHidden(option.K8sSyncTimeoutName)
@@ -1391,47 +1376,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 }
 
-func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
-	goopts := kvstore.ExtraOptions{
-		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
-	}
-
-	cg := controller.NewGroup("kvstore-locks-gc")
-	controller.NewManager().UpdateController("kvstore-locks-gc",
-		controller.ControllerParams{
-			Group: cg,
-			DoFunc: func(ctx context.Context) error {
-				kvstore.RunLockGC(logging.DefaultSlogLogger)
-				return nil
-			},
-			RunInterval: defaults.KVStoreStaleLockTimeout,
-			Context:     d.ctx,
-		},
-	)
-
-	// If K8s is enabled we can do the service translation automagically by
-	// looking at services from k8s and retrieve the service IP from that.
-	// This makes cilium to not depend on kube dns to interact with etcd
-	if d.clientset.IsEnabled() {
-		log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
-		goopts.DialOption = []grpc.DialOption{
-			grpc.WithContextDialer(dial.NewContextDialer(log, resolver)),
-		}
-	}
-
-	if err := kvstore.Setup(context.TODO(), logging.DefaultSlogLogger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
-		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
-		addr := option.Config.KVStoreOpt[addrkey]
-
-		logging.Fatal(d.logger,
-			"Unable to setup kvstore",
-			logfields.Error, err,
-			logfields.KVStore, option.Config.KVStore,
-			logfields.Address, addr,
-		)
-	}
-}
-
 // daemonCell wraps the existing implementation of the cilium-agent that has
 // not yet been converted into a cell. Provides *Daemon as a Promise that is
 // resolved once daemon has been started to facilitate conversion into modules.
@@ -1507,7 +1451,6 @@ type daemonParams struct {
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	ServiceResolver     *dial.ServiceResolver
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
