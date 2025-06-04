@@ -88,9 +88,14 @@ func (ls LabelArrayList) Diff(expected LabelArrayList) (res string) {
 	return res
 }
 
-// GetModel returns the LabelArrayList as a [][]string. Each member LabelArray
-// becomes a []string.
-func (ls LabelArrayList) String() string {
+// LabelArrayListString is the string representation of a list of lists
+// of labels. It must always be sorted.
+//
+// e.g. "[foo:a=b foo:c=d], [any:x=y]"
+type LabelArrayListString string
+
+// ArrayListString returns the LabelArrayList as a structured string
+func (ls LabelArrayList) ArrayListString() LabelArrayListString {
 	var sb strings.Builder
 	for i := range ls {
 		if i > 0 {
@@ -98,14 +103,18 @@ func (ls LabelArrayList) String() string {
 		}
 		ls[i].BuildString(&sb)
 	}
-	return sb.String()
+	return LabelArrayListString(sb.String())
 }
 
-func LabelArrayListFromString(str string) (ls LabelArrayList) {
+func (ls LabelArrayList) String() string {
+	return string(ls.ArrayListString())
+}
+
+func LabelArrayListFromString(str LabelArrayListString) (ls LabelArrayList) {
 	// each LabelArray starts with '[' and ends with ']'
 	if len(str) > 2 && str[0] == '[' && str[len(str)-1] == ']' {
 		str = str[1 : len(str)-1] // remove first and last bracket
-		arrays := strings.Split(str, "], [")
+		arrays := strings.Split(string(str), "], [")
 		for i := range arrays {
 			labels := strings.Split(arrays[i], " ")
 			var la LabelArray
@@ -118,7 +127,8 @@ func LabelArrayListFromString(str string) (ls LabelArrayList) {
 	return ls
 }
 
-func ModelsFromLabelArrayListString(str string) iter.Seq[[]string] {
+func ModelsFromLabelArrayListString(las LabelArrayListString) iter.Seq[[]string] {
+	str := string(las)
 	return func(yield func(labelArray []string) bool) {
 		// each LabelArray starts with '[' and ends with ']'
 		if len(str) > 2 && str[0] == '[' && str[len(str)-1] == ']' {
@@ -215,9 +225,11 @@ func writeRemainder(str string, start, end int, sb *strings.Builder) {
 }
 
 // merge 'b' to 'a' assuming both are sorted
-func MergeSortedLabelArrayListStrings(a, b string) string {
+func MergeSortedLabelArrayListStrings(la, lb LabelArrayListString) LabelArrayListString {
 	var sb strings.Builder
 	var aStart, aEnd, bStart, bEnd int
+	a := string(la)
+	b := string(lb)
 Loop:
 	for {
 		// get the next label array on 'a'
@@ -273,5 +285,5 @@ Loop:
 			sb.WriteString(b[bStart:bEnd])
 		}
 	}
-	return sb.String()
+	return LabelArrayListString(sb.String())
 }

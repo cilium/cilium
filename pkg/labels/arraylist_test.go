@@ -195,7 +195,7 @@ func TestModelsFromLabelArrayListString(t *testing.T) {
 	}
 
 	i := 0
-	for model := range ModelsFromLabelArrayListString(arrayList.String()) {
+	for model := range ModelsFromLabelArrayListString(arrayList.ArrayListString()) {
 		require.Equal(t, expected[i], model)
 		i++
 	}
@@ -291,15 +291,15 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 
 		a = tc.a.DeepCopy().Sort()
 		b = tc.b.DeepCopy().Sort()
-		as := a.String()
-		bs := b.String()
+		as := a.ArrayListString()
+		bs := b.ArrayListString()
 
 		a.MergeSorted(b)
 		require.Equal(t, tc.expected, a, tc.name+" MergeSorted")
 		require.Equal(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
 
 		as = MergeSortedLabelArrayListStrings(as, bs)
-		require.Equal(t, tc.expected.String(), as, tc.name+" MergeSortedLabelArrayListStrings")
-		require.Equal(t, a.Sort().String(), as, tc.name+" MergeSortedLabelArrayListStrings returned unsorted result")
+		require.Equal(t, tc.expected.ArrayListString(), as, tc.name+" MergeSortedLabelArrayListStrings")
+		require.Equal(t, a.Sort().ArrayListString(), as, tc.name+" MergeSortedLabelArrayListStrings returned unsorted result")
 	}
 }
