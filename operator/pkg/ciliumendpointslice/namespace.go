@@ -38,7 +38,6 @@ func (c *Controller) processNamespaceEvents(ctx context.Context) error {
 func (c *Controller) onNamespaceUpsert(ns *slimcorev1.Namespace) {
 	value, _ := k8s.Get(ns, priorityNamespaceAnnotation)
 	c.priorityNamespacesLock.Lock()
-	defer c.priorityNamespacesLock.Unlock()
 	if value == "priority" {
 		c.logger.Debug(fmt.Sprintf("Namespace has a priority annotation %s", ns.Name))
 		c.priorityNamespaces[ns.Name] = struct{}{}
@@ -50,14 +49,18 @@ func (c *Controller) onNamespaceUpsert(ns *slimcorev1.Namespace) {
 		}
 		delete(c.priorityNamespaces, ns.Name)
 	}
+	c.priorityNamespacesLock.Unlock()
+
+	touchedCESs := c.manager.GetCESInNs(ns)
+	c.enqueueCESReconciliation(touchedCESs)
 }
 
 // onNamespaceDelete deletes the namespace from the Controller's list of priority namespaces
 // if the namespace is deleted.
 func (c *Controller) onNamespaceDelete(ns *slimcorev1.Namespace) {
 	c.logger.Debug(fmt.Sprintf("Namespace deleted: %s", ns.Name))
+	c.manager.RemoveNamespaceMapping(ns)
 	c.priorityNamespacesLock.Lock()
 	defer c.priorityNamespacesLock.Unlock()
 	delete(c.priorityNamespaces, ns.Name)
-
 }
