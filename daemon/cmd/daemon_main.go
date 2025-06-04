@@ -621,6 +621,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"when a Pod talks to itself over a Service.")
 	option.BindEnv(vp, option.ServiceLoopbackIPv4)
 
+	flags.String(option.ServiceLoopbackIPv6, defaults.ServiceLoopbackIPv6, "IPv6 address for service loopback SNAT "+
+		"when a Pod talks to itself over a Service.")
+	option.BindEnv(vp, option.ServiceLoopbackIPv6)
+
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
 
