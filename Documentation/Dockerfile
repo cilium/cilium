@@ -23,8 +23,6 @@ RUN apk add --no-cache --virtual --update \
     musl-dev \
     && true
 
-RUN addgroup -S docs && adduser -S -G docs docsuser
-
 FROM docs-base AS docs-builder
 ADD ./requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
