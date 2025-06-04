@@ -573,7 +573,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, newEp.labels.IdentityLabels())
 	if rev != 0 {
 		// Run as a goroutine since the runIdentityResolver needs to get the lock
-		go e.runIdentityResolver(e.aliveCtx, false)
+		go e.runIdentityResolver(e.aliveCtx, false, 0)
 	}
 
 	// If desired state is waiting-for-identity but identity is already

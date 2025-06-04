@@ -166,6 +166,9 @@ const (
 	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 5 * time.Second
 
+	// CiliumIdentityMaxJitter is the maximum duration to delay processing a CiliumIdentity under certain conditions.
+	CiliumIdentityMaxJitter = 30 * time.Second
+
 	// IdentityRestoreGracePeriodKvstore is the default value for
 	// option.IdentityRestoreGracePeriod when kvstore is enabled.
 	IdentityRestoreGracePeriodKvstore = 10 * time.Minute
