@@ -3,10 +3,12 @@
 
 package types
 
+import "github.com/cilium/cilium/pkg/labels"
+
 // PolicyCorrelationInfo is the information about a policy required for policy correlation.
 type PolicyCorrelationInfo struct {
 	// RuleLabels are the rule labels.
-	RuleLabels string
+	RuleLabels labels.LabelArrayListString
 	// Revision is the policy revision.
 	Revision uint64
 }
