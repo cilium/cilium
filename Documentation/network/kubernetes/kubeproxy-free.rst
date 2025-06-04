@@ -1423,16 +1423,6 @@ When accessing the service from inside a cluster, the kube-proxy replacement wil
 ignore the field regardless whether it is set. This means that any pod or any host
 process in the cluster will be able to access the ``LoadBalancer`` service internally.
 
-The load balancer source range check feature is enabled by default, and it can be
-disabled by setting ``config.svcSourceRangeCheck=false``.
-
-It makes sense to disable the check when running on some cloud providers e.g. `Amazon NLB
-<https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
-natively implements the check, so the kube-proxy replacement's feature can be disabled.
-Meanwhile `GKE internal TCP/UDP load balancer
-<https://cloud.google.com/kubernetes-engine/docs/how-to/service-parameters#lb_source_ranges>`__
-does not, so the feature must be kept enabled in order to restrict the access.
-
 By default the specified white-listed CIDRs in ``spec.loadBalancerSourceRanges``
 only apply to the ``LoadBalancer`` service, but not the corresponding ``NodePort``
 or ``ClusterIP`` service which get installed along with the ``LoadBalancer`` service.
