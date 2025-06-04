@@ -25,7 +25,7 @@
 	if (is_ipv4) {                                                       \
 		assert(((flags) & CLS_FLAG_IPV6) == 0);                      \
 	} else {                                                             \
-		assert((((flags) & CLS_FLAG_IPV6) != 0) == (ETH_HLEN == 0)); \
+		assert((((flags) & CLS_FLAG_IPV6) != 0));                    \
 	}                                                                    \
 }
 
@@ -86,7 +86,20 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 
 	adjust_l2(ctx);
 
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct ipv6hdr *ip6;
 	cls_flags_t flags;
+	__be16 proto;
+
+	/* Parse L3 once. */
+	if (is_ipv4) {
+		assert(revalidate_data(ctx, &data, &data_end, &ip4));
+		proto = bpf_htons(ETH_P_IP);
+	} else {
+		assert(revalidate_data(ctx, &data, &data_end, &ip6));
+		proto = bpf_htons(ETH_P_IPV6);
+	}
 
 	/*
 	 * Ensure L3_DEVICE_CHECK:
@@ -94,7 +107,7 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * - CLS_FLAG_IPv6 is set with IPv6 packets and ETH_HLEN is zero.
 	 */
 	TEST("native", {
-		flags = ctx_classify(ctx);
+		flags = ctx_classify(ctx, proto);
 		L3_DEVICE_CHECK(flags, is_ipv4);
 	})
 

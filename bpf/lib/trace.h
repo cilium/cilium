@@ -218,7 +218,7 @@ static __always_inline void
 _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
 		   enum trace_reason reason, __u32 monitor,
-		   __be16 proto __maybe_unused, __u16 line, __u8 file)
+		   __be16 proto, __u16 line, __u8 file)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -244,7 +244,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
-	flags = ctx_classify(ctx);
+	flags = ctx_classify(ctx, proto);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
@@ -293,8 +293,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
-	flags = ctx_classify(ctx);
-
+	flags = ctx_classify(ctx, bpf_htons(ETH_P_IP));
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
@@ -343,7 +342,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
-	flags = ctx_classify(ctx) | CLS_FLAG_IPV6;
+	flags = ctx_classify(ctx, bpf_htons(ETH_P_IPV6));
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
