@@ -104,7 +104,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		if cfg.Backend == nil {
 			// Needs to be assigned in a separate goroutine, since it might block
 			// if the client is not yet initialized.
-			cfg.Backend = kvstore.Client()
+			cfg.Backend = kvstore.LegacyClient()
 		}
 
 		store := cfg.StoreFactory.NewSyncStore(cfg.ClusterInfo.Name,

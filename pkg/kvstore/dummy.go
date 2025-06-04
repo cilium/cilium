@@ -51,7 +51,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		tb.Fatalf("Unable to initialize kvstore client: %v", err)
 	}
 
-	client := Client()
+	client := LegacyClient()
 
 	tb.Cleanup(func() {
 		if err := client.DeletePrefix(context.Background(), ""); err != nil {

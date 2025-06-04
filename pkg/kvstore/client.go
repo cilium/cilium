@@ -46,8 +46,8 @@ func initClient(ctx context.Context, logger *slog.Logger, module backendModule, 
 	return nil
 }
 
-// Client returns the global kvstore, blocking until it has been configured
-func Client() BackendOperations {
+// LegacyClient returns the global kvstore, blocking until it has been configured
+func LegacyClient() BackendOperations {
 	<-defaultClientSet
 	return defaultClient
 }
