@@ -51,11 +51,25 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		}
 	}
 
-	if err := initClient(context.Background(), hivetest.Logger(tb), module, ExtraOptions{}); err != nil {
-		tb.Fatalf("Unable to initialize kvstore client: %v", err)
+	client, errCh := module.newClient(context.Background(), hivetest.Logger(tb), ExtraOptions{})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	var err error
+	select {
+	case err = <-errCh:
+	case <-ctx.Done():
+		err = ctx.Err()
 	}
 
-	client := LegacyClient()
+	if err != nil {
+		if client != nil {
+			client.Close()
+		}
+
+		tb.Fatalf("Failed waiting for kvstore connection to be established: %v", err)
+	}
 
 	tb.Cleanup(func() {
 		if err := client.DeletePrefix(context.Background(), ""); err != nil {
@@ -64,13 +78,6 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 
 		client.Close()
 	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	if err := <-client.Connected(ctx); err != nil {
-		tb.Fatalf("Failed waiting for kvstore connection to be established: %v", err)
-	}
 
 	// Multiple tests might be running in parallel by go test if they are part of
 	// different packages. Let's implement a locking mechanism to ensure that only
