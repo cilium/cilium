@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -19,6 +21,59 @@ var (
 	// is set.
 	defaultClientSet = make(chan struct{})
 )
+
+// Client is the client to interact with the kvstore (i.e., etcd).
+type Client interface {
+	// IsEnabled returns true if kvstore support is enabled,
+	// and the client can be used.
+	IsEnabled() bool
+
+	BackendOperations
+}
+
+type clientImpl struct {
+	enabled bool
+
+	cfg    config
+	opts   *ExtraOptions
+	logger *slog.Logger
+
+	BackendOperations
+}
+
+func (cl *clientImpl) IsEnabled() bool {
+	return cl.enabled
+}
+
+func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {
+	cl.logger.Info("Establishing connection to kvstore")
+	client, errCh := NewClient(context.Background(), cl.logger, cl.cfg.KVStore, cl.cfg.KVStoreOpt, cl.opts)
+
+	select {
+	case err = <-errCh:
+	case <-hctx.Done():
+		err = hctx.Err()
+	}
+
+	if err != nil {
+		if client != nil {
+			client.Close()
+		}
+
+		return fmt.Errorf("failed to establish connection to kvstore: %w", err)
+	}
+
+	cl.logger.Info("Connection to kvstore successfully established")
+	cl.BackendOperations = client
+	return nil
+}
+
+func (cl *clientImpl) Stop(cell.HookContext) error {
+	if cl.BackendOperations != nil {
+		cl.BackendOperations.Close()
+	}
+	return nil
+}
 
 func initClient(ctx context.Context, logger *slog.Logger, module backendModule, opts *ExtraOptions) error {
 	scopedLog := logger.With(fieldKVStoreBackend, module.getName())
