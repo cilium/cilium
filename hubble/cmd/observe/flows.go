@@ -161,7 +161,7 @@ var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client obs
 			}
 			cleanup = f.Close
 		}
-		client = NewIOReaderObserver(f)
+		client = NewIOReaderObserver(logger.Logger, f)
 		return client, cleanup, nil
 	}
 	// read flows from a hubble server
