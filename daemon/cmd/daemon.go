@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -706,12 +705,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
-	// this needs to be done *after* init() for the daemon in that function,
-	// we populate the IPCache with the host's IP(s).
-	if option.Config.KVStore != "" {
+	// this needs to be done *after* that the ipcache map has been recreated
+	// by initMaps.
+	if params.IPIdentityWatcher.IsEnabled() {
 		go func() {
 			d.logger.Info("Starting IP identity watcher")
-			params.IPIdentityWatcher.Watch(ctx, kvstore.LegacyClient(), ipcache.WithSelfDeletionProtection(params.IPIdentitySyncer))
+			params.IPIdentityWatcher.Watch(ctx)
 		}()
 	}
 

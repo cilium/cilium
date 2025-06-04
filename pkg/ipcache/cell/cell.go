@@ -10,16 +10,14 @@ import (
 	"github.com/cilium/hive/cell"
 
 	policyapi "github.com/cilium/cilium/api/v1/server/restapi/policy"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipcache/api"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
-	"github.com/cilium/cilium/pkg/source"
 )
 
 // Cell provides the IPCache that manages the IP to identity mappings.
@@ -29,9 +27,18 @@ var Cell = cell.Module(
 
 	cell.Provide(
 		newIPCache,
-		newIPIdentityWatcher,
+		ipcache.NewLocalIPIdentityWatcher,
 		ipcache.NewIPIdentitySynchronizer,
 		newIPCacheAPIHandler,
+	),
+
+	cell.Invoke(
+		// Register the watcher to the fence to ensure that we wait for ipcache
+		// synchronization from the kvstore (when enabled) before endpoint
+		// regeneration, to ensure that the ipcache map is ready at that point.
+		func(watcher *ipcache.LocalIPIdentityWatcher, fence regeneration.Fence) {
+			fence.Add("kvstore-ipcache", watcher.WaitForSync)
+		},
 	),
 )
 
@@ -69,18 +76,6 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	})
 
 	return ipc
-}
-
-func newIPIdentityWatcher(in struct {
-	cell.In
-
-	Logger      *slog.Logger
-	ClusterInfo cmtypes.ClusterInfo
-	IPCache     *ipcache.IPCache
-	Factory     store.Factory
-},
-) *ipcache.IPIdentityWatcher {
-	return ipcache.NewIPIdentityWatcher(in.Logger, in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
 }
 
 type ipcacheAPIHandlerParams struct {

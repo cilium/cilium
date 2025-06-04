@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -41,7 +40,6 @@ type KVStoreNodesWaitFn wait.Fn
 // Regenerator wraps additional functionalities for endpoint regeneration.
 type Regenerator struct {
 	nodesWaitFn   KVStoreNodesWaitFn
-	ipcacheWaitFn wait.Fn
 	cmWaitFn      wait.Fn
 	cmWaitTimeout time.Duration
 	fence         regeneration.Fence
@@ -57,7 +55,6 @@ func newRegenerator(in struct {
 
 	Config         wait.TimeoutConfig
 	NodesWaitFn    KVStoreNodesWaitFn
-	IPCacheSync    *ipcache.IPIdentityWatcher
 	ClusterMesh    *clustermesh.ClusterMesh
 	Fence          regeneration.Fence
 	LBInitWaitFunc loadbalancer.InitWaitFunc
@@ -69,7 +66,6 @@ func newRegenerator(in struct {
 	r := &Regenerator{
 		logger:        in.Logger,
 		nodesWaitFn:   in.NodesWaitFn,
-		ipcacheWaitFn: in.IPCacheSync.WaitForSync,
 		cmWaitFn:      waitFn,
 		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
 		fence:         in.Fence,
@@ -110,11 +106,7 @@ func (r *Regenerator) WaitForFence(ctx context.Context) error {
 }
 
 func (r *Regenerator) waitForKVStoreSync(ctx context.Context) error {
-	if err := r.nodesWaitFn(ctx); err != nil {
-		return err
-	}
-
-	return r.ipcacheWaitFn(ctx)
+	return r.nodesWaitFn(ctx)
 }
 
 func (r *Regenerator) waitForClusterMeshIPIdentitiesSync(ctx context.Context) error {
