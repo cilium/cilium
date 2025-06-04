@@ -38,6 +38,19 @@ newer v1.17 releases to support a disruption-less upgrade to v1.18.
 Once patched to the newest v1.17 stable release, a normal upgrade to v1.18 can
 be performed.
 
+.. note::
+
+   Because VXLAN is encrypted before being sent, operators see ESP
+   traffic between Kubernetes nodes.
+
+   This may result in the need to update firewall rules to allow ESP traffic
+   between nodes.
+   This is especially important in Google Cloud GKE environments.
+   The default firewall rules for the cluster's subnet do not allow ESP.
+
+   An example of creating a firewall rule can be found in Cilium's GKE
+   conformance tests: ".github/workflows/conformance-gke.yaml"
+
 Generate & Import the PSK
 =========================
 
