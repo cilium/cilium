@@ -1166,8 +1166,12 @@ func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	var err error
-	info.RuleLabels, err = e.realizedPolicy.GetRuleLabels(key)
+	ruleMeta, err := e.realizedPolicy.GetRuleMeta(key)
+	if err != nil {
+		return info, false
+	}
+	info.RuleLabels = ruleMeta.LabelArrayListString()
+	info.Log = ruleMeta.Log()
 	info.Revision = e.policyRevision
 	return info, err == nil
 }
