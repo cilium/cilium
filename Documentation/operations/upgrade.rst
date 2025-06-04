@@ -309,6 +309,9 @@ communicating via the proxy must reconnect to re-establish connections.
   exclude the ``io.cilium.k8s.policy.serviceaccount`` label.
 * If using IPsec encryption the upgrade from v1.17 to v1.18 requires special attention.
   Please reference :ref:`encryption_ipsec`.
+* If using an IPsec deployment within a Google Cloud GKE cluster the default firewall rules for the cluster's subnet
+  must be updated to allow ESP traffic.
+  See :ref:`encryption_ipsec` for details.
 * The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
   To keep the ``enableIPv4Masquerade`` enabled, explicitly set the value for
   this option to ``true``, or use a value strictly lower than 1.18 for
