@@ -30,9 +30,12 @@ var (
 	enableDefaultDenyDefault = true
 )
 
-// Sanitize validates and sanitizes a policy rule. Minor edits such as
-// capitalization of the protocol name are automatically fixed up. More
-// fundamental violations will cause an error to be returned.
+// Sanitize validates and sanitizes a policy rule. Minor edits such as capitalization
+// of the protocol name are automatically fixed up.
+// As part of `EndpointSelector` sanitization we also convert the label keys to internal
+// representation prefixed with the source information. Check `EndpointSelector.sanitize()`
+// method for more details.
+// More fundamental violations will cause an error to be returned.
 //
 // Note: this function is called from both the operator and the agent;
 // make sure any configuration flags are bound in **both** binaries.
@@ -224,20 +227,20 @@ func (i *IngressCommonRule) sanitize() error {
 		retErr = ErrFromToNodesRequiresNodeSelectorOption
 	}
 
-	for _, es := range i.FromEndpoints {
-		if err := es.sanitize(); err != nil {
+	for n := range i.FromEndpoints {
+		if err := i.FromEndpoints[n].sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, es := range i.FromRequires {
-		if err := es.sanitize(); err != nil {
+	for n := range i.FromRequires {
+		if err := i.FromRequires[n].sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, ns := range i.FromNodes {
-		if err := ns.sanitize(); err != nil {
+	for n := range i.FromNodes {
+		if err := i.FromNodes[n].sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -437,20 +440,20 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 		retErr = ErrFromToNodesRequiresNodeSelectorOption
 	}
 
-	for _, es := range e.ToEndpoints {
-		if err := es.sanitize(); err != nil {
+	for i := range e.ToEndpoints {
+		if err := e.ToEndpoints[i].sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, es := range e.ToRequires {
-		if err := es.sanitize(); err != nil {
+	for i := range e.ToRequires {
+		if err := e.ToRequires[i].sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, ns := range e.ToNodes {
-		if err := ns.sanitize(); err != nil {
+	for i := range e.ToNodes {
+		if err := e.ToNodes[i].sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
