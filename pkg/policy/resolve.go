@@ -59,6 +59,9 @@ type PolicyContext interface {
 	// DefaultDenyEgress returns true if default deny is enabled for egress
 	DefaultDenyEgress() bool
 
+	SetOrigin(ruleOrigin)
+	Origin() ruleOrigin
+
 	GetLogger() *slog.Logger
 
 	PolicyTrace(format string, a ...any)
@@ -72,6 +75,8 @@ type policyContext struct {
 	isDeny             bool
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
+
+	origin ruleOrigin
 
 	logger       *slog.Logger
 	traceEnabled bool
@@ -124,6 +129,14 @@ func (p *policyContext) DefaultDenyIngress() bool {
 // DefaultDenyEgress returns true if default deny is enabled for egress
 func (p *policyContext) DefaultDenyEgress() bool {
 	return p.defaultDenyEgress
+}
+
+func (p *policyContext) SetOrigin(ro ruleOrigin) {
+	p.origin = ro
+}
+
+func (p *policyContext) Origin() ruleOrigin {
+	return p.origin
 }
 
 func (p *policyContext) GetLogger() *slog.Logger {
@@ -234,7 +247,7 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 // 'key' must not have a wildcard identity or port.
 func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
 	entry, found := p.policyMapState.lookup(key)
-	lbls := labels.LabelArrayListFromString(entry.derivedFromRules.Value())
+	lbls := labels.LabelArrayListFromString(entry.derivedFromRules.LabelsString())
 	return entry.MapStateEntry, lbls, found
 }
 
@@ -382,7 +395,7 @@ func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelArrayListString, erro
 	if !ok {
 		return "", errMissingKey
 	}
-	return entry.derivedFromRules.Value(), nil
+	return entry.derivedFromRules.LabelsString(), nil
 }
 
 func (p *EndpointPolicy) Entries() iter.Seq2[Key, MapStateEntry] {

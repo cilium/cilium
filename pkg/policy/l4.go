@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"unique"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
@@ -415,31 +414,6 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 	return ParserTypeNone, fmt.Errorf("cannot merge conflicting L7 parsers (%s/%s)", a, b)
 }
 
-// ruleOrigin is an interned labels.LabelArrayList.String(), a list of rule labels tracking which
-// policy rules are the origin for this policy. This information is used when distilling a policy to
-// an EndpointPolicy, to track which policy rules were involved for a specific verdict.
-type ruleOrigin unique.Handle[labels.LabelArrayListString]
-
-func (ro ruleOrigin) Value() labels.LabelArrayListString {
-	return unique.Handle[labels.LabelArrayListString](ro).Value()
-}
-
-func makeRuleOrigin(lbls labels.LabelArrayList) ruleOrigin {
-	return ruleOrigin(unique.Make(lbls.ArrayListString()))
-}
-
-func (ro *ruleOrigin) Merge(other ruleOrigin) bool {
-	if ro.Value() == "" {
-		*ro = other
-		return true
-	}
-	if other.Value() != "" {
-		*ro = ruleOrigin(unique.Make(labels.MergeSortedLabelArrayListStrings(ro.Value(), other.Value())))
-		return true
-	}
-	return false
-}
-
 // hasWildcard checks if the L7Rules contains a wildcard rule for the given parser type.
 func hasWildcard(rules *api.L7Rules, parserType L7ParserType) bool {
 	if rules == nil {
@@ -523,39 +497,6 @@ func ensureWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
 	}
 
 	return addWildcard(rules, parserType)
-}
-
-func singleRuleOrigin(ruleLabels stringLabels) ruleOrigin {
-	return ruleOrigin(ruleLabels)
-}
-
-var NilRuleOrigin = singleRuleOrigin(EmptyStringLabels)
-
-type testOrigin map[CachedSelector]labels.LabelArrayList
-
-func OriginForTest(m testOrigin) map[CachedSelector]ruleOrigin {
-	res := make(map[CachedSelector]ruleOrigin, len(m))
-	for cs, lbls := range m {
-		res[cs] = makeRuleOrigin(lbls)
-	}
-	return res
-}
-
-func (o ruleOrigin) GetLabelArrayList() labels.LabelArrayList {
-	return labels.LabelArrayListFromString(o.Value())
-}
-
-// stringLabels is an interned labels.LabelArray.String()
-type stringLabels unique.Handle[labels.LabelArrayListString]
-
-var EmptyStringLabels = makeStringLabels(nil)
-
-func (sl stringLabels) Value() labels.LabelArrayListString {
-	return unique.Handle[labels.LabelArrayListString](sl).Value()
-}
-
-func makeStringLabels(lbls labels.LabelArray) stringLabels {
-	return stringLabels(unique.Make(labels.LabelArrayList{lbls.Sort()}.ArrayListString()))
 }
 
 // L4Filter represents the policy (allowed remote sources / destinations of
@@ -896,13 +837,15 @@ func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringL
 	return cs
 }
 
-func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, lbls stringLabels, selectorCache *SelectorCache) {
+func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
+	lbls := meta.stringLabels()
 	for _, sel := range selectors {
 		l4.cacheIdentitySelector(sel, lbls, selectorCache)
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, lbls stringLabels, selectorCache *SelectorCache) {
+func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
+	lbls := meta.stringLabels()
 	for _, fqdnSel := range selectors {
 		l4.cacheFQDNSelector(fqdnSel, lbls, selectorCache)
 	}
@@ -996,10 +939,11 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
 func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels stringLabels, ingress bool, fqdns api.FQDNSelectorSlice,
+	protocol api.L4Proto, ingress bool, fqdns api.FQDNSelectorSlice,
 ) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
+	origin := policyCtx.Origin()
 
 	portName := ""
 	p := uint64(0)
@@ -1026,10 +970,10 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	}
 
 	if peerEndpoints.SelectsAllEndpoints() {
-		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, ruleLabels, selectorCache)
+		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, origin.stringLabels(), selectorCache)
 	} else {
-		l4.cacheIdentitySelectors(peerEndpoints, ruleLabels, selectorCache)
-		l4.cacheFQDNSelectors(fqdns, ruleLabels, selectorCache)
+		l4.cacheIdentitySelectors(peerEndpoints, origin, selectorCache)
+		l4.cacheFQDNSelectors(fqdns, origin, selectorCache)
 	}
 
 	var l7Parser L7ParserType
@@ -1139,7 +1083,6 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, listener, priority)
 	}
 
-	origin := singleRuleOrigin(ruleLabels)
 	for cs := range l4.PerSelectorPolicies {
 		l4.RuleOrigin[cs] = origin
 	}
@@ -1214,9 +1157,9 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
 func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels stringLabels,
+	protocol api.L4Proto,
 ) (*L4Filter, error) {
-	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, ruleLabels, true, nil)
+	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1228,7 +1171,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
 				for _, name := range hostWildcardL7 {
 					selector := api.ReservedEndpointSelectors[name]
-					filter.cacheIdentitySelector(selector, ruleLabels, policyCtx.GetSelectorCache())
+					filter.cacheIdentitySelector(selector, policyCtx.Origin().stringLabels(), policyCtx.GetSelectorCache())
 				}
 			}
 		}
@@ -1242,9 +1185,9 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels stringLabels, fqdns api.FQDNSelectorSlice,
+	protocol api.L4Proto, fqdns api.FQDNSelectorSlice,
 ) (*L4Filter, error) {
-	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, ruleLabels, false, fqdns)
+	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, false, fqdns)
 }
 
 // redirectType returns the redirectType for this filter
@@ -1332,9 +1275,7 @@ func addL4Filter(policyCtx PolicyContext,
 	// we know about. New CachedSelectors are added.
 	for cs, newLabels := range filterToMerge.RuleOrigin {
 		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
-			if changed := existingLabels.Merge(newLabels); changed {
-				existingFilter.RuleOrigin[cs] = existingLabels
-			}
+			existingFilter.RuleOrigin[cs] = existingLabels.Merge(newLabels)
 		} else {
 			existingFilter.RuleOrigin[cs] = newLabels
 		}

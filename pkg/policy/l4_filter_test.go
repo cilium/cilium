@@ -237,6 +237,14 @@ func (p *testPolicyContextType) GetLogger() *slog.Logger {
 	return p.logger
 }
 
+func (p *testPolicyContextType) Origin() ruleOrigin {
+	return NilRuleOrigin
+}
+
+func (p *testPolicyContextType) SetOrigin(ruleOrigin) {
+	panic("SetOrigin not implemented")
+}
+
 func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
 }
@@ -2464,8 +2472,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 
 			toEndpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
 
-			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto,
-				EmptyStringLabels, nil)
+			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto, nil)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)

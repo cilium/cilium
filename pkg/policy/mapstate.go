@@ -410,7 +410,7 @@ func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority Listene
 // newAllowEntryWithLabels creates an allow entry with the specified labels.
 // Used for adding allow-all entries when policy enforcement is not wanted.
 func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(singleRuleOrigin(makeStringLabels(lbls)), 0, 0, false, NoAuthRequirement)
+	return newMapStateEntry(makeSingleRuleOrigin(lbls), 0, 0, false, NoAuthRequirement)
 }
 
 func NewMapStateEntry(e MapStateEntry) mapStateEntry {
@@ -567,7 +567,7 @@ func (e *mapStateEntry) Equal(o *mapStateEntry) bool {
 
 // String returns a string representation of the MapStateEntry
 func (e mapStateEntry) String() string {
-	return e.MapStateEntry.String() + ",derivedFromRules=" + string(e.derivedFromRules.Value())
+	return e.MapStateEntry.String() + ",derivedFromRules=" + string(e.derivedFromRules.LabelsString())
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
@@ -589,9 +589,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		datapathEqual = oldEntry.MapStateEntry == entry.MapStateEntry
 
 		oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
-		if entry.derivedFromRules.Value() != "" {
-			oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
-		}
+		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
 
 		ms.updateExisting(key, oldEntry)
 	} else if !exists || entry.IsDeny() {
