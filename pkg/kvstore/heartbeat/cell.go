@@ -5,12 +5,16 @@ package heartbeat
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type Config struct {
@@ -23,30 +27,22 @@ var Cell = cell.Module(
 	"kvstore-heartbeat-updater",
 	"KVStore Heartbeat Updater",
 
-	cell.Invoke(func(config Config, logger *slog.Logger, lc cell.Lifecycle, backend kvstore.Client) {
-		if !backend.IsEnabled() || !config.EnableHeartBeat {
+	cell.Invoke(func(config Config, logger *slog.Logger, jg job.Group, client kvstore.Client) {
+		if !client.IsEnabled() || !config.EnableHeartBeat {
 			return
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		var wg sync.WaitGroup
+		jg.Add(job.Timer("kvstore-heartbeat", func(ctx context.Context) error {
+			tctx, cancel := context.WithTimeout(ctx, defaults.LockLeaseTTL)
+			defer cancel()
 
-		lc.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			err := client.Update(tctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
+			if err != nil {
+				logger.Warn("Unable to update heartbeat key", logfields.Error, err)
+				return fmt.Errorf("unable to update heartbeat key: %w", err)
+			}
 
-					Heartbeat(ctx, logger, backend)
-				}()
-				return nil
-			},
-
-			OnStop: func(ctx cell.HookContext) error {
-				cancel()
-				wg.Wait()
-				return nil
-			},
-		})
+			return nil
+		}, kvstore.HeartbeatWriteInterval))
 	}),
 )
