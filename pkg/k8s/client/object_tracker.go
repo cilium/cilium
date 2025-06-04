@@ -290,7 +290,10 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 	if len(newMeta.GetNamespace()) == 0 {
 		newMeta.SetNamespace(ns)
 	}
+
 	wtxn := s.db.WriteTxn(s.tbl)
+	version := s.tbl.Revision(wtxn) + 1
+	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
 	_, found, _ := s.tbl.Insert(wtxn, object{
 		objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()),
 		o:        obj})
@@ -384,7 +387,7 @@ func (s *statedbObjectTracker) List(gvr schema.GroupVersionResource, gvk schema.
 	matchingObjects := []runtime.Object{}
 	txn := s.db.ReadTxn()
 
-	for obj, rev := range s.tbl.All(txn) {
+	for obj := range s.tbl.All(txn) {
 		if obj.domain != s.domain || obj.gvr != gvr ||
 			(ns != "" && obj.Namespace != ns) {
 			continue
@@ -400,10 +403,7 @@ func (s *statedbObjectTracker) List(gvr schema.GroupVersionResource, gvk schema.
 			}
 		}
 
-		o := obj.o.DeepCopyObject()
-		m, _ := meta.Accessor(o)
-		m.SetResourceVersion(strconv.FormatUint(rev, 10))
-		matchingObjects = append(matchingObjects, o)
+		matchingObjects = append(matchingObjects, obj.o.DeepCopyObject())
 	}
 	m, _ := meta.ListAccessor(list)
 	m.SetResourceVersion(strconv.FormatUint(s.tbl.Revision(txn), 10))
