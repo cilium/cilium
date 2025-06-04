@@ -46,3 +46,10 @@ var Cell = cell.Module(
 		}, kvstore.HeartbeatWriteInterval))
 	}),
 )
+
+// Enabled unconditionally enables the heartbeat updater logic.
+var Enabled = cell.Provide(func() Config {
+	return Config{
+		EnableHeartBeat: true,
+	}
+})
