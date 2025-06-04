@@ -1506,12 +1506,13 @@ skip_service_lookup:
 			struct icmp6hdr icmp6hdr;
 			if (ctx_load_bytes(ctx, l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
 			    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
-				/* Create a service lookup key for ICMP */
+				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY)
+				 * Try both external and internal scopes to handle all traffic types.
+				 */
 				struct lb6_key icmp_key = {};
 				memcpy(&icmp_key.address, &ip6->daddr, sizeof(icmp_key.address));
-				icmp_key.dport = 0; /* ICMP doesn't have ports */
-				icmp_key.proto = IPPROTO_ICMPV6;
-				icmp_key.scope = LB_LOOKUP_SCOPE_EXT;
+				icmp_key.dport = 0;
+				icmp_key.proto = IPPROTO_ANY;
 
 				svc = lb6_lookup_service(&icmp_key, false);
 				if (svc) {
@@ -2908,12 +2909,13 @@ skip_service_lookup:
 			struct icmphdr icmphdr;
 			if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
 			    icmphdr.type == ICMP_ECHO) {
-				/* Create a service lookup key for ICMP */
+					/* Look for any service on this IP using wildcard entry (port=0, proto=ANY)
+				 * Try both external and internal scopes to handle all traffic types.
+				 */
 				struct lb4_key icmp_key = {};
 				icmp_key.address = ip4->daddr;
-				icmp_key.dport = 0; /* ICMP doesn't have ports */
-				icmp_key.proto = IPPROTO_ICMP;
-				icmp_key.scope = LB_LOOKUP_SCOPE_EXT;
+				icmp_key.dport = 0;
+				icmp_key.proto = IPPROTO_ANY;
 
 				svc = lb4_lookup_service(&icmp_key, false);
 				if (svc) {

@@ -421,7 +421,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	// Delete wildcard service entry for ClusterIP and LoadBalancer services
-	if ops.cfg.DropTrafficToVirtualIPs && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
+	if (ops.cfg.DropTrafficToVirtualIPs || ops.cfg.ReplyToICMPEchoOnVirtualIPs) && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
 		var wildcardKey lbmap.ServiceKey
 		if fe.Address.IsIPv6() {
 			wildcardKey = lbmap.NewService6Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
@@ -998,8 +998,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	// Create wildcard service entry (port 0) for ClusterIP and LoadBalancer services
-	// to enable dropping traffic to non-existent ports on virtual IPs
-	if ops.cfg.DropTrafficToVirtualIPs && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
+	// to enable dropping traffic to non-existent ports or ICMP echo replies on virtual IPs
+	if (ops.cfg.DropTrafficToVirtualIPs || ops.cfg.ReplyToICMPEchoOnVirtualIPs) && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
 		// Create a new key for the wildcard entry
 		var wildcardKey lbmap.ServiceKey
 		var wildcardVal lbmap.ServiceValue

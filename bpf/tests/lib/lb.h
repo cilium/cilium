@@ -90,14 +90,15 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend
 	__lb_v4_add_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			    flags, flags2, false, 0);
 	
-#ifdef ENABLE_DROP_VIRTUAL_IP_TRAFFIC
+#if defined(ENABLE_DROP_VIRTUAL_IP_TRAFFIC) || defined(ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY)
 	/* Automatically create wildcard entry for ClusterIP and LoadBalancer services
-	 * to enable dropping traffic to non-existent ports on virtual IPs
+	 * to enable dropping traffic to non-existent ports on virtual IPs or
+	 * to enable ICMP echo replies on virtual IPs
 	 */
 	if (!(flags & SVC_FLAG_ROUTABLE) || (flags2 & SVC_FLAG_LOADBALANCER)) {
 		/* This is a ClusterIP (not routable) or LoadBalancer service.
 		 * Create a wildcard entry (port=0, IPPROTO_ANY) with 0 backends
-		 * to trigger drops for non-existent ports.
+		 * to trigger drops for non-existent ports or ICMP echo replies.
 		 */
 		struct lb4_key wildcard_key = {
 			.address = addr,
@@ -113,7 +114,7 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend
 					    flags, flags2, false, 0);
 		}
 	}
-#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC */
+#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC || ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 	
 }
 
@@ -224,14 +225,15 @@ lb_v6_add_service_with_flags(const union v6addr *addr, __be16 port, __u8 proto,
 	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index, flags,
 			    flags2);
 	
-#ifdef ENABLE_DROP_VIRTUAL_IP_TRAFFIC
+#if defined(ENABLE_DROP_VIRTUAL_IP_TRAFFIC) || defined(ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY)
 	/* Automatically create wildcard entry for ClusterIP and LoadBalancer services
-	 * to enable dropping traffic to non-existent ports on virtual IPs
+	 * to enable dropping traffic to non-existent ports on virtual IPs or
+	 * to enable ICMPv6 echo replies on virtual IPs
 	 */
 	if (!(flags & SVC_FLAG_ROUTABLE) || (flags2 & SVC_FLAG_LOADBALANCER)) {
 		/* This is a ClusterIP (not routable) or LoadBalancer service.
 		 * Create a wildcard entry (port=0, IPPROTO_ANY) with 0 backends
-		 * to trigger drops for non-existent ports.
+		 * to trigger drops for non-existent ports or ICMPv6 echo replies.
 		 */
 		struct lb6_key wildcard_key __align_stack_8 = {
 			.dport = 0,
@@ -247,7 +249,7 @@ lb_v6_add_service_with_flags(const union v6addr *addr, __be16 port, __u8 proto,
 					    flags, flags2);
 		}
 	}
-#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC */
+#endif /* ENABLE_DROP_VIRTUAL_IP_TRAFFIC || ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 	
 }
 
