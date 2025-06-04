@@ -1485,8 +1485,13 @@ type Flow struct {
 	EgressDeniedBy []*Policy `protobuf:"bytes,21004,rep,name=egress_denied_by,json=egressDeniedBy,proto3" json:"egress_denied_by,omitempty"`
 	// The CiliumNetworkPolicies denying the ingress of the flow.
 	IngressDeniedBy []*Policy `protobuf:"bytes,21005,rep,name=ingress_denied_by,json=ingressDeniedBy,proto3" json:"ingress_denied_by,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The set of Log values for policies that matched this flow.
+	// If no matched policies have an explicit log value configured,
+	// this list is empty. Duplicate values are elided; each
+	// entry is unique.
+	PolicyLog     []string `protobuf:"bytes,21006,rep,name=policy_log,json=policyLog,proto3" json:"policy_log,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Flow) Reset() {
@@ -1798,6 +1803,13 @@ func (x *Flow) GetEgressDeniedBy() []*Policy {
 func (x *Flow) GetIngressDeniedBy() []*Policy {
 	if x != nil {
 		return x.IngressDeniedBy
+	}
+	return nil
+}
+
+func (x *Flow) GetPolicyLog() []string {
+	if x != nil {
+		return x.PolicyLog
 	}
 	return nil
 }
@@ -4907,7 +4919,7 @@ var File_flow_flow_proto protoreflect.FileDescriptor
 
 const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xed\x0e\n" +
+	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8e\x0f\n" +
 	"\x04Flow\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04uuid\x18\" \x01(\tR\x04uuid\x12'\n" +
@@ -4955,7 +4967,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x11egress_allowed_by\x18\x89\xa4\x01 \x03(\v2\f.flow.PolicyR\x0fegressAllowedBy\x12<\n" +
 	"\x12ingress_allowed_by\x18\x8a\xa4\x01 \x03(\v2\f.flow.PolicyR\x10ingressAllowedBy\x128\n" +
 	"\x10egress_denied_by\x18\x8c\xa4\x01 \x03(\v2\f.flow.PolicyR\x0eegressDeniedBy\x12:\n" +
-	"\x11ingress_denied_by\x18\x8d\xa4\x01 \x03(\v2\f.flow.PolicyR\x0fingressDeniedByJ\x04\b\a\x10\bJ\x04\b\f\x10\rJ\x04\b\x11\x10\x12J\x04\b\x12\x10\x13\"2\n" +
+	"\x11ingress_denied_by\x18\x8d\xa4\x01 \x03(\v2\f.flow.PolicyR\x0fingressDeniedBy\x12\x1f\n" +
+	"\n" +
+	"policy_log\x18\x8e\xa4\x01 \x03(\tR\tpolicyLogJ\x04\b\a\x10\bJ\x04\b\f\x10\rJ\x04\b\x11\x10\x12J\x04\b\x12\x10\x13\"2\n" +
 	"\bFileInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04line\x18\x02 \x01(\rR\x04line\"\xc4\x01\n" +
