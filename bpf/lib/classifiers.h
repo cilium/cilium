@@ -36,7 +36,49 @@ enum {
 		 (TUNNEL_PROTOCOL) == TUNNEL_PROTOCOL_GENEVE ? CLS_FLAG_GENEVE : \
 		 (__throw_build_bug(), 0))                        \
 	: (__throw_build_bug(), 0))
-#endif
+
+/**
+ * supports_overlay_mark
+ * @obs_point: trace observation point (TRACE_{FROM,TO}_*)
+ *
+ * Returns true whether the provided observation point can observe Overlay traffic marked with the
+ * MARK_MAGIC_OVERLAY value. This mark used in to-{netdev,wireguard}.
+ */
+static __always_inline bool
+supports_overlay_mark(enum trace_point obs_point __maybe_unused)
+{
+# if __ctx_is == __ctx_skb
+	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_TO_NETWORK ||
+					obs_point == TRACE_POINT_UNKNOWN))
+		return true;
+	if (is_defined(IS_BPF_WIREGUARD) && (obs_point == TRACE_TO_CRYPTO ||
+					     obs_point == TRACE_POINT_UNKNOWN))
+		return true;
+# endif /* __ctx_is == __ctx_skb */
+	return false;
+}
+
+/**
+ * supports_overlay_header
+ * @obs_point: trace observation point (TRACE_{FROM,TO}_*)
+ *
+ * Returns true whether the provided observation point can observe Overlay traffic via raw packet
+ * parsing of L2/L3/L4 headers. Such packets are traced in from-{netdev,wireguard}, and in to-stack
+ * events but with ENABLE_IPSEC only for encryption (VinE).
+ */
+static __always_inline bool
+supports_overlay_header(enum trace_point obs_point)
+{
+	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_FROM_NETWORK ||
+					obs_point == TRACE_POINT_UNKNOWN ||
+					(is_defined(ENABLE_IPSEC) && obs_point == TRACE_TO_STACK)))
+		return true;
+	if (is_defined(IS_BPF_WIREGUARD) && (obs_point == TRACE_FROM_CRYPTO ||
+					     obs_point == TRACE_POINT_UNKNOWN))
+		return true;
+	return false;
+}
+#endif /* HAVE_ENCAP */
 
 /**
  * ctx_classify
@@ -84,11 +126,7 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
 # ifdef HAVE_ENCAP
-	/* MARK_MAGIC_OVERLAY is used in to-{netdev,wireguard}. */
-	if (((is_defined(IS_BPF_HOST) &&
-	      (obs_point == TRACE_TO_NETWORK || obs_point == TRACE_POINT_UNKNOWN)) ||
-	     (is_defined(IS_BPF_WIREGUARD) &&
-	      (obs_point == TRACE_TO_CRYPTO || obs_point == TRACE_POINT_UNKNOWN))) &&
+	if (supports_overlay_mark(obs_point) &&
 	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY) {
 		flags |= CLS_FLAG_TUNNEL;
 		goto out;
@@ -97,12 +135,7 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __
 #endif /* __ctx_skb */
 
 #ifdef HAVE_ENCAP
-	/* Enable parsing packet headers for Overlay in from-{netdev,wireguard} and to-stack. */
-	if ((is_defined(IS_BPF_HOST) &&
-	     (obs_point == TRACE_FROM_NETWORK || obs_point == TRACE_POINT_UNKNOWN ||
-	      (is_defined(ENABLE_IPSEC) && obs_point == TRACE_TO_STACK))) ||
-	    (is_defined(IS_BPF_WIREGUARD) &&
-	     (obs_point == TRACE_FROM_CRYPTO || obs_point == TRACE_POINT_UNKNOWN)))
+	if (supports_overlay_header(obs_point))
 		parse_overlay = true;
 #endif /* HAVE_ENCAP */
 
