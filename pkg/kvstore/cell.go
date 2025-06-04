@@ -49,6 +49,9 @@ func Cell(defaultBackend string) cell.Cell {
 			option.Config.KVstorePeriodicSync = in.Config.KVStorePeriodicSync
 			option.Config.KVstoreMaxConsecutiveQuorumErrors = in.Config.KVstoreMaxConsecutiveQuorumErrors
 
+			// Set the global variables, to allow for a gradual migration.
+			defaultClientSet = make(chan struct{})
+
 			if in.Config.KVStore == DisabledBackendName {
 				return &clientImpl{enabled: false, cfg: in.Config}
 			}
