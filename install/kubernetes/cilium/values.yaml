@@ -2080,9 +2080,9 @@ envoy:
   image:
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.32.6-1748000354-511c3f2abf0328d3bc108150432f2a4789c26d36"
+    tag: "v1.32.6-1749000265-801f80bd1f4a545dfe3ef41fb248b5c386ef791f"
     pullPolicy: "IfNotPresent"
-    digest: "sha256:3ead1a6f66b80a9ce67bc95c2f6200ad64529834c6da14f4f4c40216d09d358d"
+    digest: "sha256:a5cc8588199e21483feda9124be37f97c74d932192233de64c5cfdddd896aeca"
     useDigest: true
 
   # -- Additional containers added to the cilium Envoy DaemonSet.
@@ -3424,7 +3424,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.36.1"
-          digest: "sha256:c3ef74e9b647910e409925f2af51a2fc11fe6cbd9df29f9a9f41d953d03bd189"
+          digest: "sha256:7edf5efe6b86dbf01ccc3c76b32a37a8e23b84e6bad81ce8ae8c221fa456fda8"
           useDigest: true
           pullPolicy: "IfNotPresent"
         # SPIRE agent configuration
