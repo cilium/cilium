@@ -1440,8 +1440,7 @@ type daemonParams struct {
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
 	CTNATMapGC          ctmap.GCRunner
-	IPIdentityWatcher   *ipcache.IPIdentityWatcher
-	IPIdentitySyncer    *ipcache.IPIdentitySynchronizer
+	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
 	EndpointRegenerator *endpoint.Regenerator
 	ClusterInfo         cmtypes.ClusterInfo
 	TunnelConfig        tunnel.Config
@@ -1590,10 +1589,8 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// we have discovered all remote IP addresses, to prevent triggering
 			// the collection of stale AllowedIPs entries too early, leading to
 			// the disruption of otherwise valid long running connections.
-			if option.Config.KVStore != "" {
-				if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
-					return
-				}
+			if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
+				return
 			}
 
 			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
