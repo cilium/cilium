@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // bpfMaglevListCmd represents the bpf lb maglev list command
@@ -73,7 +72,7 @@ func openMaglevOuterMap(logger *slog.Logger, name string) (*ebpf.Map, error) {
 // dumps the backend tables of all services. Returns an empty initialized
 // map if the given eBPF map does not exist.
 func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
-	m, err := openMaglevOuterMap(logging.DefaultSlogLogger, name)
+	m, err := openMaglevOuterMap(log, name)
 	if errors.Is(err, os.ErrNotExist) {
 		// Map not existing is not an error.
 		// Skip dumping it and return an empty allocated map.
@@ -101,7 +100,7 @@ func dumpMaglevBackends(m *ebpf.Map, ipv6 bool) (map[string][]string, error) {
 	}
 	iter := m.Iterate()
 	for iter.Next(&key, &val) {
-		inner, err := lbmaps.MaglevInnerMapFromID(logging.DefaultSlogLogger, val.FD)
+		inner, err := lbmaps.MaglevInnerMapFromID(val.FD)
 		if err != nil {
 			return nil, fmt.Errorf("cannot open inner map with id %d: %w", val.FD, err)
 		}

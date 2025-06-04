@@ -46,7 +46,7 @@ has an exit code 1 is returned.`,
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
+		if err := hive.Run(log); err != nil {
 			logging.Fatal(log, err.Error())
 		}
 	}

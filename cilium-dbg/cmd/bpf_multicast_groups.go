@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/logging"
 	maps_multicast "github.com/cilium/cilium/pkg/maps/multicast"
 )
 
@@ -41,7 +40,7 @@ var MulticastGroupListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf multicast group list")
 
-		groupV4Map, err := getMulticastGroupMap(logging.DefaultSlogLogger)
+		groupV4Map, err := getMulticastGroupMap(log)
 		if err != nil {
 			Fatalf("failed to get multicast bpf map: %s", err)
 		}
@@ -90,7 +89,7 @@ cilium-dbg bpf multicast group add 229.0.0.1`,
 			Fatalf("Invalid arguments: %s", err)
 		}
 
-		groupV4Map, err := getMulticastGroupMap(logging.DefaultSlogLogger)
+		groupV4Map, err := getMulticastGroupMap(log)
 		if err != nil {
 			Fatalf("failed to get multicast bpf map: %s", err)
 		}
@@ -118,7 +117,7 @@ cilium-dbg bpf multicast group delete 229.0.0.1`,
 			Fatalf("Invalid arguments: %s", err)
 		}
 
-		groupV4Map, err := getMulticastGroupMap(logging.DefaultSlogLogger)
+		groupV4Map, err := getMulticastGroupMap(log)
 		if err != nil {
 			Fatalf("failed to get multicast bpf map: %s", err)
 		}
