@@ -19,7 +19,7 @@ import (
 )
 
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
-	e.derivedFromRules = makeRuleOrigin(lbls)
+	e.derivedFromRules = makeRuleOrigin(lbls, nil)
 	return e
 }
 

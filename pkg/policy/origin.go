@@ -4,8 +4,12 @@
 package policy
 
 import (
+	"encoding/json"
+	"slices"
+	"strings"
 	"unique"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -17,6 +21,7 @@ type stringList string
 // are strings (but are really delimited lists)
 type RuleMeta struct {
 	labels labels.LabelArrayListString // from LabelArrayList.String()
+	log    stringList
 }
 
 func (rm RuleMeta) LabelArray() labels.LabelArrayList {
@@ -25,6 +30,33 @@ func (rm RuleMeta) LabelArray() labels.LabelArrayList {
 
 func (rm RuleMeta) LabelArrayListString() labels.LabelArrayListString {
 	return rm.labels
+}
+
+func newStringList(items ...string) stringList {
+	slices.Sort(items)
+	return stringList(strings.Join(items, separator))
+}
+
+func (sl stringList) List() []string {
+	return strings.Split(string(sl), separator)
+}
+
+func mergeStringList(a, b stringList) stringList {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+
+	logLines := set.NewSet[string]()
+	for _, line := range a.List() {
+		logLines.Insert(line)
+	}
+	for _, line := range b.List() {
+		logLines.Insert(line)
+	}
+	return newStringList(logLines.AsSlice()...)
 }
 
 // ruleOrigin is an interned labels.LabelArrayList.String(), a list of rule labels tracking which
@@ -36,8 +68,13 @@ func (ro ruleOrigin) Value() RuleMeta {
 	return (unique.Handle[RuleMeta])(ro).Value()
 }
 
-func (ro *ruleOrigin) LabelsString() labels.LabelArrayListString {
+func (ro ruleOrigin) LabelsString() labels.LabelArrayListString {
 	return ro.Value().labels
+}
+
+func (ro ruleOrigin) LogString() string {
+	out, _ := json.Marshal(ro.Value().log.List())
+	return string(out)
 }
 
 func (ro ruleOrigin) GetLabelArrayList() labels.LabelArrayList {
@@ -48,18 +85,23 @@ func (ro ruleOrigin) stringLabels() stringLabels {
 	return newStringLabels(ro.LabelsString())
 }
 
+func (rm RuleMeta) Log() []string {
+	return rm.log.List()
+}
+
 func newRuleOrigin(rm RuleMeta) ruleOrigin {
 	return ruleOrigin(unique.Make(rm))
 }
 
-func makeRuleOrigin(lbls labels.LabelArrayList) ruleOrigin {
+func makeRuleOrigin(lbls labels.LabelArrayList, logs []string) ruleOrigin {
 	return newRuleOrigin(RuleMeta{
 		labels: lbls.ArrayListString(),
+		log:    newStringList(logs...),
 	})
 }
 
-func makeSingleRuleOrigin(lbls labels.LabelArray) ruleOrigin {
-	return makeRuleOrigin(labels.LabelArrayList{lbls})
+func makeSingleRuleOrigin(lbls labels.LabelArray, log string) ruleOrigin {
+	return makeRuleOrigin(labels.LabelArrayList{lbls}, []string{log})
 }
 
 // Merge combines two rule origins.
@@ -79,6 +121,7 @@ func (ro ruleOrigin) Merge(other ruleOrigin) ruleOrigin {
 
 	new := RuleMeta{
 		labels: labels.MergeSortedLabelArrayListStrings(ro.LabelsString(), other.LabelsString()),
+		log:    mergeStringList(ro.Value().log, other.Value().log),
 	}
 
 	return ruleOrigin(unique.Make(new))
@@ -92,7 +135,7 @@ type testOrigin map[CachedSelector]labels.LabelArrayList
 func OriginForTest(m testOrigin) map[CachedSelector]ruleOrigin {
 	res := make(map[CachedSelector]ruleOrigin, len(m))
 	for cs, lbls := range m {
-		res[cs] = makeRuleOrigin(lbls)
+		res[cs] = makeRuleOrigin(lbls, nil)
 	}
 	return res
 }
