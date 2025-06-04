@@ -526,6 +526,16 @@ func GetExtendedKeyFrom(str string) string {
 	return src + PathDelimiter + next
 }
 
+type KeyExtender func(string) string
+
+var DefaultKeyExtender KeyExtender = GetExtendedKeyFrom
+
+func GetSourcePrefixKeyExtender(srcPrefix string) KeyExtender {
+	return func(str string) string {
+		return srcPrefix + str
+	}
+}
+
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
 // source argument will overwrite the source written in the key of the given map.
 // Example:

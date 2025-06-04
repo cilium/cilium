@@ -36,6 +36,17 @@ type EndpointSelector struct {
 	// Generated indicates whether the rule was generated based on other rules
 	// or provided by user
 	Generated bool `json:"-"`
+
+	// sanitized indicates if the EndpointSelector has been validated and converted
+	// for Cilium's internal representation for usage. When marked as true, marshalling
+	// the object returns this internal representation where the label keys are
+	// prefixed with source information.
+	sanitized bool `json:"-"`
+}
+
+// Used for `omitzero` json tag.
+func (n *EndpointSelector) IsZero() bool {
+	return n.LabelSelector == nil
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -62,36 +73,24 @@ func (n EndpointSelector) CachedString() string {
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
 func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 	n.LabelSelector = &slim_metav1.LabelSelector{}
-	err := json.Unmarshal(b, n.LabelSelector)
-	if err != nil {
-		return err
-	}
-	if n.MatchLabels != nil {
-		ml := map[string]string{}
-		for k, v := range n.MatchLabels {
-			ml[labels.GetExtendedKeyFrom(k)] = v
-		}
-		n.MatchLabels = ml
-	}
-	if n.MatchExpressions != nil {
-		newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
-		for i, v := range n.MatchExpressions {
-			v.Key = labels.GetExtendedKeyFrom(v.Key)
-			newMatchExpr[i] = v
-		}
-		n.MatchExpressions = newMatchExpr
-	}
-	n.requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.cachedLabelSelectorString = n.LabelSelector.String()
-	return nil
+	return json.Unmarshal(b, n.LabelSelector)
 }
 
 // MarshalJSON returns a JSON representation of the byte array.
+// If the object is not sanitized, we return the seralized value of
+// underlying selector. When sanitized, we convert the label keys to
+// Cilium's internal representation with source prefix in format
+// `<source>:<key>` before serialization.
 func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	ls := slim_metav1.LabelSelector{}
-
 	if n.LabelSelector == nil {
 		return json.Marshal(ls)
+	}
+
+	// If the EndpointSelector is not sanitized don't perform the custom
+	// marshalling logic.
+	if !n.sanitized {
+		return json.Marshal(n.LabelSelector)
 	}
 
 	if n.MatchLabels != nil {
@@ -198,6 +197,8 @@ func NewESFromLabels(lbls ...labels.Label) EndpointSelector {
 // NewESFromMatchRequirements creates a new endpoint selector from the given
 // match specifications: An optional set of labels that must match, and
 // an optional slice of LabelSelectorRequirements.
+// The returned selector object is marked as sanitized, the caller is responsible
+// for ensuring that the Label keys are prefixed correctly with the required source.
 //
 // If the caller intends to reuse 'matchLabels' or 'reqs' after creating the
 // EndpointSelector, they must make a copy of the parameter.
@@ -210,6 +211,7 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav
 		LabelSelector:             labelSelector,
 		requirements:              labelSelectorToRequirements(labelSelector),
 		cachedLabelSelectorString: labelSelector.String(),
+		sanitized:                 true,
 	}
 }
 
@@ -245,9 +247,7 @@ var (
 	}
 )
 
-// NewESFromK8sLabelSelector returns a new endpoint selector from the label
-// where it the given srcPrefix will be encoded in the label's keys.
-func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelector) EndpointSelector {
+func NewESFromK8sLabelSelectorWithExtender(extender labels.KeyExtender, lss ...*slim_metav1.LabelSelector) EndpointSelector {
 	var (
 		matchLabels      map[string]string
 		matchExpressions []slim_metav1.LabelSelectorRequirement
@@ -261,7 +261,7 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelect
 				matchLabels = map[string]string{}
 			}
 			for k, v := range ls.MatchLabels {
-				matchLabels[srcPrefix+k] = v
+				matchLabels[extender(k)] = v
 			}
 		}
 		if ls.MatchExpressions != nil {
@@ -269,12 +269,18 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelect
 				matchExpressions = make([]slim_metav1.LabelSelectorRequirement, 0, len(ls.MatchExpressions))
 			}
 			for _, v := range ls.MatchExpressions {
-				v.Key = srcPrefix + v.Key
+				v.Key = extender(v.Key)
 				matchExpressions = append(matchExpressions, v)
 			}
 		}
 	}
 	return NewESFromMatchRequirements(matchLabels, matchExpressions)
+}
+
+// NewESFromK8sLabelSelector returns a new endpoint selector from the label
+// where it the given srcPrefix will be encoded in the label's keys.
+func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelector) EndpointSelector {
+	return NewESFromK8sLabelSelectorWithExtender(labels.GetSourcePrefixKeyExtender(srcPrefix), lss...)
 }
 
 // AddMatch adds a match for 'key' == 'value' to the endpoint selector.
@@ -350,10 +356,24 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav
 
 // sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
 func (n *EndpointSelector) sanitize() error {
-	errList := validation.ValidateLabelSelector(n.LabelSelector, validation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
+	es := n
+	if !n.sanitized {
+		sanitizedEndpointSelector := NewESFromK8sLabelSelectorWithExtender(labels.DefaultKeyExtender, n.LabelSelector)
+		es = &sanitizedEndpointSelector
+	}
+
+	errList := validation.ValidateLabelSelector(es.LabelSelector, validation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %w", errList.ToAggregate())
 	}
+
+	if !n.sanitized {
+		n.sanitized = true
+		n.LabelSelector = es.LabelSelector
+		n.requirements = es.requirements
+		n.cachedLabelSelectorString = es.cachedLabelSelectorString
+	}
+
 	return nil
 }
 

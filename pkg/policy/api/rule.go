@@ -139,7 +139,9 @@ type Rule struct {
 // MarshalJSON returns the JSON encoding of Rule r. We need to overwrite it to
 // enforce omitempty on the EndpointSelector nested structures.
 func (r *Rule) MarshalJSON() ([]byte, error) {
-	type common struct {
+	type ruleInternal struct {
+		EndpointSelector  EndpointSelector  `json:"endpointSelector,omitzero"`
+		NodeSelector      EndpointSelector  `json:"nodeSelector,omitzero"`
 		Ingress           []IngressRule     `json:"ingress,omitempty"`
 		IngressDeny       []IngressDenyRule `json:"ingressDeny,omitempty"`
 		Egress            []EgressRule      `json:"egress,omitempty"`
@@ -149,8 +151,33 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		Description       string            `json:"description,omitempty"`
 	}
 
-	var a any
-	ruleCommon := common{
+	// The API object doesn't have EndopintSelector and NodeSelector as pointer fields.
+	// So, we rely on LabelSelector pointer field to decide which of Endpoint/Node Selector
+	// is supplied by the user. The json tag for these selectors are `omitzero` which has
+	// custom handling in `EndpointSelector.IsZero()` to check for this condition
+	// We are missing handling of one case here where if the user created these Selectors without
+	// specifying the underlying LabelSelector. This case cannot be handled here
+	// as both Endpoint and Node Selector fields are non-pointer so its not possible to determine
+	// the clients intent.
+	// For Example:
+	// &api.Rule{
+	//     EndpointSelector: api.EndpointSelector{}
+	// }
+	// The intent here is to allow all EndpointSelector and keep NodeSelector as empty.
+	// However, there is not enough information for the API to realize the intent. To make sure
+	// the marhsalling logic is transparent, this definition implies both EndpointSelector and
+	// NodeSelector are empty and k8s api-server will handle this correctly as per the CRD definition.
+	// To realize the above itent when using the client library, the user needs to explicitly
+	// specify the LabelSelector as empty.
+	// For Example:
+	// &api.Rule{
+	//     EndpointSelector: api.EndpointSelector{
+	//         LabelSelector: &metav1.LabelSelector{}
+	//     }
+	// }
+	rule := ruleInternal{
+		EndpointSelector:  r.EndpointSelector,
+		NodeSelector:      r.NodeSelector,
 		Ingress:           r.Ingress,
 		IngressDeny:       r.IngressDeny,
 		Egress:            r.Egress,
@@ -160,27 +187,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		Description:       r.Description,
 	}
 
-	// Only one of endpointSelector or nodeSelector is permitted.
-	switch {
-	case r.EndpointSelector.LabelSelector != nil:
-		a = struct {
-			EndpointSelector EndpointSelector `json:"endpointSelector,omitempty"`
-			common
-		}{
-			EndpointSelector: r.EndpointSelector,
-			common:           ruleCommon,
-		}
-	case r.NodeSelector.LabelSelector != nil:
-		a = struct {
-			NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`
-			common
-		}{
-			NodeSelector: r.NodeSelector,
-			common:       ruleCommon,
-		}
-	}
-
-	return json.Marshal(a)
+	return json.Marshal(rule)
 }
 
 func (r *Rule) DeepEqual(o *Rule) bool {
