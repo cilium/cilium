@@ -47,9 +47,8 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		Use:   "clustermesh",
 		Short: "Run ClusterMesh",
 		Run: func(cmd *cobra.Command, args []string) {
-			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "clustermesh-apiserver")
-			if err := h.Run(logger); err != nil {
-				logging.Fatal(logger, err.Error())
+			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+				logging.Fatal(logging.DefaultSlogLogger, err.Error())
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
