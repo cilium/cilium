@@ -30,7 +30,7 @@ var Cell = cell.Module(
 	health.HealthAPIServerCell,
 
 	controller.Cell,
-	kvstore.Cell,
+	kvstore.Cell(kvstore.EtcdBackendName),
 	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
 		return &kvstore.ExtraOptions{
 			BootstrapComplete: ss.WaitChannel(),
