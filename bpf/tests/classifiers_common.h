@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#define ENABLE_IPV4
+#define ENABLE_IPV6
+#define TUNNEL_MODE
+#define ENCAP_IFINDEX   1
+#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
+
 /* For testing L2/L3 devices, we make use of ETH_HLEN:
  * IS_BPF_WIREGUARD -> 0
  * IS_BPF_HOST      -> 14 by default
@@ -89,15 +95,20 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct ipv6hdr *ip6;
+	struct udphdr *udp;
 	cls_flags_t flags;
 	__be16 proto;
 
-	/* Parse L3 once. */
+	/* Parse L3/L4 once. */
 	if (is_ipv4) {
 		assert(revalidate_data(ctx, &data, &data_end, &ip4));
+		udp = (void *)ip4 + sizeof(struct iphdr);
+		assert((void *)udp + sizeof(struct udphdr) <= data_end);
 		proto = bpf_htons(ETH_P_IP);
 	} else {
 		assert(revalidate_data(ctx, &data, &data_end, &ip6));
+		udp = (void *)ip6 + sizeof(struct ipv6hdr);
+		assert((void *)udp + sizeof(struct udphdr) <= data_end);
 		proto = bpf_htons(ETH_P_IPV6);
 	}
 
@@ -109,6 +120,27 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	TEST("native", {
 		flags = ctx_classify(ctx, proto);
 		L3_DEVICE_CHECK(flags, is_ipv4);
+	})
+
+	/*
+	 * Ensure CLS_FLAG_VXLAN is set with MARK_MAGIC_OVERLAY.
+	 */
+	TEST("overlay-by-mark", {
+		ctx->mark = MARK_MAGIC_OVERLAY;
+		flags = ctx_classify(ctx, proto);
+		L3_DEVICE_CHECK(flags, is_ipv4);
+		assert(flags & CLS_FLAG_VXLAN);
+	})
+
+	/*
+	 * Ensure CLS_FLAG_VXLAN is set with UDP and TUNNEL_PORT.
+	 */
+	TEST("overlay-by-headers", {
+		ctx->mark = 0;
+		udp->dest = bpf_htons(TUNNEL_PORT);
+		flags = ctx_classify(ctx, proto);
+		L3_DEVICE_CHECK(flags, is_ipv4);
+		assert(flags & CLS_FLAG_VXLAN);
 	})
 
 	test_finish();
