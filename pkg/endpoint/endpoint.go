@@ -1941,7 +1941,7 @@ func (e *Endpoint) RunRestoredMetadataResolver(resolveMetadata MetadataResolverC
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labels.Labels, updateJitter time.Duration) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1974,7 +1974,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 	e.unlock()
 
 	if changed {
-		e.runIdentityResolver(context.Background(), false)
+		e.runIdentityResolver(context.Background(), false, updateJitter)
 	}
 	return nil
 }
@@ -2089,7 +2089,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 
 	e.unlock()
 	if rev != 0 {
-		return e.runIdentityResolver(ctx, blocking)
+		return e.runIdentityResolver(ctx, blocking, 0)
 	}
 
 	return false
@@ -2103,7 +2103,8 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 	oldLabels := labels.Map2Labels(oldLbls, source)
 	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 
-	err := e.ModifyIdentityLabels(source, newIdtyLabels, oldIdtyLabels)
+	ciliumIdentityMaxJitter := option.Config.CiliumIdentityMaxJitter
+	err := e.ModifyIdentityLabels(source, newIdtyLabels, oldIdtyLabels, ciliumIdentityMaxJitter)
 	if err != nil {
 		e.getLogger().Debug(
 			"Error while updating endpoint with new labels",
@@ -2129,7 +2130,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 // are currently configured on the endpoint.
 //
 // Must be called with e.mutex NOT held.
-func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (regenTriggered bool) {
+func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool, updateJitter time.Duration) (regenTriggered bool) {
 	err := e.rlockAlive()
 	if err != nil {
 		// If a labels update and an endpoint delete API request arrive
@@ -2177,6 +2178,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (rege
 			},
 			RunInterval: 5 * time.Minute,
 			Context:     e.aliveCtx,
+			Jitter:      updateJitter,
 		},
 	)
 
