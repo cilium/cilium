@@ -61,7 +61,7 @@ func (r *rule) getSelector() *api.EndpointSelector {
 }
 
 func (r *rule) origin() ruleOrigin {
-	return makeSingleRuleOrigin(r.Labels.Sort())
+	return makeSingleRuleOrigin(r.Labels.Sort(), r.Log.Value)
 }
 
 func (epd *PerSelectorPolicy) appendL7WildcardRule(policyContext PolicyContext) api.L7Rules {
