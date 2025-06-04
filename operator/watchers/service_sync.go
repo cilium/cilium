@@ -35,7 +35,7 @@ type ServiceSyncConfig struct {
 	Enabled bool
 
 	// Backend if given is used instead of [kvstore.Client].
-	Backend promise.Promise[kvstore.BackendOperations]
+	Backend kvstore.BackendOperations
 
 	// Synced if given is called when synchronization here is done. This is
 	// used by clustermesh-apiserver to further wait for its resources to be
@@ -97,12 +97,7 @@ func registerServiceSync(jg job.Group, p ServiceSyncParams) {
 			func(ctx context.Context, health cell.Health) error {
 				var backend kvstore.BackendOperations
 				if s.Config.Backend != nil {
-					var err error
-					backend, err = s.Config.Backend.Await(ctx)
-					if err != nil {
-						storeResolver.Reject(err)
-						return err
-					}
+					backend = s.Config.Backend
 				} else {
 					backend = kvstore.LegacyClient()
 				}

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"errors"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
@@ -35,4 +37,13 @@ var Cell = cell.Module(
 		}
 	}),
 	store.Cell,
+
+	cell.Invoke(func(client kvstore.Client) error {
+		// Both clustermesh-apiserver and kvstoremesh depend on the etcd client.
+		if !client.IsEnabled() {
+			return errors.New("KVStore client not configured, cannot continue")
+		}
+
+		return nil
+	}),
 )
