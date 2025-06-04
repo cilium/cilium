@@ -52,10 +52,6 @@ func (p *provider) Start(ctx cell.HookContext) error {
 
 func (p *provider) Stop(ctx cell.HookContext) error {
 	p.stopped.Store(true)
-	tx := p.db.ReadTxn()
-	for s, rev := range p.statusTable.All(tx) {
-		p.logger.Info(fmt.Sprintf("%s (rev=%d)", s.ID.String(), rev))
-	}
 	return nil
 }
 
