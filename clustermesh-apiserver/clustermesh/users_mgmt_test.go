@@ -19,7 +19,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 const (
@@ -83,10 +82,8 @@ func TestUsersManagement(t *testing.T) {
 			return cmtypes.ClusterInfo{ID: 10, Name: "fred"}
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle) promise.Promise[kvstore.BackendOperationsUserMgmt] {
-			resolver, promise := promise.New[kvstore.BackendOperationsUserMgmt]()
-			resolver.Resolve(&client)
-			return promise
+		cell.Provide(func() kvstore.BackendOperationsUserMgmt {
+			return &client
 		}),
 
 		cell.Invoke(registerUsersManager),

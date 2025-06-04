@@ -33,7 +33,7 @@ func SetupDummy(tb testing.TB, dummyBackend string) Client {
 // automatically registered to delete all keys and close the client when the
 // test terminates.
 func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[string]string) Client {
-	if dummyBackend == "" {
+	if dummyBackend == DisabledBackendName {
 		return &clientImpl{enabled: false}
 	}
 

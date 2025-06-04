@@ -39,7 +39,6 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -74,14 +73,14 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 type parameters struct {
 	cell.In
 
-	CfgMCSAPI      operator.MCSAPIConfig
-	ClusterInfo    cmtypes.ClusterInfo
-	Clientset      k8sClient.Clientset
-	Resources      cmk8s.Resources
-	BackendPromise promise.Promise[kvstore.BackendOperations]
-	StoreFactory   store.Factory
-	SyncState      syncstate.SyncState
-	CESConfig      cmk8s.CiliumEndpointSliceConfig
+	CfgMCSAPI    operator.MCSAPIConfig
+	ClusterInfo  cmtypes.ClusterInfo
+	Clientset    k8sClient.Clientset
+	Resources    cmk8s.Resources
+	Backend      kvstore.Client
+	StoreFactory store.Factory
+	SyncState    syncstate.SyncState
+	CESConfig    cmk8s.CiliumEndpointSliceConfig
 
 	Logger *slog.Logger
 }
@@ -93,12 +92,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
 
-			backend, err := params.BackendPromise.Await(ctx)
-			if err != nil {
-				return err
-			}
-
-			startServer(params.ClusterInfo, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice)
+			startServer(params.ClusterInfo, params.Clientset, params.Backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice)
 			return nil
 		},
 	})

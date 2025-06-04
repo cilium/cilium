@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -76,18 +75,16 @@ func TestScript(t *testing.T) {
 			operatorK8s.ResourcesCell,
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
-			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, promise.Promise[kvstore.BackendOperations], uhive.ScriptCmdOut) {
+			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, uhive.ScriptCmdOut) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
-				r, p := promise.New[kvstore.BackendOperations]()
-				r.Resolve(client)
-				return client, p, uhive.NewScriptCmd("kvstore/list", kvstoreListCommand(client))
+				return client, uhive.NewScriptCmd("kvstore/list", kvstoreListCommand(client))
 			}),
 
-			cell.Provide(func(be promise.Promise[kvstore.BackendOperations]) ServiceSyncConfig {
+			cell.Provide(func(client kvstore.BackendOperations) ServiceSyncConfig {
 				return ServiceSyncConfig{
 					Enabled: true,
-					Backend: be,
+					Backend: client,
 				}
 			}),
 			ServiceSyncCell,
