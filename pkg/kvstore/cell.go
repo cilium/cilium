@@ -19,32 +19,39 @@ import (
 const DisabledBackendName = ""
 
 // Cell returns a cell which provides the global kvstore client.
-var Cell = cell.Module(
-	"kvstore-client",
-	"KVStore Client",
+func Cell(defaultBackend string) cell.Cell {
+	return cell.Module(
+		"kvstore-client",
+		"KVStore Client",
 
-	cell.Config(defaultConfig),
+		cell.Config(config{
+			KVStore:                           defaultBackend,
+			KVStoreOpt:                        make(map[string]string),
+			KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
+			KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
+		}),
 
-	cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, cfg config, opts *ExtraOptions) Client {
-		// Propagate the options to the global variables for backward compatibility
-		option.Config.KVStore = cfg.KVStore
-		option.Config.KVStoreOpt = cfg.KVStoreOpt
-		option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
-		option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
+		cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, cfg config, opts *ExtraOptions) Client {
+			// Propagate the options to the global variables for backward compatibility
+			option.Config.KVStore = cfg.KVStore
+			option.Config.KVStoreOpt = cfg.KVStoreOpt
+			option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
+			option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
 
-		if cfg.KVStore == DisabledBackendName {
-			return &clientImpl{enabled: false}
-		}
+			if cfg.KVStore == DisabledBackendName {
+				return &clientImpl{enabled: false}
+			}
 
-		cl := &clientImpl{
-			enabled: true, cfg: cfg, opts: opts,
-			logger: logger.With(logfields.BackendName, cfg.KVStore),
-		}
+			cl := &clientImpl{
+				enabled: true, cfg: cfg, opts: opts,
+				logger: logger.With(logfields.BackendName, cfg.KVStore),
+			}
 
-		lc.Append(cl)
-		return cl
-	}),
-)
+			lc.Append(cl)
+			return cl
+		}),
+	)
+}
 
 type config struct {
 	KVStore                           string
@@ -64,11 +71,4 @@ func (def config) Flags(flags *pflag.FlagSet) {
 
 	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, def.KVstoreMaxConsecutiveQuorumErrors,
 		"Max acceptable kvstore consecutive quorum errors before recreating the etcd connection")
-}
-
-var defaultConfig = config{
-	KVStore:                           EtcdBackendName,
-	KVStoreOpt:                        make(map[string]string),
-	KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
-	KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
 }
