@@ -498,6 +498,13 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+	EnableHealthCheckLoadBalancerIP        bool
+
+	// The following options will be removed in v1.19
+	EnableHostPort              bool
+	EnableSessionAffinity       bool
+	EnableSVCSourceRangeCheck   bool
+	EnableInternalTrafficPolicy bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -510,6 +517,11 @@ func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         cfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
+		EnableHostPort:                         cfg.EnableHostPort,
+		EnableSessionAffinity:                  cfg.EnableSessionAffinity,
+		EnableSVCSourceRangeCheck:              cfg.EnableSVCSourceRangeCheck,
+		EnableInternalTrafficPolicy:            cfg.EnableInternalTrafficPolicy,
 	}
 }
 
