@@ -44,11 +44,7 @@ var Cell = cell.Module(
 	// Allows cells to wait for CRDs before trying to list Cilium resources.
 	synced.CRDSyncCell,
 
-	cell.Provide(func() heartbeat.Config {
-		return heartbeat.Config{
-			EnableHeartBeat: true, // always enabled
-		}
-	}),
+	heartbeat.Enabled,
 	heartbeat.Cell,
 
 	HealthAPIEndpointsCell,

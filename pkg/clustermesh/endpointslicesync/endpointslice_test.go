@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/hive"
+	agentk8s "github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -94,6 +95,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	logger := hivetest.Logger(t)
 	hive := hive.New(
 		k8sFakeClient.FakeClientCell(),
+		cell.Provide(agentk8s.ServiceResource),
 		k8s.ResourcesCell,
 		cell.Invoke(func(
 			c *k8sFakeClient.FakeClientset,

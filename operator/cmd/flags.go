@@ -201,13 +201,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
 
-	flags.String(option.KVStore, "", "Key-value store type")
-	option.BindEnv(vp, option.KVStore)
-
-	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	option.BindEnv(vp, option.KVStoreOpt)
-
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(vp, option.K8sNamespaceName)
 
@@ -265,12 +258,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(vp, operatorOption.PodRestartSelector)
-
-	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure")
-	option.BindEnv(vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
-
-	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	option.BindEnv(vp, option.KVstoreLeaseTTL)
 
 	flags.String(option.KubeProxyReplacement, "false", "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
 	flags.MarkHidden(option.KubeProxyReplacement)

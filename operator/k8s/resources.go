@@ -32,7 +32,6 @@ var (
 
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
-			k8s.ServiceResource,
 			mcsapi.ServiceExportResource,
 			EndpointsResource,
 			LBIPPoolsResource,
