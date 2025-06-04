@@ -85,6 +85,8 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 	case direction == trafficdirection.Ingress && denied:
 		f.IngressDeniedBy = rules
 	}
+	// policy log is independent of verdict
+	f.PolicyLog = info.Log
 }
 
 func extractFlowKey(f *flowpb.Flow) (
