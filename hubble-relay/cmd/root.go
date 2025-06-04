@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/hubble-relay/cmd/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	v "github.com/cilium/cilium/pkg/version"
 )
 
@@ -20,37 +21,31 @@ const configFilePath = "/etc/hubble-relay/config.yaml"
 
 // New creates a new hubble-relay command.
 func New() *cobra.Command {
+	vp := newViper()
+
 	rootCmd := &cobra.Command{
 		Use:          "hubble-relay",
 		Short:        "Hubble Relay is a proxy server for the hubble API",
 		Long:         "Hubble Relay is a proxy server for the hubble API.",
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := logging.SetupLogging(nil, map[string]string{}, "hubble-relay", vp.GetBool(option.DebugArg)); err != nil {
+				logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
+			}
+			return nil
+		},
 	}
-	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "hubble-relay")
-	vp := newViper()
+
 	flags := rootCmd.PersistentFlags()
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	vp.BindPFlags(flags)
 
-	// We need to check for the debug environment variable or CLI flag before
-	// loading the configuration file since on configuration file read failure
-	// we will emit a debug log entry.
-	if vp.GetBool("debug") {
-		logging.SetLogLevelToDebug()
-	}
-
 	if err := vp.ReadInConfig(); err != nil {
-		logger.Debug("Failed to read config from file",
+		logging.DefaultSlogLogger.Debug("Failed to read config from file",
 			logfields.Error, err,
 			logfields.Path, configFilePath,
 		)
-	}
-
-	// Check for the debug flag again now that the configuration file may has
-	// been loaded, as it might have changed.
-	if vp.GetBool("debug") {
-		logging.SetLogLevelToDebug()
 	}
 
 	rootCmd.AddCommand(
