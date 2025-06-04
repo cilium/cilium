@@ -58,10 +58,12 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
@@ -119,6 +121,17 @@ var (
 			OperatorK8sClientQPS:   100.0,
 			OperatorK8sClientBurst: 200,
 		}),
+
+		// Provide the logic to map DNS names matching Kubernetes services to the
+		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+		// and clustermesh. We provide ServiceResource here as it is a dependency
+		// of the ServiceResolverCell.
+		cell.Provide(k8s.ServiceResource),
+		dial.ServiceResolverCell,
+
+		// Provides the Client to access the KVStore.
+		cell.Provide(kvstoreExtraOptions),
+		kvstore.Cell(kvstore.DisabledBackendName),
 
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,
@@ -207,6 +220,10 @@ var (
 			apis.RegisterCRDsCell,
 			operatorK8s.ResourcesCell,
 
+			// Updates the heartbeat key in the kvstore.
+			heartbeat.Enabled,
+			heartbeat.Cell,
+
 			bgpv2.Cell,
 			lbipam.Cell,
 			nodeipam.Cell,
@@ -278,11 +295,6 @@ var (
 			// Synchronizes Secrets referenced in CiliumNetworkPolicy to the configured secret
 			// namespace.
 			networkpolicy.SecretSyncCell,
-
-			// Provide the logic to map DNS names matching Kubernetes services to the
-			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
-			// and clustermesh.
-			dial.ServiceResolverCell,
 
 			// The feature Cell will retrieve information from all other cells /
 			// configuration to describe, in form of prometheus metrics, which
@@ -526,7 +538,7 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:                  ctx,
@@ -534,7 +546,6 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		clientset:            clientset,
 		resources:            resources,
 		storeFactory:         factory,
-		svcResolver:          svcResolver,
 		cfgMCSAPI:            cfgMCSAPI,
 		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
 		metrics:              metrics,
@@ -553,7 +564,6 @@ type legacyOnLeader struct {
 	wg                   sync.WaitGroup
 	resources            operatorK8s.Resources
 	storeFactory         store.Factory
-	svcResolver          *dial.ServiceResolver
 	cfgMCSAPI            cmoperator.MCSAPIConfig
 	cfgClusterMeshPolicy cmtypes.PolicyConfig
 	metrics              *UnmanagedPodsMetric
@@ -635,7 +645,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if kvstoreEnabled() {
-		var goopts kvstore.ExtraOptions
 		scoppedLogger := legacy.logger.With(
 			logfields.KVStore, option.Config.KVStore,
 			logfields.Address, option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
@@ -656,23 +665,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				})
 				legacy.wg.Done()
 			}()
-		}
-
-		if legacy.clientset.IsEnabled() {
-			// If K8s is enabled we can do the service translation automagically by
-			// looking at services from k8s and retrieve the service IP from that.
-			// This makes cilium to not depend on kube dns to interact with etcd
-			etcdLog := scoppedLogger.With(logfields.LogSubsys, "etcd")
-			goopts = kvstore.ExtraOptions{
-				DialOption: []grpc.DialOption{
-					grpc.WithContextDialer(dial.NewContextDialer(etcdLog, legacy.svcResolver)),
-				},
-			}
-		}
-
-		scoppedLogger.Info("Connecting to kvstore")
-		if err := kvstore.Setup(legacy.ctx, scoppedLogger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
-			logging.Fatal(scoppedLogger, "Unable to setup kvstore", logfields.Error, err)
 		}
 
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
@@ -765,4 +757,27 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 	legacy.logger.Info("Initialization complete")
 	return nil
+}
+
+// kvstoreExtraOptions provides the extra options to initialize the kvstore client.
+func kvstoreExtraOptions(in struct {
+	cell.In
+
+	Logger *slog.Logger
+
+	ClientSet k8sClient.Clientset
+	Resolver  *dial.ServiceResolver
+}) kvstore.ExtraOptions {
+	var goopts kvstore.ExtraOptions
+
+	// If K8s is enabled we can do the service translation automagically by
+	// looking at services from k8s and retrieve the service IP from that.
+	// This makes cilium to not depend on kube dns to interact with etcd
+	if in.ClientSet.IsEnabled() {
+		goopts.DialOption = []grpc.DialOption{
+			grpc.WithContextDialer(dial.NewContextDialer(in.Logger, in.Resolver)),
+		}
+	}
+
+	return goopts
 }

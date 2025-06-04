@@ -98,11 +98,6 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 
-			err := kvstore.LegacyClient().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
-			if err != nil {
-				logger.Warn("Unable to update heartbeat key", logfields.Error, err)
-			}
-
 			if option.Config.ClusterName != defaults.ClusterName && option.Config.ClusterID != 0 {
 				// The cluster config continues to be enforced also after the initial successful
 				// insertion to prevent issues in case of, e.g., unexpected lease expiration.
