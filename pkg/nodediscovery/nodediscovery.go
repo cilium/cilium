@@ -29,6 +29,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -68,6 +69,7 @@ type NodeDiscovery struct {
 	k8sGetters            k8sGetters
 	localNodeStore        *node.LocalNodeStore
 	clientset             client.Clientset
+	kvstoreClient         kvstore.Client
 	ctrlmgr               *controller.Manager
 }
 
@@ -76,6 +78,7 @@ func NewNodeDiscovery(
 	logger *slog.Logger,
 	manager nodemanager.NodeManager,
 	clientset client.Clientset,
+	kvstoreClient kvstore.Client,
 	lns *node.LocalNodeStore,
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
@@ -88,6 +91,7 @@ func NewNodeDiscovery(
 		localStateInitialized: make(chan struct{}),
 		cniConfigManager:      cniConfigManager,
 		clientset:             clientset,
+		kvstoreClient:         kvstoreClient,
 		ctrlmgr:               controller.NewManager(),
 		k8sGetters:            k8sNodeWatcher,
 	}
@@ -112,7 +116,7 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.Registrar.RegisterNode(ctx, &localNode.Node, n.Manager); err != nil {
+			if err := n.Registrar.RegisterNode(ctx, n.kvstoreClient, &localNode.Node, n.Manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
@@ -167,7 +171,7 @@ func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
 }
 
 func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode) {
-	if option.Config.KVStore != "" {
+	if n.kvstoreClient.IsEnabled() {
 		n.ctrlmgr.UpdateController(
 			"propagating local node change to kv-store",
 			controller.ControllerParams{
