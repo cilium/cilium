@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 )
 
@@ -34,7 +33,7 @@ var bpfSRv6SIDListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf srv6 sid")
 
-		m, err := srv6map.OpenSIDMap(logging.DefaultSlogLogger)
+		m, err := srv6map.OpenSIDMap(log)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find SRv6 SID map")
