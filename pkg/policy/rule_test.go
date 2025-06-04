@@ -1398,7 +1398,7 @@ func checkFlow(t *testing.T, repo *Repository, flow Flow, verdict api.Decision) 
 		ID:            2,
 		TCPNamedPorts: namedPorts,
 	}
-	actual, err := LookupFlow(hivetest.Logger(t), repo, flow, srcEP, dstEP)
+	actual, _, _, err := LookupFlow(hivetest.Logger(t), repo, flow, srcEP, dstEP)
 	require.NoError(t, err)
 	require.Equal(t, verdict, actual)
 }
