@@ -23,7 +23,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -654,10 +653,10 @@ func (d *statusCollector) getProbes() []Probe {
 		{
 			Name: "kvstore",
 			Probe: func(ctx context.Context) (any, error) {
-				if d.statusParams.DaemonConfig.KVStore == "" {
+				if !d.statusParams.KVStoreClient.IsEnabled() {
 					return &models.Status{State: models.StatusStateDisabled}, nil
 				} else {
-					return kvstore.LegacyClient().Status(), nil
+					return d.statusParams.KVStoreClient.Status(), nil
 				}
 			},
 			OnStatusUpdate: func(status Status) {
