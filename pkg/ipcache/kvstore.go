@@ -12,7 +12,6 @@ import (
 	"net/netip"
 	"path"
 	"sort"
-	"sync/atomic"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -42,6 +41,9 @@ var (
 )
 
 type backend interface {
+	// IsEnabled returns true if KVStore support is enabled.
+	IsEnabled() bool
+
 	// UpdateIfDifferent updates a key if the value is different
 	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 	// Delete deletes a key. It does not return an error if the key does not exist.
@@ -51,18 +53,17 @@ type backend interface {
 // IPIdentitySynchronizer handles the synchronization of ipcache entries into the kvstore.
 type IPIdentitySynchronizer struct {
 	logger  *slog.Logger
-	client  atomic.Value // backend
+	client  backend
 	tracker lock.Map[string, []byte]
 }
 
-func NewIPIdentitySynchronizer(logger *slog.Logger) *IPIdentitySynchronizer {
-	return &IPIdentitySynchronizer{logger: logger}
+func NewIPIdentitySynchronizer(logger *slog.Logger, client kvstore.Client) *IPIdentitySynchronizer {
+	return &IPIdentitySynchronizer{logger: logger, client: client}
 }
 
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
 func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
 	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
-	s.client.CompareAndSwap(nil, backend(kvstore.LegacyClient()))
 
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
@@ -102,7 +103,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 		logfields.Modification, Upsert,
 	)
 
-	_, err = s.client.Load().(backend).UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
+	_, err = s.client.UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
 		s.tracker.Store(ipKey, marshaledIPIDPair)
 	}
@@ -113,11 +114,14 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
-	s.client.CompareAndSwap(nil, backend(kvstore.LegacyClient()))
-
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	s.tracker.Delete(ipKey)
-	return s.client.Load().(backend).Delete(ctx, ipKey)
+	return s.client.Delete(ctx, ipKey)
+}
+
+// IsEnabled returns true if the synchronization to the KVStore is enabled.
+func (s *IPIdentitySynchronizer) IsEnabled() bool {
+	return s.client.IsEnabled()
 }
 
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
@@ -418,7 +422,7 @@ func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 			"Received kvstore delete notification for alive ipcache entry",
 			logfields.IPAddr, ip,
 		)
-		_, err := iw.syncer.client.Load().(backend).UpdateIfDifferent(context.TODO(), key, m, true)
+		_, err := iw.syncer.client.UpdateIfDifferent(context.TODO(), key, m, true)
 		if err != nil {
 			iw.log.Warn(
 				"Unable to re-create alive ipcache entry",

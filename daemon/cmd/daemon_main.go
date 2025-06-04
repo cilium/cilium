@@ -1404,6 +1404,7 @@ type daemonParams struct {
 	Health              cell.Health
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
+	KVStoreClient       kvstore.Client
 	WGAgent             *wireguard.Agent
 	LocalNodeStore      *node.LocalNodeStore
 	Shutdowner          hive.Shutdowner
@@ -1593,7 +1594,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// we have discovered all remote IP addresses, to prevent triggering
 			// the collection of stale AllowedIPs entries too early, leading to
 			// the disruption of otherwise valid long running connections.
-			if option.Config.KVStore != "" {
+			if params.KVStoreClient.IsEnabled() {
 				if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
 					return
 				}
