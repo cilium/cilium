@@ -369,7 +369,7 @@ const (
 	// StateDir is the directory path to store runtime state
 	StateDir = "state-dir"
 
-	// TracePayloadlen length of payload to capture when tracing
+	// TracePayloadlen length of payload to capture when tracing packets.
 	TracePayloadlen = "trace-payloadlen"
 
 	// Version prints the version information

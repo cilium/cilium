@@ -6,6 +6,8 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
+#include <bpf/config/node.h>
+
 #include "common.h"
 #include "utils.h"
 #include "ipv4.h"
