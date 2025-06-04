@@ -225,7 +225,16 @@ func extractZip(zipPath, destDir string) error {
 	defer r.Close()
 
 	for _, file := range r.File {
-		destPath := filepath.Join(destDir, file.Name)
+		// Sanitize file.Name to prevent directory traversal
+		cleanName := filepath.Clean(file.Name)
+		if strings.Contains(cleanName, "..") || filepath.IsAbs(cleanName) {
+			return fmt.Errorf("invalid file path in ZIP archive: %s", file.Name)
+		}
+		destPath := filepath.Join(destDir, cleanName)
+		if !strings.HasPrefix(destPath, filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("file path escapes destination directory: %s", destPath)
+		}
+
 		if file.FileInfo().IsDir() {
 			// Create directories
 			if err := os.MkdirAll(destPath, os.ModePerm); err != nil {
