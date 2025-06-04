@@ -302,6 +302,7 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 		gr := gvr.GroupResource()
 		err := apierrors.NewAlreadyExists(gr, newMeta.GetName())
 		log.Debug("Create", logfields.Error, err)
+		return err
 	}
 	log.Debug("Create")
 	wtxn.Commit()
