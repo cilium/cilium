@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -386,15 +385,15 @@ func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
 
 var errMissingKey = errors.New("Key not found")
 
-// GetRuleLabels returns the list of labels of the rules that contributed
+// GetRuleMeta returns the list of labels of the rules that contributed
 // to the entry at this key.
 // The returned string is the string representation of a LabelArrayList.
-func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelArrayListString, error) {
+func (p *EndpointPolicy) GetRuleMeta(k Key) (RuleMeta, error) {
 	entry, ok := p.policyMapState.get(k)
 	if !ok {
-		return "", errMissingKey
+		return RuleMeta{}, errMissingKey
 	}
-	return entry.derivedFromRules.LabelsString(), nil
+	return entry.derivedFromRules.Value(), nil
 }
 
 func (p *EndpointPolicy) Entries() iter.Seq2[Key, MapStateEntry] {

@@ -9,6 +9,10 @@ import "github.com/cilium/cilium/pkg/labels"
 type PolicyCorrelationInfo struct {
 	// RuleLabels are the rule labels.
 	RuleLabels labels.LabelArrayListString
+
+	// Log is the set of custom Log strings
+	Log []string
+
 	// Revision is the policy revision.
 	Revision uint64
 }
