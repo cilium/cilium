@@ -85,7 +85,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Run(ctx)
 }
 
-func (rc *remoteCluster) Stop() {
+func (rc *remoteCluster) Stop(context.Context) {
 	rc.synced.Stop()
 }
 

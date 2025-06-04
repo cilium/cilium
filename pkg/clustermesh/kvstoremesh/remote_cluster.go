@@ -31,6 +31,8 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 )
 
+const lockPrefix = kvstore.BaseKeyPrefix + "/lock/"
+
 // remoteCluster represents a remote cluster other than the local one this
 // service is running in
 type remoteCluster struct {
@@ -64,9 +66,21 @@ type remoteCluster struct {
 
 	logger *slog.Logger
 	clock  clock.Clock
+
+	lock kvstore.KVLocker
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg types.CiliumClusterConfig, ready chan<- error) {
+	var err error
+
+	rc.logger.Debug("Locking remote cluster")
+	rc.lock, err = rc.localBackend.LockPath(ctx, lockPrefix+rc.name)
+	if err != nil {
+		ready <- err
+		close(ready)
+		return
+	}
+
 	// Closing the synced.connected channel cancels the timeout goroutine.
 	// Ensure we do not attempt to close the channel more than once.
 	select {
@@ -150,10 +164,13 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Run(ctx)
 }
 
-func (rc *remoteCluster) Stop() {
+func (rc *remoteCluster) Stop(ctx context.Context) {
 	rc.cancel()
 	rc.synced.Stop()
 	rc.wg.Wait()
+	if rc.lock != nil {
+		rc.lock.Unlock(ctx)
+	}
 }
 
 func (rc *remoteCluster) Remove(ctx context.Context) {
@@ -282,10 +299,10 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		status.Synced.ServiceExports = ptr.To(rc.serviceExports.watcher.Synced())
 	}
 
-	status.Ready = status.Ready &&
+	status.Ready = (rc.lock == nil) || (status.Ready &&
 		status.Synced.Nodes && status.Synced.Services &&
 		(status.Synced.ServiceExports == nil || *status.Synced.ServiceExports) &&
-		status.Synced.Identities && status.Synced.Endpoints
+		status.Synced.Identities && status.Synced.Endpoints)
 
 	return status
 }

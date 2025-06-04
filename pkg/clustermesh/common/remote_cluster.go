@@ -37,7 +37,7 @@ type RemoteCluster interface {
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
 	Run(ctx context.Context, backend kvstore.BackendOperations, config types.CiliumClusterConfig, ready chan<- error)
 
-	Stop()
+	Stop(ctx context.Context)
 	Remove(ctx context.Context)
 }
 
@@ -385,9 +385,9 @@ func (rc *remoteCluster) connect() {
 // onStop is executed when the clustermesh subsystem is being stopped.
 // In this case, we don't want to drain the known entries, otherwise
 // we would break existing connections when the agent gets restarted.
-func (rc *remoteCluster) onStop() {
+func (rc *remoteCluster) onStop(ctx context.Context) {
 	_ = rc.controllers.RemoveControllerAndWait(rc.remoteConnectionControllerName)
-	rc.Stop()
+	rc.Stop(ctx)
 }
 
 // onRemove is executed when a remote cluster is explicitly disconnected
@@ -395,7 +395,7 @@ func (rc *remoteCluster) onStop() {
 // all known entries, to properly cleanup the status without requiring to
 // restart the agent.
 func (rc *remoteCluster) onRemove(ctx context.Context) {
-	rc.onStop()
+	rc.onStop(ctx)
 	rc.Remove(ctx)
 
 	rc.logger.Info("Remote cluster disconnected")
