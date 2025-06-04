@@ -17,7 +17,6 @@ const (
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
-	Reprovision bool
 	// HoldEnvironment leaves the test infrastructure in place on failure
 	HoldEnvironment bool
 	// PassCLIEnvironment passes through the environment invoking the gingko
@@ -55,7 +54,6 @@ var CiliumTestConfig = CiliumTestConfigType{}
 // ParseFlags parses commandline flags relevant to testing.
 func (c *CiliumTestConfigType) ParseFlags() {
 	flagset := flag.NewFlagSet("cilium", flag.ExitOnError)
-	flagset.BoolVar(&c.Reprovision, "cilium.provision", false, "(deprecated)")
 	flagset.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
 		"On failure, hold the environment in its current state")
 	flagset.BoolVar(&c.PassCLIEnvironment, "cilium.passCLIEnvironment", false,

@@ -409,7 +409,6 @@ jobs:
              --skip=\"${{ matrix.cliSkip }}\" \
              --seed=1679952881 \
              -v -- \
-             -cilium.provision=false \
              -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
              -cilium.tag=${{ needs.setup-vars.outputs.SHA }}  \
              -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
@@ -424,7 +423,6 @@ jobs:
                --ginkgo.skip="${{ matrix.cliSkip }}" \
                --ginkgo.seed=1679952881 \
                --ginkgo.v -- \
-               -cilium.provision=false \
                -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
                -cilium.tag=${{ needs.setup-vars.outputs.SHA }}  \
                -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \

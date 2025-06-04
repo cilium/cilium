@@ -238,7 +238,6 @@ usage information.
         --ginkgo.skip="" \
         --ginkgo.seed=1679952881 \
         --ginkgo.v -- \
-        -cilium.provision=false \
         -cilium.image=quay.io/${quay_org}/cilium-ci \
         -cilium.tag=${commit_sha}  \
         -cilium.operator-image=quay.io/${quay_org}/operator \
@@ -355,8 +354,6 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Specifies which tag of cilium-operator to use during tests
       -cilium.passCLIEnvironment
             Pass the environment invoking ginkgo, including PATH, to subcommands
-      -cilium.provision
-            Provision Vagrant boxes and Cilium before running test (default true)
       -cilium.showCommands
             Output which commands are ran to stdout
       -cilium.skipLogs
@@ -604,7 +601,7 @@ Example how to run ginkgo using ``dlv``:
 
 .. code-block:: shell-session
 
-	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
+	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true
 
 Running End-To-End Tests In Other Environments via kubeconfig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -639,14 +636,14 @@ An example invocation is
 
 .. code-block:: shell-session
 
-  INTEGRATION_TESTS=true CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
+  INTEGRATION_TESTS=true CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" -- -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
 
 
 To run tests with Kind, try
 
 .. code-block:: shell-session
 
-  K8S_VERSION=1.25 ginkgo --focus=K8s -- -cilium.provision=false --cilium.image=localhost:5000/cilium/cilium-dev -cilium.tag=local  --cilium.operator-image=localhost:5000/cilium/operator -cilium.operator-tag=local -cilium.kubeconfig=`echo ~/.kube/config` -cilium.testScope=K8s -cilium.operator-suffix=
+  K8S_VERSION=1.25 ginkgo --focus=K8s -- --cilium.image=localhost:5000/cilium/cilium-dev -cilium.tag=local  --cilium.operator-image=localhost:5000/cilium/operator -cilium.operator-tag=local -cilium.kubeconfig=`echo ~/.kube/config` -cilium.testScope=K8s -cilium.operator-suffix=
 
 
 Running in GKE
@@ -675,7 +672,7 @@ cluster.
   export CLUSTER_ZONE=us-west2-a
   export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
 
-  INTEGRATION_TESTS=true CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
+  INTEGRATION_TESTS=true CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.23 but can be configured with
           versions between 1.16 and 1.23. Version should match the server
@@ -697,7 +694,7 @@ AKS (experimental)
 .. code-block:: shell-session
 
     export NATIVE_CIDR="10.241.0.0/16"
-    INTEGRATION_TESTS=true CNI_INTEGRATION=aks K8S_VERSION=1.17 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.passCLIEnvironment=true -cilium.image="mcr.microsoft.com/oss/cilium/cilium" -cilium.tag="1.12.1" -cilium.operator-image="mcr.microsoft.com/oss/cilium/operator" -cilium.operator-suffix=""  -cilium.operator-tag="1.12.1"
+    INTEGRATION_TESTS=true CNI_INTEGRATION=aks K8S_VERSION=1.17 ginkgo --focus="K8s" -- -cilium.kubeconfig=`echo ~/.kube/config` -cilium.passCLIEnvironment=true -cilium.image="mcr.microsoft.com/oss/cilium/cilium" -cilium.tag="1.12.1" -cilium.operator-image="mcr.microsoft.com/oss/cilium/operator" -cilium.operator-suffix=""  -cilium.operator-tag="1.12.1"
 
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -782,7 +779,7 @@ To run this you can use the following command:
 
 .. code-block:: shell-session
 
-    ginkgo -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
+    ginkgo -- --cilium.SSHConfig="cat ssh-config"
 
 
 Environment variables

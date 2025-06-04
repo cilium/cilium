@@ -356,7 +356,6 @@ jobs:
           --ginkgo.skip="${{ matrix.cliSkip }}" \
           --ginkgo.seed=1679952881 \
           --ginkgo.v -- \
-          -cilium.provision=false \
           -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           -cilium.tag=${{ steps.vars.outputs.sha }}  \
           -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
