@@ -62,6 +62,14 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		option.Config.EnableSessionAffinity = true
 	}
 
+	if !option.Config.EnableNodePort {
+		// Disable features depending on NodePort
+		option.Config.EnableHostPort = false
+		option.Config.EnableExternalIPs = false
+		option.Config.EnableSVCSourceRangeCheck = false
+		option.Config.EnableHostLegacyRouting = true
+	}
+
 	if option.Config.EnableNodePort {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
@@ -273,16 +281,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config) error {
-	if !option.Config.EnableNodePort {
-		// Make sure that NodePort dependencies are disabled
-		disableNodePort()
-		return nil
-	}
-
-	// +-------------------------------------------------------+
-	// | After this point, BPF NodePort should not be disabled |
-	// +-------------------------------------------------------+
-
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && option.Config.EnableSocketLB {
@@ -340,16 +338,6 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 	}
 
 	return nil
-}
-
-// disableNodePort disables BPF NodePort and friends who are dependent from
-// the latter.
-func disableNodePort() {
-	option.Config.EnableNodePort = false
-	option.Config.EnableHostPort = false
-	option.Config.EnableExternalIPs = false
-	option.Config.EnableSVCSourceRangeCheck = false
-	option.Config.EnableHostLegacyRouting = true
 }
 
 // markHostExtension tells the socket LB that MKE managed containers belong

@@ -238,7 +238,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableExternalIPs:       false,
 				enableSessionAffinity:   false,
 				enableIPSec:             false,
-				enableHostLegacyRouting: false,
+				enableHostLegacyRouting: true,
 				enableSocketLBTracing:   false,
 				expectedErrorRegex:      "",
 			},
