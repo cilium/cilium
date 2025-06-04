@@ -38,5 +38,3 @@ ENV MAKE_GIT_REPO_SAFE=1
 ## write runtime data inside a system directory.
 ## We do rely on this extension, so we cannot just drop it.
 RUN install -m 0777 -d /usr/local/lib/python3.11/site-packages/versionwarning/_static/data
-
-USER docsuser
