@@ -48,9 +48,6 @@ func Cell(defaultBackend string) cell.Cell {
 
 			Stats BootstrapStat `optional:"true"`
 		}) Client {
-			// Set the global variables, to allow for a gradual migration.
-			defaultClientSet = make(chan struct{})
-
 			if in.Config.KVStore == DisabledBackendName {
 				return &clientImpl{enabled: false}
 			}
