@@ -85,7 +85,7 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 			return exitcode;
 	}
 
-	flags = ctx_classify(ctx, 0);
+	flags = ctx_classify(ctx, 0, TRACE_POINT_UNKNOWN);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
