@@ -15,8 +15,10 @@
 #define CLIENT_IP		v4_ext_one
 #define ICMP_ID			__bpf_htons(0x1234)
 
-#define FRONTEND_IP		v4_svc_two
-#define FRONTEND_PORT		tcp_svc_one
+#define CLUSTERIP_IP		v4_svc_two
+#define LOADBALANCER_IP		v4_svc_three
+#define NODEPORT_IP		v4_node_one
+#define SERVICE_PORT		tcp_svc_one
 
 #define BACKEND_IP		v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
@@ -27,7 +29,7 @@ static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x
 
 #include <bpf_host.c>
 
-ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, (union v4addr) { .be32 = FRONTEND_IP })
+ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, (union v4addr) { .be32 = CLUSTERIP_IP })
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -47,9 +49,9 @@ struct {
 	},
 };
 
-/* Test that ICMP echo requests to service IPs generate ICMP echo replies */
-PKTGEN("tc", "tc_nodeport_lb4_icmp_echo_request")
-int nodeport_lb4_icmp_echo_request_pktgen(struct __ctx_buff *ctx)
+/* Test that ICMP echo requests to ClusterIP services generate ICMP echo replies */
+PKTGEN("tc", "tc_nodeport_lb4_icmp_clusterip_echo_request")
+int nodeport_lb4_icmp_clusterip_echo_request_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct icmphdr *icmphdr;
@@ -73,7 +75,7 @@ int nodeport_lb4_icmp_echo_request_pktgen(struct __ctx_buff *ctx)
 		return TEST_ERROR;
 
 	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP;
+	l3->daddr = CLUSTERIP_IP;
 
 	/* Push ICMP header */
 	icmphdr = pktgen__push_icmphdr(&builder);
@@ -95,36 +97,16 @@ int nodeport_lb4_icmp_echo_request_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb4_icmp_echo_request")
-int nodeport_lb4_icmp_echo_request_setup(struct __ctx_buff *ctx)
+SETUP("tc", "tc_nodeport_lb4_icmp_clusterip_echo_request")
+int nodeport_lb4_icmp_clusterip_echo_request_setup(struct __ctx_buff *ctx)
 {
-	/* add a service entry for the frontend IP/port */
-	struct lb4_key lb_svc_key = {};
-	struct lb4_service lb_svc_value = {};
-	struct lb4_backend lb_backend = {};
+	/* Create a ClusterIP service which will automatically get a wildcard entry
+	 * for ICMP echo reply handling due to ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+	 */
+	lb_v4_add_service_with_flags(CLUSTERIP_IP, SERVICE_PORT, IPPROTO_TCP, 1, 1, 0, 0);
 
-	lb_svc_key.address = FRONTEND_IP;
-	lb_svc_key.dport = 0; /* ICMP doesn't have ports */
-	lb_svc_key.proto = IPPROTO_ICMP;
-
-	lb_svc_value.count = 1;
-	lb_svc_value.rev_nat_index = 1;
-
-	map_update_elem(&cilium_lb4_services_v2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* add a backend for the service */
-	lb_backend.address = BACKEND_IP;
-	lb_backend.port = BACKEND_PORT;
-
-	map_update_elem(&cilium_lb4_backends_v3, &lb_svc_value.backend_id, &lb_backend, BPF_ANY);
-
-	/* add a reverse NAT entry for the service */
-	struct lb4_reverse_nat lb_rev_nat = {};
-	lb_rev_nat.address = FRONTEND_IP;
-	lb_rev_nat.port = FRONTEND_PORT;
-
-	map_update_elem(&cilium_lb4_reverse_nat, &lb_svc_value.rev_nat_index,
-			&lb_rev_nat, BPF_ANY);
+	/* Add a backend for the service */
+	lb_v4_add_backend(CLUSTERIP_IP, SERVICE_PORT, 1, 1, BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -132,8 +114,8 @@ int nodeport_lb4_icmp_echo_request_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "tc_nodeport_lb4_icmp_echo_request")
-int nodeport_lb4_icmp_echo_request_check(const struct __ctx_buff *ctx)
+CHECK("tc", "tc_nodeport_lb4_icmp_clusterip_echo_request")
+int nodeport_lb4_icmp_clusterip_echo_request_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -177,9 +159,9 @@ int nodeport_lb4_icmp_echo_request_check(const struct __ctx_buff *ctx)
 	assert(icmphdr->un.echo.id == ICMP_ID);
 
 	/* Verify IP addresses are swapped */
-	test_log("Reply src IP: 0x%x, expected: 0x%x (FRONTEND_IP)", bpf_ntohl(l3->saddr), bpf_ntohl(FRONTEND_IP));
+	test_log("Reply src IP: 0x%x, expected: 0x%x (CLUSTERIP_IP)", bpf_ntohl(l3->saddr), bpf_ntohl(CLUSTERIP_IP));
 	test_log("Reply dst IP: 0x%x, expected: 0x%x (CLIENT_IP)", bpf_ntohl(l3->daddr), bpf_ntohl(CLIENT_IP));
-	assert(l3->saddr == FRONTEND_IP);
+	assert(l3->saddr == CLUSTERIP_IP);
 	assert(l3->daddr == CLIENT_IP);
 
 	/* Verify MAC addresses are swapped */
@@ -187,6 +169,246 @@ int nodeport_lb4_icmp_echo_request_check(const struct __ctx_buff *ctx)
 	assert(memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) == 0);
 	assert(memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) == 0);
 	test_log("MAC address swapping verified successfully");
+
+	test_finish();
+}
+
+/* Test that ICMP echo requests to LoadBalancer services generate ICMP echo replies */
+PKTGEN("tc", "tc_nodeport_lb4_icmp_loadbalancer_echo_request")
+int nodeport_lb4_icmp_loadbalancer_echo_request_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmphdr;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	/* Push ethernet header */
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
+
+	/* Push IPv4 header */
+	l3 = pktgen__push_default_iphdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->saddr = CLIENT_IP;
+	l3->daddr = LOADBALANCER_IP;
+
+	/* Push ICMP header */
+	icmphdr = pktgen__push_icmphdr(&builder);
+	if (!icmphdr)
+		return TEST_ERROR;
+
+	icmphdr->type = ICMP_ECHO;
+	icmphdr->code = 0;
+	icmphdr->un.echo.id = ICMP_ID;
+	icmphdr->un.echo.sequence = __bpf_htons(2);
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_lb4_icmp_loadbalancer_echo_request")
+int nodeport_lb4_icmp_loadbalancer_echo_request_setup(struct __ctx_buff *ctx)
+{
+	/* Create a LoadBalancer service which will automatically get a wildcard entry
+	 * for ICMP echo reply handling due to ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+	 */
+	lb_v4_add_service_with_flags(LOADBALANCER_IP, SERVICE_PORT, IPPROTO_TCP, 1, 2, SVC_FLAG_ROUTABLE, SVC_FLAG_LOADBALANCER);
+
+	/* Add a backend for the service */
+	lb_v4_add_backend(LOADBALANCER_IP, SERVICE_PORT, 1, 2, BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_lb4_icmp_loadbalancer_echo_request")
+int nodeport_lb4_icmp_loadbalancer_echo_request_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct icmphdr *icmphdr;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	test_log("Status code: %d, expected: %d (CTX_ACT_REDIRECT)", *status_code, CTX_ACT_REDIRECT);
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	assert(l2->h_proto == bpf_htons(ETH_P_IP));
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	assert(l3->protocol == IPPROTO_ICMP);
+
+	icmphdr = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct iphdr);
+	if ((void *)icmphdr + sizeof(struct icmphdr) > data_end)
+		test_fatal("icmphdr out of bounds");
+
+	/* Verify this is an ICMP echo reply */
+	test_log("ICMP type: %d, expected: %d (ICMP_ECHOREPLY)", icmphdr->type, ICMP_ECHOREPLY);
+	assert(icmphdr->type == ICMP_ECHOREPLY);
+
+	/* Verify the ICMP ID is preserved */
+	assert(icmphdr->un.echo.id == ICMP_ID);
+
+	/* Verify IP addresses are swapped */
+	test_log("Reply src IP: 0x%x, expected: 0x%x (LOADBALANCER_IP)", bpf_ntohl(l3->saddr), bpf_ntohl(LOADBALANCER_IP));
+	test_log("Reply dst IP: 0x%x, expected: 0x%x (CLIENT_IP)", bpf_ntohl(l3->daddr), bpf_ntohl(CLIENT_IP));
+	assert(l3->saddr == LOADBALANCER_IP);
+	assert(l3->daddr == CLIENT_IP);
+
+	/* Verify MAC addresses are swapped */
+	test_log("Checking MAC address swapping: src should be lb_mac, dst should be client_mac");
+	assert(memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) == 0);
+	assert(memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) == 0);
+	test_log("MAC address swapping verified successfully");
+
+	test_finish();
+}
+
+/* Test that ICMP echo requests to NodePort services are forwarded (not replied to) */
+PKTGEN("tc", "tc_nodeport_lb4_icmp_nodeport_forward")
+int nodeport_lb4_icmp_nodeport_forward_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmphdr;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	/* Push ethernet header */
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
+
+	/* Push IPv4 header */
+	l3 = pktgen__push_default_iphdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->saddr = CLIENT_IP;
+	l3->daddr = NODEPORT_IP;
+
+	/* Push ICMP header */
+	icmphdr = pktgen__push_icmphdr(&builder);
+	if (!icmphdr)
+		return TEST_ERROR;
+
+	icmphdr->type = ICMP_ECHO;
+	icmphdr->code = 0;
+	icmphdr->un.echo.id = ICMP_ID;
+	icmphdr->un.echo.sequence = __bpf_htons(3);
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_lb4_icmp_nodeport_forward")
+int nodeport_lb4_icmp_nodeport_forward_setup(struct __ctx_buff *ctx)
+{
+	/* Create a NodePort service - this should NOT get a wildcard entry
+	 * because NodePort uses real node IPs and should forward ICMP to the node
+	 */
+	lb_v4_add_service_with_flags(NODEPORT_IP, SERVICE_PORT, IPPROTO_TCP, 1, 3, SVC_FLAG_NODEPORT | SVC_FLAG_ROUTABLE, 0);
+
+	/* Add a backend for the service */
+	lb_v4_add_backend(NODEPORT_IP, SERVICE_PORT, 1, 3, BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_lb4_icmp_nodeport_forward")
+int nodeport_lb4_icmp_nodeport_forward_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct icmphdr *icmphdr;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	/* NodePort should forward the packet, not generate an echo reply */
+	test_log("Status code: %d, expected: %d (CTX_ACT_OK)", *status_code, CTX_ACT_OK);
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	assert(l2->h_proto == bpf_htons(ETH_P_IP));
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	assert(l3->protocol == IPPROTO_ICMP);
+
+	icmphdr = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct iphdr);
+	if ((void *)icmphdr + sizeof(struct icmphdr) > data_end)
+		test_fatal("icmphdr out of bounds");
+
+	/* Verify this is still an ICMP echo request (not converted to reply) */
+	test_log("ICMP type: %d, expected: %d (ICMP_ECHO)", icmphdr->type, ICMP_ECHO);
+	assert(icmphdr->type == ICMP_ECHO);
+
+	/* Verify the packet is unchanged - addresses should not be swapped */
+	test_log("Packet src IP: 0x%x, expected: 0x%x (CLIENT_IP)", bpf_ntohl(l3->saddr), bpf_ntohl(CLIENT_IP));
+	test_log("Packet dst IP: 0x%x, expected: 0x%x (NODEPORT_IP)", bpf_ntohl(l3->daddr), bpf_ntohl(NODEPORT_IP));
+	assert(l3->saddr == CLIENT_IP);
+	assert(l3->daddr == NODEPORT_IP);
 
 	test_finish();
 }
@@ -217,7 +439,7 @@ int nodeport_lb4_icmp_other_pktgen(struct __ctx_buff *ctx)
 		return TEST_ERROR;
 
 	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP;
+	l3->daddr = CLUSTERIP_IP;
 
 	/* Push ICMP header with destination unreachable type */
 	icmphdr = pktgen__push_icmphdr(&builder);
