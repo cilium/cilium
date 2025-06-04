@@ -1434,7 +1434,7 @@ func TestPaginatedList(t *testing.T) {
 	ctx := context.Background()
 
 	run := func(t *testing.T, batch int, withParallelOps bool) {
-		cl := client.(*etcdClient)
+		cl := client.(*clientImpl).BackendOperations.(*etcdClient)
 		keys := map[string]struct{}{
 			path.Join(prefix, "immortal-finch"):   {},
 			path.Join(prefix, "rare-goshawk"):     {},
