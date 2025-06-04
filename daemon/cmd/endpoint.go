@@ -575,7 +575,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		}
 		if uuid := addressing.IPv6ExpirationUUID; uuid != "" {
 			if ip := net.ParseIP(addressing.IPv6); ip != nil {
-				pool := ipam.PoolOrDefault(addressing.IPv4PoolName)
+				pool := ipam.PoolOrDefault(addressing.IPv6PoolName)
 				if err := d.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return d.errorDuringCreation(ep, err)
 				}
