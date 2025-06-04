@@ -230,7 +230,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		if option.Config.EnableMKE {
 			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
 				probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				logging.Fatal(logger, fmt.Sprintf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE))
+				return fmt.Errorf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 			}
 		}
 
