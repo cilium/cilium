@@ -334,7 +334,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 		}
 		if uuid := addressing.IPV6ExpirationUUID; uuid != "" {
 			if ip := net.ParseIP(addressing.IPV6); ip != nil {
-				pool := ipam.PoolOrDefault(addressing.IPV4PoolName)
+				pool := ipam.PoolOrDefault(addressing.IPV6PoolName)
 				if err := m.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return m.errorDuringCreation(ep, err)
 				}
