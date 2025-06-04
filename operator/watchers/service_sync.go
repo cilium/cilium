@@ -104,7 +104,7 @@ func registerServiceSync(jg job.Group, p ServiceSyncParams) {
 						return err
 					}
 				} else {
-					backend = kvstore.Client()
+					backend = kvstore.LegacyClient()
 				}
 				store := s.StoreFactory.NewSyncStore(
 					s.ClusterInfo.Name,

@@ -157,7 +157,7 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, n *nodeTypes.Node, ma
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
 		Context:                 ctx,
-		Backend:                 kvstore.Client(),
+		Backend:                 kvstore.LegacyClient(),
 		Prefix:                  NodeStorePrefix,
 		KeyCreator:              ValidatingKeyCreator(),
 		SynchronizationInterval: 30 * time.Minute,

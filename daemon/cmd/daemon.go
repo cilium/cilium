@@ -720,7 +720,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.KVStore != "" {
 		go func() {
 			d.logger.Info("Starting IP identity watcher")
-			params.IPIdentityWatcher.Watch(ctx, kvstore.Client(), ipcache.WithSelfDeletionProtection(params.IPIdentitySyncer))
+			params.IPIdentityWatcher.Watch(ctx, kvstore.LegacyClient(), ipcache.WithSelfDeletionProtection(params.IPIdentitySyncer))
 		}()
 	}
 

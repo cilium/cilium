@@ -252,7 +252,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 					BasePath: m.identitiesPath,
 					Suffix:   owner.GetNodeSuffix(),
 					Typ:      &key.GlobalIdentity{},
-					Backend:  kvstore.Client(),
+					Backend:  kvstore.LegacyClient(),
 				})
 			if err != nil {
 				logging.Fatal(m.logger, "Unable to initialize kvstore backend for identity allocation", logfields.Error, err)
@@ -289,7 +289,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 						BasePath: m.identitiesPath,
 						Suffix:   owner.GetNodeSuffix(),
 						Typ:      &key.GlobalIdentity{},
-						Backend:  kvstore.Client(),
+						Backend:  kvstore.LegacyClient(),
 					},
 					ReadFromKVStore: readFromKVStore,
 				})
