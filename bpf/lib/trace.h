@@ -133,6 +133,9 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 		__throw_build_bug();
 		break;
 #endif
+	case TRACE_POINT_UNKNOWN:
+		__throw_build_bug();
+		break;
 	}
 }
 
