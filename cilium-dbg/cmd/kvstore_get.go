@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var kvstoreGetCmd = &cobra.Command{
@@ -29,7 +28,7 @@ var kvstoreGetCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		client := setupKvstore(ctx, logging.DefaultSlogLogger)
+		client := setupKvstore(ctx, log)
 
 		if recursive {
 			pairs, err := client.ListPrefix(ctx, key)

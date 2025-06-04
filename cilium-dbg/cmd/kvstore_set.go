@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -29,7 +27,7 @@ var kvstoreSetCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		client := setupKvstore(ctx, logging.DefaultSlogLogger)
+		client := setupKvstore(ctx, log)
 
 		err := client.Update(ctx, key, []byte(value), false)
 		if err != nil {

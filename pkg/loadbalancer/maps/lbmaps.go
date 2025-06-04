@@ -662,7 +662,7 @@ func (r *BPFLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInn
 			RevNatID: byteorder.NetworkToHost16(key.(*MaglevOuterKey).RevNatID),
 		}
 		maglevValue := value.(*MaglevOuterVal)
-		inner, err := MaglevInnerMapFromID(r.Log, maglevValue.FD)
+		inner, err := MaglevInnerMapFromID(maglevValue.FD)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("cannot open inner map with fd %d: %w", maglevValue.FD, err))
 			return
@@ -757,7 +757,7 @@ func (m MaglevInnerMap) UpdateBackends(backends []loadbalancer.BackendID) error 
 
 // MaglevInnerMapFromID returns a new object representing the maglev inner map
 // identified by an ID.
-func MaglevInnerMapFromID(log *slog.Logger, id uint32) (MaglevInnerMap, error) {
+func MaglevInnerMapFromID(id uint32) (MaglevInnerMap, error) {
 	m, err := ebpf.NewMapFromID(ebpf.MapID(id))
 	return MaglevInnerMap{m}, err
 }

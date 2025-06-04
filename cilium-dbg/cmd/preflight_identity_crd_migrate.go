@@ -62,7 +62,7 @@ func migrateIdentityCmd() *cobra.Command {
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
+		if err := hive.Run(log); err != nil {
 			logging.Fatal(log, err.Error())
 		}
 	}
@@ -231,7 +231,7 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	//    allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
-	crdAllocator, err = allocator.NewAllocator(logging.DefaultSlogLogger, &cacheKey.GlobalIdentity{}, crdBackend, allocator.WithMax(maxID), allocator.WithMin(minID))
+	crdAllocator, err = allocator.NewAllocator(log, &cacheKey.GlobalIdentity{}, crdBackend, allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		logging.Fatal(log, "Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs", logfields.Error, err)
 	}
@@ -248,14 +248,14 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 // find identities at the default cilium paths.
 func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
-	client := setupKvstore(ctx, logging.DefaultSlogLogger)
+	client := setupKvstore(ctx, log)
 
 	if err := <-client.Connected(wctx); err != nil {
 		logging.Fatal(log, "Cannot connect to the kvstore", logfields.Error, err)
 	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
-	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: client})
+	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(log, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: client})
 	if err != nil {
 		logging.Fatal(log, "Cannot create kvstore identity backend", logfields.Error, err)
 	}

@@ -38,11 +38,11 @@ var bpfPolicyGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy get")
 		if allList {
-			listAllMaps(logging.DefaultSlogLogger)
+			listAllMaps(log)
 			return
 		}
 		requireEndpointID(cmd, args)
-		listMap(logging.DefaultSlogLogger, args)
+		listMap(log, args)
 	},
 }
 
