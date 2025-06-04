@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 var Cell = cell.Module(
@@ -56,7 +55,7 @@ var Cell = cell.Module(
 
 	cell.Group(
 		cell.Provide(
-			func(backend promise.Promise[kvstore.BackendOperations], syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
+			func(backend kvstore.Client, syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
 				return operatorWatchers.ServiceSyncConfig{
 					Enabled: true,
 					Backend: backend,

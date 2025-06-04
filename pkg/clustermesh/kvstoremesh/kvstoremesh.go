@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 type Config struct {
@@ -60,9 +59,8 @@ type KVStoreMesh struct {
 	common common.ClusterMesh
 	config Config
 
-	// backend is the interface to operate the local kvstore
-	backend        kvstore.BackendOperations
-	backendPromise promise.Promise[kvstore.BackendOperations]
+	// client is the interface to operate the local kvstore
+	client kvstore.Client
 
 	storeFactory store.Factory
 
@@ -80,7 +78,7 @@ type params struct {
 	ClusterInfo  types.ClusterInfo
 	CommonConfig common.Config
 
-	BackendPromise promise.Promise[kvstore.BackendOperations]
+	Client kvstore.Client
 
 	Metrics      common.Metrics
 	StoreFactory store.Factory
@@ -90,11 +88,11 @@ type params struct {
 
 func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{
-		config:         params.Config,
-		backendPromise: params.BackendPromise,
-		storeFactory:   params.StoreFactory,
-		logger:         params.Logger,
-		clock:          clock.RealClock{},
+		config:       params.Config,
+		client:       params.Client,
+		storeFactory: params.StoreFactory,
+		logger:       params.Logger,
+		clock:        clock.RealClock{},
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Logger:           params.Logger,
@@ -104,10 +102,6 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		Metrics:          params.Metrics,
 	})
 
-	lc.Append(&km)
-
-	// The "common" Start hook needs to be executed after that the kvstoremesh one
-	// terminated, to ensure that the backend promise has already been resolved.
 	lc.Append(km.common)
 
 	return &km
@@ -134,20 +128,6 @@ func RegisterSyncWaiter(p SyncWaiterParams) {
 	)
 }
 
-func (km *KVStoreMesh) Start(ctx cell.HookContext) error {
-	backend, err := km.backendPromise.Await(ctx)
-	if err != nil {
-		return err
-	}
-
-	km.backend = backend
-	return nil
-}
-
-func (km *KVStoreMesh) Stop(cell.HookContext) error {
-	return nil
-}
-
 func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -158,15 +138,15 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 
 	rc := &remoteCluster{
 		name:         name,
-		localBackend: km.backend,
+		localBackend: km.client,
 
 		cancel: cancel,
 
-		nodes:          newReflector(km.backend, name, nodeStore.NodeStorePrefix, "", km.storeFactory, synced.resources),
-		services:       newReflector(km.backend, name, serviceStore.ServiceStorePrefix, "", km.storeFactory, synced.resources),
-		serviceExports: newReflector(km.backend, name, mcsapitypes.ServiceExportStorePrefix, "", km.storeFactory, synced.resources),
-		identities:     newReflector(km.backend, name, identityCache.IdentitiesPath, identityCacheSuffix, km.storeFactory, synced.resources),
-		ipcache:        newReflector(km.backend, name, ipcache.IPIdentitiesPath, "", km.storeFactory, synced.resources),
+		nodes:          newReflector(km.client, name, nodeStore.NodeStorePrefix, "", km.storeFactory, synced.resources),
+		services:       newReflector(km.client, name, serviceStore.ServiceStorePrefix, "", km.storeFactory, synced.resources),
+		serviceExports: newReflector(km.client, name, mcsapitypes.ServiceExportStorePrefix, "", km.storeFactory, synced.resources),
+		identities:     newReflector(km.client, name, identityCache.IdentitiesPath, identityCacheSuffix, km.storeFactory, synced.resources),
+		ipcache:        newReflector(km.client, name, ipcache.IPIdentitiesPath, "", km.storeFactory, synced.resources),
 		status:         status,
 		storeFactory:   km.storeFactory,
 		synced:         synced,
