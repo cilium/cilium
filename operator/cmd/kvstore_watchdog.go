@@ -67,7 +67,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 
 	backend, err := kvstoreallocator.NewKVStoreBackend(logger, kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
-		Backend:  kvstore.Client(),
+		Backend:  kvstore.LegacyClient(),
 	})
 	if err != nil {
 		logging.Fatal(logger, "Unable to initialize kvstore backend for identity garbage collection", logfields.Error, err)
@@ -98,7 +98,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 
-			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
+			err := kvstore.LegacyClient().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
 			if err != nil {
 				logger.Warn("Unable to update heartbeat key", logfields.Error, err)
 			}
@@ -112,7 +112,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 						MaxConnectedClusters:  option.Config.MaxConnectedClusters,
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
-				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
+				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.LegacyClient()); err != nil {
 					logger.Warn("Unable to set local cluster config", logfields.Error, err)
 				}
 			}

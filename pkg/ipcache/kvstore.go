@@ -62,7 +62,7 @@ func NewIPIdentitySynchronizer(logger *slog.Logger) *IPIdentitySynchronizer {
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
 func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
 	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
-	s.client.CompareAndSwap(nil, backend(kvstore.Client()))
+	s.client.CompareAndSwap(nil, backend(kvstore.LegacyClient()))
 
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
@@ -113,7 +113,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
-	s.client.CompareAndSwap(nil, backend(kvstore.Client()))
+	s.client.CompareAndSwap(nil, backend(kvstore.LegacyClient()))
 
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	s.tracker.Delete(ipKey)

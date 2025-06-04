@@ -91,7 +91,7 @@ func (h *healthHandler) checkStatus() error {
 	// it is the leader's responsibility to report the status of the
 	// kvstore client.
 	if h.isOperatorLeading() && h.kvstoreEnabled() {
-		client := kvstore.Client()
+		client := kvstore.LegacyClient()
 		if client == nil {
 			return errors.New("kvstore client not configured")
 		}

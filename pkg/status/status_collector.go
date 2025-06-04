@@ -657,7 +657,7 @@ func (d *statusCollector) getProbes() []Probe {
 				if d.statusParams.DaemonConfig.KVStore == "" {
 					return &models.Status{State: models.StatusStateDisabled}, nil
 				} else {
-					return kvstore.Client().Status(), nil
+					return kvstore.LegacyClient().Status(), nil
 				}
 			},
 			OnStatusUpdate: func(status Status) {

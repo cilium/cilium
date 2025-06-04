@@ -55,7 +55,7 @@ func StartSynchronizingServiceExports(ctx context.Context, cfg ServiceExportSync
 	logger := cfg.Logger.With(logfields.LogSubsys, "mcsapi")
 	if cfg.store == nil {
 		if cfg.Backend == nil {
-			cfg.Backend = kvstore.Client()
+			cfg.Backend = kvstore.LegacyClient()
 		}
 
 		cfg.store = cfg.StoreFactory.NewSyncStore(cfg.ClusterName,

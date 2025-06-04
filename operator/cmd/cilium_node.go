@@ -121,7 +121,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 
 			ciliumNodeKVStore, err = store.JoinSharedStore(s.logger,
 				store.Configuration{
-					Backend:    kvstore.Client(),
+					Backend:    kvstore.LegacyClient(),
 					Prefix:     nodeStore.NodeStorePrefix,
 					KeyCreator: nodeStore.KeyCreator,
 

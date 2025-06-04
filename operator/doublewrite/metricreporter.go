@@ -84,7 +84,7 @@ func (h NoOpHandlerWithListDone) OnListDone() {
 func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
 	g.logger.Info("Starting the Double Write Metric Reporter")
 
-	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.Client()})
+	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.LegacyClient()})
 	if err != nil {
 		g.logger.Error("Unable to initialize kvstore backend for the Double Write Metric Reporter", logfields.Error, err)
 		return err
