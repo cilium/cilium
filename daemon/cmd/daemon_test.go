@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/dial"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
@@ -126,6 +127,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		fakeDatapath.Cell,
 		prefilter.Cell,
 		monitorAgent.Cell,
+		dial.ServiceResolverCell,
 		ControlPlane,
 		metrics.Cell,
 		store.Cell,

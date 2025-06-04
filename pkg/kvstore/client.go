@@ -71,6 +71,11 @@ func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {
 
 	cl.logger.Info("Connection to kvstore successfully established")
 	cl.BackendOperations = client
+
+	// Set the global variables, to allow for a gradual migration.
+	defaultClient = client
+	close(defaultClientSet)
+
 	return nil
 }
 
