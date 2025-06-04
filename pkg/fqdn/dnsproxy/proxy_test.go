@@ -79,54 +79,33 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")
 	dnsProxyConfig := DNSProxyConfig{
+		Logger:                 logger,
 		Address:                "",
-		Port:                   0,
 		IPv4:                   true,
 		IPv6:                   true,
 		EnableDNSCompression:   true,
 		MaxRestoreDNSIPs:       1000,
 		ConcurrencyLimit:       0,
 		ConcurrencyGracePeriod: 0,
+		RejectReply:            option.Config.FQDNRejectResponse,
 	}
-	proxy := NewDNSProxy(logger, dnsProxyConfig, func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
-		if s.restoring {
-			return nil, false, fmt.Errorf("No EPs available when restoring")
-		}
-		model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
-		ep.Start(uint16(model.ID))
-		tb.Cleanup(ep.Stop)
-		return ep, false, err
-	}, func(ip netip.Addr) (ipcache.Identity, bool) {
-		DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
-		switch {
-		case ip.String() == DNSServerListenerAddr.IP.String():
-			ident := ipcache.Identity{
-				ID:     dstID1,
-				Source: source.Unspec,
+	proxy := NewDNSProxy(dnsProxyConfig,
+		s,
+		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+			if s.restoring {
+				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
-			return ident, true
-		default:
-			ident := ipcache.Identity{
-				ID:     dstID2,
-				Source: source.Unspec,
-			}
-			return ident, true
-		}
-	}, func(nid identity.NumericIdentity) []string {
-		DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
-		switch nid {
-		case dstID1:
-			return []string{DNSServerListenerAddr.IP.String()}
-		case dstID2:
-			return []string{"127.0.0.1", "127.0.0.2"}
-		default:
+			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+			ep.Start(uint16(model.ID))
+			tb.Cleanup(ep.Stop)
+			return ep, false, err
+		},
+		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
-		}
-	}, func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
-		return nil
-	})
-	err := proxy.Listen()
+		},
+	)
+	err := proxy.Listen(0)
 	require.NoError(tb, err, "error listening for DNS requests")
 	s.proxy = proxy
 
@@ -152,7 +131,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		if len(s.proxy.cache) > 0 {
 			tb.Error("cache not fully empty after removing all rules. Possible memory leak found.")
 		}
-		s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 		s.dnsServer.Listener.Close()
 		for _, s := range s.proxy.DNSServers {
 			s.Shutdown()
@@ -160,6 +138,36 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	})
 
 	return s
+}
+
+func (s *DNSProxyTestSuite) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
+	DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
+	switch {
+	case ip.String() == DNSServerListenerAddr.IP.String():
+		ident := ipcache.Identity{
+			ID:     dstID1,
+			Source: source.Unspec,
+		}
+		return ident, true
+	default:
+		ident := ipcache.Identity{
+			ID:     dstID2,
+			Source: source.Unspec,
+		}
+		return ident, true
+	}
+}
+
+func (s *DNSProxyTestSuite) LookupByIdentity(nid identity.NumericIdentity) []string {
+	DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
+	switch nid {
+	case dstID1:
+		return []string{DNSServerListenerAddr.IP.String()}
+	case dstID2:
+		return []string{"127.0.0.1", "127.0.0.2"}
+	default:
+		return nil
+	}
 }
 
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {
@@ -329,24 +337,30 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(t *testing.T
 }
 
 func TestRejectNonMatchingRefusedResponseWithNameError(t *testing.T) {
+	// reject a query with NXDomain
+	option.Config.FQDNRejectResponse = option.FQDNProxyDenyWithNameError
+	t.Cleanup(func() {
+		option.Config.FQDNRejectResponse = ""
+	})
 	s := setupDNSProxyTestSuite(t)
 
 	request := s.requestRejectNonMatchingRefusedResponse(t)
 
-	// reject a query with NXDomain
-	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoError(t, err, "DNS request from test client failed when it should succeed")
 	require.Equal(t, dns.RcodeNameError, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
 }
 
 func TestRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
+	// reject a query with Refused
+	option.Config.FQDNRejectResponse = option.FQDNProxyDenyWithRefused
+	t.Cleanup(func() {
+		option.Config.FQDNRejectResponse = ""
+	})
 	s := setupDNSProxyTestSuite(t)
 
 	request := s.requestRejectNonMatchingRefusedResponse(t)
 
-	// reject a query with Refused
-	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoError(t, err, "DNS request from test client failed when it should succeed")
 	require.Equal(t, dns.RcodeRefused, response.Rcode, "DNS request from test client was not rejected when it should be blocked")

@@ -135,7 +135,7 @@ cilium-agent [flags]
       --enable-host-firewall                                      Enable host network policies
       --enable-host-legacy-routing                                Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-hubble                                             Enable hubble server
-      --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
+      --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format.
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
@@ -214,11 +214,11 @@ cilium-agent [flags]
       --http-retry-count uint                                     Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                                   Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --http-stream-idle-timeout uint                             Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. Default 300s (default 300)
-      --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS.
+      --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS. (default true)
       --hubble-drop-events                                        Emit packet drop Events related to pods (alpha)
       --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
       --hubble-drop-events-reasons strings                        Drop reasons to emit events for (default [auth_required,policy_denied])
-      --hubble-dynamic-metrics-config-path string                 Filepath with dynamic configuration of hubble metrics
+      --hubble-dynamic-metrics-config-path string                 Filepath with dynamic configuration of hubble metrics.
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
       --hubble-export-allowlist string                            Specify allowlist as JSON encoded FlowFilters to Hubble exporter.

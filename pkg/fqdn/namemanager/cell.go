@@ -8,14 +8,18 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
-	"github.com/cilium/cilium/api/v1/server/restapi/policy"
+	policyRestAPI "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -41,6 +45,7 @@ var Cell = cell.Module(
 )
 
 type NameManagerConfig struct {
+
 	// MinTTL is the minimum TTL value that a cache entry can have.
 	MinTTL int
 
@@ -54,10 +59,14 @@ type NameManagerConfig struct {
 type ManagerParams struct {
 	cell.In
 
-	Logger  *slog.Logger
-	Config  NameManagerConfig
-	IPCache ipc
-	EPMgr   endpoints
+	JobGroup job.Group
+
+	PolicyRepo      policy.PolicyRepository
+	Logger          *slog.Logger
+	Config          NameManagerConfig
+	IPCache         ipc
+	EPMgr           endpoints
+	RestorerPromise promise.Promise[endpointstate.Restorer]
 }
 
 func adaptors(ipcache *ipcache.IPCache, epLookup endpointmanager.EndpointsLookup) (ipc, endpoints) {
@@ -109,22 +118,20 @@ type NameManager interface {
 	// UnlockName releases a lock previously acquired by LockName()
 	UnlockName(name string)
 
-	StartGC(context.Context)
 	// RestoreCache loads cache state from the restored system:
 	// - adds any pre-cached DNS entries
 	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-	RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint)
-	CompleteBootstrap()
+	RestoreCache(eps map[uint16]*endpoint.Endpoint)
 }
 
 // Provides the API handlers for Cilium API.
 type apiHandlers struct {
 	cell.Out
 
-	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
-	PolicyGetFqdnCacheHandler    policy.GetFqdnCacheHandler
-	PolicyGetFqdnCacheIDHandler  policy.GetFqdnCacheIDHandler
-	PolicyGetFqdnNamesHandler    policy.GetFqdnNamesHandler
+	PolicyDeleteFqdnCacheHandler policyRestAPI.DeleteFqdnCacheHandler
+	PolicyGetFqdnCacheHandler    policyRestAPI.GetFqdnCacheHandler
+	PolicyGetFqdnCacheIDHandler  policyRestAPI.GetFqdnCacheIDHandler
+	PolicyGetFqdnNamesHandler    policyRestAPI.GetFqdnNamesHandler
 }
 
 func handlers(nm *manager) apiHandlers {

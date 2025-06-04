@@ -79,9 +79,6 @@ jobs:
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Cleanup Disk space in runner
-        uses: ./.github/actions/disk-cleanup
-
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
@@ -89,6 +86,27 @@ jobs:
         run: |
           mkdir -p ../cilium-base-branch
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
+
+      - name: Check for disk usage and cleanup /mnt
+        shell: bash
+        run: |
+          echo "# Disk usage"
+          df -h
+          echo "# Usage for /mnt"
+          sudo du --human-readable \
+                --threshold 50m \
+                -- /mnt
+          echo "# Removing /mnt/tmp-pv.img"
+          sudo rm -f '/mnt/tmp-pv.img'
+
+      - name: Setup docker volumes into /mnt
+        # This allows us to make use of all available disk.
+        shell: bash
+        run: |
+          sudo systemctl stop docker
+          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
+          sudo ln -s /mnt/docker-volumes /var/lib/docker/volumes
+          sudo systemctl start docker
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0

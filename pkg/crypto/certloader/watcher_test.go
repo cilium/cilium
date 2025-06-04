@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 )
 
 func TestNewWatcherError(t *testing.T) {
@@ -23,6 +24,10 @@ func TestNewWatcherError(t *testing.T) {
 }
 
 func TestNewWatcher(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -47,6 +52,10 @@ func TestNewWatcher(t *testing.T) {
 }
 
 func TestRotation(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -86,6 +95,10 @@ func TestRotation(t *testing.T) {
 }
 
 func TestFutureWatcherImmediately(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -100,7 +113,7 @@ func TestFutureWatcherImmediately(t *testing.T) {
 		t.Fatal("tls.X509KeyPair", err)
 	}
 
-	ch, err := FutureWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
+	ch, err := FutureWatcher(t.Context(), logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
 	assert.NoError(t, err)
 
 	// the files already exists, expect the watcher to be readily available.
@@ -113,6 +126,10 @@ func TestFutureWatcherImmediately(t *testing.T) {
 }
 
 func TestFutureWatcher(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	// don't call setup() yet, we only want the directories created without the
 	// TLS files.
@@ -128,7 +145,7 @@ func TestFutureWatcher(t *testing.T) {
 		t.Fatal("tls.X509KeyPair", err)
 	}
 
-	ch, err := FutureWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
+	ch, err := FutureWatcher(t.Context(), logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
 	assert.NoError(t, err)
 
 	// the files don't exists, expect the watcher to not be ready yet.
@@ -150,12 +167,40 @@ func TestFutureWatcher(t *testing.T) {
 	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
 }
 
+func TestFutureWatcherShutdownBeforeReady(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
+	dir, hubble, relay := directories(t)
+	defer cleanup(dir)
+	logger := hivetest.Logger(t)
+
+	// FutureWatcher starts a goroutine and waits for files to be ready
+	// before returning a watcher. We use goleak to validate that the
+	// goroutine does not leak files never become ready before the context
+	// is cancelled.
+	ch, err := FutureWatcher(t.Context(), logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
+	assert.NoError(t, err)
+
+	// the files don't exists, expect the watcher to not be ready after a delay
+	select {
+	case <-ch:
+		t.Fatal("FutureWatcher should not be ready without the TLS files")
+	case <-time.After(testReloadDelay):
+	}
+}
+
 func TestKubernetesMount(t *testing.T) {
+	t.Cleanup(func() {
+		goleak.VerifyNone(t)
+	})
+
 	dir, hubble := k8sDirectories(t)
 	defer cleanup(dir)
 	logger := hivetest.Logger(t)
 
-	ch, err := FutureWatcher(logger, hubble.caFiles, hubble.certFile, hubble.privkeyFile)
+	ch, err := FutureWatcher(t.Context(), logger, hubble.caFiles, hubble.certFile, hubble.privkeyFile)
 	assert.NoError(t, err)
 
 	// the files don't exists, expect the watcher to not be ready yet.

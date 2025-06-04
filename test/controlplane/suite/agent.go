@@ -21,8 +21,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
-	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -39,14 +37,13 @@ import (
 )
 
 type agentHandle struct {
-	t            *testing.T
-	db           *statedb.DB
-	nodeAddrs    statedb.Table[datapathTables.NodeAddress]
-	d            *cmd.Daemon
-	p            promise.Promise[*cmd.Daemon]
-	fnh          *fakeTypes.FakeNodeHandler
-	flbMap       *mockmaps.LBMockMap
-	defaultProxy defaultdns.Proxy
+	t         *testing.T
+	db        *statedb.DB
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
+	d         *cmd.Daemon
+	p         promise.Promise[*cmd.Daemon]
+	fnh       *fakeTypes.FakeNodeHandler
+	flbMap    *mockmaps.LBMockMap
 
 	hive *hive.Hive
 	log  *slog.Logger
@@ -91,7 +88,6 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		metrics.Cell,
 		store.Cell,
 		cmd.ControlPlane,
-		defaultdns.Cell,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler, lbMap *mockmaps.LBMockMap) {
 			h.p = p
 			h.fnh = nh
@@ -146,9 +142,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	// object bound to the test hive.
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
 
-	if option.Config.EnableL7Proxy {
-		h.defaultProxy.Set(fqdnproxy.MockFQDNProxy{})
-	}
 }
 
 func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {

@@ -4,6 +4,7 @@
 package certloader
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
@@ -53,8 +54,9 @@ func NewWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile string
 // FutureWatcher returns a channel where exactly one Watcher will be sent once
 // the given files are ready and loaded. This can be useful when the file paths
 // are well-known, but the files themselves don't exist yet. Note that the
-// requirement is that the file directories must exists.
-func FutureWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *Watcher, error) {
+// requirement is that the file directories must exists. The provided context
+// ensures that we cleanup the spawned goroutines if the files never become ready.
+func FutureWatcher(ctx context.Context, log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *Watcher, error) {
 	r, err := NewFileReloader(caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
@@ -94,6 +96,8 @@ func FutureWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile str
 			log.Debug("TLS configuration ready")
 			res <- w
 		case <-w.stop:
+		case <-ctx.Done():
+			w.Stop()
 		}
 	}(res)
 

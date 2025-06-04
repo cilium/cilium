@@ -484,18 +484,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	bootstrapStats.restore.End(true)
 
+	// Load cached information from restored endpoints in to FQDN NameManager and DNS proxies
 	bootstrapStats.fqdn.Start()
-	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
-	if err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, restoredEndpoints, err
-	}
-
-	// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
-	cleaner.preCleanupFuncs.Add(func() {
-		params.DNSProxy.Cleanup()
-	})
-
+	params.DNSNameManager.RestoreCache(restoredEndpoints.possible)
+	params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible)
 	bootstrapStats.fqdn.End(true)
 
 	if params.Clientset.IsEnabled() {
@@ -738,13 +730,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.bpfBase.EndError(err)
 	if err != nil {
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
-	}
-
-	// iptables rules can be updated only after d.init() initializes the iptables above.
-	err = params.DNSProxy.UpdateDNSDatapathRules(d.ctx)
-	if err != nil {
-		d.logger.Error("error encountered while updating DNS datapath rules.", logfields.Error, err)
-		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
 	}
 
 	if option.Config.EnableVTEP {

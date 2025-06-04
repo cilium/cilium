@@ -25,6 +25,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/health"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
+	hubblemetricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
 	"github.com/cilium/cilium/pkg/ipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -85,6 +86,7 @@ type statusParams struct {
 	Devices          statedb.Table[*datapathTables.Device]
 	DirectRoutingDev datapathTables.DirectRoutingDevice
 	Hubble           hubblecell.HubbleIntegration
+	HubbleMetrics    hubblemetricscell.Server
 	IPAM             *ipam.IPAM
 	K8sWatcher       *watchers.K8sWatcher
 	L7Proxy          *proxy.Proxy

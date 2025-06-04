@@ -391,7 +391,7 @@ data:
   bpf-events-default-burst-limit: {{ .Values.bpf.events.default.burstLimit | quote }}
 {{- end}}
 
-{{- if .Values.bpf.mapDynamicSizeRatio }}
+{{- if ne 0.0 ( .Values.bpf.mapDynamicSizeRatio | float64) }}
   # Specifies the ratio (0.0-1.0] of total system memory to use for dynamic
   # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
   bpf-map-dynamic-size-ratio: {{ .Values.bpf.mapDynamicSizeRatio | quote }}
