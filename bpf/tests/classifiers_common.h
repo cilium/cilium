@@ -4,6 +4,7 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define TUNNEL_MODE
+#define ENABLE_IPSEC 1
 #define ENCAP_IFINDEX   1
 #define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
 
@@ -97,6 +98,7 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	struct ipv6hdr *ip6;
 	struct udphdr *udp;
 	cls_flags_t flags;
+	enum trace_point obs_point;
 	__be16 proto;
 
 	/* Parse L3/L4 once. */
@@ -116,29 +118,38 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure L3_DEVICE_CHECK:
 	 * - CLS_FLAG_L3_DEV is set only when ETH_HLEN is zero.
 	 * - CLS_FLAG_IPv6 is set with IPv6 packets and ETH_HLEN is zero.
+	 *
+	 * Trace observation point here does not matter.
 	 */
 	TEST("native", {
-		flags = ctx_classify(ctx, proto);
+		obs_point = TRACE_POINT_UNKNOWN;
+		flags = ctx_classify(ctx, proto, obs_point);
 		L3_DEVICE_CHECK(flags, is_ipv4);
 	})
 
 	/*
 	 * Ensure CLS_FLAG_VXLAN is set with MARK_MAGIC_OVERLAY.
+	 * Use TRACE_TO_{NETWORK,CRYPTO} based on IS_BPF_{HOST,WIREGUARD}.
 	 */
 	TEST("overlay-by-mark", {
 		ctx->mark = MARK_MAGIC_OVERLAY;
-		flags = ctx_classify(ctx, proto);
+		obs_point = is_defined(IS_BPF_HOST) ? TRACE_TO_NETWORK :
+			    is_defined(IS_BPF_WIREGUARD) ? TRACE_TO_CRYPTO : TRACE_POINT_UNKNOWN;
+		flags = ctx_classify(ctx, proto, obs_point);
 		L3_DEVICE_CHECK(flags, is_ipv4);
 		assert(flags & CLS_FLAG_VXLAN);
 	})
 
 	/*
 	 * Ensure CLS_FLAG_VXLAN is set with UDP and TUNNEL_PORT.
+	 * Use TRACE_FROM_{NETWORK,CRYPTO} based on IS_BPF_{HOST,WIREGUARD}.
 	 */
 	TEST("overlay-by-headers", {
 		ctx->mark = 0;
 		udp->dest = bpf_htons(TUNNEL_PORT);
-		flags = ctx_classify(ctx, proto);
+		obs_point = is_defined(IS_BPF_HOST) ? TRACE_FROM_NETWORK :
+			    is_defined(IS_BPF_WIREGUARD) ? TRACE_FROM_CRYPTO : TRACE_POINT_UNKNOWN;
+		flags = ctx_classify(ctx, proto, obs_point);
 		L3_DEVICE_CHECK(flags, is_ipv4);
 		assert(flags & CLS_FLAG_VXLAN);
 	})

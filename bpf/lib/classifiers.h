@@ -42,15 +42,19 @@ enum {
  * ctx_classify
  * @ctx: socket buffer
  * @proto: the layer 3 protocol (ETH_P_IP, ETH_P_IPV6).
+ * @obs_point: the observation point (TRACE_{FROM,TO}_*).
  *
  * Compute classifiers (CLS_FLAG_*) for the given packet to be used during
  * trace/drop notification events. There exists two main computation methods:
  *
  * 1. inspecting ctx->mark for known magic values (ex. MARK_MAGIC_OVERLAY).
  * 3. inspecting L3/L4 headers for known traffic patterns (ex. UDP+OverlayPort).
+ *
+ * Both the two methods are optimized based on the observation point to preserve
+ * performance and verifier complexity.
  */
 static __always_inline cls_flags_t
-ctx_classify(struct __ctx_buff *ctx, __be16 proto)
+ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __maybe_unused)
 {
 	cls_flags_t flags = CLS_FLAG_NONE;
 	bool parse_overlay = false;
@@ -81,7 +85,10 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto)
 #if __ctx_is == __ctx_skb
 # ifdef HAVE_ENCAP
 	/* MARK_MAGIC_OVERLAY is used in to-{netdev,wireguard}. */
-	if ((is_defined(IS_BPF_HOST) || is_defined(IS_BPF_WIREGUARD)) &&
+	if (((is_defined(IS_BPF_HOST) &&
+	      (obs_point == TRACE_TO_NETWORK || obs_point == TRACE_POINT_UNKNOWN)) ||
+	     (is_defined(IS_BPF_WIREGUARD) &&
+	      (obs_point == TRACE_TO_CRYPTO || obs_point == TRACE_POINT_UNKNOWN))) &&
 	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY) {
 		flags |= CLS_FLAG_TUNNEL;
 		goto out;
@@ -91,7 +98,11 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto)
 
 #ifdef HAVE_ENCAP
 	/* Enable parsing packet headers for Overlay in from-{netdev,wireguard} and to-stack. */
-	if (is_defined(IS_BPF_HOST) || is_defined(IS_BPF_WIREGUARD))
+	if ((is_defined(IS_BPF_HOST) &&
+	     (obs_point == TRACE_FROM_NETWORK || obs_point == TRACE_POINT_UNKNOWN ||
+	      (is_defined(ENABLE_IPSEC) && obs_point == TRACE_TO_STACK))) ||
+	    (is_defined(IS_BPF_WIREGUARD) &&
+	     (obs_point == TRACE_FROM_CRYPTO || obs_point == TRACE_POINT_UNKNOWN)))
 		parse_overlay = true;
 #endif /* HAVE_ENCAP */
 
