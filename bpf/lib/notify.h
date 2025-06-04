@@ -46,6 +46,7 @@ enum {
 
 /* Available observation points. */
 enum trace_point {
+	TRACE_POINT_UNKNOWN = -1,
 	TRACE_TO_LXC,
 	TRACE_TO_PROXY,
 	TRACE_TO_HOST,
