@@ -253,6 +253,7 @@ cilium-agent [flags]
       --identity-allocation-timeout duration                      Timeout for identity allocation operations (default 2m0s)
       --identity-change-grace-period duration                     Time to wait before using new identity on endpoint identity change (default 5s)
       --identity-management-mode string                           Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
+      --identity-max-jitter duration                              Maximum jitter time to begin processing CiliumIdentity updates (default 30s)
       --identity-restore-grace-period duration                    Time to wait before releasing unused restored CIDR identities during agent restart (default 30s)
       --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
