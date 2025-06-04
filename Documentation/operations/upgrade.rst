@@ -364,6 +364,9 @@ Deprecated Options
   The K8s Endpoint Slice feature will be unconditionally enabled.
 * The flag ``--enable-internal-traffic-policy`` has been deprecated and will be removed in Cilium 1.19. The
   ``internalTrafficPolicy`` field in a Kubernetes Service object will be unconditionally respected.
+* The flag ``--enable-svc-source-range-check`` (``svcSourceRangeCheck`` in Helm) has been deprecated
+  and will be removed in Cilium 1.19. The feature will be enabled automatically when ``--kube-proxy-replacent``
+  is set to ``true``.
 
 Helm Options
 ~~~~~~~~~~~~
