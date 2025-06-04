@@ -1340,6 +1340,79 @@ func TestL4RuleLabels(t *testing.T) {
 	}
 }
 
+func TestRuleLog(t *testing.T) {
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+	// test merging on a per-selector basis, as well as for overlapping selectors
+
+	nsDefaultSelector := api.NewESFromLabels(labels.ParseSelectLabel("io.kubernetes.pod.namespace=default"))
+	rules := api.Rules{
+		// rule1, rule2 selects id=b -- should merge in L4Filter
+		// rule3 selects namespace = default -- should merge in MapState
+		{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorB},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+			Log: api.LogConfig{Value: "rule1"},
+		},
+		{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorB},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+			Log: api.LogConfig{Value: "rule2"},
+		},
+		{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{nsDefaultSelector},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+			Log: api.LogConfig{Value: "rule3"},
+		},
+	}
+
+	// endpoint b should have all 3 rules
+	td.repo.MustAddList(rules)
+	verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, flowAToB, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, api.Allowed, verdict)
+	require.Equal(t, []string{"rule1", "rule2", "rule3"}, egress.Log())
+
+	// endpoint c should have just rule3
+	verdict, egress, _, err = LookupFlow(td.repo.logger, td.repo, flowAToC, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, api.Allowed, verdict)
+	require.Equal(t, []string{"rule3"}, egress.Log())
+
+}
+
 var (
 	labelsA = labels.LabelArray{
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
