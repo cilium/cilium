@@ -300,6 +300,27 @@ jobs:
           native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --format 'value(clusterIpv4Cidr)')"
           echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
 
+      - name: Create ESP allow firewall rule
+        if: ${{ matrix.config.type == 'tunnel-ipsec' }}
+        run: |
+          cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
+          cluster_zone=${{ matrix.k8s.zone }}
+          hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
+          hash="${hash:0:8}"
+          echo $hash
+          cluster_node_target_tag=gke-${cluster_name}-${hash}-node
+          echo $cluster_node_target_tag
+          firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
+
+          gcloud compute firewall-rules create $firewall_rule_name \
+            --network default \
+            --direction INGRESS \
+            --action ALLOW \
+            --rules esp \
+            --priority 1000 \
+            --source-ranges 0.0.0.0/0 \
+            --target-tags $cluster_node_target_tag
+
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
@@ -363,6 +384,18 @@ jobs:
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})"
           job_status: "${{ job.status }}"
+
+      - name: Clean up ESP allow firewall rule
+        if: ${{ matrix.config.type == 'tunnel-ipsec' }}
+        run: |
+          cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
+          cluster_zone=${{ matrix.k8s.zone }}
+          hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
+          hash="${hash:0:8}"
+          firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
+
+          gcloud compute firewall-rules delete --quiet $firewall_rule_name
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Clean up GKE
         if: ${{ always() }}
