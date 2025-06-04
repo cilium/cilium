@@ -132,13 +132,13 @@ func TestScript(t *testing.T) {
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
-			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, uhive.ScriptCmdsOut) {
+			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
 				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
 			}),
 
-			cell.Invoke(func(client kvstore.BackendOperations) {
+			cell.Invoke(func(client kvstore.Client) {
 				clusterConfig := []byte("endpoints:\n- in-memory\n")
 				config1 := path.Join(configDir, "cluster1")
 				require.NoError(t, os.WriteFile(config1, clusterConfig, 0644), "Failed to write config file for cluster1")

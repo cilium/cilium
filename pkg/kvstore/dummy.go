@@ -22,7 +22,7 @@ var (
 // the creation of two clients at the same time, to avoid interferences in case
 // different tests are run in parallel. A cleanup function is automatically
 // registered to delete all keys and close the client when the test terminates.
-func SetupDummy(tb testing.TB, dummyBackend string) BackendOperations {
+func SetupDummy(tb testing.TB, dummyBackend string) Client {
 	return SetupDummyWithConfigOpts(tb, dummyBackend, nil)
 }
 
@@ -32,7 +32,11 @@ func SetupDummy(tb testing.TB, dummyBackend string) BackendOperations {
 // in case different tests are run in parallel. A cleanup function is
 // automatically registered to delete all keys and close the client when the
 // test terminates.
-func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[string]string) BackendOperations {
+func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[string]string) Client {
+	if dummyBackend == "" {
+		return &clientImpl{enabled: false}
+	}
+
 	module := getBackend(dummyBackend)
 	if module == nil {
 		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
@@ -81,7 +85,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		}
 
 		if succeeded {
-			return client
+			return &clientImpl{enabled: true, BackendOperations: client}
 		}
 
 		select {
