@@ -57,7 +57,6 @@ k8s-kind:
 		NO_CILIUM_ON_NODES="$(NO_CILIUM_ON_NODES)" \
 		INTEGRATION_TESTS=true ginkgo --focus "$(FOCUS)" -v -- \
 			-cilium.testScope=k8s \
-			-cilium.provision=false \
 			-cilium.kubeconfig=$$(echo ~/.kube/config) \
 			-cilium.passCLIEnvironment=true \
 			-cilium.image="$(DOCKER_REGISTRY)/cilium/cilium-dev" \

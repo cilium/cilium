@@ -48,7 +48,6 @@ gct()
         HUBBLE_RELAY_IMAGE_TAG="${HUBBLE_RELAY_IMAGE_TAG:-"latest"}" \
         K8S_VERSION="$(kubectl version -o json |  jq -r '(.serverVersion.major + "." + (.serverVersion.minor | scan("[0-9]+")))' | sed 's/"//g')" \
         INTEGRATION_TESTS=true ginkgo -v "$FOCUS" -- \
-            -cilium.provision=false \
             -cilium.kubeconfig=$HOME/.kube/config \
             -cilium.passCLIEnvironment=true \
             -cilium.testScope=k8s \
