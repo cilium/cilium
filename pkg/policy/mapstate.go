@@ -567,7 +567,7 @@ func (e *mapStateEntry) Equal(o *mapStateEntry) bool {
 
 // String returns a string representation of the MapStateEntry
 func (e mapStateEntry) String() string {
-	return e.MapStateEntry.String() + ",derivedFromRules=" + e.derivedFromRules.Value()
+	return e.MapStateEntry.String() + ",derivedFromRules=" + string(e.derivedFromRules.Value())
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
