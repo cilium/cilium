@@ -80,7 +80,7 @@ jobs:
           TMP_DIR=$(mktemp -d)
           # Test binaries
           curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
-          tar xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
+          tar -xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
             --directory ${TMP_DIR} \
             --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
           # kubectl
