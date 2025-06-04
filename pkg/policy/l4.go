@@ -418,14 +418,14 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 // ruleOrigin is an interned labels.LabelArrayList.String(), a list of rule labels tracking which
 // policy rules are the origin for this policy. This information is used when distilling a policy to
 // an EndpointPolicy, to track which policy rules were involved for a specific verdict.
-type ruleOrigin unique.Handle[string]
+type ruleOrigin unique.Handle[labels.LabelArrayListString]
 
-func (ro ruleOrigin) Value() string {
-	return unique.Handle[string](ro).Value()
+func (ro ruleOrigin) Value() labels.LabelArrayListString {
+	return unique.Handle[labels.LabelArrayListString](ro).Value()
 }
 
 func makeRuleOrigin(lbls labels.LabelArrayList) ruleOrigin {
-	return ruleOrigin(unique.Make(lbls.String()))
+	return ruleOrigin(unique.Make(lbls.ArrayListString()))
 }
 
 func (ro *ruleOrigin) Merge(other ruleOrigin) bool {
@@ -546,16 +546,16 @@ func (o ruleOrigin) GetLabelArrayList() labels.LabelArrayList {
 }
 
 // stringLabels is an interned labels.LabelArray.String()
-type stringLabels unique.Handle[string]
+type stringLabels unique.Handle[labels.LabelArrayListString]
 
 var EmptyStringLabels = makeStringLabels(nil)
 
-func (sl stringLabels) Value() string {
-	return unique.Handle[string](sl).Value()
+func (sl stringLabels) Value() labels.LabelArrayListString {
+	return unique.Handle[labels.LabelArrayListString](sl).Value()
 }
 
 func makeStringLabels(lbls labels.LabelArray) stringLabels {
-	return stringLabels(unique.Make(lbls.Sort().String()))
+	return stringLabels(unique.Make(labels.LabelArrayList{lbls.Sort()}.ArrayListString()))
 }
 
 // L4Filter represents the policy (allowed remote sources / destinations of

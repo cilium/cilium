@@ -425,7 +425,7 @@ type FakeEndpointInfo struct {
 	Labels       []string
 	Pod          *slim_corev1.Pod
 
-	PolicyMap      map[policyTypes.Key]string
+	PolicyMap      map[policyTypes.Key]labels.LabelArrayListString
 	PolicyRevision uint64
 }
 
