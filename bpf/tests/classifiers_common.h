@@ -18,6 +18,17 @@
 #include "common.h"
 #include "pktgen.h"
 
+/* Defining checks for packets from L3 devices as a macro for reusability. */
+#define L3_DEVICE_CHECK(flags, is_ipv4)                                      \
+{                                                                            \
+	assert((((flags) & CLS_FLAG_L3_DEV) != 0) == (ETH_HLEN == 0));       \
+	if (is_ipv4) {                                                       \
+		assert(((flags) & CLS_FLAG_IPV6) == 0);                      \
+	} else {                                                             \
+		assert((((flags) & CLS_FLAG_IPV6) != 0) == (ETH_HLEN == 0)); \
+	}                                                                    \
+}
+
 /* Remove the L2 layer to simulate packet in an L3 device. */
 static __always_inline void
 adjust_l2(struct __ctx_buff *ctx)
@@ -68,6 +79,28 @@ pktgen(struct __ctx_buff *ctx, bool is_ipv4)
 	return 0;
 }
 
+static __always_inline int
+check(struct __ctx_buff *ctx, bool is_ipv4)
+{
+	test_init();
+
+	adjust_l2(ctx);
+
+	cls_flags_t flags;
+
+	/*
+	 * Ensure L3_DEVICE_CHECK:
+	 * - CLS_FLAG_L3_DEV is set only when ETH_HLEN is zero.
+	 * - CLS_FLAG_IPv6 is set with IPv6 packets and ETH_HLEN is zero.
+	 */
+	TEST("native", {
+		flags = ctx_classify(ctx);
+		L3_DEVICE_CHECK(flags, is_ipv4);
+	})
+
+	test_finish();
+}
+
 PKTGEN("tc", "ctx_classify4")
 static __always_inline int
 ctx_classify4_pktgen(struct __ctx_buff *ctx) {
@@ -77,19 +110,7 @@ ctx_classify4_pktgen(struct __ctx_buff *ctx) {
 CHECK("tc", "ctx_classify4")
 int ctx_classify4_check(struct __ctx_buff *ctx)
 {
-	test_init();
-
-	adjust_l2(ctx);
-
-	cls_flags_t flags = ctx_classify(ctx);
-
-	/* L3 flag set only when ETH_HLEN is 0. */
-	assert(((flags & CLS_FLAG_L3_DEV) != 0) == (ETH_HLEN == 0));
-
-	/* IPv6 flag not set. */
-	assert((flags & CLS_FLAG_IPV6) == 0);
-
-	test_finish();
+	return check(ctx, true);
 }
 
 PKTGEN("tc", "ctx_classify6")
@@ -101,17 +122,5 @@ ctx_classify6_pktgen(struct __ctx_buff *ctx) {
 CHECK("tc", "ctx_classify6")
 int ctx_classify6_check(struct __ctx_buff *ctx)
 {
-	test_init();
-
-	adjust_l2(ctx);
-
-	cls_flags_t flags = ctx_classify(ctx);
-
-	/* L3 flag set only when ETH_HLEN is 0. */
-	assert(((flags & CLS_FLAG_L3_DEV) != 0) == (ETH_HLEN == 0));
-
-	/* IPv6 flag set with a L3 packet. */
-	assert(((flags & CLS_FLAG_IPV6) != 0) == (ETH_HLEN == 0));
-
-	test_finish();
+	return check(ctx, false);
 }
