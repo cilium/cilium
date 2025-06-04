@@ -592,15 +592,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
 	}
 
-	// Must init kvstore before starting node discovery
-	if option.Config.KVStore == "" {
-		d.logger.Info("Skipping kvstore configuration")
-	} else {
-		bootstrapStats.kvstore.Start()
-		d.initKVStore(params.ServiceResolver)
-		bootstrapStats.kvstore.End(true)
-	}
-
 	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
