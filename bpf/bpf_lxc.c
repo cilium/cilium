@@ -1482,7 +1482,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 __section_entry
 int cil_from_container(struct __ctx_buff *ctx)
 {
-	__u16 proto;
+	__u16 proto = 0;
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
 	int ret;

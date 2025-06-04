@@ -24,18 +24,30 @@ enum {
 /**
  * ctx_classify
  * @ctx: socket buffer
+ * @proto: the layer 3 protocol (ETH_P_IP, ETH_P_IPV6).
  *
  * Compute classifiers (CLS_FLAG_*) for the given packet to be used during
  * trace/drop notification events.
  */
 static __always_inline cls_flags_t
-ctx_classify(const struct __ctx_buff *ctx __maybe_unused)
+ctx_classify(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 {
-	if (ETH_HLEN != 0)
-		return CLS_FLAG_NONE;
+	cls_flags_t flags = CLS_FLAG_NONE;
 
-	if (ctx_get_protocol(ctx) == bpf_htons(ETH_P_IPV6))
-		return CLS_FLAG_L3_DEV | CLS_FLAG_IPV6;
+	/*
+	 * Retrieve protocol when not being provided.
+	 * (ex. from drop notifications, or when previous calls to validate_ethertype failed)
+	 */
+	if (!proto)
+		proto = ctx_get_protocol(ctx);
 
-	return CLS_FLAG_L3_DEV;
+	/* Check whether the packet comes from a L3 device (no ethernet). */
+	if (ETH_HLEN == 0)
+		flags |= CLS_FLAG_L3_DEV;
+
+	/* Check if IPv6 packet. */
+	if (proto == bpf_htons(ETH_P_IPV6))
+		flags |= CLS_FLAG_IPV6;
+
+	return flags;
 }
