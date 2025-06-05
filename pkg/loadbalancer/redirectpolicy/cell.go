@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -94,4 +95,22 @@ func newControllerMetrics() controllerMetrics {
 			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
 		}),
 	}
+}
+
+type LRPMetrics interface {
+	AddLRPConfig(k8s.ServiceID)
+	DelLRPConfig(k8s.ServiceID)
+}
+
+type lrpMetricsNoop struct {
+}
+
+func (p *lrpMetricsNoop) AddLRPConfig(k8s.ServiceID) {
+}
+
+func (p *lrpMetricsNoop) DelLRPConfig(k8s.ServiceID) {
+}
+
+func NewLRPMetricsNoop() LRPMetrics {
+	return &lrpMetricsNoop{}
 }

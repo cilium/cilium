@@ -63,6 +63,7 @@ type lrpControllerParams struct {
 	Writer             *writer.Writer
 	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	Metrics            controllerMetrics
+	LRPMetrics         LRPMetrics `optional:"true"`
 }
 
 type lrpController struct {
@@ -123,6 +124,10 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 
 		existing := sets.New[k8s.ServiceID]()
 		for lrp := range lrps {
+			if c.p.LRPMetrics != nil && !existing.Has(lrp.ID) {
+				c.p.LRPMetrics.AddLRPConfig(lrp.ID)
+			}
+
 			existing.Insert(lrp.ID)
 			orphans.Delete(lrp.ID)
 
@@ -148,6 +153,9 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				cleanup(wtxn)
 			}
 			delete(cleanupFuncs, lrpID)
+			if c.p.LRPMetrics != nil {
+				c.p.LRPMetrics.DelLRPConfig(lrpID)
+			}
 		}
 
 		if initWatches != nil {
