@@ -354,7 +354,7 @@ func TestEndpointSelectorMarshalling(t *testing.T) {
 				require.ErrorContains(t, err, "unexpected end of JSON input")
 				require.Equal(t, tt.expected, es)
 
-				err = es.sanitize()
+				err = es.Sanitize()
 				require.NoError(t, err)
 				require.Equal(t, tt.sanitizedExepected, es, "Sanitized EndpointSelector")
 
@@ -371,17 +371,112 @@ func TestEndpointSelectorMarshalling(t *testing.T) {
 			require.NoError(t, err)
 			require.Equalf(t, tt.inputJSON, string(esMarshalled), "Marshalled EndpointSelector")
 
-			err = es.sanitize()
+			err = es.Sanitize()
 			require.NoError(t, err)
 			require.Equal(t, tt.sanitizedExepected, es, "Sanitized EndpointSelector")
 
-			err = es.sanitize()
+			err = es.Sanitize()
 			require.NoError(t, err)
-			require.Equal(t, tt.sanitizedExepected, es, "Idempotent EndpointSelector Sanitization")
+			require.Equal(t, tt.sanitizedExepected, es, "Idempotent EndpointSelector sanitization")
 
 			esSanitizedMarshalled, err := json.Marshal(es)
 			require.NoError(t, err)
-			require.Equalf(t, tt.sanitizedOutputJSON, string(esSanitizedMarshalled), "Marshalled Sanitized EndpointSelector")
+			require.Equalf(t, tt.sanitizedOutputJSON, string(esSanitizedMarshalled), "Marshalled sanitized EndpointSelector")
+
+			sanitizedEs := EndpointSelector{}
+			err = json.Unmarshal(esSanitizedMarshalled, &sanitizedEs)
+			require.NoError(t, err)
+			err = sanitizedEs.Sanitize()
+			require.NoError(t, err)
+			require.Equal(t, tt.sanitizedExepected, sanitizedEs, "Idempotent EndpointSelector sanitization and marshalling")
+		})
+	}
+}
+
+func TestEndpointSelectorSanitize(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      EndpointSelector
+		expected   EndpointSelector
+		shouldFail bool
+	}{
+		{
+			"Empty EndpointSelector",
+			EndpointSelector{},
+			NewESFromK8sLabelSelector(""),
+			false,
+		},
+		{
+			"MatchLabels EndpointSelector",
+			EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "frontend"},
+				},
+			},
+			NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{"any.app": "frontend"},
+			}),
+			false,
+		},
+		{
+			"MatchLabels EndpointSelector with source",
+			EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s:app": "frontend"},
+				},
+			},
+			NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{"k8s.app": "frontend"},
+			}),
+			false,
+		},
+		{
+			"EndpointSelector from Cilium Labels",
+			NewESFromLabels(labels.Label{Key: "app", Source: "k8s", Value: "frontend"}),
+			NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{"k8s.app": "frontend"},
+			}),
+			false,
+		},
+		{
+			"Invalid LabelSelector",
+			EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s:k8s:app": "frontend"},
+				},
+			},
+			EndpointSelector{},
+			true,
+		},
+		{
+			"Idempotent Sanitize",
+			EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s.app": "frontend"},
+				},
+				sanitized: true,
+			},
+			EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"k8s.app": "frontend"},
+				},
+				sanitized: true,
+			},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Sanitize()
+			if tt.shouldFail {
+				require.False(t, tt.input.sanitized)
+				require.ErrorContains(t, err, "invalid label selector")
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, tt.input)
 		})
 	}
 }

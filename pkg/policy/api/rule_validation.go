@@ -71,14 +71,14 @@ func (r *Rule) Sanitize() error {
 	}
 
 	if r.EndpointSelector.LabelSelector != nil {
-		if err := r.EndpointSelector.sanitize(); err != nil {
+		if err := r.EndpointSelector.Sanitize(); err != nil {
 			return err
 		}
 	}
 
 	var hostPolicy bool
 	if r.NodeSelector.LabelSelector != nil {
-		if err := r.NodeSelector.sanitize(); err != nil {
+		if err := r.NodeSelector.Sanitize(); err != nil {
 			return err
 		}
 		hostPolicy = true
@@ -228,19 +228,19 @@ func (i *IngressCommonRule) sanitize() error {
 	}
 
 	for n := range i.FromEndpoints {
-		if err := i.FromEndpoints[n].sanitize(); err != nil {
+		if err := i.FromEndpoints[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromRequires {
-		if err := i.FromRequires[n].sanitize(); err != nil {
+		if err := i.FromRequires[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromNodes {
-		if err := i.FromNodes[n].sanitize(); err != nil {
+		if err := i.FromNodes[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -441,19 +441,19 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 	}
 
 	for i := range e.ToEndpoints {
-		if err := e.ToEndpoints[i].sanitize(); err != nil {
+		if err := e.ToEndpoints[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for i := range e.ToRequires {
-		if err := e.ToRequires[i].sanitize(); err != nil {
+		if err := e.ToRequires[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for i := range e.ToNodes {
-		if err := e.ToNodes[i].sanitize(); err != nil {
+		if err := e.ToNodes[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -716,7 +716,7 @@ func (c *CIDRRule) sanitize() error {
 	if c.CIDRGroupSelector != nil {
 		cnt++
 		es := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector)
-		if err := es.sanitize(); err != nil {
+		if err := es.Sanitize(); err != nil {
 			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}

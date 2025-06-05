@@ -232,13 +232,13 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								UID:       uuid,
 							},
 							Spec: &policyapi.Rule{
-								EndpointSelector: policyapi.EndpointSelector{
-									LabelSelector: &slim_metav1.LabelSelector{
+								EndpointSelector: policyapi.NewESFromK8sLabelSelector("",
+									&slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											"env": "cluster-1",
 										},
 									},
-								},
+								),
 								Ingress: []policyapi.IngressRule{{}},
 								Egress:  nil,
 							},
@@ -251,14 +251,14 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
-						WithEndpointSelector(policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
+						WithEndpointSelector(
+							policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 								},
-							},
-						}).
+							}),
+						).
 						WithIngressRules([]policyapi.IngressRule{{}}).
 						WithEgressRules(nil).
 						WithLabels(utils.GetPolicyLabels(
@@ -282,14 +282,12 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
 					{
-						EndpointSelector: policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
+						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"env": "cluster-1",
+								labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 							},
-						},
+						}),
 						Ingress:     []policyapi.IngressRule{{}},
 						Egress:      []policyapi.EgressRule{{}},
 						Labels:      lbls,
@@ -305,13 +303,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								UID:       uuid,
 							},
 							Spec: &policyapi.Rule{
-								EndpointSelector: policyapi.EndpointSelector{
-									LabelSelector: &slim_metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"env": "cluster-1",
-										},
+								EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"env": "cluster-1",
 									},
-								},
+								}),
 								Ingress: []policyapi.IngressRule{{}},
 								Egress:  nil,
 							},
@@ -324,14 +320,14 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
-						WithEndpointSelector(policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
+						WithEndpointSelector(
+							policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 								},
-							},
-						}).
+							}),
+						).
 						WithIngressRules([]policyapi.IngressRule{{}}).
 						WithEgressRules(nil).
 						WithLabels(utils.GetPolicyLabels(
@@ -353,14 +349,12 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
-						EndpointSelector: policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
+						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"env": "cluster-1",
+								labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 							},
-						},
+						}),
 						Ingress:     []policyapi.IngressRule{{}},
 						Egress:      []policyapi.EgressRule{{}},
 						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
@@ -376,13 +370,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								UID:       uuid,
 							},
 							Spec: &policyapi.Rule{
-								EndpointSelector: policyapi.EndpointSelector{
-									LabelSelector: &slim_metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"env": "cluster-1",
-										},
+								EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"env": "cluster-1",
 									},
-								},
+								}),
 								Labels:  labels.ParseLabelArray("foo=bar"),
 								Ingress: []policyapi.IngressRule{{}},
 							},
@@ -397,14 +389,12 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
-						WithEndpointSelector(policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
+						WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"env": "cluster-1",
+								labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 							},
-						}).
+						})).
 						WithIngressRules([]policyapi.IngressRule{{}}).
 						WithEgressRules(nil).
 						WithLabels(lbls),
@@ -421,26 +411,22 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
-						EndpointSelector: policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
+						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"env": "cluster-1",
+								labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 							},
-						},
+						}),
 						Ingress: []policyapi.IngressRule{
 							{
 								IngressCommonRule: policyapi.IngressCommonRule{
 									FromEndpoints: []policyapi.EndpointSelector{
-										{
-											LabelSelector: &slim_metav1.LabelSelector{
-												MatchLabels: map[string]string{
-													"env": "cluster-1",
-													labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-												},
+										policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"env": "cluster-1",
+												labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 											},
-										},
+										}),
 									},
 								},
 							},
@@ -467,26 +453,22 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
-						EndpointSelector: policyapi.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
+						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"env": "cluster-1",
+								labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 							},
-						},
+						}),
 						Ingress: []policyapi.IngressRule{
 							{
 								IngressCommonRule: policyapi.IngressCommonRule{
 									FromEndpoints: []policyapi.EndpointSelector{
-										{
-											LabelSelector: &slim_metav1.LabelSelector{
-												MatchLabels: map[string]string{
-													"env": "cluster-1",
-													labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-												},
+										policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"env": "cluster-1",
+												labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 											},
-										},
+										}),
 									},
 								},
 							},
