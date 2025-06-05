@@ -66,15 +66,15 @@ type testConfig struct {
 
 func TestAllocateIdentityReserved(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
-			testAllocateIdentityReserved(t, testConfig)
+			testAllocateIdentityReserved(t, testConfig, client)
 		})
 	}
 }
 
-func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
+func testAllocateIdentityReserved(t *testing.T, testConfig testConfig, client kvstore.Client) {
 	var (
 		lbls  labels.Labels
 		i     *identity.Identity
@@ -89,7 +89,7 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 	}
 
 	mgr := NewCachingIdentityAllocator(logger, newDummyOwner(logger), testConfig.allocatorConfig)
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
@@ -261,11 +261,11 @@ func testEventWatcherBatching(t *testing.T) {
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
 	cl := kvstore.SetupDummy(t, "etcd")
-	testAllocator(t)
+	testAllocator(t, cl)
 	testAllocatorOperatorIDManagement(t, kvstoreClient{cl})
 }
 
-func testAllocator(t *testing.T) {
+func testAllocator(t *testing.T, client kvstore.Client) {
 	logger := hivetest.Logger(t)
 	lbls1 := labels.NewLabelsFromSortedList("blah=%%//!!;id=foo;user=anna")
 	lbls2 := labels.NewLabelsFromSortedList("id=bar;user=anna")
@@ -275,7 +275,7 @@ func testAllocator(t *testing.T) {
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(logger, owner, NewTestAllocatorConfig())
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
@@ -407,7 +407,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 			owner := newDummyOwner(logger)
 			identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 			mgr := NewCachingIdentityAllocator(logger, owner, testAllocatorConfig(true, 2))
-			<-mgr.InitIdentityAllocator(kubeClient)
+			<-mgr.InitIdentityAllocator(kubeClient, cl)
 			defer mgr.Close()
 			defer mgr.IdentityAllocator.DeleteAllKeys()
 
@@ -486,7 +486,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 
 }
 
-type kvstoreClient struct{ kvstore.BackendOperations }
+type kvstoreClient struct{ kvstore.Client }
 
 func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
 	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
@@ -507,15 +507,15 @@ func (c *kvstoreClient) removeIDKVStore(ctx context.Context, id string) error {
 
 func TestLocalAllocation(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
-			testLocalAllocation(t, testConfig)
+			testLocalAllocation(t, testConfig, client)
 		})
 	}
 }
 
-func testLocalAllocation(t *testing.T, testConfig testConfig) {
+func testLocalAllocation(t *testing.T, testConfig testConfig, client kvstore.Client) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 	logger := hivetest.Logger(t)
 
@@ -523,7 +523,7 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(logger, owner, testConfig.allocatorConfig)
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
@@ -582,16 +582,16 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 
 func TestAllocatorReset(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
-			testAllocatorReset(t, testConfig)
+			testAllocatorReset(t, testConfig, client)
 		})
 	}
 }
 
 // Test that we can close and reopen the allocator successfully.
-func testAllocatorReset(t *testing.T, testConfig testConfig) {
+func testAllocatorReset(t *testing.T, testConfig testConfig, client kvstore.Client) {
 	labels := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	logger := hivetest.Logger(t)
 	owner := newDummyOwner(logger)
@@ -606,10 +606,10 @@ func testAllocatorReset(t *testing.T, testConfig testConfig) {
 		require.Equal(t, id1a.ID, queued)
 	}
 
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	testAlloc()
 	mgr.Close()
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	testAlloc()
 	mgr.Close()
 }
