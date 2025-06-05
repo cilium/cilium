@@ -119,6 +119,7 @@ func TestClusterMesh(t *testing.T) {
 		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		NodeObserver:          nodesObserver,
 		RemoteIdentityWatcher: mgr,
+		ServiceMerger:         &fakeObserver{},
 		IPCache:               ipc,
 		ClusterIDsManager:     usedIDs,
 		Metrics:               NewMetrics(),
