@@ -19,6 +19,7 @@ import (
 	clrestapi "github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
 func TestAPIServerK8sDisabled(t *testing.T) {
@@ -35,11 +36,11 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 		cell.Invoke(func(cs *k8sClient.FakeClientset) {
 			cs.Disable()
 		}),
+
+		kvstore.Cell(kvstore.DisabledBackendName),
+
 		MetricsHandlerCell,
 		HealthHandlerCell(
-			func() bool {
-				return false
-			},
 			func() bool {
 				return true
 			},
@@ -100,11 +101,10 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 
 	hive := hive.New(
 		k8sClient.FakeClientCell(),
+		kvstore.Cell(kvstore.DisabledBackendName),
+
 		MetricsHandlerCell,
 		HealthHandlerCell(
-			func() bool {
-				return false
-			},
 			func() bool {
 				return true
 			},
