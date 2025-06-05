@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package cmd
+
+import (
+	"fmt"
+	"log"
+	"log/slog"
+	"os"
+
+	"github.com/cilium/hive/cell"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
+	"github.com/cilium/cilium/pkg/fqdn/service"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+var (
+	// StandaloneDNSProxyCell provides the standalone DNS proxy functionality
+	// It is responsible for starting and stopping the standalone DNS proxy
+	// based on the configuration provided in the config. It connects to the
+	// cilium agent via gRPC to receive DNS rules and send DNS responses.
+	StandaloneDNSProxyCell = cell.Module(
+		"standalone-dns-proxy",
+		"Provides the standalone DNS proxy functionality",
+
+		cell.Provide(func() *option.DaemonConfig {
+			return option.Config
+		}),
+		cell.Provide(func() service.FQDNConfig {
+			return service.DefaultConfig
+		}),
+		cell.Invoke(registerStandaloneDNSProxyHooks),
+	)
+
+	binaryName = "standalone-dns-proxy"
+)
+
+func NewDNSProxyCmd(h *hive.Hive) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   binaryName,
+		Short: "Run " + binaryName,
+		Run: func(cobraCmd *cobra.Command, args []string) {
+			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
+
+			initEnv(logger, h.Viper())
+
+			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+	h.RegisterFlags(cmd.Flags())
+
+	cmd.AddCommand(
+		h.Command(),
+	)
+	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Standalone-DNS-Proxy", "standalone-dns-proxy", h.Viper()))
+
+	return cmd
+}
+
+func initEnv(logger *slog.Logger, vp *viper.Viper) {
+	option.Config.Populate(logger, vp)
+	option.LogRegisteredSlogOptions(vp, logger)
+}
+
+func Execute(cmd *cobra.Command) {
+	if err := cmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+type standaloneDNSProxyParams struct {
+	cell.In
+
+	Logger      *slog.Logger
+	AgentConfig *option.DaemonConfig
+	FQDNConfig  service.FQDNConfig
+	Lifecycle   cell.Lifecycle
+}
+
+func registerStandaloneDNSProxyHooks(params standaloneDNSProxyParams) {
+	sdp := NewStandaloneDNSProxy(params.Logger, params.AgentConfig, params.FQDNConfig)
+
+	if params.AgentConfig.EnableL7Proxy && params.FQDNConfig.EnableStandaloneDNSProxy {
+		sdp.logger.Info("Standalone DNS proxy is enabled")
+	} else {
+		sdp.logger.Info("Standalone DNS proxy is disabled")
+		return
+	}
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			return sdp.StartStandaloneDNSProxy()
+		},
+		OnStop: func(cell.HookContext) error {
+			return sdp.StopStandaloneDNSProxy()
+		},
+	})
+}

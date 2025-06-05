@@ -78,7 +78,7 @@ func TestFQDNDataServer(t *testing.T) {
 				cell.Module(
 					"test-fqdn-grpc-server",
 					"Test FQDN gRPC server",
-					cell.Config(defaultConfig),
+					cell.Config(DefaultConfig),
 					cell.Provide(
 						func(logger *slog.Logger) endpointmanager.EndpointManager {
 							return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
