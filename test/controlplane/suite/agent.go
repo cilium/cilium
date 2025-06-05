@@ -26,6 +26,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -82,6 +83,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 			k8sSynced.RejectedCRDSyncPromise,
 		),
+		kvstore.Cell(kvstore.DisabledBackendName),
 		fakeDatapath.Cell,
 		prefilter.Cell,
 		monitorAgent.Cell,
