@@ -53,13 +53,3 @@ func setOpts(logger *slog.Logger, opts map[string]string, supportedOpts backendO
 
 	return nil
 }
-
-func getOpts(opts backendOptions) map[string]string {
-	result := map[string]string{}
-
-	for key, opt := range opts {
-		result[key] = opt.value
-	}
-
-	return result
-}
