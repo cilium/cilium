@@ -146,11 +146,15 @@ skip_service_lookup:
 			struct icmphdr icmphdr;
 			int icmp_l4_off = ETH_HLEN + ipv4_hdrlen(new_ip4);
 			
+			cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 1); /* Debug: ICMP packet detected */
+			
 			if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
 			    icmphdr.type == ICMP_ECHO) {
 				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
 				struct lb4_key icmp_key = {};
 				struct lb4_service *icmp_svc;
+				
+				cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 2); /* Debug: ICMP echo request detected */
 				
 				icmp_key.address = new_ip4->daddr;
 				icmp_key.dport = 0;
@@ -158,19 +162,27 @@ skip_service_lookup:
 
 				icmp_svc = lb4_lookup_service(&icmp_key, false);
 				if (icmp_svc) {
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 3); /* Debug: Service found */
 					/* This is an ICMP echo request to a service IP.
 					 * Convert it to an echo reply and redirect back to the pod.
 					 */
 					ret = icmp_send_echo_reply(ctx);
 					if (!ret) {
 						/* Redirect ICMP echo reply to ingress of pod interface */
-						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
+						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 4); /* Debug: Echo reply generated successfully */
 						ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+						if (!IS_ERR(ret)) {
+							cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 5); /* Debug: Redirect successful */
+						}
+					} else {
+						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 6); /* Debug: Echo reply generation failed */
 					}
 					if (IS_ERR(ret))
 						return send_drop_notify_error(ctx, SECLABEL_IPV4, ret,
 									      METRIC_EGRESS);
 					return ret;
+				} else {
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 7); /* Debug: No service found */
 				}
 			}
 		}
