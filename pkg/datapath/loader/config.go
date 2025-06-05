@@ -6,6 +6,7 @@ package loader
 import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
@@ -18,6 +19,9 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	if lnc.CiliumInternalIPv6 != nil {
 		node.RouterIPv6 = ([16]byte)(lnc.CiliumInternalIPv6.To16())
 	}
+
+	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
+	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
 
 	return node
 }

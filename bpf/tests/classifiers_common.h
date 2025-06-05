@@ -25,6 +25,10 @@
 #include "common.h"
 #include "pktgen.h"
 
+/* Assign lower values for testing, so that we don't need to craft big packet. */
+ASSIGN_CONFIG(__u32, trace_payload_len, 10UL);
+ASSIGN_CONFIG(__u32, trace_payload_len_overlay, 20UL);
+
 /* Defining checks for packets from L3 devices as a macro for reusability. */
 #define L3_DEVICE_CHECK(flags, is_ipv4)                                      \
 {                                                                            \
@@ -179,4 +183,63 @@ CHECK("tc", "ctx_classify6")
 int ctx_classify6_check(struct __ctx_buff *ctx)
 {
 	return check(ctx, false);
+}
+
+PKTGEN("tc", "ctx_capture_length")
+static __always_inline int
+ctx_capture_length_pktgen(struct __ctx_buff *ctx) {
+	return pktgen(ctx, true);
+}
+
+CHECK("tc", "ctx_capture_length")
+int ctx_capture_length_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	enum trace_point obs_point = TRACE_POINT_UNKNOWN;
+	cls_flags_t flags = CLS_FLAG_TUNNEL;
+	__u64 cap_len;
+	__u32 monitor;
+
+	/*
+	 * Ensure capture length equal to monitor with monitor != 0.
+	 */
+	TEST("monitor-nonzero", {
+		monitor = 1;
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == monitor);
+	})
+
+	/*
+	 * Ensure capture length equal to ctx_full_len with monitor > ctx_full_len.
+	 */
+	TEST("monitor-greater", {
+		monitor = (__u32)(ctx_full_len(ctx) + 1);
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == ctx_full_len(ctx));
+	})
+
+	/*
+	 * Ensure capture length equal to default trace_payload_len with monitor == 0.
+	 */
+	TEST("monitor-zero", {
+		monitor = 0;
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len_overlay));
+	})
+
+	TEST("monitor-payloadlen", {
+		monitor = CONFIG(trace_payload_len);
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len_overlay));
+	})
+
+	TEST("monitor-non-overlay", {
+		flags = CLS_FLAG_NONE;
+		monitor = 0;
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len));
+	})
+
+	test_finish();
 }
