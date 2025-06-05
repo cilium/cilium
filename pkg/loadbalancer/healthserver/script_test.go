@@ -32,6 +32,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/loadbalancer/healthserver"
@@ -89,8 +90,12 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:           true,
-							EnableIPv6:           true,
+							EnableIPv4: true,
+							EnableIPv6: true,
+						}
+					},
+					func() kpr.KPRConfig {
+						return kpr.KPRConfig{
 							KubeProxyReplacement: option.KubeProxyReplacementTrue,
 							EnableNodePort:       true,
 						}

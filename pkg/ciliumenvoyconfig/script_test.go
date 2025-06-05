@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
@@ -89,12 +90,16 @@ func TestScript(t *testing.T) {
 				regeneration.NewFence,
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
-						EnableIPv4:           true,
-						EnableIPv6:           true,
-						EnableNodePort:       true,
-						EnableL7Proxy:        true,
-						EnableEnvoyConfig:    true,
+						EnableIPv4:        true,
+						EnableIPv6:        true,
+						EnableL7Proxy:     true,
+						EnableEnvoyConfig: true,
+					}
+				},
+				func() kpr.KPRConfig {
+					return kpr.KPRConfig{
 						KubeProxyReplacement: option.KubeProxyReplacementTrue,
+						EnableNodePort:       true,
 					}
 				},
 				func() *loadbalancer.TestConfig {

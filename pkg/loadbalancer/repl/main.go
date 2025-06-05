@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -92,8 +93,12 @@ var Hive = hive.New(
 		statedb.RWTable[tables.NodeAddress].ToTable,
 		func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				EnableIPv4:           true,
-				EnableIPv6:           true,
+				EnableIPv4: true,
+				EnableIPv6: true,
+			}
+		},
+		func() kpr.KPRConfig {
+			return kpr.KPRConfig{
 				KubeProxyReplacement: option.KubeProxyReplacementTrue,
 			}
 		},

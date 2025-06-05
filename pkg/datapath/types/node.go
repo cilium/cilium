@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -190,6 +191,8 @@ type LocalNodeConfiguration struct {
 	// Maglev configuration provides the maglev table sizes and seeds for
 	// the BPF programs.
 	MaglevConfig maglev.Config
+
+	KPRConfig kpr.KPRConfig
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -28,7 +29,7 @@ var MapDisabled = fmt.Errorf("nat map is disabled")
 var Cell = cell.Module(
 	"nat-maps",
 	"NAT Maps",
-	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfgPromise promise.Promise[*option.DaemonConfig]) (promise.Promise[NatMap4], promise.Promise[NatMap6]) {
+	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfgPromise promise.Promise[*option.DaemonConfig], kprCfg kpr.KPRConfig) (promise.Promise[NatMap4], promise.Promise[NatMap6]) {
 		var ipv4Nat, ipv6Nat *Map
 		res4, promise4 := promise.New[NatMap4]()
 		res6, promise6 := promise.New[NatMap6]()
@@ -41,7 +42,7 @@ var Cell = cell.Module(
 				if err != nil {
 					return fmt.Errorf("failed to wait for config promise: %w", err)
 				}
-				if !cfg.EnableNodePort {
+				if !kprCfg.EnableNodePort {
 					res4.Reject(fmt.Errorf("nat IPv4: %w", MapDisabled))
 					res6.Reject(fmt.Errorf("nat IPv6: %w", MapDisabled))
 					return nil
@@ -78,13 +79,7 @@ var Cell = cell.Module(
 				return nil
 			},
 			OnStop: func(hc cell.HookContext) error {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
-				defer cancel()
-				cfg, err := cfgPromise.Await(ctx)
-				if err != nil {
-					return err
-				}
-				if !cfg.EnableNodePort {
+				if !kprCfg.EnableNodePort {
 					return nil
 				}
 
