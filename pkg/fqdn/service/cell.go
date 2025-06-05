@@ -28,7 +28,7 @@ var Cell = cell.Module(
 	"sdp-grpc-server",
 	"Provides the standalone DNS proxy gRPC server",
 
-	cell.Config(defaultConfig),
+	cell.Config(DefaultConfig),
 	cell.Provide(newDefaultListener),
 	cell.ProvidePrivate(newPolicyRulesTable),
 	cell.ProvidePrivate(newIdentityToIPsTable),
@@ -93,7 +93,7 @@ type FQDNConfig struct {
 	StandaloneDNSProxyServerPort int
 }
 
-var defaultConfig = FQDNConfig{
+var DefaultConfig = FQDNConfig{
 	EnableStandaloneDNSProxy:     false,
 	StandaloneDNSProxyServerPort: 40045,
 }
