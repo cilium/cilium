@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -91,6 +92,8 @@ type linuxNodeHandler struct {
 
 	enableEncapsulation func(node *nodeTypes.Node) bool
 	nodeNeighborQueue   datapath.NodeNeighborEnqueuer
+
+	kprCfg kpr.KPRConfig
 }
 
 var (
@@ -107,13 +110,14 @@ func NewNodeHandler(
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
 	nodeManager manager.NodeManager,
+	kprCfg kpr.KPRConfig,
 ) (datapath.NodeHandler, datapath.NodeIDHandler, datapath.NodeNeighbors) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, nodeManager)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, nodeManager, kprCfg)
 
 	nodeManager.Subscribe(handler)
 
@@ -134,6 +138,7 @@ func newNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
 	nbq datapath.NodeNeighborEnqueuer,
+	kprCfg kpr.KPRConfig,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                    log,
@@ -152,6 +157,7 @@ func newNodeHandler(
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(log),
 		nodeNeighborQueue:      nbq,
 		ipsecUpdateNeeded:      map[nodeTypes.Identity]bool{},
+		kprCfg:                 kprCfg,
 	}
 }
 
@@ -1115,7 +1121,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		switch {
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
-		case option.Config.DirectRoutingDeviceRequired():
+		case option.Config.DirectRoutingDeviceRequired(n.kprCfg):
 			if newConfig.DirectRoutingDevice == nil {
 				return fmt.Errorf("direct routing device is required, but not defined")
 			}

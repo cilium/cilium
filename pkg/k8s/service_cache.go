@@ -223,8 +223,9 @@ type ServiceCache interface {
 // ServiceCacheImpl is a list of services correlated with the matching endpoints.
 // The Events member will receive events as services.
 type ServiceCacheImpl struct {
-	logger   *slog.Logger
-	lbConfig loadbalancer.Config
+	logger         *slog.Logger
+	lbConfig       loadbalancer.Config
+	enableNodePort bool
 
 	// Events may only be read by single consumer. The consumer must acknowledge
 	// every event by calling Done() on the ServiceEvent.SWG.
@@ -259,7 +260,7 @@ type ServiceCacheImpl struct {
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(logger *slog.Logger, lbConfig loadbalancer.Config, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], svcMetrics SVCMetrics) *ServiceCacheImpl {
+func NewServiceCache(logger *slog.Logger, lbConfig loadbalancer.Config, enableNodePort bool, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], svcMetrics SVCMetrics) *ServiceCacheImpl {
 	events := make(chan ServiceEvent, option.Config.K8sServiceCacheSize)
 	notifications, emitNotifications, completeNotifications := stream.Multicast[ServiceNotification]()
 
@@ -277,11 +278,12 @@ func NewServiceCache(logger *slog.Logger, lbConfig loadbalancer.Config, db *stat
 		completeNotifications: completeNotifications,
 		metrics:               svcMetrics,
 		lbConfig:              lbConfig,
+		enableNodePort:        enableNodePort,
 	}
 }
 
-func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, lbConfig loadbalancer.Config, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
-	sc := NewServiceCache(logger, lbConfig, db, nodeAddrs, metrics)
+func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, lbConfig loadbalancer.Config, enableNodePort bool, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
+	sc := NewServiceCache(logger, lbConfig, enableNodePort, db, nodeAddrs, metrics)
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -416,7 +418,7 @@ func (s *ServiceCacheImpl) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.
 		)
 	}
 
-	svcID, newService := ParseService(s.logger, s.lbConfig, k8sSvc, addrs)
+	svcID, newService := ParseService(s.logger, s.lbConfig, s.enableNodePort, k8sSvc, addrs)
 	if newService == nil {
 		return svcID
 	}
