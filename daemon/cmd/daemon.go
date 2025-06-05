@@ -226,6 +226,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.daemonInit.Start()
 
+	option.Config.KPROpts = params.KPROpts
+
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
 	// it only supports VXLAN right now.
 	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
