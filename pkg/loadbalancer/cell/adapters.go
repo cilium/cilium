@@ -14,8 +14,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/cilium/stream"
+	"github.com/go-openapi/runtime/middleware"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/api/v1/models"
+	serviceapi "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -341,18 +344,6 @@ func (s *serviceManagerAdapter) GetCurrentTs() time.Time {
 	return time.Now()
 }
 
-// GetDeepCopyServiceByFrontend implements service.ServiceManager.
-func (s *serviceManagerAdapter) GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.LegacySVC, bool) {
-	// Used by pod watcher, which will be replaced when new implementation is enabled.
-	return nil, false
-}
-
-// GetDeepCopyServiceByID implements service.ServiceManager.
-func (s *serviceManagerAdapter) GetDeepCopyServiceByID(id loadbalancer.ServiceID) (*loadbalancer.LegacySVC, bool) {
-	// Used by REST API
-	return nil, false
-}
-
 // GetDeepCopyServices implements service.ServiceManager.
 func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.LegacySVC) {
 	// Used by REST API.
@@ -467,3 +458,63 @@ func (s *serviceManagerAdapter) GetServiceNameByAddr(addr loadbalancer.L3n4Addr)
 }
 
 var _ service.ServiceManager = &serviceManagerAdapter{}
+
+type serviceRestApiHandlerParams struct {
+	cell.In
+
+	Logger         *slog.Logger
+	ServiceManager service.ServiceManager
+}
+
+type serviceRestApiHandlerOut struct {
+	cell.Out
+
+	GetServiceIDHandler serviceapi.GetServiceIDHandler
+	GetServiceHandler   serviceapi.GetServiceHandler
+}
+
+func newServiceRestApiHandler(params serviceRestApiHandlerParams) serviceRestApiHandlerOut {
+	return serviceRestApiHandlerOut{
+		GetServiceIDHandler: &getServiceIDHandler{
+			logger:         params.Logger,
+			serviceManager: params.ServiceManager,
+		},
+		GetServiceHandler: &getServiceHandler{
+			logger:         params.Logger,
+			serviceManager: params.ServiceManager,
+		},
+	}
+}
+
+type getServiceIDHandler struct {
+	logger         *slog.Logger
+	serviceManager service.ServiceManager
+}
+
+func (h *getServiceIDHandler) Handle(params serviceapi.GetServiceIDParams) middleware.Responder {
+	// Lookups by ID not supported.
+	return serviceapi.NewGetServiceIDNotFound()
+}
+
+type getServiceHandler struct {
+	logger         *slog.Logger
+	serviceManager service.ServiceManager
+}
+
+func (h *getServiceHandler) Handle(params serviceapi.GetServiceParams) middleware.Responder {
+	h.logger.Debug(
+		"GET /service request",
+		logfields.Params, params,
+	)
+	list := GetServiceModelList(h.serviceManager)
+	return serviceapi.NewGetServiceOK().WithPayload(list)
+}
+
+func GetServiceModelList(svc service.ServiceManager) []*models.Service {
+	svcs := svc.GetDeepCopyServices()
+	list := make([]*models.Service, 0, len(svcs))
+	for _, v := range svcs {
+		list = append(list, v.GetModel())
+	}
+	return list
+}
