@@ -10,6 +10,7 @@
 #include <bpf/config/endpoint.h>
 #include <bpf/config/lxc.h>
 
+#include <linux/icmp.h>
 #include <linux/icmpv6.h>
 
 #define IS_BPF_LXC 1
@@ -26,6 +27,7 @@
 #include "lib/edt.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
+#include "lib/icmp.h"
 #include "lib/icmp6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
@@ -130,6 +132,52 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			return ret;
 	}
 skip_service_lookup:
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+	/* Handle ICMP echo requests to service IPs from pods */
+	/* Reload packet pointers as they may have been invalidated by load balancing */
+	{
+		void *data, *data_end;
+		struct iphdr *new_ip4;
+		
+		if (!revalidate_data(ctx, &data, &data_end, &new_ip4))
+			goto skip_icmp_handling;
+
+		if (unlikely(new_ip4->protocol == IPPROTO_ICMP)) {
+			struct icmphdr icmphdr;
+			int icmp_l4_off = ETH_HLEN + ipv4_hdrlen(new_ip4);
+			
+			if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+			    icmphdr.type == ICMP_ECHO) {
+				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
+				struct lb4_key icmp_key = {};
+				struct lb4_service *icmp_svc;
+				
+				icmp_key.address = new_ip4->daddr;
+				icmp_key.dport = 0;
+				icmp_key.proto = IPPROTO_ANY;
+
+				icmp_svc = lb4_lookup_service(&icmp_key, false);
+				if (icmp_svc) {
+					/* This is an ICMP echo request to a service IP.
+					 * Convert it to an echo reply and redirect back to the pod.
+					 */
+					ret = icmp_send_echo_reply(ctx);
+					if (!ret) {
+						/* Redirect ICMP echo reply to ingress of pod interface */
+						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
+						ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+					}
+					if (IS_ERR(ret))
+						return send_drop_notify_error(ctx, SECLABEL_IPV4, ret,
+									      METRIC_EGRESS);
+					return ret;
+				}
+			}
+		}
+	}
+skip_icmp_handling:
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
+
 	/* Store state to be picked up on the continuation tail call. */
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
@@ -201,6 +249,51 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	}
 
 skip_service_lookup:
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+	/* Handle ICMPv6 echo requests to service IPs from pods */
+	/* Reload packet pointers as they may have been invalidated by load balancing */
+	{
+		void *data, *data_end;
+		struct ipv6hdr *new_ip6;
+		
+		if (!revalidate_data(ctx, &data, &data_end, &new_ip6))
+			goto skip_icmpv6_handling;
+
+		if (unlikely(new_ip6->nexthdr == IPPROTO_ICMPV6)) {
+			struct icmp6hdr icmp6hdr;
+			int icmp_l4_off = ETH_HLEN + sizeof(struct ipv6hdr);
+			
+			if (ctx_load_bytes(ctx, icmp_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+			    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
+				struct lb6_key icmp_key = {};
+				struct lb6_service *icmp_svc;
+				
+				ipv6_addr_copy(&icmp_key.address, (union v6addr *)&new_ip6->daddr);
+				icmp_key.dport = 0;
+				icmp_key.proto = IPPROTO_ANY;
+
+				icmp_svc = lb6_lookup_service(&icmp_key, false);
+				if (icmp_svc) {
+					/* This is an ICMPv6 echo request to a service IP.
+					 * Convert it to an echo reply and redirect back to the pod.
+					 */
+					ret = icmp6_send_echo_reply(ctx);
+					if (!ret) {
+						/* Redirect ICMPv6 echo reply to ingress of pod interface */
+						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
+						ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+					}
+					if (IS_ERR(ret))
+						return send_drop_notify_error(ctx, SECLABEL_IPV6, ret,
+									      METRIC_EGRESS);
+					return ret;
+				}
+			}
+		}
+	}
+skip_icmpv6_handling:
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 	/* Store state to be picked up on the continuation tail call. */
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
@@ -1321,6 +1414,7 @@ to_host:
 #endif
 
 pass_to_stack:
+
 #ifdef ENABLE_ROUTING
 	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
