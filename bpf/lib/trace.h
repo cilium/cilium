@@ -30,24 +30,6 @@
 #include "ratelimit.h"
 #include "classifiers.h"
 
-/* Available observation points. */
-enum trace_point {
-	TRACE_TO_LXC,
-	TRACE_TO_PROXY,
-	TRACE_TO_HOST,
-	TRACE_TO_STACK,
-	TRACE_TO_OVERLAY,
-	TRACE_FROM_LXC,
-	TRACE_FROM_PROXY,
-	TRACE_FROM_HOST,
-	TRACE_FROM_STACK,
-	TRACE_FROM_OVERLAY,
-	TRACE_FROM_NETWORK,
-	TRACE_TO_NETWORK,
-	TRACE_FROM_CRYPTO,
-	TRACE_TO_CRYPTO,
-} __packed;
-
 /* Reasons for forwarding a packet, keep in sync with pkg/monitor/datapath_trace.go */
 enum trace_reason {
 	TRACE_REASON_POLICY = CT_NEW,
@@ -151,6 +133,9 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 		__throw_build_bug();
 		break;
 #endif
+	case TRACE_POINT_UNKNOWN:
+		__throw_build_bug();
+		break;
 	}
 }
 
@@ -218,7 +203,7 @@ static __always_inline void
 _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
 		   enum trace_reason reason, __u32 monitor,
-		   __be16 proto __maybe_unused, __u16 line, __u8 file)
+		   __be16 proto, __u16 line, __u8 file)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -244,7 +229,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
-	flags = ctx_classify(ctx);
+	flags = ctx_classify(ctx, proto, obs_point);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
@@ -293,8 +278,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
-	flags = ctx_classify(ctx);
-
+	flags = ctx_classify(ctx, bpf_htons(ETH_P_IP), obs_point);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
@@ -343,7 +327,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
-	flags = ctx_classify(ctx) | CLS_FLAG_IPV6;
+	flags = ctx_classify(ctx, bpf_htons(ETH_P_IPV6), obs_point);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
