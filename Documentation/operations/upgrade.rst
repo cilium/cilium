@@ -370,6 +370,9 @@ Deprecated Options
 * The flag ``--enable-svc-source-range-check`` (``svcSourceRangeCheck`` in Helm) has been deprecated
   and will be removed in Cilium 1.19. The feature will be enabled automatically when ``--kube-proxy-replacent``
   is set to ``true``.
+* The flag ``--egress-multi-home-ip-rule-compat`` and the old IP rule scheme has been deprecated and will be removed
+  in Cilium 1.19. Running Cilium 1.18 with the flag set to ``false`` (default value) will migrate any existing IP rules
+  to the new scheme.
 
 Helm Options
 ~~~~~~~~~~~~
