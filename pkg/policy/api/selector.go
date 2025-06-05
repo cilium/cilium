@@ -38,9 +38,14 @@ type EndpointSelector struct {
 	Generated bool `json:"-"`
 
 	// sanitized indicates if the EndpointSelector has been validated and converted
-	// for Cilium's internal representation for usage. When marked as true, marshalling
-	// the object returns this internal representation where the label keys are
-	// prefixed with source information.
+	// to Cilium's internal representation for usage. Internally Cilium uses k8s label
+	// APIs which doesn't allow for `:` in label keys. When sanitizing we convert
+	// keys to the format expected by k8s with prefix `<source>.`
+	//
+	// Cilium's Label key conversion logic as part of sanitization is:
+	// 1. `<prefix>:<string>` -> `<prefix>.<string>` (Source: <prefix>)
+	// 2. `<prefix>.<string>` -> `any.<prefix>.<string>` (Source: any)
+	// 3. `<string>` -> `any.<string>` (Source: any)
 	sanitized bool `json:"-"`
 }
 
@@ -78,17 +83,15 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON returns a JSON representation of the byte array.
 // If the object is not sanitized, we return the seralized value of
-// underlying selector. When sanitized, we convert the label keys to
-// Cilium's internal representation with source prefix in format
-// `<source>:<key>` before serialization.
+// underlying selector without the custom handling.
+// When sanitized, we convert the label keys to Cilium specific representation
+// with source prefix in format `<source>:<key>` before serialization.
 func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	ls := slim_metav1.LabelSelector{}
 	if n.LabelSelector == nil {
 		return json.Marshal(ls)
 	}
 
-	// If the EndpointSelector is not sanitized don't perform the custom
-	// marshalling logic.
 	if !n.sanitized {
 		return json.Marshal(n.LabelSelector)
 	}
@@ -354,8 +357,10 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav
 	return requirements
 }
 
-// sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
-func (n *EndpointSelector) sanitize() error {
+// Sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
+// It also muatates all label selector keys into Cilium's internal representation.
+// Check documentation of `EndpointSelector.sanitized` for more details.
+func (n *EndpointSelector) Sanitize() error {
 	es := n
 	if !n.sanitized {
 		sanitizedEndpointSelector := NewESFromK8sLabelSelectorWithExtender(labels.DefaultKeyExtender, n.LabelSelector)

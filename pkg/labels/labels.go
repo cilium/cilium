@@ -528,6 +528,9 @@ func GetExtendedKeyFrom(str string) string {
 
 type KeyExtender func(string) string
 
+// Extender to convert label keys from Cilium representation to kubernetes representation.
+// Key passed to this extender is converted to format `<source>.<key>`.
+// The extender is not idempotent, caller needs to make sure its only called once for a key.
 var DefaultKeyExtender KeyExtender = GetExtendedKeyFrom
 
 func GetSourcePrefixKeyExtender(srcPrefix string) KeyExtender {
