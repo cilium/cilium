@@ -43,14 +43,6 @@ func Cell(defaultBackend string) cell.Cell {
 			Config    Config
 			Opts      ExtraOptions `optional:"true"`
 		}) Client {
-			// Propagate the options to the global variables for backward compatibility
-			option.Config.KVStore = in.Config.KVStore
-			option.Config.KVStoreOpt = in.Config.KVStoreOpt
-			option.Config.KVstoreConnectivityTimeout = in.Config.KVStoreConnectivityTimeout
-			option.Config.KVstoreLeaseTTL = in.Config.KVStoreLeaseTTL
-			option.Config.KVstorePeriodicSync = in.Config.KVStorePeriodicSync
-			option.Config.KVstoreMaxConsecutiveQuorumErrors = in.Config.KVstoreMaxConsecutiveQuorumErrors
-
 			// Set the global variables, to allow for a gradual migration.
 			defaultClientSet = make(chan struct{})
 
