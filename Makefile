@@ -393,10 +393,6 @@ check-permissions: ## Check if files are not executable expect for allowlisted f
 	find ./ -executable -type f | grep -Ev "\.git|\.sh|\.py" > ./executables.txt
 	diff <(sort ./executables.txt) <(sort ./contrib/executable_list.txt)
 
-logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
-	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
-	$(QUIET) contrib/scripts/check-logging-subsys-field.sh
-
 check-microk8s: ## Validate if microk8s is ready to install cilium.
 	@$(ECHO_CHECK) microk8s is ready...
 	$(QUIET)microk8s.status >/dev/null \
@@ -414,7 +410,7 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
-precheck: logging-subsys-field ## Peform build precheck for the source code.
+precheck: ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
