@@ -16,7 +16,6 @@
 #include "drop.h"
 #endif
 
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct skip_lb6_key);
@@ -53,7 +52,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_backends_v3 __section_maps_btf;
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb6_affinity_key);
@@ -62,9 +60,7 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_affinity __section_maps_btf;
-#endif
 
-#ifdef ENABLE_SRC_RANGE_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lb6_src_range_key);
@@ -73,9 +69,7 @@ struct {
 	__uint(max_entries, LB6_SRC_RANGE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_lb6_source_range __section_maps_btf;
-#endif
 
-#ifdef ENABLE_HEALTH_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __sock_cookie);
@@ -84,9 +78,8 @@ struct {
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_health __section_maps_btf;
-#endif
 
-#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
+#ifndef OVERWRITE_MAGLEV_MAP_FROM_TEST
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -102,10 +95,8 @@ struct {
 		__uint(max_entries, 1);
 	});
 } cilium_lb6_maglev __section_maps_btf;
-#endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
-#endif /* ENABLE_IPV6 */
+#endif /* OVERWRITE_MAGLEV_MAP_FROM_TEST */
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct skip_lb4_key);
@@ -142,7 +133,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_backends_v3 __section_maps_btf;
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb4_affinity_key);
@@ -151,9 +141,7 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_affinity __section_maps_btf;
-#endif
 
-#ifdef ENABLE_SRC_RANGE_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lb4_src_range_key);
@@ -162,9 +150,7 @@ struct {
 	__uint(max_entries, LB4_SRC_RANGE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_lb4_source_range __section_maps_btf;
-#endif
 
-#ifdef ENABLE_HEALTH_CHECK
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __sock_cookie);
@@ -173,10 +159,8 @@ struct {
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_health __section_maps_btf;
-#endif
 
-#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
-#ifndef LB_MAGLEV_EXTERNAL
+#ifndef OVERWRITE_MAGLEV_MAP_FROM_TEST
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -192,11 +176,8 @@ struct {
 		__uint(max_entries, 1);
 	});
 } cilium_lb4_maglev __section_maps_btf;
-#endif /* LB_MAGLEV_EXTERNAL */
-#endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
-#endif /* ENABLE_IPV4 */
+#endif /* OVERWRITE_MAGLEV_MAP_FROM_TEST */
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lb_affinity_match);
@@ -205,7 +186,6 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb_affinity_match __section_maps_btf;
-#endif
 
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
@@ -213,9 +193,7 @@ struct {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
-#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 #include "act.h"
-#endif
 
 static __always_inline bool lb_is_svc_proto(__u8 proto)
 {
