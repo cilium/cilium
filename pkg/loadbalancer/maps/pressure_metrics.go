@@ -39,7 +39,7 @@ type pressureMetrics struct {
 }
 
 func registerPressureMetricsReporter(p pressureMetricsParams) {
-	if !p.Config.EnableExperimentalLB || p.Config.LBPressureMetricsInterval == 0 {
+	if p.Config.LBPressureMetricsInterval == 0 {
 		return
 	}
 

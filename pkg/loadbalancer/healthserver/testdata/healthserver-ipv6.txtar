@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --enable-health-check-nodeport
+#! --enable-health-check-nodeport
 
 # Add a node address.
 db/insert node-addresses addrv6.yaml

@@ -104,7 +104,6 @@ func TestScript(t *testing.T) {
 			h.RegisterFlags(flags)
 
 			// Set some defaults
-			flags.Set("enable-experimental-lb", "true")
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")

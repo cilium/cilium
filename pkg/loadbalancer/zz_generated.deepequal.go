@@ -93,9 +93,6 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 		return false
 	}
 
-	if in.EnableExperimentalLB != other.EnableExperimentalLB {
-		return false
-	}
 	if in.RetryBackoffMin != other.RetryBackoffMin {
 		return false
 	}
