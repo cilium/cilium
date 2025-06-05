@@ -316,6 +316,7 @@ func newService(
 	healthCheckers []HealthChecker,
 	k8sControlplaneEnabled bool,
 	config *option.DaemonConfig,
+	backendConnectionHandler sockets.SocketDestroyer,
 ) *Service {
 	var localHealthServer healthServer
 	if lbConfig.EnableHealthCheckNodePort {
@@ -333,7 +334,7 @@ func newService(
 		healthCheckChan:          make(chan any),
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
-		backendConnectionHandler: backendConnectionHandler{logger: logger},
+		backendConnectionHandler: backendConnectionHandler,
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
