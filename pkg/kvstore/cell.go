@@ -31,23 +31,30 @@ func Cell(defaultBackend string) cell.Cell {
 			KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
 		}),
 
-		cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, cfg Config, opts *ExtraOptions) Client {
-			// Propagate the options to the global variables for backward compatibility
-			option.Config.KVStore = cfg.KVStore
-			option.Config.KVStoreOpt = cfg.KVStoreOpt
-			option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
-			option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
+		cell.Provide(func(in struct {
+			cell.In
 
-			if cfg.KVStore == DisabledBackendName {
+			Logger    *slog.Logger
+			Lifecycle cell.Lifecycle
+			Config    Config
+			Opts      ExtraOptions `optional:"true"`
+		}) Client {
+			// Propagate the options to the global variables for backward compatibility
+			option.Config.KVStore = in.Config.KVStore
+			option.Config.KVStoreOpt = in.Config.KVStoreOpt
+			option.Config.KVstoreLeaseTTL = in.Config.KVStoreLeaseTTL
+			option.Config.KVstoreMaxConsecutiveQuorumErrors = in.Config.KVstoreMaxConsecutiveQuorumErrors
+
+			if in.Config.KVStore == DisabledBackendName {
 				return &clientImpl{enabled: false}
 			}
 
 			cl := &clientImpl{
-				enabled: true, cfg: cfg, opts: opts,
-				logger: logger.With(logfields.BackendName, cfg.KVStore),
+				enabled: true, cfg: in.Config, opts: in.Opts,
+				logger: in.Logger.With(logfields.BackendName, in.Config.KVStore),
 			}
 
-			lc.Append(cl)
+			in.Lifecycle.Append(cl)
 			return cl
 		}),
 	)
