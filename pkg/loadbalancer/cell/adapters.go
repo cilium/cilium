@@ -71,16 +71,6 @@ func newAdapters(p adapterParams) (k8s.ServiceCache, service.ServiceManager) {
 	sca.notifications, sca.emit, sca.complete = stream.Multicast[k8s.ServiceNotification]()
 	p.JobGroup.Add(job.OneShot("adapter-notifications", sca.feedNotifications))
 
-	// If we are not running in tests we should register a table initializer to
-	// delay pruning until ClusterMesh has catched up. This happens via
-	// (*Daemon).initRestore in daemon/cmd/state.go. Once ClusterMesh has switched
-	// to using the Writer directly this can be removed.
-	var initDone func(writer.WriteTxn)
-	if p.TestConfig == nil && p.Clientset.IsEnabled() {
-		initDone = p.Writer.RegisterInitializer("adapters")
-	} else {
-		initDone = func(writer.WriteTxn) {}
-	}
 	sma := &serviceManagerAdapter{
 		log:          p.Log,
 		daemonConfig: p.DaemonConfig,
@@ -88,7 +78,6 @@ func newAdapters(p adapterParams) (k8s.ServiceCache, service.ServiceManager) {
 		services:     p.Services,
 		frontends:    p.Frontends,
 		writer:       p.Writer,
-		initDone:     initDone,
 	}
 	return sca, sma
 }
@@ -334,8 +323,6 @@ type serviceManagerAdapter struct {
 	services     statedb.Table[*loadbalancer.Service]
 	frontends    statedb.Table[*loadbalancer.Frontend]
 	writer       *writer.Writer
-
-	initDone func(writer.WriteTxn)
 }
 
 // GetCurrentTs implements service.ServiceManager.
@@ -418,16 +405,6 @@ func (s *serviceManagerAdapter) GetLastUpdatedTs() time.Time {
 	// Used by kubeproxyhealthz. Unclear how important it is to have real last updated time here.
 	// We could e.g. keep a timestamp behind an atomic in BPFOps to implement that.
 	return time.Now()
-}
-
-// SyncWithK8sFinished implements service.ServiceManager.
-func (s *serviceManagerAdapter) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s.ServiceID]) (stale []k8s.ServiceID, err error) {
-	if !localOnly {
-		txn := s.writer.WriteTxn()
-		s.initDone(txn)
-		txn.Commit()
-	}
-	return
 }
 
 // GetServiceIDs implements service.ServiceReader.

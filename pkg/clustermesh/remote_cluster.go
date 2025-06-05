@@ -237,7 +237,7 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 type synced struct {
 	wait.SyncedCommon
-	services       *lock.StoppableWaitGroup
+	services       chan struct{}
 	nodes          chan struct{}
 	ipcache        chan struct{}
 	identities     *lock.StoppableWaitGroup
@@ -255,7 +255,7 @@ func newSynced() synced {
 
 	return synced{
 		SyncedCommon:   wait.NewSyncedCommon(),
-		services:       lock.NewStoppableWaitGroup(),
+		services:       make(chan struct{}),
 		nodes:          make(chan struct{}),
 		ipcache:        make(chan struct{}),
 		identities:     idswg,
@@ -274,7 +274,7 @@ func (s *synced) Nodes(ctx context.Context) error {
 // received from the remote cluster, and synchronized with the BPF datapath,
 // the remote cluster is disconnected, or the given context is canceled.
 func (s *synced) Services(ctx context.Context) error {
-	return s.Wait(ctx, s.services.WaitChannel())
+	return s.Wait(ctx, s.services)
 }
 
 // IPIdentities returns after that the initial list of ipcache entries and
