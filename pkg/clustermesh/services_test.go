@@ -116,7 +116,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 
 	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	dir := tb.TempDir()
 
 	for i, cluster := range []string{clusterName1, clusterName2} {

@@ -52,10 +52,10 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// Setup dependencies for endpoint.
-	kvstore.SetupDummy(tb, "etcd")
+	client := kvstore.SetupDummy(tb, "etcd")
 
 	s.mgr = cache.NewCachingIdentityAllocator(logger, s.do, cache.NewTestAllocatorConfig())
-	<-s.mgr.InitIdentityAllocator(nil)
+	<-s.mgr.InitIdentityAllocator(nil, client)
 
 	identityCache := identity.IdentityMap{
 		identityFoo: labelsFoo,

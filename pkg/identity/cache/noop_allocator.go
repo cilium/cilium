@@ -126,7 +126,7 @@ func (n *NoopIdentityAllocator) RemoveRemoteIdentities(name string) {
 	// No-op, because remote identities are not used when network policies are disabled.
 }
 
-func (n *NoopIdentityAllocator) InitIdentityAllocator(versioned.Interface) <-chan struct{} {
+func (n *NoopIdentityAllocator) InitIdentityAllocator(versioned.Interface, kvstore.Client) <-chan struct{} {
 	close(n.allocatorInitialized)
 	return n.allocatorInitialized
 }
