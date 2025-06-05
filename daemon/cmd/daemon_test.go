@@ -216,11 +216,6 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
-
-	// Disable the replacement, as its initialization function execs bpftool
-	// which requires root privileges. This would require marking the test suite
-	// as privileged.
-	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 }
 
 // convenience wrapper that adds a single policy
