@@ -60,14 +60,10 @@ var Cell = cell.Module(
 
 	metrics.Metric(newControllerMetrics),
 
-	// Replace the REST API implementation if enabled
-	cell.DecorateAll(replaceAPI),
+	cell.Provide(lrpAPI),
 )
 
-func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
-	if !enabled {
-		return old
-	}
+func lrpAPI(enabled lrpIsEnabled, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
 	return &getLrpHandler{db, lrps}
 }
 
