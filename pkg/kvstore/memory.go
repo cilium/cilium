@@ -132,13 +132,6 @@ type inMemoryClient struct {
 func (c *inMemoryClient) Close() {
 }
 
-// Connected implements BackendOperations.
-func (c *inMemoryClient) Connected(ctx context.Context) <-chan error {
-	out := make(chan error)
-	close(out)
-	return out
-}
-
 // CreateOnly implements BackendOperations.
 func (c *inMemoryClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	wtxn := c.db.WriteTxn(c.table)
