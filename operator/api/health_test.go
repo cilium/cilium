@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -34,10 +35,9 @@ func TestHealthHandlerK8sDisabled(t *testing.T) {
 			cs.Disable()
 		}),
 
+		kvstore.Cell(kvstore.DisabledBackendName),
+
 		HealthHandlerCell(
-			func() bool {
-				return false
-			},
 			func() bool {
 				return false
 			},
@@ -83,11 +83,9 @@ func TestHealthHandlerK8sEnabled(t *testing.T) {
 
 	hive := hive.New(
 		k8sClient.FakeClientCell(),
+		kvstore.Cell(kvstore.DisabledBackendName),
 
 		HealthHandlerCell(
-			func() bool {
-				return false
-			},
 			func() bool {
 				return false
 			},
