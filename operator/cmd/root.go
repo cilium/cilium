@@ -206,7 +206,6 @@ var (
 		}),
 
 		api.HealthHandlerCell(
-			kvstoreEnabled,
 			isLeader.Load,
 		),
 		api.MetricsHandlerCell,
