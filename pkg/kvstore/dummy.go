@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	client "go.etcd.io/etcd/client/v3"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/time"
@@ -52,13 +51,17 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
 	}
 
-	module.setConfigDummy()
-
-	if opts != nil {
-		err := module.setConfig(hivetest.Logger(tb), opts)
-		if err != nil {
-			tb.Fatalf("Unable to set config options for kvstore backend module: %v", err)
+	switch dummyBackend {
+	case EtcdBackendName:
+		if config.KVStoreOpt == nil {
+			config.KVStoreOpt = make(map[string]string)
 		}
+		config.KVStoreOpt[EtcdAddrOption] = EtcdDummyAddress()
+	}
+
+	err := module.setConfig(hivetest.Logger(tb), config.KVStoreOpt)
+	if err != nil {
+		tb.Fatalf("Unable to set config options for kvstore backend module: %v", err)
 	}
 
 	client, errCh := module.newClient(context.Background(), hivetest.Logger(tb), ExtraOptions{})
@@ -66,7 +69,6 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	var err error
 	select {
 	case err = <-errCh:
 	case <-ctx.Done():
@@ -115,9 +117,4 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 
 func EtcdDummyAddress() string {
 	return etcdDummyAddress
-}
-
-func (e *etcdModule) setConfigDummy() {
-	e.config = &client.Config{}
-	e.config.Endpoints = []string{etcdDummyAddress}
 }

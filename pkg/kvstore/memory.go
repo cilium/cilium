@@ -5,6 +5,7 @@ package kvstore
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -25,8 +26,6 @@ type inMemoryModule struct {
 
 	// clients key'd by cluster name
 	clients map[string]*inMemoryClient
-
-	dummy bool
 }
 
 const InMemoryModuleName = "in-memory"
@@ -43,25 +42,11 @@ func (i *inMemoryModule) createInstance() backendModule {
 	return i
 }
 
-// getConfig implements backendModule.
-func (i *inMemoryModule) getConfig() map[string]string {
-	return nil
-}
-
-// getName implements backendModule.
-func (i *inMemoryModule) getName() string {
-	return InMemoryModuleName
-}
-
 // newClient implements backendModule.
 func (im *inMemoryModule) newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error) {
-	clusterName := ""
-	if im.dummy {
-		// If setConfigDummy() was called all clients share the same table.
-		clusterName = "dummy"
-	} else {
-		clusterName = opts.ClusterName
-	}
+	// Currently, all clients share the same table, so that they all operate on the same data.
+	clusterName := cmp.Or(opts.ClusterName, "__local__")
+
 	errChan := make(chan error)
 	close(errChan)
 
@@ -78,11 +63,6 @@ func (im *inMemoryModule) newClient(ctx context.Context, logger *slog.Logger, op
 // setConfig implements backendModule.
 func (i *inMemoryModule) setConfig(logger *slog.Logger, opts map[string]string) error {
 	return nil
-}
-
-// setConfigDummy implements backendModule.
-func (im *inMemoryModule) setConfigDummy() {
-	im.dummy = true
 }
 
 var _ backendModule = &inMemoryModule{}
