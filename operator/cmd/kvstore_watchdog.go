@@ -62,12 +62,12 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 	return oldestLeases
 }
 
-func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig) {
+func startKvstoreWatchdog(logger *slog.Logger, client kvstore.Client, cfgMCSAPI cmoperator.MCSAPIConfig) {
 	logger.Info("Starting kvstore watchdog", logfields.Interval, defaults.LockLeaseTTL)
 
 	backend, err := kvstoreallocator.NewKVStoreBackend(logger, kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
-		Backend:  kvstore.LegacyClient(),
+		Backend:  client,
 	})
 	if err != nil {
 		logging.Fatal(logger, "Unable to initialize kvstore backend for identity garbage collection", logfields.Error, err)
@@ -107,7 +107,7 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 						MaxConnectedClusters:  option.Config.MaxConnectedClusters,
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
-				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.LegacyClient()); err != nil {
+				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, client); err != nil {
 					logger.Warn("Unable to set local cluster config", logfields.Error, err)
 				}
 			}

@@ -34,7 +34,8 @@ type params struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	Clientset k8sClient.Clientset
+	Clientset     k8sClient.Clientset
+	KVStoreClient kvstore.Client
 
 	Cfg Config
 
@@ -46,6 +47,7 @@ type DoubleWriteMetricReporter struct {
 
 	interval time.Duration
 
+	kvstoreClient         kvstore.Client
 	kvStoreBackend        allocator.Backend
 	clientset             k8sClient.Clientset
 	crdBackend            allocator.Backend
@@ -63,10 +65,11 @@ func registerDoubleWriteMetricReporter(p params) {
 		return
 	}
 	doubleWriteMetricReporter := &DoubleWriteMetricReporter{
-		logger:    p.Logger,
-		interval:  p.Cfg.Interval,
-		clientset: p.Clientset,
-		metrics:   p.Metrics,
+		logger:        p.Logger,
+		interval:      p.Cfg.Interval,
+		clientset:     p.Clientset,
+		kvstoreClient: p.KVStoreClient,
+		metrics:       p.Metrics,
 	}
 	p.Lifecycle.Append(doubleWriteMetricReporter)
 }
@@ -84,7 +87,7 @@ func (h NoOpHandlerWithListDone) OnListDone() {
 func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
 	g.logger.Info("Starting the Double Write Metric Reporter")
 
-	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.LegacyClient()})
+	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: g.kvstoreClient})
 	if err != nil {
 		g.logger.Error("Unable to initialize kvstore backend for the Double Write Metric Reporter", logfields.Error, err)
 		return err

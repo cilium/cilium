@@ -12,14 +12,13 @@ import (
 	ciliumIdentity "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 	igc.logger.Info("Starting kvstore identity garbage collector", logfields.Interval, igc.gcInterval)
-	backend, err := kvstoreallocator.NewKVStoreBackend(igc.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Backend: kvstore.LegacyClient()})
+	backend, err := kvstoreallocator.NewKVStoreBackend(igc.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Backend: igc.kvstoreClient})
 	if err != nil {
 		return fmt.Errorf("unable to initialize kvstore backend for identity allocation")
 	}

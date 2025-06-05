@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -42,6 +43,8 @@ func TestIdentitiesGC(t *testing.T) {
 
 		// provide a fake clientset
 		k8sClient.FakeClientCell,
+		// Provide a (disabled) kvstore client
+		kvstore.Cell(kvstore.DisabledBackendName),
 		// provide a fake spire client
 		spire.FakeCellClient,
 		// provide resources
