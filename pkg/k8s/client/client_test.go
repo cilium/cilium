@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -220,6 +222,10 @@ func Test_client(t *testing.T) {
 	var clientset Clientset
 	hive := hive.New(
 		Cell,
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
 		cell.Invoke(func(c Clientset) { clientset = c }),
 	)
 
@@ -305,6 +311,10 @@ func Test_clientMultipleAPIServers(t *testing.T) {
 	var clientset Clientset
 	hive := hive.New(
 		Cell,
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
 		cell.Invoke(func(c Clientset) { clientset = c }),
 	)
 
@@ -383,10 +393,17 @@ func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
 	servers[0].Start()
 	servers[1].Start()
 
-	var clientset Clientset
+	var (
+		clientset Clientset
+		mgr       *restConfigManager
+	)
 	h := hive.New(
 		Cell,
-		cell.Invoke(func(c Clientset) { clientset = c }),
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
+		cell.Invoke(func(c Clientset, m *restConfigManager) { clientset = c; mgr = m }),
 	)
 
 	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -412,7 +429,7 @@ func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
 	mapping := K8sServiceEndpointMapping{
 		Service: servers[2].URL,
 	}
-	UpdateK8sAPIServerEntry(tlog, mapping)
+	mgr.updateMappings(mapping)
 	// All servers are stopped in order to validate that the agent fails over correctly.
 	servers[0].Close()
 	servers[1].Close()
@@ -442,6 +459,10 @@ func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
 	// Test the agent connects to the restored service address after restart.
 	h = hive.New(
 		Cell,
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
 		cell.Invoke(func(c Clientset) { clientset = c }),
 	)
 
@@ -495,10 +516,17 @@ func Test_clientMultipleAPIServersFailedRestore(t *testing.T) {
 	servers[0].Start()
 	servers[1].Start()
 
-	var clientset Clientset
+	var (
+		clientset Clientset
+		mgr       *restConfigManager
+	)
 	h := hive.New(
 		Cell,
-		cell.Invoke(func(c Clientset) { clientset = c }),
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
+		cell.Invoke(func(c Clientset, m *restConfigManager) { clientset = c; mgr = m }),
 	)
 
 	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -521,7 +549,7 @@ func Test_clientMultipleAPIServersFailedRestore(t *testing.T) {
 	// Write a bogus service address so that it won't be restored, and agent falls back
 	// to user provided server URLs.
 	mapping := K8sServiceEndpointMapping{
-		Service: "http://10.10.10.10",
+		Service: "http://0.0.0.0",
 	}
 	// Close previous servers, and start a new one.
 	servers[0].Close()
@@ -530,10 +558,14 @@ func Test_clientMultipleAPIServersFailedRestore(t *testing.T) {
 	defer servers[2].Close()
 	servers[3].Start()
 	defer servers[3].Close()
-	UpdateK8sAPIServerEntry(tlog, mapping)
+	mgr.saveMapping(mapping)
 
 	h = hive.New(
 		Cell,
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
 		cell.Invoke(func(c Clientset) { clientset = c }),
 	)
 
@@ -599,10 +631,17 @@ func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
 	servers[0].Start()
 	servers[1].Start()
 
-	var clientset Clientset
+	var (
+		clientset Clientset
+		mgr       *restConfigManager
+	)
 	h := hive.New(
 		Cell,
-		cell.Invoke(func(c Clientset) { clientset = c }),
+		cell.Provide(
+			loadbalancer.NewFrontendsTable, statedb.RWTable[*loadbalancer.Frontend].ToTable,
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+		),
+		cell.Invoke(func(c Clientset, m *restConfigManager) { clientset = c; mgr = m }),
 	)
 
 	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -657,7 +696,7 @@ func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
 		// Add bogus endpoints
 		Endpoints: []string{"10.0.0.0:60"},
 	}
-	UpdateK8sAPIServerEntry(tlog, mapping)
+	mgr.updateMappings(mapping)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		_, err = clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})

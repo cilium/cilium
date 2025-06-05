@@ -49,6 +49,8 @@ var Cell = cell.Module(
 	cell.Config(defaultClientParams),
 	cell.Provide(NewClientConfig),
 	cell.Provide(newClientset),
+
+	cell.Invoke(registerMappingsUpdater),
 )
 
 // client.ClientBuilderCell provides a function to create a new composite Clientset,
@@ -121,16 +123,16 @@ type compositeClientset struct {
 	config            Config
 	logger            *slog.Logger
 	closeAllConns     func()
-	restConfigManager restConfig
+	restConfigManager *restConfigManager
 }
 
-func newClientset(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) (Clientset, error) {
+func newClientset(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) (Clientset, *restConfigManager, error) {
 	return newClientsetForUserAgent(lc, logger, cfg, "", jobs)
 }
 
-func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config, name string, jobs job.Group) (Clientset, error) {
+func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config, name string, jobs job.Group) (Clientset, *restConfigManager, error) {
 	if !cfg.isEnabled() {
-		return &compositeClientset{disabled: true}, nil
+		return &compositeClientset{disabled: true}, nil, nil
 	}
 
 	client := compositeClientset{
@@ -140,9 +142,9 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 	}
 
 	var err error
-	client.restConfigManager, err = restConfigManagerInit(cfg, name, logger, jobs)
+	client.restConfigManager, err = restConfigManagerInit(cfg, name, logger)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
+		return nil, nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
 	rc := client.restConfigManager.getConfig()
 
@@ -150,7 +152,7 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 
 	httpClient, err := rest.HTTPClientFor(rc)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create k8s REST client: %w", err)
 	}
 
 	// We are implementing the same logic as Kubelet, see
@@ -168,22 +170,22 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 
 	client.slim, err = slim_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create slim k8s client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create slim k8s client: %w", err)
 	}
 
 	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
 	}
 
 	client.MCSAPIClientset, err = mcsapi_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create mcsapi k8s client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create mcsapi k8s client: %w", err)
 	}
 
 	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
 	client.ClientsetGetters = ClientsetGetters{&client}
@@ -192,7 +194,7 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 	rc.ContentConfig.ContentType = `application/json`
 	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
 	lc.Append(cell.Hook{
@@ -200,7 +202,7 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 		OnStop:  client.onStop,
 	})
 
-	return &client, nil
+	return &client, client.restConfigManager, nil
 }
 
 func (c *compositeClientset) Slim() slim_clientset.Interface {
@@ -414,7 +416,7 @@ type ClientBuilderFunc func(name string) (Clientset, error)
 // created.
 func NewClientBuilder(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) ClientBuilderFunc {
 	return func(name string) (Clientset, error) {
-		c, err := newClientsetForUserAgent(lc, logger, cfg, name, jobs)
+		c, _, err := newClientsetForUserAgent(lc, logger, cfg, name, jobs)
 		if err != nil {
 			return nil, err
 		}

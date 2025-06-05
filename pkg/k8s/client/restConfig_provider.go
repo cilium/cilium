@@ -6,7 +6,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -14,16 +13,19 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cloudflare/cfssl/log"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/cilium/cilium/pkg/fswatcher"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -40,6 +42,10 @@ var (
 type K8sServiceEndpointMapping struct {
 	Service   string   `json:"service"`
 	Endpoints []string `json:"endpoints"`
+}
+
+func (m K8sServiceEndpointMapping) Equal(other K8sServiceEndpointMapping) bool {
+	return m.Service == other.Service && slices.Equal(m.Endpoints, other.Endpoints)
 }
 
 // restConfigManager manages the rest configuration for connecting to the API server, including the logic to fail over
@@ -65,33 +71,8 @@ type restConfigManager struct {
 	apiServerURLs        []*url.URL
 	isConnectedToService bool
 	lock.RWMutex
-	log  *slog.Logger
-	rt   *rotatingHttpRoundTripper
-	jobs job.Group
-}
-
-type restConfig interface {
-	getConfig() *rest.Config
-	canRotateAPIServerURL() bool
-	rotateAPIServerURL()
-}
-
-// UpdateK8sAPIServerEntry writes the provided kubernetes service to endpoint mapping
-// to K8sAPIServerFilePath.
-func UpdateK8sAPIServerEntry(logger *slog.Logger, mapping K8sServiceEndpointMapping) {
-	f, err := os.OpenFile(K8sAPIServerFilePath, os.O_RDWR, 0644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	if err = json.NewEncoder(f).Encode(mapping); err != nil {
-		logger.Error("failed to write kubernetes service entry,"+
-			"agent may not be able to fail over to an active k8sapi-server",
-			logfields.Error, err,
-			logfields.Entry, mapping,
-		)
-	}
+	log *slog.Logger
+	rt  *rotatingHttpRoundTripper
 }
 
 func (r *restConfigManager) getConfig() *rest.Config {
@@ -112,14 +93,14 @@ func (r *restConfigManager) canRotateAPIServerURL() bool {
 	return len(r.apiServerURLs) > 1 && !r.isConnectedToService
 }
 
-func restConfigManagerInit(cfg Config, name string, log *slog.Logger, jobs job.Group) (restConfig, error) {
+func restConfigManagerInit(cfg Config, name string, log *slog.Logger) (*restConfigManager, error) {
 	var err error
 	manager := restConfigManager{
 		log: log,
 		rt: &rotatingHttpRoundTripper{
 			log: log,
 		},
-		jobs: jobs}
+	}
 
 	manager.parseConfig(cfg)
 
@@ -139,9 +120,9 @@ func restConfigManagerInit(cfg Config, name string, log *slog.Logger, jobs job.G
 	if manager.canRotateAPIServerURL() {
 		// Pick an API server at random.
 		manager.rotateAPIServerURL()
-		if err := manager.startK8sAPIServerFileWatcher(); err != nil {
-			return nil, fmt.Errorf("agent may not able to fail over to an active kube-apiserver: %w", err)
-		}
+
+		// Restore the mappings from disk.
+		manager.restoreFromDisk()
 	}
 
 	return &manager, err
@@ -299,76 +280,7 @@ func (r *restConfigManager) WrapRoundTripper(rt http.RoundTripper) http.RoundTri
 	return r.rt
 }
 
-// startK8sAPIServerFileWatcher asynchronosuly handles updates the API service and endpoints.
-func (r *restConfigManager) startK8sAPIServerFileWatcher() error {
-	if finfo, err := os.Stat(K8sAPIServerFilePath); errors.Is(err, os.ErrNotExist) {
-		if _, err = os.Create(K8sAPIServerFilePath); err != nil {
-			return fmt.Errorf("unable to create '%s': %w", K8sAPIServerFilePath, err)
-		}
-	} else if finfo.Size() != 0 {
-		// Restore the service and endpoint addresses.
-		r.updateK8sAPIServerURL()
-	}
-
-	r.jobs.Add(job.OneShot("kube-apiserver-state-file-watcher", func(ctx context.Context, health cell.Health) error {
-		stop := make(chan struct{})
-		timeout := time.NewTimer(5 * time.Second)
-		defer timeout.Stop()
-		var (
-			watcher *fswatcher.Watcher
-			err     error
-		)
-		wait.Until(func() {
-			watcher, err = fswatcher.New(r.log, []string{K8sAPIServerFilePath})
-			if err == nil {
-				close(stop)
-				return
-			}
-			select {
-			case <-ctx.Done():
-			case <-timeout.C:
-			default:
-				return
-			}
-			close(stop)
-		}, time.Second, stop)
-		if err == nil {
-			health.OK("Starting kube-apiserver state file watcher")
-			return r.k8sAPIServerFileWatcher(ctx, watcher, health)
-		}
-		return fmt.Errorf("unable to add file watcher '%s': %w", K8sAPIServerFilePath, err)
-	}))
-
-	return nil
-}
-
-func (r *restConfigManager) k8sAPIServerFileWatcher(ctx context.Context, watcher *fswatcher.Watcher, health cell.Health) error {
-	for {
-		select {
-		case <-ctx.Done():
-			health.Stopped("Context done")
-			watcher.Close()
-			return nil
-		case event := <-watcher.Events:
-			if !event.Op.Has(fswatcher.Write) {
-				continue
-			}
-			r.log.Info("Processing write event",
-				logfields.Path, K8sAPIServerFilePath,
-			)
-			r.updateK8sAPIServerURL()
-		case err := <-watcher.Errors:
-			health.Degraded(fmt.Sprintf("Failed to load  %q", K8sAPIServerFilePath), err)
-			r.log.Error("Unexpected error while watching",
-				logfields.Path, K8sAPIServerFilePath,
-				logfields.Error, err,
-			)
-		}
-
-	}
-}
-
-func (r *restConfigManager) updateK8sAPIServerURL() {
+func (r *restConfigManager) restoreFromDisk() {
 	f, err := os.Open(K8sAPIServerFilePath)
 	if err != nil {
 		r.log.Error("unable "+
@@ -376,8 +288,13 @@ func (r *restConfigManager) updateK8sAPIServerURL() {
 			logfields.Path, K8sAPIServerFilePath,
 			logfields.Error, err,
 		)
+		return
 	}
 	defer f.Close()
+
+	if finfo, err := os.Stat(K8sAPIServerFilePath); err != nil || finfo.Size() == 0 {
+		return
+	}
 
 	var mapping K8sServiceEndpointMapping
 	if err = json.NewDecoder(f).Decode(&mapping); err != nil {
@@ -387,13 +304,36 @@ func (r *restConfigManager) updateK8sAPIServerURL() {
 			logfields.Path, K8sAPIServerFilePath,
 			logfields.Entry, mapping,
 		)
-	}
-	if err = r.checkConnToService(mapping.Service); err != nil {
 		return
 	}
+	r.updateMappings(mapping)
+}
+
+func (r *restConfigManager) saveMapping(mapping K8sServiceEndpointMapping) {
+	// Write the mappings to disk so they can be restored on restart.
+	if f, err := os.OpenFile(K8sAPIServerFilePath, os.O_RDWR, 0644); err == nil {
+		defer f.Close()
+		if err = json.NewEncoder(f).Encode(mapping); err != nil {
+			log.Error("failed to write kubernetes service entry,"+
+				"agent may not be able to fail over to an active k8sapi-server",
+				logfields.Error, err,
+				logfields.Entry, mapping,
+			)
+		}
+	}
+}
+
+func (r *restConfigManager) updateMappings(mapping K8sServiceEndpointMapping) {
+	if err := r.checkConnToService(mapping.Service); err != nil {
+		return
+	}
+
+	r.saveMapping(mapping)
+
 	r.log.Info("Updated kubeapi server url host",
 		logfields.URL, mapping.Service,
 	)
+
 	// Set in tests
 	mapping.Service = strings.TrimPrefix(mapping.Service, "http://")
 	r.rt.Lock()
@@ -419,6 +359,7 @@ func (r *restConfigManager) updateK8sAPIServerURL() {
 	if len(updatedServerURLs) != 0 {
 		r.apiServerURLs = updatedServerURLs
 	}
+
 }
 
 // checkConnToService ensures connectivity to the API server via the passed service address.
@@ -475,4 +416,72 @@ func (r *restConfigManager) checkConnToService(host string) error {
 		)
 	}
 	return err
+}
+
+type mappingUpdaterParams struct {
+	cell.In
+
+	JobGroup  job.Group
+	Log       *slog.Logger
+	Manager   *restConfigManager
+	DB        *statedb.DB                           `optional:"true"`
+	Frontends statedb.Table[*loadbalancer.Frontend] `optional:"true"`
+}
+
+// registerMappingsUpdater watches the default/kubernetes frontend for
+// changes and updates the mapping file.
+// This is currently used for supporting high availability for kubeapi-server.
+func registerMappingsUpdater(p mappingUpdaterParams) {
+	if p.DB == nil || p.Frontends == nil {
+		// These are optional to make the [Cell] usable without
+		// load-balancing control-plane.
+		return
+	}
+
+	if p.Manager == nil || !p.Manager.canRotateAPIServerURL() {
+		return
+	}
+
+	p.JobGroup.Add(
+		job.OneShot(
+			"update-k8s-api-service-mappings",
+			func(ctx context.Context, health cell.Health) error {
+				// Watch for changes to the default/kubernetes service frontend
+				// and update the mappings if it changes.
+				var previous K8sServiceEndpointMapping
+				for {
+					fe, _, watch, found := p.Frontends.GetWatch(
+						p.DB.ReadTxn(),
+						loadbalancer.FrontendByServiceName(loadbalancer.ServiceName{
+							Name:      "kubernetes",
+							Namespace: "default",
+						}))
+					if found {
+						mapping := frontendToMapping(fe)
+						if !mapping.Equal(previous) {
+							previous = mapping
+							log.Info("updating kubernetes service mapping",
+								logfields.Entry, mapping,
+							)
+							p.Manager.updateMappings(mapping)
+
+						}
+					}
+
+					select {
+					case <-ctx.Done():
+						return nil
+					case <-watch:
+					}
+				}
+			}))
+}
+
+func frontendToMapping(fe *loadbalancer.Frontend) K8sServiceEndpointMapping {
+	var mapping K8sServiceEndpointMapping
+	mapping.Service = fe.Address.AddrString()
+	for be := range fe.Backends {
+		mapping.Endpoints = append(mapping.Endpoints, be.Address.AddrString())
+	}
+	return mapping
 }
