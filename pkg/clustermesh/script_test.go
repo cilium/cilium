@@ -41,6 +41,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -108,8 +109,12 @@ func TestScript(t *testing.T) {
 				func() *option.DaemonConfig {
 					// The LB control-plane still derives its configuration from DaemonConfig.
 					return &option.DaemonConfig{
-						EnableIPv4:           true,
-						EnableIPv6:           true,
+						EnableIPv4: true,
+						EnableIPv6: true,
+					}
+				},
+				func() kpr.KPRConfig {
+					return kpr.KPRConfig{
 						EnableNodePort:       true,
 						KubeProxyReplacement: option.KubeProxyReplacementTrue,
 					}
