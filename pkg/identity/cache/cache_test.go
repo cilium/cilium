@@ -12,6 +12,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -19,17 +20,18 @@ import (
 func TestLookupReservedIdentity(t *testing.T) {
 	testutils.IntegrationTest(t)
 
+	client := kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
-			testLookupReservedIdentity(t, testConfig)
+			testLookupReservedIdentity(t, testConfig, client)
 		})
 	}
 }
 
-func testLookupReservedIdentity(t *testing.T, testConfig testConfig) {
+func testLookupReservedIdentity(t *testing.T, testConfig testConfig, client kvstore.Client) {
 	logger := hivetest.Logger(t)
 	mgr := NewCachingIdentityAllocator(logger, newDummyOwner(logger), testConfig.allocatorConfig)
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 
 	hostID := identity.GetReservedID("host")
 	require.NotNil(t, mgr.LookupIdentityByID(context.TODO(), hostID))

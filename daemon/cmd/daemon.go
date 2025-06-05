@@ -672,7 +672,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD ||
 		params.Clientset.IsEnabled() {
 		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
+		realIdentityAllocator.InitIdentityAllocator(params.Clientset, params.KVStoreClient)
 	}
 
 	// Must be done at least after initializing BPF LB-related maps

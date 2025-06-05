@@ -1403,6 +1403,7 @@ type daemonParams struct {
 	Health              cell.Health
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
+	KVStoreClient       kvstore.Client
 	WGAgent             *wireguard.Agent
 	LocalNodeStore      *node.LocalNodeStore
 	Shutdowner          hive.Shutdowner

@@ -28,7 +28,7 @@ func TestNoopAllocateIdentity(t *testing.T) {
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
 	mgr := NewNoopIdentityAllocator(hivetest.Logger(t))
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 
 	// Noop AllocateIdentity always returns id=init, isNew=false, error=nil,

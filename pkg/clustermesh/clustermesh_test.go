@@ -71,7 +71,7 @@ func TestClusterMesh(t *testing.T) {
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	t.Cleanup(mgr.Close)
 
 	dir := t.TempDir()

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -40,7 +41,7 @@ type CachingIdentityAllocator interface {
 	cache.IdentityAllocator
 	clustermesh.RemoteIdentityWatcher
 
-	InitIdentityAllocator(versioned.Interface) <-chan struct{}
+	InitIdentityAllocator(versioned.Interface, kvstore.Client) <-chan struct{}
 
 	// RestoreLocalIdentities reads in the checkpointed local allocator state
 	// from disk and allocates a reference to every previously existing identity.

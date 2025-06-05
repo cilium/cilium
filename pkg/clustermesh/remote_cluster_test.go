@@ -137,7 +137,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// The nils are only used by k8s CRD identities. We default to kvstore.
 			allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-			<-allocator.InitIdentityAllocator(nil)
+			<-allocator.InitIdentityAllocator(nil, client)
 
 			t.Cleanup(func() {
 				cancel()
@@ -278,7 +278,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-	<-allocator.InitIdentityAllocator(nil)
+	<-allocator.InitIdentityAllocator(nil, client)
 
 	t.Cleanup(allocator.Close)
 
