@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 type trackerAndDecoder struct {
@@ -61,7 +60,6 @@ type ControlPlaneTest struct {
 	agentHandle         *agentHandle
 	operatorHandle      *operatorHandle
 	FakeNodeHandler     *fakeTypes.FakeNodeHandler
-	FakeLbMap           *mockmaps.LBMockMap
 	establishedWatchers *lock.Map[string, struct{}]
 }
 
@@ -147,7 +145,6 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 	}
 	cpt.agentHandle.d = daemon
 	cpt.FakeNodeHandler = cpt.agentHandle.fnh
-	cpt.FakeLbMap = cpt.agentHandle.flbMap
 
 	return cpt
 }
@@ -156,7 +153,6 @@ func (cpt *ControlPlaneTest) StopAgent() *ControlPlaneTest {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
 	cpt.FakeNodeHandler = nil
-	cpt.FakeLbMap = nil
 
 	return cpt
 }

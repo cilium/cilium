@@ -7,8 +7,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -67,19 +65,5 @@ func initSourceRange(registry *metrics.Registry, params InitParams) {
 			unix.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))
-	}
-}
-
-func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {
-	ones, _ := cidr.Mask.Size()
-	id := byteorder.HostToNetwork16(revNATID)
-	if ipv6 {
-		key := &SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, RevNATID: id}
-		copy(key.Address[:], cidr.IP.To16())
-		return key
-	} else {
-		key := &SourceRangeKey4{PrefixLen: uint32(ones) + lpmPrefixLen4, RevNATID: id}
-		copy(key.Address[:], cidr.IP.To4())
-		return key
 	}
 }

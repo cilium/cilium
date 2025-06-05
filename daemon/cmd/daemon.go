@@ -46,8 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -77,7 +75,6 @@ type Daemon struct {
 	metricsRegistry *metrics.Registry
 	clientset       k8sClient.Clientset
 	db              *statedb.DB
-	svc             service.ServiceManager
 	policy          policy.PolicyRepository
 	idmgr           identitymanager.IDManager
 
@@ -128,7 +125,6 @@ type Daemon struct {
 
 	bwManager datapath.BandwidthManager
 
-	lrpManager   *redirectpolicy.Manager
 	maglevConfig maglev.Config
 
 	lbConfig loadbalancer.Config
@@ -298,7 +294,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		idmgr:             params.IdentityManager,
 		clustermesh:       params.ClusterMesh,
 		monitorAgent:      params.MonitorAgent,
-		svc:               params.ServiceManager,
 		bwManager:         params.BandwidthManager,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
@@ -306,7 +301,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
-		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
 		ciliumHealth:      params.CiliumHealth,
@@ -359,20 +353,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		d.logger.Error("error while opening/creating BPF maps", logfields.Error, err)
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
-	}
-
-	// Read the service IDs of existing services from the BPF map and
-	// reserve them. This must be done *before* connecting to the
-	// Kubernetes apiserver and serving the API to ensure service IDs are
-	// not changing across restarts or that a new service could accidentally
-	// use an existing service ID.
-	// Also, create missing v2 services from the corresponding legacy ones.
-	if option.Config.RestoreState && !option.Config.DryMode {
-		bootstrapStats.restore.Start()
-		if err := d.svc.RestoreServices(); err != nil {
-			d.logger.Warn("Failed to restore services from BPF maps", logfields.Error, err)
-		}
-		bootstrapStats.restore.End(true)
 	}
 
 	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
