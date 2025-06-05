@@ -10,6 +10,7 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/cilium/hive/hivetest"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -24,7 +25,7 @@ func FuzzNodeHandler(f *testing.F) {
 		}
 		dpConfig := DatapathConfiguration{HostDevice: "veth0"}
 		log := hivetest.Logger(f)
-		linuxNodeHandler := newNodeHandler(log, dpConfig, nil, new(mockEnqueuer))
+		linuxNodeHandler := newNodeHandler(log, dpConfig, nil, new(mockEnqueuer), kpr.KPRConfig{})
 		if linuxNodeHandler == nil {
 			panic("Should not be nil")
 		}

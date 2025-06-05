@@ -272,7 +272,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
 	option.BindEnv(vp, option.KVstoreLeaseTTL)
 
-	flags.String(option.KubeProxyReplacement, "false", "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
+	flags.String(option.KubeProxyReplacement, "false", "Enable only selected features (will panic if an y selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
 	flags.MarkHidden(option.KubeProxyReplacement)
 	option.BindEnv(vp, option.KubeProxyReplacement)
 

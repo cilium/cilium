@@ -112,7 +112,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	err = db.RegisterTable(nodeAddrs)
 	require.NoError(tb, err)
 
-	s.svcCache = k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	s.svcCache = k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, false, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 
 	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.

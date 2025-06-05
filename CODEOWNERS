@@ -570,6 +570,7 @@ Makefile* @cilium/build
 /pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
+/pkg/kpr/ @cilium/sig-lb
 /pkg/kvstore/ @cilium/kvstore
 /pkg/kvstore/etcdinit @cilium/sig-clustermesh @cilium/kvstore
 /pkg/l2announcer/ @cilium/sig-agent
