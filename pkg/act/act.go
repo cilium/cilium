@@ -13,11 +13,12 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/act"
@@ -128,13 +129,14 @@ func NewACT(in struct {
 	Jobs      job.Group
 	Source    act.ActiveConnectionTrackingMap
 	Metrics   ActiveConnectionTrackingMetrics
-	Service   service.ServiceManager
+	DB        *statedb.DB
+	Frontends statedb.Table[*loadbalancer.Frontend]
 }) *ACT {
 	if !in.Conf.EnableActiveConnectionTracking {
 		// Active Connection Tracking is disabled.
 		return nil
 	}
-	a := newAct(in.Log, in.Source, in.Metrics, in.Service, option.Config)
+	a := newAct(in.Log, in.Jobs, in.Source, in.Metrics, in.DB, in.Frontends, option.Config)
 	a.trig = job.NewTrigger()
 
 	in.Jobs.Add(job.Timer("act-metrics-update", a.update, metricsUpdateInterval))
@@ -152,30 +154,56 @@ func NewACT(in struct {
 	return a
 }
 
-func newAct(log *slog.Logger, src act.ActiveConnectionTrackingMap, metrics ActiveConnectionTrackingMetrics, svcMgr service.ServiceManager, opts *option.DaemonConfig) *ACT {
+func newAct(log *slog.Logger, jg job.Group, src act.ActiveConnectionTrackingMap, metrics ActiveConnectionTrackingMetrics, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend], opts *option.DaemonConfig) *ACT {
 	tracker := make(map[uint8]map[uint16]*actMetric, len(opts.FixedZoneMapping))
 	for zone := range opts.ReverseFixedZoneMapping {
 		tracker[zone] = make(map[uint16]*actMetric)
 	}
+
+	// Maintain a mapping of service IDs to frontend address.
+	var idToRef lock.Map[loadbalancer.ServiceID, string]
+
+	if db != nil && frontends != nil {
+		jg.Add(
+			job.Observer[statedb.Change[*loadbalancer.Frontend]](
+				"service-ids",
+				func(ctx context.Context, change statedb.Change[*loadbalancer.Frontend]) error {
+					if change.Deleted {
+						idToRef.Delete(change.Object.ID)
+					} else if change.Object.Status.Kind == reconciler.StatusKindDone {
+						idToRef.Store(change.Object.ID, change.Object.Address.String())
+					}
+					return nil
+				},
+				statedb.Observable(db, frontends)))
+	}
+
 	kts := func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
 		zone = opts.GetZone(key.Zone)
 		if zone == "" {
 			return "", "", fmt.Errorf("resolve zone id: %w", err)
 		}
-
-		ref, err := service.GetID(uint32(byteorder.NetworkToHost16(key.SvcID)))
-		if err != nil || ref == nil {
+		var ok bool
+		svc, ok = idToRef.Load(loadbalancer.ServiceID(byteorder.NetworkToHost16(key.SvcID)))
+		if !ok {
 			return "", "", fmt.Errorf("resolve svc id: %w", err)
 		}
-		svc = ref.String()
 		return
 	}
+	getIDs := func() (ids []loadbalancer.ServiceID) {
+		idToRef.Range(func(key loadbalancer.ServiceID, value string) bool {
+			ids = append(ids, key)
+			return true
+		})
+		return
+	}
+
 	return &ACT{
 		log:          log,
 		src:          src,
 		metrics:      metrics,
 		keyToStrings: kts,
-		svcIDs:       svcMgr.GetServiceIDs,
+		svcIDs:       getIDs,
 		mux:          new(lock.Mutex),
 		tracker:      tracker,
 	}
