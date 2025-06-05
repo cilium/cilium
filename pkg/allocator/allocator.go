@@ -573,7 +573,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	}
 
 	if value != 0 {
-		a.logger.Info("Reusing existing global key", logfields.Key, k)
+		a.logger.Debug("Reusing existing global key", logfields.Key, k)
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
@@ -653,7 +653,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		a.logger.Error("BUG: Unable to verify local key", logfields.Error, err)
 	}
 
-	a.logger.Info("Allocated new global key", logfields.Key, k)
+	a.logger.Debug("Allocated new global key", logfields.Key, k)
 
 	return id, true, firstUse, nil
 }
@@ -918,7 +918,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 		return false, nil
 	}
 
-	a.logger.Info("Releasing key", logfields.Key, key)
+	a.logger.Debug("Releasing key", logfields.Key, key)
 
 	select {
 	case <-a.initialListDone:
