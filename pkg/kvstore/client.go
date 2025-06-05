@@ -27,13 +27,16 @@ type Client interface {
 	// and the client can be used.
 	IsEnabled() bool
 
+	// Config returns the KVStore configuration parameters
+	Config() Config
+
 	BackendOperations
 }
 
 type clientImpl struct {
 	enabled bool
 
-	cfg    config
+	cfg    Config
 	opts   *ExtraOptions
 	logger *slog.Logger
 
@@ -42,6 +45,10 @@ type clientImpl struct {
 
 func (cl *clientImpl) IsEnabled() bool {
 	return cl.enabled
+}
+
+func (cl *clientImpl) Config() Config {
+	return cl.cfg
 }
 
 func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {

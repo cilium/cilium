@@ -5,11 +5,13 @@ package kvstore
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	client "go.etcd.io/etcd/client/v3"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -33,8 +35,16 @@ func SetupDummy(tb testing.TB, dummyBackend string) Client {
 // automatically registered to delete all keys and close the client when the
 // test terminates.
 func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[string]string) Client {
+	config := Config{
+		KVStore: dummyBackend, KVStoreOpt: maps.Clone(opts),
+		KVStoreConnectivityTimeout:        defaults.KVstoreConnectivityTimeout,
+		KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
+		KVStorePeriodicSync:               defaults.KVstorePeriodicSync,
+		KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
+	}
+
 	if dummyBackend == DisabledBackendName {
-		return &clientImpl{enabled: false}
+		return &clientImpl{enabled: false, cfg: config}
 	}
 
 	module := getBackend(dummyBackend)
@@ -85,7 +95,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		}
 
 		if succeeded {
-			return &clientImpl{enabled: true, BackendOperations: client}
+			return &clientImpl{enabled: true, BackendOperations: client, cfg: config}
 		}
 
 		select {
