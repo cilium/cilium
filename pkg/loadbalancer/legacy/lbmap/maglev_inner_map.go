@@ -6,7 +6,6 @@ package lbmap
 import (
 	"fmt"
 	"log/slog"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -37,30 +36,6 @@ func (m *MaglevInnerMap) UpdateBackends(backends []loadbalancer.BackendID) error
 	// Backends are stored at inner map key zero.
 	var key MaglevInnerKey
 	return m.Map.Update(key, backends, 0)
-}
-
-// newMaglevInnerMapSpec returns the spec for a maglev inner map.
-func newMaglevInnerMapSpec(tableSize uint32) *ebpf.MapSpec {
-	return &ebpf.MapSpec{
-		Name:       MaglevInnerMapName,
-		Type:       ebpf.Array,
-		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
-		ValueSize:  MaglevBackendLen * tableSize,
-		MaxEntries: 1,
-	}
-}
-
-// createMaglevInnerMap creates a new Maglev inner map in the kernel
-// using the given table size.
-func createMaglevInnerMap(logger *slog.Logger, tableSize uint32) (*MaglevInnerMap, error) {
-	spec := newMaglevInnerMapSpec(tableSize)
-
-	m := ebpf.NewMap(logger, spec)
-	if err := m.OpenOrCreate(); err != nil {
-		return nil, err
-	}
-
-	return (*MaglevInnerMap)(m), nil
 }
 
 // MaglevInnerMapFromID returns a new object representing the maglev inner map

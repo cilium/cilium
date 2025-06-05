@@ -50,7 +50,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
-	loadbalancer_legacy "github.com/cilium/cilium/pkg/loadbalancer/legacy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -195,9 +194,6 @@ var (
 
 		// Control-plane for configuring service load-balancing
 		loadbalancer_cell.Cell,
-
-		// Legacy version of the load-balancing control-plane
-		loadbalancer_legacy.Cell,
 
 		// Proxy provides the proxy port allocation and related datapath coordination and
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
