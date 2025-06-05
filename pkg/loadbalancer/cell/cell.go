@@ -38,12 +38,15 @@ var Cell = cell.Group(
 	// Support for HealthCheckNodePort
 	healthserver.Cell,
 
+	// Provide adapters for the legacy ServiceCache and ServiceManager APIs
+	// and implementation of the /service REST API.
 	cell.Module(
 		"loadbalancing-adapters",
 		"Adapters to legacy APIs",
 
-		// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
-		// implementation is enabled.
-		cell.Provide(newAdapters),
+		cell.Provide(
+			newAdapters,
+			newServiceRestApiHandler,
+		),
 	),
 )
