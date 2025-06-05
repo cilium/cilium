@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -132,9 +133,6 @@ const (
 
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
-
-	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
-	EnableExternalIPs = "enable-external-ips"
 
 	// EnableL7Proxy is the name of the option to enable L7 proxy
 	EnableL7Proxy = "enable-l7-proxy"
@@ -233,17 +231,11 @@ const (
 	// EnableHostFirewall enables network policies for the host
 	EnableHostFirewall = "enable-host-firewall"
 
-	// EnableHostPort enables HostPort forwarding implemented by Cilium in BPF
-	EnableHostPort = "enable-host-port"
-
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting = "enable-host-legacy-routing"
 
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
-
-	// EnableSVCSourceRangeCheck enables check of service source range checks
-	EnableSVCSourceRangeCheck = "enable-svc-source-range-check"
 
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
@@ -1537,7 +1529,6 @@ type DaemonConfig struct {
 	ConfigDir                     string
 	Debug                         bool
 	DebugVerbose                  []string
-	EnableSocketLB                bool
 	EnableSocketLBTracing         bool
 	EnableSocketLBPeer            bool
 	EnablePolicy                  string
@@ -1752,17 +1743,8 @@ type DaemonConfig struct {
 	// Specifies whether to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
-	// EnableNodePort enables k8s NodePort service implementation in BPF
-	EnableNodePort bool
-
-	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
-	EnableSVCSourceRangeCheck bool
-
 	// EnableHealthDatapath enables IPIP health probes data path
 	EnableHealthDatapath bool
-
-	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
-	EnableHostPort bool
 
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
@@ -1804,10 +1786,6 @@ type DaemonConfig struct {
 	// range (net.ipv4.ip_local_port_range)
 	EnableAutoProtectNodePortRange bool
 
-	// KubeProxyReplacement controls how to enable kube-proxy replacement
-	// features in BPF datapath
-	KubeProxyReplacement string
-
 	// AddressScopeMax controls the maximum address scope for addresses to be
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax int
@@ -1821,17 +1799,11 @@ type DaemonConfig struct {
 	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
 	CgroupPathMKE string
 
-	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
-	EnableExternalIPs bool
-
 	// EnableHostFirewall enables network policies for the host
 	EnableHostFirewall bool
 
 	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
 	EnableLocalRedirectPolicy bool
-
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity bool
 
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
@@ -2221,14 +2193,14 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
+func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig) bool {
+	return kprCfg.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
 // NeedIngressOnWireGuardDevice returns true if the agent needs to attach
 // cil_from_wireguard on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
+func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig) bool {
 	if !c.EnableWireguard {
 		return false
 	}
@@ -2248,7 +2220,7 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 	// from the remote node, we need to attach bpf_host to the Cilium's WG
 	// netdev (otherwise, the WG netdev after decrypting the reply will pass
 	// it to the stack which drops the packet).
-	if c.EnableNodePort && c.EncryptNode {
+	if kprCfg.EnableNodePort && c.EncryptNode {
 		return true
 	}
 
@@ -2257,7 +2229,7 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
 // cil_to_wireguard on the Egress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedEgressOnWireGuardDevice() bool {
+func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig) bool {
 	if !c.EnableWireguard {
 		return false
 	}
@@ -2269,7 +2241,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice() bool {
 
 	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
 	// the rev-NAT xlations when encrypting KPR traffic.
-	if c.EnableNodePort && c.EnableL7Proxy && c.KubeProxyReplacement == KubeProxyReplacementTrue {
+	if kprCfg.EnableNodePort && c.EnableL7Proxy && kprCfg.KubeProxyReplacement == KubeProxyReplacementTrue {
 		return true
 	}
 
@@ -2407,17 +2379,17 @@ func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
-func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
+func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig) bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
-	if c.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
+	if kprCfg.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}
 
-	return c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
+	return kprCfg.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
 }
 
 // KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
@@ -2716,7 +2688,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
-	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
@@ -2729,20 +2700,14 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.HealthCheckICMPFailureThreshold = vp.GetInt(HealthCheckICMPFailureThreshold)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
-	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
-	c.EnableNodePort = vp.GetBool(EnableNodePort)
-	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
-	c.EnableHostPort = vp.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
-	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
-	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
 	c.EnableRecorder = vp.GetBool(EnableRecorder)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)

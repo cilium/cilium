@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -45,18 +46,27 @@ type kprConfig struct {
 	nodePortMode   string
 	dispatchMode   string
 
-	lbConfig loadbalancer.Config
+	lbConfig  loadbalancer.Config
+	kprConfig kpr.KPRConfig
 }
 
-func (cfg *kprConfig) set() {
+func (cfg *kprConfig) set() (err error) {
 	cfg.lbConfig = loadbalancer.DefaultConfig
 
-	option.Config.KubeProxyReplacement = cfg.kubeProxyReplacement
-	option.Config.EnableSocketLB = cfg.enableSocketLB
-	option.Config.EnableNodePort = cfg.enableNodePort
-	option.Config.EnableHostPort = cfg.enableHostPort
-	option.Config.EnableExternalIPs = cfg.enableExternalIPs
-	option.Config.EnableSessionAffinity = cfg.enableSessionAffinity
+	kprFlags := kpr.KPRFlags{
+		KubeProxyReplacement:  cfg.kubeProxyReplacement,
+		EnableNodePort:        cfg.enableNodePort,
+		EnableSocketLB:        cfg.enableSocketLB,
+		EnableHostPort:        cfg.enableHostPort,
+		EnableExternalIPs:     cfg.enableExternalIPs,
+		EnableSessionAffinity: cfg.enableSessionAffinity,
+	}
+
+	cfg.kprConfig, err = kpr.NewKPRConfig(kprFlags)
+	if err != nil {
+		return err
+	}
+
 	option.Config.EnableIPSec = cfg.enableIPSec
 	option.Config.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
@@ -70,6 +80,8 @@ func (cfg *kprConfig) set() {
 	}
 
 	cfg.lbConfig.DSRDispatch = cfg.dispatchMode
+
+	return nil
 }
 
 func errorMatch(err error, regex string) assert.Comparison {
@@ -86,9 +98,9 @@ func errorMatch(err error, regex string) assert.Comparison {
 	}
 }
 
-func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, tc tunnel.Config) {
+func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, tc tunnel.Config) {
 	logger := hivetest.Logger(t)
-	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, lbConfig)
+	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, lbConfig, kprCfg)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		t.Logf("err=%s, expected=%s, cfg=%+v", err, cfg.expectedErrorRegex, cfg)
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
@@ -96,12 +108,11 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, tc tunn
 			return
 		}
 	}
-
-	require.Equal(t, cfg.enableSocketLB, option.Config.EnableSocketLB)
-	require.Equal(t, cfg.enableNodePort, option.Config.EnableNodePort)
-	require.Equal(t, cfg.enableHostPort, option.Config.EnableHostPort)
-	require.Equal(t, cfg.enableExternalIPs, option.Config.EnableExternalIPs)
-	require.Equal(t, cfg.enableSessionAffinity, option.Config.EnableSessionAffinity)
+	require.Equal(t, cfg.enableSocketLB, kprCfg.EnableSocketLB)
+	require.Equal(t, cfg.enableNodePort, kprCfg.EnableNodePort)
+	require.Equal(t, cfg.enableHostPort, kprCfg.EnableHostPort)
+	require.Equal(t, cfg.enableExternalIPs, kprCfg.EnableExternalIPs)
+	require.Equal(t, cfg.enableSessionAffinity, kprCfg.EnableSessionAffinity)
 	require.Equal(t, cfg.enableIPSec, option.Config.EnableIPSec)
 	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
@@ -132,18 +143,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 		mod  func(*kprConfig)
 		out  kprConfig
 	}{
-		// Invalid value for kube-proxy-replacement yields error
-		{
-			"invalid-value",
-			func(cfg *kprConfig) {
-				cfg.kubeProxyReplacement = "invalid value"
-			},
-			kprConfig{
-				kubeProxyReplacement: "invalid value",
-				expectedErrorRegex:   "Invalid value.+",
-			},
-		},
-
 		// KPR true: all options enabled, host routing disabled.
 		{
 			"kpr-true",
@@ -417,8 +416,8 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 		t.Logf("Testing %s", testCase.name)
 		cfg := def
 		testCase.mod(&cfg)
-		cfg.set()
-		testCase.out.verify(t, cfg.lbConfig, tunnel.NewTestConfig(cfg.tunnelProtocol))
+		require.NoError(t, cfg.set())
+		testCase.out.verify(t, cfg.lbConfig, cfg.kprConfig, tunnel.NewTestConfig(cfg.tunnelProtocol))
 		def.set()
 	}
 }

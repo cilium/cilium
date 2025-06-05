@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestGetTopologyAware(t *testing.T) {
@@ -220,15 +219,9 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 		ipv4InternalAddrCluster.Addr(),
 	}
 
-	oldNodePort := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
-	defer func() {
-		option.Config.EnableNodePort = oldNodePort
-	}()
-
 	lbcfg := loadbalancer.DefaultConfig
 
-	_, svc := ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	_, svc := ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Len(t, svc.NodePorts, 1)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -236,7 +229,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only ClusterIP
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "ClusterIP"
-	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Empty(t, svc.NodePorts)
 	require.Empty(t, svc.LoadBalancerIPs)
@@ -245,7 +238,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only NodePort
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "NodePort"
-	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Empty(t, svc.FrontendIPs)
 	require.Len(t, svc.NodePorts, 1)
 	require.Empty(t, svc.LoadBalancerIPs)
@@ -254,7 +247,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only LoadBalancer
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "LoadBalancer"
-	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Empty(t, svc.FrontendIPs)
 	require.Empty(t, svc.NodePorts)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -263,7 +256,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose all
 
 	delete(k8sSvc.Annotations, annotation.ServiceTypeExposure)
-	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Len(t, svc.NodePorts, 1)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -293,7 +286,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc := ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
+	id, svc := ParseService(hivetest.Logger(t), lbcfg, false, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
@@ -319,7 +312,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, false, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		IsHeadless:               true,
@@ -345,7 +338,7 @@ func TestParseService(t *testing.T) {
 	}
 	k8sSvc.ObjectMeta.Labels[corev1.IsHeadlessService] = ""
 
-	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, false, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		IsHeadless:               true,
@@ -374,7 +367,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, false, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
@@ -391,11 +384,6 @@ func TestParseService(t *testing.T) {
 		LoadBalancerAlgorithm:    loadbalancer.SVCLoadBalancingAlgorithmRandom,
 	}, svc)
 
-	oldNodePort := option.Config.EnableNodePort
-	option.Config.EnableNodePort = true
-	defer func() {
-		option.Config.EnableNodePort = oldNodePort
-	}()
 	objMeta.Annotations = map[string]string{
 		corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
 	}
@@ -453,7 +441,7 @@ func TestParseService(t *testing.T) {
 	lbcfg.AlgorithmAnnotation = true
 	lbcfg.LBAlgorithm = loadbalancer.LBAlgorithmMaglev
 
-	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -518,7 +506,7 @@ func TestParseService(t *testing.T) {
 			},
 		},
 	}
-	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -575,7 +563,7 @@ func TestParseService(t *testing.T) {
 			},
 		},
 	}
-	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, true, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -1259,13 +1247,13 @@ func TestServiceString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, tt.service, nil)
+		_, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, true, tt.service, nil)
 		require.Equal(t, tt.svcString, svc.String())
 	}
 }
 
 func TestNewClusterService(t *testing.T) {
-	id, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, &slim_corev1.Service{
+	id, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, true, &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",

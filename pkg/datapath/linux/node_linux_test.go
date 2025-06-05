@@ -1250,9 +1250,6 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
 	prevARPPeriod := option.Config.ARPPingRefreshPeriod
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
@@ -2000,9 +1997,6 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
 	prevARPPeriod := option.Config.ARPPingRefreshPeriod
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
@@ -2272,9 +2266,6 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
 	prevARPPeriod := option.Config.ARPPingRefreshPeriod
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
@@ -3019,9 +3010,6 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
 	prevARPPeriod := option.Config.ARPPingRefreshPeriod
 	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
 	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond

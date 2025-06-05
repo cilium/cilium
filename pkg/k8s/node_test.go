@@ -404,7 +404,7 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	id, svc := ParseService(hivetest.Logger(t), lbConfig, k8sSvc, nil)
+	id, svc := ParseService(hivetest.Logger(t), lbConfig, false, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,

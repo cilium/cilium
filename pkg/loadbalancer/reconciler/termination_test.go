@@ -24,6 +24,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -80,10 +81,16 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
 					BPFSocketLBHostnsOnly:                  hostOnly,
-					EnableSocketLB:                         true,
 					EnableSocketLBPodConnectionTermination: true,
 					EnableIPv4:                             true,
 					EnableIPv6:                             true,
+				}
+			},
+			func() kpr.KPRConfig {
+				return kpr.KPRConfig{
+					KubeProxyReplacement: "true",
+					EnableNodePort:       true,
+					EnableSocketLB:       true,
 				}
 			},
 			func() netnsOps {

@@ -28,6 +28,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -84,9 +85,13 @@ func TestScript(t *testing.T) {
 						return &option.DaemonConfig{
 							EnableIPv4:                true,
 							EnableIPv6:                true,
-							EnableNodePort:            true,
 							EnableLocalRedirectPolicy: true,
-							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
+						}
+					},
+					func() kpr.KPRConfig {
+						return kpr.KPRConfig{
+							EnableNodePort:       true,
+							KubeProxyReplacement: option.KubeProxyReplacementTrue,
 						}
 					},
 					func() redirectpolicy.TestSkipLBMap {
