@@ -48,12 +48,6 @@ func Cell(defaultBackend string) cell.Cell {
 
 			Stats BootstrapStat `optional:"true"`
 		}) Client {
-			// Propagate the options to the global variables for backward compatibility
-			option.Config.KVStore = in.Config.KVStore
-			option.Config.KVStoreOpt = in.Config.KVStoreOpt
-			option.Config.KVstoreLeaseTTL = in.Config.KVStoreLeaseTTL
-			option.Config.KVstoreMaxConsecutiveQuorumErrors = in.Config.KVstoreMaxConsecutiveQuorumErrors
-
 			// Set the global variables, to allow for a gradual migration.
 			defaultClientSet = make(chan struct{})
 

@@ -92,11 +92,6 @@ func migrateIdentityCmd() *cobra.Command {
 func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown()
 
-	// Setup global configuration
-	// These are defined in cilium/cmd/kvstore.go
-	option.Config.KVStore = kvStore
-	option.Config.KVStoreOpt = kvStoreOpts
-
 	// This allows us to initialize a CRD allocator
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD // force CRD mode to make ciliumid
 
