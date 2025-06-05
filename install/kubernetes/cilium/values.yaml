@@ -744,12 +744,16 @@ cni:
   # readCniConf: /host/etc/cni/net.d/05-sample.conflist.input
 
   # -- When defined, configMap will mount the provided value as ConfigMap and
-  # interpret the cniConf variable as CNI configuration file and write it
-  # when the agent starts up
+  # interpret the 'cni.configMapKey' value as CNI configuration file and write it
+  # when the agent starts up.
   # configMap: cni-configuration
 
   # -- Configure the key in the CNI ConfigMap to read the contents of
-  # the CNI configuration from.
+  # the CNI configuration from. For this to be effective, the 'cni.configMap'
+  # parameter must be specified too.
+  # Note that the 'cni.configMap' parameter is the name of the ConfigMap, while
+  # 'cni.configMapKey' is the name of the key in the ConfigMap data containing
+  # the actual configuration.
   configMapKey: cni-config
   # -- Configure the path to where to mount the ConfigMap inside the agent pod.
   confFileMountPath: /tmp/cni-configuration
