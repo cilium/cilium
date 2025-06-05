@@ -328,12 +328,6 @@ func Hint(err error) error {
 }
 
 type etcdClient struct {
-	// firstSession is a channel that will be closed once the first session
-	// is set up in the etcd client. If an error occurred and the initial
-	// session cannot be established, the error is provided via the
-	// channel.
-	firstSession chan struct{}
-
 	// stopStatusChecker is closed when the status checker can be terminated
 	stopStatusChecker chan struct{}
 
@@ -348,8 +342,6 @@ type etcdClient struct {
 
 	// protects all sessions and sessionErr from concurrent access
 	lock.RWMutex
-
-	sessionErr error
 
 	// leaseManager manages the acquisition of etcd leases for generic purposes
 	leaseManager *etcdLeaseManager
@@ -431,55 +423,12 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, statusCheckTimeout)
 	defer cancel()
 
-	select {
-	// Wait for the initial connection to be established
-	case <-e.firstSession:
-		if err := e.sessionError(); err != nil {
-			return err
-		}
-	// Client is closing
-	case <-e.client.Ctx().Done():
-		return fmt.Errorf("client is closing")
-	// Timeout while waiting for initial connection, no success
-	case <-ctxTimeout.Done():
-		recordQuorumError("timeout")
-		return fmt.Errorf("timeout while waiting for initial connection")
-	}
-
 	if err := e.maybeWaitForInitLock(ctxTimeout); err != nil {
 		recordQuorumError("lock timeout")
 		return fmt.Errorf("unable to acquire lock: %w", err)
 	}
 
 	return nil
-}
-
-// Connected closes the returned channel when the etcd client is connected. If
-// the context is cancelled or if the etcd client is closed, an error is
-// returned on the channel.
-func (e *etcdClient) Connected(ctx context.Context) <-chan error {
-	out := make(chan error)
-	go func() {
-		limiter := e.newExpBackoffRateLimiter("etcd-client-connected")
-		defer limiter.Reset()
-		defer close(out)
-		for {
-			select {
-			case <-e.client.Ctx().Done():
-				out <- fmt.Errorf("etcd client context ended")
-				return
-			case <-ctx.Done():
-				out <- ctx.Err()
-				return
-			default:
-			}
-			if e.isConnectedAndHasQuorum(ctx) == nil {
-				return
-			}
-			limiter.Wait(ctx)
-		}
-	}()
-	return out
 }
 
 func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts ExtraOptions) (BackendOperations, error) {
@@ -527,10 +476,9 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 	}
 
 	ec := &etcdClient{
-		client:       c,
-		config:       config,
-		configPath:   cfgPath,
-		firstSession: make(chan struct{}),
+		client:     c,
+		config:     config,
+		configPath: cfgPath,
 		status: models.Status{
 			State: models.StatusStateWarning,
 			Msg:   "Waiting for initial connection to be established",
@@ -619,19 +567,10 @@ func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
 				err = fmt.Errorf("timed out while waiting for etcd connection. Ensure that etcd is running on %s", e.config.Endpoints)
 			}
 
-			e.RWMutex.Lock()
-			e.sessionErr = err
-			e.RWMutex.Unlock()
-
 			propagateError(err)
-			close(e.firstSession)
 			return
 		}
 	}
-
-	// This channel needs to be closed here to allow starting the heartbeat
-	// ListAndWatch operation below.
-	close(e.firstSession)
 
 	go func() {
 		// Report connection established to the caller and start the status
@@ -695,13 +634,6 @@ func (e *etcdClient) newExpBackoffRateLimiter(name string) backoff.Exponential {
 
 		NodeManager: backoff.NewNodeManager(e.extraOptions.ClusterSizeDependantInterval),
 	}
-}
-
-func (e *etcdClient) sessionError() (err error) {
-	e.RWMutex.RLock()
-	err = e.sessionErr
-	e.RWMutex.RUnlock()
-	return
 }
 
 func (e *etcdClient) LockPath(ctx context.Context, path string) (locker KVLocker, err error) {
@@ -768,13 +700,6 @@ func (e *etcdClient) watch(ctx context.Context, prefix string, events emitter) {
 		scopedLog.Info("Stopped watcher")
 		events.close()
 	}()
-
-	err := <-e.Connected(ctx)
-	if err != nil {
-		// The context ended or the etcd client was closed
-		// before connectivity was achieved
-		return
-	}
 
 	// errLimiter is used to rate limit the retry of the first Get request in case an error
 	// has occurred, to prevent overloading the etcd server due to the more aggressive
