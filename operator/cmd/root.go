@@ -629,7 +629,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if kvstoreEnabled() {
-		var goopts *kvstore.ExtraOptions
+		var goopts kvstore.ExtraOptions
 		scoppedLogger := legacy.logger.With(
 			logfields.KVStore, option.Config.KVStore,
 			logfields.Address, option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
@@ -657,7 +657,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
 			etcdLog := scoppedLogger.With(logfields.LogSubsys, "etcd")
-			goopts = &kvstore.ExtraOptions{
+			goopts = kvstore.ExtraOptions{
 				DialOption: []grpc.DialOption{
 					grpc.WithContextDialer(dial.NewContextDialer(etcdLog, legacy.svcResolver)),
 				},

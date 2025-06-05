@@ -44,7 +44,7 @@ type RemoteCluster interface {
 // backendFactoryFn is the type of the function to create the etcd client.
 type backendFactoryFn func(ctx context.Context, logger *slog.Logger,
 	backend string, opts map[string]string,
-	options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error)
+	options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error)
 
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
@@ -142,7 +142,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				clusterLock := rc.clusterLockFactory()
 				extraOpts := rc.makeExtraOpts(clusterLock)
-				backend, errChan := rc.backendFactory(ctx, rc.logger, kvstore.EtcdBackendName, rc.makeEtcdOpts(), &extraOpts)
+				backend, errChan := rc.backendFactory(ctx, rc.logger, kvstore.EtcdBackendName, rc.makeEtcdOpts(), extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the

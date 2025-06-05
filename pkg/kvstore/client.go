@@ -35,7 +35,7 @@ type clientImpl struct {
 	enabled bool
 
 	cfg    Config
-	opts   *ExtraOptions
+	opts   ExtraOptions
 	logger *slog.Logger
 
 	BackendOperations
@@ -75,7 +75,7 @@ func (cl *clientImpl) Stop(cell.HookContext) error {
 	return nil
 }
 
-func initClient(ctx context.Context, logger *slog.Logger, module backendModule, opts *ExtraOptions) error {
+func initClient(ctx context.Context, logger *slog.Logger, module backendModule, opts ExtraOptions) error {
 	scopedLog := logger.With(fieldKVStoreBackend, module.getName())
 	c, errChan := module.newClient(ctx, scopedLog, opts)
 	if c == nil {
@@ -108,7 +108,7 @@ func LegacyClient() BackendOperations {
 }
 
 // NewClient returns a new kvstore client based on the configuration
-func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, options *ExtraOptions) (BackendOperations, chan error) {
+func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, options ExtraOptions) (BackendOperations, chan error) {
 	// Channel used to report immediate errors, module.newClient will
 	// create and return a different channel, caller doesn't need to know
 	errChan := make(chan error, 1)
@@ -127,11 +127,6 @@ func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string,
 	}
 
 	if err := module.setConfig(logger, opts); err != nil {
-		errChan <- err
-		return nil, errChan
-	}
-
-	if err := module.setExtraConfig(options); err != nil {
 		errChan <- err
 		return nil, errChan
 	}

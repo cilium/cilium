@@ -70,7 +70,7 @@ var (
 	setupOnce sync.Once
 )
 
-func setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+func setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, goOpts ExtraOptions) error {
 	module := getBackend(selectedBackend)
 	if module == nil {
 		return fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
@@ -80,16 +80,12 @@ func setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opt
 		return err
 	}
 
-	if err := module.setExtraConfig(goOpts); err != nil {
-		return err
-	}
-
 	return initClient(ctx, logger, module, goOpts)
 }
 
 // Setup sets up the key-value store specified in kvStore and configures it
 // with the options provided in opts
-func Setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+func Setup(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, goOpts ExtraOptions) error {
 	var err error
 
 	setupOnce.Do(func() {

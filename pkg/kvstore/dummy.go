@@ -51,7 +51,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		}
 	}
 
-	if err := initClient(context.Background(), hivetest.Logger(tb), module, nil); err != nil {
+	if err := initClient(context.Background(), hivetest.Logger(tb), module, ExtraOptions{}); err != nil {
 		tb.Fatalf("Unable to initialize kvstore client: %v", err)
 	}
 
