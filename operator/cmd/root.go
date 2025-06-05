@@ -515,18 +515,6 @@ func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clie
 	})
 }
 
-func kvstoreEnabled() bool {
-	if option.Config.KVStore == "" {
-		return false
-	}
-
-	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
-		operatorOption.Config.SyncK8sServices ||
-		operatorOption.Config.SyncK8sNodes
-}
-
 var legacyCell = cell.Module(
 	"legacy-cell",
 	"Cilium operator legacy cell",
@@ -537,12 +525,13 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, factory store.Factory, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:                  ctx,
 		cancel:               cancel,
 		clientset:            clientset,
+		kvstoreClient:        kvstoreClient,
 		resources:            resources,
 		storeFactory:         factory,
 		cfgMCSAPI:            cfgMCSAPI,
@@ -560,6 +549,7 @@ type legacyOnLeader struct {
 	ctx                  context.Context
 	cancel               context.CancelFunc
 	clientset            k8sClient.Clientset
+	kvstoreClient        kvstore.Client
 	wg                   sync.WaitGroup
 	resources            operatorK8s.Resources
 	storeFactory         store.Factory
@@ -643,12 +633,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager = nm
 	}
 
-	if kvstoreEnabled() {
-		scoppedLogger := legacy.logger.With(
-			logfields.KVStore, option.Config.KVStore,
-			logfields.Address, option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
-		)
-
+	if legacy.kvstoreClient.IsEnabled() {
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
 			legacy.wg.Add(1)
 			go func() {
@@ -657,6 +642,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 					ClusterName:             option.Config.ClusterName,
 					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					Clientset:               legacy.clientset,
+					Backend:                 legacy.kvstoreClient,
 					ServiceExports:          legacy.resources.ServiceExports,
 					Services:                legacy.resources.Services,
 					StoreFactory:            legacy.storeFactory,
@@ -670,7 +656,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			withKVStore = true
 		}
 
-		startKvstoreWatchdog(scoppedLogger, legacy.cfgMCSAPI)
+		startKvstoreWatchdog(legacy.logger, legacy.kvstoreClient, legacy.cfgMCSAPI)
 	}
 
 	if legacy.clientset.IsEnabled() &&
@@ -688,7 +674,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, nodeManager, withKVStore)
+	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, legacy.kvstoreClient, nodeManager, withKVStore)
 
 	if legacy.clientset.IsEnabled() {
 		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge

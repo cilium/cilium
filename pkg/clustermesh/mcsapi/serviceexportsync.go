@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -54,10 +53,6 @@ type ServiceExportSyncParameters struct {
 func StartSynchronizingServiceExports(ctx context.Context, cfg ServiceExportSyncParameters) {
 	logger := cfg.Logger.With(logfields.LogSubsys, "mcsapi")
 	if cfg.store == nil {
-		if cfg.Backend == nil {
-			cfg.Backend = kvstore.LegacyClient()
-		}
-
 		cfg.store = cfg.StoreFactory.NewSyncStore(cfg.ClusterName,
 			cfg.Backend, types.ServiceExportStorePrefix)
 	}

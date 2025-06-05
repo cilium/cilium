@@ -54,10 +54,11 @@ func (c *ciliumNodeName) GetKeyName() string {
 const ciliumNodeManagerQueueSyncedKey = "_ciliumNodeManagerQueueSynced"
 
 type ciliumNodeSynchronizer struct {
-	logger      *slog.Logger
-	clientset   k8sClient.Clientset
-	nodeManager allocator.NodeEventHandler
-	withKVStore bool
+	logger        *slog.Logger
+	clientset     k8sClient.Clientset
+	kvstoreClient kvstore.Client
+	nodeManager   allocator.NodeEventHandler
+	withKVStore   bool
 
 	// ciliumNodeStore contains all CiliumNodes present in k8s.
 	ciliumNodeStore cache.Store
@@ -66,12 +67,13 @@ type ciliumNodeSynchronizer struct {
 	ciliumNodeManagerQueueSynced chan struct{}
 }
 
-func newCiliumNodeSynchronizer(logger *slog.Logger, clientset k8sClient.Clientset, nodeManager allocator.NodeEventHandler, withKVStore bool) *ciliumNodeSynchronizer {
+func newCiliumNodeSynchronizer(logger *slog.Logger, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, nodeManager allocator.NodeEventHandler, withKVStore bool) *ciliumNodeSynchronizer {
 	return &ciliumNodeSynchronizer{
-		logger:      logger,
-		clientset:   clientset,
-		nodeManager: nodeManager,
-		withKVStore: withKVStore,
+		logger:        logger,
+		clientset:     clientset,
+		kvstoreClient: kvstoreClient,
+		nodeManager:   nodeManager,
+		withKVStore:   withKVStore,
 
 		k8sCiliumNodesCacheSynced:    make(chan struct{}),
 		ciliumNodeManagerQueueSynced: make(chan struct{}),
@@ -121,7 +123,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 
 			ciliumNodeKVStore, err = store.JoinSharedStore(s.logger,
 				store.Configuration{
-					Backend:    kvstore.LegacyClient(),
+					Backend:    s.kvstoreClient,
 					Prefix:     nodeStore.NodeStorePrefix,
 					KeyCreator: nodeStore.KeyCreator,
 
