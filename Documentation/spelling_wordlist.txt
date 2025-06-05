@@ -246,6 +246,7 @@ commonLabels
 compat
 config
 configMap
+configMapKey
 configSources
 configmap
 configs

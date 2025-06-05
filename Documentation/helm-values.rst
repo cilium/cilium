@@ -961,7 +961,7 @@
      - string
      - ``"/etc/cni/net.d"``
    * - :spelling:ignore:`cni.configMapKey`
-     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from.
+     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from. For this to be effective, the 'cni.configMap' parameter must be specified too. Note that the 'cni.configMap' parameter is the name of the ConfigMap, while 'cni.configMapKey' is the name of the key in the ConfigMap data containing the actual configuration.
      - string
      - ``"cni-config"``
    * - :spelling:ignore:`cni.customConf`
