@@ -93,8 +93,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func setupDaemonSuite(tb testing.TB) *DaemonSuite {
+func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	testutils.IntegrationTest(tb)
+
+	client := kvstore.SetupDummy(tb, kvstore.EtcdBackendName)
 
 	ds := &DaemonSuite{
 		log: hivetest.Logger(tb),
@@ -112,6 +114,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 				cs.Disable()
 				return cs
 			},
+			func() (kvstore.Client, kvstore.Config) { return client, client.Config() },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
@@ -211,20 +214,6 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	// which requires root privileges. This would require marking the test suite
 	// as privileged.
 	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
-}
-
-type DaemonEtcdSuite struct {
-	DaemonSuite
-}
-
-func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
-	testutils.IntegrationTest(tb)
-	kvstore.SetupDummy(tb, "etcd")
-
-	ds := setupDaemonSuite(tb)
-	return &DaemonEtcdSuite{
-		DaemonSuite: *ds,
-	}
 }
 
 // convenience wrapper that adds a single policy
