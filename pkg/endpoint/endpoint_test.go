@@ -71,9 +71,9 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(true)
 
 	/* Required to test endpoint CEP policy model */
-	kvstore.SetupDummy(tb, "etcd")
+	client := kvstore.SetupDummy(tb, "etcd")
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-s.mgr.InitIdentityAllocator(nil)
+	<-s.mgr.InitIdentityAllocator(nil, client)
 	node.SetTestLocalNodeStore()
 
 	tb.Cleanup(func() {

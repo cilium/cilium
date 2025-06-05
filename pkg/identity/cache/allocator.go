@@ -174,7 +174,7 @@ type IdentityAllocator interface {
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface) <-chan struct{} {
+func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface, kvstoreBackend kvstore.BackendOperations) <-chan struct{} {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -221,7 +221,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 					BasePath: m.identitiesPath,
 					Suffix:   owner.GetNodeSuffix(),
 					Typ:      &key.GlobalIdentity{},
-					Backend:  kvstore.LegacyClient(),
+					Backend:  kvstoreBackend,
 				})
 			if err != nil {
 				logging.Fatal(m.logger, "Unable to initialize kvstore backend for identity allocation", logfields.Error, err)
@@ -258,7 +258,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 						BasePath: m.identitiesPath,
 						Suffix:   owner.GetNodeSuffix(),
 						Typ:      &key.GlobalIdentity{},
-						Backend:  kvstore.LegacyClient(),
+						Backend:  kvstoreBackend,
 					},
 					ReadFromKVStore: readFromKVStore,
 				})
