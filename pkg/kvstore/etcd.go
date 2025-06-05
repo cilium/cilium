@@ -76,8 +76,7 @@ var ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease ex
 var ErrOperationAbortedByInterceptor = errors.New("operation aborted")
 
 type etcdModule struct {
-	opts   backendOptions
-	config *client.Config
+	opts backendOptions
 }
 
 var (
@@ -88,8 +87,6 @@ var (
 	// initialConnectionTimeout  is the timeout for the initial connection to
 	// the etcd server
 	initialConnectionTimeout = 15 * time.Minute
-
-	etcdInstance = newEtcdModule()
 
 	// etcd3ClientLogger is the logger used for the underlying etcd clients. We
 	// explicitly initialize a logger and propagate it to prevent each client from
@@ -156,16 +153,8 @@ func (e *etcdModule) createInstance() backendModule {
 	return newEtcdModule()
 }
 
-func (e *etcdModule) getName() string {
-	return EtcdBackendName
-}
-
 func (e *etcdModule) setConfig(logger *slog.Logger, opts map[string]string) error {
 	return setOpts(logger, opts, e.opts)
-}
-
-func (e *etcdModule) getConfig() map[string]string {
-	return getOpts(e.opts)
 }
 
 func shuffleEndpoints(endpoints []string) {
@@ -175,6 +164,9 @@ func shuffleEndpoints(endpoints []string) {
 }
 
 type clientOptions struct {
+	Endpoint   string
+	ConfigPath string
+
 	KeepAliveHeartbeat time.Duration
 	KeepAliveTimeout   time.Duration
 	RateLimit          int
@@ -184,7 +176,7 @@ type clientOptions struct {
 }
 
 func (e *etcdModule) newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error) {
-	errChan := make(chan error, 10)
+	errChan := make(chan error, 1)
 
 	clientOptions := clientOptions{
 		KeepAliveHeartbeat: 15 * time.Second,
@@ -221,37 +213,19 @@ func (e *etcdModule) newClient(ctx context.Context, logger *slog.Logger, opts Ex
 		clientOptions.KeepAliveHeartbeat, _ = time.ParseDuration(o.value)
 	}
 
-	endpointsOpt, endpointsSet := e.opts[EtcdAddrOption]
-	configPathOpt, configSet := e.opts[EtcdOptionConfig]
+	clientOptions.Endpoint = e.opts[EtcdAddrOption].value
+	clientOptions.ConfigPath = e.opts[EtcdOptionConfig].value
 
-	var configPath string
-	if configSet {
-		configPath = configPathOpt.value
-	}
-	if e.config == nil {
-		if !endpointsSet && !configSet {
-			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified", EtcdOptionConfig, EtcdAddrOption)
-			close(errChan)
-			return nil, errChan
-		}
-
-		if endpointsOpt.value == "" && configPath == "" {
-			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
-				EtcdOptionConfig, EtcdAddrOption)
-			close(errChan)
-			return nil, errChan
-		}
-
-		e.config = &client.Config{}
-	}
-
-	if e.config.Endpoints == nil && endpointsSet {
-		e.config.Endpoints = []string{endpointsOpt.value}
+	if clientOptions.Endpoint == "" && clientOptions.ConfigPath == "" {
+		errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
+			EtcdOptionConfig, EtcdAddrOption)
+		close(errChan)
+		return nil, errChan
 	}
 
 	logger.Info(
 		"Creating etcd client",
-		logfields.ConfigPath, configPath,
+		logfields.ConfigPath, clientOptions.ConfigPath,
 		logfields.KeepAliveHeartbeat, clientOptions.KeepAliveHeartbeat,
 		logfields.KeepAliveTimeout, clientOptions.KeepAliveTimeout,
 		logfields.RateLimit, clientOptions.RateLimit,
@@ -262,7 +236,7 @@ func (e *etcdModule) newClient(ctx context.Context, logger *slog.Logger, opts Ex
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
 		// been successful
-		backend, err := connectEtcdClient(ctx, logger, e.config, configPath, errChan, clientOptions, opts)
+		backend, err := connectEtcdClient(ctx, logger, errChan, clientOptions, opts)
 		switch {
 		case os.IsNotExist(err):
 			logger.Info("Waiting for all etcd configuration files to be available",
@@ -281,7 +255,7 @@ func (e *etcdModule) newClient(ctx context.Context, logger *slog.Logger, opts Ex
 
 func init() {
 	// register etcd module for use
-	registerBackend(EtcdBackendName, etcdInstance)
+	registerBackend(EtcdBackendName, newEtcdModule())
 
 	if duration := os.Getenv("CILIUM_ETCD_STATUS_CHECK_INTERVAL"); duration != "" {
 		timeout, err := time.ParseDuration(duration)
@@ -334,8 +308,7 @@ type etcdClient struct {
 	client *client.Client
 
 	// config and configPath are initialized once and never written to again, they can be accessed without locking
-	config     *client.Config
-	configPath string
+	config *client.Config
 
 	// statusCheckErrors receives all errors reported by statusChecker()
 	statusCheckErrors chan error
@@ -431,8 +404,12 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	return nil
 }
 
-func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts ExtraOptions) (BackendOperations, error) {
-	if cfgPath != "" {
+func connectEtcdClient(ctx context.Context, logger *slog.Logger, errChan chan error, clientOptions clientOptions, opts ExtraOptions) (BackendOperations, error) {
+	config := &client.Config{
+		Endpoints: []string{clientOptions.Endpoint},
+	}
+
+	if cfgPath := clientOptions.ConfigPath; cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
 			return nil, err
@@ -476,9 +453,8 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 	}
 
 	ec := &etcdClient{
-		client:     c,
-		config:     config,
-		configPath: cfgPath,
+		client: c,
+		config: config,
 		status: models.Status{
 			State: models.StatusStateWarning,
 			Msg:   "Waiting for initial connection to be established",
@@ -489,7 +465,7 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 		statusCheckErrors: make(chan error, 128),
 		logger: logger.With(
 			logfields.Endpoints, config.Endpoints,
-			logfields.Config, cfgPath,
+			logfields.Config, clientOptions.ConfigPath,
 		),
 	}
 
