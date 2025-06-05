@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func parseBoolStatus(s string) bool {
@@ -34,10 +33,25 @@ func parseBoolStatus(s string) bool {
 	return false
 }
 
+// DaemonConfigForFeatDetection is a minimal daemon config used for feature extraction.
+//
+// The struct is used to work around situations where we want to introduce a breaking
+// change to DaemonConfig. CLI is required to work with all stable Cilium versions. So,
+// the breaking change could break CLI for some versions.
+//
+// In any case, it is preferred to NOT do feature detection based on the runtime config,
+// as it was never meant to provide a stable "API".
+type DaemonConfigForFeatDetection struct {
+	MonitorAggregation               string
+	EnableICMPRules                  bool
+	EnableHealthChecking             bool
+	EnableEndpointHealthChecking     bool
+	EncryptNode                      bool
+	NodeEncryptionOptOutLabelsString string
+	EnableK8sNetworkPolicy           bool
+}
+
 // extractFeaturesFromRuntimeConfig extracts features from the Cilium runtime config.
-// The downside of this approach is that the `DaemonConfig` struct is not stable.
-// If there are changes to it in the future, we will likely have to maintain
-// version-specific copies of the struct in the Cilium-CLI.
 func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result features.Set) error {
 	namespace := ciliumPod.Pod.Namespace
 
@@ -47,7 +61,7 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		return fmt.Errorf("failed to fetch cilium runtime config: %w", err)
 	}
 
-	cfg := &option.DaemonConfig{}
+	cfg := &DaemonConfigForFeatDetection{}
 	if err := json.Unmarshal(stdout.Bytes(), cfg); err != nil {
 		return fmt.Errorf("unmarshaling cilium runtime config json: %w", err)
 	}
