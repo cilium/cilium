@@ -34,7 +34,7 @@ type Client interface {
 type clientImpl struct {
 	enabled bool
 
-	cfg    config
+	cfg    Config
 	opts   *ExtraOptions
 	logger *slog.Logger
 
