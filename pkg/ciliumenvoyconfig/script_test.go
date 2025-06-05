@@ -71,6 +71,7 @@ func TestScript(t *testing.T) {
 
 		h := hive.New(
 			client.FakeClientCell,
+			synced.Cell,
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			metrics.Cell,
@@ -124,6 +125,20 @@ func TestScript(t *testing.T) {
 				func() resourceMutator { return fakeEnvoy },
 				func() policyTrigger { return fakeEnvoy },
 			),
+
+			// Add an assertion on stop to validate that the CEC resources have been
+			// marked synced after each test.
+			cell.Invoke(func(lc cell.Lifecycle, res *synced.Resources) {
+				lc.Append(cell.Hook{
+					OnStop: func(ctx cell.HookContext) error {
+						return res.WaitForCacheSyncWithTimeout(
+							ctx, time.Second,
+							k8sAPIGroupCiliumClusterwideEnvoyConfigV2,
+							k8sAPIGroupCiliumEnvoyConfigV2,
+						)
+					},
+				})
+			}),
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
