@@ -38,10 +38,12 @@ type gammaReconciler struct {
 
 func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gammaReconciler {
 	return &gammaReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		translator:    translator,
-		logger:        logger,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		translator: translator,
+		logger: logger.With(
+			logfields.Controller, gamma,
+		),
 		installedCRDs: installedCRDs,
 	}
 }
@@ -49,42 +51,11 @@ func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, log
 // SetupWithManager sets up the controller with the Manager.
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	scopedLog := r.logger.With(
-		logfields.Controller, gamma,
-	)
-
 	// This creates an index on HTTPRoutes, adding an field called `gammaParents` which lists
 	// all the GAMMA parents of that HTTPRoute.
 	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
 	// Service as a parent.
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gammaParentRefsIndex,
-		func(rawObj client.Object) []string {
-			hr, ok := rawObj.(*gatewayv1.HTTPRoute)
-			if !ok {
-				return nil
-			}
-			scopedLog = scopedLog.With("NamespacedName", types.NamespacedName{
-				Namespace: hr.Namespace,
-				Name:      hr.Name,
-			})
-
-			var gammaParentRefs []string
-
-			for _, parent := range hr.Spec.ParentRefs {
-				if helpers.IsGammaService(parent) {
-					ns := helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace)
-					gammaParentRefs = append(gammaParentRefs,
-						types.NamespacedName{
-							Namespace: ns,
-							Name:      string(parent.Name),
-						}.String())
-					scopedLog.Debug("Added at least one GAMMA Service to GAMMA index", "validGammaServices", gammaParentRefs)
-				}
-			}
-
-			return gammaParentRefs
-		},
-	); err != nil {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gammaParentRefsIndex, getGammaHTTPRouteParentIndexFunc(r.logger)); err != nil {
 		return err
 	}
 
@@ -99,22 +70,6 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&ciliumv2.CiliumEnvoyConfig{})
 
 	return gammaBuilder.Complete(r)
-}
-
-// isGammaService returns true as soon at least one HTTPRoute in the list references the service as
-// a GAMMA parent.
-func (r *gammaReconciler) isGammaService(svc *corev1.Service, hrList *gatewayv1.HTTPRouteList) bool {
-	for _, hr := range hrList.Items {
-		for _, parentRef := range hr.Spec.ParentRefs {
-			if helpers.IsGammaService(parentRef) {
-				ns := helpers.NamespaceDerefOr(parentRef.Namespace, svc.Namespace)
-				if ns == svc.Namespace && parentRef.Name == gatewayv1.ObjectName(svc.Name) {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 // enqueueRequestForOwningHTTPRoute returns an event handler for any changes with HTTP Routes
@@ -159,6 +114,34 @@ func (r *gammaReconciler) enqueueAll() handler.MapFunc {
 			scopedLog.Info("Enqueued Gateway for resource", gateway, gw)
 		}
 		return requests
+	}
+}
+
+func getGammaHTTPRouteParentIndexFunc(logger *slog.Logger) func(rawObj client.Object) []string {
+	return func(rawObj client.Object) []string {
+		hr, ok := rawObj.(*gatewayv1.HTTPRoute)
+		if !ok {
+			return []string{}
+		}
+		scopedLog := logger.With(namespacedName, types.NamespacedName{
+			Namespace: hr.Namespace,
+			Name:      hr.Name,
+		})
+		gammaParentRefs := []string{}
+
+		for _, parent := range hr.Spec.ParentRefs {
+			if helpers.IsGammaService(parent) {
+				ns := helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace)
+				gammaParentRefs = append(gammaParentRefs,
+					types.NamespacedName{
+						Namespace: ns,
+						Name:      string(parent.Name),
+					}.String())
+				scopedLog.Debug("Added at least one GAMMA Service to GAMMA index", validGammaServices, gammaParentRefs)
+			}
+		}
+
+		return gammaParentRefs
 	}
 }
 

@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -77,21 +76,13 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Success()
 	}
 
-	scopedLog.Debug("Service exists and is a GAMMA Service", "relevantHTTPRoutes", len(httpRouteList.Items))
+	scopedLog.Debug("Service exists and is a GAMMA Service", relevantHTTPRoutes, len(httpRouteList.Items))
 
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list Services", logfields.Error, err)
 		return controllerruntime.Fail(err)
-	}
-
-	serviceImportsList := &mcsapiv1alpha1.ServiceImportList{}
-	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
-		if err := r.Client.List(ctx, serviceImportsList); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to list ServiceImports", logfields.Error, err)
-			return controllerruntime.Fail(err)
-		}
 	}
 
 	grants := &gatewayv1beta1.ReferenceGrantList{}
@@ -108,9 +99,9 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// TODO: GammaHTTPRoutes needs to be updated now that we have a source Service.
 	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
-		HTTPRoutes:      httpRouteList.Items,
-		Services:        servicesList.Items,
-		ServiceImports:  serviceImportsList.Items,
+		HTTPRoutes: httpRouteList.Items,
+		Services:   servicesList.Items,
+
 		ReferenceGrants: grants.Items,
 	})
 
@@ -142,7 +133,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
-	gammaLogger.Debug("Updating HTTPRoute statuses for GAMMA Service", "numRoutes", len(httpRoutes.Items))
+	gammaLogger.Debug("Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
 	for _, original := range httpRoutes.Items {
 
 		hr := original.DeepCopy()
@@ -154,7 +145,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 		// input for the validators
 		i := &routechecks.HTTPRouteInput{
 			Ctx:       ctx,
-			Logger:    gammaLogger.With("httpRoute", hrName),
+			Logger:    gammaLogger.With(httpRoute, hrName),
 			Client:    r.Client,
 			Grants:    grants,
 			HTTPRoute: hr,
@@ -221,23 +212,6 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 	return nil
 }
 
-func (r *gammaReconciler) ensureService(ctx context.Context, desired *corev1.Service) error {
-	svc := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, svc, func() error {
-		// Save and restore loadBalancerClass
-		// e.g. if a mutating webhook writes this field
-		lbClass := svc.Spec.LoadBalancerClass
-		svc.Spec = desired.Spec
-		svc.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(svc, desired)
-
-		// Ignore the loadBalancerClass if it was set by a mutating webhook
-		svc.Spec.LoadBalancerClass = lbClass
-		return nil
-	})
-	return err
-}
-
 func (r *gammaReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
 	ep := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
@@ -284,7 +258,7 @@ func (r *gammaReconciler) updateHTTPRouteStatus(ctx context.Context, original *g
 	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
 		return nil
 	}
-	r.logger.Debug("Updating HTTRRoute status", "httpRoute", types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	r.logger.Debug("Updating HTTRRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
 
