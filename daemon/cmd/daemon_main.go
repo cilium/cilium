@@ -860,6 +860,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
 		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
+	flags.MarkDeprecated(option.EgressMultiHomeIPRuleCompat, "The feature will be removed in v1.19")
 	option.BindEnv(vp, option.EgressMultiHomeIPRuleCompat)
 
 	flags.Bool(option.InstallUplinkRoutesForDelegatedIPAM, false,
@@ -1339,7 +1340,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	if option.Config.IPAM == ipamOption.IPAMAzure {
 		option.Config.EgressMultiHomeIPRuleCompat = true
-		logger.Info(
+		logger.Debug(
 			fmt.Sprintf("Auto-set %q to `true` because the Azure datapath has not been migrated over to a new scheme. "+
 				"A future version of Cilium will support a newer Azure datapath. "+
 				"Connectivity is not affected.",
