@@ -191,3 +191,46 @@ func Test_checkSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 		})
 	}
 }
+
+func TestIsPrefixDelegated(t *testing.T) {
+	tests := []struct {
+		name            string
+		instanceType    string
+		expectDelegated bool
+	}{
+		{
+			name:            "xen instance",
+			instanceType:    "m4.large",
+			expectDelegated: false,
+		},
+		{
+			name:            "metal instance",
+			instanceType:    "m5.metal",
+			expectDelegated: true,
+		},
+		{
+			name:            "nitro instance",
+			instanceType:    "m5.large",
+			expectDelegated: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := ec2mock.NewAPI(nil, nil, nil, nil)
+			instances, err := NewInstancesManager(hivetest.Logger(t), api)
+			require.NoError(t, err)
+			n := &Node{
+				rootLogger: hivetest.Logger(t),
+				manager:    instances,
+				k8sObj:     newCiliumNode("node1", withInstanceType(tt.instanceType)),
+				node: &mockIPAMNode{
+					prefixDelegation: true,
+				},
+			}
+			n.logger.Store(n.rootLogger)
+
+			require.Equal(t, tt.expectDelegated, n.IsPrefixDelegated())
+		})
+	}
+}

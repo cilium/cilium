@@ -25,6 +25,9 @@ type Limits struct {
 	// HypervisorType tracks the instance's hypervisor type if available. Used to determine if features like prefix
 	// delegation are supported on an instance. Bare metal instances would have empty string.
 	HypervisorType string
+
+	// IsBareMetal tracks whether an instance is a bare metal instance or not
+	IsBareMetal bool
 }
 
 // AllocationIP is an IP which is available for allocation, or already
