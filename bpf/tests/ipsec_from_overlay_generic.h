@@ -130,7 +130,7 @@ int ipv4_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_v4_add_entry(v4_pod_one, NODE_ID, 0);
+	node_v4_add_entry(v4_pod_one, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
@@ -249,7 +249,7 @@ int ipv6_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_v6_add_entry((union v6addr *)v6_pod_one, NODE_ID, 0);
+	node_v6_add_entry((union v6addr *)v6_pod_one, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
