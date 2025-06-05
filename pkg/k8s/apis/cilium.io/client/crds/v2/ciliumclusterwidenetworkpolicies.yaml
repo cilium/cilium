@@ -180,6 +180,33 @@ spec:
                             type: array
                         type: object
                       type: array
+                    ipProtocols:
+                      description: |-
+                        IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+                        that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+
+                        Example:
+                        - number: 2 #IGMP (Internet Group Management Protocol)
+                        - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+
+                        These protocols do not use layer 4 transport port numbers and are identified solely
+                        by their IP protocol number (as defined in the IP header 'Protocol' field).
+                      items:
+                        description: IPProtocol defines an IP protocol by its protocol
+                          number.
+                        properties:
+                          number:
+                            description: |-
+                              Number corresponds to the IANA protocol number (e.g., 2 for IGMP, 112 for VRRP).
+                              Only protocols without transport ports are allowed here.
+                            enum:
+                            - 2
+                            - 112
+                            type: integer
+                        required:
+                        - number
+                        type: object
+                      type: array
                     toCIDR:
                       description: |-
                         ToCIDR is a list of IP blocks which the endpoint subject to the rule
@@ -1297,6 +1324,33 @@ spec:
                             type: array
                         type: object
                       type: array
+                    ipProtocols:
+                      description: |-
+                        IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+                        that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+
+                        Example:
+                        - number: 2 #IGMP (Internet Group Management Protocol)
+                        - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+
+                        These protocols do not use layer 4 transport port numbers and are identified solely
+                        by their IP protocol number (as defined in the IP header 'Protocol' field).
+                      items:
+                        description: IPProtocol defines an IP protocol by its protocol
+                          number.
+                        properties:
+                          number:
+                            description: |-
+                              Number corresponds to the IANA protocol number (e.g., 2 for IGMP, 112 for VRRP).
+                              Only protocols without transport ports are allowed here.
+                            enum:
+                            - 2
+                            - 112
+                            type: integer
+                        required:
+                        - number
+                        type: object
+                      type: array
                     toCIDR:
                       description: |-
                         ToCIDR is a list of IP blocks which the endpoint subject to the rule
@@ -2411,6 +2465,33 @@ spec:
                               type: object
                             maxItems: 40
                             type: array
+                        type: object
+                      type: array
+                    ipProtocols:
+                      description: |-
+                        IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+                        that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+
+                        Example:
+                        - number: 2 #IGMP (Internet Group Management Protocol)
+                        - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+
+                        These protocols do not use layer 4 transport port numbers and are identified solely
+                        by their IP protocol number (as defined in the IP header 'Protocol' field).
+                      items:
+                        description: IPProtocol defines an IP protocol by its protocol
+                          number.
+                        properties:
+                          number:
+                            description: |-
+                              Number corresponds to the IANA protocol number (e.g., 2 for IGMP, 112 for VRRP).
+                              Only protocols without transport ports are allowed here.
+                            enum:
+                            - 2
+                            - 112
+                            type: integer
+                        required:
+                        - number
                         type: object
                       type: array
                     toPorts:
@@ -3667,6 +3748,33 @@ spec:
                               type: array
                           type: object
                         type: array
+                      ipProtocols:
+                        description: |-
+                          IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+                          that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+
+                          Example:
+                          - number: 2 #IGMP (Internet Group Management Protocol)
+                          - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+
+                          These protocols do not use layer 4 transport port numbers and are identified solely
+                          by their IP protocol number (as defined in the IP header 'Protocol' field).
+                        items:
+                          description: IPProtocol defines an IP protocol by its protocol
+                            number.
+                          properties:
+                            number:
+                              description: |-
+                                Number corresponds to the IANA protocol number (e.g., 2 for IGMP, 112 for VRRP).
+                                Only protocols without transport ports are allowed here.
+                              enum:
+                              - 2
+                              - 112
+                              type: integer
+                          required:
+                          - number
+                          type: object
+                        type: array
                       toCIDR:
                         description: |-
                           ToCIDR is a list of IP blocks which the endpoint subject to the rule
@@ -4785,6 +4893,33 @@ spec:
                               type: array
                           type: object
                         type: array
+                      ipProtocols:
+                        description: |-
+                          IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+                          that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+
+                          Example:
+                          - number: 2 #IGMP (Internet Group Management Protocol)
+                          - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+
+                          These protocols do not use layer 4 transport port numbers and are identified solely
+                          by their IP protocol number (as defined in the IP header 'Protocol' field).
+                        items:
+                          description: IPProtocol defines an IP protocol by its protocol
+                            number.
+                          properties:
+                            number:
+                              description: |-
+                                Number corresponds to the IANA protocol number (e.g., 2 for IGMP, 112 for VRRP).
+                                Only protocols without transport ports are allowed here.
+                              enum:
+                              - 2
+                              - 112
+                              type: integer
+                          required:
+                          - number
+                          type: object
+                        type: array
                       toCIDR:
                         description: |-
                           ToCIDR is a list of IP blocks which the endpoint subject to the rule
@@ -5900,6 +6035,33 @@ spec:
                                 type: object
                               maxItems: 40
                               type: array
+                          type: object
+                        type: array
+                      ipProtocols:
+                        description: |-
+                          IPProtocols is a list of IP protocols that are allowed. This field is intended for protocols
+                          that operate directly over IP without transport-layer ports (unlike TCP or UDP).
+
+                          Example:
+                          - number: 2 #IGMP (Internet Group Management Protocol)
+                          - number: 112 #VRRP (Virtual Router Redundancy Protocol)
+
+                          These protocols do not use layer 4 transport port numbers and are identified solely
+                          by their IP protocol number (as defined in the IP header 'Protocol' field).
+                        items:
+                          description: IPProtocol defines an IP protocol by its protocol
+                            number.
+                          properties:
+                            number:
+                              description: |-
+                                Number corresponds to the IANA protocol number (e.g., 2 for IGMP, 112 for VRRP).
+                                Only protocols without transport ports are allowed here.
+                              enum:
+                              - 2
+                              - 112
+                              type: integer
+                          required:
+                          - number
                           type: object
                         type: array
                       toPorts:
