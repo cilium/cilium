@@ -255,6 +255,10 @@ kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium
 build-cli: ## Build cilium cli binary
 	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/cilium-dbg GOOS=linux
 
+.PHONY: build-cni
+build-cni: ## Build cilium-cni binary
+	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/plugins/cilium-cni GOOS=linux
+
 .PHONY: build-agent
 build-agent: ## Build cilium daemon binary
 	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/daemon GOOS=linux
@@ -276,7 +280,7 @@ build-bugtool: ## Build bugtool binary
 	$(QUIET)$(MAKE) -C $(CILIUM_BUILD_DIR)/bugtool GOOS=linux
 
 .PHONY: kind-image-fast-agent
-kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli build-bugtool ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
+kind-image-fast-agent: kind-ready build-cli build-cni build-agent build-hubble-cli build-bugtool ## Build agent and node CLI binaries. Copy them and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
@@ -290,6 +294,10 @@ kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli build-b
 			docker exec $${node_name} rm -f "${dst}/cilium-dbg"; \
 			docker cp "$(CILIUM_BUILD_DIR)/cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-dbg"; \
+			\
+			docker exec $${node_name} rm -f "${dst}/cilium-cni"; \
+			docker cp "$(CILIUM_BUILD_DIR)/plugins/cilium-cni/cilium-cni" $${node_name}:"${dst}"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-cni"; \
 			\
 			docker exec $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "$(CILIUM_BUILD_DIR)/daemon/cilium-agent" $${node_name}:"${dst}"; \
