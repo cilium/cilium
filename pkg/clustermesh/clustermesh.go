@@ -191,13 +191,16 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			rc.log,
 			cm.globalServices,
 			func(svc *serviceStore.ClusterService) {
-				cm.conf.ServiceMerger.MergeExternalServiceUpdate(svc, rc.synced.services)
+				cm.conf.ServiceMerger.MergeExternalServiceUpdate(svc)
 			},
 			func(svc *serviceStore.ClusterService) {
-				cm.conf.ServiceMerger.MergeExternalServiceDelete(svc, rc.synced.services)
+				cm.conf.ServiceMerger.MergeExternalServiceDelete(svc)
 			},
 		),
-		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
+		store.RWSWithOnSyncCallback(func(ctx context.Context) {
+			cm.conf.ServiceMerger.Initialized()
+			rc.synced.services.Stop()
+		}),
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(
