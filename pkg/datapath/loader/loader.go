@@ -31,6 +31,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -82,6 +83,8 @@ type loader struct {
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
 	nodeHandler     datapath.NodeHandler
+
+	kprOpts kpr.KPROpts
 }
 
 type Params struct {
@@ -97,6 +100,8 @@ type Params struct {
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
+
+	KPROpts kpr.KPROpts
 }
 
 // newLoader returns a new loader.
@@ -110,6 +115,7 @@ func newLoader(p Params) *loader {
 		compilationLock:   p.CompilationLock,
 		configWriter:      p.ConfigWriter,
 		nodeHandler:       p.NodeHandler,
+		kprOpts:           p.KPROpts,
 	}
 }
 
@@ -519,7 +525,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
-		if option.Config.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired(lnc.KPROpts) {
 			// Attach cil_to_netdev to egress.
 			if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
 				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
@@ -760,7 +766,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
 	// Attach/detach cil_to_wireguard to/from egress.
-	if option.Config.NeedEgressOnWireGuardDevice() {
+	if option.Config.NeedEgressOnWireGuardDevice(lnc.KPROpts) {
 		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,
 			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)
@@ -775,7 +781,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		}
 	}
 	// Attach/detach cil_from_wireguard to/from ingress.
-	if option.Config.NeedIngressOnWireGuardDevice() {
+	if option.Config.NeedIngressOnWireGuardDevice(lnc.KPROpts) {
 		if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
 			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)

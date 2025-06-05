@@ -277,7 +277,7 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 
 func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *models.KubeProxyReplacement {
 	var mode string
-	switch d.statusParams.DaemonConfig.KubeProxyReplacement {
+	switch d.statusParams.KPROpts.KubeProxyReplacement {
 	case option.KubeProxyReplacementTrue:
 		mode = models.KubeProxyReplacementModeTrue
 	case option.KubeProxyReplacementFalse:
@@ -307,7 +307,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
 		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.BPFSocketLBHostnsOnly,
 	}
-	if d.statusParams.DaemonConfig.EnableNodePort {
+	if d.statusParams.KPROpts.EnableNodePort {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(d.statusParams.LBConfig.LBMode)
 		switch d.statusParams.LBConfig.DSRDispatch {
@@ -367,7 +367,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		}
 		features.Nat46X64.Service = svc
 	}
-	if d.statusParams.DaemonConfig.EnableNodePort {
+	if d.statusParams.KPROpts.EnableNodePort {
 		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
 		}

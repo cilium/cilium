@@ -32,6 +32,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
@@ -86,6 +87,8 @@ type parameters struct {
 	CESConfig      cmk8s.CiliumEndpointSliceConfig
 
 	Logger *slog.Logger
+
+	KPROpts kpr.KPROpts
 }
 
 func registerHooks(lc cell.Lifecycle, params parameters) error {
@@ -100,7 +103,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(params.ClusterInfo, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice)
+			startServer(params.ClusterInfo, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice, params.KPROpts)
 			return nil
 		},
 	})
@@ -427,6 +430,7 @@ func startServer(
 	clusterMeshEnableMCSAPI bool,
 	logger *slog.Logger,
 	enableCiliumEndpointSlice bool,
+	kprOpts kpr.KPROpts,
 ) {
 	logger.Info(
 		"Starting clustermesh-apiserver...",
@@ -468,7 +472,7 @@ func startServer(
 		Backend:      backend,
 		StoreFactory: factory,
 		SyncCallback: syncState.WaitForResource(),
-	}, logger)
+	}, logger, kprOpts)
 	go mcsapi.StartSynchronizingServiceExports(ctx, mcsapi.ServiceExportSyncParameters{
 		Logger:                  logger,
 		ClusterName:             cinfo.Name,

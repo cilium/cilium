@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
 )
@@ -47,6 +48,8 @@ var Cell = cell.Module(
 		}
 	}),
 	heartbeat.Cell,
+
+	kpr.Cell,
 
 	HealthAPIEndpointsCell,
 

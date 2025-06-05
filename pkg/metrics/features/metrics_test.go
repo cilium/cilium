@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -794,7 +795,9 @@ func TestUpdateKubeProxyReplacement(t *testing.T) {
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				DatapathMode:           defaultDeviceModes[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
-				KubeProxyReplacement:   tt.enableKubeProxyReplacement,
+				KPROpts: kpr.KPROpts{
+					KubeProxyReplacement: tt.enableKubeProxyReplacement,
+				},
 			}
 
 			lbConfig := loadbalancer.DefaultConfig

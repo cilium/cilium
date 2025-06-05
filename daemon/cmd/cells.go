@@ -48,6 +48,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -240,6 +241,9 @@ var (
 
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
+
+		// Provides KPROpts
+		kpr.Cell,
 
 		// Provides PolicyRepository (List of policy rules)
 		policy.Cell,

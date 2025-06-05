@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -106,6 +107,7 @@ type orchestratorParams struct {
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
 	XDPConfig           xdp.Config
 	LBConfig            loadbalancer.Config
+	KPROpts             kpr.KPROpts
 	MaglevConfig        maglev.Config
 }
 
@@ -203,6 +205,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
 			o.params.LBConfig,
+			o.params.KPROpts,
 			o.params.MaglevConfig,
 			o.params.MTU,
 		)

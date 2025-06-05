@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -55,7 +56,7 @@ func cgroupLinkPath() string {
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, sysctl sysctl.Sysctl) error {
+func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprOpts kpr.KPROpts) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -96,7 +97,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl) error {
 			enabled[GetPeerName4] = true
 		}
 
-		if option.Config.EnableNodePort && option.Config.NodePortBindProtection {
+		if kprOpts.EnableNodePort && option.Config.NodePortBindProtection {
 			enabled[PostBind4] = true
 		}
 
@@ -118,7 +119,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl) error {
 			enabled[GetPeerName6] = true
 		}
 
-		if option.Config.EnableNodePort && option.Config.NodePortBindProtection {
+		if kprOpts.EnableNodePort && option.Config.NodePortBindProtection {
 			enabled[PostBind6] = true
 		}
 

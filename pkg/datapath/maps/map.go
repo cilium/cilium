@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -44,16 +45,18 @@ type MapSweeper struct {
 	endpointManager
 	bwManager dptypes.BandwidthManager
 	lbConfig  loadbalancer.Config
+	kprOpts   kpr.KPROpts
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config) *MapSweeper {
+func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts) *MapSweeper {
 	return &MapSweeper{
 		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
 		endpointManager: g,
 		bwManager:       bwm,
 		lbConfig:        lbConfig,
+		kprOpts:         kprOpts,
 	}
 }
 
@@ -164,7 +167,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	if !option.Config.EnableNodePort {
+	if !ms.kprOpts.EnableNodePort {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 
