@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -52,7 +51,7 @@ func TestCallback(t *testing.T) {
 			234: "zone-b",
 		},
 	}
-	a := newAct(hivetest.Logger(t), new(mapMock), NewActiveConnectionTrackingMetrics(), &service.Service{}, opts)
+	a := newAct(hivetest.Logger(t), nil, new(mapMock), NewActiveConnectionTrackingMetrics(), nil, nil, opts)
 
 	// Initialize
 	a.keyToStrings = func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
@@ -143,7 +142,7 @@ func TestCleanup(t *testing.T) {
 		},
 	}
 	m := new(mapMock)
-	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &service.Service{}, opts)
+	a := newAct(hivetest.Logger(t), nil, m, NewActiveConnectionTrackingMetrics(), nil, nil, opts)
 
 	// Initialize entry with updates
 	a.keyToStrings = func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
@@ -222,7 +221,7 @@ func TestCleanup(t *testing.T) {
 
 func TestOverflow(t *testing.T) {
 	m := new(mapMock)
-	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &service.Service{}, &option.DaemonConfig{})
+	a := newAct(hivetest.Logger(t), nil, m, NewActiveConnectionTrackingMetrics(), nil, nil, &option.DaemonConfig{})
 
 	zones := []uint8{123, 124, 125, 126, 127}
 	services := make([]uint16, metricsCountSoftLimit/2)
@@ -274,7 +273,7 @@ func TestCallback_WithFailed(t *testing.T) {
 			234: "zone-b",
 		},
 	}
-	a := newAct(hivetest.Logger(t), &mapMock{failed: 101}, NewActiveConnectionTrackingMetrics(), &service.Service{}, opts)
+	a := newAct(hivetest.Logger(t), nil, &mapMock{failed: 101}, NewActiveConnectionTrackingMetrics(), nil, nil, opts)
 
 	// Initialize
 	a.keyToStrings = func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
@@ -299,7 +298,7 @@ func TestCallback_WithFailed(t *testing.T) {
 
 func TestReconcileServices(t *testing.T) {
 	m := new(mapMock)
-	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &service.Service{}, &option.DaemonConfig{})
+	a := newAct(hivetest.Logger(t), nil, m, NewActiveConnectionTrackingMetrics(), nil, nil, &option.DaemonConfig{})
 
 	nl := new(actMetric)
 	a.tracker = map[uint8]map[uint16]*actMetric{
