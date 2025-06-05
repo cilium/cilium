@@ -67,6 +67,28 @@ type ClusterMeshServicesTestSuite struct {
 	randomName string
 }
 
+type svcCacheMerger struct {
+	sc *k8s.ServiceCacheImpl
+}
+
+var stoppedWaitGroup = func() *lock.StoppableWaitGroup {
+	swg := lock.NewStoppableWaitGroup()
+	swg.Stop()
+	return swg
+}()
+
+// MergeExternalServiceDelete implements ServiceMerger.
+func (s svcCacheMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {
+	s.sc.MergeExternalServiceDelete(service, stoppedWaitGroup)
+}
+
+// MergeExternalServiceUpdate implements ServiceMerger.
+func (s svcCacheMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService) {
+	s.sc.MergeExternalServiceUpdate(service, stoppedWaitGroup)
+}
+
+var _ ServiceMerger = svcCacheMerger{}
+
 func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	testutils.IntegrationTest(tb)
 
@@ -126,7 +148,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           cmtypes.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		NodeObserver:          newNodesObserver(),
-		ServiceMerger:         s.svcCache,
+		ServiceMerger:         svcCacheMerger{s.svcCache},
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 		ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),

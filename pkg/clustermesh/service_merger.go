@@ -4,14 +4,16 @@
 package clustermesh
 
 import (
-	"github.com/cilium/hive/cell"
+	"context"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -19,33 +21,49 @@ import (
 // services. The functions have to merge service updates and deletions with
 // local services to provide a shared view.
 type ServiceMerger interface {
-	MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
-	MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
+	MergeExternalServiceUpdate(service *serviceStore.ClusterService)
+	MergeExternalServiceDelete(service *serviceStore.ClusterService)
 }
 
 type serviceMergerParams struct {
 	cell.In
 
-	ClusterInfo  cmtypes.ClusterInfo
-	ServiceCache k8s.ServiceCache
-	ExpConfig    loadbalancer.Config
-	Writer       *writer.Writer
+	ClusterInfo cmtypes.ClusterInfo
+	CMConfig    common.Config
+	LBConfig    loadbalancer.Config
+	Writer      *writer.Writer
 }
 
 func newServiceMerger(p serviceMergerParams) ServiceMerger {
-	if !p.ExpConfig.EnableExperimentalLB {
-		return p.ServiceCache
-	}
-	return &expServiceMerger{clusterInfo: p.ClusterInfo, writer: p.Writer}
+	return &serviceMerger{clusterInfo: p.ClusterInfo, writer: p.Writer}
 }
 
-type expServiceMerger struct {
+// registerServicesInitialized adds a job to wait for the ClusterMesh services to be synchronized
+// before marking the load-balancing tables as initialized.
+func registerServicesInitialized(jobs job.Group, cm *ClusterMesh, sm ServiceMerger, w *writer.Writer) {
+	if cm == nil {
+		return
+	}
+	markDone := w.RegisterInitializer("clustermesh")
+	jobs.Add(
+		job.OneShot(
+			"services-initialized",
+			func(ctx context.Context, health cell.Health) error {
+				err := cm.ServicesSynced(ctx)
+				txn := w.WriteTxn()
+				markDone(txn)
+				txn.Commit()
+				return err
+			}))
+}
+
+type serviceMerger struct {
 	clusterInfo cmtypes.ClusterInfo
 	writer      *writer.Writer
 }
 
 // MergeExternalServiceDelete implements k8s.ServiceCache.
-func (sm *expServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sm *serviceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,
@@ -61,7 +79,7 @@ func (sm *expServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 }
 
 // MergeExternalServiceUpdate implements k8s.ServiceCache.
-func (sm *expServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService) {
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,

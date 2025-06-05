@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -123,9 +122,6 @@ func TestScript(t *testing.T) {
 				clustermesh.NewClusterMeshMetricsNoop,
 				func() clustermesh.RemoteIdentityWatcher {
 					return dummyRemoteIdentityWatcher{}
-				},
-				func() k8s.ServiceCache {
-					return nil
 				},
 				func(log *slog.Logger) nodemanager.NodeManager {
 					return dummyNodeManager{log}
