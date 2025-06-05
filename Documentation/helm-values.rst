@@ -960,6 +960,10 @@
      - Configure the path to the CNI configuration directory on the host.
      - string
      - ``"/etc/cni/net.d"``
+   * - :spelling:ignore:`cni.configMap`
+     - When defined, configMap will mount the provided value as ConfigMap and interpret the 'cni.configMapKey' value as CNI configuration file and write it when the agent starts up.
+     - string
+     - ``""``
    * - :spelling:ignore:`cni.configMapKey`
      - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from. For this to be effective, the 'cni.configMap' parameter must be specified too. Note that the 'cni.configMap' parameter is the name of the ConfigMap, while 'cni.configMapKey' is the name of the key in the ConfigMap data containing the actual configuration.
      - string

@@ -746,8 +746,7 @@ cni:
   # -- When defined, configMap will mount the provided value as ConfigMap and
   # interpret the 'cni.configMapKey' value as CNI configuration file and write it
   # when the agent starts up.
-  # configMap: cni-configuration
-
+  configMap: ""
   # -- Configure the key in the CNI ConfigMap to read the contents of
   # the CNI configuration from. For this to be effective, the 'cni.configMap'
   # parameter must be specified too.
