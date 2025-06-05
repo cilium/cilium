@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -64,14 +63,14 @@ type Rule struct {
 	// are mutually exclusive.
 	//
 	// +kubebuilder:validation:OneOf
-	EndpointSelector EndpointSelector `json:"endpointSelector,omitempty"`
+	EndpointSelector EndpointSelector `json:"endpointSelector,omitzero"`
 
 	// NodeSelector selects all nodes which should be subject to this rule.
 	// EndpointSelector and NodeSelector cannot be both empty and are mutually
 	// exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
 	//
 	// +kubebuilder:validation:OneOf
-	NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`
+	NodeSelector EndpointSelector `json:"nodeSelector,omitzero"`
 
 	// Ingress is a list of IngressRule which are enforced at ingress.
 	// If omitted or empty, this rule does not apply at ingress.
@@ -126,7 +125,7 @@ type Rule struct {
 	// cause endpoints to enter default-deny mode.
 	//
 	// +kubebuilder:validation:Optional
-	EnableDefaultDeny DefaultDenyConfig `json:"enableDefaultDeny,omitempty"`
+	EnableDefaultDeny DefaultDenyConfig `json:"enableDefaultDeny,omitzero"`
 
 	// Description is a free form string, it can be used by the creator of
 	// the rule to store human readable explanation of the purpose of this
@@ -134,60 +133,6 @@ type Rule struct {
 	//
 	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
-}
-
-// MarshalJSON returns the JSON encoding of Rule r. We need to overwrite it to
-// enforce omitempty on the EndpointSelector nested structures.
-func (r *Rule) MarshalJSON() ([]byte, error) {
-	type ruleInternal struct {
-		EndpointSelector  EndpointSelector  `json:"endpointSelector,omitzero"`
-		NodeSelector      EndpointSelector  `json:"nodeSelector,omitzero"`
-		Ingress           []IngressRule     `json:"ingress,omitempty"`
-		IngressDeny       []IngressDenyRule `json:"ingressDeny,omitempty"`
-		Egress            []EgressRule      `json:"egress,omitempty"`
-		EgressDeny        []EgressDenyRule  `json:"egressDeny,omitempty"`
-		Labels            labels.LabelArray `json:"labels,omitempty"`
-		EnableDefaultDeny DefaultDenyConfig `json:"enableDefaultDeny,omitzero"`
-		Description       string            `json:"description,omitempty"`
-	}
-
-	// The API object doesn't have EndopintSelector and NodeSelector as pointer fields.
-	// So, we rely on LabelSelector pointer field to decide which of Endpoint/Node Selector
-	// is supplied by the user. The json tag for these selectors are `omitzero` which has
-	// custom handling in `EndpointSelector.IsZero()` to check for this condition
-	// We are missing handling of one case here where if the user created these Selectors without
-	// specifying the underlying LabelSelector. This case cannot be handled here
-	// as both Endpoint and Node Selector fields are non-pointer so its not possible to determine
-	// the clients intent.
-	// For Example:
-	// &api.Rule{
-	//     EndpointSelector: api.EndpointSelector{}
-	// }
-	// The intent here is to allow all EndpointSelector and keep NodeSelector as empty.
-	// However, there is not enough information for the API to realize the intent. To make sure
-	// the marhsalling logic is transparent, this definition implies both EndpointSelector and
-	// NodeSelector are empty and k8s api-server will handle this correctly as per the CRD definition.
-	// To realize the above itent when using the client library, the user needs to explicitly
-	// specify the LabelSelector as empty.
-	// For Example:
-	// &api.Rule{
-	//     EndpointSelector: api.EndpointSelector{
-	//         LabelSelector: &metav1.LabelSelector{}
-	//     }
-	// }
-	rule := ruleInternal{
-		EndpointSelector:  r.EndpointSelector,
-		NodeSelector:      r.NodeSelector,
-		Ingress:           r.Ingress,
-		IngressDeny:       r.IngressDeny,
-		Egress:            r.Egress,
-		EgressDeny:        r.EgressDeny,
-		Labels:            r.Labels,
-		EnableDefaultDeny: r.EnableDefaultDeny,
-		Description:       r.Description,
-	}
-
-	return json.Marshal(rule)
 }
 
 func (r *Rule) DeepEqual(o *Rule) bool {

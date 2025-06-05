@@ -262,6 +262,24 @@ var (
 }`)...)
 )
 
+func sanitizeCNPRules(cnp *CiliumNetworkPolicy) error {
+	if cnp.Spec != nil {
+		if err := cnp.Spec.Sanitize(); err != nil {
+			return err
+		}
+	}
+
+	if cnp.Specs != nil {
+		for _, rule := range cnp.Specs {
+			if err := rule.Sanitize(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func TestParseSpec(t *testing.T) {
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
@@ -330,6 +348,12 @@ func TestParseSpec(t *testing.T) {
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	require.NoError(t, err)
+
+	err = sanitizeCNPRules(&cnpl)
+	require.NoError(t, err)
+	err = sanitizeCNPRules(expectedPolicyRuleWithLabel)
+	require.NoError(t, err)
+
 	require.Equal(t, *expectedPolicyRuleWithLabel, cnpl)
 
 	empty := &CiliumNetworkPolicy{
@@ -424,6 +448,12 @@ func TestParseRules(t *testing.T) {
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	require.NoError(t, err)
+
+	err = sanitizeCNPRules(&cnpl)
+	require.NoError(t, err)
+	err = sanitizeCNPRules(expectedPolicyRuleListWithLabel)
+	require.NoError(t, err)
+
 	require.Equal(t, *expectedPolicyRuleListWithLabel, cnpl)
 }
 
