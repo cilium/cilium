@@ -75,7 +75,7 @@ func TestFQDNDataServer(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 
 			h := hive.New(
-				cell.Config(defaultConfig),
+				cell.Config(DefaultConfig),
 				cell.Provide(
 					func(logger *slog.Logger) endpointmanager.EndpointManager {
 						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
