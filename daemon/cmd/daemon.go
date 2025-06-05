@@ -46,12 +46,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -78,7 +75,6 @@ type Daemon struct {
 	metricsRegistry *metrics.Registry
 	clientset       k8sClient.Clientset
 	db              *statedb.DB
-	svc             service.ServiceManager
 	policy          policy.PolicyRepository
 	idmgr           identitymanager.IDManager
 
@@ -129,7 +125,6 @@ type Daemon struct {
 
 	bwManager datapath.BandwidthManager
 
-	lrpManager   *redirectpolicy.Manager
 	maglevConfig maglev.Config
 
 	lbConfig loadbalancer.Config
@@ -267,20 +262,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 
-	lbmapInitParams := lbmap.InitParams{
-		IPv4: option.Config.EnableIPv4,
-		IPv6: option.Config.EnableIPv6,
-
-		MaxSockRevNatMapEntries:  params.LBConfig.LBSockRevNatEntries,
-		ServiceMapMaxEntries:     params.LBConfig.LBServiceMapEntries,
-		BackEndMapMaxEntries:     params.LBConfig.LBBackendMapEntries,
-		RevNatMapMaxEntries:      params.LBConfig.LBRevNatEntries,
-		AffinityMapMaxEntries:    params.LBConfig.LBAffinityMapEntries,
-		SourceRangeMapMaxEntries: params.LBConfig.LBSourceRangeMapEntries,
-		MaglevMapMaxEntries:      params.LBConfig.LBMaglevMapEntries,
-	}
-	lbmap.Init(params.MetricsRegistry, lbmapInitParams)
-
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
@@ -313,7 +294,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		idmgr:             params.IdentityManager,
 		clustermesh:       params.ClusterMesh,
 		monitorAgent:      params.MonitorAgent,
-		svc:               params.ServiceManager,
 		bwManager:         params.BandwidthManager,
 		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
@@ -321,7 +301,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
-		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
 		ciliumHealth:      params.CiliumHealth,
@@ -376,24 +355,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
-	// Read the service IDs of existing services from the BPF map and
-	// reserve them. This must be done *before* connecting to the
-	// Kubernetes apiserver and serving the API to ensure service IDs are
-	// not changing across restarts or that a new service could accidentally
-	// use an existing service ID.
-	// Also, create missing v2 services from the corresponding legacy ones.
-	if option.Config.RestoreState && !option.Config.DryMode {
-		bootstrapStats.restore.Start()
-		if err := d.svc.RestoreServices(); err != nil {
-			d.logger.Warn("Failed to restore services from BPF maps", logfields.Error, err)
-		}
-		bootstrapStats.restore.End(true)
-	}
-
 	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
-
-	d.k8sWatcher.RunK8sServiceHandler()
 
 	if option.Config.DNSPolicyUnloadOnShutdown {
 		d.logger.Debug(

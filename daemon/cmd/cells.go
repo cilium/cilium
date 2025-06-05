@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
-	ciliumenvoyconfig_legacy "github.com/cilium/cilium/pkg/ciliumenvoyconfig/legacy"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -51,8 +50,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -198,10 +195,6 @@ var (
 		// Experimental control-plane for configuring service load-balancing.
 		loadbalancer_cell.Cell,
 
-		// Service is a datapath service handler. Its main responsibility is to reflect
-		// service-related changes into BPF maps used by datapath BPF programs.
-		service.Cell,
-
 		// Proxy provides the proxy port allocation and related datapath coordination and
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
 		// a common Proxy 'redirect' abstraction.
@@ -214,7 +207,6 @@ var (
 		// CiliumEnvoyConfig provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 		// and L7 loadbalancing.
 		ciliumenvoyconfig.Cell,
-		ciliumenvoyconfig_legacy.Cell,
 
 		// Cilium REST API handlers
 		restapi.Cell,
@@ -261,9 +253,6 @@ var (
 		// L2announcer resolves l2announcement policies, services, node labels and devices into a list of IPs+netdevs
 		// which need to be announced on the local network.
 		l2announcer.Cell,
-
-		// Redirect policy manages the Local Redirect Policies.
-		redirectpolicy.Cell,
 
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
@@ -371,9 +360,6 @@ var pprofConfig = pprof.Config{
 // which the Cilium agent watches to implement CNI functionality.
 func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		resources.K8sAPIGroupServiceV1Core,
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
 		resources.K8sAPIGroupPodV1Core,

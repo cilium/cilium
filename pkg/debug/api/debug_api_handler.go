@@ -57,7 +57,7 @@ func (h *GetDebuginfoHandler) Handle(params restapi.GetDebuginfoParams) middlewa
 		dr.EnvironmentVariables = append(dr.EnvironmentVariables, k+":"+v)
 	}
 
-	dr.ServiceList = service.GetServiceModelList(h.serviceManager)
+	dr.ServiceList = getServiceModelList(h.serviceManager)
 
 	dr.Encryption = &models.DebugInfoEncryption{}
 	if option.Config.EnableWireguard {
@@ -67,6 +67,15 @@ func (h *GetDebuginfoHandler) Handle(params restapi.GetDebuginfoParams) middlewa
 	}
 
 	return restapi.NewGetDebuginfoOK().WithPayload(&dr)
+}
+
+func getServiceModelList(svc service.ServiceManager) []*models.Service {
+	svcs := svc.GetDeepCopyServices()
+	list := make([]*models.Service, 0, len(svcs))
+	for _, v := range svcs {
+		list = append(list, v.GetModel())
+	}
+	return list
 }
 
 func memoryMap(pid int) string {
