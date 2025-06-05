@@ -47,7 +47,7 @@ func setupKvstore(ctx context.Context, logger *slog.Logger) kvstore.BackendOpera
 		}
 	}
 
-	client, errch := kvstore.NewClient(ctx, logger, kvStore, kvStoreOpts, nil)
+	client, errch := kvstore.NewClient(ctx, logger, kvStore, kvStoreOpts, kvstore.ExtraOptions{})
 	select {
 	case <-ctx.Done():
 		Fatalf("Unable to connect to the kvstore")

@@ -1399,7 +1399,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 }
 
 func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
-	goopts := &kvstore.ExtraOptions{
+	goopts := kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
 

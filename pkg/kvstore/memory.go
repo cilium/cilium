@@ -54,12 +54,12 @@ func (i *inMemoryModule) getName() string {
 }
 
 // newClient implements backendModule.
-func (im *inMemoryModule) newClient(ctx context.Context, logger *slog.Logger, opts *ExtraOptions) (BackendOperations, chan error) {
+func (im *inMemoryModule) newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error) {
 	clusterName := ""
 	if im.dummy {
 		// If setConfigDummy() was called all clients share the same table.
 		clusterName = "dummy"
-	} else if opts != nil {
+	} else {
 		clusterName = opts.ClusterName
 	}
 	errChan := make(chan error)
@@ -83,11 +83,6 @@ func (i *inMemoryModule) setConfig(logger *slog.Logger, opts map[string]string) 
 // setConfigDummy implements backendModule.
 func (im *inMemoryModule) setConfigDummy() {
 	im.dummy = true
-}
-
-// setExtraConfig implements backendModule.
-func (i *inMemoryModule) setExtraConfig(opts *ExtraOptions) error {
-	return nil
 }
 
 var _ backendModule = &inMemoryModule{}

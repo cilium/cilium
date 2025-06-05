@@ -31,8 +31,8 @@ var Cell = cell.Module(
 
 	controller.Cell,
 	kvstore.Cell(kvstore.EtcdBackendName),
-	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
-		return &kvstore.ExtraOptions{
+	cell.Provide(func(ss syncstate.SyncState) kvstore.ExtraOptions {
+		return kvstore.ExtraOptions{
 			BootstrapComplete: ss.WaitChannel(),
 		}
 	}),

@@ -90,10 +90,6 @@ type backendModule interface {
 	// This function is called once before newClient().
 	setConfig(logger *slog.Logger, opts map[string]string) error
 
-	// setExtraConfig sets more options in the kvstore that are not able to
-	// be set by strings.
-	setExtraConfig(opts *ExtraOptions) error
-
 	// setConfigDummy must configure the backend with dummy configuration
 	// for testing purposes. This is a replacement for setConfig().
 	setConfigDummy()
@@ -103,7 +99,7 @@ type backendModule interface {
 
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
-	newClient(ctx context.Context, logger *slog.Logger, opts *ExtraOptions) (BackendOperations, chan error)
+	newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error)
 
 	// createInstance creates a new instance of the module
 	createInstance() backendModule

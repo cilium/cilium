@@ -164,14 +164,6 @@ func (e *etcdModule) setConfig(logger *slog.Logger, opts map[string]string) erro
 	return setOpts(logger, opts, e.opts)
 }
 
-func (e *etcdModule) setExtraConfig(opts *ExtraOptions) error {
-	if opts != nil && len(opts.DialOption) != 0 {
-		e.config = &client.Config{}
-		e.config.DialOptions = append(e.config.DialOptions, opts.DialOption...)
-	}
-	return nil
-}
-
 func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
@@ -191,7 +183,7 @@ type clientOptions struct {
 	ListBatchSize      int
 }
 
-func (e *etcdModule) newClient(ctx context.Context, logger *slog.Logger, opts *ExtraOptions) (BackendOperations, chan error) {
+func (e *etcdModule) newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
 	clientOptions := clientOptions{
@@ -369,7 +361,7 @@ type etcdClient struct {
 	// status is a snapshot of the latest etcd cluster status
 	status models.Status
 
-	extraOptions *ExtraOptions
+	extraOptions ExtraOptions
 
 	limiter       *ciliumrate.APILimiter
 	listBatchSize int
@@ -406,10 +398,10 @@ func (e *etcdClient) StatusCheckErrors() <-chan error {
 }
 
 func (e *etcdClient) maybeWaitForInitLock(ctx context.Context) error {
-	if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
+	if e.extraOptions.NoLockQuorumCheck {
 		return nil
 	}
-	limiter := newExpBackoffRateLimiter(e, "etcd-client-init-lock")
+	limiter := e.newExpBackoffRateLimiter("etcd-client-init-lock")
 	defer limiter.Reset()
 	for {
 		select {
@@ -466,7 +458,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 func (e *etcdClient) Connected(ctx context.Context) <-chan error {
 	out := make(chan error)
 	go func() {
-		limiter := newExpBackoffRateLimiter(e, "etcd-client-connected")
+		limiter := e.newExpBackoffRateLimiter("etcd-client-connected")
 		defer limiter.Reset()
 		defer close(out)
 		for {
@@ -488,7 +480,7 @@ func (e *etcdClient) Connected(ctx context.Context) <-chan error {
 	return out
 }
 
-func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts *ExtraOptions) (BackendOperations, error) {
+func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
@@ -500,7 +492,6 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 				return nil, err
 			}
 		}
-		cfg.DialOptions = append(cfg.DialOptions, config.DialOptions...)
 		config = cfg
 	}
 
@@ -513,6 +504,8 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 
 	// Set client context so that client can be cancelled from outside
 	config.Context = ctx
+	// Configure the dial options provided by the caller.
+	config.DialOptions = append(config.DialOptions, opts.DialOption...)
 	// Set DialTimeout to 0, otherwise the creation of a new client will
 	// block until DialTimeout is reached or a connection to the server
 	// is made.
@@ -554,7 +547,7 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 	// If BootstrapRateLimit and BootstrapComplete are provided, set the
 	// initial rate limit to BootstrapRateLimit and apply the standard rate limit
 	// once the caller has signaled that bootstrap is complete by closing the channel.
-	if clientOptions.BootstrapRateLimit > 0 && opts != nil && opts.BootstrapComplete != nil {
+	if clientOptions.BootstrapRateLimit > 0 && opts.BootstrapComplete != nil {
 		ec.logger.Info(
 			"Setting client QPS limit for bootstrap",
 			logfields.EtcdQPSLimit, clientOptions.BootstrapRateLimit,
@@ -620,7 +613,7 @@ func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
 	// on the target etcd instance, considering that the session would never
 	// be used again. Instead, we'll just rely on the successful synchronization
 	// of the heartbeat watcher as a signal that we successfully connected.
-	if e.extraOptions == nil || !e.extraOptions.NoLockQuorumCheck {
+	if !e.extraOptions.NoLockQuorumCheck {
 		_, err := e.lockLeaseManager.GetSession(wctx, InitLockPath)
 		if err != nil {
 			wcancel()
@@ -688,25 +681,22 @@ func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
 
 // makeSessionName builds up a session/locksession controller name
 // clusterName is expected to be empty for main kvstore connection
-func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
-	if opts != nil && opts.ClusterName != "" {
+func makeSessionName(sessionPrefix string, opts ExtraOptions) string {
+	if opts.ClusterName != "" {
 		return sessionPrefix + "-" + opts.ClusterName
 	}
 	return sessionPrefix
 }
 
-func newExpBackoffRateLimiter(e *etcdClient, name string) backoff.Exponential {
-	errLimiter := backoff.Exponential{
+func (e *etcdClient) newExpBackoffRateLimiter(name string) backoff.Exponential {
+	return backoff.Exponential{
 		Logger: e.logger,
 		Name:   name,
 		Min:    50 * time.Millisecond,
 		Max:    1 * time.Minute,
-	}
 
-	if e != nil && e.extraOptions != nil {
-		errLimiter.NodeManager = backoff.NewNodeManager(e.extraOptions.ClusterSizeDependantInterval)
+		NodeManager: backoff.NewNodeManager(e.extraOptions.ClusterSizeDependantInterval),
 	}
-	return errLimiter
 }
 
 func (e *etcdClient) sessionError() (err error) {
@@ -791,7 +781,7 @@ func (e *etcdClient) watch(ctx context.Context, prefix string, events emitter) {
 	// errLimiter is used to rate limit the retry of the first Get request in case an error
 	// has occurred, to prevent overloading the etcd server due to the more aggressive
 	// default rate limiter.
-	errLimiter := newExpBackoffRateLimiter(e, "etcd-list-before-watch-error")
+	errLimiter := e.newExpBackoffRateLimiter("etcd-list-before-watch-error")
 
 reList:
 	for {
@@ -1092,7 +1082,7 @@ func (e *etcdClient) statusChecker() {
 		}
 
 		endpoints := e.client.Endpoints()
-		if e.extraOptions != nil && e.extraOptions.NoEndpointStatusChecks {
+		if e.extraOptions.NoEndpointStatusChecks {
 			newStatus = append(newStatus, "endpoint status checks are disabled")
 
 			if quorumError == nil {
