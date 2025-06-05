@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 # Fault injection is currently disabled as it in some cases leads to
 # the backend being recreated when switching to host port 5555 due
 # to injected faults causing the deletion of the host port 4444 to be

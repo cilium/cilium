@@ -63,10 +63,6 @@ type cecController struct {
 }
 
 func registerCECController(params cecControllerParams) {
-	if !params.ExpConfig.EnableExperimentalLB {
-		return
-	}
-
 	c := &cecController{
 		cecControllerParams: params,
 	}

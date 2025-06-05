@@ -71,7 +71,7 @@ func registerCECK8sReflector(
 	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
 		return nil
 	}
-	if lws.cec == nil || !ecfg.EnableExperimentalLB {
+	if lws.cec == nil {
 		return nil
 	}
 	transform := func(txn statedb.ReadTxn, obj any) (*CEC, bool) {

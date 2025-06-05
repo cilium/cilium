@@ -73,9 +73,6 @@ func init() {
 }
 
 func NewWriter(p writerParams) (*Writer, error) {
-	if !p.Config.EnableExperimentalLB {
-		return nil, nil
-	}
 	w := &Writer{
 		config:           p.Config,
 		nodeName:         nodeTypes.GetName(),

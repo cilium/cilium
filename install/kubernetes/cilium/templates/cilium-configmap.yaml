@@ -828,9 +828,6 @@ data:
   enable-service-topology: {{ .Values.loadBalancer.serviceTopology | quote }}
 # {{- end }}
 
-{{- if hasKey .Values.loadBalancer "experimental" }}
-  enable-experimental-lb: {{ .Values.loadBalancer.experimental | quote }}
-{{- end }}
 {{- if hasKey .Values.loadBalancer "protocolDifferentiation" }}
   bpf-lb-proto-diff: {{ .Values.loadBalancer.protocolDifferentiation.enabled | quote }}
 {{- end }}

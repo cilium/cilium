@@ -17,7 +17,7 @@ import (
 // injectSelectBackends overrides the load-balancing backend selection algorithm to implement
 // support for the ServiceAffinity and IncludeExternal annotations.
 func injectSelectBackends(cm *ClusterMesh, expCfg loadbalancer.Config, w *writer.Writer) {
-	if cm == nil || !expCfg.EnableExperimentalLB {
+	if cm == nil {
 		// ClusterMesh disabled, do not change the backend selection.
 		return
 	}

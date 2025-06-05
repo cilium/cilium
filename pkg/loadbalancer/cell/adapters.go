@@ -56,9 +56,6 @@ type adapterParams struct {
 
 // newAdapters constructs the ServiceCache and ServiceManager adapters
 func newAdapters(p adapterParams) (k8s.ServiceCache, service.ServiceManager) {
-	if !p.Config.EnableExperimentalLB {
-		return nil, nil
-	}
 	sca := &serviceCacheAdapter{
 		log:      p.Log,
 		db:       p.DB,

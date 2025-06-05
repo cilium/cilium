@@ -75,7 +75,6 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 			Pinned: false,
 			Cfg: loadbalancer.Config{
 				UserConfig: loadbalancer.UserConfig{
-					EnableExperimentalLB:    true,
 					RetryBackoffMin:         time.Second,
 					RetryBackoffMax:         time.Second,
 					LBMapEntries:            3 * testSize,
