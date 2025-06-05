@@ -24,14 +24,14 @@ func Cell(defaultBackend string) cell.Cell {
 		"kvstore-client",
 		"KVStore Client",
 
-		cell.Config(config{
+		cell.Config(Config{
 			KVStore:                           defaultBackend,
 			KVStoreOpt:                        make(map[string]string),
 			KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
 			KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
 		}),
 
-		cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, cfg config, opts *ExtraOptions) Client {
+		cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, cfg Config, opts *ExtraOptions) Client {
 			// Propagate the options to the global variables for backward compatibility
 			option.Config.KVStore = cfg.KVStore
 			option.Config.KVStoreOpt = cfg.KVStoreOpt
@@ -53,14 +53,14 @@ func Cell(defaultBackend string) cell.Cell {
 	)
 }
 
-type config struct {
+type Config struct {
 	KVStore                           string
 	KVStoreOpt                        map[string]string
 	KVStoreLeaseTTL                   time.Duration
 	KVstoreMaxConsecutiveQuorumErrors uint
 }
 
-func (def config) Flags(flags *pflag.FlagSet) {
+func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.KVStore, def.KVStore, "Key-value store type")
 
 	flags.StringToString(option.KVStoreOpt, def.KVStoreOpt,
