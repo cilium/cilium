@@ -181,9 +181,6 @@ type bpfOpsParams struct {
 }
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
-	if !p.Config.EnableExperimentalLB {
-		return nil
-	}
 	ops := &BPFOps{
 		cfg:       p.Config,
 		extCfg:    p.ExternalConfig,

@@ -19,7 +19,7 @@ import (
 // for changes to the node's topology zone. When it changes it updates the zone in [Writer]
 // and refreshes all frontends to re-select backends.
 func registerNodeZoneWatcher(jg job.Group, p zoneWatcherParams) {
-	if p.Config.EnableExperimentalLB && p.Config.EnableServiceTopology {
+	if p.Config.EnableServiceTopology {
 		jg.Add(job.OneShot("zone-watcher", zoneWatcher{p}.run))
 	}
 }

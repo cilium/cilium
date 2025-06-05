@@ -66,10 +66,6 @@ func fixture(t testing.TB, hooks ...ServiceHook) (p testParams) {
 		),
 	)
 
-	hive.AddConfigOverride(h, func(cfg *loadbalancer.UserConfig) {
-		cfg.EnableExperimentalLB = true
-	})
-
 	require.NoError(t, h.Start(log, context.TODO()))
 	t.Cleanup(func() {
 		h.Stop(log, context.TODO())

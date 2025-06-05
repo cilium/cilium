@@ -163,7 +163,6 @@ func TestScript(t *testing.T) {
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
-		flags.Set("enable-experimental-lb", "true")
 		flags.Set("clustermesh-config", configDir)
 
 		// Parse the shebang arguments in the script.

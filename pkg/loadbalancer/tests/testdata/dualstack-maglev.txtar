@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0 --node-port-algorithm=maglev --lb-pressure-metrics-interval=100ms --bpf-lb-map-max=1000
+#! --lb-test-fault-probability=0.0 --node-port-algorithm=maglev --lb-pressure-metrics-interval=100ms --bpf-lb-map-max=1000
 
 # NOTE: Fault injection disabled as it leads to non-deterministic id allocation with multiple
 # frontends from single service.

@@ -104,7 +104,6 @@ func TestScript(t *testing.T) {
 			h.RegisterFlags(flags)
 
 			// Set some defaults
-			flags.Set("enable-experimental-lb", "true")
 			require.NoError(t, flags.Parse(args), "flags.Parse")
 
 			t.Cleanup(func() {
