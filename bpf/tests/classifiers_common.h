@@ -27,6 +27,7 @@
 
 /* Assign lower values for testing, so that we don't need to craft big packet. */
 ASSIGN_CONFIG(__u32, trace_payload_len, 10UL);
+ASSIGN_CONFIG(__u32, trace_payload_len_overlay, 20UL);
 
 /* Defining checks for packets from L3 devices as a macro for reusability. */
 #define L3_DEVICE_CHECK(flags, is_ipv4)                                      \
@@ -195,6 +196,8 @@ int ctx_capture_length_check(struct __ctx_buff *ctx)
 {
 	test_init();
 
+	enum trace_point obs_point = TRACE_POINT_UNKNOWN;
+	cls_flags_t flags = CLS_FLAG_TUNNEL;
 	__u64 cap_len;
 	__u32 monitor;
 
@@ -203,7 +206,7 @@ int ctx_capture_length_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-nonzero", {
 		monitor = 1;
-		cap_len = ctx_capture_length(ctx, monitor);
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
 		assert(cap_len == monitor);
 	})
 
@@ -212,7 +215,7 @@ int ctx_capture_length_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-greater", {
 		monitor = (__u32)(ctx_full_len(ctx) + 1);
-		cap_len = ctx_capture_length(ctx, monitor);
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
 		assert(cap_len == ctx_full_len(ctx));
 	})
 
@@ -221,7 +224,20 @@ int ctx_capture_length_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-zero", {
 		monitor = 0;
-		cap_len = ctx_capture_length(ctx, monitor);
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len_overlay));
+	})
+
+	TEST("monitor-payloadlen", {
+		monitor = CONFIG(trace_payload_len);
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len_overlay));
+	})
+
+	TEST("monitor-non-overlay", {
+		flags = CLS_FLAG_NONE;
+		monitor = 0;
+		cap_len = ctx_capture_length(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len));
 	})
 
