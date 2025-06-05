@@ -24,10 +24,6 @@ type scriptCommandsParams struct {
 }
 
 func scriptCommands(p scriptCommandsParams) hive.ScriptCmdsOut {
-	if !p.Config.EnableExperimentalLB {
-		return hive.ScriptCmdsOut{}
-	}
-
 	cmds := map[string]script.Cmd{
 		"lb/maps-dump": lbmapDumpCommand(p.LBMaps),
 	}

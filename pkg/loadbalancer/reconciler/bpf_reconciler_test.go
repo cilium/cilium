@@ -1058,7 +1058,6 @@ func TestBPFOps(t *testing.T) {
 	}
 
 	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
-	cfg.EnableExperimentalLB = true
 
 	var lbmaps maps.LBMaps
 	if testutils.IsPrivileged() {

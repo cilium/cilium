@@ -127,9 +127,8 @@ const (
 // UserConfig is the configuration provided by the user that has not been processed.
 // +deepequal-gen=true
 type UserConfig struct {
-	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
-	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
-	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
+	RetryBackoffMin time.Duration `mapstructure:"lb-retry-backoff-min"`
+	RetryBackoffMax time.Duration `mapstructure:"lb-retry-backoff-max"`
 
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int `mapstructure:"bpf-lb-map-max"`
@@ -255,9 +254,6 @@ func (DeprecatedConfig) Flags(flags *pflag.FlagSet) {
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-experimental-lb", def.EnableExperimentalLB, "Enable experimental load-balancing control-plane")
-	flags.MarkHidden("enable-experimental-lb")
-
 	flags.Duration("lb-retry-backoff-min", def.RetryBackoffMin, "Minimum amount of time to wait before retrying LB operation")
 	flags.MarkHidden("lb-retry-backoff-min")
 
@@ -445,7 +441,6 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 }
 
 var DefaultUserConfig = UserConfig{
-	EnableExperimentalLB:      true,
 	RetryBackoffMin:           50 * time.Millisecond,
 	RetryBackoffMax:           time.Minute,
 	LBMapEntries:              DefaultLBMapMaxEntries,

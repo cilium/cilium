@@ -36,10 +36,6 @@ type lbmapsParams struct {
 }
 
 func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
-	if !p.Config.EnableExperimentalLB {
-		return bpf.MapOut[LBMaps]{}
-	}
-
 	pinned := true
 
 	if p.TestConfig != nil {

@@ -67,13 +67,9 @@ type cecController struct {
 }
 
 func registerCECController(params cecControllerParams) {
-	if !params.ExpConfig.EnableExperimentalLB {
-		return
-	}
 	if !params.DaemonConfig.EnableL7Proxy || !params.DaemonConfig.EnableEnvoyConfig {
 		return
 	}
-
 	c := &cecController{
 		cecControllerParams: params,
 	}

@@ -32,10 +32,6 @@ type nodePortAddressReconcilerParams struct {
 }
 
 func registerNodePortAddressReconciler(p nodePortAddressReconcilerParams) {
-	if !p.Config.EnableExperimentalLB {
-		return
-	}
-
 	r := nodePortAddrReconciler{
 		log:       p.Log,
 		db:        p.DB,

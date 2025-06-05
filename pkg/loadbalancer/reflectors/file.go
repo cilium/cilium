@@ -68,7 +68,7 @@ func (_ fileReflectorConfig) Flags(flags *pflag.FlagSet) {
 }
 
 func registerFileReflector(log *slog.Logger, jg job.Group, lbcfg loadbalancer.Config, extcfg loadbalancer.ExternalConfig, cfg fileReflectorConfig, w *writer.Writer) error {
-	if cfg.LBStateFile == "" || !lbcfg.EnableExperimentalLB {
+	if cfg.LBStateFile == "" {
 		return nil
 	}
 

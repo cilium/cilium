@@ -1,4 +1,4 @@
-#! --enable-experimental-lb 
+#! 
 #
 # This tests different queries that can be made against the load-balancing tables.
 #

@@ -70,9 +70,7 @@ func lrpAPI(enabled lrpIsEnabled, db *statedb.DB, lrps statedb.Table[*LocalRedir
 type lrpIsEnabled bool
 
 func newLRPIsEnabled(expConfig loadbalancer.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
-	return lrpIsEnabled(
-		expConfig.EnableExperimentalLB && daemonConfig.EnableLocalRedirectPolicy,
-	)
+	return lrpIsEnabled(daemonConfig.EnableLocalRedirectPolicy)
 }
 
 type controllerMetrics struct {

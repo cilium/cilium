@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --bpf-lb-external-clusterip --bpf-lb-algorithm=maglev
+#! --bpf-lb-external-clusterip --bpf-lb-algorithm=maglev
 # Test the handling of the external ClusterIP support.
 
 # Start the test application

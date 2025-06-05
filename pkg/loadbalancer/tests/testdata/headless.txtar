@@ -1,4 +1,4 @@
-#! --enable-experimental-lb
+#! 
 
 # Start the test application
 hive start
