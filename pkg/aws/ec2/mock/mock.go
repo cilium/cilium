@@ -91,6 +91,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(10),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+			BareMetal:  aws.Bool(false),
 		},
 		{
 			InstanceType: "m5.4xlarge",
@@ -100,6 +101,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(30),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+			BareMetal:  aws.Bool(false),
 		},
 		{
 			InstanceType: "m3.large",
@@ -109,6 +111,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(10),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+			BareMetal:  aws.Bool(false),
 		},
 		{
 			InstanceType: "m4.xlarge",
@@ -118,6 +121,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(15),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+			BareMetal:  aws.Bool(false),
 		},
 		{
 			InstanceType: "t2.xlarge",
@@ -127,6 +131,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(15),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+			BareMetal:  aws.Bool(false),
 		},
 		{
 			InstanceType: "c3.xlarge",
@@ -136,6 +141,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(15),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+			BareMetal:  aws.Bool(false),
 		},
 		{
 			InstanceType: "m4.large",
@@ -145,6 +151,17 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv6AddressesPerInterface: aws.Int32(10),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+			BareMetal:  aws.Bool(false),
+		},
+		{
+			InstanceType: "m5.metal",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: "",
+			BareMetal:  aws.Bool(true),
 		},
 	}
 

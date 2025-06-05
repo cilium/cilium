@@ -335,6 +335,9 @@ func (in *Limits) DeepEqual(other *Limits) bool {
 	if in.HypervisorType != other.HypervisorType {
 		return false
 	}
+	if in.IsBareMetal != other.IsBareMetal {
+		return false
+	}
 
 	return true
 }

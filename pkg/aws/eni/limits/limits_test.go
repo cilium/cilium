@@ -35,6 +35,7 @@ func TestGet(t *testing.T) {
 			Ipv6AddressesPerInterface: ptr.To[int32](6),
 		},
 		Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		BareMetal:  ptr.To(false),
 	}})
 	newLimitsGetter, err := NewLimitsGetter(hivetest.Logger(t), api, testTriggerMinInterval, testEC2apiTimeout, testEC2apiRetryCount)
 	require.NoError(t, err)
@@ -51,6 +52,7 @@ func TestGet(t *testing.T) {
 		IPv4:           5,
 		IPv6:           6,
 		HypervisorType: "nitro",
+		IsBareMetal:    false,
 	}, limit)
 
 	// Test 3: EC2 API call and update limits but trigger can't be triggered
@@ -62,6 +64,7 @@ func TestGet(t *testing.T) {
 			Ipv6AddressesPerInterface: ptr.To[int32](15),
 		},
 		Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		BareMetal:  ptr.To(false),
 	}})
 
 	limit, ok = newLimitsGetter.Get("newtype")
@@ -75,6 +78,7 @@ func TestGet(t *testing.T) {
 			IPv4:           15,
 			IPv6:           15,
 			HypervisorType: "nitro",
+			IsBareMetal:    false,
 		}
 	}, 2*testTriggerMinInterval, time.Millisecond)
 }
@@ -91,6 +95,7 @@ func TestInitEC2APIUpdateTrigger(t *testing.T) {
 				Ipv6AddressesPerInterface: ptr.To[int32](10),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+			BareMetal:  ptr.To(false),
 		},
 	})
 
@@ -113,5 +118,6 @@ func TestInitEC2APIUpdateTrigger(t *testing.T) {
 		IPv4:           10,
 		IPv6:           10,
 		HypervisorType: "nitro",
+		IsBareMetal:    false,
 	}, limits)
 }
