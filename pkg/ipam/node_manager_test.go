@@ -134,7 +134,7 @@ func (n *nodeOperationsMock) AllocateStaticIP(ctx context.Context, staticIPTags 
 	return "", nil
 }
 
-func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, excessIPPrefixes int, scopedLog *slog.Logger) *ReleaseAction {
+func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ReleaseAction {
 	n.mutex.RLock()
 	excessIPs = min(excessIPs, len(n.allocatedIPs))
 	r := &ReleaseAction{PoolID: testPoolID}
@@ -147,9 +147,6 @@ func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, excessIPPrefixes in
 	return r
 }
 
-func (n *nodeOperationsMock) CalculateExcessIPPrefixes() int {
-	return 0
-}
 func (n *nodeOperationsMock) releaseIP(ip string) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
