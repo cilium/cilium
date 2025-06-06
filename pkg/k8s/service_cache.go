@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/spf13/pflag"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -38,19 +37,8 @@ var ServiceCacheCell = cell.Module(
 	"service-cache",
 	"Service Cache",
 
-	cell.Config(ServiceCacheConfig{}),
 	cell.Provide(newServiceCache),
 )
-
-// ServiceCacheConfig defines the configuration options for the service cache.
-type ServiceCacheConfig struct {
-	EnableServiceTopology bool
-}
-
-// Flags implements the cell.Flagger interface.
-func (def ServiceCacheConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-service-topology", def.EnableServiceTopology, "Enable support for service topology aware hints")
-}
 
 // CacheAction is the type of action that was performed on the cache
 type CacheAction int
@@ -245,7 +233,6 @@ type ServiceCache interface {
 // The Events member will receive events as services.
 type ServiceCacheImpl struct {
 	logger   *slog.Logger
-	config   ServiceCacheConfig
 	lbConfig loadbalancer.Config
 
 	// Events may only be read by single consumer. The consumer must acknowledge
@@ -302,15 +289,14 @@ func NewServiceCache(logger *slog.Logger, lbConfig loadbalancer.Config, db *stat
 	}
 }
 
-func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, lbConfig loadbalancer.Config, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
+func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, lbConfig loadbalancer.Config, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
 	sc := NewServiceCache(logger, lbConfig, db, nodeAddrs, metrics)
-	sc.config = cfg
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	lc.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			if !cfg.EnableServiceTopology {
+			if !lbConfig.EnableServiceTopology {
 				return nil
 			}
 
@@ -621,7 +607,7 @@ type FrontendList map[string]struct{}
 // filterEndpoints filters local endpoints by using k8s service heuristics.
 // For now it only implements the topology aware hints.
 func (s *ServiceCacheImpl) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
-	if !s.config.EnableServiceTopology || svc == nil {
+	if !s.lbConfig.EnableServiceTopology || svc == nil {
 		return localEndpoints
 	}
 
@@ -887,13 +873,11 @@ func (s *ServiceCacheImpl) DebugStatus() string {
 	defer s.mutex.RUnlock()
 	// Create a temporary struct excluding the fields we want to ignore.
 	dumpable := struct {
-		Config            ServiceCacheConfig
 		Services          map[ServiceID]*Service
 		Endpoints         map[ServiceID]*EndpointSlices
 		ExternalEndpoints map[ServiceID]externalEndpoints
 		SelfNodeZoneLabel string
 	}{
-		Config:            s.config,
 		Services:          s.services,
 		Endpoints:         s.endpoints,
 		ExternalEndpoints: s.externalEndpoints,

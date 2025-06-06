@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --enable-experimental-lb --enable-service-topology --lb-test-fault-probability=0.0
 #
 # Test topology-aware hints, e.g. backends meant for other zones are ignored.
 #
