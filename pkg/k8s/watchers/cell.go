@@ -10,6 +10,7 @@ import (
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -45,6 +46,8 @@ type k8sWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 	ResourceGroupsFn  ResourceGroupFunc
+
+	KVStoreClient kvstore.Client
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
@@ -60,5 +63,6 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		params.AgentConfig,
+		params.KVStoreClient,
 	)
 }
