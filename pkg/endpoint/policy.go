@@ -26,7 +26,6 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -131,7 +130,7 @@ type policyGenerateResult struct {
 
 // Release resources held for the new policy
 // Must be called with buildMutex held
-func (res *policyGenerateResult) release() {
+func (res *policyGenerateResult) release(logger *slog.Logger) {
 	// Detach the rejected endpoint policy.
 	// This is needed to release resources held for the EndpointPolicy
 	if res != nil && res.endpointPolicy != nil {
@@ -139,7 +138,7 @@ func (res *policyGenerateResult) release() {
 		res.endpointPolicy.Ready()
 		// Detach the EndpointPolicy from the SelectorPolicy it was
 		// instantiated from
-		res.endpointPolicy.Detach(logging.DefaultSlogLogger)
+		res.endpointPolicy.Detach(logger)
 		res.endpointPolicy = nil
 	}
 }
@@ -268,7 +267,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
 	stats.endpointPolicyCalculation.Start()
-	result.endpointPolicy = selectorPolicy.DistillPolicy(logging.DefaultSlogLogger, e, desiredRedirects)
+	result.endpointPolicy = selectorPolicy.DistillPolicy(e.getLogger(), e, desiredRedirects)
 	stats.endpointPolicyCalculation.End(true)
 
 	datapathRegenCtxt.policyResult = result
@@ -305,7 +304,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 	if e.identityRevision != res.identityRevision {
 		// Detach the rejected endpoint policy.
 		// This is needed to release resources held for the EndpointPolicy
-		res.release()
+		res.release(e.getLogger())
 
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
@@ -323,7 +322,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 			// Mark as "ready" so that Detach will not complain about it
 			e.desiredPolicy.Ready()
 			// Detach the EndpointPolicy from the SelectorPolicy it was instantiated from
-			e.desiredPolicy.Detach(logging.DefaultSlogLogger)
+			e.desiredPolicy.Detach(e.getLogger())
 		}
 
 		e.desiredPolicy = res.endpointPolicy
@@ -334,7 +333,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 		datapathRegenCtxt.revertStack.Push(func() error {
 			// Do nothing if e.policyMap was not initialized already
 			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
-				e.desiredPolicy.Detach(logging.DefaultSlogLogger)
+				e.desiredPolicy.Detach(e.getLogger())
 				e.desiredPolicy = e.realizedPolicy
 
 				currentMap, err := e.policyMap.DumpToMapStateMap()
@@ -551,7 +550,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	if e.desiredPolicy != e.realizedPolicy {
 		// Remove references to the old policy
-		e.realizedPolicy.Detach(logging.DefaultSlogLogger)
+		e.realizedPolicy.Detach(e.getLogger())
 		// Set realized state to desired state.
 		e.realizedPolicy = e.desiredPolicy
 	}
@@ -875,7 +874,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 
 	err = e.lockAlive()
 	if err != nil {
-		datapathRegenCtxt.policyResult.release()
+		datapathRegenCtxt.policyResult.release(e.getLogger())
 		return err, func() {}
 	}
 	defer e.unlock()
@@ -886,7 +885,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	release := func() {
 		e.buildMutex.Lock()
 		defer e.buildMutex.Unlock()
-		datapathRegenCtxt.policyResult.release()
+		datapathRegenCtxt.policyResult.release(e.getLogger())
 	}
 
 	err = e.setDesiredPolicy(datapathRegenCtxt)
