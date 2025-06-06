@@ -137,6 +137,8 @@ message Flow {
     repeated Policy egress_denied_by = 21004;
     // The CiliumNetworkPolicies denying the ingress of the flow.
     repeated Policy ingress_denied_by = 21005;
+    // the set of explicit policy log strings for this flow
+    repeated string policy_log = 21006;
 }
 
 enum FlowType {
