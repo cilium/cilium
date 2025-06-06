@@ -6,14 +6,14 @@ hive/start
 k8s/add service.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-1.expected
 
 # 2. Add the endpoint slice
 k8s/add endpointslice.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-2.expected
 
 # 3. Test changing backend IPs
@@ -23,7 +23,7 @@ replace '10.244.1.1' '10.244.2.2' services-3.expected
 k8s/update endpointslice.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-3.expected
 
 # 4. Test changing backend port
@@ -34,35 +34,35 @@ sed '"Port": 8080' '"Port": 9090' services-4.expected
 k8s/update service.yaml endpointslice.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-4.expected
 
 # 5. Remove endpoint slice
 k8s/delete endpointslice.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-1.expected
 
 # 6. Remove service
 k8s/delete service.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * empty services.actual
 
 # 7. Add endpoint slice before service
 k8s/add endpointslice.yaml
 
 # No service should exist
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 empty services.actual
 
 # 8. Add the service
 k8s/add service.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-4.expected
 
 # 9. Toggle the global annotation. Service should be deleted.
@@ -70,7 +70,7 @@ sed 'service.cilium.io/global: "true"' 'service.cilium.io/global: "false"' servi
 k8s/update service.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * empty services.actual
 
 # 10. Toggle the global annotation back. The shared annotation is not neeeded.
@@ -80,7 +80,7 @@ sed 'service.cilium.io/global: "false"' 'service.cilium.io/global: "true"' servi
 k8s/update service.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * cmp services.actual services-4.expected
 
 # 11. Mark the service as not shared. Service should be deleted.
@@ -88,7 +88,7 @@ sed 'placeholder: "true"' 'service.cilium.io/shared: "false"' service.yaml
 k8s/update service.yaml
 
 # Wait for synchronization
-kvstore/list cilium/state/services services.actual
+kvstore/list -o json cilium/state/services services.actual
 * empty services.actual
 
 # ----
