@@ -333,10 +333,9 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// the regenerated datapath always lookups from a ready ipcache map.
 	// Additionally wait for node synchronization, as nodes also contribute
 	// entries to the ipcache map, most notably about the remote node IPs.
-	if option.Config.KVStore != "" {
-		if err := regenerator.WaitForKVStoreSync(e.aliveCtx); err != nil {
-			return ErrNotAlive
-		}
+	// WaitForKVStoreSync returns immediately if the kvstore is not enabled.
+	if err := regenerator.WaitForKVStoreSync(e.aliveCtx); err != nil {
+		return ErrNotAlive
 	}
 
 	// Wait for ipcache and identities synchronization from all remote clusters,
