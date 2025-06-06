@@ -281,7 +281,7 @@ func (d *Daemon) allocateHealthIPs() error {
 		// in order to set up rules and routes on the local node to direct
 		// endpoint traffic out of the ENIs.
 		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
-			if d.healthEndpointRouting, err = parseRoutingInfo(result); err != nil {
+			if d.healthEndpointRouting, err = parseRoutingInfo(d.logger, result); err != nil {
 				d.logger.Warn("Unable to allocate health information for ENI", logfields.Error, err)
 			}
 		}
@@ -365,7 +365,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			// ENI MAC addr in order to set up rules and routes on the local node to
 			// direct ingress traffic out of the ENIs.
 			if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
-				if ingressRouting, err := parseRoutingInfo(result); err != nil {
+				if ingressRouting, err := parseRoutingInfo(d.logger, result); err != nil {
 					d.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
 				} else {
 					if err := ingressRouting.Configure(
@@ -585,10 +585,10 @@ func (d *Daemon) startIPAM() {
 	bootstrapStats.ipam.End(true)
 }
 
-func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
+func parseRoutingInfo(logger *slog.Logger, result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
 	if result.IP.To4() != nil {
 		return linuxrouting.NewRoutingInfo(
-			logging.DefaultSlogLogger,
+			logger,
 			result.GatewayIP,
 			result.CIDRs,
 			result.PrimaryMAC,
@@ -598,7 +598,7 @@ func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo,
 		)
 	} else {
 		return linuxrouting.NewRoutingInfo(
-			logging.DefaultSlogLogger,
+			logger,
 			result.GatewayIP,
 			result.CIDRs,
 			result.PrimaryMAC,
