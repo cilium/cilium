@@ -5,20 +5,19 @@ package k8s
 
 import (
 	"cmp"
-	"context"
+	"maps"
 	"net/netip"
 	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -44,21 +43,6 @@ func (f *fakePolicyImporter) UpdatePolicy(upd *policytypes.PolicyUpdate) {
 	}
 }
 
-type fakeService struct {
-	svc *k8s.MinimalService
-	eps *k8s.MinimalEndpoints
-}
-
-type fakeServiceCache map[k8s.ServiceID]fakeService
-
-func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) bool) {
-	for svcID, s := range f {
-		if !yield(svcID, s.svc, s.eps) {
-			break
-		}
-	}
-}
-
 func addrToCIDRRule(addr netip.Addr) api.CIDRRule {
 	return api.CIDRRule{
 		Cidr:      api.CIDR(netip.PrefixFrom(addr, addr.BitLen()).String()),
@@ -71,6 +55,60 @@ func sortCIDRSet(s api.CIDRRuleSlice) api.CIDRRuleSlice {
 		return cmp.Compare(a.Cidr, b.Cidr)
 	})
 	return s
+}
+
+type servicesFixture struct {
+	db       *statedb.DB
+	services statedb.RWTable[*loadbalancer.Service]
+	backends statedb.RWTable[*loadbalancer.Backend]
+}
+
+func newServicesFixture(t *testing.T) servicesFixture {
+	db := statedb.New()
+	services, err := loadbalancer.NewServicesTable(loadbalancer.DefaultConfig, db)
+	require.NoError(t, err)
+	backends, err := loadbalancer.NewBackendsTable(db)
+	require.NoError(t, err)
+
+	return servicesFixture{
+		db:       db,
+		services: services,
+		backends: backends,
+	}
+}
+
+func (sf *servicesFixture) upsertService(name loadbalancer.ServiceName, lbls, selectors map[string]string, backendAddrs []cmtypes.AddrCluster, prev *serviceEvent) serviceEvent {
+	var ev serviceEvent
+	ev.name = name
+	ev.labels = labels.Map2Labels(lbls, "k8s")
+	if prev != nil {
+		copy := *prev
+		ev.previous = &copy
+	}
+
+	wtxn := sf.db.WriteTxn(sf.services, sf.backends)
+	defer wtxn.Commit()
+	sf.services.Insert(wtxn, &loadbalancer.Service{
+		Name:     name,
+		Labels:   ev.labels,
+		Selector: selectors,
+	})
+	// Clear any old associations.
+	for be := range sf.backends.List(wtxn, loadbalancer.BackendByServiceName(name)) {
+		sf.backends.Delete(wtxn, be)
+	}
+	for _, addrCluster := range backendAddrs {
+		addr := loadbalancer.L3n4Addr{AddrCluster: addrCluster}
+		be := &loadbalancer.Backend{
+			Address: addr,
+		}
+		be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{
+			ServiceName: name,
+		}, loadbalancer.BackendParams{Address: addr})
+		ev.backendRevisions = append(ev.backendRevisions, sf.backends.Revision(wtxn))
+		sf.backends.Insert(wtxn, be)
+	}
+	return ev
 }
 
 func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
@@ -182,82 +220,44 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	fooEpAddr1 := cmtypes.MustParseAddrCluster("10.1.1.1")
 	fooEpAddr2 := cmtypes.MustParseAddrCluster("10.1.1.2")
-	fooSvcID := k8s.ServiceID{
+	fooSvcID := loadbalancer.ServiceName{
 		Name:      "foo-svc",
 		Namespace: "foo-ns",
 	}
-	fooSvc := &k8s.MinimalService{}
-	fooEps := &k8s.MinimalEndpoints{
-		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
-			fooEpAddr1: {
-				"port": {
-					Protocol: loadbalancer.TCP,
-					Port:     80,
-				},
-			},
-			fooEpAddr2: {
-				"port": {
-					Protocol: loadbalancer.TCP,
-					Port:     80,
-				},
-			},
-		},
-	}
+	fooEps := []cmtypes.AddrCluster{fooEpAddr1, fooEpAddr2}
 
 	barEpAddr := cmtypes.MustParseAddrCluster("192.168.1.1")
-	barSvcID := k8s.ServiceID{
+	barSvcID := loadbalancer.ServiceName{
 		Name:      "bar-svc",
 		Namespace: "bar-ns",
 	}
-	barSvc := &k8s.MinimalService{
-		Labels: barSvcLabels,
-	}
-	barEps := &k8s.MinimalEndpoints{
-		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
-			barEpAddr: {
-				"port": {
-					Protocol: loadbalancer.UDP,
-					Port:     53,
-				},
-			},
-		},
-	}
+	barEps := []cmtypes.AddrCluster{barEpAddr}
 
 	// baz is similar to bar, but not an external service (thus not selectable)
-	bazSvcID := k8s.ServiceID{
+	bazSvcID := loadbalancer.ServiceName{
 		Name:      "baz-svc",
 		Namespace: "baz-ns",
 	}
-	bazSvcLabels := map[string]string{
+	bazSvcSelector := map[string]string{
 		"app": "baz",
 	}
-	bazSvc := &k8s.MinimalService{
-		Labels:   barSvcLabels,
-		Selector: bazSvcLabels,
-	}
 
-	bazEps := &k8s.MinimalEndpoints{
-		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
-			barEpAddr: {
-				"port": {
-					Protocol: loadbalancer.UDP,
-					Port:     53,
-				},
-			},
-		},
-	}
+	bazEps := []cmtypes.AddrCluster{barEpAddr}
 
-	svcCache := fakeServiceCache{}
+	servicesFixture := newServicesFixture(t)
+
 	p := &policyWatcher{
 		log:                hivetest.Logger(t),
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
 		policyImporter:     policyImporter,
-		svcCache:           svcCache,
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
-		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		cnpByServiceID:     map[loadbalancer.ServiceName]map[resource.Key]struct{}{},
 		metricsManager:     NewCNPMetricsNoop(),
 	}
 
@@ -284,12 +284,16 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svcByLabelKey: {},
 	}, p.toServicesPolicies)
 
-	// Add foo-svc, which is selected by svcByNameCNP twice
-	svcCache[fooSvcID] = fakeService{
-		svc: fooSvc,
-		eps: fooEps,
+	select {
+	case <-policyAdd:
+		t.Fatalf("what1")
+	default:
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, fooEps, nil)
+
+	// Add foo-svc, which is selected by svcByNameCNP twice
+	fooEv := servicesFixture.upsertService(fooSvcID, nil, nil, fooEps, nil)
+
+	err = p.updateToServicesPolicies(fooEv)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 2)
@@ -313,18 +317,15 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}, sortCIDRSet(rules[1].Egress[0].ToCIDRSet))
 
 	// Check that policy has been marked
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
 	}, p.cnpByServiceID)
 
 	// Add bar-svc, which is selected by both policies
-	svcCache[barSvcID] = fakeService{
-		svc: barSvc,
-		eps: barEps,
-	}
-	err = p.updateToServicesPolicies(barSvcID, barSvc, nil, barEps, nil)
+	barEv := servicesFixture.upsertService(barSvcID, barSvcLabels, nil, barEps, nil)
+	err = p.updateToServicesPolicies(barEv)
 	assert.NoError(t, err)
 
 	// Expect two policies to be updated (in any order)
@@ -366,7 +367,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}, byLabelRules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies have been marked
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -377,8 +378,9 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}, p.cnpByServiceID)
 
 	// Change foo-svc endpoints, which is selected by svcByNameCNP twice
-	delete(fooEps.Backends, fooEpAddr2)
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, fooSvc, fooEps, nil)
+	fooEv = servicesFixture.upsertService(fooSvcID, nil, nil, fooEps[:1], &fooEv)
+	err = p.updateToServicesPolicies(fooEv)
+
 	assert.NoError(t, err)
 	byNameRules = <-policyAdd
 	assert.Len(t, byNameRules, 2)
@@ -401,9 +403,8 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet))
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
-	oldBarSvc := barSvc.DeepCopy()
-	barSvc.Labels = nil
-	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc, barEps, barEps)
+	barEv = servicesFixture.upsertService(barSvcID, nil, nil, barEps, &barEv)
+	err = p.updateToServicesPolicies(barEv)
 	assert.NoError(t, err)
 
 	// Expect two policies to be updated (in any order)
@@ -431,7 +432,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Empty(t, byLabelRules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies have been cleared
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -441,11 +442,8 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}, p.cnpByServiceID)
 
 	// Add baz-svc, which is selected by svcByLabelCNP
-	svcCache[bazSvcID] = fakeService{
-		svc: bazSvc,
-		eps: bazEps,
-	}
-	err = p.updateToServicesPolicies(bazSvcID, bazSvc, nil, bazEps, nil)
+	bazEv := servicesFixture.upsertService(bazSvcID, barSvcLabels, bazSvcSelector, bazEps, nil)
+	err = p.updateToServicesPolicies(bazEv)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -454,7 +452,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Contains(t, rules[0].Labels, svcByLabelLbl)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcLabels, nil)
+	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcSelector, nil)
 	bazEndpointSelectors.Generated = true
 	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
 	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace)
@@ -463,7 +461,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Equal(t, bazEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policy has been marked
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -474,7 +472,6 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 			svcByLabelKey: {},
 		},
 	}, p.cnpByServiceID)
-
 }
 
 func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T) {
@@ -524,17 +521,20 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	svcByNameKey := resource.NewKey(svcByNameCNP)
 	svcByNameResourceID := resourceIDForCiliumNetworkPolicy(svcByNameKey, svcByNameCNP)
 
-	svcCache := fakeServiceCache{}
+	servicesFixture := newServicesFixture(t)
+
 	p := &policyWatcher{
 		log:                hivetest.Logger(t),
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
 		policyImporter:     policyImporter,
-		svcCache:           svcCache,
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
-		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		cnpByServiceID:     map[loadbalancer.ServiceName]map[resource.Key]struct{}{},
 		metricsManager:     NewCNPMetricsNoop(),
 	}
 
@@ -550,20 +550,16 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, map[resource.Key]struct{}{
 		svcByNameKey: {},
 	}, p.toServicesPolicies)
-	fooSvcID := k8s.ServiceID{
+	fooSvcID := loadbalancer.ServiceName{
 		Name:      "foo-svc",
 		Namespace: "foo-ns",
 	}
-	fooSvcLabels := map[string]string{
+	fooSvcSelector := map[string]string{
 		"app": "foo",
 	}
-	fooSvc := &k8s.MinimalService{
-		Selector: fooSvcLabels,
-	}
-	svcCache[fooSvcID] = fakeService{
-		svc: fooSvc,
-	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, nil, nil)
+
+	fooEv := servicesFixture.upsertService(fooSvcID, nil, fooSvcSelector, nil, nil)
+	err = p.updateToServicesPolicies(fooEv)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -574,7 +570,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, rules[0].Egress[0].ToServices)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors := api.NewESFromMatchRequirements(fooSvcLabels, nil)
+	fooEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
 	fooEndpointSelectors.Generated = true
 	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
 	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
@@ -583,26 +579,26 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policies have been marked
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
 	}, p.cnpByServiceID)
 
 	// Change foo-svc labels. This should keep the ToEndpoints
-	oldFooSvc := fooSvc.DeepCopy()
-	fooSvc.Labels = map[string]string{
+	fooSvcLabels := map[string]string{
 		"app": "foo",
 		"new": "label",
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, oldFooSvc, nil, nil)
+	fooEv = servicesFixture.upsertService(fooSvcID, fooSvcLabels, fooSvcSelector, nil, &fooEv)
+	err = p.updateToServicesPolicies(fooEv)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(fooSvcLabels, nil)
+	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
 	fooEndpointSelectors.Generated = true
 	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
 
@@ -647,15 +643,10 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	// svcByLabelLbl := labels.NewLabel("io.cilium.k8s.policy.name", svcByLabelCNP.Name, "k8s")
 	svcByLabelKey := resource.NewKey(svcByLabelCNP)
 	svcByLabelResourceID := resourceIDForCiliumNetworkPolicy(svcByLabelKey, svcByLabelCNP)
-	barSvcID := k8s.ServiceID{
+	barSvcID := loadbalancer.ServiceName{
 		Name:      "bar-svc",
 		Namespace: "bar-ns",
 	}
-	barSvc := &k8s.MinimalService{
-		Labels:   barSvcLabels,
-		Selector: barSvcLabels,
-	}
-
 	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID, nil)
 	// Upsert policies. No services are known, so generated ToEndpoints should be empty
 	assert.NoError(t, err)
@@ -664,17 +655,16 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Empty(t, rules[0].Egress[0].ToEndpoints)
 
-	svcCache[barSvcID] = fakeService{
-		svc: barSvc,
-	}
-	err = p.updateToServicesPolicies(barSvcID, barSvc, nil, nil, nil)
+	barEv := servicesFixture.upsertService(barSvcID, barSvcLabels, barSvcLabels, nil, nil)
+	err = p.updateToServicesPolicies(barEv)
+
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	barEndpointSelectors := api.NewESFromMatchRequirements(barSvcLabels, nil)
+	barEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(barSvcLabels), nil)
 	barEndpointSelectors.Generated = true
 	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace)
 
@@ -682,7 +672,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, barEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policies have been marked
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -692,10 +682,8 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	}, p.cnpByServiceID)
 
 	// Delete bar-svc labels. This should remove all toEndpoints from svcByLabelCNP
-	oldBarSvc := barSvc.DeepCopy()
-	barSvc.Labels = nil
-
-	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc, nil, nil)
+	barEv = servicesFixture.upsertService(barSvcID, nil, barSvcLabels, nil, &barEv)
+	err = p.updateToServicesPolicies(barEv)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -703,7 +691,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Empty(t, rules[0].Egress[0].ToEndpoints)
 
 	// Check that policies have been cleared
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -716,10 +704,11 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	<-policyDelete
 
 	// Check that policies have been cleared
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{}, p.cnpByServiceID)
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{}, p.cnpByServiceID)
 
 	// Add foo-svc again, which should re-add the policy
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, nil, nil)
+	fooEv.previous = nil // Bypass change checks
+	err = p.updateToServicesPolicies(fooEv)
 	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
@@ -727,7 +716,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(fooSvcLabels, nil)
+	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
 	fooEndpointSelectors.Generated = true
 	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
 
@@ -735,17 +724,17 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policies have been marked
-	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
 	}, p.cnpByServiceID)
 }
+
 func Test_hasMatchingToServices(t *testing.T) {
 	type args struct {
-		spec  *api.Rule
-		svcID k8s.ServiceID
-		svc   *k8s.MinimalService
+		spec *api.Rule
+		ev   serviceEvent
 	}
 	tests := []struct {
 		name string
@@ -755,9 +744,10 @@ func Test_hasMatchingToServices(t *testing.T) {
 		{
 			name: "nil rule",
 			args: args{
-				spec:  nil,
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{},
+				spec: nil,
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+				},
 			},
 			want: false,
 		},
@@ -776,8 +766,9 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{},
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+				},
 			},
 			want: true,
 		},
@@ -796,8 +787,9 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{},
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+				},
 			},
 			want: true,
 		},
@@ -818,8 +810,9 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "not-test-ns"},
-				svc:   &k8s.MinimalService{},
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "not-test-ns"},
+				},
 			},
 			want: false,
 		},
@@ -840,8 +833,9 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{},
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+				},
 			},
 			want: false,
 		},
@@ -862,8 +856,9 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{},
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+				},
 			},
 			want: false,
 		},
@@ -890,8 +885,9 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{},
+				ev: serviceEvent{
+					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+				},
 			},
 			want: true,
 		},
@@ -913,8 +909,10 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				ev: serviceEvent{
+					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
+				},
 			},
 			want: true,
 		},
@@ -936,8 +934,10 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				ev: serviceEvent{
+					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
+				},
 			},
 			want: true,
 		},
@@ -960,8 +960,10 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				ev: serviceEvent{
+					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
+				},
 			},
 			want: false,
 		},
@@ -984,8 +986,10 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				ev: serviceEvent{
+					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					labels: labels.NewLabelsFromSortedList("baz=qux,foo=bar"),
+				},
 			},
 			want: false,
 		},
@@ -1011,52 +1015,100 @@ func Test_hasMatchingToServices(t *testing.T) {
 						},
 					},
 				}},
-				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				ev: serviceEvent{
+					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					labels: labels.NewLabelsFromSortedList("baz=qux,foo=bar"),
+				},
 			},
 			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, hasMatchingToServices(tt.args.spec, tt.args.svcID, tt.args.svc), "hasMatchingToServices(%v, %v, %v)", tt.args.spec, tt.args.svcID, tt.args.svc)
+			assert.Equalf(t, tt.want, hasMatchingToServices(tt.args.spec, tt.args.ev), "hasMatchingToServices(%v, %v)", tt.args.spec, tt.args.ev)
 		})
 	}
 }
 
-func Test_serviceNotificationsQueue(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func TestServiceEventStream(t *testing.T) {
+	servicesFixture := newServicesFixture(t)
+	serviceEvents := stream.ToChannel(
+		t.Context(),
+		serviceEventStream(servicesFixture.db, servicesFixture.services, servicesFixture.backends),
+	)
 
-	upstream := make(chan k8s.ServiceNotification)
-	downstream := serviceNotificationsQueue(ctx, stream.FromChannel(upstream))
+	svc := loadbalancer.ServiceName{Namespace: "test", Name: "svc1"}
+	lbls := map[string]string{"foo": "bar"}
+	addr := cmtypes.MustParseAddrCluster("10.0.0.1")
 
-	// Test that sending events in upstream does not block on unbuffered channel
-	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc1"}}
-	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc2"}}
-	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc3"}}
+	testCases := []struct {
+		step     string
+		name     loadbalancer.ServiceName
+		labels   map[string]string
+		selector map[string]string
+		backends []cmtypes.AddrCluster
+		expected serviceEvent
+		skip     bool
+		delete   bool
+	}{
+		{
+			step:     "initial",
+			name:     svc,
+			expected: serviceEvent{name: svc},
+		},
+		// Repeating the same will not emit event
+		{
+			step: "repeat",
+			name: svc,
+			skip: true,
+		},
+		// Updating labels emits event
+		{
+			step:     "update labels",
+			name:     svc,
+			labels:   lbls,
+			expected: serviceEvent{name: svc, labels: labels.Map2Labels(lbls, "k8s")},
+		},
+		// Updating selectors emits event
+		{
+			step:     "update selectors",
+			name:     svc,
+			labels:   lbls,
+			selector: lbls,
+			expected: serviceEvent{name: svc, labels: labels.Map2Labels(lbls, "k8s"), selector: lbls},
+		},
+		// Adding backends emits event
+		{
+			step:     "add backends",
+			name:     svc,
+			labels:   lbls,
+			selector: lbls,
+			backends: []cmtypes.AddrCluster{addr},
+			expected: serviceEvent{name: svc, labels: labels.Map2Labels(lbls, "k8s"), selector: lbls, backendRevisions: []uint64{1}},
+		},
+		// Deleting a service emits delete event with data from last one.
+		{
+			step:     "delete service",
+			name:     svc,
+			delete:   true,
+			expected: serviceEvent{deleted: true, name: svc, labels: labels.Map2Labels(lbls, "k8s"), selector: lbls, backendRevisions: []uint64{1}},
+		},
+	}
 
-	// Test that events are received in order
-	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc1"}}, <-downstream)
-	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc2"}}, <-downstream)
-	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc3"}}, <-downstream)
-	require.Empty(t, downstream)
-
-	// Test that Go routine exits on empty upstream if ctx is cancelled
-	cancel()
-	_, ok := <-downstream
-	require.False(t, ok, "service notification channel was not closed on cancellation")
-
-	// Test that Go routine exits on upstream close
-	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
-	upstream = make(chan k8s.ServiceNotification)
-	downstream = serviceNotificationsQueue(ctx, stream.FromChannel(upstream))
-
-	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc4"}}
-	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc4"}}, <-downstream)
-
-	close(upstream)
-	_, ok = <-downstream
-	require.False(t, ok, "service notification channel was not closed on upstream close")
+	for _, testCase := range testCases {
+		t.Logf("STEP: %s", testCase.step)
+		if testCase.delete {
+			wtxn := servicesFixture.db.WriteTxn(servicesFixture.services)
+			servicesFixture.services.Delete(wtxn, &loadbalancer.Service{
+				Name: testCase.name,
+			})
+			wtxn.Commit()
+		} else {
+			servicesFixture.upsertService(testCase.name, testCase.labels, testCase.selector, testCase.backends, nil)
+		}
+		if !testCase.skip {
+			ev := <-serviceEvents
+			require.True(t, ev.Equal(testCase.expected), "expected %+v to equal %+v", ev, testCase.expected)
+		}
+	}
 }
