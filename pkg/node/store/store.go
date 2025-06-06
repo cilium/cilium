@@ -6,12 +6,12 @@ package store
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/logging"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -148,13 +148,13 @@ type NodeRegistrar struct {
 }
 
 // RegisterNode registers the local node in the cluster.
-func (nr *NodeRegistrar) RegisterNode(ctx context.Context, client kvstore.Client, n *nodeTypes.Node, manager NodeExtendedManager) error {
+func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, client kvstore.Client, n *nodeTypes.Node, manager NodeExtendedManager) error {
 	if !client.IsEnabled() {
 		return nil
 	}
 
 	// Join the shared store holding node information of entire cluster
-	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
+	nodeStore, err := store.JoinSharedStore(logger, store.Configuration{
 		Context:                 ctx,
 		Backend:                 client,
 		Prefix:                  NodeStorePrefix,
