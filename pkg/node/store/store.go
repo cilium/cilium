@@ -15,6 +15,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -155,12 +156,13 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, n *nodeTypes.Node, ma
 
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
-		Context:              ctx,
-		Backend:              kvstore.Client(),
-		Prefix:               NodeStorePrefix,
-		KeyCreator:           ValidatingKeyCreator(),
-		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-		Observer:             NewNodeObserver(manager, source.KVStore),
+		Context:                 ctx,
+		Backend:                 kvstore.Client(),
+		Prefix:                  NodeStorePrefix,
+		KeyCreator:              ValidatingKeyCreator(),
+		SynchronizationInterval: 30 * time.Minute,
+		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
+		Observer:                NewNodeObserver(manager, source.KVStore),
 	})
 	if err != nil {
 		return err

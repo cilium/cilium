@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -111,7 +110,6 @@ func TestStoreCreation(t *testing.T) {
 	store, err = JoinSharedStore(hivetest.Logger(t), Configuration{Prefix: rand.String(12), KeyCreator: newTestType, Backend: client})
 	require.NoError(t, err)
 	require.NotNil(t, store)
-	require.Equal(t, option.Config.KVstorePeriodicSync, store.conf.SynchronizationInterval)
 	store.Close(context.TODO())
 }
 
