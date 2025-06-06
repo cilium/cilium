@@ -153,10 +153,61 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	// addresses available for release
 	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
 		e := n.enis[eniId]
-
-		// IP release for prefixes is not currently supported. Will skip releasing from this ENI
-		if len(e.Prefixes) > 0 {
+		ipPrefixes := e.Prefixes
+		// Ignore if the ENI is not managed by Cilium
+		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
 			continue
+		}
+
+		scopedLog.Debug(
+			"Considering ENI for IPPrefix release",
+			fieldEniID, e.ID,
+			logfields.NeedIndex, *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
+			logfields.Index, e.Number,
+			logfields.NumAddresses, len(e.Addresses),
+			logfields.LenPrefixes, len(ipPrefixes),
+		)
+
+		matchedIPs := []string{}
+		if len(ipPrefixes) > 0 {
+			usedIPs := n.k8sObj.Status.IPAM.Used
+			unusedIPPrefixes := []string{}
+
+			// Identify unused IP prefixes to release
+			for _, prefix := range ipPrefixes {
+				// Prevent removing IPPrefix added to resolve IP deficit.
+				remainingExcessIps := excessIPs - len(unusedIPPrefixes)*option.ENIPDBlockSizeIPv4
+				if remainingExcessIps < option.ENIPDBlockSizeIPv4 {
+					break
+				}
+				prefixAddr, err := netip.ParsePrefix(prefix)
+				if err != nil {
+					continue
+				}
+
+				found := false
+				for ip := range usedIPs {
+					if prefixAddr.Contains(netip.MustParseAddr(ip)) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					unusedIPPrefixes = append(unusedIPPrefixes, prefix)
+					for _, ipStr := range e.Addresses {
+						ip := netip.MustParseAddr(ipStr)
+						if prefixAddr.Contains(ip) {
+							matchedIPs = append(matchedIPs, ipStr)
+						}
+					}
+				}
+			}
+			if len(unusedIPPrefixes) > 0 {
+				r.InterfaceID = eniId
+				r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
+				r.IPsToRelease = matchedIPs
+				r.IPPrefixesToRelease = unusedIPPrefixes
+			}
 		}
 		scopedLog.Debug(
 			"Considering ENI for IP release",
@@ -165,10 +216,6 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 			logfields.Index, e.Number,
 			logfields.NumAddresses, len(e.Addresses),
 		)
-
-		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
-			continue
-		}
 
 		// Count free IP addresses on this ENI
 		ipsOnENI := n.k8sObj.Status.ENI.ENIs[e.ID].Addresses
@@ -193,22 +240,71 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 			logfields.FreeOnENICount, freeOnENICount,
 		)
 		maxReleaseOnENI := min(freeOnENICount, excessIPs)
-
 		firstENIWithFreeIPFound := r.IPsToRelease == nil
 		eniWithMoreFreeIPsFound := maxReleaseOnENI > len(r.IPsToRelease)
 		// Select the ENI with the most addresses available for release
 		if firstENIWithFreeIPFound || eniWithMoreFreeIPsFound {
 			r.InterfaceID = eniId
 			r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-			r.IPsToRelease = freeIpsOnENI[:maxReleaseOnENI]
+			freeIPs := freeIpsOnENI[:maxReleaseOnENI]
+
+			if len(ipPrefixes) > 0 {
+				secondaryIPs := n.GetIndividualIPs(ipPrefixes, freeIPs)
+				if len(secondaryIPs) > 0 {
+					r.IPsToRelease = append(matchedIPs, secondaryIPs...)
+				}
+				return r
+
+			}
+			r.IPsToRelease = freeIPs
+			return r
 		}
 	}
-
 	return r
+}
+
+// ReleaseIPPrefixes performs the ENI IPPrefixes release operation
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	if err := n.manager.api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+// Get Individual IPs that do not belong to any IPPrefix
+func (n *Node) GetIndividualIPs(ipPrefixes, ipAddresses []string) (individualIPs []string) {
+	// individualIPs := []string{}
+	for _, ipStr := range ipAddresses {
+		matched := false
+		ip := netip.MustParseAddr(ipStr)
+		for _, prefix := range ipPrefixes {
+			prefixAddr, err := netip.ParsePrefix(prefix)
+			if err != nil {
+				continue
+			}
+			if prefixAddr.Contains(ip) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			individualIPs = append(individualIPs, ipStr)
+		}
+	}
+	return individualIPs
 }
 
 // ReleaseIPs performs the ENI IP release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
+	// Filter IPs that do not belong to any IPPrefix
+	if len(r.IPPrefixesToRelease) > 0 {
+		r.IPsToRelease = n.GetIndividualIPs(r.IPPrefixesToRelease, r.IPsToRelease)
+	}
+	if len(r.IPsToRelease) <= 0 {
+		return nil
+	}
 	if err := n.manager.api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease); err != nil {
 		return err
 	}

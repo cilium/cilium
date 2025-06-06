@@ -85,6 +85,10 @@ type NodeOperations interface {
 	// indicates a need to release IPs.
 	PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ReleaseAction
 
+	// ReleaseIPPrefixes is called after invoking PrepareIPRelease and needs to
+	// perform the release of IPPrefixes.
+	ReleaseIPPrefixes(ctx context.Context, release *ReleaseAction) error
+
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
 	ReleaseIPs(ctx context.Context, release *ReleaseAction) error
