@@ -39,7 +39,10 @@ var (
 	)
 
 	controllerCells = cell.Group(
-		cell.Invoke(registerCECController),
+		cell.Invoke(
+			registerCECController,
+			registerCachesSyncedJob,
+		),
 		metrics.Metric(newMetrics),
 	)
 
