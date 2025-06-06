@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -414,7 +413,7 @@ func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi
 	restAPI.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
 	restAPI.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
 
-	api.DisableAPIs(logging.DefaultSlogLogger, spec.DeniedAPIs, restAPI.AddMiddlewareFor)
+	api.DisableAPIs(logger, spec.DeniedAPIs, restAPI.AddMiddlewareFor)
 	srv := healthApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"unix"}
 	srv.SocketPath = defaults.SockPath
@@ -442,7 +441,7 @@ func NewServer(logger *slog.Logger, config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServers(getAddresses(logging.DefaultSlogLogger), config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(getAddresses(logger), config.HTTPPathPort)
 
 	return server, nil
 }
