@@ -14,7 +14,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -101,11 +100,6 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if cfg.Backend == nil {
-			// Needs to be assigned in a separate goroutine, since it might block
-			// if the client is not yet initialized.
-			cfg.Backend = kvstore.Client()
-		}
 
 		store := cfg.StoreFactory.NewSyncStore(cfg.ClusterInfo.Name,
 			cfg.Backend, serviceStore.ServiceStorePrefix)

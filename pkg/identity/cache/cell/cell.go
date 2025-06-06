@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -50,7 +51,7 @@ type CachingIdentityAllocator interface {
 	cache.IdentityAllocator
 	clustermesh.RemoteIdentityWatcher
 
-	InitIdentityAllocator(versioned.Interface) <-chan struct{}
+	InitIdentityAllocator(versioned.Interface, kvstore.BackendOperations) <-chan struct{}
 
 	// RestoreLocalIdentities reads in the checkpointed local allocator state
 	// from disk and allocates a reference to every previously existing identity.
@@ -81,7 +82,8 @@ type identityAllocatorParams struct {
 
 	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
 
-	Config config
+	Config        config
+	KVStoreConfig kvstore.Config
 }
 
 type identityAllocatorOut struct {
@@ -126,6 +128,8 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 		allocatorConfig := cache.AllocatorConfig{
 			EnableOperatorManageCIDs: isOperatorManageCIDsEnabled,
+			Timeout:                  params.KVStoreConfig.KVStoreConnectivityTimeout,
+			SyncInterval:             params.KVStoreConfig.KVStorePeriodicSync,
 		}
 
 		// Allocator: allocates local and cluster-wide security identities.
@@ -134,7 +138,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 		idAlloc = cacheIDAlloc
 	} else {
-		idAlloc = cache.NewNoopIdentityAllocator(params.Log)
+		idAlloc = cache.NewNoopIdentityAllocator(params.Log, params.KVStoreConfig.KVStoreConnectivityTimeout)
 	}
 
 	params.Lifecycle.Append(cell.Hook{

@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
@@ -617,15 +616,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
 	}
 
-	// Must init kvstore before starting node discovery
-	if option.Config.KVStore == "" {
-		d.logger.Info("Skipping kvstore configuration")
-	} else {
-		bootstrapStats.kvstore.Start()
-		d.initKVStore(params.ServiceResolver)
-		bootstrapStats.kvstore.End(true)
-	}
-
 	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
@@ -655,7 +645,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
-	d.nodeDiscovery.StartDiscovery()
+	d.nodeDiscovery.StartDiscovery(ctx)
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
@@ -707,7 +697,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD ||
 		params.Clientset.IsEnabled() {
 		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
+		realIdentityAllocator.InitIdentityAllocator(params.Clientset, params.KVStoreClient)
 	}
 
 	// Must be done at least after initializing BPF LB-related maps
@@ -740,12 +730,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
-	// this needs to be done *after* init() for the daemon in that function,
-	// we populate the IPCache with the host's IP(s).
-	if option.Config.KVStore != "" {
+	// this needs to be done *after* that the ipcache map has been recreated
+	// by initMaps.
+	if params.KVStoreClient.IsEnabled() {
 		go func() {
 			d.logger.Info("Starting IP identity watcher")
-			params.IPIdentityWatcher.Watch(ctx, kvstore.Client(), ipcache.WithSelfDeletionProtection(params.IPIdentitySyncer))
+			params.IPIdentityWatcher.Watch(ctx, params.KVStoreClient, ipcache.WithSelfDeletionProtection(params.IPIdentitySyncer))
 		}()
 	}
 

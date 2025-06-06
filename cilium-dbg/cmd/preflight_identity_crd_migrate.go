@@ -92,11 +92,6 @@ func migrateIdentityCmd() *cobra.Command {
 func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown()
 
-	// Setup global configuration
-	// These are defined in cilium/cmd/kvstore.go
-	option.Config.KVStore = kvStore
-	option.Config.KVStoreOpt = kvStoreOpts
-
 	// This allows us to initialize a CRD allocator
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD // force CRD mode to make ciliumid
 
@@ -254,10 +249,6 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
 	client := setupKvstore(ctx, logging.DefaultSlogLogger)
-
-	if err := <-client.Connected(wctx); err != nil {
-		logging.Fatal(log, "Cannot connect to the kvstore", logfields.Error, err)
-	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
 	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: client})

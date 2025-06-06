@@ -23,6 +23,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -45,6 +46,7 @@ type params struct {
 	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	Clientset           k8sClient.Clientset
+	KVStoreClient       kvstore.Client
 	RestorerPromise     promise.Promise[endpointstate.Restorer]
 	EndpointsCache      localEndpointCache
 	Cfg                 Config
@@ -72,7 +74,7 @@ func registerCleanup(p params) {
 		// instead eventually deleted when the corresponding lease expires.
 		//
 		// [1]: cilium/cilium#20350
-		p.DaemonCfg.KVstoreEnabled() {
+		p.KVStoreClient.IsEnabled() {
 		p.Logger.Info("Init procedure to clean up stale CiliumEndpoint disabled")
 		return
 	}

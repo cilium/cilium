@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -31,10 +32,11 @@ type KVStoreNodesWaitFn wait.Fn
 
 // Regenerator wraps additional functionalities for endpoint regeneration.
 type Regenerator struct {
-	nodesWaitFn   KVStoreNodesWaitFn
-	ipcacheWaitFn wait.Fn
-	cmWaitFn      wait.Fn
-	cmWaitTimeout time.Duration
+	kvstoreEnabled bool
+	nodesWaitFn    KVStoreNodesWaitFn
+	ipcacheWaitFn  wait.Fn
+	cmWaitFn       wait.Fn
+	cmWaitTimeout  time.Duration
 
 	logger        *slog.Logger
 	cmSyncLogOnce sync.Once
@@ -45,10 +47,11 @@ func newRegenerator(in struct {
 
 	Logger *slog.Logger
 
-	Config      wait.TimeoutConfig
-	NodesWaitFn KVStoreNodesWaitFn
-	IPCacheSync *ipcache.IPIdentityWatcher
-	ClusterMesh *clustermesh.ClusterMesh
+	Config        wait.TimeoutConfig
+	KVStoreClient kvstore.Client
+	NodesWaitFn   KVStoreNodesWaitFn
+	IPCacheSync   *ipcache.IPIdentityWatcher
+	ClusterMesh   *clustermesh.ClusterMesh
 }) *Regenerator {
 	waitFn := func(context.Context) error { return nil }
 	if in.ClusterMesh != nil {
@@ -56,15 +59,20 @@ func newRegenerator(in struct {
 	}
 
 	return &Regenerator{
-		logger:        in.Logger,
-		nodesWaitFn:   in.NodesWaitFn,
-		ipcacheWaitFn: in.IPCacheSync.WaitForSync,
-		cmWaitFn:      waitFn,
-		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
+		logger:         in.Logger,
+		kvstoreEnabled: in.KVStoreClient.IsEnabled(),
+		nodesWaitFn:    in.NodesWaitFn,
+		ipcacheWaitFn:  in.IPCacheSync.WaitForSync,
+		cmWaitFn:       waitFn,
+		cmWaitTimeout:  in.Config.ClusterMeshSyncTimeout,
 	}
 }
 
 func (r *Regenerator) WaitForKVStoreSync(ctx context.Context) error {
+	if !r.kvstoreEnabled {
+		return ctx.Err()
+	}
+
 	if err := r.nodesWaitFn(ctx); err != nil {
 		return err
 	}

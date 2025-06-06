@@ -26,6 +26,7 @@ var Cell = cell.Module(
 	cell.Config(ClusterMeshConfig{}),
 	cell.Config(MCSAPIConfig{}),
 	cell.Provide(
+		common.DefaultBackendFactory,
 		newClusterMesh,
 		newAPIClustersHandler,
 	),
@@ -48,6 +49,9 @@ type clusterMeshParams struct {
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo types.ClusterInfo
+
+	// BackendFactory is the factory to create new backend instances.
+	BackendFactory common.BackendFactoryFn
 
 	Metrics       Metrics
 	CommonMetrics common.Metrics

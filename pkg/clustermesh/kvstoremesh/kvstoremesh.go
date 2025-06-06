@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 type Config struct {
@@ -61,8 +60,7 @@ type KVStoreMesh struct {
 	config Config
 
 	// backend is the interface to operate the local kvstore
-	backend        kvstore.BackendOperations
-	backendPromise promise.Promise[kvstore.BackendOperations]
+	backend kvstore.BackendOperations
 
 	storeFactory store.Factory
 
@@ -80,7 +78,11 @@ type params struct {
 	ClusterInfo  types.ClusterInfo
 	CommonConfig common.Config
 
-	BackendPromise promise.Promise[kvstore.BackendOperations]
+	// Backend is the client targeting the local cluster
+	Backend kvstore.Client
+
+	// BackendFactory is the factory to create clients targeting remote clusters
+	BackendFactory common.BackendFactoryFn
 
 	Metrics      common.Metrics
 	StoreFactory store.Factory
@@ -90,24 +92,21 @@ type params struct {
 
 func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{
-		config:         params.Config,
-		backendPromise: params.BackendPromise,
-		storeFactory:   params.StoreFactory,
-		logger:         params.Logger,
-		clock:          clock.RealClock{},
+		config:       params.Config,
+		backend:      params.Backend,
+		storeFactory: params.StoreFactory,
+		logger:       params.Logger,
+		clock:        clock.RealClock{},
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Logger:           params.Logger,
 		Config:           params.CommonConfig,
 		ClusterInfo:      params.ClusterInfo,
+		BackendFactory:   params.BackendFactory,
 		NewRemoteCluster: km.newRemoteCluster,
 		Metrics:          params.Metrics,
 	})
 
-	lc.Append(&km)
-
-	// The "common" Start hook needs to be executed after that the kvstoremesh one
-	// terminated, to ensure that the backend promise has already been resolved.
 	lc.Append(km.common)
 
 	return &km
@@ -132,20 +131,6 @@ func RegisterSyncWaiter(p SyncWaiterParams) {
 			return p.KVStoreMesh.synced(ctx, syncedCallback)
 		}),
 	)
-}
-
-func (km *KVStoreMesh) Start(ctx cell.HookContext) error {
-	backend, err := km.backendPromise.Await(ctx)
-	if err != nil {
-		return err
-	}
-
-	km.backend = backend
-	return nil
-}
-
-func (km *KVStoreMesh) Stop(cell.HookContext) error {
-	return nil
 }
 
 func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {

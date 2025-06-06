@@ -1274,7 +1274,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 			e.identityManager.Remove(e.SecurityIdentity)
 		}
 
-		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+		releaseCtx, cancel := context.WithTimeout(context.Background(), e.allocator.Timeout())
 		defer cancel()
 
 		_, err := e.allocator.Release(releaseCtx, e.SecurityIdentity, false)
@@ -2215,7 +2215,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	e.unlock()
 	scopedLog.Debug("Resolving identity for labels")
 
-	allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
+	allocateCtx, cancel := context.WithTimeout(ctx, e.allocator.Timeout())
 	defer cancel()
 
 	// Typically, SelectorCache notification happens from the identityWatcher,
@@ -2244,7 +2244,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	// continue even if the parent has given up. Enforce a timeout of two
 	// minutes to avoid blocking forever but give plenty of time to release
 	// the identity.
-	releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	releaseCtx, cancel := context.WithTimeout(context.Background(), e.allocator.Timeout())
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {

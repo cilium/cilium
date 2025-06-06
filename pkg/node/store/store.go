@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -148,24 +147,26 @@ type NodeRegistrar struct {
 }
 
 // RegisterNode registers the local node in the cluster.
-func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedManager) error {
-	if option.Config.KVStore == "" {
+func (nr *NodeRegistrar) RegisterNode(ctx context.Context, client kvstore.Client, n *nodeTypes.Node, manager NodeExtendedManager) error {
+	if !client.IsEnabled() {
 		return nil
 	}
 
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
-		Backend:              kvstore.Client(),
-		Prefix:               NodeStorePrefix,
-		KeyCreator:           ValidatingKeyCreator(),
-		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-		Observer:             NewNodeObserver(manager, source.KVStore),
+		Context:                 ctx,
+		Backend:                 client,
+		Prefix:                  NodeStorePrefix,
+		KeyCreator:              ValidatingKeyCreator(),
+		SynchronizationInterval: client.Config().KVStorePeriodicSync,
+		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
+		Observer:                NewNodeObserver(manager, source.KVStore),
 	})
 	if err != nil {
 		return err
 	}
 
-	err = nodeStore.UpdateLocalKeySync(context.TODO(), n)
+	err = nodeStore.UpdateLocalKeySync(ctx, n)
 	if err != nil {
 		nodeStore.Release()
 		return err
@@ -180,6 +181,6 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedMan
 
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
-func (nr *NodeRegistrar) UpdateLocalKeySync(n *nodeTypes.Node) error {
-	return nr.SharedStore.UpdateLocalKeySync(context.TODO(), n)
+func (nr *NodeRegistrar) UpdateLocalKeySync(ctx context.Context, n *nodeTypes.Node) error {
+	return nr.SharedStore.UpdateLocalKeySync(ctx, n)
 }
