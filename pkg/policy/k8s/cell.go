@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -74,7 +76,10 @@ type PolicyWatcherParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	ServiceCache   k8s.ServiceCache
+	DB       *statedb.DB
+	Services statedb.Table[*loadbalancer.Service]
+	Backends statedb.Table[*loadbalancer.Backend]
+
 	IPCache        *ipcache.IPCache
 	PolicyImporter policycell.PolicyImporter
 
@@ -102,7 +107,9 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,
-		svcCache:                         params.ServiceCache,
+		db:                               params.DB,
+		services:                         params.Services,
+		backends:                         params.Backends,
 		ipCache:                          params.IPCache,
 		ciliumNetworkPolicies:            params.CiliumNetworkPolicies,
 		ciliumClusterwideNetworkPolicies: params.CiliumClusterwideNetworkPolicies,
@@ -114,13 +121,13 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		cidrGroupCIDRs: make(map[string]sets.Set[netip.Prefix]),
 
 		toServicesPolicies: make(map[resource.Key]struct{}),
-		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
+		cnpByServiceID:     make(map[loadbalancer.ServiceName]map[resource.Key]struct{}),
 		metricsManager:     params.MetricsManager,
 	}
 
 	// Service notifications are not used if CNPs/CCNPs are disabled.
 	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy {
-		p.svcCacheNotifications = serviceNotificationsQueue(ctx, params.ServiceCache.Notifications())
+		p.serviceEvents = serviceEventStream(params.DB, params.Services, params.Backends)
 	}
 
 	params.Lifecycle.Append(cell.Hook{
