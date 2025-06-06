@@ -31,7 +31,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -228,13 +227,13 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if healthIPv6 := node.GetEndpointHealthIPv6(logging.DefaultSlogLogger); healthIPv6 != nil {
+	if healthIPv6 := node.GetEndpointHealthIPv6(h.logger); healthIPv6 != nil {
 		info.Addressing.IPV6 = healthIPv6.String()
 		info.Addressing.IPV6PoolName = ipam.PoolDefault().String()
 		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
 		healthIP = healthIPv6
 	}
-	if healthIPv4 := node.GetEndpointHealthIPv4(logging.DefaultSlogLogger); healthIPv4 != nil {
+	if healthIPv4 := node.GetEndpointHealthIPv4(h.logger); healthIPv4 != nil {
 		info.Addressing.IPV4 = healthIPv4.String()
 		info.Addressing.IPV4PoolName = ipam.PoolDefault().String()
 		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
@@ -258,7 +257,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupVethWithNames(h.logger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
 			info, sysctl)
@@ -270,7 +269,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		}
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-		_, epLink, err := connector.SetupNetkitWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupNetkitWithNames(h.logger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), l2Mode,
 			info, sysctl)
@@ -326,7 +325,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	}
 
 	// Set up the endpoint routes.
-	routes, err := h.getHealthRoutes(node.GetNodeAddressing(logging.DefaultSlogLogger), mtuConfig)
+	routes, err := h.getHealthRoutes(node.GetNodeAddressing(h.logger), mtuConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting routes for containername %q: %w", info.ContainerName, err)
 	}
