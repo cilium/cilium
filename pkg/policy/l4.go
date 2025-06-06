@@ -703,7 +703,6 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 	scopedLog := logger
 	if option.Config.Debug {
 		scopedLog = logger.With(
-			logfields.EndpointID, p.PolicyOwner.GetID(),
 			logfields.Port, port,
 			logfields.PortName, l4.PortName,
 			logfields.Protocol, proto,
