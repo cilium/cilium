@@ -29,6 +29,8 @@ import (
 
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
+	config loadbalancer.Config
+
 	nodeName string
 	nodeZone atomic.Pointer[string]
 
@@ -71,10 +73,8 @@ func init() {
 }
 
 func NewWriter(p writerParams) (*Writer, error) {
-	if !p.Config.EnableExperimentalLB {
-		return nil, nil
-	}
 	w := &Writer{
+		config:           p.Config,
 		nodeName:         nodeTypes.GetName(),
 		db:               p.DB,
 		bes:              p.Backends,
@@ -412,7 +412,9 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 				}
 			}
 			if fe != nil {
-				if fe.RedirectTo == nil && fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
+				if w.config.EnableServiceTopology &&
+					fe.RedirectTo == nil &&
+					fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
 					thisZone := w.nodeZone.Load()
 					if len(be.ForZones) > 0 && thisZone != nil {
 						// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.

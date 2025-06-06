@@ -69,10 +69,6 @@ type healthServer struct {
 }
 
 func registerHealthServer(params healthServerParams) {
-	if !params.Config.EnableExperimentalLB {
-		return
-	}
-
 	s := &healthServer{
 		params:        params,
 		serverByPort:  map[uint16]*httpHealthServer{},

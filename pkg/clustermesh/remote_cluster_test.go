@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -226,13 +225,15 @@ func (o *fakeObserver) reset() {
 func (o *fakeObserver) NodeUpdated(_ nodeTypes.Node) { o.updates.Add(1) }
 func (o *fakeObserver) NodeDeleted(_ nodeTypes.Node) { o.deletes.Add(1) }
 
-func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService) {
 	o.updates.Add(1)
 }
 
-func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService) {
 	o.deletes.Add(1)
 }
+
+func (o *fakeObserver) Initialized() {}
 
 func (o *fakeObserver) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcache.Identity) (bool, error) {
 	o.updates.Add(1)

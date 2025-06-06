@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -124,9 +123,6 @@ func TestScript(t *testing.T) {
 				func() clustermesh.RemoteIdentityWatcher {
 					return dummyRemoteIdentityWatcher{}
 				},
-				func() k8s.ServiceCache {
-					return nil
-				},
 				func(log *slog.Logger) nodemanager.NodeManager {
 					return dummyNodeManager{log}
 				},
@@ -167,7 +163,6 @@ func TestScript(t *testing.T) {
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
-		flags.Set("enable-experimental-lb", "true")
 		flags.Set("clustermesh-config", configDir)
 
 		// Parse the shebang arguments in the script.

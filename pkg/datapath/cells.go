@@ -32,14 +32,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
@@ -77,14 +73,6 @@ var Cell = cell.Module(
 	cell.Invoke(initDatapath),
 
 	cell.Provide(newWireguardAgent),
-
-	cell.Provide(func(lbConfig loadbalancer.Config, maglev *maglev.Maglev, logger *slog.Logger) types.LBMap {
-		if lbConfig.EnableExperimentalLB {
-			// The experimental control-plane comes with its own LBMap implementation.
-			return nil
-		}
-		return lbmap.New(logger, lbConfig, maglev)
-	}),
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
 	tables.NodeAddressCell,

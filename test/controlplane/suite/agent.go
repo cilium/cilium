@@ -33,7 +33,6 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 type agentHandle struct {
@@ -43,7 +42,6 @@ type agentHandle struct {
 	d         *cmd.Daemon
 	p         promise.Promise[*cmd.Daemon]
 	fnh       *fakeTypes.FakeNodeHandler
-	flbMap    *mockmaps.LBMockMap
 
 	hive *hive.Hive
 	log  *slog.Logger
@@ -80,6 +78,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },
 			func() *server.Server { return nil },
+			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
@@ -88,10 +87,9 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		metrics.Cell,
 		store.Cell,
 		cmd.ControlPlane,
-		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler, lbMap *mockmaps.LBMockMap) {
+		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler) {
 			h.p = p
 			h.fnh = nh
-			h.flbMap = lbMap
 		}),
 
 		cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) {
@@ -102,13 +100,6 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 
 	hive.AddConfigOverride(h.hive, func(c *datapathTables.DirectRoutingDeviceConfig) {
 		c.DirectRoutingDevice = "test0"
-	})
-
-	// Disable the experimental LB control-plane. The tests here use the "LBMockMap" which is not used
-	// by the new implementation. Once we switch implementations we can remove the LB related tests from
-	// here as they're already covered by the LB test suite.
-	hive.AddConfigOverride(h.hive, func(c *loadbalancer.UserConfig) {
-		c.EnableExperimentalLB = false
 	})
 }
 

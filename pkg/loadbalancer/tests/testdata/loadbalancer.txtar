@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 
 # Add some node addresses
 db/insert node-addresses addrv4.yaml

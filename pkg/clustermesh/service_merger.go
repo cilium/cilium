@@ -8,10 +8,8 @@ import (
 
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -19,33 +17,41 @@ import (
 // services. The functions have to merge service updates and deletions with
 // local services to provide a shared view.
 type ServiceMerger interface {
-	MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
-	MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
+	MergeExternalServiceUpdate(service *serviceStore.ClusterService)
+	MergeExternalServiceDelete(service *serviceStore.ClusterService)
+	Initialized()
 }
 
 type serviceMergerParams struct {
 	cell.In
 
-	ClusterInfo  cmtypes.ClusterInfo
-	ServiceCache k8s.ServiceCache
-	ExpConfig    loadbalancer.Config
-	Writer       *writer.Writer
+	ClusterInfo cmtypes.ClusterInfo
+	ExpConfig   loadbalancer.Config
+	Writer      *writer.Writer
 }
 
 func newServiceMerger(p serviceMergerParams) ServiceMerger {
-	if !p.ExpConfig.EnableExperimentalLB {
-		return p.ServiceCache
-	}
-	return &expServiceMerger{clusterInfo: p.ClusterInfo, writer: p.Writer}
+	initDone := p.Writer.RegisterInitializer("clustermesh")
+	return &expServiceMerger{clusterInfo: p.ClusterInfo, writer: p.Writer, initDone: initDone}
 }
 
 type expServiceMerger struct {
 	clusterInfo cmtypes.ClusterInfo
 	writer      *writer.Writer
+	initDone    func(writer.WriteTxn)
+}
+
+func (sm *expServiceMerger) Initialized() {
+	txn := sm.writer.WriteTxn()
+	if sm.initDone != nil {
+		sm.initDone(txn)
+		sm.initDone = nil
+	}
+	txn.Commit()
 }
 
 // MergeExternalServiceDelete implements k8s.ServiceCache.
-func (sm *expServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sm *expServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,
@@ -61,7 +67,7 @@ func (sm *expServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 }
 
 // MergeExternalServiceUpdate implements k8s.ServiceCache.
-func (sm *expServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sm *expServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService) {
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,

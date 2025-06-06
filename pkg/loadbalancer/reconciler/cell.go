@@ -24,6 +24,8 @@ var Cell = cell.Module(
 	cell.Invoke(
 		// Force the registration even if none uses Reconciler[*Frontend].
 		func(reconciler.Reconciler[*loadbalancer.Frontend]) {},
+
+		registerK8sAPIServiceMappingsUpdater,
 	),
 
 	// Provide the 'lb/' script commands for debugging and testing.

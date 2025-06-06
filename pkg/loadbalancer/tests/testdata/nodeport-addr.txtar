@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 # NOTE: Fault injection disabled as it leads to non-deterministic id allocation with multiple
 # frontends from single service.
 

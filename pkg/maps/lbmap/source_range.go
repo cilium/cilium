@@ -173,17 +173,3 @@ func initSourceRange(registry *metrics.Registry, params InitParams) {
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))
 	}
 }
-
-func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {
-	ones, _ := cidr.Mask.Size()
-	id := byteorder.HostToNetwork16(revNATID)
-	if ipv6 {
-		key := &SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, RevNATID: id}
-		copy(key.Address[:], cidr.IP.To16())
-		return key
-	} else {
-		key := &SourceRangeKey4{PrefixLen: uint32(ones) + lpmPrefixLen4, RevNATID: id}
-		copy(key.Address[:], cidr.IP.To4())
-		return key
-	}
-}
