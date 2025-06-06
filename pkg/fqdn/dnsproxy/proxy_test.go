@@ -1340,6 +1340,45 @@ func TestExtractMsgDetails(t *testing.T) {
 			cnames:  []string{"foo1.cilium.io.", "foo2.cilium.io.", "foo3.cilium.io."},
 			wantErr: false,
 		},
+		// CNAME (subdomain) & A.
+
+		// Note: this is arguably a malformed response by the server, since the
+		// answer names don't match the query. However, servers send responses
+		// like this and clients accept them (and connect to the IP in the A
+		// record).
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name:   fqdndns.FQDN("cilium.io"),
+							Rrtype: dns.TypeCNAME,
+							Class:  dns.ClassINET,
+							Ttl:    600,
+						},
+						Target: fqdndns.FQDN("bar.cilium.io."),
+					},
+					&dns.A{
+						Hdr: dns.RR_Header{
+							Name:   fqdndns.FQDN("bar.cilium.io"),
+							Rrtype: dns.TypeA,
+							Class:  dns.ClassINET,
+							Ttl:    700,
+						},
+						A: net.ParseIP("192.168.0.2"),
+					},
+				},
+			},
+			ttl:     600,
+			cnames:  []string{"bar.cilium.io."},
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range testCases {
