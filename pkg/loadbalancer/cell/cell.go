@@ -45,6 +45,5 @@ var Cell = cell.Group(
 		// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
 		// implementation is enabled.
 		cell.Provide(newAdapters),
-		cell.DecorateAll(decorateAdapters),
 	),
 )

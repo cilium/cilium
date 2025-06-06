@@ -42,7 +42,6 @@ import (
 	identity "github.com/cilium/cilium/pkg/identity/cell"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -231,9 +230,6 @@ var (
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
-
-		// ServiceCache holds the list of known services correlated with the matching endpoints.
-		k8s.ServiceCacheCell,
 
 		// Provides PolicyRepository (List of policy rules)
 		policy.Cell,
