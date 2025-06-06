@@ -6,6 +6,7 @@ package cache
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/cilium/stream"
 
@@ -19,14 +20,16 @@ import (
 )
 
 type NoopIdentityAllocator struct {
-	logger *slog.Logger
+	logger  *slog.Logger
+	timeout time.Duration
 	// allocatorInitialized is closed when the allocator is initialized.
 	allocatorInitialized chan struct{}
 }
 
-func NewNoopIdentityAllocator(logger *slog.Logger) *NoopIdentityAllocator {
+func NewNoopIdentityAllocator(logger *slog.Logger, timeout time.Duration) *NoopIdentityAllocator {
 	return &NoopIdentityAllocator{
 		logger:               logger,
+		timeout:              timeout,
 		allocatorInitialized: make(chan struct{}),
 	}
 }
@@ -93,6 +96,8 @@ func (n *NoopIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericI
 func (n *NoopIdentityAllocator) UnwithholdLocalIdentities(nids []identity.NumericIdentity) {
 	// No-op, because local identities are not used when network policies are disabled.
 }
+
+func (n *NoopIdentityAllocator) Timeout() time.Duration { return n.timeout }
 
 type NoopRemoteIDCache struct{}
 

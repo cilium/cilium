@@ -6,7 +6,9 @@ package testidentity
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -189,3 +191,5 @@ func (f *MockIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 func (f *MockIdentityAllocator) Observe(ctx context.Context, next func(cache.IdentityChange), complete func(error)) {
 	go complete(nil)
 }
+
+func (f *MockIdentityAllocator) Timeout() time.Duration { return defaults.KVstoreConnectivityTimeout }

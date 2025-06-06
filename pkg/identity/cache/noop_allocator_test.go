@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -27,7 +28,7 @@ func TestNoopAllocateIdentity(t *testing.T) {
 	lbls2 := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
-	mgr := NewNoopIdentityAllocator(hivetest.Logger(t))
+	mgr := NewNoopIdentityAllocator(hivetest.Logger(t), defaults.KVstoreConnectivityTimeout)
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 

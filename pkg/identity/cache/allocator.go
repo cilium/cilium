@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -96,11 +97,24 @@ type CachingIdentityAllocator struct {
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing. This is mainly introduced for testing purposes.
 	maxAllocAttempts int
+
+	timeout      time.Duration
+	syncInterval time.Duration
 }
 
 type AllocatorConfig struct {
 	EnableOperatorManageCIDs bool
+	Timeout                  time.Duration
+	SyncInterval             time.Duration
 	maxAllocAttempts         int
+}
+
+// NewTestAllocatorConfig returns an AllocatorConfig initialized for testing purposes.
+func NewTestAllocatorConfig() AllocatorConfig {
+	return AllocatorConfig{
+		Timeout:      defaults.KVstoreConnectivityTimeout,
+		SyncInterval: defaults.KVstorePeriodicSync,
+	}
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -162,6 +176,9 @@ type IdentityAllocator interface {
 	// UnwithholdLocalIdentities removes numeric identities from the withheld set,
 	// freeing them for general allocation.
 	UnwithholdLocalIdentities(nids []identity.NumericIdentity)
+
+	// Timeout returns the configured timeout for the different operations.
+	Timeout() time.Duration
 }
 
 // InitIdentityAllocator creates the global identity allocator. Only the first
@@ -271,7 +288,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithEvents(events),
+			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
@@ -351,6 +368,8 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
 		operatorIDManagement:               config.EnableOperatorManageCIDs,
 		maxAllocAttempts:                   config.maxAllocAttempts,
+		timeout:                            config.Timeout,
+		syncInterval:                       config.SyncInterval,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
@@ -834,7 +853,8 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 
 	remoteAlloc, err := allocator.NewAllocator(m.logger,
 		&key.GlobalIdentity{}, remoteAllocatorBackend,
-		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
+		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(),
+		allocator.WithoutAutostart(), allocator.WithSyncInterval(m.syncInterval),
 		allocator.WithCacheValidator(clusterIDValidator(remoteID)),
 		allocator.WithCacheValidator(clusterNameValidator(remoteName)),
 	)
@@ -850,6 +870,8 @@ func (m *CachingIdentityAllocator) RemoveRemoteIdentities(name string) {
 		m.IdentityAllocator.RemoveRemoteKVStore(name)
 	}
 }
+
+func (m *CachingIdentityAllocator) Timeout() time.Duration { return m.timeout }
 
 type IdentityChangeKind string
 

@@ -82,7 +82,8 @@ type identityAllocatorParams struct {
 
 	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
 
-	Config config
+	Config        config
+	KVStoreConfig kvstore.Config
 }
 
 type identityAllocatorOut struct {
@@ -127,6 +128,8 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 		allocatorConfig := cache.AllocatorConfig{
 			EnableOperatorManageCIDs: isOperatorManageCIDsEnabled,
+			Timeout:                  params.KVStoreConfig.KVStoreConnectivityTimeout,
+			SyncInterval:             params.KVStoreConfig.KVStorePeriodicSync,
 		}
 
 		// Allocator: allocates local and cluster-wide security identities.
@@ -135,7 +138,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 		idAlloc = cacheIDAlloc
 	} else {
-		idAlloc = cache.NewNoopIdentityAllocator(params.Log)
+		idAlloc = cache.NewNoopIdentityAllocator(params.Log, params.KVStoreConfig.KVStoreConnectivityTimeout)
 	}
 
 	params.Lifecycle.Append(cell.Hook{

@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -40,19 +41,24 @@ var (
 
 	testConfigs = []testConfig{
 		{
-			name: "disable_operator_manages_identities",
-			allocatorConfig: AllocatorConfig{
-				EnableOperatorManageCIDs: false,
-			},
+			name:            "disable_operator_manages_identities",
+			allocatorConfig: testAllocatorConfig(false, 0),
 		},
 		{
-			name: "enable_operator_manages_identities",
-			allocatorConfig: AllocatorConfig{
-				EnableOperatorManageCIDs: true,
-			},
+			name:            "enable_operator_manages_identities",
+			allocatorConfig: testAllocatorConfig(true, 0),
 		},
 	}
 )
+
+func testAllocatorConfig(enableOperatorManageCIDs bool, maxAttempts int) AllocatorConfig {
+	return AllocatorConfig{
+		EnableOperatorManageCIDs: enableOperatorManageCIDs,
+		Timeout:                  defaults.KVstoreConnectivityTimeout,
+		SyncInterval:             defaults.KVstorePeriodicSync,
+		maxAllocAttempts:         maxAttempts,
+	}
+}
 
 type testConfig struct {
 	name            string
@@ -266,7 +272,7 @@ func testAllocator(t *testing.T, client kvstore.Client) {
 	owner := newDummyOwner(logger)
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(logger, owner, AllocatorConfig{EnableOperatorManageCIDs: false})
+	mgr := NewCachingIdentityAllocator(logger, owner, NewTestAllocatorConfig())
 	<-mgr.InitIdentityAllocator(nil, client)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -398,7 +404,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 
 			owner := newDummyOwner(logger)
 			identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
-			mgr := NewCachingIdentityAllocator(logger, owner, AllocatorConfig{EnableOperatorManageCIDs: true, maxAllocAttempts: 2})
+			mgr := NewCachingIdentityAllocator(logger, owner, testAllocatorConfig(true, 2))
 			<-mgr.InitIdentityAllocator(kubeClient, cl)
 			defer mgr.Close()
 			defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -686,7 +692,7 @@ func testCheckpointRestore(t *testing.T, testConfig testConfig) {
 	err := mgr.checkpoint(context.TODO())
 	require.NoError(t, err)
 
-	newMgr := NewCachingIdentityAllocator(logger, owner, AllocatorConfig{})
+	newMgr := NewCachingIdentityAllocator(logger, owner, NewTestAllocatorConfig())
 	defer newMgr.Close()
 	newMgr.checkpointPath = mgr.checkpointPath
 
