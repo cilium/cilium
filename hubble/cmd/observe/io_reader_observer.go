@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 
 	"google.golang.org/grpc"
@@ -20,27 +21,28 @@ import (
 	"github.com/cilium/cilium/pkg/container"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // IOReaderObserver implements ObserverClient interface. It reads flows
 // in jsonpb format from an io.Reader.
 type IOReaderObserver struct {
+	logger  *slog.Logger
 	scanner *bufio.Scanner
 }
 
 // NewIOReaderObserver reads flows in jsonpb format from an io.Reader and
 // returns a IOReaderObserver that implements the ObserverClient interface.
-func NewIOReaderObserver(reader io.Reader) *IOReaderObserver {
+func NewIOReaderObserver(logger *slog.Logger, reader io.Reader) *IOReaderObserver {
 	return &IOReaderObserver{
+		logger:  logger,
 		scanner: bufio.NewScanner(reader),
 	}
 }
 
 // GetFlows returns flows
 func (o *IOReaderObserver) GetFlows(ctx context.Context, in *observerpb.GetFlowsRequest, _ ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error) {
-	return newIOReaderClient(ctx, o.scanner, in)
+	return newIOReaderClient(ctx, o.logger, o.scanner, in)
 }
 
 // GetAgentEvents is not implemented, and will throw an error if used.
@@ -85,12 +87,12 @@ type ioReaderClient struct {
 	flowsReturned uint64
 }
 
-func newIOReaderClient(ctx context.Context, scanner *bufio.Scanner, request *observerpb.GetFlowsRequest) (*ioReaderClient, error) {
-	allow, err := filters.BuildFilterList(ctx, request.GetWhitelist(), filters.DefaultFilters(logging.DefaultSlogLogger))
+func newIOReaderClient(ctx context.Context, logger *slog.Logger, scanner *bufio.Scanner, request *observerpb.GetFlowsRequest) (*ioReaderClient, error) {
+	allow, err := filters.BuildFilterList(ctx, request.GetWhitelist(), filters.DefaultFilters(logger))
 	if err != nil {
 		return nil, err
 	}
-	deny, err := filters.BuildFilterList(ctx, request.GetBlacklist(), filters.DefaultFilters(logging.DefaultSlogLogger))
+	deny, err := filters.BuildFilterList(ctx, request.GetBlacklist(), filters.DefaultFilters(logger))
 	if err != nil {
 		return nil, err
 	}

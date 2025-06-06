@@ -14,15 +14,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-func init() {
-	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-dbg")
-}
 
 func TestExpandNestedJSON(t *testing.T) {
 	buf := bytes.NewBufferString("not json at all")

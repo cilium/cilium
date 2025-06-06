@@ -35,7 +35,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Cell implements the cilium operator REST API server when provided
@@ -348,7 +347,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(logging.DefaultSlogLogger, s.SocketPath)
+			err := api.SetDefaultPermissions(s.logger, s.SocketPath)
 			if err != nil {
 				return err
 			}

@@ -185,9 +185,6 @@ func New(vp *viper.Viper) *cobra.Command {
 }
 
 func runServe(vp *viper.Viper) error {
-	if vp.GetBool("debug") {
-		logging.SetLogLevelToDebug()
-	}
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "hubble-relay")
 
 	opts := []server.Option{

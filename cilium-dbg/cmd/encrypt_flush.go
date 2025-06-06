@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 )
 
@@ -34,7 +33,7 @@ var encryptFlushCmd = &cobra.Command{
 	Long:  "Will cause a short connectivity disruption",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium encrypt flush")
-		runXFRMFlush(logging.DefaultSlogLogger)
+		runXFRMFlush(log)
 	},
 }
 

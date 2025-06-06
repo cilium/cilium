@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // bpfPolicyListCmd represents the bpf_policy_list command
@@ -18,7 +17,7 @@ var bpfPolicyListCmd = &cobra.Command{
 	Short:   "Dump all policy maps",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy list")
-		listAllMaps(logging.DefaultSlogLogger)
+		listAllMaps(log)
 	},
 }
 

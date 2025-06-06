@@ -170,7 +170,7 @@ const (
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), nil, model)
+	ep, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), nil, model)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
