@@ -28,7 +28,6 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/netns"
@@ -141,7 +140,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 			rpm.epManager.Subscribe(rpm)
 			if rpm.skipLBMap == nil {
 				var err error
-				rpm.skipLBMap, err = lbmap.NewSkipLBMap(logging.DefaultSlogLogger)
+				rpm.skipLBMap, err = lbmap.NewSkipLBMap(rpm.logger)
 				if err == nil {
 					err = rpm.skipLBMap.OpenOrCreate()
 				}

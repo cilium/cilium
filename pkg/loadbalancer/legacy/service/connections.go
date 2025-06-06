@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/vishvananda/netlink"
@@ -129,5 +128,5 @@ type backendConnectionHandler struct {
 }
 
 func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(logging.DefaultSlogLogger, filter)
+	return sockets.Destroy(h.logger, filter)
 }
