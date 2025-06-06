@@ -3782,7 +3782,7 @@ func InitConfig(logger *slog.Logger, cmd *cobra.Command, programName, configName
 
 		// Check for the debug flag again now that the configuration file may has
 		// been loaded, as it might have changed.
-		if vp.GetBool("debug") {
+		if vp.GetBool(DebugArg) {
 			logging.SetLogLevelToDebug()
 		}
 	}
