@@ -1571,9 +1571,10 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
 	}})
 	db, nodeAddrs := newDB(t)
+	cfg := loadbalancer.DefaultConfig
+	cfg.EnableServiceTopology = true
 	svcCache := newServiceCache(hivetest.Logger(t), hivetest.Lifecycle(t),
-		loadbalancer.DefaultConfig,
-		ServiceCacheConfig{EnableServiceTopology: true}, store,
+		cfg, store,
 		db, nodeAddrs, NewSVCMetricsNoop())
 
 	swg := lock.NewStoppableWaitGroup()
