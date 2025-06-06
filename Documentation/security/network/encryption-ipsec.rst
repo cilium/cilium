@@ -387,6 +387,47 @@ errors.
    yet, so Cilium drops the packets at the source. These drops will stop once
    the CiliumNode information is propagated across the cluster.
 
+.. _xfrm_state_staling_in_cilium:
+
+XFRM State Staling in Cilium
+============================
+
+XFRM state inconsistencies can disrupt connectivity for pods managed by Cilium.
+This section explains how these issues occur and what you can do about them.
+
+Causes of Stale XFRM States
+---------------------------
+
+You might encounter stale XFRM states in two main scenarios:
+
+  * KVStore Mode (e.g., etcd): If you manually recreate your key-value store, a
+    Cilium agent might connect too late to the new instance. This delay can cause
+    the agent to miss crucial node delete and create events, leading Cilium to
+    retain outdated XFRM states for those nodes.
+
+  * CRD Mode: A similar problem occurs when you delete a CiliumNode resource and
+    restart the Cilium agent DaemonSet. While other agents create fresh XFRM
+    states for the new CiliumNode, the agent on that new node may retain obsolete
+    XFRM states for all the other peer nodes.
+
+Impact and Detection
+--------------------
+
+Stale XFRM states typically result in permanent connectivity disruptions between
+pods managed by Cilium. You can identify this problem by monitoring the
+``XfrmInStateProtoError`` metric; an increasing value indicates an issue.
+This error occurs because of mismatched ``seq/oseq`` values between the new and
+old XFRM states on two CiliumNodes.
+
+To validate this, inspect the XFRM states directly from a Cilium agent pod
+``kubectl -n kube-system exec -ti ds/cilium -- ip xfrm state``
+
+Mitigation
+----------
+
+To prevent and resolve stale XFRM states, perform a proper key rotation.
+This action ensures new consistent and valid XFRM states across all your nodes.
+
 Disabling Encryption
 ====================
 
