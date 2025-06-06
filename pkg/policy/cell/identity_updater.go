@@ -58,9 +58,10 @@ type identityUpdater struct {
 
 	// set of notification waitgroups to wait in for batched UpdatePolicyMaps,
 	// and a mutex to protect for writing
-	wgsLock        lock.Mutex
-	wgs            []*sync.WaitGroup
-	firstStartTime time.Time // the start time for the first batched update
+	wgsLock            lock.Mutex
+	wgs                []*sync.WaitGroup
+	firstStartTime     time.Time // the start time for the first batched update
+	triggerPolicyRegen bool      // true if a selector was mutated and we need to regenerate policy
 
 	updatePolicyMaps job.Trigger
 }
@@ -113,13 +114,14 @@ func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) 
 	// This synchronously updates the SelectorCache and queues an incremental
 	// update to any selectors. The waitgroup is closed when all endpoints
 	// have been notified.
-	i.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
+	mutated := i.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 
 	// Direct endpoints to consume pending incremental updates.
 	i.wgsLock.Lock()
 	i.wgs = append(i.wgs, wg)
 	if i.firstStartTime.IsZero() {
 		i.firstStartTime = start
+		i.triggerPolicyRegen = i.triggerPolicyRegen || mutated
 	}
 	i.wgsLock.Unlock()
 	i.updatePolicyMaps.Trigger()
@@ -137,8 +139,10 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 	}
 	wgs := i.wgs
 	start := i.firstStartTime
+	triggerPolicyRegen := i.triggerPolicyRegen
 	i.wgs = nil
 	i.firstStartTime = time.Time{}
+	i.triggerPolicyRegen = false
 	i.wgsLock.Unlock()
 
 	i.logger.Info(
@@ -170,6 +174,14 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 	updatedWG := i.epmanager.UpdatePolicyMaps(ctx, noopWG)
 	updatedWG.Wait()
 	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(start).Seconds())
+
+	// We mutated a selector, we must regenerate.
+	if triggerPolicyRegen {
+		i.logger.Info("Incremental policy update mutated identities. Forcing policy recalculation.")
+		i.policy.BumpRevision()
+		i.epmanager.TriggerRegenerateAllEndpoints()
+	}
+
 	return nil
 }
 
