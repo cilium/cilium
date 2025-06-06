@@ -5,6 +5,7 @@ package install
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	pkgk8s "github.com/cilium/cilium/pkg/k8s"
 )
 
 type UninstallParameters struct {
@@ -73,7 +75,50 @@ func (k *K8sUninstaller) DeleteTestNamespace(ctx context.Context) {
 	}
 }
 
+func (k *K8sUninstaller) cleanupNodeAnnotations(ctx context.Context) error {
+	k.Log("🔥 Cleaning up Cilium node annotations...")
+
+	nodes, err := k.client.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	for _, node := range nodes.Items {
+		annotations := make(map[string]string)
+		for key := range node.Annotations {
+			if strings.HasPrefix(key, "io.cilium.") || strings.HasPrefix(key, "cilium.io/") {
+				annotations[key] = node.Annotations[key]
+			}
+		}
+
+		if len(annotations) > 0 {
+			k.Log("  Removing annotations from node %s", node.Name)
+			patch := []pkgk8s.JSONPatch{}
+			for key := range annotations {
+				escapedKey := strings.ReplaceAll(key, "~", "~0")
+				escapedKey = strings.ReplaceAll(escapedKey, "/", "~1")
+				patch = append(patch, pkgk8s.JSONPatch{
+					OP:   "remove",
+					Path: "/metadata/annotations/" + escapedKey,
+				})
+			}
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal patch for node %s: %w", node.Name, err)
+			}
+			_, err = k.client.PatchNode(ctx, node.Name, types.JSONPatchType, patchBytes)
+			if err != nil {
+				return fmt.Errorf("failed to patch node %s: %w", node.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *action.Configuration) error {
+	// First, delete test namespace and wait for it to terminate (if Wait is set)
+	k.DeleteTestNamespace(ctx)
 	helmClient := action.NewUninstall(actionConfig)
 	helmClient.Wait = k.params.Wait
 	if k.params.Wait {
@@ -82,6 +127,10 @@ func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *ac
 	helmClient.Timeout = k.params.Timeout
 	if _, err := helmClient.Run(k.params.HelmReleaseName); err != nil {
 		return err
+	}
+	// Clean up node annotations
+	if err := k.cleanupNodeAnnotations(ctx); err != nil {
+		k.Log("Failed to clean up node annotations: %v", err)
 	}
 	// If aws-node daemonset exists, remove io.cilium/aws-node-enabled node selector.
 	if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err != nil {
