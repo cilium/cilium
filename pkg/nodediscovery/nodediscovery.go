@@ -112,7 +112,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.Registrar.RegisterNode(&localNode.Node, n.Manager); err != nil {
+			if err := n.Registrar.RegisterNode(n.logger, &localNode.Node, n.Manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
