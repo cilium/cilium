@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/eventqueue"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -346,7 +345,7 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 // so that when its metadata is resolved, events can be enqueued (such as
 // bandwidth policy).
 func (e *Endpoint) InitEventQueue() {
-	e.eventQueue = eventqueue.NewEventQueueBuffered(logging.DefaultSlogLogger, fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
+	e.eventQueue = eventqueue.NewEventQueueBuffered(e.getLogger(), fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
 }
 
 // Start assigns a Cilium Endpoint ID to the endpoint and prepares it to
