@@ -2404,11 +2404,6 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	return c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
 }
 
-// KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
-func (c *DaemonConfig) KVstoreEnabled() bool {
-	return c.KVStore != ""
-}
-
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {
