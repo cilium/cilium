@@ -35,7 +35,6 @@ clustermesh-apiserver clustermesh hive [flags]
       --k8s-kubeconfig-path string                   Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                               Key-value store type (default "etcd")
-      --kvstore-connectivity-timeout duration        Time after which an incomplete kvstore operation is considered failed (default 2m0s)
       --kvstore-lease-ttl duration                   Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint   Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                   Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
