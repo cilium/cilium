@@ -59,7 +59,7 @@ int test_lb4_tcp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 
 	lb_v4_add_service_with_flags(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP,
 				     BACKEND_COUNT, REVNAT_INDEX,
-				     0, SVC_FLAG_TWO_SCOPES);
+				     0, SVC_FLAG_TWO_SCOPES, 0);
 
 	service = lb4_lookup_service(&key, true);
 	assert(service);
@@ -110,7 +110,7 @@ int test_lb4_any_proto_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 
 	lb_v4_add_service_with_flags(FRONTEND_IP, FRONTEND_PORT,
 				     IPPROTO_ANY, BACKEND_COUNT,
-				     REVNAT_INDEX, 0, SVC_FLAG_TWO_SCOPES);
+				     REVNAT_INDEX, 0, SVC_FLAG_TWO_SCOPES, 0);
 
 	service = lb4_lookup_service(&key, true);
 	assert(service);
