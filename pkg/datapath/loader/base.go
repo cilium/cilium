@@ -512,7 +512,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return err
 	}
 
-	if err := l.nodeHandler.NodeConfigurationChanged(*lnc); err != nil {
+	if err := l.nodeConfigNotifier.Notify(*lnc); err != nil {
 		return err
 	}
 

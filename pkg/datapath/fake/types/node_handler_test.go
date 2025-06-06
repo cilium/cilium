@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -19,5 +18,4 @@ func TestNewNodeHandler(t *testing.T) {
 	require.NoError(t, nh.NodeAdd(nodeTypes.Node{}))
 	require.NoError(t, nh.NodeUpdate(nodeTypes.Node{}, nodeTypes.Node{}))
 	require.NoError(t, nh.NodeDelete(nodeTypes.Node{}))
-	require.NoError(t, nh.NodeConfigurationChanged(datapath.LocalNodeConfiguration{}))
 }

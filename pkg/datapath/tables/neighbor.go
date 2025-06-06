@@ -135,19 +135,14 @@ func (n *Neighbor) TableRow() []string {
 		fmt.Sprintf("%d", n.LinkIndex),
 		n.IPAddr.String(),
 		n.HardwareAddr.String(),
-		fmt.Sprintf("%d", n.Type),
-		fmt.Sprintf("%#x", n.State),
-		fmt.Sprintf("%#x", n.Flags),
-		fmt.Sprintf("%#x", n.FlagsExt),
+		n.Type.String(),
+		n.State.String(),
+		n.Flags.String(),
+		n.FlagsExt.String(),
 	}
 }
 
-type (
-	NeighborType     uint8  // neighbor type (NDA_*)
-	NeighborState    uint16 // bit mask of neighbor states (NUD_*)
-	NeighborFlags    uint8  // bit mask of neighbor flags (NTF_*)
-	NeighborFlagsExt uint32 // bit mask of extended neighbor flags (NTF_EXT_*)
-)
+type NeighborType uint8 // neighbor type (NDA_*)
 
 // Definitions for neighbor type, state and flags. These are repeated here
 // from the unix package to keep the tables package buildable on non-Linux platforms.
@@ -169,24 +164,160 @@ const (
 	NDA_FDB_EXT_ATTRS
 	NDA_FLAGS_EXT
 
-	NUD_NONE       = NeighborState(0x00)
-	NUD_INCOMPLETE = NeighborState(0x01)
-	NUD_REACHABLE  = NeighborState(0x02)
-	NUD_STALE      = NeighborState(0x04)
-	NUD_DELAY      = NeighborState(0x08)
-	NUD_PROBE      = NeighborState(0x10)
-	NUD_FAILED     = NeighborState(0x20)
-	NUD_NOARP      = NeighborState(0x40)
-	NUD_PERMANENT  = NeighborState(0x80)
-
-	NTF_USE         = NeighborFlags(0x01)
-	NTF_SELF        = NeighborFlags(0x02)
-	NTF_MASTER      = NeighborFlags(0x04)
-	NTF_PROXY       = NeighborFlags(0x08)
-	NTF_EXT_LEARNED = NeighborFlags(0x10)
-	NTF_OFFLOADED   = NeighborFlags(0x20)
-	NTF_STICKY      = NeighborFlags(0x40)
-	NTF_ROUTER      = NeighborFlags(0x80)
-
-	NTF_EXT_MANAGED = NeighborFlagsExt(0x00000001)
+	NDA_MAX
 )
+
+var ndaStrings = [...]string{
+	"UNSPEC",
+	"DST",
+	"LLADDR",
+	"CACHEINFO",
+	"PROBES",
+	"VLAN",
+	"PORT",
+	"VNI",
+	"IFINDEX",
+	"MASTER",
+	"LINK_NETNSID",
+	"SRC_VNI",
+	"PROTOCOL",
+	"NH_ID",
+	"FDB_EXT_ATTRS",
+	"FLAGS_EXT",
+}
+
+func (t NeighborType) String() string {
+	if t >= NDA_MAX {
+		return fmt.Sprintf("NDA_UNKNOWN(%d)", t)
+	}
+
+	return ndaStrings[t]
+}
+
+type NeighborState uint16 // bit mask of neighbor states (NUD_*)
+
+const (
+	NUD_NONE       NeighborState = 0x00
+	NUD_INCOMPLETE               = 1 << (iota - 1)
+	NUD_REACHABLE
+	NUD_STALE
+	NUD_DELAY
+	NUD_PROBE
+	NUD_FAILED
+	NUD_NOARP
+	NUD_PERMANENT
+)
+
+var nudStrings = [...]string{
+	"INCOMPLETE",
+	"REACHABLE",
+	"STALE",
+	"DELAY",
+	"PROBE",
+	"FAILED",
+	"NOARP",
+	"PERMANENT",
+}
+
+func (s NeighborState) String() string {
+	if s == 0 {
+		return "NONE"
+	}
+
+	var out string
+	for i := range 16 {
+		if s&(1<<i) != 0 {
+			if out != "" {
+				out += "|"
+			}
+
+			if i < len(nudStrings) {
+				out += nudStrings[i]
+			} else {
+				out += fmt.Sprintf("NUD_UNKNOWN(%d)", i)
+			}
+		}
+	}
+
+	return out
+}
+
+type NeighborFlags uint8 // bit mask of neighbor flags (NTF_*)
+
+const (
+	NTF_USE NeighborFlags = 1 << iota
+	NTF_SELF
+	NTF_MASTER
+	NTF_PROXY
+	NTF_EXT_LEARNED
+	NTF_OFFLOADED
+	NTF_STICKY
+	NTF_ROUTER
+)
+
+var ntfStrings = [...]string{
+	"USE",
+	"SELF",
+	"MASTER",
+	"PROXY",
+	"EXT_LEARNED",
+	"OFFLOADED",
+	"STICKY",
+	"ROUTER",
+}
+
+func (f NeighborFlags) String() string {
+	if f == 0 {
+		return "NONE"
+	}
+
+	var out string
+	for i := range 8 {
+		if f&(1<<i) != 0 {
+			if out != "" {
+				out += "|"
+			}
+
+			if i < len(ntfStrings) {
+				out += ntfStrings[i]
+			} else {
+				out += fmt.Sprintf("NTF_UNKNOWN(%d)", i)
+			}
+		}
+	}
+
+	return out
+}
+
+type NeighborFlagsExt uint32 // bit mask of extended neighbor flags (NTF_EXT_*)
+
+const (
+	NTF_EXT_MANAGED NeighborFlagsExt = 1 << iota
+)
+
+var ntfExtStrings = [...]string{
+	"EXT_MANAGED",
+}
+
+func (f NeighborFlagsExt) String() string {
+	if f == 0 {
+		return "NONE"
+	}
+
+	var out string
+	for i := range 32 {
+		if f&(1<<i) != 0 {
+			if out != "" {
+				out += "|"
+			}
+
+			if i < len(ntfExtStrings) {
+				out += ntfExtStrings[i]
+			} else {
+				out += fmt.Sprintf("NTF_EXT_UNKNOWN(%d)", i)
+			}
+		}
+	}
+
+	return out
+}

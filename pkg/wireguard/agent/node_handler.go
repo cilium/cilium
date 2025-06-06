@@ -4,7 +4,6 @@
 package agent
 
 import (
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -60,7 +59,3 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 
 	return nil
 }
-
-// NodeConfigurationChanged is called when the local node configuration
-// has changed
-func (a *Agent) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error { return nil }

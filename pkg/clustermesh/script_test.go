@@ -241,16 +241,6 @@ func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
 	panic("unimplemented")
 }
 
-// StartNeighborRefresh implements manager.NodeManager.
-func (d dummyNodeManager) StartNeighborRefresh(nh types.NodeNeighbors) {
-	panic("unimplemented")
-}
-
-// StartNodeNeighborLinkUpdater implements manager.NodeManager.
-func (d dummyNodeManager) StartNodeNeighborLinkUpdater(nh types.NodeNeighbors) {
-	panic("unimplemented")
-}
-
 // Subscribe implements manager.NodeManager.
 func (d dummyNodeManager) Subscribe(types.NodeHandler) {
 	panic("unimplemented")

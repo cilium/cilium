@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -42,11 +43,12 @@ type serviceManagerParams struct {
 
 	HealthCheckers  []HealthChecker `group:"healthCheckers"`
 	Clientset       k8sClient.Clientset
-	NodeNeighbors   types.NodeNeighbors
 	MetricsRegistry *metrics.Registry
 
 	Config   *option.DaemonConfig
 	LBConfig loadbalancer.Config
+
+	ForwardableIPManager *neighbor.ForwardableIPManager
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
@@ -66,7 +68,7 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		params.MetricsRegistry,
 		params.LBConfig,
 		params.LBMap,
-		params.NodeNeighbors,
+		params.ForwardableIPManager,
 		enabledHealthCheckers,
 		params.Clientset.IsEnabled(),
 		params.Config,
