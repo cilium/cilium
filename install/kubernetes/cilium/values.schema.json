@@ -4180,6 +4180,17 @@
       },
       "type": "object"
     },
+    "localRedirectPolicies": {
+      "properties": {
+        "addressMatcherCIDRs": {
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "localRedirectPolicy": {
       "type": "boolean"
     },

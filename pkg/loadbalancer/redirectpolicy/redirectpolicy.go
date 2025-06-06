@@ -5,6 +5,7 @@ package redirectpolicy
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -14,6 +15,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -165,7 +167,7 @@ func (p bePortInfo) String() string {
 
 // parse parses the specified cilium local redirect policy spec, and returns
 // a sanitized LocalRedirectPolicy.
-func parseLRP(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirectPolicy, error) {
+func parseLRP(cfg Config, log *slog.Logger, clrp *v2.CiliumLocalRedirectPolicy) (*LocalRedirectPolicy, error) {
 	name := clrp.ObjectMeta.Name
 	if name == "" {
 		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a name")
@@ -176,19 +178,10 @@ func parseLRP(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirect
 		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a non-empty namespace")
 	}
 
-	if sanitize {
-		return getSanitizedLocalRedirectPolicy(name, namespace, clrp.UID, clrp.Spec)
-	} else {
-		return &LocalRedirectPolicy{
-			ID: k8s.ServiceID{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}, nil
-	}
+	return getSanitizedLocalRedirectPolicy(cfg, log, name, namespace, clrp.UID, clrp.Spec)
 }
 
-func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LocalRedirectPolicy, error) {
+func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LocalRedirectPolicy, error) {
 
 	var (
 		addrMatcher    = spec.RedirectFrontend.AddressMatcher
@@ -218,6 +211,25 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 		if err != nil {
 			return nil, fmt.Errorf("invalid address matcher IP %v: %w", addrMatcher.IP, err)
 		}
+
+		if !cfg.addressAllowed(addrCluster.Addr()) {
+			log.Warn("Ignoring IP in AddressMatcher disallowed by --"+AddressMatcherCIDRsName,
+				logfields.Address, addrMatcher.IP,
+				logfields.CIDRs, cfg.AddressMatcherCIDRs,
+				logfields.K8sNamespace, namespace,
+				logfields.Name, name)
+
+			// Return an "empty" policy so that any prior policy will be flushed out.
+			return &LocalRedirectPolicy{
+				UID:       uid,
+				ServiceID: k8sSvc,
+				ID: k8s.ServiceID{
+					Name:      name,
+					Namespace: namespace,
+				},
+			}, nil
+		}
+
 		if len(addrMatcher.ToPorts) > 1 {
 			// If there are multiple ports, then the ports must be named.
 			checkNamedPort = true
