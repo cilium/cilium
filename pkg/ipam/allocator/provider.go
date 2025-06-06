@@ -9,14 +9,15 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // AllocatorProvider defines the functions of IPAM provider front-end
 // these are implemented by e.g. pkg/ipam/allocator/{aws,azure}.
 type AllocatorProvider interface {
-	Init(ctx context.Context, logger *slog.Logger) error
-	Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (NodeEventHandler, error)
+	Init(ctx context.Context, logger *slog.Logger, metrics *metrics.Registry) error
+	Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, metrics *metrics.Registry) (NodeEventHandler, error)
 }
 
 // NodeEventHandler should implement the behavior to handle CiliumNode

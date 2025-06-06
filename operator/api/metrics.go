@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	opMetrics "github.com/cilium/cilium/operator/metrics"
+	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
 )
 
 var MetricsHandlerCell = cell.Module(
@@ -18,14 +19,16 @@ var MetricsHandlerCell = cell.Module(
 	cell.Provide(newMetricsHandler),
 )
 
-type metricsHandler struct{}
+type metricsHandler struct {
+	registry *ciliumMetrics.Registry
+}
 
-func newMetricsHandler() metrics.GetMetricsHandler {
-	return &metricsHandler{}
+func newMetricsHandler(reg *ciliumMetrics.Registry) metrics.GetMetricsHandler {
+	return &metricsHandler{registry: reg}
 }
 
 func (h *metricsHandler) Handle(params metrics.GetMetricsParams) middleware.Responder {
-	m, err := opMetrics.DumpMetrics()
+	m, err := opMetrics.DumpMetrics(h.registry)
 	if err != nil {
 		return metrics.NewGetMetricsFailed()
 	}

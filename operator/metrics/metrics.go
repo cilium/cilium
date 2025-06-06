@@ -12,8 +12,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	controllerRuntimeMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -35,6 +33,8 @@ type params struct {
 	SharedCfg SharedConfig
 
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
+
+	Registry *metrics.Registry
 }
 
 type metricsManager struct {
@@ -48,7 +48,6 @@ type metricsManager struct {
 
 func (mm *metricsManager) Start(ctx cell.HookContext) error {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
 	mm.server.Handler = mux
 
 	go func() {
@@ -70,47 +69,31 @@ func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func registerMetricsManager(p params) {
-	if !p.SharedCfg.EnableMetrics {
-		return
-	}
-
-	mm := &metricsManager{
-		logger:     p.Logger,
-		shutdowner: p.Shutdowner,
-		server:     http.Server{Addr: p.Cfg.OperatorPrometheusServeAddr},
-		metrics:    p.Metrics,
-	}
-
-	// Use the same Registry as controller-runtime, so that we don't need
-	// to expose multiple metrics endpoints or servers.
-	//
-	// Ideally, we should use our own Registry instance, but the metrics
-	// registration is done by init() functions, which are executed before
-	// this function is called.
-	Registry = controllerRuntimeMetrics.Registry
-
-	// Unregister default Go collector that is added by default by the controller-runtime library.
-	// This is necessary to be able to register a Go collector with additional runtime metrics
-	// without any clashes with the existing Go collector.
-	Registry.Unregister(collectors.NewGoCollector())
-
-	Registry.MustRegister(collectors.NewGoCollector(
+// Note: metrics are always initialized so we have access to sampler ring buffer data
+// for debugging. However, actual prometheus server will be started depending on if
+// metrics are enabled.
+//
+// Note: Some metrics are not fully integrated with the operator, specifically k8s
+// controller runtime metrics register against their own global registry.
+// This registry is included as part of the (*metrics).Registry.Gather() call
+// but this data is not accessed from the sampler.
+// Therefore the metrics stored in the sampler ring buffer are not complete and will
+// miss any of the controll runtime metrics.
+func initializeMetrics(p params) {
+	p.Registry.MustRegister(collectors.NewGoCollector(
 		collectors.WithGoCollectorRuntimeMetrics(
 			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
 		),
 	))
 
-	Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: metrics.CiliumOperatorNamespace}))
+	p.Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: metrics.CiliumOperatorNamespace}))
 
-	for _, metric := range mm.metrics {
-		Registry.MustRegister(metric.(prometheus.Collector))
+	for _, metric := range p.Metrics {
+		p.Registry.MustRegister(metric.(prometheus.Collector))
 	}
 
-	// Constructing the legacy metrics and register them at the metrics global variable.
-	// This is a hack until we can unify this metrics manager with the metrics.Registry.
 	metrics.NewLegacyMetrics()
-	Registry.MustRegister(
+	p.Registry.MustRegister(
 		metrics.VersionMetric,
 		metrics.KVStoreOperationsDuration,
 		metrics.KVStoreEventsQueueDuration,
@@ -120,11 +103,19 @@ func registerMetricsManager(p params) {
 		metrics.APILimiterRequestsInFlight,
 		metrics.APILimiterRateLimit,
 		metrics.APILimiterProcessedRequests,
+
+		metrics.WorkQueueDepth,
+		metrics.WorkQueueAddsTotal,
+		metrics.WorkQueueLatency,
+		metrics.WorkQueueDuration,
+		metrics.WorkQueueUnfinishedWork,
+		metrics.WorkQueueLongestRunningProcessor,
+		metrics.WorkQueueRetries,
 	)
 
 	metrics.InitOperatorMetrics()
-	Registry.MustRegister(metrics.ErrorsWarnings)
+	p.Registry.MustRegister(metrics.ErrorsWarnings)
 	metrics.FlushLoggingMetrics()
 
-	p.Lifecycle.Append(mm)
+	p.Registry.AddServerRuntimeHooks()
 }
