@@ -78,7 +78,11 @@ type params struct {
 	ClusterInfo  types.ClusterInfo
 	CommonConfig common.Config
 
+	// Client is the client targeting the local cluster
 	Client kvstore.Client
+
+	// RemoteClientFactory is the factory to create clients targeting remote clusters
+	RemoteClientFactory common.RemoteClientFactoryFn
 
 	Metrics      common.Metrics
 	StoreFactory store.Factory
@@ -95,11 +99,12 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		clock:        clock.RealClock{},
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
-		Logger:           params.Logger,
-		Config:           params.CommonConfig,
-		ClusterInfo:      params.ClusterInfo,
-		NewRemoteCluster: km.newRemoteCluster,
-		Metrics:          params.Metrics,
+		Logger:              params.Logger,
+		Config:              params.CommonConfig,
+		ClusterInfo:         params.ClusterInfo,
+		RemoteClientFactory: params.RemoteClientFactory,
+		NewRemoteCluster:    km.newRemoteCluster,
+		Metrics:             params.Metrics,
 	})
 
 	lc.Append(km.common)

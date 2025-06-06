@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -40,11 +39,6 @@ type RemoteCluster interface {
 	Stop()
 	Remove(ctx context.Context)
 }
-
-// backendFactoryFn is the type of the function to create the etcd client.
-type backendFactoryFn func(ctx context.Context, logger *slog.Logger,
-	backend string, opts map[string]string,
-	options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error)
 
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
@@ -101,9 +95,8 @@ type remoteCluster struct {
 
 	logger *slog.Logger
 
-	// backendFactory allows to override the function to create the etcd client
-	// for testing purposes.
-	backendFactory backendFactoryFn
+	// remoteClientFactory is the factory to create new backend instances.
+	remoteClientFactory RemoteClientFactoryFn
 	// clusterLockFactory allows to override the function to create the clusterLock
 	// for testing purposes.
 	clusterLockFactory func() *clusterLock
@@ -142,7 +135,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				clusterLock := rc.clusterLockFactory()
 				extraOpts := rc.makeExtraOpts(clusterLock)
-				backend, errChan := rc.backendFactory(ctx, rc.logger, kvstore.EtcdBackendName, rc.makeEtcdOpts(), extraOpts)
+				backend, errChan := rc.remoteClientFactory(ctx, rc.logger, rc.configPath, extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
@@ -341,22 +334,6 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 		defer lastErrorLock.Unlock()
 		return types.CiliumClusterConfig{}, fmt.Errorf("failed to retrieve cluster configuration: %w", lastError)
 	}
-}
-
-func (rc *remoteCluster) makeEtcdOpts() map[string]string {
-	opts := map[string]string{
-		kvstore.EtcdOptionConfig: rc.configPath,
-	}
-
-	for key, value := range option.Config.KVStoreOpt {
-		switch key {
-		case kvstore.EtcdRateLimitOption, kvstore.EtcdMaxInflightOption, kvstore.EtcdListLimitOption,
-			kvstore.EtcdOptionKeepAliveHeartbeat, kvstore.EtcdOptionKeepAliveTimeout:
-			opts[key] = value
-		}
-	}
-
-	return opts
 }
 
 func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOptions {

@@ -117,6 +117,7 @@ func TestClusterMesh(t *testing.T) {
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+		RemoteClientFactory:   common.DefaultRemoteClientFactory(kvstore.Config{}),
 		NodeObserver:          nodesObserver,
 		RemoteIdentityWatcher: mgr,
 		ServiceMerger:         &fakeObserver{},

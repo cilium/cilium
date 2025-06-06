@@ -88,9 +88,10 @@ func TestClusterMesh(t *testing.T) {
 	var clusters []*fakeRemoteCluster
 
 	cm := NewClusterMesh(Configuration{
-		Logger:      hivetest.Logger(t),
-		Config:      Config{ClusterMeshConfig: baseDir},
-		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		Logger:              hivetest.Logger(t),
+		Config:              Config{ClusterMeshConfig: baseDir},
+		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			statuses.Store(name, sf)
 			rc := &fakeRemoteCluster{
@@ -215,9 +216,10 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	blockRemoval.Store("cluster4", make(chan struct{}))
 
 	gcm := NewClusterMesh(Configuration{
-		Logger:      hivetest.Logger(t),
-		Config:      Config{ClusterMeshConfig: baseDir},
-		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		Logger:              hivetest.Logger(t),
+		Config:              Config{ClusterMeshConfig: baseDir},
+		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) { ready.Store(name, true) },
