@@ -33,7 +33,7 @@ func (d *dummyOwner) GetNodeSuffix() string {
 func BenchmarkInjectLabels(b *testing.B) {
 	logger := hivetest.Logger(b)
 	ctx, cancel := context.WithCancel(context.Background())
-	alloc := cache.NewCachingIdentityAllocator(logger, &dummyOwner{}, cache.AllocatorConfig{})
+	alloc := cache.NewCachingIdentityAllocator(logger, &dummyOwner{}, cache.NewTestAllocatorConfig())
 	// <-alloc.InitIdentityAllocator(nil)
 	PolicyHandler = &mockUpdater{
 		identities: make(map[identity.NumericIdentity]labels.LabelArray),

@@ -97,11 +97,23 @@ type CachingIdentityAllocator struct {
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing. This is mainly introduced for testing purposes.
 	maxAllocAttempts int
+
+	// timeout for identity allocation operations.
+	timeout time.Duration
 }
 
 type AllocatorConfig struct {
 	EnableOperatorManageCIDs bool
+	Timeout                  time.Duration
 	maxAllocAttempts         int
+}
+
+// NewTestAllocatorConfig returns an AllocatorConfig initialized for testing purposes.
+func NewTestAllocatorConfig() AllocatorConfig {
+	return AllocatorConfig{
+		EnableOperatorManageCIDs: false,
+		Timeout:                  5 * time.Second,
+	}
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -365,6 +377,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
 		operatorIDManagement:               config.EnableOperatorManageCIDs,
 		maxAllocAttempts:                   config.maxAllocAttempts,
+		timeout:                            config.Timeout,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
@@ -413,6 +426,9 @@ func (m *CachingIdentityAllocator) Close() {
 // WaitForInitialGlobalIdentities waits for the initial set of global security
 // identities to have been received and populated into the allocator cache.
 func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	defer cancel()
+
 	select {
 	case <-m.globalIdentityAllocatorInitialized:
 	case <-ctx.Done():
@@ -509,6 +525,9 @@ func needsGlobalIdentity(lbls labels.Labels) bool {
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists.
 func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
+	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	defer cancel()
+
 	if !needsGlobalIdentity(lbls) {
 		return m.AllocateLocalIdentity(lbls, notifyOwner, oldNID)
 	}
@@ -765,6 +784,9 @@ func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity, notifyOwner bool) (released bool, err error) {
+	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	defer cancel()
+
 	// Ignore reserved identities.
 	if id.IsReserved() {
 		return false, nil

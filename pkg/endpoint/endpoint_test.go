@@ -57,7 +57,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	s := &EndpointSuite{
 		orchestrator: &fakeTypes.FakeOrchestrator{},
 		repo:         policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
-		mgr:          cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{}),
+		mgr:          cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig()),
 	}
 
 	// GetConfig the default labels prefix filter
