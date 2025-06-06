@@ -289,11 +289,6 @@ type OperatorConfig struct {
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
 
-	// KubeProxyReplacement or NodePort are required to implement cluster
-	// Ingress (or equivalent Gateway API functionality)
-	KubeProxyReplacement string
-	EnableNodePort       bool
-
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -440,10 +435,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
 	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
-
-	// Gateways and Ingress
-	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
-	c.EnableNodePort = vp.GetBool(EnableNodePort)
 
 	// AWS options
 

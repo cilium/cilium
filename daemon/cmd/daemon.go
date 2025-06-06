@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -133,6 +134,7 @@ type Daemon struct {
 	maglevConfig maglev.Config
 
 	lbConfig loadbalancer.Config
+	kprOpts  kpr.KPROpts
 }
 
 func (d *Daemon) init() error {
@@ -260,12 +262,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	if err := initKubeProxyReplacementOptions(params.Logger, params.Sysctl, params.TunnelConfig, params.LBConfig); err != nil {
+	if err := initKubeProxyReplacementOptions(params.Logger, params.Sysctl, params.TunnelConfig, params.LBConfig, params.KPROpts); err != nil {
 		params.Logger.Error("unable to initialize kube-proxy replacement options", logfields.Error, err)
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
+	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPROpts.EnableNodePort)
 
 	lbmapInitParams := lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -324,6 +326,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lrpManager:        params.LRPManager,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
+		kprOpts:           params.KPROpts,
 		ciliumHealth:      params.CiliumHealth,
 	}
 
@@ -537,6 +540,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.NodeManager.Subscribe(params.WGAgent)
 	}
 
+	// TODO(brb) remove with 3rd commit:
+	//
 	// The kube-proxy replacement and host-fw devices detection should happen after
 	// establishing a connection to kube-apiserver, but before starting a k8s watcher.
 	// This is because the device detection requires self (Cilium)Node object,
@@ -547,14 +552,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	drdName := ""
 	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
 	if directRoutingDevice == nil {
-		if option.Config.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired(params.KPROpts) {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 				option.DirectRoutingDevice)
 		}
-
-		d.logger.Warn("failed to detect devices, disabling BPF NodePort", logfields.Error, err)
-		disableNodePort()
 	} else {
 		drdName = directRoutingDevice.Name
 		d.logger.Info(
@@ -564,7 +566,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, rxn)
-	if err := finishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, d.lbConfig); err != nil {
+	if err := finishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, d.lbConfig, d.kprOpts); err != nil {
 		d.logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -575,7 +577,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 		var err error
 		switch {
-		case !option.Config.EnableNodePort:
+		case !params.KPROpts.EnableNodePort:
 			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
 				option.EnableNodePort)
 		case len(option.Config.MasqueradeInterfaces) > 0:

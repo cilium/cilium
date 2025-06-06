@@ -184,7 +184,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired() {
+	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired(l.kprOpts) {
 		return nil
 	}
 
@@ -470,7 +470,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.logger, l.sysctl); err != nil {
+		if err := socketlb.Enable(l.logger, l.sysctl, l.kprOpts); err != nil {
 			return err
 		}
 	} else {

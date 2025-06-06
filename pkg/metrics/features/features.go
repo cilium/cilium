@@ -21,7 +21,7 @@ func updateAgentConfigMetricOnStart(jg job.Group, params featuresParams, m featu
 		if err != nil {
 			return fmt.Errorf("failed to get agent config: %w", err)
 		}
-		m.update(&params, agentConfig, params.LBConfig)
+		m.update(&params, agentConfig, params.LBConfig, params.KPROpts)
 		return nil
 	}))
 

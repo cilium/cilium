@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -71,6 +72,7 @@ type statusParams struct {
 	Config       Config
 	DaemonConfig *option.DaemonConfig
 	LBConfig     loadbalancer.Config
+	KPROpts      kpr.KPROpts
 
 	DaemonConfigPromise promise.Promise[*option.DaemonConfig]
 

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -55,6 +56,7 @@ type kubeProxyHealthParams struct {
 	Config          config
 	StatusCollector status.StatusCollector
 	ServiceManager  service.ServiceManager
+	KPROpts         kpr.KPROpts
 }
 
 type config struct {
@@ -69,7 +71,7 @@ func (r config) Flags(flags *pflag.FlagSet) {
 // status HTTP endpoint exposed on addr.
 // This endpoint reports the agent health status with the timestamp.
 func registerKubeProxyHealthzHTTPService(params kubeProxyHealthParams) error {
-	if params.Config.KubeProxyReplacementHealthzBindAddress == "" || params.AgentConfig.KubeProxyReplacement == option.KubeProxyReplacementFalse {
+	if params.Config.KubeProxyReplacementHealthzBindAddress == "" || params.KPROpts.KubeProxyReplacement == option.KubeProxyReplacementFalse {
 		return nil
 	}
 

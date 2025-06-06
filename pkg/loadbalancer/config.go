@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -501,12 +502,12 @@ type ExternalConfig struct {
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
-func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
+func NewExternalConfig(cfg *option.DaemonConfig, kprOpts kpr.KPROpts) ExternalConfig {
 	return ExternalConfig{
 		ZoneMapper:                             cfg,
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		KubeProxyReplacement:                   kprOpts.KubeProxyReplacement == option.KubeProxyReplacementTrue || kprOpts.EnableNodePort,
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         cfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,

@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -33,6 +34,7 @@ func TestCell(t *testing.T) {
 		maglev.Cell,
 		node.LocalNodeStoreCell,
 		metrics.Cell,
+		kpr.Cell,
 		Cell,
 		cell.Provide(source.NewSources),
 		cell.Provide(

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,29 +41,37 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config) error {
-	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
-		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
+func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts) error {
+	if kprOpts.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+		kprOpts.KubeProxyReplacement != option.KubeProxyReplacementFalse {
+		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, kprOpts.KubeProxyReplacement)
 	}
 
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
+	if kprOpts.KubeProxyReplacement == option.KubeProxyReplacementTrue {
 		logger.Info(fmt.Sprintf(
-			"Auto-enabling %q, %q, %q, %q, %q features",
-			option.EnableNodePort, option.EnableExternalIPs,
+			"Auto-enabling %q, %q, %q, %q features",
+			option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity,
 		),
 		)
 
 		option.Config.EnableHostPort = true
-		option.Config.EnableNodePort = true
+		//option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
 		option.Config.EnableSocketLB = true
 		option.Config.EnableSessionAffinity = true
 	}
 
-	if option.Config.EnableNodePort {
+	if !kprOpts.EnableNodePort {
+		// Disable features depending on NodePort
+		option.Config.EnableHostPort = false
+		option.Config.EnableExternalIPs = false
+		option.Config.EnableSVCSourceRangeCheck = false
+		option.Config.EnableHostLegacyRouting = true
+	}
+
+	if kprOpts.EnableNodePort {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -158,7 +167,8 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !option.Config.KubeProxyReplacementFullyEnabled() {
+		// TODO(brb) comment about session affinity
+		if !(option.Config.EnableHostPort && kprOpts.EnableNodePort && option.Config.EnableExternalIPs && option.Config.EnableSocketLB) {
 			return fmt.Errorf("%s requires the agent to run with %s=%s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		}
@@ -181,13 +191,14 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(logger, lbConfig, sysctl)
+	return probeKubeProxyReplacementOptions(logger, lbConfig, kprOpts, sysctl)
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
-func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, sysctl sysctl.Sysctl) error {
-	if option.Config.EnableNodePort {
+func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts, sysctl sysctl.Sysctl) error {
+
+	if kprOpts.EnableNodePort {
 		if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
@@ -222,7 +233,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		if option.Config.EnableMKE {
 			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
 				probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				logging.Fatal(logger, fmt.Sprintf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE))
+				return fmt.Errorf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 			}
 		}
 
@@ -272,21 +283,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config) error {
-	if !option.Config.EnableNodePort {
-		// Make sure that NodePort dependencies are disabled
-		disableNodePort()
-		return nil
-	}
-
-	if option.Config.DryMode {
-		return nil
-	}
-
-	// +-------------------------------------------------------+
-	// | After this point, BPF NodePort should not be disabled |
-	// +-------------------------------------------------------+
-
+func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && option.Config.EnableSocketLB {
@@ -303,7 +300,7 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=true is needed or we might rely on netfilter.
-		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
+		case kprOpts.KubeProxyReplacement != option.KubeProxyReplacementTrue:
 			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		}
 		if msg != "" {
@@ -344,16 +341,6 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 	}
 
 	return nil
-}
-
-// disableNodePort disables BPF NodePort and friends who are dependent from
-// the latter.
-func disableNodePort() {
-	option.Config.EnableNodePort = false
-	option.Config.EnableHostPort = false
-	option.Config.EnableExternalIPs = false
-	option.Config.EnableSVCSourceRangeCheck = false
-	option.Config.EnableHostLegacyRouting = true
 }
 
 // markHostExtension tells the socket LB that MKE managed containers belong

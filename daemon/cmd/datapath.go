@@ -190,7 +190,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.metricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, option.Config.EnableNodePort)
+		option.Config.EnableIPv6, d.kprOpts.EnableNodePort)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv4nat map: %w", err)
@@ -202,7 +202,7 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if option.Config.EnableNodePort {
+	if d.kprOpts.EnableNodePort {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
