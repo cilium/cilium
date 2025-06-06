@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -48,7 +47,8 @@ type Configuration struct {
 	Prefix string
 
 	// SynchronizationInterval is the interval in which locally owned keys
-	// are synchronized with the kvstore. This parameter is optional.
+	// are synchronized with the kvstore. Defaults to 0 (i.e., no periodic
+	// synchronization is performed) if unset.
 	SynchronizationInterval time.Duration
 
 	// SharedKeyDeleteDelay is the delay before a shared key delete is
@@ -77,10 +77,6 @@ func (c *Configuration) validate() error {
 
 	if c.KeyCreator == nil {
 		return fmt.Errorf("KeyCreator must be specified")
-	}
-
-	if c.SynchronizationInterval == 0 {
-		c.SynchronizationInterval = option.Config.KVstorePeriodicSync
 	}
 
 	if c.Backend == nil {

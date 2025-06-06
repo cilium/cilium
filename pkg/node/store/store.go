@@ -154,12 +154,13 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, client kvstore.Client
 
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
-		Context:              ctx,
-		Backend:              client,
-		Prefix:               NodeStorePrefix,
-		KeyCreator:           ValidatingKeyCreator(),
-		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-		Observer:             NewNodeObserver(manager, source.KVStore),
+		Context:                 ctx,
+		Backend:                 client,
+		Prefix:                  NodeStorePrefix,
+		KeyCreator:              ValidatingKeyCreator(),
+		SynchronizationInterval: client.Config().KVStorePeriodicSync,
+		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
+		Observer:                NewNodeObserver(manager, source.KVStore),
 	})
 	if err != nil {
 		return err

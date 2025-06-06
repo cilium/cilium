@@ -126,6 +126,10 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 					Backend:    s.kvstoreClient,
 					Prefix:     nodeStore.NodeStorePrefix,
 					KeyCreator: nodeStore.KeyCreator,
+
+					// We never upsert anything in this store,
+					// so let's disable synchronization.
+					SynchronizationInterval: 0,
 				})
 
 			if err != nil {
