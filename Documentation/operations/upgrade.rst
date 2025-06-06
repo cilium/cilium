@@ -364,6 +364,9 @@ Deprecated Options
   The K8s Endpoint Slice feature will be unconditionally enabled.
 * The flag ``--enable-internal-traffic-policy`` has been deprecated and will be removed in Cilium 1.19. The
   ``internalTrafficPolicy`` field in a Kubernetes Service object will be unconditionally respected.
+* The flag ``--egress-multi-home-ip-rule-compat`` and the old IP rule scheme has been deprecated and will be removed
+  in Cilium 1.19. Running Cilium 1.18 with the flag set to ``false`` (default value) will migrate any existing IP rules
+  to the new scheme.
 
 Helm Options
 ~~~~~~~~~~~~
