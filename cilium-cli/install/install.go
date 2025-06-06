@@ -72,6 +72,8 @@ type k8sInstallerImplementation interface {
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	DeleteNamespace(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
 	DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
+
+	PatchNode(ctx context.Context, name string, pt types.PatchType, data []byte) (*corev1.Node, error)
 }
 
 type K8sInstaller struct {
