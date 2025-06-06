@@ -53,31 +53,12 @@ type adapterParams struct {
 	TestConfig   *loadbalancer.TestConfig `optional:"true"`
 }
 
-type decorateParams struct {
-	cell.In
-
-	Config loadbalancer.Config
-	SCA    *serviceCacheAdapter
-	SC     k8s.ServiceCache `optional:"true"`
-	SMA    *serviceManagerAdapter
-	SM     service.ServiceManager `optional:"true"`
-}
-
-func decorateAdapters(p decorateParams) (k8s.ServiceCache, service.ServiceManager) {
-	if !p.Config.EnableExperimentalLB {
-		return p.SC, p.SM
-	}
-	return p.SCA, p.SMA
-}
-
-// newAdapters constructs the ServiceCache and ServiceManager adapters. This is separate
-// from [decorateAdapters] in order to have access to the module's job.Group which is not
-// accessible in the [cell.DecorateAll] scope.
-func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManagerAdapter) {
+// newAdapters constructs the ServiceCache and ServiceManager adapters
+func newAdapters(p adapterParams) (k8s.ServiceCache, service.ServiceManager) {
 	if !p.Config.EnableExperimentalLB {
 		return nil, nil
 	}
-	sca = &serviceCacheAdapter{
+	sca := &serviceCacheAdapter{
 		log:      p.Log,
 		db:       p.DB,
 		services: p.Services,
@@ -97,7 +78,7 @@ func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManager
 	} else {
 		initDone = func(writer.WriteTxn) {}
 	}
-	sma = &serviceManagerAdapter{
+	sma := &serviceManagerAdapter{
 		log:          p.Log,
 		daemonConfig: p.DaemonConfig,
 		db:           p.DB,
@@ -106,7 +87,7 @@ func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManager
 		writer:       p.Writer,
 		initDone:     initDone,
 	}
-	return
+	return sca, sma
 }
 
 type serviceCacheAdapter struct {

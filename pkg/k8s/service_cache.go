@@ -31,15 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// ServiceCacheCell initializes the service cache holds the list of known services
-// correlated with the matching endpoints
-var ServiceCacheCell = cell.Module(
-	"service-cache",
-	"Service Cache",
-
-	cell.Provide(newServiceCache),
-)
-
 // CacheAction is the type of action that was performed on the cache
 type CacheAction int
 
