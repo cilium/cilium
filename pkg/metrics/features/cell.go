@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -83,6 +84,7 @@ type featuresParams struct {
 	Metrics       featureMetrics
 
 	LBConfig            loadbalancer.Config
+	KPROpts             kpr.KPROpts
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
 	MutualAuth          auth.MeshAuthConfig

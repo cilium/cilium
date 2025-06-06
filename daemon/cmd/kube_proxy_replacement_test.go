@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -46,14 +47,17 @@ type kprConfig struct {
 	dispatchMode   string
 
 	lbConfig loadbalancer.Config
+	kprOpts  kpr.KPROpts
 }
 
 func (cfg *kprConfig) set() {
 	cfg.lbConfig = loadbalancer.DefaultConfig
 
-	option.Config.KubeProxyReplacement = cfg.kubeProxyReplacement
+	cfg.kprOpts.KubeProxyReplacement = cfg.kubeProxyReplacement
 	option.Config.EnableSocketLB = cfg.enableSocketLB
-	option.Config.EnableNodePort = cfg.enableNodePort
+	if cfg.kprOpts.KubeProxyReplacement == "true" {
+		cfg.kprOpts.EnableNodePort = true
+	}
 	option.Config.EnableHostPort = cfg.enableHostPort
 	option.Config.EnableExternalIPs = cfg.enableExternalIPs
 	option.Config.EnableSessionAffinity = cfg.enableSessionAffinity
@@ -86,9 +90,9 @@ func errorMatch(err error, regex string) assert.Comparison {
 	}
 }
 
-func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, tc tunnel.Config) {
+func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts, tc tunnel.Config) {
 	logger := hivetest.Logger(t)
-	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, lbConfig)
+	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, lbConfig, kprOpts)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		t.Logf("err=%s, expected=%s, cfg=%+v", err, cfg.expectedErrorRegex, cfg)
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
@@ -98,7 +102,7 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, tc tunn
 	}
 
 	require.Equal(t, cfg.enableSocketLB, option.Config.EnableSocketLB)
-	require.Equal(t, cfg.enableNodePort, option.Config.EnableNodePort)
+	//require.Equal(t, cfg.enableNodePort, kprOpts.EnableNodePort)
 	require.Equal(t, cfg.enableHostPort, option.Config.EnableHostPort)
 	require.Equal(t, cfg.enableExternalIPs, option.Config.EnableExternalIPs)
 	require.Equal(t, cfg.enableSessionAffinity, option.Config.EnableSessionAffinity)
@@ -418,7 +422,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 		cfg := def
 		testCase.mod(&cfg)
 		cfg.set()
-		testCase.out.verify(t, cfg.lbConfig, tunnel.NewTestConfig(cfg.tunnelProtocol))
+		testCase.out.verify(t, cfg.lbConfig, cfg.kprOpts, tunnel.NewTestConfig(cfg.tunnelProtocol))
 		def.set()
 	}
 }

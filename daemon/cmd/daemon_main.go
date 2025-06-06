@@ -1262,7 +1262,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		// If devices are required, we don't look at the EncryptInterface, as we
 		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
 		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired() &&
+		// TODO(brb) move to later
+		//!option.Config.AreDevicesRequired(params.KPROpts) &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(logger)
 		if err != nil {
@@ -1709,7 +1710,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			&EndpointMapManager{
 				logger:          d.logger,
 				EndpointManager: d.endpointManager,
-			}, d.bwManager, d.lbConfig)
+			}, d.bwManager, d.lbConfig, d.kprOpts)
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
 

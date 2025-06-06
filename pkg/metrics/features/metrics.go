@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -943,10 +944,10 @@ func NewMetrics(withDefaults bool) Metrics {
 }
 
 type featureMetrics interface {
-	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config)
+	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts)
 }
 
-func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config) {
+func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprOpts kpr.KPROpts) {
 	networkMode := networkModeDirectRouting
 	if config.TunnelingEnabled() {
 		switch params.TunnelProtocol() {
@@ -1020,7 +1021,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		}
 	}
 
-	if config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
+	if kprOpts.KubeProxyReplacement == option.KubeProxyReplacementTrue {
 		m.ACLBKubeProxyReplacementEnabled.Add(1)
 	}
 

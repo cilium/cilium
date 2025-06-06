@@ -2095,8 +2095,6 @@ type DaemonConfig struct {
 
 	// ConnectivityProbeFrequencyRatio is the ratio of the connectivity probe frequency vs resource consumption
 	ConnectivityProbeFrequencyRatio float64
-
-	kpr.KPROpts
 }
 
 var (
@@ -2217,14 +2215,14 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
+func (c *DaemonConfig) AreDevicesRequired(kprOpts kpr.KPROpts) bool {
+	return kprOpts.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
 // NeedIngressOnWireGuardDevice returns true if the agent needs to attach
 // cil_from_wireguard on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
+func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprOpts kpr.KPROpts) bool {
 	if !c.EnableWireguard {
 		return false
 	}
@@ -2244,7 +2242,7 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 	// from the remote node, we need to attach bpf_host to the Cilium's WG
 	// netdev (otherwise, the WG netdev after decrypting the reply will pass
 	// it to the stack which drops the packet).
-	if c.EnableNodePort && c.EncryptNode {
+	if kprOpts.EnableNodePort && c.EncryptNode {
 		return true
 	}
 
@@ -2253,7 +2251,7 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
 // cil_to_wireguard on the Egress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedEgressOnWireGuardDevice() bool {
+func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprOpts kpr.KPROpts) bool {
 	if !c.EnableWireguard {
 		return false
 	}
@@ -2265,7 +2263,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice() bool {
 
 	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
 	// the rev-NAT xlations when encrypting KPR traffic.
-	if c.EnableNodePort && c.EnableL7Proxy && c.KubeProxyReplacement == KubeProxyReplacementTrue {
+	if kprOpts.EnableNodePort && c.EnableL7Proxy && kprOpts.KubeProxyReplacement == KubeProxyReplacementTrue {
 		return true
 	}
 
@@ -2403,17 +2401,17 @@ func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
-func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
+func (c *DaemonConfig) DirectRoutingDeviceRequired(kprOpts kpr.KPROpts) bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
-	if c.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
+	if kprOpts.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}
 
-	return c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
+	return kprOpts.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
 }
 
 // KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
@@ -3536,16 +3534,6 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 
 	}
 	return nil
-}
-
-// KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_
-// running in full KPR mode.
-func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
-	return c.EnableHostPort &&
-		c.EnableNodePort &&
-		c.EnableExternalIPs &&
-		c.EnableSocketLB &&
-		c.EnableSessionAffinity
 }
 
 var backupFileNames []string = []string{

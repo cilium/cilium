@@ -23,6 +23,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -151,7 +152,7 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
+func ParseService(logger *slog.Logger, cfg loadbalancer.Config, kprOpts kpr.KPROpts, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
 	scopedLog := logger.With(
 		logfields.K8sSvcName, svc.ObjectMeta.Name,
 		logfields.K8sNamespace, svc.ObjectMeta.Namespace,
@@ -192,7 +193,7 @@ func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1
 		return ServiceID{}, nil
 	}
 
-	if svc.Spec.ClusterIP == "" && (!option.Config.EnableNodePort || len(svc.Spec.ExternalIPs) == 0) {
+	if svc.Spec.ClusterIP == "" && (!kprOpts.EnableNodePort || len(svc.Spec.ExternalIPs) == 0) {
 		return ServiceID{}, nil
 	}
 
@@ -249,7 +250,7 @@ func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1
 	svcInfo := NewService(clusterIPs, svc.Spec.ExternalIPs, loadBalancerIPs,
 		lbSrcRanges, headless, extTrafficPolicy, intTrafficPolicy,
 		uint16(svc.Spec.HealthCheckNodePort), svc.Annotations, svc.Labels, svc.Spec.Selector,
-		svc.GetNamespace(), svcType)
+		svc.GetNamespace(), svcType, kprOpts)
 
 	svcInfo.SourceRangesPolicy = getAnnotationServiceSourceRangesPolicy(svc)
 	svcInfo.ProxyDelegation = getAnnotationServiceProxyDelegation(svc)
@@ -330,7 +331,7 @@ func ParseService(logger *slog.Logger, cfg loadbalancer.Config, svc *slim_corev1
 		if expType.CanExpose(slim_corev1.ServiceTypeNodePort) &&
 			(svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) {
 
-			if option.Config.EnableNodePort {
+			if kprOpts.EnableNodePort {
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
@@ -610,6 +611,7 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 	headless bool, extTrafficPolicy, intTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	healthCheckNodePort uint16, annotations, labels, selector map[string]string,
 	namespace string, svcType loadbalancer.SVCType,
+	kprOpts kpr.KPROpts,
 ) *Service {
 	var (
 		k8sExternalIPs     map[string]net.IP
@@ -628,7 +630,7 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 	// By omitting these IPs in the returned Service object, they
 	// are no longer considered in equality checks and thus save
 	// CPU cycles processing events Cilium will not act upon.
-	if option.Config.EnableNodePort {
+	if kprOpts.EnableNodePort {
 		k8sExternalIPs = parseIPs(externalIPs)
 		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	}
