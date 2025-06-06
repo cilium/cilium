@@ -78,7 +78,11 @@ type params struct {
 	ClusterInfo  types.ClusterInfo
 	CommonConfig common.Config
 
+	// Backend is the client targeting the local cluster
 	Backend kvstore.Client
+
+	// BackendFactory is the factory to create clients targeting remote clusters
+	BackendFactory common.BackendFactoryFn
 
 	Metrics      common.Metrics
 	StoreFactory store.Factory
@@ -98,6 +102,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		Logger:           params.Logger,
 		Config:           params.CommonConfig,
 		ClusterInfo:      params.ClusterInfo,
+		BackendFactory:   params.BackendFactory,
 		NewRemoteCluster: km.newRemoteCluster,
 		Metrics:          params.Metrics,
 	})

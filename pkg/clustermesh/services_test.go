@@ -125,6 +125,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(tb), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           cmtypes.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+		BackendFactory:        common.DefaultBackendFactory(client.Config()),
 		NodeObserver:          newNodesObserver(),
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
