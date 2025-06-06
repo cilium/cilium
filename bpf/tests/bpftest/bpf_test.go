@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor"
 )
 
@@ -206,7 +207,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 	// Collect debug events and add them as logs of the main test
 	var globalLogReader *perf.Reader
-	if m := coll.Maps["test_cilium_events"]; m != nil {
+	if m := coll.Maps[eventsmap.MapName]; m != nil {
 		globalLogReader, err = perf.NewReader(m, os.Getpagesize()*16)
 		if err != nil {
 			t.Fatalf("new global log reader: %s", err.Error())
