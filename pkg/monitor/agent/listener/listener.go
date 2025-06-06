@@ -4,12 +4,6 @@
 package listener
 
 import (
-	"errors"
-	"net"
-	"os"
-
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
@@ -42,25 +36,4 @@ type MonitorListener interface {
 
 	// Close closes the listener.
 	Close()
-}
-
-// IsDisconnected is a convenience function that wraps the absurdly long set of
-// checks for a disconnect.
-func IsDisconnected(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	op := &net.OpError{}
-	if !errors.As(err, &op) {
-		return false
-	}
-
-	syscerr := &os.SyscallError{}
-	if !errors.As(op.Err, &syscerr) {
-		return false
-	}
-
-	var errn unix.Errno
-	return errors.As(syscerr.Err, &errn) && errors.Is(errn, unix.EPIPE)
 }
