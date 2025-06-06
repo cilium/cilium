@@ -291,13 +291,11 @@ func (manager *Manager) eventBitmapIsSet(events ...eventType) bool {
 // getIdentityLabels waits for the global identities to be populated to the cache,
 // then looks up identity by ID from the cached identity allocator and return its labels.
 func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Labels, error) {
-	identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
+	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to wait for initial global identities: %w", err)
 	}
 
-	identity := manager.identityAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
+	identity := manager.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if identity == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
 	}

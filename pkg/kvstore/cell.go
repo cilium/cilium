@@ -39,7 +39,6 @@ var Cell = cell.Module(
 		// Propagate the options to the global variables for backward compatibility
 		option.Config.KVStore = cfg.KVStore
 		option.Config.KVStoreOpt = cfg.KVStoreOpt
-		option.Config.KVstoreConnectivityTimeout = cfg.KVStoreConnectivityTimeout
 		option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
 		option.Config.KVstorePeriodicSync = cfg.KVStorePeriodicSync
 		option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
@@ -89,7 +88,6 @@ var Cell = cell.Module(
 type config struct {
 	KVStore                           string
 	KVStoreOpt                        map[string]string
-	KVStoreConnectivityTimeout        time.Duration
 	KVStoreLeaseTTL                   time.Duration
 	KVStorePeriodicSync               time.Duration
 	KVstoreMaxConsecutiveQuorumErrors uint
@@ -100,9 +98,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 
 	flags.StringToString(option.KVStoreOpt, def.KVStoreOpt,
 		"Key-value store options e.g. etcd.address=127.0.0.1:4001")
-
-	flags.Duration(option.KVstoreConnectivityTimeout, def.KVStoreConnectivityTimeout,
-		"Time after which an incomplete kvstore operation is considered failed")
 
 	flags.Duration(option.KVstoreLeaseTTL, def.KVStoreLeaseTTL,
 		"Time-to-live for the KVstore lease.")
@@ -117,7 +112,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 var defaultConfig = config{
 	KVStore:                           EtcdBackendName,
 	KVStoreOpt:                        make(map[string]string),
-	KVStoreConnectivityTimeout:        defaults.KVstoreConnectivityTimeout,
 	KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
 	KVStorePeriodicSync:               defaults.KVstorePeriodicSync,
 	KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,

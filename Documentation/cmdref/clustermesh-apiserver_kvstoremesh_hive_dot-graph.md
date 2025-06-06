@@ -29,7 +29,6 @@ clustermesh-apiserver kvstoremesh hive dot-graph [flags]
       --gops-port uint16                             Port for gops server to listen on (default 9894)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
       --kvstore string                               Key-value store type (default "etcd")
-      --kvstore-connectivity-timeout duration        Time after which an incomplete kvstore operation is considered failed (default 2m0s)
       --kvstore-lease-ttl duration                   Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint   Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                   Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])

@@ -272,9 +272,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		controller.ControllerParams{
 			Group: restoreEndpointIdentityControllerGroup,
 			DoFunc: func(ctx context.Context) (err error) {
-				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
-				defer cancel()
-				id, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true, identity.InvalidIdentity)
+				id, _, err = e.allocator.AllocateIdentity(ctx, l, true, identity.InvalidIdentity)
 				if err != nil {
 					return err
 				}
@@ -306,10 +304,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 			controller.ControllerParams{
 				Group: initialGlobalIdentitiesControllerGroup,
 				DoFunc: func(ctx context.Context) (err error) {
-					identityCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
-					defer cancel()
-
-					err = e.allocator.WaitForInitialGlobalIdentities(identityCtx)
+					err = e.allocator.WaitForInitialGlobalIdentities(ctx)
 					if err != nil {
 						e.getLogger().Warn("Failed while waiting for initial global identities", logfields.Error, err)
 						return err
