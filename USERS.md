@@ -598,6 +598,12 @@ Users (Alphabetically)
       D: Overstock is using Cilium as the main CNI plugin on bare-metal clusters (self hosted k8s).
       U: Networking, network policy, hubble, observability
 
+    * N: OVHcloud
+      D: OVHcloud is using Cilium as the default CNI on their Managed Kubernetes Service (MKS) clusters offering with Premium plan.
+      U: CNI, network policies, visibility
+      L: https://www.ovhcloud.com/
+      Q: @scraly
+
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in all major cloud providers [AWS/Azure/GCP] (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering, IPSec
