@@ -9,8 +9,9 @@ package {{ .APIPackage }}
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
-	"log"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,22 +21,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime/middleware"
-  "github.com/go-openapi/swag"
-  {{ if .UsePFlags }}flag "github.com/spf13/pflag"
-  {{ end -}}
-  {{ if .UseFlags }}"flag"
-  "strings"
-  {{ end -}}
-  "golang.org/x/net/netutil"
+	"github.com/go-openapi/swag"
+	"github.com/spf13/pflag"
+	"golang.org/x/net/netutil"
 
   {{ imports .DefaultImports }}
   {{ imports .Imports }}
-  "github.com/cilium/hive/cell"
-
-  "github.com/cilium/cilium/pkg/hive"
-  "github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Cell implements the {{ humanize .Name }} REST API server when provided
@@ -56,9 +53,9 @@ var APICell = cell.Provide(newAPI)
 type apiParams struct {
 	cell.In
 
-	Spec       *Spec
+	Spec *Spec
 
-	Logger     *slog.Logger
+	Logger *slog.Logger
 
 	Middleware middleware.Builder `name:"{{ dasherize .Name }}-middleware" optional:"true"`
 
@@ -67,7 +64,6 @@ type apiParams struct {
 		{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler {{ .PackageAlias }}.{{ pascalize .Name }}Handler
 	{{- end }}
 }
-
 
 func newAPI(p apiParams) *{{ .Package }}.{{pascalize .Name}}API {
 	api := {{ .Package }}.New{{pascalize .Name}}API(p.Spec.Document)
@@ -78,10 +74,10 @@ func newAPI(p apiParams) *{{ .Package }}.{{pascalize .Name}}API {
 	  api.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler = p.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler
 	{{- end }}
 
-        // Inject custom middleware if provided by Hive
+	// Inject custom middleware if provided by Hive
 	if p.Middleware != nil {
 		api.Middleware = func(builder middleware.Builder) http.Handler {
-                      return p.Middleware(api.Context().APIHandler(builder))
+			return p.Middleware(api.Context().APIHandler(builder))
 		}
 	}
 
@@ -100,7 +96,6 @@ type serverParams struct {
 	API	   *{{ .Package }}.{{pascalize .Name}}API
 }
 
-
 func newForCell(p serverParams) (*Server, error) {
 	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
@@ -108,7 +103,6 @@ func newForCell(p serverParams) (*Server, error) {
 	p.Lifecycle.Append(s)
 	return s, nil
 }
-
 
 const (
 	schemeHTTP  = "http"
@@ -127,32 +121,32 @@ func init() {
 }
 
 var (
-  {{ if .ExcludeSpec }}
-  specFile         string
-  {{ end }}
+	{{ if .ExcludeSpec }}
+	specFile         string
+	{{ end }}
 
-  enabledListeners []string
-  gracefulTimeout  time.Duration
-  maxHeaderSize    int
+	enabledListeners []string
+	gracefulTimeout  time.Duration
+	maxHeaderSize    int
 
-  socketPath string
+	socketPath string
 
-  host         string
-  port         int
-  listenLimit  int
-  keepAlive    time.Duration
-  readTimeout  time.Duration
-  writeTimeout time.Duration
+	host         string
+	port         int
+	listenLimit  int
+	keepAlive    time.Duration
+	readTimeout  time.Duration
+	writeTimeout time.Duration
 
-  tlsHost           string
-  tlsPort           int
-  tlsListenLimit    int
-  tlsKeepAlive      time.Duration
-  tlsReadTimeout    time.Duration
-  tlsWriteTimeout   time.Duration
-  tlsCertificate    string
-  tlsCertificateKey string
-  tlsCACertificate  string
+	tlsHost           string
+	tlsPort           int
+	tlsListenLimit    int
+	tlsKeepAlive      time.Duration
+	tlsReadTimeout    time.Duration
+	tlsWriteTimeout   time.Duration
+	tlsCertificate    string
+	tlsCertificateKey string
+	tlsCACertificate  string
 )
 
 type ServerConfig struct {
@@ -195,7 +189,7 @@ func newSpec(cfg ServerConfig) (*Spec, error) {
 	deniedAPIs, err := api.AllowedFlagsToDeniedPaths(swaggerSpec, cfg.Enable{{ pascalize .Name }}ServerAccess)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %q flag: %w",
-				       AdminEnableFlag, err)
+			AdminEnableFlag, err)
 	}
 
 	return &Spec{
@@ -213,16 +207,16 @@ func NewServer(api *{{ .Package }}.{{ pascalize .Name }}API) *Server {
 
 // ConfigureAPI configures the API and handlers.
 func (s *Server) ConfigureAPI() {
-    if s.api != nil {
-        s.handler = configureAPI(s.logger, s.api)
-    }
+	if s.api != nil {
+		s.handler = configureAPI(s.logger, s.api)
+	}
 }
 
 // ConfigureFlags configures the additional flags defined by the handlers. Needs to be called before the parser.Parse
 func (s *Server) ConfigureFlags() {
-    if s.api != nil {
-       configureFlags(s.api)
-    }
+	if s.api != nil {
+		configureFlags(s.api)
+	}
 }
 
 // Server for the {{ humanize .Name }} API
@@ -232,16 +226,16 @@ type Server struct {
 	GracefulTimeout  time.Duration
 	MaxHeaderSize    int
 
-	SocketPath string
+	SocketPath    string
 	domainSocketL *net.UnixListener
 
-	Host string
-	Port int
+	Host         string
+	Port         int
 	ListenLimit  int
 	KeepAlive    time.Duration
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
-	httpServerL   net.Listener
+	httpServerL  net.Listener
 
 	TLSHost           string
 	TLSPort           int
@@ -252,17 +246,17 @@ type Server struct {
 	TLSKeepAlive      time.Duration
 	TLSReadTimeout    time.Duration
 	TLSWriteTimeout   time.Duration
-	httpsServerL  net.Listener
+	httpsServerL      net.Listener
 
 	{{ if .ExcludeSpec }}Spec string{{ end }}
 	api               *{{ .Package }}.{{ pascalize .Name }}API
-	handler           http.Handler
-	hasListeners      bool
-	servers           []*http.Server
+	handler      http.Handler
+	hasListeners bool
+	servers      []*http.Server
 
-	wg sync.WaitGroup
-        shutdowner hive.Shutdowner
-	logger *slog.Logger
+	wg         sync.WaitGroup
+	shutdowner hive.Shutdowner
+	logger     *slog.Logger
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
@@ -272,7 +266,16 @@ func (s *Server) Logf(f string, args ...interface{}) {
 	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(fmt.Sprintf(f, args...))
 	} else {
-		log.Printf(f, args...)
+		slog.Info(fmt.Sprintf(f, args...))
+	}
+}
+
+// Debugf logs debug messages either via defined user logger or via system one if no user logger is defined.
+func (s *Server) Debugf(f string, args ...interface{}) {
+	if s.logger != nil {
+		s.logger.Debug(fmt.Sprintf(f, args...))
+	} else {
+		slog.Debug(fmt.Sprintf(f, args...))
 	}
 }
 
@@ -281,11 +284,11 @@ func (s *Server) Logf(f string, args ...interface{}) {
 func (s *Server) Fatalf(f string, args ...interface{}) {
 	if s.shutdowner != nil {
 		s.shutdowner.Shutdown(hive.ShutdownWithError(fmt.Errorf(f, args...)))
-        } else if s.api != nil && s.api.Logger != nil {
+	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(f, args...)
 		os.Exit(1)
 	} else {
-		log.Fatalf(f, args...)
+		logging.Fatal(slog.Default(), fmt.Sprintf(f, args...))
 	}
 }
 
@@ -318,7 +321,7 @@ func (s *Server) hasScheme(scheme string) bool {
 
 func (s *Server) Serve() error {
 	// TODO remove when this is not needed for compatibility anymore
-        if err := s.Start(context.TODO()); err != nil {
+	if err := s.Start(context.TODO()); err != nil {
 		return err
 	}
 	s.wg.Wait()
@@ -329,7 +332,7 @@ func (s *Server) Serve() error {
 func (s *Server) Start(cell.HookContext) (err error) {
 	if !s.hasListeners {
 		if err = s.Listen(); err != nil {
-		  return err
+			return err
 		}
 	}
 
@@ -358,7 +361,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(logging.DefaultSlogLogger, s.SocketPath)
+			err := api.SetDefaultPermissions(s.Debugf, s.SocketPath)
 			if err != nil {
 				return err
 			}
@@ -505,15 +508,15 @@ func (s *Server) Start(cell.HookContext) (err error) {
 
 // Listen creates the listeners for the server
 func (s *Server) Listen() error {
-  if s.hasListeners { // already done this
-    return nil
-  }
+	if s.hasListeners { // already done this
+		return nil
+	}
 
-  if s.hasScheme(schemeHTTPS) {
-    // Use http host if https host wasn't defined
-    if s.TLSHost == "" {
-      s.TLSHost = s.Host
-    }
+	if s.hasScheme(schemeHTTPS) {
+		// Use http host if https host wasn't defined
+		if s.TLSHost == "" {
+			s.TLSHost = s.Host
+		}
 		// Use http listen limit if https listen limit wasn't defined
 		if s.TLSListenLimit == 0 {
 			s.TLSListenLimit = s.ListenLimit
@@ -530,7 +533,7 @@ func (s *Server) Listen() error {
 		if int64(s.TLSWriteTimeout) == 0 {
 			s.TLSWriteTimeout = s.WriteTimeout
 		}
-  }
+	}
 
 	if s.hasScheme(schemeUnix) {
 		addr, err := net.ResolveUnixAddr("unix", s.SocketPath)
@@ -544,37 +547,37 @@ func (s *Server) Listen() error {
 		s.domainSocketL = domSockListener
 	}
 
-  if s.hasScheme(schemeHTTP) {
-    listener, err := net.Listen("tcp", net.JoinHostPort(s.Host, strconv.Itoa(s.Port)))
-    if err != nil {
-      return err
-    }
+	if s.hasScheme(schemeHTTP) {
+		listener, err := net.Listen("tcp", net.JoinHostPort(s.Host, strconv.Itoa(s.Port)))
+		if err != nil {
+			return err
+		}
 
-    h, p, err := swag.SplitHostPort(listener.Addr().String())
-    if err != nil {
-      return err
-    }
-    s.Host = h
-    s.Port = p
-    s.httpServerL = listener
-  }
+		h, p, err := swag.SplitHostPort(listener.Addr().String())
+		if err != nil {
+			return err
+		}
+		s.Host = h
+		s.Port = p
+		s.httpServerL = listener
+	}
 
-  if s.hasScheme(schemeHTTPS) {
-    tlsListener, err := net.Listen("tcp", net.JoinHostPort(s.TLSHost, strconv.Itoa(s.TLSPort)))
-    if err != nil {
-      return err
-    }
+	if s.hasScheme(schemeHTTPS) {
+		tlsListener, err := net.Listen("tcp", net.JoinHostPort(s.TLSHost, strconv.Itoa(s.TLSPort)))
+		if err != nil {
+			return err
+		}
 
-    sh, sp, err := swag.SplitHostPort(tlsListener.Addr().String())
-    if err != nil {
-      return err
-    }
-    s.TLSHost = sh
-    s.TLSPort = sp
-    s.httpsServerL = tlsListener
-  }
+		sh, sp, err := swag.SplitHostPort(tlsListener.Addr().String())
+		if err != nil {
+			return err
+		}
+		s.TLSHost = sh
+		s.TLSPort = sp
+		s.httpsServerL = tlsListener
+	}
 
-  s.hasListeners = true
+	s.hasListeners = true
 	return nil
 }
 
@@ -662,4 +665,3 @@ func (s *Server) TLSListener() (net.Listener, error) {
 	}
 	return s.httpsServerL, nil
 }
-

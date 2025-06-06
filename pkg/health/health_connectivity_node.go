@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/server"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -108,7 +107,7 @@ func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
 		scopedLog.Debug("Cannot find socket", logfields.Error, err)
 		time.Sleep(1 * time.Second)
 	}
-	if err := api.SetDefaultPermissions(logging.DefaultSlogLogger, defaults.SockPath); err != nil {
+	if err := api.SetDefaultPermissions(ch.logger.Debug, defaults.SockPath); err != nil {
 		scopedLog.Error("Cannot set default permissions on socket", logfields.Error, err)
 		return
 	}
