@@ -1,0 +1,151 @@
+hive/start
+
+# 1. Add a service before endpoint slice
+k8s/add service.yaml
+
+# Wait for synchronization
+kvstore/list cilium/state/services services.actual
+* cmp services.actual services-1.expected
+
+# 2. Add the endpoint slice
+k8s/add endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list cilium/state/services services.actual
+* cmp services.actual services-2.expected
+
+# 3. Modify the endpoint slice
+replace '10.244.1.1' '10.244.2.2' endpointslice.yaml
+cp services-2.expected services-3.expected
+replace '10.244.1.1' '10.244.2.2' services-3.expected
+k8s/update endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list cilium/state/services services.actual
+* cmp services.actual services-3.expected
+
+# 4. Remove endpoint slice
+k8s/delete endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list cilium/state/services services.actual
+* cmp services.actual services-1.expected
+
+# 5. Remove service
+k8s/delete service.yaml
+
+# Wait for synchronization
+kvstore/list cilium/state/services services.actual
+* empty services.actual
+
+# 6. Add endpoint slice before service
+k8s/add endpointslice.yaml
+
+# No service should exist
+kvstore/list cilium/state/services services.actual
+empty services.actual
+
+# 7. Add the service
+k8s/add service.yaml
+
+# Wait for synchronization
+kvstore/list cilium/state/services services.actual
+* cmp services.actual services-3.expected
+
+# ----
+
+-- services-1.expected --
+# cilium/state/services/v1/test/echo
+{
+  "cluster": "",
+  "namespace": "test",
+  "name": "echo",
+  "frontends": {
+    "10.96.50.104": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {},
+  "hostnames": {},
+  "labels": {},
+  "selector": {
+    "name": "echo"
+  },
+  "includeExternal": false,
+  "shared": false,
+  "clusterID": 0
+}
+-- services-2.expected --
+# cilium/state/services/v1/test/echo
+{
+  "cluster": "",
+  "namespace": "test",
+  "name": "echo",
+  "frontends": {
+    "10.96.50.104": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {
+    "10.244.1.1": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "hostnames": {},
+  "labels": {},
+  "selector": {
+    "name": "echo"
+  },
+  "includeExternal": false,
+  "shared": false,
+  "clusterID": 0
+}
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+

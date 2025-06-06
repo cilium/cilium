@@ -8,6 +8,8 @@ import (
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
@@ -49,6 +51,15 @@ var Cell = cell.Module(
 	heartbeat.Cell,
 
 	HealthAPIEndpointsCell,
+
+	cell.Group(
+		cell.Provide(
+			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncCallback {
+				return syncState.WaitForResource()
+			},
+		),
+		operatorWatchers.ServiceSyncCell,
+	),
 
 	usersManagementCell,
 	cell.Invoke(registerHooks),

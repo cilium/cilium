@@ -55,6 +55,7 @@ var DefaultConfig = Config{
 
 const (
 	NamespaceIndex = "namespace"
+	ServiceIndex   = "service"
 	ByKeyIndex     = "by-key-index"
 )
 
@@ -319,6 +320,15 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs cl
 		endpointsOptsModifiers:      append(opts, endpointsOptsModifier),
 		endpointSlicesOptsModifiers: append(opts, endpointSliceOptsModifier),
 	}
+	indexers := cache.Indexers{
+		ServiceIndex: func(obj any) ([]string, error) {
+			eps, ok := obj.(*Endpoints)
+			if !ok {
+				return nil, fmt.Errorf("unexpected object type: %T", obj)
+			}
+			return []string{eps.ServiceID.String()}, nil
+		},
+	}
 	return resource.New[*Endpoints](
 		lc,
 		lw,
@@ -327,6 +337,7 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs cl
 		}),
 		resource.WithMetric("Endpoint"),
 		resource.WithName("endpoints"),
+		resource.WithIndexers(indexers),
 	), nil
 }
 
