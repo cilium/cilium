@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -80,10 +81,11 @@ func (u *namespaceUpdater) update(newNS daemonk8s.Namespace) error {
 
 	eps := u.endpointManager.GetEndpoints()
 	failed := false
+	ciliumIdentityMaxJitter := option.Config.CiliumIdentityMaxJitter
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()
 		if newNS.Name == epNS {
-			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels)
+			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels, ciliumIdentityMaxJitter)
 			if err != nil {
 				u.log.Warn("unable to update endpoint with new identity labels from namespace labels",
 					logfields.Error, err,
