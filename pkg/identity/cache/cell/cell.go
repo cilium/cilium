@@ -156,9 +156,9 @@ func (iao *identityAllocatorOwner) GetNodeSuffix() string {
 
 	switch {
 	case option.Config.EnableIPv4:
-		ip = node.GetIPv4(logging.DefaultSlogLogger)
+		ip = node.GetIPv4(iao.logger)
 	case option.Config.EnableIPv6:
-		ip = node.GetIPv6(logging.DefaultSlogLogger)
+		ip = node.GetIPv6(iao.logger)
 	}
 
 	if ip == nil {
