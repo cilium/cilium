@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -103,6 +104,8 @@ type gatewayAPIParams struct {
 	AgentConfig      *option.DaemonConfig
 	OperatorConfig   *operatorOption.OperatorConfig
 	GatewayApiConfig gatewayApiConfig
+
+	KPROpts kpr.KPROpts
 }
 
 func initGatewayAPIController(params gatewayAPIParams) error {
@@ -110,8 +113,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		!params.OperatorConfig.EnableNodePort {
+	if params.KPROpts.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+		!params.KPROpts.EnableNodePort {
 		params.Logger.Warn("Gateway API support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
