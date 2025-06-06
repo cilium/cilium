@@ -1500,6 +1500,9 @@
         "confPath": {
           "type": "string"
         },
+        "configMap": {
+          "type": "string"
+        },
         "configMapKey": {
           "type": "string"
         },
