@@ -28,6 +28,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -136,6 +137,15 @@ func TestScript(t *testing.T) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
 				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
+			}),
+
+			cell.DecorateAll(func(client kvstore.Client) common.RemoteClientFactoryFn {
+				// All clusters share the same underlying client.
+				return func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+					errch := make(chan error)
+					close(errch)
+					return client, errch
+				}
 			}),
 
 			cell.Invoke(func(client kvstore.Client) {

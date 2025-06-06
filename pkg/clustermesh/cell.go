@@ -25,7 +25,10 @@ var Cell = cell.Module(
 	"clustermesh",
 	"ClusterMesh is the Cilium multicluster implementation",
 
-	cell.Provide(NewClusterMesh),
+	cell.Provide(
+		common.DefaultRemoteClientFactory,
+		NewClusterMesh,
+	),
 
 	// Convert concrete objects into more restricted interfaces used by clustermesh.
 	cell.ProvidePrivate(func(ipcache *ipcache.IPCache) ipcache.IPCacher { return ipcache }),

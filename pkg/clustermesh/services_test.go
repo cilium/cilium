@@ -147,6 +147,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(tb), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           cmtypes.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+		RemoteClientFactory:   common.DefaultRemoteClientFactory(kvstore.Config{}),
 		NodeObserver:          newNodesObserver(),
 		ServiceMerger:         svcCacheMerger{s.svcCache},
 		RemoteIdentityWatcher: mgr,

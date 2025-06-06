@@ -33,6 +33,9 @@ type Configuration struct {
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo types.ClusterInfo
 
+	// RemoteClientFactory is the factory to create new backend instances.
+	RemoteClientFactory RemoteClientFactoryFn
+
 	// NewRemoteCluster is a function returning a new implementation of the remote cluster business logic.
 	NewRemoteCluster RemoteClusterCreatorFunc
 
@@ -152,8 +155,8 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 
 		logger: cm.conf.Logger.With(logfields.ClusterName, name),
 
-		backendFactory:     kvstore.NewClient,
-		clusterLockFactory: newClusterLock,
+		remoteClientFactory: cm.conf.RemoteClientFactory,
+		clusterLockFactory:  newClusterLock,
 
 		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
