@@ -1225,19 +1225,10 @@ func ExtractMsgDetails(msg *dns.Msg) (
 	}
 	qname = strings.ToLower(string(msg.Question[0].Name))
 
-	// rrName is the name the next RR should include.
-	// This will change when we see CNAMEs.
-	rrName := strings.ToLower(qname)
-
 	TTL = math.MaxUint32 // a TTL must exist in the RRs
 
 	answerTypes = make([]uint16, 0, len(msg.Answer))
 	for _, ans := range msg.Answer {
-		// Ensure we have records for DNS names we expect
-		if strings.ToLower(ans.Header().Name) != rrName {
-			return qname, nil, 0, nil, 0, nil, nil, fmt.Errorf("Unexpected name (%s) in RRs for %s (query for %s)", ans, rrName, qname)
-		}
-
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
@@ -1264,7 +1255,6 @@ func ExtractMsgDetails(msg *dns.Msg) (
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
-			rrName = strings.ToLower(ans.Target)
 			CNAMEs = append(CNAMEs, ans.Target)
 		}
 		answerTypes = append(answerTypes, ans.Header().Rrtype)
