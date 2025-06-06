@@ -53,6 +53,13 @@ type ExtraOptions struct {
 
 	// NoEndpointStatusChecks disables the status checks for the endpoints
 	NoEndpointStatusChecks bool
+
+	// LeaseTTL is the TTL of the leases.
+	LeaseTTL time.Duration
+
+	// MaxConsecutiveQuorumErrors represents the maximum number of consecutive
+	// quorum errors before recreating the etcd connection.
+	MaxConsecutiveQuorumErrors uint
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the

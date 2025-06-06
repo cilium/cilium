@@ -5,6 +5,7 @@ package kvstore
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -32,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	ciliumrate "github.com/cilium/cilium/pkg/rate"
 	ciliumratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -574,11 +574,7 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.
 
 	ec.logger.Info("Connecting to etcd server...")
 
-	leaseTTL := option.Config.KVstoreLeaseTTL
-	if option.Config.KVstoreLeaseTTL == 0 {
-		leaseTTL = defaults.KVstoreLeaseTTL
-	}
-
+	leaseTTL := cmp.Or(opts.LeaseTTL, defaults.KVstoreLeaseTTL)
 	ec.leaseManager = newEtcdLeaseManager(ec.logger, c, leaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver)
 	ec.lockLeaseManager = newEtcdLeaseManager(ec.logger, c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, nil)
 
@@ -1113,7 +1109,7 @@ func (e *etcdClient) statusChecker() {
 		e.statusLock.Lock()
 
 		switch {
-		case consecutiveQuorumErrors > option.Config.KVstoreMaxConsecutiveQuorumErrors:
+		case consecutiveQuorumErrors > cmp.Or(e.extraOptions.MaxConsecutiveQuorumErrors, defaults.KVstoreMaxConsecutiveQuorumErrors):
 			err = fmt.Errorf("quorum check failed %d times in a row: %w", consecutiveQuorumErrors, quorumError)
 			e.status.State = models.StatusStateFailure
 			e.status.Msg = fmt.Sprintf("Err: %s", err.Error())

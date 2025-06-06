@@ -4,6 +4,8 @@
 package kvstore
 
 import (
+	"cmp"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -56,6 +58,10 @@ func Cell(defaultBackend string) cell.Cell {
 				return &clientImpl{enabled: false, cfg: in.Config}
 			}
 
+			in.Opts.LeaseTTL = cmp.Or(in.Opts.LeaseTTL, in.Config.KVStoreLeaseTTL)
+			in.Opts.MaxConsecutiveQuorumErrors = cmp.Or(in.Opts.MaxConsecutiveQuorumErrors,
+				in.Config.KVstoreMaxConsecutiveQuorumErrors)
+
 			cl := &clientImpl{
 				enabled: true, cfg: in.Config, opts: in.Opts,
 				logger: in.Logger.With(logfields.BackendName, in.Config.KVStore),
@@ -64,6 +70,8 @@ func Cell(defaultBackend string) cell.Cell {
 			in.Lifecycle.Append(cl)
 			return cl
 		}),
+
+		cell.Invoke(Config.Validate),
 	)
 }
 
@@ -93,4 +101,13 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, def.KVstoreMaxConsecutiveQuorumErrors,
 		"Max acceptable kvstore consecutive quorum errors before recreating the etcd connection")
+}
+
+func (cfg Config) Validate() error {
+	if cfg.KVStoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || cfg.KVStoreLeaseTTL < defaults.LockLeaseTTL {
+		return fmt.Errorf("%s does not lie in required range (%v - %v)",
+			option.KVstoreLeaseTTL, defaults.LockLeaseTTL, defaults.KVstoreLeaseMaxTTL)
+	}
+
+	return nil
 }
