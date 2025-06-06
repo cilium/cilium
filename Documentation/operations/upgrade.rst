@@ -319,6 +319,7 @@ communicating via the proxy must reconnect to re-establish connections.
 * This Cilium version now requires a v5.10 Linux kernel or newer.
 * CiliumIdentity CRD does not contain Security Labels in metadata anymore except for the namespace label.
 * The support for Envoy Go Extensions (proxylib) is deprecated, and will be removed in a future release.
+* The kube_proxy_healthz endpoint no longer requires Kubernetes control plane connectivity to succeed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
