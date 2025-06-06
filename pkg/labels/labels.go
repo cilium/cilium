@@ -526,6 +526,19 @@ func GetExtendedKeyFrom(str string) string {
 	return src + PathDelimiter + next
 }
 
+type KeyExtender func(string) string
+
+// Extender to convert label keys from Cilium representation to kubernetes representation.
+// Key passed to this extender is converted to format `<source>.<key>`.
+// The extender is not idempotent, caller needs to make sure its only called once for a key.
+var DefaultKeyExtender KeyExtender = GetExtendedKeyFrom
+
+func GetSourcePrefixKeyExtender(srcPrefix string) KeyExtender {
+	return func(str string) string {
+		return srcPrefix + str
+	}
+}
+
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
 // source argument will overwrite the source written in the key of the given map.
 // Example:
