@@ -143,7 +143,7 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 			}
 			eventHandler.datapathRegenTrigger = rt
 
-			eventHandler.configModifyQueue = eventqueue.NewEventQueueBuffered(logging.DefaultSlogLogger, "config-modify-queue", ConfigModifyQueueSize)
+			eventHandler.configModifyQueue = eventqueue.NewEventQueueBuffered(params.Logger, "config-modify-queue", ConfigModifyQueueSize)
 			eventHandler.configModifyQueue.Run()
 
 			return nil
@@ -375,7 +375,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 	}
 
 	status := &models.DaemonConfigurationStatus{
-		Addressing:       node.GetNodeAddressing(logging.DefaultSlogLogger),
+		Addressing:       node.GetNodeAddressing(h.logger),
 		K8sConfiguration: h.clientset.Config().K8sKubeConfigPath,
 		K8sEndpoint:      h.clientset.Config().K8sAPIServer,
 		NodeMonitor:      h.monitorAgent.State(),
