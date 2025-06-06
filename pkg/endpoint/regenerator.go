@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -33,13 +32,8 @@ var (
 	)
 )
 
-// KVStoreNodesWaitFn is the type of the function used to wait for synchronization
-// of all nodes from the kvstore.
-type KVStoreNodesWaitFn wait.Fn
-
 // Regenerator wraps additional functionalities for endpoint regeneration.
 type Regenerator struct {
-	nodesWaitFn   KVStoreNodesWaitFn
 	cmWaitFn      wait.Fn
 	cmWaitTimeout time.Duration
 	fence         regeneration.Fence
@@ -54,7 +48,6 @@ func newRegenerator(in struct {
 	Logger *slog.Logger
 
 	Config         wait.TimeoutConfig
-	NodesWaitFn    KVStoreNodesWaitFn
 	ClusterMesh    *clustermesh.ClusterMesh
 	Fence          regeneration.Fence
 	LBInitWaitFunc loadbalancer.InitWaitFunc
@@ -65,7 +58,6 @@ func newRegenerator(in struct {
 	}
 	r := &Regenerator{
 		logger:        in.Logger,
-		nodesWaitFn:   in.NodesWaitFn,
 		cmWaitFn:      waitFn,
 		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
 		fence:         in.Fence,
@@ -73,18 +65,6 @@ func newRegenerator(in struct {
 
 	// !!! Do not add more waits here. These will eventually move out from here
 	// to their proper places !!!
-
-	// Wait for ipcache sync before regeneration for endpoints including
-	// the ones with fixed identity (e.g. host endpoint), this ensures that
-	// the regenerated datapath always lookups from a ready ipcache map.
-	// Additionally wait for node synchronization, as nodes also contribute
-	// entries to the ipcache map, most notably about the remote node IPs.
-	if option.Config.KVStore != "" {
-		in.Fence.Add(
-			"kvstore",
-			r.waitForKVStoreSync,
-		)
-	}
 
 	// Wait for ipcache and identities synchronization from all remote clusters,
 	// to prevent disrupting cross-cluster connections on endpoint regeneration.
@@ -103,10 +83,6 @@ func newRegenerator(in struct {
 
 func (r *Regenerator) WaitForFence(ctx context.Context) error {
 	return r.fence.Wait(ctx)
-}
-
-func (r *Regenerator) waitForKVStoreSync(ctx context.Context) error {
-	return r.nodesWaitFn(ctx)
 }
 
 func (r *Regenerator) waitForClusterMeshIPIdentitiesSync(ctx context.Context) error {
