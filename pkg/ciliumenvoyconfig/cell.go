@@ -49,10 +49,12 @@ var (
 	tableCells = cell.Group(
 		cell.ProvidePrivate(
 			NewCECTable,
-			statedb.RWTable[*CEC].ToTable,
 			NewEnvoyResourcesTable,
 			newNodeLabels,
 			cecListerWatchers,
+		),
+		cell.Provide(
+			statedb.RWTable[*CEC].ToTable,
 		),
 		cell.Invoke(
 			registerCECK8sReflector,
