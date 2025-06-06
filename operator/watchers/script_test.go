@@ -4,14 +4,10 @@
 package watchers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
-	"fmt"
 	"log/slog"
 	"maps"
-	"os"
 	"testing"
 
 	uhive "github.com/cilium/hive"
@@ -72,10 +68,10 @@ func TestScript(t *testing.T) {
 			operatorK8s.ResourcesCell,
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
-			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdOut) {
+			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
-				return client, uhive.NewScriptCmd("kvstore/list", kvstoreListCommand(client))
+				return client, uhive.NewScriptCmds(kvstore.Commands(client))
 			}),
 
 			cell.Provide(func() ServiceSyncConfig {
@@ -118,39 +114,4 @@ func TestScript(t *testing.T) {
 		setup,
 		[]string{},
 		"testdata/*.txtar")
-}
-
-func kvstoreListCommand(client kvstore.BackendOperations) script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "list kvstore key-value pairs",
-			Args:    "prefix (output file)",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			prefix := ""
-			if len(args) > 0 {
-				prefix = args[0]
-			}
-			kvs, err := client.ListPrefix(s.Context(), prefix)
-			if err != nil {
-				return nil, err
-			}
-			return func(s *script.State) (stdout string, stderr string, err error) {
-				var b bytes.Buffer
-				for k, v := range kvs {
-					fmt.Fprintf(&b, "# %s\n", k)
-					if err := json.Indent(&b, v.Data, "", "  "); err != nil {
-						fmt.Fprintf(&b, "ERROR: %s", err)
-					}
-					fmt.Fprintln(&b)
-				}
-				if len(args) == 2 {
-					err = os.WriteFile(s.Path(args[1]), b.Bytes(), 0644)
-				} else {
-					stdout = b.String()
-				}
-				return
-			}, nil
-		},
-	)
 }
