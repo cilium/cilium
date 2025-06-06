@@ -96,11 +96,11 @@ func NewNodeDiscovery(
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
-func (n *NodeDiscovery) StartDiscovery() {
+func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 	// Start observing local node changes, so that we keep the corresponding CiliumNode
 	// and kvstore representations in sync. The first update is performed synchronously
 	// so that they are guaranteed to exist when StartDiscovery returns.
-	updates := stream.ToChannel(context.Background(),
+	updates := stream.ToChannel(ctx,
 		// Coalescence events that are emitted almost at the same time, to prevent
 		// consecutive updates from triggering multiple CiliumNode/kvstore updates.
 		stream.Debounce(n.localNodeStore, 250*time.Millisecond))
@@ -112,7 +112,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.Registrar.RegisterNode(&localNode.Node, n.Manager); err != nil {
+			if err := n.Registrar.RegisterNode(ctx, &localNode.Node, n.Manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
@@ -133,7 +133,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 	n.Manager.NodeUpdated(localNode.Node)
 	close(n.localStateInitialized)
 
-	n.updateLocalNode(&localNode)
+	n.updateLocalNode(ctx, &localNode)
 
 	go func() {
 		// Propagate all updates to the CiliumNode and kvstore representations.
@@ -143,7 +143,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 			// and the manager needs to evaluate the local node's EncryptionKey
 			// field.
 			n.Manager.NodeUpdated(ln.Node)
-			n.updateLocalNode(&ln)
+			n.updateLocalNode(ctx, &ln)
 		}
 	}()
 }
@@ -166,12 +166,13 @@ func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
 	}
 }
 
-func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
+func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode) {
 	if option.Config.KVStore != "" {
 		n.ctrlmgr.UpdateController(
 			"propagating local node change to kv-store",
 			controller.ControllerParams{
 				Group:                localNodeToKVStoreControllerGroup,
+				Context:              ctx,
 				CancelDoFuncOnUpdate: true,
 				DoFunc: func(ctx context.Context) error {
 					select {
@@ -180,7 +181,7 @@ func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
 						return nil
 					}
 
-					err := n.Registrar.UpdateLocalKeySync(&ln.Node)
+					err := n.Registrar.UpdateLocalKeySync(ctx, &ln.Node)
 					if err != nil {
 						n.logger.Error("Unable to propagate local node change to kvstore", logfields.Error, err)
 					}
@@ -192,7 +193,7 @@ func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
 	if n.clientset.IsEnabled() {
 		// CRD IPAM endpoint restoration depends on the completion of this
 		// to avoid custom resource update conflicts.
-		n.updateCiliumNodeResource(ln)
+		n.updateCiliumNodeResource(ctx, ln)
 	}
 }
 
@@ -209,10 +210,10 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		logging.Fatal(n.logger, "Could not retrieve the local node object")
 	}
 
-	n.updateCiliumNodeResource(&ln)
+	n.updateCiliumNodeResource(context.TODO(), &ln)
 }
 
-func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
+func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.LocalNode) {
 	if !option.Config.AutoCreateCiliumNodeResource {
 		return
 	}
@@ -228,7 +229,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 		performUpdate := true
 		if performGet {
 			var err error
-			nodeResource, err = n.k8sGetters.GetCiliumNode(context.TODO(), nodeTypes.GetName())
+			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
 			if err != nil {
 				if retryCount == maxRetryCount {
 					n.logger.Warn(
@@ -248,7 +249,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 			}
 		}
 
-		if err := n.mutateNodeResource(nodeResource, ln); err != nil {
+		if err := n.mutateNodeResource(ctx, nodeResource, ln); err != nil {
 			n.logger.Warn(
 				"Unable to mutate nodeResource",
 				logfields.Error, err,
@@ -262,7 +263,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 		// updating.
 		performGet = true
 		if performUpdate {
-			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
 					n.logger.Warn("Unable to update CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
@@ -274,7 +275,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 				return
 			}
 		} else {
-			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 					n.logger.Warn("Unable to create CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
@@ -291,7 +292,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 	logging.Fatal(n.logger, fmt.Sprintf("Could not create or update CiliumNode resource, despite %d retries", maxRetryCount))
 }
 
-func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
+func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
 	nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion: "v1",
 		Kind:       "Node",
@@ -490,7 +491,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 	case ipamOption.IPAMAlibabaCloud:
 		nodeResource.Spec.AlibabaCloud = alibabaCloudTypes.Spec{}
 
-		instanceID, err := alibabaCloudMetadata.GetInstanceID(context.TODO())
+		instanceID, err := alibabaCloudMetadata.GetInstanceID(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve InstanceID of own ECS instance", logfields.Error, err)
 		}
@@ -499,19 +500,19 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 			return errors.New("InstanceID of own ECS instance is empty")
 		}
 
-		instanceType, err := alibabaCloudMetadata.GetInstanceType(context.TODO())
+		instanceType, err := alibabaCloudMetadata.GetInstanceType(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve InstanceType of own ECS instance", logfields.Error, err)
 		}
-		vpcID, err := alibabaCloudMetadata.GetVPCID(context.TODO())
+		vpcID, err := alibabaCloudMetadata.GetVPCID(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve VPC ID of own ECS instance", logfields.Error, err)
 		}
-		vpcCidrBlock, err := alibabaCloudMetadata.GetVPCCIDRBlock(context.TODO())
+		vpcCidrBlock, err := alibabaCloudMetadata.GetVPCCIDRBlock(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve VPC CIDR block of own ECS instance", logfields.Error, err)
 		}
-		zoneID, err := alibabaCloudMetadata.GetZoneID(context.TODO())
+		zoneID, err := alibabaCloudMetadata.GetZoneID(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve Zone ID of own ECS instance", logfields.Error, err)
 		}

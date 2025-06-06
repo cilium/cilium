@@ -148,13 +148,14 @@ type NodeRegistrar struct {
 }
 
 // RegisterNode registers the local node in the cluster.
-func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedManager) error {
+func (nr *NodeRegistrar) RegisterNode(ctx context.Context, n *nodeTypes.Node, manager NodeExtendedManager) error {
 	if option.Config.KVStore == "" {
 		return nil
 	}
 
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
+		Context:              ctx,
 		Backend:              kvstore.Client(),
 		Prefix:               NodeStorePrefix,
 		KeyCreator:           ValidatingKeyCreator(),
@@ -165,7 +166,7 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedMan
 		return err
 	}
 
-	err = nodeStore.UpdateLocalKeySync(context.TODO(), n)
+	err = nodeStore.UpdateLocalKeySync(ctx, n)
 	if err != nil {
 		nodeStore.Release()
 		return err
@@ -180,6 +181,6 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedMan
 
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
-func (nr *NodeRegistrar) UpdateLocalKeySync(n *nodeTypes.Node) error {
-	return nr.SharedStore.UpdateLocalKeySync(context.TODO(), n)
+func (nr *NodeRegistrar) UpdateLocalKeySync(ctx context.Context, n *nodeTypes.Node) error {
+	return nr.SharedStore.UpdateLocalKeySync(ctx, n)
 }
