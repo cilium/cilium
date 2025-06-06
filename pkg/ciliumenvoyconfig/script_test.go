@@ -91,10 +91,12 @@ func TestScript(t *testing.T) {
 						EnableIPv6:        true,
 						EnableL7Proxy:     true,
 						EnableEnvoyConfig: true,
-						KPROpts: kpr.KPROpts{
-							KubeProxyReplacement: option.KubeProxyReplacementTrue,
-							EnableNodePort:       true,
-						},
+					}
+				},
+				func() kpr.KPROpts {
+					return kpr.KPROpts{
+						KubeProxyReplacement: option.KubeProxyReplacementTrue,
+						EnableNodePort:       true,
 					}
 				},
 				func() *loadbalancer.TestConfig {

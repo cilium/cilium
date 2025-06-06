@@ -86,10 +86,12 @@ func TestScript(t *testing.T) {
 							EnableIPv4:                true,
 							EnableIPv6:                true,
 							EnableLocalRedirectPolicy: true,
-							KPROpts: kpr.KPROpts{
-								EnableNodePort:       true,
-								KubeProxyReplacement: option.KubeProxyReplacementTrue,
-							},
+						}
+					},
+					func() kpr.KPROpts {
+						return kpr.KPROpts{
+							EnableNodePort:       true,
+							KubeProxyReplacement: option.KubeProxyReplacementTrue,
 						}
 					},
 					func() redirectpolicy.TestSkipLBMap {

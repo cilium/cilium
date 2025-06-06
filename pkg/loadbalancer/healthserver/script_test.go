@@ -92,10 +92,12 @@ func TestScript(t *testing.T) {
 						return &option.DaemonConfig{
 							EnableIPv4: true,
 							EnableIPv6: true,
-							KPROpts: kpr.KPROpts{
-								KubeProxyReplacement: option.KubeProxyReplacementTrue,
-								EnableNodePort:       true,
-							},
+						}
+					},
+					func() kpr.KPROpts {
+						return kpr.KPROpts{
+							KubeProxyReplacement: option.KubeProxyReplacementTrue,
+							EnableNodePort:       true,
 						}
 					},
 				),

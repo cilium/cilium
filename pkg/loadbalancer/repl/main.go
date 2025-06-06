@@ -87,9 +87,11 @@ func main() {
 				return &option.DaemonConfig{
 					EnableIPv4: true,
 					EnableIPv6: true,
-					KPROpts: kpr.KPROpts{
-						KubeProxyReplacement: option.KubeProxyReplacementTrue,
-					},
+				}
+			},
+			func() kpr.KPROpts {
+				return kpr.KPROpts{
+					KubeProxyReplacement: option.KubeProxyReplacementTrue,
 				}
 			},
 			func() *loadbalancer.TestConfig {
