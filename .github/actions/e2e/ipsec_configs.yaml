@@ -40,7 +40,7 @@
   kvstore: 'true'
 - name: 'ipsec-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250527.055456'
+  kernel: '6.12-20250527.055456'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -51,7 +51,7 @@
   key-two: 'cbc-aes-sha256'
 - name: 'ipsec-6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250527.055456'
+  kernel: '6.12-20250527.055456'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
