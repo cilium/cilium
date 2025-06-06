@@ -21,7 +21,9 @@ func (f *fakeK8sWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
-func (f *fakeK8sWatcherConfiguration) KVstoreEnabled() bool {
+type fakeKVStoreConfig struct{}
+
+func (f *fakeKVStoreConfig) IsEnabled() bool {
 	return false
 }
 
@@ -44,6 +46,7 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		&synced.Resources{CacheStatus: make(synced.CacheStatus)},
 		nil,
 		&fakeK8sWatcherConfiguration{},
+		&fakeKVStoreConfig{},
 	)
 
 	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

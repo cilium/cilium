@@ -110,6 +110,9 @@ type K8sWatcher struct {
 	k8sAPIGroups *synced.APIGroups
 
 	cfg WatcherConfiguration
+
+	// kcfg represents whether the KVStore is enabled or not.
+	kcfg interface{ IsEnabled() bool }
 }
 
 func newWatcher(
@@ -124,6 +127,7 @@ func newWatcher(
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
 	cfg WatcherConfiguration,
+	kcfg interface{ IsEnabled() bool },
 ) *K8sWatcher {
 	return &K8sWatcher{
 		logger:                    logger,
@@ -137,6 +141,7 @@ func newWatcher(
 		k8sResourceSynced:         k8sResourceSynced,
 		k8sAPIGroups:              k8sAPIGroups,
 		cfg:                       cfg,
+		kcfg:                      kcfg,
 	}
 }
 
@@ -247,11 +252,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 type WatcherConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
 	K8sNetworkPolicyEnabled() bool
-
-	// KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
-	// In this case, we don't need to start the CiliumNode and CiliumEndpoint watchers at
-	// all, given that equivalent information is propagated via the KVStore.
-	KVstoreEnabled() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -267,13 +267,13 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case resources.K8sAPIGroupPodV1Core:
 			k.k8sPodWatcher.podsInit(ctx)
 		case k8sAPIGroupCiliumNodeV2:
-			if !k.cfg.KVstoreEnabled() {
+			if !k.kcfg.IsEnabled() {
 				k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx)
 			}
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
-			if !k.cfg.KVstoreEnabled() {
+			if !k.kcfg.IsEnabled() {
 				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
 			}
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
