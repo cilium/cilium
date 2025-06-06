@@ -38,7 +38,6 @@ import (
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -64,9 +63,9 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = true
 
-	svcs, epSlices := ServicesAndSlices(testSize)
-
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: loglevel}))
+
+	svcs, epSlices := ServicesAndSlices(log, testSize)
 
 	var maps lbmaps.LBMaps
 	if testutils.IsPrivileged() {
@@ -316,7 +315,7 @@ func mapFunc[A, B any](xs []A, fn func(A) B) []B {
 	return out
 }
 
-func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) {
+func ServicesAndSlices(logger *slog.Logger, testSize int) (svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) {
 	svcs = make([]*slim_corev1.Service, 0, testSize)
 	epSlices = make([]*k8s.Endpoints, 0, testSize)
 
@@ -374,7 +373,7 @@ func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k
 
 		tmpSlice.Name = fmt.Sprintf("%s-%06d", slice.Name, j)
 
-		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logging.DefaultSlogLogger, &tmpSlice))
+		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logger, &tmpSlice))
 	}
 	return
 }
