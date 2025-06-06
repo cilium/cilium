@@ -549,7 +549,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 		cell.Provide(
 			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
 			func() Config { return DefaultConfig },
-			func() kvstore.Client { return client },
+			func() (kvstore.Client, kvstore.Config) { return client, kvstore.Config{} },
 		),
 
 		cell.Invoke(func(km_ *KVStoreMesh) { km = km_ }),
