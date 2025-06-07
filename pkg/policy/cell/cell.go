@@ -29,7 +29,9 @@ var Cell = cell.Module(
 	cell.Provide(newPolicyRepo),
 	cell.Provide(newPolicyUpdater),
 	cell.Provide(newPolicyImporter),
+	cell.Provide(newIdentityUpdater),
 	cell.Config(defaultConfig),
+	metrics.Metric(newIdentityUpdaterMetrics),
 )
 
 type Config struct {
