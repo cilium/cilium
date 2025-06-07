@@ -129,19 +129,6 @@ func (r *RedirectSuiteProxy) GetListenerProxyPort(listener string) uint16 {
 	return 0
 }
 
-// DummyIdentityAllocatorOwner implements
-// pkg/identity/cache/IdentityAllocatorOwner. It is used for unit testing.
-type DummyIdentityAllocatorOwner struct{}
-
-// UpdateIdentities does nothing.
-func (d *DummyIdentityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
-}
-
-// GetNodeSuffix does nothing.
-func (d *DummyIdentityAllocatorOwner) GetNodeSuffix() string {
-	return ""
-}
-
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
 	repo  policy.PolicyRepository
@@ -153,10 +140,13 @@ func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
 }
 
-func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	wg := &sync.WaitGroup{}
 	d.repo.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	wg.Wait()
+	out := make(chan struct{})
+	close(out)
+	return out
 }
 
 const (
