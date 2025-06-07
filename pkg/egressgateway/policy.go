@@ -364,14 +364,16 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		}
 	}
 	for _, gwc := range policyGwConfigs {
+		if !gwc.egressIP.IsValid() {
+			continue
+		}
+
 		for _, cidr := range dstCidrList {
-			if gwc.egressIP.IsValid() {
-				if cidr.Addr().Is6() && gwc.egressIP.IsValid() && gwc.egressIP.Is4() {
-					return nil, fmt.Errorf("egress IP %s and destination CIDR %s must be of the same IP family", gwc.egressIP, cidr)
-				}
-				if cidr.Addr().Is4() && gwc.egressIP.IsValid() && gwc.egressIP.Is6() {
-					return nil, fmt.Errorf("egress IP %s and destination CIDR %s must be of the same IP family", gwc.egressIP, cidr)
-				}
+			if gwc.egressIP.Is4() && cidr.Addr().Is6() {
+				return nil, fmt.Errorf("egress IP %s and destination CIDR %s must be of the same IP family", gwc.egressIP, cidr)
+			}
+			if gwc.egressIP.Is6() && cidr.Addr().Is4() {
+				return nil, fmt.Errorf("egress IP %s and destination CIDR %s must be of the same IP family", gwc.egressIP, cidr)
 			}
 		}
 	}
