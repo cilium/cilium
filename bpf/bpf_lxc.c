@@ -146,15 +146,11 @@ skip_service_lookup:
 			struct icmphdr icmphdr;
 			int icmp_l4_off = ETH_HLEN + ipv4_hdrlen(new_ip4);
 			
-			cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 1); /* Debug: ICMP packet detected */
-			
 			if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
 			    icmphdr.type == ICMP_ECHO) {
 				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
 				struct lb4_key icmp_key = {};
 				struct lb4_service *icmp_svc;
-				
-				cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 2); /* Debug: ICMP echo request detected */
 				
 				icmp_key.address = new_ip4->daddr;
 				icmp_key.dport = 0;
@@ -162,27 +158,14 @@ skip_service_lookup:
 
 				icmp_svc = lb4_lookup_service(&icmp_key, false);
 				if (icmp_svc) {
-					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 3); /* Debug: Service found */
-					/* This is an ICMP echo request to a service IP.
-					 * Convert it to an echo reply and redirect back to the pod.
-					 */
 					ret = icmp_send_echo_reply(ctx);
 					if (!ret) {
-						/* Redirect ICMP echo reply to ingress of pod interface */
-						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 4); /* Debug: Echo reply generated successfully */
 						ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
-						if (!IS_ERR(ret)) {
-							cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 5); /* Debug: Redirect successful */
-						}
-					} else {
-						cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 6); /* Debug: Echo reply generation failed */
 					}
 					if (IS_ERR(ret))
 						return send_drop_notify_error(ctx, SECLABEL_IPV4, ret,
 									      METRIC_EGRESS);
 					return ret;
-				} else {
-					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 7); /* Debug: No service found */
 				}
 			}
 		}
@@ -278,7 +261,7 @@ skip_service_lookup:
 			if (ctx_load_bytes(ctx, icmp_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
 			    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
 				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
-				struct lb6_key icmp_key = {};
+				struct lb6_key icmp_key __align_stack_8 = {};
 				struct lb6_service *icmp_svc;
 				
 				ipv6_addr_copy(&icmp_key.address, (union v6addr *)&new_ip6->daddr);
@@ -924,6 +907,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 	return ret;
 }
 
+
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
@@ -965,6 +949,39 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
 #else
 	/* won't be a tailcall, see TAIL_CT_LOOKUP6 */
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+	/* Handle ICMPv6 echo requests to service IPs when per-packet LB is disabled */
+	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+		struct icmp6hdr icmp6hdr;
+		int icmp6_l4_off = ETH_HLEN + sizeof(struct ipv6hdr);
+		
+		if (ctx_load_bytes(ctx, icmp6_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+		    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+			/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
+			struct lb6_key icmp6_key __align_stack_8 = {};
+			struct lb6_service *icmp6_svc;
+			
+			ipv6_addr_copy((union v6addr *)&icmp6_key.address, (union v6addr *)&ip6->daddr);
+			icmp6_key.dport = 0;
+			icmp6_key.proto = IPPROTO_ANY;
+
+			icmp6_svc = lb6_lookup_service(&icmp6_key, false);
+			if (icmp6_svc) {
+				int icmp_ret;
+				
+				icmp_ret = icmp6_send_echo_reply(ctx);
+				if (!icmp_ret) {
+					icmp_ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+				}
+				if (IS_ERR(icmp_ret)) {
+					*ext_err = (__s8)icmp_ret;
+					return DROP_WRITE_ERROR;
+				}
+				return icmp_ret;
+			}
+		}
+	}
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 	return tail_ipv6_ct_egress(ctx);
 #endif /* ENABLE_PER_PACKET_LB */
 }
@@ -1478,6 +1495,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 	return ret;
 }
 
+
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
@@ -1531,6 +1549,39 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
 #else
 	/* won't be a tailcall, see TAIL_CT_LOOKUP4 */
+#ifdef ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY
+	/* Handle ICMP echo requests to service IPs when per-packet LB is disabled */
+	if (unlikely(ip4->protocol == IPPROTO_ICMP)) {
+		struct icmphdr icmphdr;
+		int icmp_l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+		
+		if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+		    icmphdr.type == ICMP_ECHO) {
+			/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
+			struct lb4_key icmp_key = {};
+			struct lb4_service *icmp_svc;
+			
+			icmp_key.address = ip4->daddr;
+			icmp_key.dport = 0;
+			icmp_key.proto = IPPROTO_ANY;
+
+			icmp_svc = lb4_lookup_service(&icmp_key, false);
+			if (icmp_svc) {
+				int icmp_ret;
+				
+				icmp_ret = icmp_send_echo_reply(ctx);
+				if (!icmp_ret) {
+					icmp_ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+				}
+				if (IS_ERR(icmp_ret)) {
+					*ext_err = (__s8)icmp_ret;
+					return DROP_WRITE_ERROR;
+				}
+				return icmp_ret;
+			}
+		}
+	}
+#endif /* ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY */
 	return tail_ipv4_ct_egress(ctx);
 #endif /* ENABLE_PER_PACKET_LB */
 }
