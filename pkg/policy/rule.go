@@ -282,16 +282,18 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 			// We already know from the L7Parser.Merge() above that there are no
 			// conflicting parser types, and rule validation only allows one type of L7
 			// rules in a rule, so we can just merge the rules here.
-			for _, newRule := range newL7Rules.HTTP {
-				if !newRule.Exists(l7Rules.L7Rules) {
-					l7Rules.HTTP = append(l7Rules.HTTP, newRule)
-				}
-			}
+
+			// Note that we remove duplicates of HTTP and DNS rules
+			// later on when finalizing l4PolicyMap
+			l7Rules.HTTP = append(l7Rules.HTTP, newL7Rules.HTTP...)
+			l7Rules.DNS = append(l7Rules.DNS, newL7Rules.DNS...)
+
 			for _, newRule := range newL7Rules.Kafka {
 				if !newRule.Exists(l7Rules.L7Rules.Kafka) {
 					l7Rules.Kafka = append(l7Rules.Kafka, newRule)
 				}
 			}
+
 			if l7Rules.L7Proto == "" && newL7Rules.L7Proto != "" {
 				l7Rules.L7Proto = newL7Rules.L7Proto
 			}
@@ -300,11 +302,7 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 					l7Rules.L7 = append(l7Rules.L7, newRule)
 				}
 			}
-			for _, newRule := range newL7Rules.DNS {
-				if !newRule.Exists(l7Rules.L7Rules) {
-					l7Rules.DNS = append(l7Rules.DNS, newRule)
-				}
-			}
+
 			// Update the pointer in the map in case it was newly allocated
 			existingFilter.PerSelectorPolicies[cs] = l7Rules
 		} else { // 'cs' is not in the existing filter yet

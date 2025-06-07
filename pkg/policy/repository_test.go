@@ -1440,7 +1440,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/"}, {}},
+					HTTP: []api.PortRuleHTTP{{}, {Method: "GET", Path: "/"}},
 				},
 			},
 		},
