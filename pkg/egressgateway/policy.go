@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"net"
 	"net/netip"
 	"slices"
 
@@ -187,13 +188,21 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		egressIP4 = gc.egressIP
 
 		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
-		if v6Needed {
+		if gc.egressIP.Is6() {
+			gwc.egressIP6 = gc.egressIP
+			gwc.ifaceName, err = netdevice.GetIfaceWithIPv6Address(gc.egressIP)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve interface with IPv6 egress IP: %w", err)
+			}
+		} else {
+			if v6Needed {
 			egressIP6 = EgressIPNotFoundIPv6
 		}
 
-		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+			gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve interface with IPv4 egress IP: %w", err)
+			}
 		}
 
 	default:
@@ -279,7 +288,52 @@ func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Pref
 	}
 }
 
-func parseEgressGateway(egressGateway *v2.EgressGateway) (*policyGatewayConfig, error) {
+// ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
+// the internal representation of the egress gateway policy
+func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
+	var endpointSelectorList []api.EndpointSelector
+	var nodeSelectorList []api.EndpointSelector
+	var dstCidrList []netip.Prefix
+	var excludedCIDRs []netip.Prefix
+
+	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
+		Key:      k8sConst.PodNamespaceLabel,
+		Operator: slim_metav1.LabelSelectorOpExists,
+	}
+
+	name := cegp.ObjectMeta.Name
+	if name == "" {
+		return nil, fmt.Errorf("must have a name")
+	}
+
+	destinationCIDRs := cegp.Spec.DestinationCIDRs
+	if destinationCIDRs == nil {
+		return nil, fmt.Errorf("destinationCIDRs can't be empty")
+	}
+
+	egressIP := net.ParseIP(cegp.Spec.EgressGateway.EgressIP)
+	if egressIP == nil {
+		return nil, fmt.Errorf("invalid egress IP: %s", cegp.Spec.EgressGateway.EgressIP)
+	}
+
+	for _, cidr := range destinationCIDRs {
+		_, ipNet, err := net.ParseCIDR(string(cidr))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse destination CIDR %q: %w", cidr, err)
+		}
+
+		// IP family check
+		if (egressIP.To4() == nil) != (ipNet.IP.To4() == nil) {
+			return nil, fmt.Errorf("IP family mismatch between egress IP (%s) and destination CIDR %s", egressIP, cidr)
+		}
+
+		// Egress IP should not be in the destination CIDR
+		if ipNet.Contains(egressIP) {
+			return nil, fmt.Errorf("egress IP %s must not be contained in destination CIDR %s", egressIP, cidr)
+		}
+	}
+
+	egressGateway := cegp.Spec.EgressGateway
 	if egressGateway == nil {
 		return nil, fmt.Errorf("egressGateway can't be empty")
 	}
