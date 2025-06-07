@@ -51,6 +51,8 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	ciliumnetworkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -64,15 +66,16 @@ func init() {
 }
 
 type Client struct {
-	Clientset          kubernetes.Interface
-	ExtensionClientset apiextensionsclientset.Interface // k8s api extension needed to retrieve CRDs
-	DynamicClientset   dynamic.Interface
-	CiliumClientset    ciliumClientset.Interface
-	Config             *rest.Config
-	RawConfig          clientcmdapi.Config
-	RESTClientGetter   genericclioptions.RESTClientGetter
-	contextName        string
-	HelmActionConfig   *action.Configuration
+	Clientset                 kubernetes.Interface
+	ExtensionClientset        apiextensionsclientset.Interface // k8s api extension needed to retrieve CRDs
+	DynamicClientset          dynamic.Interface
+	CiliumClientset           ciliumClientset.Interface
+	SlimNetworkingV1Clientset slim_networkingv1.NetworkingV1Interface
+	Config                    *rest.Config
+	RawConfig                 clientcmdapi.Config
+	RESTClientGetter          genericclioptions.RESTClientGetter
+	contextName               string
+	HelmActionConfig          *action.Configuration
 }
 
 func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs string, impersonateGroup []string) (*Client, error) {
@@ -119,6 +122,11 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 		return nil, err
 	}
 
+	slimNetworkingV1Clientset, err := slim_networkingv1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	if contextName == "" {
 		contextName = rawConfig.CurrentContext
 	}
@@ -133,15 +141,16 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 	}
 
 	return &Client{
-		CiliumClientset:    ciliumClientset,
-		Clientset:          clientset,
-		ExtensionClientset: extensionClientset,
-		Config:             config,
-		DynamicClientset:   dynamicClientset,
-		RawConfig:          rawConfig,
-		RESTClientGetter:   &restClientGetter,
-		contextName:        contextName,
-		HelmActionConfig:   &actionConfig,
+		CiliumClientset:           ciliumClientset,
+		Clientset:                 clientset,
+		ExtensionClientset:        extensionClientset,
+		SlimNetworkingV1Clientset: slimNetworkingV1Clientset,
+		Config:                    config,
+		DynamicClientset:          dynamicClientset,
+		RawConfig:                 rawConfig,
+		RESTClientGetter:          &restClientGetter,
+		contextName:               contextName,
+		HelmActionConfig:          &actionConfig,
 	}, nil
 }
 
@@ -958,6 +967,10 @@ func (c *Client) ListIngresses(ctx context.Context, o metav1.ListOptions) (*netw
 
 func (c *Client) ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
 	return c.Clientset.NetworkingV1().NetworkPolicies(corev1.NamespaceAll).List(ctx, o)
+}
+
+func (c *Client) ListSlimNetworkPolicies(ctx context.Context, namespace string, o metav1.ListOptions) (*ciliumnetworkingv1.NetworkPolicyList, error) {
+	return c.SlimNetworkingV1Clientset.NetworkPolicies(namespace).List(ctx, o)
 }
 
 func (c *Client) ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIdentityList, error) {
