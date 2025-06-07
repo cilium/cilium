@@ -20,6 +20,9 @@ import (
 // swagger:model metric
 type Metric struct {
 
+	// Additional information of the metric
+	AdditionalInfo map[string]float64 `json:"additionalInfo,omitempty"`
+
 	// Labels of the metric
 	Labels map[string]string `json:"labels,omitempty"`
 

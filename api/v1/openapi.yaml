@@ -3578,6 +3578,11 @@ definitions:
         type: object
         additionalProperties:
           type: string
+      additionalInfo:
+        description: Additional information of the metric
+        type: object
+        additionalProperties:
+          type: number
   Error:
     type: string
   NameManager:
