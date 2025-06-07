@@ -187,7 +187,6 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		// interface.
 		egressIP4 = gc.egressIP
 
-		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
 		if gc.egressIP.Is6() {
 			gwc.egressIP6 = gc.egressIP
 			gwc.ifaceName, err = netdevice.GetIfaceWithIPv6Address(gc.egressIP)
@@ -345,6 +344,14 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	policyGwc := &policyGatewayConfig{
 		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
 		iface:        egressGateway.Interface,
+	}
+	for _, cidr := range dstCidrList {
+		if cidr.Addr().Is6() && policyGwc.egressIP.IsValid() && policyGwc.egressIP.Is4() {
+			return nil, fmt.Errorf("egress IP and destination CIDRs must be of the same IP family")
+		}
+		if cidr.Addr().Is4() && policyGwc.egressIP.IsValid() && policyGwc.egressIP.Is6() {
+			return nil, fmt.Errorf("egress IP and destination CIDRs must be of the same IP family")
+		}
 	}
 
 	// EgressIP is not a required field, validate and parse it only if non-empty
