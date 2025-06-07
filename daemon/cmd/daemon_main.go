@@ -1037,6 +1037,11 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	bootstrapStats.earlyInit.Start()
 	defer bootstrapStats.earlyInit.End(true)
 
+	if _, err := os.Stat(defaults.PidFilePath); !os.IsNotExist(err) {
+		logger.Error(fmt.Sprintf("Refusing to start: agent already running with pidfile %s", defaults.PidFilePath))
+		os.Exit(1)
+	}
+
 	var debugDatapath bool
 
 	option.LogRegisteredSlogOptions(vp, logger)
