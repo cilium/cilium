@@ -30,7 +30,10 @@ type IdentityUpdater interface {
 	//
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
-	UpdateIdentities(added, deleted identity.IdentityMap)
+	//
+	// Returns a channel that is closed when all identities have been completely
+	// programmed in the policy maps.
+	UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{}
 }
 
 type identityAllocatorParams struct {
@@ -58,12 +61,22 @@ type identityUpdater struct {
 
 	// set of notification waitgroups to wait in for batched UpdatePolicyMaps,
 	// and a mutex to protect for writing
-	wgsLock            lock.Mutex
-	wgs                []*sync.WaitGroup
-	firstStartTime     time.Time // the start time for the first batched update
-	triggerPolicyRegen bool      // true if a selector was mutated and we need to regenerate policy
+	qLock   lock.Mutex
+	pending batch
+	// inFlightDone is the done channel for the previous batch.
+	inFlightDone chan struct{}
 
 	updatePolicyMaps job.Trigger
+}
+
+// batch is the current iteration of batched changes.
+type batch struct {
+	wgs              []*sync.WaitGroup
+	firstStartTime   time.Time
+	forcePolicyRegen bool
+
+	// done is closed when this batch is complete.
+	done chan struct{}
 }
 
 func newIdentityUpdater(params identityAllocatorParams) IdentityUpdater {
@@ -71,9 +84,16 @@ func newIdentityUpdater(params identityAllocatorParams) IdentityUpdater {
 		logger:    params.Log,
 		policy:    params.PolicyRepository,
 		epmanager: params.EPManager,
+		pending: batch{
+			done: make(chan struct{}),
+		},
+		inFlightDone: make(chan struct{}),
 
 		identityHandlers: params.IdentityHandlers,
 	}
+
+	close(i.inFlightDone)
+
 	i.updatePolicyMaps = job.NewTrigger()
 	jg := params.Registry.NewGroup(params.Health, params.Lifecycle, job.WithMetrics(params.Metrics), job.WithLogger(params.Log))
 	jg.Add(job.Timer("id-alloc-update-policy-maps", i.doUpdatePolicyMaps,
@@ -88,14 +108,27 @@ func newIdentityUpdater(params identityAllocatorParams) IdentityUpdater {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) {
+//
+// Returns a channel that is closed when all identities have been completely
+// programmed in the policy maps.
+func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	// Have we already seen this exact set of updates? If so, we can skip.
 	// This happens when a global identity is allocated locally (for an Endpoint).
 	// We will add the identity twice; once directly from the endpoint creation,
 	// and again from the global identity watcher (k8s or kvstore).
 	if i.policy.GetSelectorCache().CanSkipUpdate(added, deleted) {
 		i.logger.Debug("Skipping no-op identity update")
-		return
+		i.qLock.Lock()
+		defer i.qLock.Unlock()
+
+		// However, it could be that the identities are already in-flight. Thus, we need to return
+		// the newest done channel, which is normally the current pending one, unless
+		// there are no queued updates.
+		if len(i.pending.wgs) > 0 {
+			return i.pending.done
+		} else {
+			return i.inFlightDone
+		}
 	}
 
 	start := time.Now()
@@ -117,14 +150,31 @@ func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) 
 	mutated := i.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 
 	// Direct endpoints to consume pending incremental updates.
-	i.wgsLock.Lock()
-	i.wgs = append(i.wgs, wg)
-	if i.firstStartTime.IsZero() {
-		i.firstStartTime = start
-		i.triggerPolicyRegen = i.triggerPolicyRegen || mutated
-	}
-	i.wgsLock.Unlock()
+	out := i.enqueue(wg, start, mutated)
 	i.updatePolicyMaps.Trigger()
+	return out
+}
+
+func (i *identityUpdater) enqueue(wg *sync.WaitGroup, start time.Time, forcePolicyRegen bool) <-chan struct{} {
+	i.qLock.Lock()
+	defer i.qLock.Unlock()
+	i.pending.wgs = append(i.pending.wgs, wg)
+	if i.pending.firstStartTime.IsZero() {
+		i.pending.firstStartTime = start
+	}
+	i.pending.forcePolicyRegen = i.pending.forcePolicyRegen || forcePolicyRegen
+	return i.pending.done
+}
+
+func (i *identityUpdater) dequeue() batch {
+	i.qLock.Lock()
+	defer i.qLock.Unlock()
+	out := i.pending
+	i.pending = batch{
+		done: make(chan struct{}),
+	}
+	i.inFlightDone = out.done
+	return out
 }
 
 // doUpdatePolicyMaps is the function called by the trigger job; it waits on the
@@ -132,28 +182,21 @@ func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) 
 // the incremental update.
 func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 	// take existing queue, make new empty queue, unlock
-	i.wgsLock.Lock()
-	if len(i.wgs) == 0 {
-		i.wgsLock.Unlock()
+	q := i.dequeue()
+	if len(q.wgs) == 0 {
+		close(q.done)
 		return nil
 	}
-	wgs := i.wgs
-	start := i.firstStartTime
-	triggerPolicyRegen := i.triggerPolicyRegen
-	i.wgs = nil
-	i.firstStartTime = time.Time{}
-	i.triggerPolicyRegen = false
-	i.wgsLock.Unlock()
 
 	i.logger.Info(
 		"Incremental policy update: waiting for endpoint notifications to complete",
-		logfields.Count, len(wgs),
+		logfields.Count, len(q.wgs),
 	)
 
 	// Wait for all batched incremental updates to be finished with their notifications.
 	wdc := make(chan struct{})
 	go func() {
-		for _, wg := range wgs {
+		for _, wg := range q.wgs {
 			wg.Wait()
 		}
 		close(wdc)
@@ -173,15 +216,17 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 	i.logger.Info("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
 	updatedWG := i.epmanager.UpdatePolicyMaps(ctx, noopWG)
 	updatedWG.Wait()
-	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(start).Seconds())
+	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(q.firstStartTime).Seconds())
 
 	// We mutated a selector, we must regenerate.
-	if triggerPolicyRegen {
+	if q.forcePolicyRegen {
 		i.logger.Info("Incremental policy update mutated identities. Forcing policy recalculation.")
 		i.policy.BumpRevision()
 		i.epmanager.TriggerRegenerateAllEndpoints()
 	}
 
+	// inform waiters that the in-flight batch is done.
+	close(q.done)
 	return nil
 }
 

@@ -111,7 +111,7 @@ type IdentityAllocatorOwner interface {
 	// The caller is responsible for making sure the same identity
 	// is not present in both 'added' and 'deleted', so that they
 	// can be processed in either order.
-	UpdateIdentities(added, deleted identity.IdentityMap)
+	UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{}
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string

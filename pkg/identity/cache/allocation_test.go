@@ -141,7 +141,7 @@ func newDummyOwner(logger *slog.Logger) *dummyOwner {
 	}
 }
 
-func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	d.mutex.Lock()
 	d.logger.Debug(fmt.Sprintf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted))
 	for id, lbls := range added {
@@ -153,6 +153,9 @@ func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 		d.updated <- id
 	}
 	d.mutex.Unlock()
+	out := make(chan struct{})
+	close(out)
+	return out
 }
 
 func (d *dummyOwner) GetIdentity(id identity.NumericIdentity) labels.LabelArray {
