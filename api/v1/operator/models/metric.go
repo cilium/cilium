@@ -28,6 +28,8 @@ type Metric struct {
 
 	// Value of the metric
 	Value float64 `json:"value,omitempty"`
+
+	AdditionalInfo map[string]float64 `json:"additionalInfo,omitempty"`
 }
 
 // Validate validates this metric
