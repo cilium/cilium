@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium/pkg/k8s"
+	pkgk8s "github.com/cilium/cilium/pkg/k8s"
 )
 
 type UninstallParameters struct {
@@ -93,11 +93,11 @@ func (k *K8sUninstaller) cleanupNodeAnnotations(ctx context.Context) error {
 
 		if len(annotations) > 0 {
 			k.Log("  Removing annotations from node %s", node.Name)
-			patch := []k8s.JSONPatch{}
+			patch := []pkgk8s.JSONPatch{}
 			for key := range annotations {
 				escapedKey := strings.ReplaceAll(key, "~", "~0")
 				escapedKey = strings.ReplaceAll(escapedKey, "/", "~1")
-				patch = append(patch, k8s.JSONPatch{
+				patch = append(patch, pkgk8s.JSONPatch{
 					OP:   "remove",
 					Path: "/metadata/annotations/" + escapedKey,
 				})
@@ -106,7 +106,7 @@ func (k *K8sUninstaller) cleanupNodeAnnotations(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to marshal patch for node %s: %w", node.Name, err)
 			}
-			err = k.client.PatchNode(ctx, node.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err = k.client.PatchNode(ctx, node.Name, types.JSONPatchType, patchBytes)
 			if err != nil {
 				return fmt.Errorf("failed to patch node %s: %w", node.Name, err)
 			}
