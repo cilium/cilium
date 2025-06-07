@@ -14,7 +14,11 @@ import (
 
 type IdentityAllocatorOwnerMock struct{}
 
-func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMap) {}
+func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
+}
 
 func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"

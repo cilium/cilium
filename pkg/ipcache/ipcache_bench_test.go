@@ -20,7 +20,12 @@ import (
 
 type dummyOwner struct{}
 
-func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {}
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
+}
+
 func (d *dummyOwner) GetNodeSuffix() string {
 	return "foo"
 }
