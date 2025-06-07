@@ -3,6 +3,8 @@ FROM docker.io/library/python:3.11-alpine3.17 AS docs-base
 
 LABEL maintainer="maintainer@cilium.io"
 
+USER root
+
 RUN apk add --no-cache --virtual --update \
     aspell-en \
     nodejs \
