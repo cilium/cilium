@@ -188,10 +188,14 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 
 		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
 		if v6Needed {
-			egressIP6 = EgressIPNotFoundIPv6
+			egressIP6 = gc.egressIP
 		}
 
 		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+		}
+		gwc.ifaceName, err = netdevice.GetIfaceWithIPv6Address(gc.egressIP)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
