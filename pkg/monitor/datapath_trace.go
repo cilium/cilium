@@ -76,8 +76,18 @@ func (tn *TraceNotify) Dump(args *api.DumpArgs) {
 	}
 }
 
-// decodeTraceNotify decodes the trace notify message in 'data' into the struct.
-func (tn *TraceNotify) decodeTraceNotify(data []byte) error {
+// GetSrc retrieves the source endpoint for the message.
+func (tn *TraceNotify) GetSrc() uint16 {
+	return tn.Source
+}
+
+// GetDst retrieves the destination endpoint or proxy destination port according to the message subtype.
+func (tn *TraceNotify) GetDst() uint16 {
+	return tn.DstID
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (tn *TraceNotify) Decode(data []byte) error {
 	if l := len(data); l < traceNotifyV0Len {
 		return fmt.Errorf("unexpected TraceNotify data length, expected at least %d but got %d", traceNotifyV0Len, l)
 	}
@@ -196,7 +206,7 @@ var traceReasons = map[uint8]string{
 
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
 func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
-	return tn.decodeTraceNotify(data)
+	return tn.Decode(data)
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or

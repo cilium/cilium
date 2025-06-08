@@ -230,6 +230,7 @@ const (
 
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
 type DebugMsg struct {
+	api.DefaultSrcDstGetter
 	Type    uint8
 	SubType uint8
 	Source  uint16
@@ -253,10 +254,16 @@ func (n *DebugMsg) Dump(args *api.DumpArgs) {
 
 // DecodeDebugMsg will decode 'data' into the provided DebugMsg structure
 func DecodeDebugMsg(data []byte, dbg *DebugMsg) error {
-	return dbg.decodeDebugMsg(data)
+	return dbg.Decode(data)
 }
 
-func (n *DebugMsg) decodeDebugMsg(data []byte) error {
+// GetSrc retrieves the source endpoint for the message.
+func (n *DebugMsg) GetSrc() uint16 {
+	return n.Source
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *DebugMsg) Decode(data []byte) error {
 	if l := len(data); l < DebugMsgLen {
 		return fmt.Errorf("unexpected DebugMsg data length, expected %d but got %d", DebugMsgLen, l)
 	}
@@ -439,6 +446,7 @@ const (
 
 // DebugCapture is the metadata sent along with a captured packet frame
 type DebugCapture struct {
+	api.DefaultSrcDstGetter
 	Type    uint8
 	SubType uint8
 	// Source, if populated, is the ID of the source endpoint.
@@ -464,12 +472,18 @@ func (n *DebugCapture) Dump(args *api.DumpArgs) {
 	}
 }
 
-// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
-func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
-	return dbg.decodeDebugCapture(data)
+// GetSrc retrieves the source endpoint for the message.
+func (n *DebugCapture) GetSrc() uint16 {
+	return n.Source
 }
 
-func (n *DebugCapture) decodeDebugCapture(data []byte) error {
+// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
+func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
+	return dbg.Decode(data)
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *DebugCapture) Decode(data []byte) error {
 	if l := len(data); l < DebugCaptureLen {
 		return fmt.Errorf("unexpected DebugCapture data length, expected %d but got %d", DebugCaptureLen, l)
 	}

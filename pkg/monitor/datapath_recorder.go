@@ -18,6 +18,9 @@ const (
 
 // RecorderCapture is the message format of a pcap capture in the bpf ring buffer
 type RecorderCapture struct {
+	api.DefaultSrcDstGetter
+	api.DefaultDecoder
+
 	Type     uint8
 	SubType  uint8
 	RuleID   uint16

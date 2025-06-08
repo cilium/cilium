@@ -40,6 +40,8 @@ const (
 // Keep this in sync to the datapath structure (trace_sock_notify) defined in
 // bpf/lib/trace_sock.h
 type TraceSockNotify struct {
+	api.DefaultSrcDstGetter
+
 	Type       uint8
 	XlatePoint uint8
 	DstIP      types.IPv6
@@ -61,10 +63,11 @@ func (t *TraceSockNotify) Dump(args *api.DumpArgs) {
 
 // DecodeTraceSockNotify will decode 'data' into the provided TraceSocNotify structure
 func DecodeTraceSockNotify(data []byte, sock *TraceSockNotify) error {
-	return sock.decodeTraceSockNotify(data)
+	return sock.Decode(data)
 }
 
-func (t *TraceSockNotify) decodeTraceSockNotify(data []byte) error {
+// Decode decodes the message in 'data' into the struct.
+func (t *TraceSockNotify) Decode(data []byte) error {
 	if l := len(data); l < TraceSockNotifyLen {
 		return fmt.Errorf("unexpected TraceSockNotify data length, expected %d but got %d", TraceSockNotifyLen, l)
 	}
