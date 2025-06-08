@@ -194,13 +194,22 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		testNameToPrograms[match[1]] = progs
 	}
 
-	for progName, set := range testNameToPrograms {
+	for testName, set := range testNameToPrograms {
 		if set.checkProg == nil {
-			t.Fatalf(
-				"File '%s' contains a setup program in section '%s' but no check program.",
-				elfPath,
-				spec.Programs[progName].SectionName,
-			)
+			var missingChecks []string
+			if set.setupProg != nil {
+				missingChecks = append(missingChecks, "setup")
+			}
+			if set.pktgenProg != nil {
+				missingChecks = append(missingChecks, "pktgen")
+			}
+			if len(missingChecks) > 0 {
+				t.Fatalf(
+					"Test '%s' has %s program(s) but no matching check program. Make sure the CHECK program name matches the SETUP/PKTGEN program name.",
+					testName,
+					strings.Join(missingChecks, " and "),
+				)
+			}
 		}
 	}
 
