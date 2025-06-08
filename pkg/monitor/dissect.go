@@ -16,13 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 )
 
-type DisplayFormat bool
-
-const (
-	DisplayLabel   DisplayFormat = false
-	DisplayNumeric DisplayFormat = true
-)
-
 type parserCache struct {
 	eth     layers.Ethernet
 	ip4     layers.IPv4

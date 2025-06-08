@@ -239,6 +239,18 @@ type DebugMsg struct {
 	Arg3    uint32
 }
 
+// Dump prints the message according to the verbosity level specified
+func (n *DebugMsg) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO:
+		n.DumpInfo(args.Data)
+	case api.JSON:
+		n.DumpJSON(args.CpuPrefix, args.LinkMonitor)
+	default:
+		n.DumpVerbose(args.CpuPrefix, args.LinkMonitor)
+	}
+}
+
 // DecodeDebugMsg will decode 'data' into the provided DebugMsg structure
 func DecodeDebugMsg(data []byte, dbg *DebugMsg) error {
 	return dbg.decodeDebugMsg(data)
@@ -265,8 +277,8 @@ func (n *DebugMsg) decodeDebugMsg(data []byte) error {
 func (n *DebugMsg) DumpInfo(data []byte) {
 }
 
-// Dump prints the debug message in a human readable format.
-func (n *DebugMsg) Dump(prefix string, linkMonitor getters.LinkGetter) {
+// DumpVerbose prints the debug message in a human readable format.
+func (n *DebugMsg) DumpVerbose(prefix string, linkMonitor getters.LinkGetter) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.Message(linkMonitor))
 }
 
@@ -437,6 +449,19 @@ type DebugCapture struct {
 	Arg1    uint32
 	Arg2    uint32
 	// data
+}
+
+// Dump prints the message according to the verbosity level specified
+func (n *DebugCapture) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		n.DumpInfo(args.Data, args.LinkMonitor)
+	case api.JSON:
+		n.DumpJSON(args.Data, args.CpuPrefix, args.LinkMonitor)
+	default:
+		fmt.Println(msgSeparator)
+		n.DumpVerbose(args.Dissect, args.Data, args.CpuPrefix)
+	}
 }
 
 // DecodeDebugCapture will decode 'data' into the provided DebugCapture structure

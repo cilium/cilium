@@ -62,6 +62,11 @@ type PolicyVerdictNotify struct {
 	// data
 }
 
+// Dump prints the message according to the verbosity level specified
+func (pn *PolicyVerdictNotify) Dump(args *api.DumpArgs) {
+	pn.DumpInfo(args.Data, args.Format)
+}
+
 // DecodePolicyVerdictNotify will decode 'data' into the provided PolicyVerdictNotify structure
 func DecodePolicyVerdictNotify(data []byte, pvn *PolicyVerdictNotify) error {
 	return pvn.decodePolicyVerdictNotify(data)
@@ -134,7 +139,7 @@ func (n *PolicyVerdictNotify) GetAuthType() policy.AuthType {
 }
 
 // DumpInfo prints a summary of the policy notify messages.
-func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
+func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric api.DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
 	dir := "egress"
 	if n.IsTrafficIngress() {

@@ -10,12 +10,22 @@ import (
 
 	"github.com/cilium/dns"
 
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
 // LogRecordNotify is a proxy access log notification
 type LogRecordNotify struct {
 	accesslog.LogRecord
+}
+
+// Dump prints the message according to the verbosity level specified
+func (l *LogRecordNotify) Dump(args *api.DumpArgs) {
+	if args.Verbosity == api.JSON {
+		l.DumpJSON()
+	} else {
+		l.DumpInfo()
+	}
 }
 
 func (l *LogRecordNotify) direction() string {
