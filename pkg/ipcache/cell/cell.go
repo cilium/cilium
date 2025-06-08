@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache/api"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/policy"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -41,8 +41,7 @@ type ipCacheParams struct {
 	Logger                 *slog.Logger
 	Lifecycle              cell.Lifecycle
 	CacheIdentityAllocator cache.IdentityAllocator
-	PolicyRepository       policy.PolicyRepository
-	PolicyUpdater          *policy.Updater
+	IdentityUpdater        policycell.IdentityUpdater
 	EndpointManager        endpointmanager.EndpointManager
 	CacheStatus            synced.CacheStatus
 }
@@ -57,9 +56,7 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 		Context:           ctx,
 		Logger:            params.Logger,
 		IdentityAllocator: params.CacheIdentityAllocator,
-		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
-		PolicyUpdater:     params.PolicyUpdater,
-		DatapathHandler:   params.EndpointManager,
+		IdentityUpdater:   params.IdentityUpdater,
 		CacheStatus:       params.CacheStatus,
 	})
 
