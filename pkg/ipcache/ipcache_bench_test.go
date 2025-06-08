@@ -42,8 +42,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 		Context:           ctx,
 		Logger:            logger,
 		IdentityAllocator: alloc,
-		PolicyHandler:     PolicyHandler,
-		DatapathHandler:   &mockTriggerer{},
+		IdentityUpdater:   PolicyHandler,
 	})
 
 	addr := netip.MustParseAddr("1.0.0.0")
@@ -66,7 +65,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 	}
 	b.Logf("%d", len(prefixes))
 	b.Log(addr.String())
-	_, _, err := ipc.doInjectLabels(ctx, prefixes)
+	_, err := ipc.doInjectLabels(ctx, prefixes)
 	if err != nil {
 		b.Fatal(err)
 	}
