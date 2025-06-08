@@ -313,7 +313,7 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 
 	for b.Loop() {
 		tn := &TraceNotify{}
-		if err := tn.decodeTraceNotify(buf.Bytes()); err != nil {
+		if err := tn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -331,7 +331,7 @@ func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
 
 	for b.Loop() {
 		tn := &TraceNotify{Version: TraceNotifyVersion1}
-		if err := tn.decodeTraceNotify(buf.Bytes()); err != nil {
+		if err := tn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}

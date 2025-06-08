@@ -4,6 +4,8 @@
 package monitor
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,6 +28,23 @@ func (l *LogRecordNotify) Dump(args *api.DumpArgs) {
 	} else {
 		l.DumpInfo()
 	}
+}
+
+// GetSrc retrieves the sorce endpoint for the message
+func (l *LogRecordNotify) GetSrc() uint16 {
+	return uint16(l.SourceEndpoint.ID)
+}
+
+// GetDst retrieves the destination endpoint for the message.
+func (l *LogRecordNotify) GetDst() uint16 {
+	return uint16(l.DestinationEndpoint.ID)
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (l *LogRecordNotify) Decode(data []byte) error {
+	buf := bytes.NewBuffer(data[1:])
+	dec := gob.NewDecoder(buf)
+	return dec.Decode(l)
 }
 
 func (l *LogRecordNotify) direction() string {

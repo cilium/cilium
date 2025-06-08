@@ -76,6 +76,16 @@ func (dn *DropNotify) Dump(args *api.DumpArgs) {
 	}
 }
 
+// GetSrc retrieves the sorce endpoint for the message.
+func (n *DropNotify) GetSrc() uint16 {
+	return n.Source
+}
+
+// GetDst retrieves the destination endpoint for the message.
+func (n *DropNotify) GetDst() uint16 {
+	return uint16(n.DstID)
+}
+
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
 func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {
@@ -88,10 +98,11 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) 
 
 // DecodeDropNotify will decode 'data' into the provided DropNotify structure
 func DecodeDropNotify(data []byte, dn *DropNotify) error {
-	return dn.decodeDropNotify(data)
+	return dn.Decode(data)
 }
 
-func (n *DropNotify) decodeDropNotify(data []byte) error {
+// Decode decodes the message in 'data' into the struct.
+func (n *DropNotify) Decode(data []byte) error {
 	if l := len(data); l < dropNotifyV1Len {
 		return fmt.Errorf("unexpected DropNotify data length, expected at least %d but got %d", dropNotifyV1Len, l)
 	}

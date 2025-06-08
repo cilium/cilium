@@ -253,10 +253,21 @@ func (n *DebugMsg) Dump(args *api.DumpArgs) {
 
 // DecodeDebugMsg will decode 'data' into the provided DebugMsg structure
 func DecodeDebugMsg(data []byte, dbg *DebugMsg) error {
-	return dbg.decodeDebugMsg(data)
+	return dbg.Decode(data)
 }
 
-func (n *DebugMsg) decodeDebugMsg(data []byte) error {
+// GetSrc retrieves the sorce endpoint for the message.
+func (n *DebugMsg) GetSrc() uint16 {
+	return n.Source
+}
+
+// GetDst retrieves the destination endpoint for the message.
+func (n *DebugMsg) GetDst() uint16 {
+	return 0
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *DebugMsg) Decode(data []byte) error {
 	if l := len(data); l < DebugMsgLen {
 		return fmt.Errorf("unexpected DebugMsg data length, expected %d but got %d", DebugMsgLen, l)
 	}
@@ -464,12 +475,23 @@ func (n *DebugCapture) Dump(args *api.DumpArgs) {
 	}
 }
 
-// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
-func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
-	return dbg.decodeDebugCapture(data)
+// GetSrc retrieves the sorce endpoint for the message.
+func (n *DebugCapture) GetSrc() uint16 {
+	return n.Source
 }
 
-func (n *DebugCapture) decodeDebugCapture(data []byte) error {
+// GetDst retrieves the destination endpoint for the message.
+func (n *DebugCapture) GetDst() uint16 {
+	return 0
+}
+
+// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
+func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
+	return dbg.Decode(data)
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *DebugCapture) Decode(data []byte) error {
 	if l := len(data); l < DebugCaptureLen {
 		return fmt.Errorf("unexpected DebugCapture data length, expected %d but got %d", DebugCaptureLen, l)
 	}

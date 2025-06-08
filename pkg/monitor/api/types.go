@@ -4,6 +4,8 @@
 package api
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -191,6 +193,23 @@ func TraceObservationPoint(obsPoint uint8) string {
 type AgentNotify struct {
 	Type AgentNotification
 	Text string
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (a *AgentNotify) Decode(data []byte) error {
+	buf := bytes.NewBuffer(data[1:])
+	dec := gob.NewDecoder(buf)
+	return dec.Decode(a)
+}
+
+// GetSrc retrieves the sorce endpoint for the message
+func (a *AgentNotify) GetSrc() uint16 {
+	return 0
+}
+
+// GetDst retrieves the destination endpoint for the message.
+func (a *AgentNotify) GetDst() uint16 {
+	return 0
 }
 
 // Dump prints the message according to the verbosity level specified

@@ -67,12 +67,23 @@ func (pn *PolicyVerdictNotify) Dump(args *api.DumpArgs) {
 	pn.DumpInfo(args.Data, args.Format)
 }
 
-// DecodePolicyVerdictNotify will decode 'data' into the provided PolicyVerdictNotify structure
-func DecodePolicyVerdictNotify(data []byte, pvn *PolicyVerdictNotify) error {
-	return pvn.decodePolicyVerdictNotify(data)
+// GetSrc retrieves the sorce endpoint for the message.
+func (n *PolicyVerdictNotify) GetSrc() uint16 {
+	return n.Source
 }
 
-func (n *PolicyVerdictNotify) decodePolicyVerdictNotify(data []byte) error {
+// GetDst retrieves the destination endpoint for the message.
+func (n *PolicyVerdictNotify) GetDst() uint16 {
+	return uint16(n.RemoteLabel)
+}
+
+// DecodePolicyVerdictNotify will decode 'data' into the provided PolicyVerdictNotify structure
+func DecodePolicyVerdictNotify(data []byte, pvn *PolicyVerdictNotify) error {
+	return pvn.Decode(data)
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *PolicyVerdictNotify) Decode(data []byte) error {
 	if l := len(data); l < PolicyVerdictNotifyLen {
 		return fmt.Errorf("unexpected PolicyVerdictNotify data length, expected %d but got %d", PolicyVerdictNotifyLen, l)
 	}
