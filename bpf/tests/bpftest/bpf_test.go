@@ -175,6 +175,21 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 	testNameToPrograms := make(map[string]programSet)
 
+	checkProgExists := func(progName, testName, progType string) {
+		checkProgName := strings.Replace(progName, progType, "check", 1)
+		if spec, ok := spec.Programs[checkProgName]; ok {
+			match := checkProgRegex.FindStringSubmatch(spec.SectionName)
+			if match[1] != testName {
+				t.Fatalf(
+					"File '%s' contains a %s program for '%s' test, but no check program.",
+					elfPath,
+					progType,
+					testName,
+				)
+			}
+		}
+	}
+
 	for progName, spec := range spec.Programs {
 		match := checkProgRegex.FindStringSubmatch(spec.SectionName)
 		if len(match) == 0 {
@@ -183,25 +198,17 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 		progs := testNameToPrograms[match[1]]
 		if match[2] == "pktgen" {
+			checkProgExists(progName, match[1], match[2])
 			progs.pktgenProg = coll.Programs[progName]
 		}
 		if match[2] == "setup" {
+			checkProgExists(progName, match[1], match[2])
 			progs.setupProg = coll.Programs[progName]
 		}
 		if match[2] == "check" {
 			progs.checkProg = coll.Programs[progName]
 		}
 		testNameToPrograms[match[1]] = progs
-	}
-
-	for progName, set := range testNameToPrograms {
-		if set.checkProg == nil {
-			t.Fatalf(
-				"File '%s' contains a setup program in section '%s' but no check program.",
-				elfPath,
-				spec.Programs[progName].SectionName,
-			)
-		}
 	}
 
 	// Collect debug events and add them as logs of the main test
