@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -47,6 +48,15 @@ type TraceSockNotify struct {
 	CgroupId   uint64
 	L4Proto    uint8
 	Flags      uint8
+}
+
+// Dump prints the message according to the verbosity level specified
+func (t *TraceSockNotify) Dump(args *api.DumpArgs) {
+	// Currently only printed with the debug option. Extend it to info and json.
+	// GH issue: https://github.com/cilium/cilium/issues/21510
+	if args.Verbosity == api.DEBUG {
+		t.DumpDebug(args.CpuPrefix)
+	}
 }
 
 // DecodeTraceSockNotify will decode 'data' into the provided TraceSocNotify structure
