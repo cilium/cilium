@@ -47,7 +47,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	out := TraceNotify{}
-	err = DecodeTraceNotify(buf.Bytes(), &out)
+	err = out.Decode(buf.Bytes())
 	require.NoError(t, err)
 	require.Equal(t, in.Type, out.Type)
 	require.Equal(t, in.ObsPoint, out.ObsPoint)
@@ -67,14 +67,14 @@ func TestDecodeTraceNotify(t *testing.T) {
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
 	tn := TraceNotify{}
-	err := DecodeTraceNotify([]byte{}, &tn)
+	err := tn.Decode([]byte{})
 	require.Error(t, err)
 	require.Equal(t, "unexpected TraceNotify data length, expected at least 32 but got 0", err.Error())
 
 	// invalid version
 	ev := make([]byte, traceNotifyV1Len)
 	ev[14] = 0xff
-	err = DecodeTraceNotify(ev, &tn)
+	err = tn.Decode(ev)
 	require.Error(t, err)
 	require.Equal(t, "Unrecognized trace event (version 255)", err.Error())
 }

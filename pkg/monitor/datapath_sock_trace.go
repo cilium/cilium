@@ -61,11 +61,6 @@ func (t *TraceSockNotify) Dump(args *api.DumpArgs) {
 	}
 }
 
-// DecodeTraceSockNotify will decode 'data' into the provided TraceSocNotify structure
-func DecodeTraceSockNotify(data []byte, sock *TraceSockNotify) error {
-	return sock.Decode(data)
-}
-
 // Decode decodes the message in 'data' into the struct.
 func (t *TraceSockNotify) Decode(data []byte) error {
 	if l := len(data); l < TraceSockNotifyLen {
