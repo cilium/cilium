@@ -13,6 +13,10 @@ import (
 
 var _ pflag.Value = &monitorAPI.MessageTypeFilter{}
 
+const (
+	msgSeparator = "------------------------------------------------------------------------------"
+)
+
 // GetAllTypes returns a slice of all known message types, sorted
 func GetAllTypes() []string {
 	types := make([]string, 0, len(monitorAPI.MessageTypeNames))

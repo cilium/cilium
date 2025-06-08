@@ -57,6 +57,19 @@ type TraceNotify struct {
 	// data
 }
 
+// Dump prints the message according to the verbosity level specified
+func (tn *TraceNotify) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		tn.DumpInfo(args.Data, args.Format, args.LinkMonitor)
+	case api.JSON:
+		tn.DumpJSON(args.Data, args.CpuPrefix, args.LinkMonitor)
+	default:
+		fmt.Println(msgSeparator)
+		tn.DumpVerbose(args.Dissect, args.Data, args.CpuPrefix, args.Format, args.LinkMonitor)
+	}
+}
+
 // decodeTraceNotify decodes the trace notify message in 'data' into the struct.
 func (tn *TraceNotify) decodeTraceNotify(data []byte) error {
 	if l := len(data); l < traceNotifyV0Len {
@@ -182,7 +195,7 @@ func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
-func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {
 	if numeric {
 		fmt.Fprintf(buf, ", identity %d->%d", n.SrcLabel, n.DstLabel)
 	} else {
@@ -273,7 +286,7 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpInfo(data []byte, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
 	hdrLen := n.DataOffset()
 	if enc := n.encryptReasonString(); enc != "" {
@@ -290,7 +303,7 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
 		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())

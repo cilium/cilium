@@ -16,25 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
-// Verbosity levels for formatting output.
-type Verbosity uint8
-
-const (
-	msgSeparator = "------------------------------------------------------------------------------"
-
-	// INFO is the level of verbosity in which summaries of Drop and Capture
-	// messages are printed out when the monitor is invoked
-	INFO Verbosity = iota + 1
-	// DEBUG is the level of verbosity in which more information about packets
-	// is printed than in INFO mode. Debug, Drop, and Capture messages are printed.
-	DEBUG
-	// VERBOSE is the level of verbosity in which the most information possible
-	// about packets is printed out. Currently is not utilized.
-	VERBOSE
-	// JSON is the level of verbosity in which event information is printed out in json format
-	JSON
-)
-
 // MonitorFormatter filters and formats monitor messages from a buffer.
 type MonitorFormatter struct {
 	EventTypes monitorAPI.MessageTypeFilter
@@ -43,14 +24,14 @@ type MonitorFormatter struct {
 	Related    Uint16Flags
 	Hex        bool
 	JSONOutput bool
-	Verbosity  Verbosity
+	Verbosity  monitorAPI.Verbosity
 	Numeric    bool
 
 	linkMonitor getters.LinkGetter
 }
 
 // NewMonitorFormatter returns a new formatter with default configuration.
-func NewMonitorFormatter(verbosity Verbosity, linkMonitor getters.LinkGetter) *MonitorFormatter {
+func NewMonitorFormatter(verbosity monitorAPI.Verbosity, linkMonitor getters.LinkGetter) *MonitorFormatter {
 	return &MonitorFormatter{
 		Hex:         false,
 		EventTypes:  monitorAPI.MessageTypeFilter{},
@@ -59,7 +40,7 @@ func NewMonitorFormatter(verbosity Verbosity, linkMonitor getters.LinkGetter) *M
 		Related:     Uint16Flags{},
 		JSONOutput:  false,
 		Verbosity:   verbosity,
-		Numeric:     bool(monitor.DisplayLabel),
+		Numeric:     bool(monitorAPI.DisplayLabel),
 		linkMonitor: linkMonitor,
 	}
 }
@@ -90,15 +71,15 @@ func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
 	if m.match(monitorAPI.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
-		switch m.Verbosity {
-		case INFO, DEBUG:
-			dn.DumpInfo(data, monitor.DisplayFormat(m.Numeric))
-		case JSON:
-			dn.DumpJSON(data, prefix)
-		default:
-			fmt.Println(msgSeparator)
-			dn.DumpVerbose(!m.Hex, data, prefix, monitor.DisplayFormat(m.Numeric))
-		}
+		dn.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
+
 	}
 }
 
@@ -110,15 +91,14 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing trace notification message: %s\n", err)
 	}
 	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {
-		switch m.Verbosity {
-		case INFO, DEBUG:
-			tn.DumpInfo(data, monitor.DisplayFormat(m.Numeric), m.linkMonitor)
-		case JSON:
-			tn.DumpJSON(data, prefix, m.linkMonitor)
-		default:
-			fmt.Println(msgSeparator)
-			tn.DumpVerbose(!m.Hex, data, prefix, monitor.DisplayFormat(m.Numeric), m.linkMonitor)
-		}
+		tn.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 
@@ -128,11 +108,16 @@ func (m *MonitorFormatter) traceSockEvents(prefix string, data []byte) {
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
 		fmt.Printf("Error while parsing socket trace notification message: %s\n", err)
 	}
-	// Currently only printed with the debug option. Extend it to info and json.
-	// GH issue: https://github.com/cilium/cilium/issues/21510
-	if m.Verbosity == DEBUG {
-		tn.DumpDebug(prefix)
-	}
+
+	tn.Dump(&monitorAPI.DumpArgs{
+		Data:        data,
+		CpuPrefix:   prefix,
+		Format:      monitorAPI.DisplayFormat(m.Numeric),
+		LinkMonitor: m.linkMonitor,
+		Dissect:     !m.Hex,
+		Verbosity:   m.Verbosity,
+	})
+
 }
 
 func (m *MonitorFormatter) policyVerdictEvents(prefix string, data []byte) {
@@ -143,7 +128,14 @@ func (m *MonitorFormatter) policyVerdictEvents(prefix string, data []byte) {
 	}
 
 	if m.match(monitorAPI.MessageTypePolicyVerdict, pn.Source, uint16(pn.RemoteLabel)) {
-		pn.DumpInfo(data, monitor.DisplayFormat(m.Numeric))
+		pn.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 
@@ -155,7 +147,14 @@ func (m *MonitorFormatter) recorderCaptureEvents(prefix string, data []byte) {
 	}
 
 	if m.match(monitorAPI.MessageTypeRecCapture, 0, 0) {
-		rc.DumpInfo(data)
+		rc.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 
@@ -167,14 +166,14 @@ func (m *MonitorFormatter) debugEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
 	if m.match(monitorAPI.MessageTypeDebug, dm.Source, 0) {
-		switch m.Verbosity {
-		case INFO:
-			dm.DumpInfo(data)
-		case JSON:
-			dm.DumpJSON(prefix, m.linkMonitor)
-		default:
-			dm.Dump(prefix, m.linkMonitor)
-		}
+		dm.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 
@@ -186,15 +185,14 @@ func (m *MonitorFormatter) captureEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
 	if m.match(monitorAPI.MessageTypeCapture, dc.Source, 0) {
-		switch m.Verbosity {
-		case INFO, DEBUG:
-			dc.DumpInfo(data, m.linkMonitor)
-		case JSON:
-			dc.DumpJSON(data, prefix, m.linkMonitor)
-		default:
-			fmt.Println(msgSeparator)
-			dc.DumpVerbose(!m.Hex, data, prefix)
-		}
+		dc.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 
@@ -209,11 +207,14 @@ func (m *MonitorFormatter) logRecordEvents(prefix string, data []byte) {
 	}
 
 	if m.match(monitorAPI.MessageTypeAccessLog, uint16(lr.SourceEndpoint.ID), uint16(lr.DestinationEndpoint.ID)) {
-		if m.Verbosity == JSON {
-			lr.DumpJSON()
-		} else {
-			lr.DumpInfo()
-		}
+		lr.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 
@@ -228,11 +229,14 @@ func (m *MonitorFormatter) agentEvents(prefix string, data []byte) {
 	}
 
 	if m.match(monitorAPI.MessageTypeAgent, 0, 0) {
-		if m.Verbosity == JSON {
-			an.DumpJSON()
-		} else {
-			an.DumpInfo()
-		}
+		an.Dump(&monitorAPI.DumpArgs{
+			Data:        data,
+			CpuPrefix:   prefix,
+			Format:      monitorAPI.DisplayFormat(m.Numeric),
+			LinkMonitor: m.linkMonitor,
+			Dissect:     !m.Hex,
+			Verbosity:   m.Verbosity,
+		})
 	}
 }
 

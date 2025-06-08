@@ -63,9 +63,22 @@ type DropNotify struct {
 	// data
 }
 
+// Dump prints the message according to the verbosity level specified
+func (dn *DropNotify) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		dn.DumpInfo(args.Data, args.Format)
+	case api.JSON:
+		dn.DumpJSON(args.Data, args.CpuPrefix)
+	default:
+		fmt.Println(msgSeparator)
+		dn.DumpVerbose(!args.Dissect, args.Data, args.CpuPrefix, args.Format)
+	}
+}
+
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
-func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {
 	if numeric {
 		fmt.Fprintf(buf, ", identity %d->%d", n.SrcLabel, n.DstLabel)
 	} else {
@@ -136,7 +149,7 @@ func (n *DropNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the drop messages.
-func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
+func (n *DropNotify) DumpInfo(data []byte, numeric api.DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
@@ -146,7 +159,7 @@ func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 }
 
 // DumpVerbose prints the drop notification in human readable form
-func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat) {
+func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric api.DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d DROP: %d bytes, reason %s",
 		prefix, n.Hash, n.Source, n.OrigLen, api.DropReasonExt(n.SubType, n.ExtError))

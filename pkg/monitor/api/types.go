@@ -193,6 +193,15 @@ type AgentNotify struct {
 	Text string
 }
 
+// Dump prints the message according to the verbosity level specified
+func (n *AgentNotify) Dump(args *DumpArgs) {
+	if args.Verbosity == JSON {
+		n.DumpJSON()
+	} else {
+		n.DumpInfo()
+	}
+}
+
 // AgentNotifyMessage is a notification from the agent. It is similar to
 // AgentNotify, but the notification is an unencoded struct. See the *Message
 // constructors in this package for possible values.
