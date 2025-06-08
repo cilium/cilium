@@ -1280,6 +1280,22 @@
      - Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs
      - list
      - ``[]``
+   * - :spelling:ignore:`eni.maxAboveWatermark`
+     - Maximum number of IPs that can be allocated beyond the current need when using AWS ENI IPAM mode (default: 0)
+     - int
+     - ``0``
+   * - :spelling:ignore:`eni.maxAllocate`
+     - Maximum number of IPs that can be allocated to a node when using AWS ENI IPAM mode (default: 0 = unlimited)
+     - int
+     - ``0``
+   * - :spelling:ignore:`eni.minAllocate`
+     - Minimum number of IPs that must be allocated when using AWS ENI IPAM mode (default: 0)
+     - int
+     - ``0``
+   * - :spelling:ignore:`eni.preAllocate`
+     - Number of IPs to pre-allocate when using AWS ENI IPAM mode (default: 8)
+     - int
+     - ``8``
    * - :spelling:ignore:`eni.subnetIDsFilter`
      - Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - list

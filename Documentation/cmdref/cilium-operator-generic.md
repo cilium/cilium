@@ -12,6 +12,10 @@ cilium-operator-generic [flags]
 
 ```
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
+      --aws-ipam-max-above-watermark int                     Maximum number of IP addresses that can be allocated beyond the current need when using AWS ENI IPAM mode
+      --aws-ipam-max-allocate int                            Maximum number of IP addresses that can be allocated to a node when using AWS ENI IPAM mode (0 = unlimited)
+      --aws-ipam-min-allocate int                            Minimum number of IP addresses that must be allocated when using AWS ENI IPAM mode
+      --aws-ipam-pre-allocate int                            Number of IP addresses that must be pre-allocated when using AWS ENI IPAM mode (default 8)
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cilium-endpoint-gc-interval duration                 GC interval for cilium endpoints (default 5m0s)

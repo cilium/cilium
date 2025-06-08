@@ -1135,6 +1135,15 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
+  # -- Number of IPs to pre-allocate per ENI. AWS-specific parameter for ENI IPAM mode.
+  preAllocate: 8
+  # -- Minimum number of IPs that should be allocated per ENI. AWS-specific parameter for ENI IPAM mode.
+  minAllocate: 0
+  # -- Maximum number of IPs that can be allocated per ENI. AWS-specific parameter for ENI IPAM mode.
+  # If not specified, this is set to the maximum number allowed for the ENI based on the instance type.
+  maxAllocate: 0
+  # -- Maximum number of IPs to allocate above the watermark. AWS-specific parameter for ENI IPAM mode.
+  maxAboveWatermark: 0
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:

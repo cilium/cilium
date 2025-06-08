@@ -695,3 +695,37 @@ func BenchmarkAllocDelay50Worker10(b *testing.B) {
 func BenchmarkAllocDelay50Worker50(b *testing.B) {
 	benchmarkAllocWorker(b, 50, 50*time.Millisecond, 100.0, 4)
 }
+
+func TestNodeManagerIPAMOptions(t *testing.T) {
+	operatorOption.Config.AWSReleaseExcessIPs = true
+	operatorOption.Config.AWSEnablePrefixDelegation = false
+
+	// Test with custom IPAM parameter values
+	customPreAllocate := 42
+	customMinAllocate := 10
+	customMaxAllocate := 100
+	customMaxAboveWatermark := 5
+
+	mngr, err := NewNodeManager(slog.Default(), newAllocationImplementationMock(), k8sapi, metricsmock.NewMockMetrics(),
+		10, true, false,
+		WithIPAMPreAllocate(customPreAllocate),
+		WithIPAMMinAllocate(customMinAllocate),
+		WithIPAMMaxAllocate(customMaxAllocate),
+		WithIPAMMaxAboveWatermark(customMaxAboveWatermark))
+	require.NoError(t, err)
+
+	require.Equal(t, customPreAllocate, mngr.getPreAllocate())
+	require.Equal(t, customMinAllocate, mngr.getMinAllocate())
+	require.Equal(t, customMaxAllocate, mngr.getMaxAllocate())
+	require.Equal(t, customMaxAboveWatermark, mngr.getMaxAboveWatermark())
+
+	// Test with default values (no options provided)
+	mngr, err = NewNodeManager(slog.Default(), newAllocationImplementationMock(), k8sapi, metricsmock.NewMockMetrics(),
+		10, true, false)
+	require.NoError(t, err)
+
+	require.Equal(t, defaults.IPAMPreAllocation, mngr.getPreAllocate())
+	require.Equal(t, defaults.IPAMMinAllocation, mngr.getMinAllocate())
+	require.Equal(t, defaults.IPAMMaxAllocation, mngr.getMaxAllocate())
+	require.Equal(t, defaults.IPAMMaxAboveWatermark, mngr.getMaxAboveWatermark())
+}

@@ -1124,6 +1124,14 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
+  # -- Number of IPs to pre-allocate when using AWS ENI IPAM mode (default: 8)
+  preAllocate: 8
+  # -- Minimum number of IPs that must be allocated when using AWS ENI IPAM mode (default: 0)
+  minAllocate: 0
+  # -- Maximum number of IPs that can be allocated to a node when using AWS ENI IPAM mode (default: 0 = unlimited)
+  maxAllocate: 0
+  # -- Maximum number of IPs that can be allocated beyond the current need when using AWS ENI IPAM mode (default: 0)
+  maxAboveWatermark: 0
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
