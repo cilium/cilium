@@ -4,12 +4,8 @@
 package format
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -63,183 +59,6 @@ func (m *MonitorFormatter) match(messageType int, src uint16, dst uint16) bool {
 	return true
 }
 
-// dropEvents prints out all the received drop notifications.
-func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
-	dn := monitor.DropNotify{}
-
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
-		fmt.Printf("Error while parsing drop notification message: %s\n", err)
-	}
-	if m.match(monitorAPI.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
-		dn.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-
-	}
-}
-
-// traceEvents prints out all the received trace notifications.
-func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
-	tn := monitor.TraceNotify{}
-
-	if err := monitor.DecodeTraceNotify(data, &tn); err != nil {
-		fmt.Printf("Error while parsing trace notification message: %s\n", err)
-	}
-	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {
-		tn.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
-func (m *MonitorFormatter) traceSockEvents(prefix string, data []byte) {
-	tn := monitor.TraceSockNotify{}
-
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
-		fmt.Printf("Error while parsing socket trace notification message: %s\n", err)
-	}
-
-	tn.Dump(&monitorAPI.DumpArgs{
-		Data:        data,
-		CpuPrefix:   prefix,
-		Format:      monitorAPI.DisplayFormat(m.Numeric),
-		LinkMonitor: m.linkMonitor,
-		Dissect:     !m.Hex,
-		Verbosity:   m.Verbosity,
-	})
-
-}
-
-func (m *MonitorFormatter) policyVerdictEvents(prefix string, data []byte) {
-	pn := monitor.PolicyVerdictNotify{}
-
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &pn); err != nil {
-		fmt.Printf("Error while parsing policy notification message: %s\n", err)
-	}
-
-	if m.match(monitorAPI.MessageTypePolicyVerdict, pn.Source, uint16(pn.RemoteLabel)) {
-		pn.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
-func (m *MonitorFormatter) recorderCaptureEvents(prefix string, data []byte) {
-	rc := monitor.RecorderCapture{}
-
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &rc); err != nil {
-		fmt.Printf("Error while parsing capture record: %s\n", err)
-	}
-
-	if m.match(monitorAPI.MessageTypeRecCapture, 0, 0) {
-		rc.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
-// debugEvents prints out all the debug messages.
-func (m *MonitorFormatter) debugEvents(prefix string, data []byte) {
-	dm := monitor.DebugMsg{}
-
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dm); err != nil {
-		fmt.Printf("Error while parsing debug message: %s\n", err)
-	}
-	if m.match(monitorAPI.MessageTypeDebug, dm.Source, 0) {
-		dm.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
-// captureEvents prints out all the capture messages.
-func (m *MonitorFormatter) captureEvents(prefix string, data []byte) {
-	dc := monitor.DebugCapture{}
-
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dc); err != nil {
-		fmt.Printf("Error while parsing debug capture message: %s\n", err)
-	}
-	if m.match(monitorAPI.MessageTypeCapture, dc.Source, 0) {
-		dc.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
-// logRecordEvents prints out LogRecord events
-func (m *MonitorFormatter) logRecordEvents(prefix string, data []byte) {
-	buf := bytes.NewBuffer(data[1:])
-	dec := gob.NewDecoder(buf)
-
-	lr := monitor.LogRecordNotify{}
-	if err := dec.Decode(&lr); err != nil {
-		fmt.Printf("Error while decoding LogRecord notification message: %s\n", err)
-	}
-
-	if m.match(monitorAPI.MessageTypeAccessLog, uint16(lr.SourceEndpoint.ID), uint16(lr.DestinationEndpoint.ID)) {
-		lr.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
-// agentEvents prints out agent events
-func (m *MonitorFormatter) agentEvents(prefix string, data []byte) {
-	buf := bytes.NewBuffer(data[1:])
-	dec := gob.NewDecoder(buf)
-
-	an := monitorAPI.AgentNotify{}
-	if err := dec.Decode(&an); err != nil {
-		fmt.Printf("Error while decoding agent notification message: %s\n", err)
-	}
-
-	if m.match(monitorAPI.MessageTypeAgent, 0, 0) {
-		an.Dump(&monitorAPI.DumpArgs{
-			Data:        data,
-			CpuPrefix:   prefix,
-			Format:      monitorAPI.DisplayFormat(m.Numeric),
-			LinkMonitor: m.linkMonitor,
-			Dissect:     !m.Hex,
-			Verbosity:   m.Verbosity,
-		})
-	}
-}
-
 // FormatSample prints an event from the provided raw data slice to stdout.
 //
 // For most monitor event types, 'data' corresponds to the 'data' field in
@@ -247,30 +66,52 @@ func (m *MonitorFormatter) agentEvents(prefix string, data []byte) {
 // MessageTypeAgent.
 func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
-	messageType := data[0]
-
+	messageType := int(data[0])
+	var msg monitorAPI.MonitorEvent
 	switch messageType {
 	case monitorAPI.MessageTypeDrop:
-		m.dropEvents(prefix, data)
+		msg = &monitor.DropNotify{}
 	case monitorAPI.MessageTypeDebug:
-		m.debugEvents(prefix, data)
+		msg = &monitor.DebugMsg{}
 	case monitorAPI.MessageTypeCapture:
-		m.captureEvents(prefix, data)
+		msg = &monitor.DebugCapture{}
 	case monitorAPI.MessageTypeTrace:
-		m.traceEvents(prefix, data)
+		msg = &monitor.TraceNotify{}
 	case monitorAPI.MessageTypeAccessLog:
-		m.logRecordEvents(prefix, data)
+		msg = &monitor.LogRecordNotify{}
 	case monitorAPI.MessageTypeAgent:
-		m.agentEvents(prefix, data)
+		msg = &monitorAPI.AgentNotify{}
 	case monitorAPI.MessageTypePolicyVerdict:
-		m.policyVerdictEvents(prefix, data)
+		msg = &monitor.PolicyVerdictNotify{}
 	case monitorAPI.MessageTypeRecCapture:
-		m.recorderCaptureEvents(prefix, data)
+		msg = &monitor.RecorderCapture{}
 	case monitorAPI.MessageTypeTraceSock:
-		m.traceSockEvents(prefix, data)
+		msg = &monitor.TraceSockNotify{}
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
+		return
 	}
+
+	if err := msg.Decode(data); err != nil {
+		fmt.Printf("cannot decode message type '%d': %v\n", messageType, err)
+		return
+	}
+
+	// For TraceSockNotify we don't implement any matching logic.
+	// See the original implementation: https://github.com/cilium/cilium/pull/21516#discussion_r984194699
+	_, isTraceSock := msg.(*monitor.TraceSockNotify)
+	if !isTraceSock && !m.match(messageType, msg.GetSrc(), msg.GetDst()) {
+		return
+	}
+
+	msg.Dump(&monitorAPI.DumpArgs{
+		Data:        data,
+		CpuPrefix:   prefix,
+		Format:      monitorAPI.DisplayFormat(m.Numeric),
+		LinkMonitor: m.linkMonitor,
+		Dissect:     !m.Hex,
+		Verbosity:   m.Verbosity,
+	})
 }
 
 // LostEvent formats a lost event using the specified payload parameters.
