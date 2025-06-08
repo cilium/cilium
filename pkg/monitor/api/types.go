@@ -215,9 +215,9 @@ func (a *AgentNotify) GetDst() uint16 {
 // Dump prints the message according to the verbosity level specified
 func (n *AgentNotify) Dump(args *DumpArgs) {
 	if args.Verbosity == JSON {
-		n.DumpJSON()
+		fmt.Fprintln(args.Buf, n.getJSON())
 	} else {
-		n.DumpInfo()
+		fmt.Fprintf(args.Buf, ">> %s: %s\n", resolveAgentType(n.Type), n.Text)
 	}
 }
 
@@ -281,18 +281,8 @@ func resolveAgentType(t AgentNotification) string {
 	return fmt.Sprintf("%d", t)
 }
 
-// DumpInfo dumps an agent notification
-func (n *AgentNotify) DumpInfo() {
-	fmt.Printf(">> %s: %s\n", resolveAgentType(n.Type), n.Text)
-}
-
 func (n *AgentNotify) getJSON() string {
 	return fmt.Sprintf(`{"type":"agent","subtype":"%s","message":%s}`, resolveAgentType(n.Type), n.Text)
-}
-
-// DumpJSON prints notification in json format
-func (n *AgentNotify) DumpJSON() {
-	fmt.Println(n.getJSON())
 }
 
 // PolicyUpdateNotification structures update notification

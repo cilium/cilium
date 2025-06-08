@@ -4,7 +4,9 @@
 package format
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -24,10 +26,11 @@ type MonitorFormatter struct {
 	Numeric    bool
 
 	linkMonitor getters.LinkGetter
+	buf         *bufio.Writer
 }
 
 // NewMonitorFormatter returns a new formatter with default configuration.
-func NewMonitorFormatter(verbosity monitorAPI.Verbosity, linkMonitor getters.LinkGetter) *MonitorFormatter {
+func NewMonitorFormatter(verbosity monitorAPI.Verbosity, linkMonitor getters.LinkGetter, w io.Writer) *MonitorFormatter {
 	return &MonitorFormatter{
 		Hex:         false,
 		EventTypes:  monitorAPI.MessageTypeFilter{},
@@ -38,6 +41,7 @@ func NewMonitorFormatter(verbosity monitorAPI.Verbosity, linkMonitor getters.Lin
 		Verbosity:   verbosity,
 		Numeric:     bool(monitorAPI.DisplayLabel),
 		linkMonitor: linkMonitor,
+		buf:         bufio.NewWriter(w),
 	}
 }
 
@@ -65,6 +69,7 @@ func (m *MonitorFormatter) match(messageType int, src uint16, dst uint16) bool {
 // bpf.PerfEventSample. Exceptions are MessageTypeAccessLog and
 // MessageTypeAgent.
 func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
+	defer m.buf.Flush()
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
 	messageType := int(data[0])
 	var msg monitorAPI.MonitorEvent
@@ -88,12 +93,12 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 	case monitorAPI.MessageTypeTraceSock:
 		msg = &monitor.TraceSockNotify{}
 	default:
-		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
+		fmt.Fprintf(m.buf, "%s Unknown event: %+v\n", prefix, data)
 		return
 	}
 
 	if err := msg.Decode(data); err != nil {
-		fmt.Printf("cannot decode message type '%d': %v\n", messageType, err)
+		fmt.Fprintf(m.buf, "cannot decode message type '%d': %v\n", messageType, err)
 		return
 	}
 
@@ -111,20 +116,23 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		LinkMonitor: m.linkMonitor,
 		Dissect:     !m.Hex,
 		Verbosity:   m.Verbosity,
+		Buf:         m.buf,
 	})
 }
 
-// LostEvent formats a lost event using the specified payload parameters.
-func (m *MonitorFormatter) LostEvent(lost uint64, cpu int) {
-	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost)
+// FormatLostEvent formats a lost event using the specified payload parameters.
+func (m *MonitorFormatter) FormatLostEvent(lost uint64, cpu int) {
+	defer m.buf.Flush()
+	fmt.Fprintf(m.buf, "CPU %02d: Lost %d events\n", cpu, lost)
 }
 
-// UnknownEvent formats an unknown event using the specified payload parameters.
-func (m *MonitorFormatter) UnknownEvent(lost uint64, cpu int, t int) {
-	fmt.Printf("Unknown payload type: %d, CPU %02d: Lost %d events\n", t, cpu, lost)
+// FormatUnknownEvent formats an unknown event using the specified payload parameters.
+func (m *MonitorFormatter) FormatUnknownEvent(lost uint64, cpu int, t int) {
+	defer m.buf.Flush()
+	fmt.Fprintf(m.buf, "Unknown payload type: %d, CPU %02d: Lost %d events\n", t, cpu, lost)
 }
 
-// FormatEvent formats an event from the specified payload to stdout.
+// FormatEvent formats an event from the specified payload
 //
 // Returns true if the event was successfully recognized, false otherwise.
 func (m *MonitorFormatter) FormatEvent(pl *payload.Payload) bool {
@@ -132,9 +140,9 @@ func (m *MonitorFormatter) FormatEvent(pl *payload.Payload) bool {
 	case payload.EventSample:
 		m.FormatSample(pl.Data, pl.CPU)
 	case payload.RecordLost:
-		m.LostEvent(pl.Lost, pl.CPU)
+		m.FormatLostEvent(pl.Lost, pl.CPU)
 	default:
-		m.UnknownEvent(pl.Lost, pl.CPU, pl.Type)
+		m.FormatUnknownEvent(pl.Lost, pl.CPU, pl.Type)
 		return false
 	}
 

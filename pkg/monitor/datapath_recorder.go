@@ -6,7 +6,6 @@ package monitor
 import (
 	"bufio"
 	"fmt"
-	"os"
 
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -33,20 +32,17 @@ type RecorderCapture struct {
 
 // Dump prints the message according to the verbosity level specified
 func (n *RecorderCapture) Dump(args *api.DumpArgs) {
-	n.DumpInfo(args.Data)
+	n.DumpInfo(args.Buf, args.Data)
 }
 
 // DumpInfo prints a summary of the recorder notify messages.
-func (n *RecorderCapture) DumpInfo(data []byte) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *RecorderCapture) DumpInfo(buf *bufio.Writer, data []byte) {
 	dir := "egress"
 	if n.SubType == 1 {
 		dir = "ingress"
 	}
 	fmt.Fprintf(buf, "Recorder capture: dir:%s rule:%d ts:%d caplen:%d len:%d\n",
 		dir, int(n.RuleID), int(n.TimeBoot), int(n.CapLen), int(n.Len))
-	buf.Flush()
-	Dissect(true, data[RecorderCaptureLen:])
+	Dissect(buf, true, data[RecorderCaptureLen:])
 	fmt.Fprintf(buf, "----\n")
-	buf.Flush()
 }

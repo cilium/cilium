@@ -6,7 +6,6 @@ package monitor
 import (
 	"bufio"
 	"fmt"
-	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
@@ -64,7 +63,7 @@ type PolicyVerdictNotify struct {
 
 // Dump prints the message according to the verbosity level specified
 func (pn *PolicyVerdictNotify) Dump(args *api.DumpArgs) {
-	pn.DumpInfo(args.Data, args.Format)
+	pn.DumpInfo(args.Buf, args.Data, args.Format)
 }
 
 // GetSrc retrieves the sorce endpoint for the message.
@@ -145,8 +144,7 @@ func (n *PolicyVerdictNotify) GetAuthType() policy.AuthType {
 }
 
 // DumpInfo prints a summary of the policy notify messages.
-func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric api.DisplayFormat) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *PolicyVerdictNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat) {
 	dir := "egress"
 	if n.IsTrafficIngress() {
 		dir = "ingress"
@@ -161,5 +159,4 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric api.DisplayFormat) {
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetAuthType(), n.GetPolicyMatchType(),
 		GetConnectionSummary(data[PolicyVerdictNotifyLen:], nil))
-	buf.Flush()
 }

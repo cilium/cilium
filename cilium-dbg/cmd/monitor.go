@@ -54,7 +54,7 @@ programs attached to endpoints and devices. This includes:
 		},
 	}
 	linkCache  = link.NewLinkCache()
-	printer    = format.NewMonitorFormatter(api.INFO, linkCache)
+	printer    = format.NewMonitorFormatter(api.INFO, linkCache, os.Stdout)
 	socketPath = ""
 	verbosity  = []bool{}
 )

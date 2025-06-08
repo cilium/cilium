@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -243,11 +244,12 @@ type DebugMsg struct {
 func (n *DebugMsg) Dump(args *api.DumpArgs) {
 	switch args.Verbosity {
 	case api.INFO:
-		n.DumpInfo(args.Data)
+		// We don't print messages at INFO level
+		return
 	case api.JSON:
-		n.DumpJSON(args.CpuPrefix, args.LinkMonitor)
+		fmt.Fprintln(args.Buf, n.getJSON(args.CpuPrefix, args.LinkMonitor))
 	default:
-		n.DumpVerbose(args.CpuPrefix, args.LinkMonitor)
+		fmt.Fprintf(args.Buf, "%s MARK %#x FROM %d DEBUG: %s\n", args.CpuPrefix, n.Hash, n.Source, n.Message(args.LinkMonitor))
 	}
 }
 
@@ -276,16 +278,6 @@ func (n *DebugMsg) Decode(data []byte) error {
 	n.Arg3 = byteorder.Native.Uint32(data[16:20])
 
 	return nil
-}
-
-// DumpInfo prints a summary of a subset of the debug messages which are related
-// to sending, not processing, of packets.
-func (n *DebugMsg) DumpInfo(data []byte) {
-}
-
-// DumpVerbose prints the debug message in a human readable format.
-func (n *DebugMsg) DumpVerbose(prefix string, linkMonitor getters.LinkGetter) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.Message(linkMonitor))
 }
 
 // Message returns the debug message in a human-readable format
@@ -433,11 +425,6 @@ func (n *DebugMsg) getJSON(cpuPrefix string, linkMonitor getters.LinkGetter) str
 		cpuPrefix, n.Message(linkMonitor))
 }
 
-// DumpJSON prints notification in json format
-func (n *DebugMsg) DumpJSON(cpuPrefix string, linkMonitor getters.LinkGetter) {
-	fmt.Println(n.getJSON(cpuPrefix, linkMonitor))
-}
-
 const (
 	// DebugCaptureLen is the amount of packet data in a packet capture message
 	DebugCaptureLen = 24
@@ -461,12 +448,12 @@ type DebugCapture struct {
 func (n *DebugCapture) Dump(args *api.DumpArgs) {
 	switch args.Verbosity {
 	case api.INFO, api.DEBUG:
-		n.DumpInfo(args.Data, args.LinkMonitor)
+		n.DumpInfo(args.Buf, args.Data, args.LinkMonitor)
 	case api.JSON:
-		n.DumpJSON(args.Data, args.CpuPrefix, args.LinkMonitor)
+		n.DumpJSON(args.Buf, args.Data, args.CpuPrefix, args.LinkMonitor)
 	default:
-		fmt.Println(msgSeparator)
-		n.DumpVerbose(args.Dissect, args.Data, args.CpuPrefix)
+		fmt.Fprintln(args.Buf, msgSeparator)
+		n.DumpVerbose(args.Buf, args.Dissect, args.Data, args.CpuPrefix)
 	}
 }
 
@@ -499,11 +486,11 @@ func (n *DebugCapture) Decode(data []byte) error {
 }
 
 // DumpInfo prints a summary of the capture messages.
-func (n *DebugCapture) DumpInfo(data []byte, linkMonitor getters.LinkGetter) {
+func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor getters.LinkGetter) {
 	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
-		fmt.Printf("%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
+		fmt.Fprintf(buf, "%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
 	}
 }
 
@@ -531,12 +518,11 @@ func (n *DebugCapture) infoPrefix(linkMonitor getters.LinkGetter) string {
 }
 
 // DumpVerbose prints the captured packet in human readable format
-func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes, ", prefix, n.Hash, n.Source, n.Len)
-	fmt.Println(n.subTypeString())
+func (n *DebugCapture) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string) {
+	fmt.Fprintf(buf, "%s MARK %#x FROM %d DEBUG: %d bytes, %s", prefix, n.Hash, n.Source, n.Len, n.subTypeString())
 
 	if n.Len > 0 && len(data) > DebugCaptureLen {
-		Dissect(dissect, data[DebugCaptureLen:])
+		Dissect(buf, dissect, data[DebugCaptureLen:])
 	}
 }
 
@@ -574,13 +560,13 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 }
 
 // DumpJSON prints notification in json format
-func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *DebugCapture) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err != nil {
-		fmt.Printf(`{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
+		fmt.Fprintf(buf, `{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
 		return
 	}
-	fmt.Println(resp)
+	fmt.Fprintln(buf, resp)
 }
 
 // DebugCaptureVerbose represents a json notification printed by monitor

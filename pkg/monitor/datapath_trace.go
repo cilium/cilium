@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -61,12 +60,12 @@ type TraceNotify struct {
 func (tn *TraceNotify) Dump(args *api.DumpArgs) {
 	switch args.Verbosity {
 	case api.INFO, api.DEBUG:
-		tn.DumpInfo(args.Data, args.Format, args.LinkMonitor)
+		tn.DumpInfo(args.Buf, args.Data, args.Format, args.LinkMonitor)
 	case api.JSON:
-		tn.DumpJSON(args.Data, args.CpuPrefix, args.LinkMonitor)
+		tn.DumpJSON(args.Buf, args.Data, args.CpuPrefix, args.LinkMonitor)
 	default:
-		fmt.Println(msgSeparator)
-		tn.DumpVerbose(args.Dissect, args.Data, args.CpuPrefix, args.Format, args.LinkMonitor)
+		fmt.Fprintln(args.Buf, msgSeparator)
+		tn.DumpVerbose(args.Buf, args.Dissect, args.Data, args.CpuPrefix, args.Format, args.LinkMonitor)
 	}
 }
 
@@ -291,8 +290,7 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(data []byte, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	hdrLen := n.DataOffset()
 	if enc := n.encryptReasonString(); enc != "" {
 		fmt.Fprintf(buf, "%s %s flow %#x ",
@@ -304,12 +302,10 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric api.DisplayFormat, linkMonit
 	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
 		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
-	buf.Flush()
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
 		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
 
@@ -337,9 +333,8 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, nume
 
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
-		Dissect(dissect, data[hdrLen:])
+		Dissect(buf, dissect, data[hdrLen:])
 	}
-	buf.Flush()
 }
 
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
@@ -355,10 +350,10 @@ func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters
 }
 
 // DumpJSON prints notification in json format
-func (n *TraceNotify) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err == nil {
-		fmt.Println(resp)
+		fmt.Fprintln(buf, resp)
 	}
 }
 
