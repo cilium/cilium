@@ -3961,6 +3961,30 @@
                 "null",
                 "number"
               ]
+            },
+            "maxAboveWatermark": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "maxAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "minAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "preAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
             }
           },
           "type": "object"

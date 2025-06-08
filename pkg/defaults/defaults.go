@@ -358,6 +358,18 @@ const (
 	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
 	IPAMPreAllocation = 8
 
+	// IPAMMinAllocation is the default value for
+	// CiliumNode.Spec.IPAM.MinAllocate if no value is set
+	IPAMMinAllocation = 0
+
+	// IPAMMaxAllocation is the default value for
+	// CiliumNode.Spec.IPAM.MaxAllocate if no value is set
+	IPAMMaxAllocation = 0
+
+	// IPAMMaxAboveWatermark is the default value for
+	// CiliumNode.Spec.IPAM.MaxAboveWatermark if no value is set
+	IPAMMaxAboveWatermark = 0
+
 	// IPAMDefaultIPPool is the default value for the multi-pool default pool name.
 	IPAMDefaultIPPool = "default"
 

@@ -29,7 +29,9 @@ import (
 )
 
 var (
-	k8sapi = &k8sMock{}
+	k8sapi = &k8sMock{
+		nodes: map[string]*v2.CiliumNode{},
+	}
 )
 
 const testPoolID = ipamTypes.PoolID("global")
@@ -40,6 +42,8 @@ type allocationImplementationMock struct {
 	poolSize     int
 	allocatedIPs int
 	ipGenerator  int
+
+	createNodeFn func(obj *v2.CiliumNode, node *Node) NodeOperations
 }
 
 func newAllocationImplementationMock() *allocationImplementationMock {
@@ -47,6 +51,9 @@ func newAllocationImplementationMock() *allocationImplementationMock {
 }
 
 func (a *allocationImplementationMock) CreateNode(obj *v2.CiliumNode, node *Node) NodeOperations {
+	if a.createNodeFn != nil {
+		return a.createNodeFn(obj, node)
+	}
 	return &nodeOperationsMock{allocator: a}
 }
 
@@ -79,6 +86,10 @@ type nodeOperationsMock struct {
 	// mutex protects allocatedIPs
 	mutex        lock.RWMutex
 	allocatedIPs []string
+
+	// configurable instance limits for testing
+	minInstanceLimit int
+	maxInstanceLimit int
 }
 
 func (n *nodeOperationsMock) GetUsedIPWithPrefixes() int {
@@ -178,10 +189,16 @@ func (n *nodeOperationsMock) ReleaseIPs(ctx context.Context, release *ReleaseAct
 }
 
 func (n *nodeOperationsMock) GetMaximumAllocatableIPv4() int {
+	if n.maxInstanceLimit > 0 {
+		return n.maxInstanceLimit
+	}
 	return 0
 }
 
 func (n *nodeOperationsMock) GetMinimumAllocatableIPv4() int {
+	if n.minInstanceLimit > 0 {
+		return n.minInstanceLimit
+	}
 	return defaults.IPAMPreAllocation
 }
 
@@ -263,22 +280,44 @@ func TestNodeManagerDelete(t *testing.T) {
 	require.Nil(t, mngr.Get("node2"))
 }
 
-type k8sMock struct{}
+type k8sMock struct {
+	mutex lock.RWMutex
+	nodes map[string]*v2.CiliumNode
+}
 
-func (k *k8sMock) Update(origNode, orig *v2.CiliumNode) (*v2.CiliumNode, error) {
-	return nil, nil
+func (k *k8sMock) Update(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	// Store a copy of the updated node
+	updatedNode := node.DeepCopy()
+	k.nodes[node.Name] = updatedNode
+	return updatedNode, nil
 }
 
 func (k *k8sMock) UpdateStatus(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
 	return nil, nil
 }
 
-func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
+func (k *k8sMock) Get(nodeName string) (*v2.CiliumNode, error) {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+
+	if node, exists := k.nodes[nodeName]; exists {
+		return node.DeepCopy(), nil
+	}
+
 	return &v2.CiliumNode{}, nil
 }
 
-func (k *k8sMock) Create(*v2.CiliumNode) (*v2.CiliumNode, error) {
-	return &v2.CiliumNode{}, nil
+func (k *k8sMock) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	// Store a copy of the created node
+	createdNode := node.DeepCopy()
+	k.nodes[node.Name] = createdNode
+	return createdNode, nil
 }
 
 func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNode {
@@ -833,4 +872,172 @@ func BenchmarkAllocDelay50Worker10(b *testing.B) {
 }
 func BenchmarkAllocDelay50Worker50(b *testing.B) {
 	benchmarkAllocWorker(b, 50, 50*time.Millisecond, 100.0, 4)
+}
+
+// TestIPAMParameterInstanceLimits tests that the operator-configured IPAM parameters
+// are properly constrained by instance limits during node creation via Upsert
+func TestIPAMParameterInstanceLimits(t *testing.T) {
+	// NodeManager with custom IPAM options
+	customPreAllocate := 8
+	customMinAllocate := 10
+	customMaxAllocate := 20
+	customMaxAboveWatermark := 5
+
+	allocationImpl := newAllocationImplementationMock()
+	allocationImpl.createNodeFn = func(obj *v2.CiliumNode, node *Node) NodeOperations {
+		nodeName := obj.Name
+		mock := &nodeOperationsMock{allocator: allocationImpl}
+
+		switch nodeName {
+		case "node-limits-under-operator":
+			mock.minInstanceLimit = 10 // higher than PreAllocate(8)
+			mock.maxInstanceLimit = 30 // higher than MaxAllocate(20)
+		case "node-limits-over-operator":
+			mock.minInstanceLimit = 4  // lower than PreAllocate(8) and MinAllocate(10)
+			mock.maxInstanceLimit = 15 // lower than MaxAllocate(20)
+		case "node-different-min-max":
+			mock.minInstanceLimit = 4  // lower than PreAllocate(8) and MinAllocate(10)
+			mock.maxInstanceLimit = 50 // higher than MaxAllocate(20)
+		default:
+			mock.minInstanceLimit = defaults.IPAMPreAllocation
+			mock.maxInstanceLimit = 0 // unlimited
+		}
+
+		return mock
+	}
+
+	mngr, err := NewNodeManager(slog.Default(), allocationImpl, k8sapi, metricsmock.NewMockMetrics(),
+		10, true, false,
+		WithIPAMPreAllocate(customPreAllocate),
+		WithIPAMMinAllocate(customMinAllocate),
+		WithIPAMMaxAllocate(customMaxAllocate),
+		WithIPAMMaxAboveWatermark(customMaxAboveWatermark))
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name                  string
+		nodeName              string
+		preExistingValues     bool
+		preExistingPreAlloc   int
+		preExistingMinAlloc   int
+		preExistingMaxAlloc   int
+		preExistingMaxAboveWm int
+		expPreAllocate        int
+		expMinAllocate        int
+		expMaxAllocate        int
+		expMaxAboveWatermark  int
+	}{
+		{
+			name:                 "instance-limits-under-operator-values",
+			nodeName:             "node-limits-under-operator",
+			expPreAllocate:       customPreAllocate,       // 8 - Operator value used (under limit of 10)
+			expMinAllocate:       customMinAllocate,       // 10 - Operator value used (at limit of 10)
+			expMaxAllocate:       customMaxAllocate,       // 20 - Operator value used (under limit of 30)
+			expMaxAboveWatermark: customMaxAboveWatermark, // 5 - use operator value
+		},
+		{
+			name:                 "instance-limits-over-operator-values",
+			nodeName:             "node-limits-over-operator",
+			expPreAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 8)
+			expMinAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 10)
+			expMaxAllocate:       15,                      // Limited by maxInstanceLimit=15 (operator value is 20)
+			expMaxAboveWatermark: customMaxAboveWatermark, // 5 - use operator value
+		},
+		{
+			name:                  "pre-existing-values-preserved",
+			nodeName:              "node-default",
+			preExistingValues:     true,
+			preExistingPreAlloc:   12,
+			preExistingMinAlloc:   14,
+			preExistingMaxAlloc:   25,
+			preExistingMaxAboveWm: 7,
+			expPreAllocate:        12, // Pre-existing value preserved
+			expMinAllocate:        14, // Pre-existing value preserved
+			expMaxAllocate:        25, // Pre-existing value preserved
+			expMaxAboveWatermark:  7,  // Pre-existing value preserved
+		},
+		{
+			name:                 "different-min-max-instance-limits",
+			nodeName:             "node-different-min-max",
+			expPreAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 8)
+			expMinAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 10)
+			expMaxAllocate:       20,                      // Operator value of 20 (under limit of 50)
+			expMaxAboveWatermark: customMaxAboveWatermark, // 5 - use operator value
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			node := &v2.CiliumNode{
+				ObjectMeta: metav1.ObjectMeta{Name: tc.nodeName},
+				Spec: v2.NodeSpec{
+					IPAM: ipamTypes.IPAMSpec{},
+				},
+			}
+
+			if tc.preExistingValues {
+				node.Spec.IPAM.PreAllocate = tc.preExistingPreAlloc
+				node.Spec.IPAM.MinAllocate = tc.preExistingMinAlloc
+				node.Spec.IPAM.MaxAllocate = tc.preExistingMaxAlloc
+				node.Spec.IPAM.MaxAboveWatermark = tc.preExistingMaxAboveWm
+			}
+
+			mngr.Upsert(node)
+
+			upsertedNode := mngr.Get(node.GetName())
+			require.NotNil(t, upsertedNode)
+
+			// Trigger the k8s sync to ensure syncToAPIServer is called
+			upsertedNode.k8sSync.Trigger()
+
+			time.Sleep(100 * time.Millisecond)
+
+			updatedNode, err := k8sapi.Get(node.GetName())
+			require.NoError(t, err)
+			require.NotNil(t, updatedNode)
+
+			require.Equal(t, tc.expPreAllocate, updatedNode.Spec.IPAM.PreAllocate,
+				"PreAllocate value mismatch for %s", tc.name)
+			require.Equal(t, tc.expMinAllocate, updatedNode.Spec.IPAM.MinAllocate,
+				"MinAllocate value mismatch for %s", tc.name)
+			require.Equal(t, tc.expMaxAllocate, updatedNode.Spec.IPAM.MaxAllocate,
+				"MaxAllocate value mismatch for %s", tc.name)
+			require.Equal(t, tc.expMaxAboveWatermark, updatedNode.Spec.IPAM.MaxAboveWatermark,
+				"MaxAboveWatermark value mismatch for %s", tc.name)
+		})
+	}
+}
+
+func TestNodeManagerIPAMOptions(t *testing.T) {
+	operatorOption.Config.AWSReleaseExcessIPs = true
+	operatorOption.Config.AWSEnablePrefixDelegation = false
+
+	// Custom IPAM parameter values
+	customPreAllocate := 42
+	customMinAllocate := 10
+	customMaxAllocate := 100
+	customMaxAboveWatermark := 5
+
+	mngr, err := NewNodeManager(slog.Default(), newAllocationImplementationMock(), k8sapi, metricsmock.NewMockMetrics(),
+		10, true, false,
+		WithIPAMPreAllocate(customPreAllocate),
+		WithIPAMMinAllocate(customMinAllocate),
+		WithIPAMMaxAllocate(customMaxAllocate),
+		WithIPAMMaxAboveWatermark(customMaxAboveWatermark))
+	require.NoError(t, err)
+
+	require.Equal(t, customPreAllocate, mngr.getPreAllocate())
+	require.Equal(t, customMinAllocate, mngr.getMinAllocate())
+	require.Equal(t, customMaxAllocate, mngr.getMaxAllocate())
+	require.Equal(t, customMaxAboveWatermark, mngr.getMaxAboveWatermark())
+
+	// Default values (no options provided)
+	mngr, err = NewNodeManager(slog.Default(), newAllocationImplementationMock(), k8sapi, metricsmock.NewMockMetrics(),
+		10, true, false)
+	require.NoError(t, err)
+
+	require.Equal(t, defaults.IPAMPreAllocation, mngr.getPreAllocate())
+	require.Equal(t, defaults.IPAMMinAllocation, mngr.getMinAllocate())
+	require.Equal(t, defaults.IPAMMaxAllocation, mngr.getMaxAllocate())
+	require.Equal(t, defaults.IPAMMaxAboveWatermark, mngr.getMaxAboveWatermark())
 }

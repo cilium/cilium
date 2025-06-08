@@ -2548,6 +2548,22 @@
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
      - float
      - ``4.0``
+   * - :spelling:ignore:`ipam.operator.maxAboveWatermark`
+     - The maximum number of IPs to allocate beyond the PreAllocate buffer to reduce API allocation calls.
+     - int
+     - ``0``
+   * - :spelling:ignore:`ipam.operator.maxAllocate`
+     - The upper limit on the total number of IPs that can be allocated to a node.
+     - int
+     - ``0``
+   * - :spelling:ignore:`ipam.operator.minAllocate`
+     - The minimum number of IPs a node must have before PreAllocate and MaxAboveWatermark logic continues allocation.
+     - int
+     - ``0``
+   * - :spelling:ignore:`ipam.operator.preAllocate`
+     - The number of IPs that must always be immediately available for allocation without operator intervention.
+     - int
+     - ``8``
    * - :spelling:ignore:`iptablesRandomFully`
      - Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information.
      - bool
