@@ -50,7 +50,7 @@ func TestGetStringMapString(t *testing.T) {
 				key:   "FOO_BAR",
 				value: `{"k1":"v1","k2":"v2",}`,
 			},
-			want:    map[string]string{},
+			want:    map[string]string(nil),
 			wantErr: assertErrorString("invalid character '}' looking for beginning of object key string"),
 		},
 		{
@@ -224,7 +224,7 @@ func TestGetStringMapString(t *testing.T) {
 				key:   "FOO_BAR",
 				value: `{"k1": "v1",=sdlkfj`,
 			},
-			want:    map[string]string{},
+			want:    map[string]string(nil),
 			wantErr: assertErrorString("invalid character '=' looking for beginning of object key string"),
 		},
 		{
@@ -256,7 +256,7 @@ func TestGetStringMapStringConversion(t *testing.T) {
 	v, err := GetStringMapStringE(vp, "foo_bar")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to cast struct {}{} of type struct {} to map[string]string")
-	assert.Equal(t, map[string]string{}, v)
+	assert.Equal(t, map[string]string(nil), v)
 }
 
 func Test_isValidKeyValuePair(t *testing.T) {
