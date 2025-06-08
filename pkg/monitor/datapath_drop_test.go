@@ -40,7 +40,7 @@ func TestDecodeDropNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	output := &DropNotify{}
-	err = DecodeDropNotify(buf.Bytes(), output)
+	err = output.Decode(buf.Bytes())
 	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
@@ -63,14 +63,14 @@ func TestDecodeDropNotify(t *testing.T) {
 
 func TestDecodeDropNotifyErrors(t *testing.T) {
 	n := DropNotify{}
-	err := DecodeDropNotify([]byte{}, &n)
+	err := n.Decode([]byte{})
 	require.Error(t, err)
 	require.Equal(t, "unexpected DropNotify data length, expected at least 36 but got 0", err.Error())
 
 	// invalid version
 	ev := make([]byte, dropNotifyV2Len)
 	ev[14] = 0xff
-	err = DecodeDropNotify(ev, &n)
+	err = n.Decode(ev)
 	require.Error(t, err)
 	require.Equal(t, "Unrecognized drop event (version 255)", err.Error())
 }
@@ -87,7 +87,7 @@ func BenchmarkDecodeDropNotifyV1(b *testing.B) {
 
 	for b.Loop() {
 		dn := &DropNotify{}
-		if err := DecodeDropNotify(buf.Bytes(), dn); err != nil {
+		if err := dn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -105,7 +105,7 @@ func BenchmarkDecodeDropNotifyV2(b *testing.B) {
 
 	for b.Loop() {
 		dn := &DropNotify{}
-		if err := DecodeDropNotify(buf.Bytes(), dn); err != nil {
+		if err := dn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}

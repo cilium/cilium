@@ -77,11 +77,6 @@ func (n *PolicyVerdictNotify) GetDst() uint16 {
 	return uint16(n.RemoteLabel)
 }
 
-// DecodePolicyVerdictNotify will decode 'data' into the provided PolicyVerdictNotify structure
-func DecodePolicyVerdictNotify(data []byte, pvn *PolicyVerdictNotify) error {
-	return pvn.Decode(data)
-}
-
 // Decode decodes the message in 'data' into the struct.
 func (n *PolicyVerdictNotify) Decode(data []byte) error {
 	if l := len(data); l < PolicyVerdictNotifyLen {

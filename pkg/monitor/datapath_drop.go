@@ -96,11 +96,6 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) 
 	}
 }
 
-// DecodeDropNotify will decode 'data' into the provided DropNotify structure
-func DecodeDropNotify(data []byte, dn *DropNotify) error {
-	return dn.Decode(data)
-}
-
 // Decode decodes the message in 'data' into the struct.
 func (n *DropNotify) Decode(data []byte) error {
 	if l := len(data); l < dropNotifyV1Len {

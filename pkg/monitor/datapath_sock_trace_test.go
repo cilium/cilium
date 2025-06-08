@@ -43,7 +43,7 @@ func TestDecodeTraceSockNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	output := &TraceSockNotify{}
-	err = DecodeTraceSockNotify(buf.Bytes(), output)
+	err = output.Decode(buf.Bytes())
 	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
@@ -67,7 +67,7 @@ func BenchmarkNewDecodeTraceSockNotify(b *testing.B) {
 
 	for b.Loop() {
 		tsn := &TraceSockNotify{}
-		if err := DecodeTraceSockNotify(buf.Bytes(), tsn); err != nil {
+		if err := tsn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}

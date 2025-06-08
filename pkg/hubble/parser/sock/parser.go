@@ -79,7 +79,7 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	}
 
 	sock := &monitor.TraceSockNotify{}
-	if err := monitor.DecodeTraceSockNotify(data, sock); err != nil {
+	if err := sock.Decode(data); err != nil {
 		return fmt.Errorf("failed to parse sock trace event: %w", err)
 	}
 

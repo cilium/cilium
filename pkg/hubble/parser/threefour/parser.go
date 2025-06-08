@@ -133,14 +133,14 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
 		dn = &monitor.DropNotify{}
-		if err := monitor.DecodeDropNotify(data, dn); err != nil {
+		if err := dn.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse drop: %w", err)
 		}
 		eventSubType = dn.SubType
 		packetOffset = (int)(dn.DataOffset())
 	case monitorAPI.MessageTypeTrace:
 		tn = &monitor.TraceNotify{}
-		if err := monitor.DecodeTraceNotify(data, tn); err != nil {
+		if err := tn.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse trace: %w", err)
 		}
 		eventSubType = tn.ObsPoint
@@ -156,7 +156,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
 		pvn = &monitor.PolicyVerdictNotify{}
-		if err := monitor.DecodePolicyVerdictNotify(data, pvn); err != nil {
+		if err := pvn.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse policy verdict: %w", err)
 		}
 		eventSubType = pvn.SubType
@@ -164,7 +164,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
-		if err := monitor.DecodeDebugCapture(data, dbg); err != nil {
+		if err := dbg.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse debug capture: %w", err)
 		}
 		eventSubType = dbg.SubType

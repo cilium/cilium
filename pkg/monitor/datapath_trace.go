@@ -198,11 +198,6 @@ var traceReasons = map[uint8]string{
 	TraceReasonEncryptOverlay:       "encrypt-overlay",
 }
 
-// DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
-func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
-	return tn.Decode(data)
-}
-
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
 func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {

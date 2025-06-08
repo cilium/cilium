@@ -46,7 +46,7 @@ func (p *Parser) Decode(data []byte, cpu int) (*flowpb.DebugEvent, error) {
 	}
 
 	dbg := &monitor.DebugMsg{}
-	if err := monitor.DecodeDebugMsg(data, dbg); err != nil {
+	if err := dbg.Decode(data); err != nil {
 		return nil, fmt.Errorf("failed to parse debug event: %w", err)
 	}
 
