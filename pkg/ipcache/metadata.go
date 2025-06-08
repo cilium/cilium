@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -333,17 +332,14 @@ func (m *metadata) findAffectedChildPrefixes(parent cmtypes.PrefixCluster) (chil
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
 //
-// 'mutated' is returned as 'true' if an identity's labels were changed. In this case
-// the caller must trigger forced policy regenerations on all endpoints.
-//
 // Do not call this directly; rather, use TriggerLabelInjection()
-func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtypes.PrefixCluster) (remainingPrefixes []cmtypes.PrefixCluster, mutated bool, err error) {
+func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtypes.PrefixCluster) (remainingPrefixes []cmtypes.PrefixCluster, err error) {
 	if ipc.IdentityAllocator == nil {
-		return modifiedPrefixes, false, ErrLocalIdentityAllocatorUninitialized
+		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
 
 	if !ipc.Configuration.CacheStatus.Synchronized() {
-		return modifiedPrefixes, false, errors.New("k8s cache not fully synced")
+		return modifiedPrefixes, errors.New("k8s cache not fully synced")
 	}
 
 	type ipcacheEntry struct {
@@ -361,8 +357,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		previouslyAllocatedIdentities = make(map[cmtypes.PrefixCluster]Identity)
 		// idsToAdd stores the identities that must be updated via the
 		// selector cache.
-		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
-		idsToDelete = make(map[identity.NumericIdentity]labels.LabelArray)
+		idsToAdd = make(map[identity.NumericIdentity]labels.LabelArray)
 		// entriesToReplace stores the identity to replace in the ipcache.
 		entriesToReplace = make(map[cmtypes.PrefixCluster]ipcacheEntry)
 		entriesToDelete  = make(map[cmtypes.PrefixCluster]Identity)
@@ -388,7 +383,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 			} // else continue below to remove the old entry
 		} else {
 			// Insert to propagate the updated set of labels after removal.
-			newID, isNew, err = ipc.resolveIdentity(ctx, prefix, prefixInfo, prefixInfo.RequestedIdentity().ID())
+			newID, isNew, err = ipc.resolveIdentity(prefix, prefixInfo, prefixInfo.RequestedIdentity().ID())
 			if err != nil {
 				// NOTE: This may fail during a 2nd or later
 				// iteration of the loop. To handle this, break
@@ -559,11 +554,17 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
 	ipc.metadata.RUnlock()
 
-	// Recalculate policy first before upserting into the ipcache.
-	if len(idsToAdd) > 0 {
-		if ipc.UpdatePolicyMaps(ctx, idsToAdd, nil) {
-			mutated = true
-		}
+	// Batch update the SelectorCache and policymaps with the newly allocated identities.
+	// This must be done before writing them to the ipcache, or else traffic may be dropped.
+	// (This is because prefixes may have identities that are not yet marked as allowed.)
+	//
+	// We must do this even if we don't appear to have allocated any identities, because they
+	// may be in flight due to another caller.
+	done := ipc.IdentityUpdater.UpdateIdentities(idsToAdd, nil)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return modifiedPrefixes, ctx.Err()
 	}
 
 	ipc.mutex.Lock()
@@ -603,84 +604,47 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		}
 	}
 
-	for prefix, id := range previouslyAllocatedIdentities {
-		realID := ipc.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
-		if realID == nil {
-			continue
-		}
-		released, err := ipc.IdentityAllocator.Release(ctx, realID, false)
-		if err != nil {
-			ipc.logger.Warn(
-				"Failed to release previously allocated identity during ipcache metadata injection.",
-				logfields.Error, err,
-				logfields.Identity, realID,
-				logfields.IdentityLabels, realID.Labels,
-			)
-		}
-
-		// A local identity can be shared by multiple IPCache entries.
-		// Therefore, it's possible that the identity that was
-		// previously allocated is still in use by other entries.
-		// Avoid removing references in the policy engine until we've
-		// removed reference to the identity.
-		if released {
-			idsToDelete[id.ID] = nil // SelectorCache removal
-
-			// Corner case: This prefix + identity was initially created by a direct Upsert(),
-			// but all identity references have been released. We should then delete this prefix.
-			if oldID, unmanaged := unmanagedPrefixes[prefix]; unmanaged && oldID.ID == id.ID {
-				entriesToDelete[prefix] = oldID
-				ipc.logger.Debug(
-					"Force-removing released prefix from the ipcache.",
-					logfields.IPAddr, prefix,
-					logfields.Identity, id,
-				)
-			}
-		}
-	}
-	if len(idsToDelete) > 0 {
-		if ipc.UpdatePolicyMaps(ctx, nil, idsToDelete) {
-			mutated = true
-		}
-	}
+	// Delete any no-longer-referenced prefixes.
+	// These will now revert to the world identity.
+	// This must happen *before* identities are released, or else there will be policy drops
 	for prefix, id := range entriesToDelete {
 		ipc.deleteLocked(prefix.String(), id.Source)
 	}
 
-	return remainingPrefixes, mutated, err
-}
-
-// UpdatePolicyMaps pushes updates for the specified identities into the policy
-// engine and ensures that they are propagated into the underlying datapaths.
-func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, deletedIdentities map[identity.NumericIdentity]labels.LabelArray) (mutated bool) {
-	// GH-17962: Refactor to call (*Daemon).UpdateIdentities(), instead of
-	// re-implementing the same logic here. It will also allow removing the
-	// dependencies that are passed into this function.
-
-	start := time.Now()
-
-	var wg sync.WaitGroup
-	// SelectorCache.UpdateIdentities() asks for callers to avoid
-	// handing the same identity in both 'adds' and 'deletes'
-	// parameters here, so make two calls. These changes will not
-	// be propagated to the datapath until the UpdatePolicyMaps
-	// call below.
-	if len(deletedIdentities) != 0 {
-		if ipc.PolicyHandler.UpdateIdentities(nil, deletedIdentities, &wg) {
-			mutated = true
-		}
+	// Release our reference for all identities. If their refcount reaches zero, do a
+	// sanity check to ensure there are no stale prefixes remaining
+	idsToRelease := make([]identity.NumericIdentity, 0, len(previouslyAllocatedIdentities))
+	for _, id := range previouslyAllocatedIdentities {
+		idsToRelease = append(idsToRelease, id.ID)
 	}
-	if len(addedIdentities) != 0 {
-		if ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg) {
-			mutated = true
-		}
+	deletedNIDs, err2 := ipc.IdentityAllocator.ReleaseLocalIdentities(idsToRelease...)
+	if err2 != nil {
+		// should be unreachable, as this only happens if we allocated a global identity
+		ipc.logger.Warn("BUG: Failed to release local identity", logfields.Error, err2)
 	}
 
-	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
-	policyImplementedWG.Wait()
+	// Scan all deallocated identities, looking for stale prefixes that still reference them
+	for _, deletedNID := range deletedNIDs {
+		for prefixStr := range ipc.identityToIPCache[deletedNID] {
+			prefix, err := cmtypes.ParsePrefixCluster(prefixStr)
+			if err != nil {
+				continue // unreachable
+			}
 
-	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("local").Observe(time.Since(start).Seconds())
-	return mutated
+			// Corner case: This prefix + identity was initially created by a direct Upsert(),
+			// but all identity references have been released. We should then delete this prefix.
+			if oldID, unmanaged := unmanagedPrefixes[prefix]; unmanaged && oldID.ID == deletedNID {
+				ipc.logger.Debug(
+					"Force-removing released prefix from the ipcache.",
+					logfields.IPAddr, prefix,
+					logfields.Identity, oldID,
+				)
+				ipc.deleteLocked(prefix.String(), oldID.Source)
+			}
+		}
+	}
+
+	return remainingPrefixes, err
 }
 
 // resolveIdentity will either return a previously-allocated identity for the
@@ -697,10 +661,10 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 //   - If the entry is not inserted (for instance, because the bpf IPCache map
 //     already has the same IP -> identity entry in the map), immediately release
 //     the reference.
-func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCluster, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
-		id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
+		id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(identityOverrideLabels, false, identity.InvalidIdentity)
 		if err != nil {
 			ipc.logger.Warn(
 				"Failed to allocate new identity for prefix's IdentityOverrideLabels.",
@@ -748,7 +712,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCl
 	// This should only ever allocate an identity locally on the node,
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
-	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, restoredIdentity)
+	id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(lbls, false, restoredIdentity)
 	if err != nil {
 		ipc.logger.Warn(
 			"Failed to allocate new identity for prefix's Labels.",
@@ -1017,8 +981,6 @@ func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
 		cs = len(idsToModify)
 	}
 
-	triggerPolicyUpdates := false
-
 	// Split ipcache updates in to chunks to reduce resource spikes.
 	// InjectLabels releases all identities only at the end of processing, so
 	// it may allocate up to `chunkSize` additional identities.
@@ -1031,12 +993,8 @@ func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
 
 		// If individual prefixes failed injection, doInjectLabels() the set of failed prefixes
 		// and sets err. We must ensure the failed prefixes are re-queued for injection.
-		var mutated bool
-		failed, mutated, err = ipc.doInjectLabels(ctx, chunk)
+		failed, err = ipc.doInjectLabels(ctx, chunk)
 		retry = append(retry, failed...)
-		if mutated {
-			triggerPolicyUpdates = true
-		}
 		if err != nil {
 			break
 		}
@@ -1056,10 +1014,6 @@ func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
 		// if all prefixes were successfully injected, bump the revision
 		// so that any waiters are made aware.
 		ipc.metadata.setInjectedRevision(rev)
-	}
-
-	if triggerPolicyUpdates {
-		ipc.Configuration.PolicyUpdater.TriggerPolicyUpdates("identity labels changed")
 	}
 
 	// non-nil err will re-trigger this controller

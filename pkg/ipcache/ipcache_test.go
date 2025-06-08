@@ -45,8 +45,7 @@ func setupIPCacheTestSuite(tb testing.TB) *IPCacheTestSuite {
 		Context:           ctx,
 		Logger:            hivetest.Logger(tb),
 		IdentityAllocator: Allocator,
-		PolicyHandler:     PolicyHandler,
-		DatapathHandler:   &mockTriggerer{},
+		IdentityUpdater:   PolicyHandler,
 	})
 
 	tb.Cleanup(func() {
@@ -551,8 +550,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 			Context:           ctx,
 			Logger:            logger,
 			IdentityAllocator: allocator,
-			PolicyHandler:     &mockUpdater{},
-			DatapathHandler:   &mockTriggerer{},
+			IdentityUpdater:   &mockUpdater{},
 		})
 
 		// We only want to measure the calls to upsert.

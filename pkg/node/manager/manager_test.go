@@ -1300,14 +1300,10 @@ type testParams struct {
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap, _ *sync.WaitGroup) (mutated bool) {
-	return false
-}
-
-type mockTriggerer struct{}
-
-func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
-	return wg
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
 }
 
 func TestNodeWithSameInternalIP(t *testing.T) {
@@ -1318,8 +1314,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		Context:           ctx,
 		Logger:            hivetest.Logger(t),
 		IdentityAllocator: allocator,
-		PolicyHandler:     &mockUpdater{},
-		DatapathHandler:   &mockTriggerer{},
+		IdentityUpdater:   &mockUpdater{},
 	})
 	defer cancel()
 	dp := newSignalNodeHandler()
