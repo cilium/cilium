@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -167,18 +168,81 @@ type MetricsNodeAPI interface {
 // nodeMap is a mapping of node names to ENI nodes
 type nodeMap map[string]*Node
 
+// NodeManagerOption is used to pass options to NewNodeManager
+type NodeManagerOption func(n *NodeManager)
+
+// WithIPAMPreAllocate sets the pre-allocate value for IPAM
+func WithIPAMPreAllocate(preAllocate int) NodeManagerOption {
+	return func(n *NodeManager) {
+		n.ipamPreAllocate = preAllocate
+	}
+}
+
+// WithIPAMMinAllocate sets the min-allocate value for IPAM
+func WithIPAMMinAllocate(minAllocate int) NodeManagerOption {
+	return func(n *NodeManager) {
+		n.ipamMinAllocate = minAllocate
+	}
+}
+
+// WithIPAMMaxAllocate sets the max-allocate value for IPAM
+func WithIPAMMaxAllocate(maxAllocate int) NodeManagerOption {
+	return func(n *NodeManager) {
+		n.ipamMaxAllocate = maxAllocate
+	}
+}
+
+// WithIPAMMaxAboveWatermark sets the max-above-watermark value for IPAM
+func WithIPAMMaxAboveWatermark(maxAboveWatermark int) NodeManagerOption {
+	return func(n *NodeManager) {
+		n.ipamMaxAboveWatermark = maxAboveWatermark
+	}
+}
+
 // NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	logger             *slog.Logger
-	mutex              lock.RWMutex
-	nodes              nodeMap
-	instancesAPI       AllocationImplementation
-	k8sAPI             CiliumNodeGetterUpdater
-	metricsAPI         MetricsAPI
-	parallelWorkers    int64
-	releaseExcessIPs   bool
-	stableInstancesAPI bool
-	prefixDelegation   bool
+	logger                *slog.Logger
+	mutex                 lock.RWMutex
+	nodes                 nodeMap
+	instancesAPI          AllocationImplementation
+	k8sAPI                CiliumNodeGetterUpdater
+	metricsAPI            MetricsAPI
+	parallelWorkers       int64
+	releaseExcessIPs      bool
+	stableInstancesAPI    bool
+	prefixDelegation      bool
+	ipamPreAllocate       int
+	ipamMinAllocate       int
+	ipamMaxAllocate       int
+	ipamMaxAboveWatermark int
+}
+
+func (n *NodeManager) getPreAllocate() int {
+	if n.ipamPreAllocate != 0 {
+		return n.ipamPreAllocate
+	}
+	return defaults.IPAMPreAllocation
+}
+
+func (n *NodeManager) getMinAllocate() int {
+	if n.ipamMinAllocate != 0 {
+		return n.ipamMinAllocate
+	}
+	return defaults.IPAMMinAllocation
+}
+
+func (n *NodeManager) getMaxAllocate() int {
+	if n.ipamMaxAllocate != 0 {
+		return n.ipamMaxAllocate
+	}
+	return defaults.IPAMMaxAllocation
+}
+
+func (n *NodeManager) getMaxAboveWatermark() int {
+	if n.ipamMaxAboveWatermark != 0 {
+		return n.ipamMaxAboveWatermark
+	}
+	return defaults.IPAMMaxAboveWatermark
 }
 
 func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
@@ -191,7 +255,7 @@ func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) t
 
 // NewNodeManager returns a new NodeManager
 func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
-	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
+	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool, opts ...NodeManagerOption) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
@@ -205,6 +269,10 @@ func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, 
 		parallelWorkers:  parallelWorkers,
 		releaseExcessIPs: releaseExcessIPs,
 		prefixDelegation: prefixDelegation,
+	}
+
+	for _, opt := range opts {
+		opt(mngr)
 	}
 
 	// Assume readiness, the initial blocking resync in Start() will update

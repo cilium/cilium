@@ -2050,6 +2050,30 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- The number of IPs that must always be immediately available for allocation without operator intervention.
+    # @default -- `8`
+    preAllocate: 8
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- The minimum number of IPs a node must have before PreAllocate and MaxAboveWatermark logic continues allocation.
+    # @default -- `0`
+    minAllocate: 0
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- The upper limit on the total number of IPs that can be allocated to a node.
+    # @default -- `0`
+    maxAllocate: 0
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- The maximum number of IPs to allocate beyond the PreAllocate buffer to reduce API allocation calls.
+    # @default -- `0`
+    maxAboveWatermark: 0
 # -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
 # no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema
