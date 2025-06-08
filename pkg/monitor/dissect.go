@@ -318,51 +318,51 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 // Dissect parses and prints the provided data if dissect is set to true,
 // otherwise the data is printed as HEX output
 func Dissect(dissect bool, data []byte) {
-	if dissect {
-		dissectLock.Lock()
-		defer dissectLock.Unlock()
-
-		initParser()
-
-		var err error
-		// See comment in [GetConnectionSummary].
-		if len(data) > 0 {
-			err = parserL2Dev.DecodeLayers(data, &cache.decoded)
-		} else {
-			cache.decoded = cache.decoded[:0]
-		}
-
-		for _, typ := range cache.decoded {
-			switch typ {
-			case layers.LayerTypeEthernet:
-				fmt.Println(gopacket.LayerString(&cache.eth))
-			case layers.LayerTypeIPv4:
-				fmt.Println(gopacket.LayerString(&cache.ip4))
-			case layers.LayerTypeIPv6:
-				fmt.Println(gopacket.LayerString(&cache.ip6))
-			case layers.LayerTypeTCP:
-				fmt.Println(gopacket.LayerString(&cache.tcp))
-			case layers.LayerTypeUDP:
-				fmt.Println(gopacket.LayerString(&cache.udp))
-			case layers.LayerTypeSCTP:
-				fmt.Println(gopacket.LayerString(&cache.sctp))
-			case layers.LayerTypeICMPv4:
-				fmt.Println(gopacket.LayerString(&cache.icmp4))
-			case layers.LayerTypeICMPv6:
-				fmt.Println(gopacket.LayerString(&cache.icmp6))
-			default:
-				fmt.Println("Unknown layer")
-			}
-		}
-		if parserL2Dev.Truncated {
-			fmt.Println("  Packet has been truncated")
-		}
-		if err != nil {
-			fmt.Println("  Failed to decode layer:", err)
-		}
-
-	} else {
+	if !dissect {
 		fmt.Print(hex.Dump(data))
+		return
+	}
+
+	dissectLock.Lock()
+	defer dissectLock.Unlock()
+
+	initParser()
+
+	var err error
+	// See comment in [GetConnectionSummary].
+	if len(data) > 0 {
+		err = parserL2Dev.DecodeLayers(data, &cache.decoded)
+	} else {
+		cache.decoded = cache.decoded[:0]
+	}
+
+	for _, typ := range cache.decoded {
+		switch typ {
+		case layers.LayerTypeEthernet:
+			fmt.Println(gopacket.LayerString(&cache.eth))
+		case layers.LayerTypeIPv4:
+			fmt.Println(gopacket.LayerString(&cache.ip4))
+		case layers.LayerTypeIPv6:
+			fmt.Println(gopacket.LayerString(&cache.ip6))
+		case layers.LayerTypeTCP:
+			fmt.Println(gopacket.LayerString(&cache.tcp))
+		case layers.LayerTypeUDP:
+			fmt.Println(gopacket.LayerString(&cache.udp))
+		case layers.LayerTypeSCTP:
+			fmt.Println(gopacket.LayerString(&cache.sctp))
+		case layers.LayerTypeICMPv4:
+			fmt.Println(gopacket.LayerString(&cache.icmp4))
+		case layers.LayerTypeICMPv6:
+			fmt.Println(gopacket.LayerString(&cache.icmp6))
+		default:
+			fmt.Println("Unknown layer")
+		}
+	}
+	if parserL2Dev.Truncated {
+		fmt.Println("  Packet has been truncated")
+	}
+	if err != nil {
+		fmt.Println("  Failed to decode layer:", err)
 	}
 }
 
