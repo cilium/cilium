@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+
+	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
@@ -24,6 +26,11 @@ type RecorderCapture struct {
 	CapLen   uint32
 	Len      uint32
 	// data
+}
+
+// Dump prints the message according to the verbosity level specified
+func (n *RecorderCapture) Dump(args *api.DumpArgs) {
+	n.DumpInfo(args.Data)
 }
 
 // DumpInfo prints a summary of the recorder notify messages.
