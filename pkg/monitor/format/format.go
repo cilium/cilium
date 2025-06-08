@@ -115,20 +115,26 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 }
 
 // LostEvent formats a lost event using the specified payload parameters.
-func LostEvent(lost uint64, cpu int) {
+func (m *MonitorFormatter) LostEvent(lost uint64, cpu int) {
 	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost)
+}
+
+// UnknownEvent formats an unknown event using the specified payload parameters.
+func (m *MonitorFormatter) UnknownEvent(lost uint64, cpu int, t int) {
+	fmt.Printf("Unknown payload type: %d, CPU %02d: Lost %d events\n", t, cpu, lost)
 }
 
 // FormatEvent formats an event from the specified payload to stdout.
 //
-// Returns true if the event was successfully printed, false otherwise.
+// Returns true if the event was successfully recognized, false otherwise.
 func (m *MonitorFormatter) FormatEvent(pl *payload.Payload) bool {
 	switch pl.Type {
 	case payload.EventSample:
 		m.FormatSample(pl.Data, pl.CPU)
 	case payload.RecordLost:
-		LostEvent(pl.Lost, pl.CPU)
+		m.LostEvent(pl.Lost, pl.CPU)
 	default:
+		m.UnknownEvent(pl.Lost, pl.CPU, pl.Type)
 		return false
 	}
 
