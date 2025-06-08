@@ -33,7 +33,7 @@ func TestDecodeDebugCapture(t *testing.T) {
 	require.NoError(t, err)
 
 	output := &DebugCapture{}
-	err = DecodeDebugCapture(buf.Bytes(), output)
+	err = output.Decode(buf.Bytes())
 	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
@@ -57,7 +57,7 @@ func BenchmarkNewDecodeDebugCapture(b *testing.B) {
 
 	for b.Loop() {
 		dbg := &DebugCapture{}
-		if err := DecodeDebugCapture(buf.Bytes(), dbg); err != nil {
+		if err := dbg.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -101,7 +101,7 @@ func TestDecodeDebugMsg(t *testing.T) {
 	require.NoError(t, err)
 
 	output := &DebugMsg{}
-	err = DecodeDebugMsg(buf.Bytes(), output)
+	err = output.Decode(buf.Bytes())
 	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
@@ -125,7 +125,7 @@ func BenchmarkNewDecodeDebugMsg(b *testing.B) {
 
 	for b.Loop() {
 		dbg := &DebugMsg{}
-		if err := DecodeDebugMsg(buf.Bytes(), dbg); err != nil {
+		if err := dbg.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}

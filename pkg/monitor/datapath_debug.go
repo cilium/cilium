@@ -252,11 +252,6 @@ func (n *DebugMsg) Dump(args *api.DumpArgs) {
 	}
 }
 
-// DecodeDebugMsg will decode 'data' into the provided DebugMsg structure
-func DecodeDebugMsg(data []byte, dbg *DebugMsg) error {
-	return dbg.Decode(data)
-}
-
 // GetSrc retrieves the source endpoint for the message.
 func (n *DebugMsg) GetSrc() uint16 {
 	return n.Source
@@ -475,11 +470,6 @@ func (n *DebugCapture) Dump(args *api.DumpArgs) {
 // GetSrc retrieves the source endpoint for the message.
 func (n *DebugCapture) GetSrc() uint16 {
 	return n.Source
-}
-
-// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
-func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
-	return dbg.Decode(data)
 }
 
 // Decode decodes the message in 'data' into the struct.
