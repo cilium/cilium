@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -41,6 +42,7 @@ type dnsProxyParams struct {
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
 	LocalNodeStore    *node.LocalNodeStore
+	FQDNConfig        service.FQDNConfig
 }
 
 // newDNSProxy initializes the DNS l7 proxy.
@@ -59,10 +61,10 @@ func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
 		Address:                "",
 		IPv4:                   option.Config.EnableIPv4,
 		IPv6:                   option.Config.EnableIPv6,
-		EnableDNSCompression:   option.Config.ToFQDNsEnableDNSCompression,
-		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
+		EnableDNSCompression:   params.FQDNConfig.ToFQDNsEnableDNSCompression,
+		MaxRestoreDNSIPs:       params.FQDNConfig.DNSMaxIPsPerRestoredRule,
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
-		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+		ConcurrencyGracePeriod: params.FQDNConfig.DNSProxyConcurrencyProcessingGracePeriod,
 		RejectReply:            option.Config.FQDNRejectResponse,
 	}
 
