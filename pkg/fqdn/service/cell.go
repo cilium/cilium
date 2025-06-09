@@ -83,6 +83,19 @@ const (
 
 	// StandaloneDNSProxyServerPort is the port on which the standalone DNS proxy gRPC server should listen.
 	StandaloneDNSProxyServerPort = "standalone-dns-proxy-server-port"
+
+	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored DNS rules
+	DNSMaxIPsPerRestoredRule = "dns-max-ips-per-restored-rule"
+
+	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
+	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+	ToFQDNsEnableDNSCompression = "tofqdns-enable-dns-compression"
+
+	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
+	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
+	// been reached.
+	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
 )
 
 type FQDNConfig struct {
@@ -91,14 +104,33 @@ type FQDNConfig struct {
 
 	// StandaloneDNSProxyServerPort is the user-configured global, Standalone DNS proxy gRPC server port
 	StandaloneDNSProxyServerPort int
+
+	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
+	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+	ToFQDNsEnableDNSCompression bool
+
+	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored DNS rules
+	DNSMaxIPsPerRestoredRule int
+
+	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
+	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
+	// been reached.
+	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 }
 
 var DefaultConfig = FQDNConfig{
-	EnableStandaloneDNSProxy:     false,
-	StandaloneDNSProxyServerPort: 40045,
+	EnableStandaloneDNSProxy:                 false,
+	StandaloneDNSProxyServerPort:             40045,
+	ToFQDNsEnableDNSCompression:              true,
+	DNSMaxIPsPerRestoredRule:                 1000,
+	DNSProxyConcurrencyProcessingGracePeriod: 0,
 }
 
 func (def FQDNConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableStandaloneDNSProxy, def.EnableStandaloneDNSProxy, "Enables standalone DNS proxy")
 	flags.Int(StandaloneDNSProxyServerPort, def.StandaloneDNSProxyServerPort, "Global port on which the gRPC server for standalone DNS proxy should listen")
+	flags.Bool(ToFQDNsEnableDNSCompression, def.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
+	flags.Int(DNSMaxIPsPerRestoredRule, def.DNSMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored DNS rule")
+	flags.Duration(DNSProxyConcurrencyProcessingGracePeriod, def.DNSProxyConcurrencyProcessingGracePeriod, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 }
