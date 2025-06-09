@@ -577,27 +577,27 @@ var (
 	// Under the worst case GC may need to memcopy almost the entire buffer, which will
 	// cause memory spikes. Be mindful of this when increasing the default buffer configurations.
 	BPFEventBufferConfigs = map[string]string{
-		"cilium_lxc": "enabled,128,0",
-		// cilium_ipcache is the likely the most useful use of this feature, but also has
+		"cilium_lxc": "enabled_128_0",
+		// cilium_ipcache is likely the most useful use of this feature, but also has
 		// the highest churn.
-		"cilium_ipcache_v2":        "enabled,1024,0",
-		"cilium_lb_affinity_match": "enabled,128,0",
+		"cilium_ipcache_v2":        "enabled_1024_0",
+		"cilium_lb_affinity_match": "enabled_128_0",
 
 		// ip4
-		"cilium_lb4_services_v2":    "enabled,128,0",
-		"cilium_lb4_backends_v2":    "enabled,128,0",
-		"cilium_lb4_reverse_nat":    "enabled,128,0",
-		"cilium_lb4_backends_v3":    "enabled,128,0",
-		"cilium_lb4_source_range":   "enabled,128,0",
-		"cilium_lb4_affinity_match": "enabled,128,0",
+		"cilium_lb4_services_v2":    "enabled_128_0",
+		"cilium_lb4_backends_v2":    "enabled_128_0",
+		"cilium_lb4_reverse_nat":    "enabled_128_0",
+		"cilium_lb4_backends_v3":    "enabled_128_0",
+		"cilium_lb4_source_range":   "enabled_128_0",
+		"cilium_lb4_affinity_match": "enabled_128_0",
 
 		// ip6
-		"cilium_lb6_services_v2":    "enabled,128,0",
-		"cilium_lb6_backends_v2":    "enabled,128,0",
-		"cilium_lb6_reverse_nat":    "enabled,128,0",
-		"cilium_lb6_backends_v3":    "enabled,128,0",
-		"cilium_lb6_source_range":   "enabled,128,0",
-		"cilium_lb6_affinity_match": "enabled,128,0",
+		"cilium_lb6_services_v2":    "enabled_128_0",
+		"cilium_lb6_backends_v2":    "enabled_128_0",
+		"cilium_lb6_reverse_nat":    "enabled_128_0",
+		"cilium_lb6_backends_v3":    "enabled_128_0",
+		"cilium_lb6_source_range":   "enabled_128_0",
+		"cilium_lb6_affinity_match": "enabled_128_0",
 	}
 
 	PolicyCIDRMatchMode = []string{}

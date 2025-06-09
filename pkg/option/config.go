@@ -3856,14 +3856,14 @@ func (cs BPFEventBufferConfigs) get(name string) BPFEventBufferConfig {
 }
 
 // ParseEventBufferTupleString parses a event buffer configuration tuple string.
-// For example: true,100,24h
+// For example: enabled_100_24h
 // Which refers to enabled=true, maxSize=100, ttl=24hours.
 func ParseEventBufferTupleString(optsStr string) (BPFEventBufferConfig, error) {
-	opts := strings.Split(optsStr, ",")
+	opts := strings.Split(optsStr, "_")
 	enabled := false
 	conf := BPFEventBufferConfig{}
 	if len(opts) != 3 {
-		return conf, fmt.Errorf("unexpected event buffer config value format, should be in format 'mapname=enabled,100,24h'")
+		return conf, fmt.Errorf("unexpected event buffer config value format, should be in format 'mapname=enabled_100_24h'")
 	}
 
 	if opts[0] != "enabled" && opts[0] != "disabled" {
