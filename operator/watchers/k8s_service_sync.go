@@ -14,7 +14,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -94,8 +93,8 @@ type ServiceSyncParameters struct {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger, kprOpts kpr.KPROpts) {
-	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, kprOpts, nil, nil, k8s.NewSVCMetricsNoop())
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger, enableNodePort bool) {
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, enableNodePort, nil, nil, k8s.NewSVCMetricsNoop())
 
 	kvstoreReady := make(chan struct{})
 

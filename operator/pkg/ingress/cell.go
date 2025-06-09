@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -96,8 +95,6 @@ type ingressParams struct {
 	AgentConfig        *option.DaemonConfig
 	OperatorConfig     *operatorOption.OperatorConfig
 	IngressConfig      IngressConfig
-
-	KPROpts kpr.KPROpts
 }
 
 func registerReconciler(params ingressParams) error {
@@ -105,8 +102,8 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
-	if params.KPROpts.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		!params.KPROpts.EnableNodePort {
+	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+		!params.OperatorConfig.EnableNodePort {
 		params.Logger.Warn("Ingress Controller support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}

@@ -61,7 +61,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -275,8 +274,6 @@ var (
 			// configuration to describe, in form of prometheus metrics, which
 			// features are enabled on the operator.
 			features.Cell,
-
-			kpr.Cell,
 		),
 	)
 
@@ -515,7 +512,7 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger, kprOpts kpr.KPROpts) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:                  ctx,
@@ -528,7 +525,6 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
 		metrics:              metrics,
 		logger:               logger,
-		kprOpts:              kprOpts,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -549,8 +545,6 @@ type legacyOnLeader struct {
 	metrics              *UnmanagedPodsMetric
 
 	logger *slog.Logger
-
-	kprOpts kpr.KPROpts
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -645,7 +639,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				Endpoints:    legacy.resources.Endpoints,
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
-			}, legacy.logger, legacy.kprOpts)
+			}, legacy.logger, operatorOption.Config.EnableNodePort)
 			legacy.wg.Add(1)
 			go func() {
 				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
