@@ -62,7 +62,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err, false);
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY
@@ -417,7 +417,7 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err, false);
 }
 
 static __always_inline

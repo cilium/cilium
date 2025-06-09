@@ -205,7 +205,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 		if (oif == THIS_INTERFACE_IFINDEX)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, true, ret, oif, ext_err);
+		return fib_do_redirect(ctx, true, fib_params, true, ret, oif, ext_err, false);
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
@@ -666,6 +666,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr __align_stack_8 = {};
+	bool xdp_pass_to_tc = false;
 	__s8 ext_err = 0;
 	__be16 port;
 
@@ -724,10 +725,10 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->daddr);
 	}
 
-	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
-	if (fib_ok(ret)) {
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif, xdp_pass_to_tc);
+	if (fib_ok(ret, xdp_pass_to_tc)) {
 		cilium_capture_out(ctx);
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
@@ -832,10 +833,10 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
-	if (fib_ok(ret)) {
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif, false);
+	if (fib_ok(ret, false)) {
 		cilium_capture_out(ctx);
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
@@ -863,10 +864,10 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
-	if (fib_ok(ret)) {
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif, false);
+	if (fib_ok(ret, false)) {
 		cilium_capture_out(ctx);
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
@@ -1011,7 +1012,7 @@ fib_lookup:
     defined(TUNNEL_MODE)
 fib_redirect:
 #endif
-	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex, false);
 }
 
 static __always_inline
@@ -1172,6 +1173,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo;
 	__s8 ext_err = 0;
+	bool xdp_pass_to_tc = false;
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
 	union v6addr *dst;
@@ -1270,10 +1272,10 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
-	if (fib_ok(ret)) {
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif, xdp_pass_to_tc);
+	if (fib_ok(ret, xdp_pass_to_tc)) {
 		cilium_capture_out(ctx);
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
@@ -2025,6 +2027,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	__be32 addr;
 	__be16 port;
+	bool xdp_pass_to_tc = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -2062,10 +2065,10 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
-	if (fib_ok(ret)) {
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif, xdp_pass_to_tc);
+	if (fib_ok(ret, xdp_pass_to_tc)) {
 		cilium_capture_out(ctx);
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
@@ -2318,7 +2321,7 @@ redirect:
 	}
 #endif
 
-	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex, false);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_NODEPORT_REVNAT)
@@ -2483,6 +2486,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	fraginfo_t fraginfo;
 	__s8 ext_err = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	bool xdp_pass_to_tc = false;
 #ifdef TUNNEL_MODE
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
@@ -2579,10 +2583,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
-	if (fib_ok(ret)) {
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif, xdp_pass_to_tc);
+	if (fib_ok(ret, xdp_pass_to_tc)) {
 		cilium_capture_out(ctx);
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,

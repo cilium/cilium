@@ -42,8 +42,12 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 	return 0;
 }
 
-static __always_inline bool fib_ok(int ret)
+static __always_inline bool fib_ok(int ret, bool xdp_pass_to_tc __maybe_unused)
 {
+#if __ctx_is == __ctx_xdp
+	if (xdp_pass_to_tc && ret == CTX_ACT_OK)
+		return true;
+#endif
 	return likely(ret == CTX_ACT_TX || ret == CTX_ACT_REDIRECT);
 }
 
@@ -55,6 +59,7 @@ static __always_inline bool fib_ok(int ret)
   * @arg fib_result		result of a preceding FIB lookup
   * @arg oif			egress interface index
   * @arg ext_err		extended error
+  * @arg xdp_pass_to_tc		true if XDP needs to pass the packet up to the TC egress hook
   *
   * Returns:
   *   - result of BPF redirect
@@ -77,7 +82,8 @@ static __always_inline bool fib_ok(int ret)
 static __always_inline int
 fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		const struct bpf_fib_lookup_padded *fib_params,
-		bool allow_neigh_map, int fib_result, __u32 oif, __s8 *ext_err)
+		bool allow_neigh_map, int fib_result, __u32 oif, __s8 *ext_err,
+		bool xdp_pass_to_tc __maybe_unused)
 {
 	/* determine if we need to append layer 2 header */
 	if (needs_l2_check) {
@@ -143,13 +149,18 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		}
 	};
 out_send:
+#if __ctx_is == __ctx_xdp
+	if (xdp_pass_to_tc)
+		return CTX_ACT_OK;
+#endif
 	return (int)ctx_redirect(ctx, oif, 0);
 }
 
 static __always_inline int
 fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     struct bpf_fib_lookup_padded *fib_params __maybe_unused,
-	     bool use_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
+	     bool use_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
+	     bool xdp_pass_to_tc)
 {
 	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
 		int ret;
@@ -167,7 +178,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		*oif = fib_params->l.ifindex;
 
 		return fib_do_redirect(ctx, needs_l2_check, fib_params, use_neigh_map,
-				       ret, *oif, ext_err);
+				       ret, *oif, ext_err, xdp_pass_to_tc);
 	}
 
 #ifdef ENABLE_SKIP_FIB
@@ -175,7 +186,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 #endif
 
 	return fib_do_redirect(ctx, needs_l2_check, NULL, use_neigh_map,
-			       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
+			       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err, xdp_pass_to_tc);
 }
 
 #ifdef ENABLE_IPV6
@@ -204,7 +215,8 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6 __maybe_unused, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
+		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
+		bool xdp_pass_to_tc)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
 	int ret;
@@ -229,7 +241,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 			return ret;
 
 		return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
-				       fib_result, *oif, ext_err);
+				       fib_result, *oif, ext_err, xdp_pass_to_tc);
 	}
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
@@ -241,7 +253,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 #endif
 
 	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
-			       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
+			       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err, xdp_pass_to_tc);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -266,7 +278,8 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4 __maybe_unused, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
+		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
+		bool xdp_pass_to_tc)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
 	int ret;
@@ -291,7 +304,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 			return ret;
 
 		return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
-				       fib_result, *oif, ext_err);
+				       fib_result, *oif, ext_err, xdp_pass_to_tc);
 	}
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
@@ -303,6 +316,6 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 #endif
 
 	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
-			       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
+			       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err, xdp_pass_to_tc);
 }
 #endif /* ENABLE_IPV4 */

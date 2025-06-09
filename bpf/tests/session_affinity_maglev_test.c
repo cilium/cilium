@@ -213,7 +213,7 @@ check_packet(const struct __ctx_buff *ctx, int backend_id)
 
 	status_code = data;
 
-	assert(fib_ok(*status_code));
+	assert(fib_ok(*status_code, false));
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
