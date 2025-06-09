@@ -82,6 +82,16 @@ var (
 
 		Infrastructure,
 		ControlPlane,
+
+		// This needs to be the last in the list, so that the start hook responsible
+		// for the operator leader election is guaranteed to be executed last, when
+		// all the previous ones have already completed. Otherwise, cells within
+		// the "WithLeaderLifecycle" scope may be incorrectly started too early,
+		// given that "registerOperatorHooks" does not depend on all of their
+		// individual dependencies outside of that scope.
+		cell.Invoke(
+			registerOperatorHooks,
+		),
 	)
 
 	Infrastructure = cell.Module(
@@ -137,10 +147,6 @@ var (
 		cell.Config(cmtypes.DefaultPolicyConfig),
 		cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
 		cell.Invoke(cmtypes.ClusterInfo.Validate),
-
-		cell.Invoke(
-			registerOperatorHooks,
-		),
 
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
