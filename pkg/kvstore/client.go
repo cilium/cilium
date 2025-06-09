@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 var (
@@ -38,6 +39,8 @@ type clientImpl struct {
 	opts   ExtraOptions
 	logger *slog.Logger
 
+	stats *spanstat.SpanStat
+
 	BackendOperations
 }
 
@@ -46,6 +49,9 @@ func (cl *clientImpl) IsEnabled() bool {
 }
 
 func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {
+	cl.stats.Start()
+	defer func() { cl.stats.EndError(err) }()
+
 	cl.logger.Info("Establishing connection to kvstore")
 	client, errCh := NewClient(context.Background(), cl.logger, cl.cfg.KVStore, cl.cfg.KVStoreOpt, cl.opts)
 
