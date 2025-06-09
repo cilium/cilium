@@ -24,7 +24,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/fsnotify/fsnotify"
 	"github.com/prometheus/procfs"
 	"github.com/vishvananda/netlink"
 
@@ -1307,7 +1306,7 @@ func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Wa
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&(fsnotify.Create|fsnotify.Write) == 0 {
+			if event.Op&(fswatcher.Create|fswatcher.Write) == 0 {
 				continue
 			}
 
