@@ -90,15 +90,6 @@ struct {
 #endif /* CIDR6_FILTER */
 #endif /* ENABLE_PREFILTER */
 
-static __always_inline __maybe_unused int
-bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
-{
-	if (verdict == CTX_ACT_OK)
-		ctx_move_xfer(ctx);
-
-	return verdict;
-}
-
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT_ACCELERATION
 __declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
@@ -204,7 +195,7 @@ out:
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 						  METRIC_INGRESS);
 
-	return bpf_xdp_exit(ctx, ret);
+	return bpf_exit(ctx, ret);
 }
 
 static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
@@ -279,7 +270,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 	}
 
-	return bpf_xdp_exit(ctx, ret);
+	return bpf_exit(ctx, ret);
 
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
@@ -367,7 +358,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 		break;
 	}
 
-	return bpf_xdp_exit(ctx, ret);
+	return bpf_exit(ctx, ret);
 }
 
 __section_entry

@@ -336,3 +336,9 @@ ctx_set_encap_info6(struct __sk_buff *ctx, const union v6addr *tunnel_endpoint,
 	return CTX_ACT_REDIRECT;
 }
 #endif /* HAVE_ENCAP */
+
+static __always_inline __maybe_unused int
+bpf_exit(struct __ctx_buff *ctx __maybe_unused, const int verdict)
+{
+	return verdict;
+}
