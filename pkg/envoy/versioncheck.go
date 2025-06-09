@@ -4,13 +4,11 @@
 package envoy
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type envoyVersionChecker struct {
@@ -52,23 +50,9 @@ func (r *envoyVersionChecker) getEnvoyVersion() (string, error) {
 }
 
 func (r *envoyVersionChecker) getRemoteEnvoyVersion() (string, error) {
-	const versionRetryAttempts = 20
-	const versionRetryWait = 500 * time.Millisecond
-
-	// Retry is necessary because Envoy might not be ready yet
-	for i := 0; i <= versionRetryAttempts; i++ {
-		envoyVersion, err := r.adminClient.GetEnvoyVersion()
-		if err != nil {
-			if i < versionRetryAttempts {
-				r.logger.Info("Envoy: Unable to retrieve Envoy version - retry")
-				time.Sleep(versionRetryWait)
-				continue
-			}
-			return "", fmt.Errorf("failed to retrieve Envoy version: %w", err)
-		}
-
-		return envoyVersion, nil
+	envoyVersion, err := r.adminClient.GetEnvoyVersion()
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve Envoy version: %w", err)
 	}
-
-	return "", errors.New("failed to retrieve Envoy version")
+	return envoyVersion, nil
 }
