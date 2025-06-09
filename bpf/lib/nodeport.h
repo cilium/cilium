@@ -703,6 +703,18 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD)
+	ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS | XFER_PKT_ENCAP);
+	xdp_pass_to_tc = true;
+# endif
+#else
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+	ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS);
+	xdp_pass_to_tc = true;
+# endif
+#endif
+
 	if (fib_params.l.family == AF_INET) {
 		struct iphdr *ip4;
 
@@ -1258,6 +1270,15 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 fib_ipv4:
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD)
+		ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS | XFER_PKT_ENCAP);
+		xdp_pass_to_tc = true;
+# endif
+#else
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+		ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS);
+		xdp_pass_to_tc = true;
+# endif
 #endif
 		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 			ret = DROP_INVALID;
@@ -2065,6 +2086,17 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD)
+	ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS | XFER_PKT_ENCAP);
+	xdp_pass_to_tc = true;
+# endif
+#else
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+	ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS);
+	xdp_pass_to_tc = true;
+# endif
+#endif
 	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif, xdp_pass_to_tc);
 	if (fib_ok(ret, xdp_pass_to_tc)) {
 		cilium_capture_out(ctx);
@@ -2573,7 +2605,16 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD)
+		ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS | XFER_PKT_ENCAP);
+		xdp_pass_to_tc = true;
+# endif
 	}
+#else
+# if __ctx_is == __ctx_xdp && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION)
+	ctx_set_xfer(ctx, XFER_PKT_TC_EGRESS);
+	xdp_pass_to_tc = true;
+# endif
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
