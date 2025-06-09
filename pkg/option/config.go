@@ -379,10 +379,6 @@ const (
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
-	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored DNS rules
-	DNSMaxIPsPerRestoredRule = "dns-max-ips-per-restored-rule"
-
 	// DNSPolicyUnloadOnShutdown is the name of the dns-policy-unload-on-shutdown option.
 	DNSPolicyUnloadOnShutdown = "dns-policy-unload-on-shutdown"
 
@@ -409,18 +405,9 @@ const (
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = "tofqdns-pre-cache"
 
-	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
-	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
-	ToFQDNsEnableDNSCompression = "tofqdns-enable-dns-compression"
-
 	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
 	// DNS proxy at any given point in time.
 	DNSProxyConcurrencyLimit = "dnsproxy-concurrency-limit"
-
-	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
-	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
-	// been reached.
-	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
 
 	// DNSProxyLockCount is the array size containing mutexes which protect
 	// against parallel handling of DNS response IPs.
@@ -1543,10 +1530,6 @@ type DaemonConfig struct {
 	PrometheusServeAddr    string
 	ToFQDNsMinTTL          int
 
-	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored DNS rules
-	DNSMaxIPsPerRestoredRule int
-
 	// DNSPolicyUnloadOnShutdown defines whether DNS policy rules should be unloaded on
 	// graceful shutdown.
 	DNSPolicyUnloadOnShutdown bool
@@ -1585,18 +1568,9 @@ type DaemonConfig struct {
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string
 
-	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
-	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
-	ToFQDNsEnableDNSCompression bool
-
 	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
 	// DNS proxy at any given point in time.
 	DNSProxyConcurrencyLimit int
-
-	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
-	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
-	// been reached.
-	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode bool
@@ -2041,7 +2015,6 @@ var (
 		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
 		EnableSCTP:                      defaults.EnableSCTP,
 		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
 		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
 		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
 		CiliumIdentityMaxJitter:         defaults.CiliumIdentityMaxJitter,
@@ -2838,7 +2811,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableIdentityMark = vp.GetBool(EnableIdentityMark)
 
 	// toFQDNs options
-	c.DNSMaxIPsPerRestoredRule = vp.GetInt(DNSMaxIPsPerRestoredRule)
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)
 	c.FQDNRegexCompileLRUSize = vp.GetInt(FQDNRegexCompileLRUSize)
 	c.ToFQDNsMaxIPsPerHost = vp.GetInt(ToFQDNsMaxIPsPerHost)
@@ -2856,11 +2828,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 	c.ToFQDNsProxyPort = vp.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = vp.GetString(ToFQDNsPreCache)
-	c.ToFQDNsEnableDNSCompression = vp.GetBool(ToFQDNsEnableDNSCompression)
 	c.ToFQDNsIdleConnectionGracePeriod = vp.GetDuration(ToFQDNsIdleConnectionGracePeriod)
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
-	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 	c.DNSProxyEnableTransparentMode = vp.GetBool(DNSProxyEnableTransparentMode)
 	c.DNSProxyInsecureSkipTransparentModeCheck = vp.GetBool(DNSProxyInsecureSkipTransparentModeCheck)
 	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)

@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -46,9 +45,7 @@ func NewDNSProxyCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
-			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
-
-			initEnv(logger, h.Viper())
+			initEnv(logging.DefaultSlogLogger, h.Viper())
 
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
 				log.Fatal(err)
@@ -86,14 +83,13 @@ type standaloneDNSProxyParams struct {
 	Lifecycle   cell.Lifecycle
 }
 
-func registerStandaloneDNSProxyHooks(params standaloneDNSProxyParams) {
+func registerStandaloneDNSProxyHooks(params standaloneDNSProxyParams) error {
 	sdp := NewStandaloneDNSProxy(params.Logger, params.AgentConfig, params.FQDNConfig)
 
 	if params.AgentConfig.EnableL7Proxy && params.FQDNConfig.EnableStandaloneDNSProxy {
 		sdp.logger.Info("Standalone DNS proxy is enabled")
 	} else {
-		sdp.logger.Info("Standalone DNS proxy is disabled")
-		return
+		return fmt.Errorf("Standalone DNS proxy requires L7 proxy and standalone DNS proxy to be enabled in the configuration")
 	}
 
 	params.Lifecycle.Append(cell.Hook{
@@ -104,4 +100,5 @@ func registerStandaloneDNSProxyHooks(params standaloneDNSProxyParams) {
 			return sdp.StopStandaloneDNSProxy()
 		},
 	})
+	return nil
 }
