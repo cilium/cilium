@@ -20,3 +20,4 @@
 - CiliumNode
 - CiliumNodeConfig
 - CiliumPodIPPool
+- CiliumVtepPolicy
