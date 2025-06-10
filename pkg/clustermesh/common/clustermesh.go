@@ -61,6 +61,8 @@ type ClusterMesh interface {
 	// NumReadyClusters returns the number of remote clusters to which a connection
 	// has been established
 	NumReadyClusters() int
+
+	WaitLoaded()
 }
 
 // clusterMesh is a cache of multiple remote clusters
@@ -84,19 +86,24 @@ type clusterMesh struct {
 	// the associated process if still running during shutdown (via rcancel).
 	rctx    context.Context
 	rcancel context.CancelFunc
+
+	loaded sync.WaitGroup
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
 func NewClusterMesh(c Configuration) ClusterMesh {
 	rctx, rcancel := context.WithCancel(context.Background())
-	return &clusterMesh{
+	cm := clusterMesh{
 		conf:       c,
 		clusters:   map[string]*remoteCluster{},
 		tombstones: map[string]string{},
 		rctx:       rctx,
 		rcancel:    rcancel,
 	}
+	cm.loaded.Add(1)
+
+	return &cm
 }
 
 func (cm *clusterMesh) Start(cell.HookContext) error {
@@ -110,6 +117,8 @@ func (cm *clusterMesh) Start(cell.HookContext) error {
 	if err := cm.configWatcher.watch(); err != nil {
 		return fmt.Errorf("unable to start config directory watcher: %w", err)
 	}
+
+	cm.loaded.Done()
 
 	return nil
 }
@@ -277,4 +286,9 @@ func (cm *clusterMesh) ForEachRemoteCluster(fn func(RemoteCluster) error) error 
 	}
 
 	return nil
+}
+
+// waits until preexisting config files are loaded
+func (cm *clusterMesh) WaitLoaded() {
+	cm.loaded.Wait()
 }
