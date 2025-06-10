@@ -29,10 +29,17 @@ func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 	require.NoError(tb, err)
 	log = hivetest.Logger(tb)
 
-	_, local, err = net.ParseCIDR("1.1.3.4/16")
-	require.NoError(tb, err)
-	_, remote, err = net.ParseCIDR("1.2.3.4/16")
-	require.NoError(tb, err)
+	if ipFamily == "ipv4" {
+		_, local, err = net.ParseCIDR("1.1.3.4/16")
+		require.NoError(tb, err)
+		_, remote, err = net.ParseCIDR("1.2.3.4/16")
+		require.NoError(tb, err)
+	} else {
+		_, local, err = net.ParseCIDR("2001:0:0:1134::/64")
+		require.NoError(tb, err)
+		_, remote, err = net.ParseCIDR("2001:0:0:1234::/64")
+		require.NoError(tb, err)
+	}
 
 	tb.Cleanup(func() {
 		UnsetTestIPSecKey()
@@ -66,7 +73,7 @@ var (
 )
 
 func TestAll(t *testing.T) {
-	for _, tt := range []string{"ipv4"} {
+	for _, tt := range []string{"ipv4", "ipv6"} {
 		t.Run(tt, func(t *testing.T) {
 			t.Run("testInvalidLoadKeys", func(t *testing.T) {
 				setupIPSecSuitePrivileged(t, tt)
