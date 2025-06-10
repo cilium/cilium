@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -44,7 +43,7 @@ type skiplbParams struct {
 	DB                 *statedb.DB
 	Lifecycle          cell.Lifecycle
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
-	Map                lbmap.SkipLBMap
+	Map                lbmaps.SkipLBMap
 	EM                 endpointmanager.EndpointManager `optional:"true"`
 	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 }
@@ -200,7 +199,7 @@ func newDesiredSkipLBTable(db *statedb.DB) (statedb.RWTable[*desiredSkipLB], err
 }
 
 type skiplbOps struct {
-	m lbmap.SkipLBMap
+	m lbmaps.SkipLBMap
 }
 
 // Delete implements reconciler.Operations.
@@ -212,13 +211,13 @@ func (ops *skiplbOps) Delete(ctx context.Context, txn statedb.ReadTxn, _ statedb
 	for addr := range d.ReconciledAddrs {
 		var deleteErr error
 		if addr.IsIPv6() {
-			deleteErr = ops.m.DeleteLB6(&lbmap.SkipLB6Key{
+			deleteErr = ops.m.DeleteLB6(&lbmaps.SkipLB6Key{
 				NetnsCookie: *d.NetnsCookie,
 				Address:     addr.AddrCluster.Addr().As16(),
 				Port:        addr.Port,
 			})
 		} else {
-			deleteErr = ops.m.DeleteLB4(&lbmap.SkipLB4Key{
+			deleteErr = ops.m.DeleteLB4(&lbmaps.SkipLB4Key{
 				NetnsCookie: *d.NetnsCookie,
 				Address:     addr.AddrCluster.Addr().As4(),
 				Port:        addr.Port,
@@ -285,13 +284,13 @@ func (ops *skiplbOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb
 	for addr := range d.ReconciledAddrs.Difference(newAddrs) {
 		var deleteErr error
 		if addr.IsIPv6() {
-			deleteErr = ops.m.DeleteLB6(&lbmap.SkipLB6Key{
+			deleteErr = ops.m.DeleteLB6(&lbmaps.SkipLB6Key{
 				NetnsCookie: *d.NetnsCookie,
 				Address:     addr.AddrCluster.Addr().As16(),
 				Port:        addr.Port,
 			})
 		} else {
-			deleteErr = ops.m.DeleteLB4(&lbmap.SkipLB4Key{
+			deleteErr = ops.m.DeleteLB4(&lbmaps.SkipLB4Key{
 				NetnsCookie: *d.NetnsCookie,
 				Address:     addr.AddrCluster.Addr().As4(),
 				Port:        addr.Port,
@@ -360,34 +359,34 @@ func (sub *skiplbEndpointSubscriber) EndpointRestored(ep *endpoint.Endpoint) {
 
 // TestSkipLBMap is a SkipLBMap that the test suite can provide to override the
 // map implementation.
-type TestSkipLBMap lbmap.SkipLBMap
+type TestSkipLBMap lbmaps.SkipLBMap
 
 type skiplbmapParams struct {
 	cell.In
 
 	Logger             *slog.Logger
-	IsEnabled          lrpIsEnabled
 	TestSkipLBMap      TestSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
 	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 }
 
-func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmap.SkipLBMap], err error) {
-	if !p.IsEnabled {
-		return
-	}
-
+func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap], err error) {
 	if p.TestSkipLBMap != nil {
-		m := lbmap.SkipLBMap(p.TestSkipLBMap)
+		m := lbmaps.SkipLBMap(p.TestSkipLBMap)
 		out = bpf.NewMapOut(m)
 		return
 	}
 
-	var m lbmap.SkipLBMap
-	m, err = lbmap.NewSkipLBMap(p.Logger)
+	var m lbmaps.SkipLBMap
+	m, err = lbmaps.NewSkipLBMap(p.Logger)
 	if err != nil {
 		return
 	}
+
+	if os.Getuid() != 0 {
+		return
+	}
+
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			if !p.NetNSCookieSupport() {
@@ -403,7 +402,7 @@ func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmap.SkipLBMap], err error
 	return
 }
 
-func newSkipLBMapCommand(m lbmap.SkipLBMap) hive.ScriptCmdsOut {
+func newSkipLBMapCommand(m lbmaps.SkipLBMap) hive.ScriptCmdsOut {
 	if m == nil {
 		return hive.NewScriptCmds(nil)
 	}
