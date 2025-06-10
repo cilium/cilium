@@ -22,6 +22,7 @@ func TestGammaConformance(t *testing.T) {
 		"Mesh Ports":          {},
 		"Mesh Frontend":       {},
 		"multiple_parentRefs": {},
+		"multiple_HTTPRoutes": {},
 	}
 
 	for name := range tests {
