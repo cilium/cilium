@@ -146,7 +146,7 @@ type BPFLBMaps struct {
 // BPF map constructors
 //
 
-func newService4Map(maxEntries int) *bpf.Map {
+func NewService4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Service4MapV2Name,
 		ebpf.Hash,
@@ -157,7 +157,7 @@ func newService4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newService6Map(maxEntries int) *bpf.Map {
+func NewService6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Service6MapV2Name,
 		ebpf.Hash,
@@ -168,7 +168,7 @@ func newService6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newBackend4Map(maxEntries int) *bpf.Map {
+func NewBackend4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Backend4MapV3Name,
 		ebpf.Hash,
@@ -179,7 +179,7 @@ func newBackend4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newBackend6Map(maxEntries int) *bpf.Map {
+func NewBackend6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Backend6MapV3Name,
 		ebpf.Hash,
@@ -190,7 +190,7 @@ func newBackend6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newRevNat4Map(maxEntries int) *bpf.Map {
+func NewRevNat4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		RevNat4MapName,
 		ebpf.Hash,
@@ -201,7 +201,7 @@ func newRevNat4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newRevNat6Map(maxEntries int) *bpf.Map {
+func NewRevNat6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		RevNat6MapName,
 		ebpf.Hash,
@@ -212,7 +212,7 @@ func newRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newAffinityMatchMap(maxEntries int) *bpf.Map {
+func NewAffinityMatchMap(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		AffinityMatchMapName,
 		ebpf.Hash,
@@ -245,7 +245,7 @@ func newAffinity6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSourceRange4Map(maxEntries int) *bpf.Map {
+func NewSourceRange4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SourceRange4MapName,
 		ebpf.LPMTrie,
@@ -256,7 +256,7 @@ func newSourceRange4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSourceRange6Map(maxEntries int) *bpf.Map {
+func NewSourceRange6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SourceRange6MapName,
 		ebpf.LPMTrie,
@@ -267,7 +267,7 @@ func newSourceRange6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSockRevNat4Map(maxEntries int) *bpf.Map {
+func NewSockRevNat4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SockRevNat4MapName,
 		ebpf.LRUHash,
@@ -278,7 +278,7 @@ func newSockRevNat4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSockRevNat6Map(maxEntries int) *bpf.Map {
+func NewSockRevNat6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SockRevNat6MapName,
 		ebpf.LRUHash,
@@ -289,7 +289,7 @@ func newSockRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
+func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
 	return bpf.NewMapWithInnerSpec(
 		name,
 		ebpf.HashOfMaps,
@@ -309,31 +309,31 @@ type mapDesc struct {
 
 func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 	newMaglev4 := func(maxEntries int) *bpf.Map {
-		return newMaglevOuterMap(MaglevOuter4MapName, maxEntries, r.maglevInnerMapSpec)
+		return NewMaglevOuterMap(MaglevOuter4MapName, maxEntries, r.maglevInnerMapSpec)
 	}
 	newMaglev6 := func(maxEntries int) *bpf.Map {
-		return newMaglevOuterMap(MaglevOuter6MapName, maxEntries, r.maglevInnerMapSpec)
+		return NewMaglevOuterMap(MaglevOuter6MapName, maxEntries, r.maglevInnerMapSpec)
 	}
 	v4Maps := []mapDesc{
-		{&r.service4Map, newService4Map, r.Cfg.LBServiceMapEntries},
-		{&r.backend4Map, newBackend4Map, r.Cfg.LBBackendMapEntries},
-		{&r.revNat4Map, newRevNat4Map, r.Cfg.LBRevNatEntries},
-		{&r.sourceRange4Map, newSourceRange4Map, r.Cfg.LBSourceRangeMapEntries},
+		{&r.service4Map, NewService4Map, r.Cfg.LBServiceMapEntries},
+		{&r.backend4Map, NewBackend4Map, r.Cfg.LBBackendMapEntries},
+		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
+		{&r.sourceRange4Map, NewSourceRange4Map, r.Cfg.LBSourceRangeMapEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
-		{&r.sockRevNat4Map, newSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
-		{&r.service6Map, newService6Map, r.Cfg.LBServiceMapEntries},
-		{&r.backend6Map, newBackend6Map, r.Cfg.LBBackendMapEntries},
-		{&r.revNat6Map, newRevNat6Map, r.Cfg.LBRevNatEntries},
-		{&r.sourceRange6Map, newSourceRange6Map, r.Cfg.LBSourceRangeMapEntries},
+		{&r.service6Map, NewService6Map, r.Cfg.LBServiceMapEntries},
+		{&r.backend6Map, NewBackend6Map, r.Cfg.LBBackendMapEntries},
+		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
+		{&r.sourceRange6Map, NewSourceRange6Map, r.Cfg.LBSourceRangeMapEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
-		{&r.sockRevNat6Map, newSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	mapsToCreate := []mapDesc{
-		{&r.affinityMatchMap, newAffinityMatchMap, r.Cfg.LBAffinityMapEntries},
+		{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries},
 	}
 	mapsToDelete := []mapDesc{}
 	if r.ExtCfg.EnableIPv4 {
@@ -349,16 +349,19 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 	return mapsToCreate, mapsToDelete
 }
 
-// Start implements cell.HookInterface.
-func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
-	r.maglevInnerMapSpec = &ebpf.MapSpec{
+func NewMaglevInnerMapSpec(tableSize uint) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
 		Name:       MaglevInnerMapName,
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
 		MaxEntries: 1,
-		ValueSize:  MaglevBackendLen * uint32(r.MaglevCfg.TableSize),
+		ValueSize:  MaglevBackendLen * uint32(tableSize),
 	}
+}
 
+// Start implements cell.HookInterface.
+func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
+	r.maglevInnerMapSpec = NewMaglevInnerMapSpec(r.MaglevCfg.TableSize)
 	mapsToCreate, mapsToDelete := r.allMaps()
 	openedMaps := make([]*bpf.Map, 0, len(mapsToCreate))
 	for _, desc := range mapsToCreate {
