@@ -75,7 +75,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -1020,7 +1020,7 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 		ctmap.SizeofCtKey6Global+ctmap.SizeofCtEntry,
 		nat.SizeofNatKey6+nat.SizeofNatEntry6,
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
-		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
+		lbmaps.SizeofSockRevNat6Key+lbmaps.SizeofSockRevNat6Value)
 
 	option.Config.SetupLogging(vp, "cilium-agent")
 
