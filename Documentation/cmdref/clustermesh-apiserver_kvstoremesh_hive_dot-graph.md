@@ -32,7 +32,6 @@ clustermesh-apiserver kvstoremesh hive dot-graph [flags]
       --kvstore-lease-ttl duration                   Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint   Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                   Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
-      --kvstore-periodic-sync duration               Periodic KVstore synchronization interval (default 5m0s)
       --log-driver strings                           Logging endpoints to use (example: syslog)
       --log-opt map                                  Log driver options (example: format=json)
       --max-connected-clusters uint32                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)

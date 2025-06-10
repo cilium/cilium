@@ -40,7 +40,6 @@ var Cell = cell.Module(
 		option.Config.KVStore = cfg.KVStore
 		option.Config.KVStoreOpt = cfg.KVStoreOpt
 		option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
-		option.Config.KVstorePeriodicSync = cfg.KVStorePeriodicSync
 		option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -89,7 +88,6 @@ type config struct {
 	KVStore                           string
 	KVStoreOpt                        map[string]string
 	KVStoreLeaseTTL                   time.Duration
-	KVStorePeriodicSync               time.Duration
 	KVstoreMaxConsecutiveQuorumErrors uint
 }
 
@@ -102,9 +100,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Duration(option.KVstoreLeaseTTL, def.KVStoreLeaseTTL,
 		"Time-to-live for the KVstore lease.")
 
-	flags.Duration(option.KVstorePeriodicSync, def.KVStorePeriodicSync,
-		"Periodic KVstore synchronization interval")
-
 	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, def.KVstoreMaxConsecutiveQuorumErrors,
 		"Max acceptable kvstore consecutive quorum errors before recreating the etcd connection")
 }
@@ -113,7 +108,6 @@ var defaultConfig = config{
 	KVStore:                           EtcdBackendName,
 	KVStoreOpt:                        make(map[string]string),
 	KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
-	KVStorePeriodicSync:               defaults.KVstorePeriodicSync,
 	KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
 }
 
