@@ -96,6 +96,10 @@ jobs:
           sudo du --human-readable \
                 --threshold 50m \
                 -- /mnt
+          if compgen -G "/mnt/.*" > /dev/null; then
+            echo "# Hidden files in /mnt:"
+            sudo du --human-readable --threshold 50m -- /mnt/.* 2>/dev/null
+          fi
           echo "# Removing /mnt/tmp-pv.img"
           sudo rm -f '/mnt/tmp-pv.img'
 
