@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -245,6 +246,9 @@ type multiPoolManager struct {
 	localNodeStore *node.LocalNodeStore
 	nodeUpdater    nodeUpdater
 
+	localNodeSynced   chan struct{}
+	localNodeSyncedFn func()
+
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
 }
@@ -269,6 +273,7 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		logging.Fatal(logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
 	}
 
+	localNodeSynced := make(chan struct{})
 	c := &multiPoolManager{
 		logger:                 logger,
 		mutex:                  &lock.Mutex{},
@@ -284,6 +289,10 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		localNodeStore:         localNodeStore,
 		nodeUpdater:            clientset,
 		finishedRestore:        map[Family]bool{},
+		localNodeSynced:        localNodeSynced,
+		localNodeSyncedFn: sync.OnceFunc(func() {
+			close(localNodeSynced)
+		}),
 	}
 
 	// We don't have a context to use here (as a lot of IPAM doesn't really
@@ -299,7 +308,15 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 
 	c.waitForAllPools()
 
-	return c
+	// wait for local node to be synced to avoid propagating spurious updates.
+	for {
+		select {
+		case <-c.localNodeSynced:
+			return c
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
+		}
+	}
 }
 
 func (m *multiPoolManager) ciliumNodeEventLoop(evs <-chan resource.Event[*ciliumv2.CiliumNode]) {
@@ -583,6 +600,8 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 			return fmt.Errorf("failed to update node spec: %w", err)
 		}
 	}
+
+	m.localNodeSyncedFn()
 
 	return nil
 }
