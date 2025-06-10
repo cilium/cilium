@@ -122,16 +122,6 @@ type SyncWaiterParams struct {
 	Health      cell.Health
 }
 
-func RegisterSyncWaiter(p SyncWaiterParams) {
-	syncedCallback := p.SyncState.WaitForResource()
-
-	p.JobGroup.Add(
-		job.OneShot("kvstoremesh-sync-waiter", func(ctx context.Context, health cell.Health) error {
-			return p.KVStoreMesh.synced(ctx, syncedCallback)
-		}),
-	)
-}
-
 func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
 

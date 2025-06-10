@@ -206,9 +206,7 @@ func (c *inMemoryClient) RegisterLeaseExpiredObserver(prefix string, fn func(key
 }
 
 // RegisterLockLeaseExpiredObserver implements BackendOperations.
-func (c *inMemoryClient) RegisterLockLeaseExpiredObserver(prefix string, fn func(key string)) {
-	panic("unimplemented")
-}
+func (c *inMemoryClient) RegisterLockLeaseExpiredObserver(prefix string, fn func(key string)) {}
 
 // Status implements BackendOperations.
 func (c *inMemoryClient) Status() *models.Status {
