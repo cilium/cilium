@@ -57,7 +57,7 @@ type PortProtocol struct {
 	// Named port specified for a container may narrow this down, but may not
 	// contradict this.
 	//
-	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;ANY
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;VRRP;IGMP;ANY
 	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }

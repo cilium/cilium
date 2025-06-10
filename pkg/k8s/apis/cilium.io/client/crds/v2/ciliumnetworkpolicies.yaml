@@ -707,6 +707,8 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
                               required:
@@ -1672,6 +1674,8 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
                               required:
@@ -2557,6 +2561,8 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
                               required:
@@ -3434,6 +3440,8 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
                               required:
@@ -4194,6 +4202,8 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
                                 required:
@@ -5160,6 +5170,8 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
                                 required:
@@ -6046,6 +6058,8 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
                                 required:
@@ -6924,6 +6938,8 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
                                 required:
