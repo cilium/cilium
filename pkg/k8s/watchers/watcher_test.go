@@ -41,8 +41,6 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
-		nil,
 		&synced.Resources{CacheStatus: make(synced.CacheStatus)},
 		nil,
 		&fakeK8sWatcherConfiguration{},

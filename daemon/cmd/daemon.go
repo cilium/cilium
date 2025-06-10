@@ -378,8 +378,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 
-	d.k8sWatcher.RunK8sServiceHandler()
-
 	if option.Config.DNSPolicyUnloadOnShutdown {
 		d.logger.Debug(
 			"Registering cleanup function to unload DNS policies due to option",
