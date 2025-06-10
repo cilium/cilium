@@ -73,8 +73,7 @@ func TestScript(t *testing.T) {
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdOut) {
-				kvstore.SetupInMemory(db)
-				client := kvstore.SetupDummy(t, "in-memory")
+				client := kvstore.NewInMemoryClient(db, "__local__")
 				return client, uhive.NewScriptCmd("kvstore/list", kvstoreListCommand(client))
 			}),
 

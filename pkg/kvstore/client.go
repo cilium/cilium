@@ -79,12 +79,6 @@ func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string,
 	errChan := make(chan error, 1)
 	defer close(errChan)
 
-	// If in-memory backend is registered (i.e. we're testing), use it regardless of the
-	// requested backend.
-	if _, found := registeredBackends[InMemoryModuleName]; found {
-		selectedBackend = InMemoryModuleName
-	}
-
 	module := getBackend(selectedBackend)
 	if module == nil {
 		errChan <- fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
