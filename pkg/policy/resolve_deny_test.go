@@ -299,6 +299,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 func TestL3WithLocalHostWildcardd(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	td.addIdentitySelector(hostSelector)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
