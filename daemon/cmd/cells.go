@@ -366,9 +366,6 @@ var pprofConfig = pprof.Config{
 // which the Cilium agent watches to implement CNI functionality.
 func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		resources.K8sAPIGroupServiceV1Core,
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
 		resources.K8sAPIGroupPodV1Core,
