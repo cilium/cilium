@@ -5,14 +5,19 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 
+	"github.com/cilium/ebpf"
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging"
 )
 
@@ -43,12 +48,12 @@ var bpfMaglevListCmd = &cobra.Command{
 // dumpMaglevTables returns the contents of the Maglev v4 and v6 maps
 // in a format the table printer expects.
 func dumpMaglevTables() (map[string][]string, error) {
-	out, err := dumpMaglevTable(lbmap.MaglevOuter4MapName, false)
+	out, err := dumpMaglevTable(lbmaps.MaglevOuter4MapName, false)
 	if err != nil {
 		return nil, err
 	}
 
-	v6, err := dumpMaglevTable(lbmap.MaglevOuter6MapName, true)
+	v6, err := dumpMaglevTable(lbmaps.MaglevOuter6MapName, true)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +64,16 @@ func dumpMaglevTables() (map[string][]string, error) {
 	return out, nil
 }
 
+func openMaglevOuterMap(logger *slog.Logger, name string) (*ebpf.Map, error) {
+	path := bpf.MapPath(logger, name)
+	return ebpf.LoadPinnedMap(path, nil)
+}
+
 // dumpMaglevTable opens the pinned Maglev map with the given name and
 // dumps the backend tables of all services. Returns an empty initialized
 // map if the given eBPF map does not exist.
 func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
-	m, err := lbmap.OpenMaglevOuterMap(logging.DefaultSlogLogger, name)
+	m, err := openMaglevOuterMap(logging.DefaultSlogLogger, name)
 	if errors.Is(err, os.ErrNotExist) {
 		// Map not existing is not an error.
 		// Skip dumping it and return an empty allocated map.
@@ -73,7 +83,43 @@ func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
 		return nil, err
 	}
 
-	return m.DumpBackends(ipv6)
+	return dumpMaglevBackends(m, ipv6)
+}
+
+// dumpBackends iterates through all of the Maglev map's entries,
+// opening each entry's inner map, and dumps their contents in a format
+// expected by Cilium's table printer.
+func dumpMaglevBackends(m *ebpf.Map, ipv6 bool) (map[string][]string, error) {
+	var (
+		out = make(map[string][]string)
+		key lbmaps.MaglevOuterKey
+		val lbmaps.MaglevOuterVal
+	)
+	which := "v4"
+	if ipv6 {
+		which = "v6"
+	}
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		inner, err := lbmaps.MaglevInnerMapFromID(logging.DefaultSlogLogger, val.FD)
+		if err != nil {
+			return nil, fmt.Errorf("cannot open inner map with id %d: %w", val.FD, err)
+		}
+		defer inner.Close()
+
+		backends, err := inner.DumpBackends()
+		if err != nil {
+			return nil, fmt.Errorf("dumping inner map id %d: %w", val.FD, err)
+		}
+
+		// The service ID is read from the map in network byte order,
+		// convert to host byte order before displaying to the user.
+		key.RevNatID = byteorder.NetworkToHost16(key.RevNatID)
+
+		out[fmt.Sprintf("[%d]/%s", key.RevNatID, which)] = []string{backends}
+	}
+
+	return out, nil
 }
 
 func init() {
