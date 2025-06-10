@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -15,79 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/lock"
 )
 
-type inMemoryModule struct {
-	db *statedb.DB
-
-	mu lock.Mutex
-
-	// clients key'd by cluster name
-	clients map[string]*inMemoryClient
-
-	dummy bool
-}
-
-const InMemoryModuleName = "in-memory"
-
-func SetupInMemory(db *statedb.DB) {
-	registeredBackends[InMemoryModuleName] = &inMemoryModule{
-		db:      db,
-		clients: map[string]*inMemoryClient{},
-	}
-}
-
-// createInstance implements backendModule.
-func (i *inMemoryModule) createInstance() backendModule {
-	return i
-}
-
-// getConfig implements backendModule.
-func (i *inMemoryModule) getConfig() map[string]string {
-	return nil
-}
-
-// getName implements backendModule.
-func (i *inMemoryModule) getName() string {
-	return InMemoryModuleName
-}
-
-// newClient implements backendModule.
-func (im *inMemoryModule) newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error) {
-	clusterName := ""
-	if im.dummy {
-		// If setConfigDummy() was called all clients share the same table.
-		clusterName = "dummy"
-	} else {
-		clusterName = opts.ClusterName
-	}
-	errChan := make(chan error)
-	close(errChan)
-
-	im.mu.Lock()
-	defer im.mu.Unlock()
-	if c, found := im.clients[clusterName]; found {
-		return c, errChan
-	}
-	c := newInMemoryClient(im.db, clusterName)
-	im.clients[clusterName] = c
-	return c, errChan
-}
-
-// setConfig implements backendModule.
-func (i *inMemoryModule) setConfig(logger *slog.Logger, opts map[string]string) error {
-	return nil
-}
-
-// setConfigDummy implements backendModule.
-func (im *inMemoryModule) setConfigDummy() {
-	im.dummy = true
-}
-
-var _ backendModule = &inMemoryModule{}
-
-func newInMemoryClient(db *statedb.DB, clusterName string) *inMemoryClient {
+func NewInMemoryClient(db *statedb.DB, clusterName string) Client {
 	table, err := statedb.NewTable(
 		"kvstore-"+clusterName,
 		inMemoryKeyIndex,
@@ -127,6 +56,8 @@ type inMemoryClient struct {
 	table       statedb.RWTable[inMemoryObject]
 	clusterName string
 }
+
+func (c *inMemoryClient) IsEnabled() bool { return true }
 
 // Close implements BackendOperations.
 func (c *inMemoryClient) Close() {
