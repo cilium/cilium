@@ -18,7 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/act"
@@ -105,6 +105,7 @@ type ACT struct {
 	log     *slog.Logger
 	src     act.ActiveConnectionTrackingMap
 	metrics ActiveConnectionTrackingMetrics
+	lbmaps  lbmaps.LBMaps
 
 	// keyToStrings converts (svc, zone) pair to their string versions
 	keyToStrings func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error)
@@ -129,6 +130,7 @@ func NewACT(in struct {
 	Jobs      job.Group
 	Source    act.ActiveConnectionTrackingMap
 	Metrics   ActiveConnectionTrackingMetrics
+	LBMaps    lbmaps.LBMaps
 	DB        *statedb.DB
 	Frontends statedb.Table[*loadbalancer.Frontend]
 }) *ACT {
@@ -363,26 +365,26 @@ func (a *ACT) cleanup(ctx context.Context) error {
 // CountFailed4 increments a counter of new failed connections
 // for a given (svc, backend) pair.
 func (a *ACT) CountFailed4(svc uint16, backend uint32) {
-	key := lbmap.NewBackend4KeyV3(loadbalancer.BackendID(backend))
+	key := lbmaps.NewBackend4KeyV3(loadbalancer.BackendID(backend))
 	a.countFailed(svc, key)
 }
 
 // CountFailed6 increments a counter of new failed connections
 // for a given (svc, backend) pair.
 func (a *ACT) CountFailed6(svc uint16, backend uint32) {
-	key := lbmap.NewBackend6KeyV3(loadbalancer.BackendID(backend))
+	key := lbmaps.NewBackend6KeyV3(loadbalancer.BackendID(backend))
 	a.countFailed(svc, key)
 }
 
 // countFailed looks up zone information in the backend map and then increments
 // a counter of new failed connection for a constructed (svc, zone) pair.
-func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
+func (a *ACT) countFailed(svc uint16, key lbmaps.BackendKey) {
 	scopedLog := a.log.With(
 		logfields.ServiceID, byteorder.NetworkToHost16(svc),
 		logfields.BackendID, key.GetID(),
 	)
 
-	val, err := lbmap.BackendMap(key).Lookup(key)
+	val, err := a.lbmaps.LookupBackend(key)
 	if err != nil {
 		msg := "lookup of purged entry failed"
 		errMetric := a.metrics.Errors.WithLabelValues(msg)
@@ -398,7 +400,7 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 		)
 		return
 	}
-	zone := val.(lbmap.BackendValue).GetZone()
+	zone := val.(lbmaps.BackendValue).GetZone()
 	if zone == 0 {
 		scopedLog.Debug("Ignoring backend without zone")
 		return
