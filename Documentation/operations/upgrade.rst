@@ -406,12 +406,13 @@ Agent Options
 * ``k8s-api-server-urls``: This option specifies a list of URLs for Kubernetes API server instances to support high availability
   for the servers. The agent will fail over to an active instance in case of connectivity failures at runtime.
 * The ``kvstore-connectivity-timeout`` flag is renamed to ``identity-allocation-timeout`` to better reflect its purpose.
+* The ``kvstore-periodic-sync`` flag is renamed to ``identity-allocation-sync-interval`` to better reflect its purpose.
 
 Cluster Mesh API Server Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* The previously unused ``kvstore-connectivity-timeout`` flag has been removed from
-  the apiserver and kvstoremesh commands.
+* The previously unused ``kvstore-connectivity-timeout`` and ``kvstore-periodic-sync``
+  flags have been removed from the apiserver and kvstoremesh commands.
 
 Bugtool Options
 ~~~~~~~~~~~~~~~

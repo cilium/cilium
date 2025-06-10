@@ -100,11 +100,15 @@ type CachingIdentityAllocator struct {
 
 	// timeout for identity allocation operations.
 	timeout time.Duration
+
+	// syncInterval is the periodic synchronization interval of the allocated identities.
+	syncInterval time.Duration
 }
 
 type AllocatorConfig struct {
 	EnableOperatorManageCIDs bool
 	Timeout                  time.Duration
+	SyncInterval             time.Duration
 	maxAllocAttempts         int
 }
 
@@ -113,6 +117,7 @@ func NewTestAllocatorConfig() AllocatorConfig {
 	return AllocatorConfig{
 		EnableOperatorManageCIDs: false,
 		Timeout:                  5 * time.Second,
+		SyncInterval:             1 * time.Hour,
 	}
 }
 
@@ -297,7 +302,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithEvents(events),
+			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
@@ -378,6 +383,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 		operatorIDManagement:               config.EnableOperatorManageCIDs,
 		maxAllocAttempts:                   config.maxAllocAttempts,
 		timeout:                            config.Timeout,
+		syncInterval:                       config.SyncInterval,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)

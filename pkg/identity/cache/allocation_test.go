@@ -54,6 +54,7 @@ func testAllocatorConfig(enableOperatorManageCIDs bool, maxAttempts int) Allocat
 	return AllocatorConfig{
 		EnableOperatorManageCIDs: enableOperatorManageCIDs,
 		Timeout:                  5 * time.Second,
+		SyncInterval:             1 * time.Hour,
 		maxAllocAttempts:         maxAttempts,
 	}
 }
