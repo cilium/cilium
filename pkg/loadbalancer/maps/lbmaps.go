@@ -71,6 +71,7 @@ type backendMaps interface {
 	UpdateBackend(BackendKey, BackendValue) error
 	DeleteBackend(BackendKey) error
 	DumpBackend(cb func(BackendKey, BackendValue)) error
+	LookupBackend(BackendKey) (BackendValue, error)
 }
 
 type revNatMaps interface {
@@ -495,6 +496,22 @@ func (r *BPFLBMaps) DeleteBackend(key BackendKey) error {
 		return nil
 	}
 	return err
+}
+
+func (r *BPFLBMaps) LookupBackend(key BackendKey) (val BackendValue, err error) {
+	var v bpf.MapValue
+	switch key.(type) {
+	case *Backend4KeyV3:
+		v, err = r.backend4Map.Lookup(key)
+	case *Backend6KeyV3:
+		v, err = r.backend6Map.Lookup(key)
+	default:
+		panic("unknown BackendKey")
+	}
+	if err == nil {
+		val = v.(BackendValue)
+	}
+	return
 }
 
 // DeleteService implements lbmaps.
@@ -954,6 +971,11 @@ func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16)
 	return f.impl.ExistsSockRevNat(cookie, addr, port)
 }
 
+// LookupBackend implements LBMaps.
+func (f *FaultyLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
+	return f.impl.LookupBackend(key)
+}
+
 func (f *FaultyLBMaps) isFaulty() bool {
 	// Float32() returns value between [0.0, 1.0).
 	// We fail if the value is less than our probability [0.0, 1.0].
@@ -984,6 +1006,14 @@ func (fm *fakeBPFMap) update(key bpf.MapKey, value any) error {
 func (fm *fakeBPFMap) exists(key bpf.MapKey) bool {
 	_, exists := fm.Map.Load(bpfKey(key))
 	return exists
+}
+
+func (fm *fakeBPFMap) lookup(key bpf.MapKey) (any, error) {
+	v, exists := fm.Map.Load(bpfKey(key))
+	if !exists {
+		return nil, ebpf.ErrKeyNotExist
+	}
+	return v.b, nil
 }
 
 func (fm *fakeBPFMap) IsEmpty() bool {
@@ -1209,6 +1239,15 @@ func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) b
 		key = key6
 	}
 	return f.sockRevNat.exists(key)
+}
+
+// LookupBackend implements LBMaps.
+func (f *FakeLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
+	v, err := f.be.lookup(key)
+	if err != nil {
+		return nil, err
+	}
+	return v.(BackendValue), nil
 }
 
 // IsEmpty implements lbmaps.
