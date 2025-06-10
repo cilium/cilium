@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -131,10 +131,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
 			recorder.MapNameWcard6,
-			lbmap.MaglevOuter6MapName,
-			lbmap.Affinity6MapName,
-			lbmap.SourceRange6MapName,
-			lbmap.HealthProbe6MapName,
+			lbmaps.MaglevOuter6MapName,
+			lbmaps.Affinity6MapName,
+			lbmaps.SourceRange6MapName,
+			lbmaps.HealthProbe6MapName,
 			ipmasq.MapNameIPv6,
 			cidrmap.MapName + "v6_dyn",
 			cidrmap.MapName + "v6_fix",
@@ -154,10 +154,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
 			recorder.MapNameWcard4,
-			lbmap.MaglevOuter4MapName,
-			lbmap.Affinity4MapName,
-			lbmap.SourceRange4MapName,
-			lbmap.HealthProbe4MapName,
+			lbmaps.MaglevOuter4MapName,
+			lbmaps.Affinity4MapName,
+			lbmaps.SourceRange4MapName,
+			lbmaps.HealthProbe4MapName,
 			ipmasq.MapNameIPv4,
 			cidrmap.MapName + "v4_dyn",
 			cidrmap.MapName + "v4_fix",
@@ -186,20 +186,20 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !option.Config.EnableHealthDatapath {
-		maps = append(maps, lbmap.HealthProbe6MapName, lbmap.HealthProbe4MapName)
+		maps = append(maps, lbmaps.HealthProbe6MapName, lbmaps.HealthProbe4MapName)
 	}
 
 	if ms.lbConfig.LBAlgorithm != loadbalancer.LBAlgorithmMaglev &&
 		!ms.lbConfig.AlgorithmAnnotation {
-		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
+		maps = append(maps, lbmaps.MaglevOuter6MapName, lbmaps.MaglevOuter4MapName)
 	}
 
 	if !option.Config.EnableSessionAffinity {
-		maps = append(maps, lbmap.Affinity6MapName, lbmap.Affinity4MapName, lbmap.AffinityMatchMapName)
+		maps = append(maps, lbmaps.Affinity6MapName, lbmaps.Affinity4MapName, lbmaps.AffinityMatchMapName)
 	}
 
 	if !option.Config.EnableSVCSourceRangeCheck {
-		maps = append(maps, lbmap.SourceRange6MapName, lbmap.SourceRange4MapName)
+		maps = append(maps, lbmaps.SourceRange6MapName, lbmaps.SourceRange4MapName)
 	}
 
 	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv4Masquerade) {
