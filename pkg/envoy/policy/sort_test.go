@@ -181,18 +181,16 @@ var PortNetworkPolicyRule7 = &cilium.PortNetworkPolicyRule{
 // TODO: Test sorting Kafka rules.
 
 func TestSortPortNetworkPolicyRules(t *testing.T) {
-	var slice, expected []*cilium.PortNetworkPolicyRule
-
-	slice = []*cilium.PortNetworkPolicyRule{
-		PortNetworkPolicyRule7,
-		PortNetworkPolicyRule6,
-		PortNetworkPolicyRule5,
-		PortNetworkPolicyRule4,
-		PortNetworkPolicyRule3,
-		PortNetworkPolicyRule2,
-		PortNetworkPolicyRule1,
+	rulesMap := map[string]*cilium.PortNetworkPolicyRule{
+		"7": PortNetworkPolicyRule7,
+		"6": PortNetworkPolicyRule6,
+		"5": PortNetworkPolicyRule5,
+		"4": PortNetworkPolicyRule4,
+		"3": PortNetworkPolicyRule3,
+		"2": PortNetworkPolicyRule2,
+		"1": PortNetworkPolicyRule1,
 	}
-	expected = []*cilium.PortNetworkPolicyRule{
+	expected := []*cilium.PortNetworkPolicyRule{
 		PortNetworkPolicyRule1,
 		PortNetworkPolicyRule2,
 		PortNetworkPolicyRule3,
@@ -201,8 +199,9 @@ func TestSortPortNetworkPolicyRules(t *testing.T) {
 		PortNetworkPolicyRule6,
 		PortNetworkPolicyRule7,
 	}
-	SortPortNetworkPolicyRules(slice)
-	require.Equal(t, expected, slice)
+	result := SortPortNetworkPolicyRulesMap(rulesMap)
+	require.Equal(t, expected, result)
+	require.Nil(t, SortPortNetworkPolicyRulesMap(nil))
 }
 
 var PortNetworkPolicy1 = &cilium.PortNetworkPolicy{

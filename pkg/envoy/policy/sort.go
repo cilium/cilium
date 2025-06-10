@@ -57,82 +57,21 @@ func SortPortNetworkPolicies(policies []*cilium.PortNetworkPolicy) []*cilium.Por
 	return policies
 }
 
-// PortNetworkPolicyRuleSlice implements sort.Interface to sort a slice of
-// *cilium.PortNetworkPolicyRuleSlice.
-type PortNetworkPolicyRuleSlice []*cilium.PortNetworkPolicyRule
-
-// PortNetworkPolicyRuleLess reports whether the r1 rule should sort before
-// the r2 rule.
-// L3-L4-only rules are less than L7 rules.
-func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
-	// TODO: Support Kafka.
-
-	http1, http2 := r1.GetHttpRules(), r2.GetHttpRules()
-	switch {
-	case http1 == nil && http2 != nil:
-		return true
-	case http1 != nil && http2 == nil:
-		return false
+// SortPortNetworkPolicyRulesMap sorts the given map based on the keys
+// and returns the sorted slice of rules.
+func SortPortNetworkPolicyRulesMap(rulesMap map[string]*cilium.PortNetworkPolicyRule) []*cilium.PortNetworkPolicyRule {
+	if rulesMap == nil {
+		return nil
 	}
-
-	if http1 != nil && http2 != nil {
-		httpRules1, httpRules2 := http1.HttpRules, http2.HttpRules
-		switch {
-		case len(httpRules1) < len(httpRules2):
-			return true
-		case len(httpRules1) > len(httpRules2):
-			return false
-		}
-		// Assuming that the slices are sorted.
-		for idx := range httpRules1 {
-			httpRule1, httpRule2 := httpRules1[idx], httpRules2[idx]
-			switch {
-			case HTTPNetworkPolicyRuleLess(httpRule1, httpRule2):
-				return true
-			case HTTPNetworkPolicyRuleLess(httpRule2, httpRule1):
-				return false
-			}
-		}
+	rulesKeys := make([]string, 0, len(rulesMap))
+	for key := range rulesMap {
+		rulesKeys = append(rulesKeys, key)
 	}
-
-	remotePolicies1, remotePolicies2 := r1.RemotePolicies, r2.RemotePolicies
-	switch {
-	case len(remotePolicies1) < len(remotePolicies2):
-		return true
-	case len(remotePolicies1) > len(remotePolicies2):
-		return false
+	sort.Strings(rulesKeys)
+	rules := make([]*cilium.PortNetworkPolicyRule, 0, len(rulesMap))
+	for _, key := range rulesKeys {
+		rules = append(rules, rulesMap[key])
 	}
-	// Assuming that the slices are sorted.
-	for idx := range remotePolicies1 {
-		p1, p2 := remotePolicies1[idx], remotePolicies2[idx]
-		switch {
-		case p1 < p2:
-			return true
-		case p1 > p2:
-			return false
-		}
-	}
-
-	// Elements are equal.
-	return false
-}
-
-func (s PortNetworkPolicyRuleSlice) Len() int {
-	return len(s)
-}
-
-func (s PortNetworkPolicyRuleSlice) Less(i, j int) bool {
-	return PortNetworkPolicyRuleLess(s[i], s[j])
-}
-
-func (s PortNetworkPolicyRuleSlice) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-// SortPortNetworkPolicyRules sorts the given slice in place
-// and returns the sorted slice for convenience.
-func SortPortNetworkPolicyRules(rules []*cilium.PortNetworkPolicyRule) []*cilium.PortNetworkPolicyRule {
-	sort.Sort(PortNetworkPolicyRuleSlice(rules))
 	return rules
 }
 
