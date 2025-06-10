@@ -6,7 +6,6 @@ package alignchecker
 import (
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
-	legacy_lbmap "github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -125,8 +124,8 @@ func init() {
 		"vtep_value":              {vtep.VtepEndpointInfo{}},
 		"auth_key":                {authmap.AuthKey{}},
 		"auth_info":               {authmap.AuthInfo{}},
-		"skip_lb4_key":            {legacy_lbmap.SkipLB4Key{}},
-		"skip_lb6_key":            {legacy_lbmap.SkipLB6Key{}},
+		"skip_lb4_key":            {lbmap.SkipLB4Key{}},
+		"skip_lb6_key":            {lbmap.SkipLB6Key{}},
 		"ratelimit_key":           {ratelimitmap.Key{}},
 		"ratelimit_value":         {ratelimitmap.Value{}},
 		"ratelimit_metrics_key":   {ratelimitmap.MetricsKey{}},
