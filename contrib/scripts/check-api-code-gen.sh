@@ -60,7 +60,7 @@ if [ -n "$diff" ] || [ -n "$diff_staged" ]; then
 	echo "Ungenerated api source code:"
 	echo "$diff"
 	echo "$diff_staged"
-	echo "Please run 'make generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api' and submit your changes"
+	echo "Please run 'make generate-apis' and submit your changes"
 	exit 1
 fi
 
