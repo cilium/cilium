@@ -135,6 +135,7 @@ type BPFLBMaps struct {
 	backend4Map, backend6Map         *bpf.Map
 	revNat4Map, revNat6Map           *bpf.Map
 	affinityMatchMap                 *bpf.Map
+	affinity4Map, affinity6Map       *bpf.Map
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
@@ -226,6 +227,28 @@ func newAffinityMatchMap(maxEntries int) *bpf.Map {
 	)
 }
 
+func newAffinity4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		Affinity4MapName,
+		ebpf.LRUHash,
+		&Affinity4Key{},
+		&AffinityValue{},
+		maxEntries,
+		0,
+	)
+}
+
+func newAffinity6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		Affinity6MapName,
+		ebpf.LRUHash,
+		&Affinity6Key{},
+		&AffinityValue{},
+		maxEntries,
+		0,
+	)
+}
+
 func newSourceRange4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SourceRange4MapName,
@@ -302,6 +325,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.sourceRange4Map, newSourceRange4Map, r.Cfg.LBSourceRangeMapEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, newSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
 		{&r.service6Map, newService6Map, r.Cfg.LBServiceMapEntries},
@@ -310,6 +334,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.sourceRange6Map, newSourceRange6Map, r.Cfg.LBSourceRangeMapEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat6Map, newSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	mapsToCreate := []mapDesc{
 		{&r.affinityMatchMap, newAffinityMatchMap, r.Cfg.LBAffinityMapEntries},
