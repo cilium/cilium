@@ -365,7 +365,8 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }}"
+          always_capture_sysdump: true
+          artifacts_suffix: "final"
           job_status: "${{ job.status }}"
 
       - name: Cleanup cluster

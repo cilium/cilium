@@ -17,6 +17,9 @@ inputs:
     description: "Capture sysdump in case of a test failure."
     type: boolean
     default: true
+  always_capture_sysdump:
+    description: "Always capture sysdump, regardless of test status; the result is uploaded as artifact only in case of test failure"
+    type: boolean
   junits-directory:
     description: "Directory where JUnit XML files are stored."
     type: string
@@ -33,7 +36,7 @@ runs:
         json-filename: "features-tested-${{ inputs.artifacts_suffix }}"
 
     - name: Post-test information gathering
-      if: ${{ always() && inputs.job_status == 'failure' && inputs.capture_sysdump }}
+      if: ${{ always() && ( ( inputs.job_status == 'failure' && inputs.capture_sysdump ) || inputs.always_capture_sysdump ) }}
       shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
       run: |
         echo "=== Retrieve cluster state ==="
