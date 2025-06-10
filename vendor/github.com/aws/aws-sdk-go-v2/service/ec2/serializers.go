@@ -57399,6 +57399,19 @@ func awsEc2query_serializeDocumentSubnetConfigurationsList(v []types.SubnetConfi
 	return nil
 }
 
+func awsEc2query_serializeDocumentSubnetIdList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("AssociatedSubnetId")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentSubnetIdStringList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -76777,6 +76790,13 @@ func awsEc2query_serializeOpDocumentModifyManagedPrefixListInput(v *ModifyManage
 func awsEc2query_serializeOpDocumentModifyNetworkInterfaceAttributeInput(v *ModifyNetworkInterfaceAttributeInput, value query.Value) error {
 	object := value.Object()
 	_ = object
+
+	if v.AssociatedSubnetIds != nil {
+		objectKey := object.FlatKey("AssociatedSubnetId")
+		if err := awsEc2query_serializeDocumentSubnetIdList(v.AssociatedSubnetIds, objectKey); err != nil {
+			return err
+		}
+	}
 
 	if v.AssociatePublicIpAddress != nil {
 		objectKey := object.Key("AssociatePublicIpAddress")

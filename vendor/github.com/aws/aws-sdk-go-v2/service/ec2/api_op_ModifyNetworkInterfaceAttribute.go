@@ -42,6 +42,9 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// primary network interface (eth0).
 	AssociatePublicIpAddress *bool
 
+	// A list of subnet IDs to associate with the network interface.
+	AssociatedSubnetIds []string
+
 	// Information about the interface attachment. If modifying the delete on
 	// termination attribute, you must specify the ID of the interface attachment.
 	Attachment *types.NetworkInterfaceAttachmentChanges

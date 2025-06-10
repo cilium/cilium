@@ -363,6 +363,9 @@ type Address struct {
 	// The only option supported today is alb .
 	ServiceManaged ServiceManaged
 
+	// The ID of the subnet where the IP address is allocated.
+	SubnetId *string
+
 	// Any tags assigned to the Elastic IP address.
 	Tags []Tag
 
@@ -8055,7 +8058,7 @@ type InstanceNetworkInterface struct {
 
 	// The type of network interface.
 	//
-	// Valid values: interface | efa | efa-only | trunk
+	// Valid values: interface | efa | efa-only | evs | trunk
 	InterfaceType *string
 
 	// The IPv4 delegated prefixes that are assigned to the network interface.
@@ -13731,6 +13734,9 @@ type NetworkInsightsPath struct {
 
 // Describes a network interface.
 type NetworkInterface struct {
+
+	// The subnets associated with this network interface.
+	AssociatedSubnets []string
 
 	// The association information for an Elastic IP address (IPv4) associated with
 	// the network interface.
@@ -19429,6 +19435,12 @@ type Subnet struct {
 	PrivateDnsNameOptionsOnLaunch *PrivateDnsNameOptionsOnLaunch
 
 	// The current state of the subnet.
+	//
+	//   - failed : The underlying infrastructure to support the subnet failed to
+	//   provision as expected.
+	//
+	//   - failed-insufficient-capacity : The underlying infrastructure to support the
+	//   subnet failed to provision due to a shortage of EC2 instance capacity.
 	State SubnetState
 
 	// The Amazon Resource Name (ARN) of the subnet.
@@ -19439,6 +19451,13 @@ type Subnet struct {
 
 	// Any tags assigned to the subnet.
 	Tags []Tag
+
+	// Indicates if this is a subnet used with Amazon Elastic VMware Service (EVS).
+	// Possible values are Elastic VMware Service or no value. For more information
+	// about Amazon EVS, see [Amazon Elastic VMware Service API Reference].
+	//
+	// [Amazon Elastic VMware Service API Reference]: https://docs.aws.amazon.com/evs/latest/APIReference/Welcome.html
+	Type *string
 
 	// The ID of the VPC the subnet is in.
 	VpcId *string
