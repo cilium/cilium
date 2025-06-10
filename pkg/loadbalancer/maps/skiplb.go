@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package lbmap
+package maps
 
 import (
 	"errors"
@@ -15,34 +15,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-)
-
-const (
-	// SkipLB4MapName is the name of the IPv4 BPF map that stores entries to skip LB.
-	SkipLB4MapName = maps.SkipLB4MapName
-
-	// SkipLB6MapName is the name of the IPv6 BPF map that stores entries to skip LB.
-	SkipLB6MapName = maps.SkipLB6MapName
-
-	// SkipLBMapMaxEntries is the maximum number of entries in the skip LB BPF maps.
-	SkipLBMapMaxEntries = 100
-)
-
-type (
-	SkipLB4Key = maps.SkipLB4Key
-	SkipLB6Key = maps.SkipLB6Key
-
-	SkipLB4Value = maps.SkipLB4Value
-	SkipLB6Value = maps.SkipLB6Value
-)
-
-var (
-	NewSkipLB4Key = maps.NewSkipLB4Key
-	NewSkipLB6Key = maps.NewSkipLB6Key
 )
 
 // SkipLBMap provides access to the eBPF map that stores entries for which load-balancing is skipped.

@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -135,39 +135,39 @@ func (f *fakeSkipLBMap) Close() error {
 
 // AddLB4 implements lbmap.SkipLBMap.
 func (f *fakeSkipLBMap) AddLB4(netnsCookie uint64, ip net.IP, port uint16) error {
-	key := lbmap.SkipLB4Key{
+	key := lbmaps.SkipLB4Key{
 		NetnsCookie: netnsCookie,
 		Address:     ([4]byte)(ip),
 		Port:        port,
 	}
 	f.entries.Store(
 		key,
-		&lbmap.SkipLB4Value{},
+		&lbmaps.SkipLB4Value{},
 	)
 	return nil
 }
 
 // AddLB6 implements lbmap.SkipLBMap.
 func (f *fakeSkipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error {
-	key := lbmap.SkipLB6Key{
+	key := lbmaps.SkipLB6Key{
 		NetnsCookie: netnsCookie,
 		Address:     ([16]byte)(ip),
 		Port:        port,
 	}
 	f.entries.Store(
 		key,
-		&lbmap.SkipLB6Value{},
+		&lbmaps.SkipLB6Value{},
 	)
 	return nil
 }
 
 // AllLB4 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AllLB4() iter.Seq2[*lbmap.SkipLB4Key, *lbmap.SkipLB4Value] {
-	return func(yield func(*lbmap.SkipLB4Key, *lbmap.SkipLB4Value) bool) {
+func (f *fakeSkipLBMap) AllLB4() iter.Seq2[*lbmaps.SkipLB4Key, *lbmaps.SkipLB4Value] {
+	return func(yield func(*lbmaps.SkipLB4Key, *lbmaps.SkipLB4Value) bool) {
 		f.entries.Range(func(key any, value any) bool {
 			switch key := key.(type) {
-			case lbmap.SkipLB4Key:
-				if !yield(&key, value.(*lbmap.SkipLB4Value)) {
+			case lbmaps.SkipLB4Key:
+				if !yield(&key, value.(*lbmaps.SkipLB4Value)) {
 					return false
 				}
 			}
@@ -177,12 +177,12 @@ func (f *fakeSkipLBMap) AllLB4() iter.Seq2[*lbmap.SkipLB4Key, *lbmap.SkipLB4Valu
 }
 
 // AllLB6 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AllLB6() iter.Seq2[*lbmap.SkipLB6Key, *lbmap.SkipLB6Value] {
-	return func(yield func(*lbmap.SkipLB6Key, *lbmap.SkipLB6Value) bool) {
+func (f *fakeSkipLBMap) AllLB6() iter.Seq2[*lbmaps.SkipLB6Key, *lbmaps.SkipLB6Value] {
+	return func(yield func(*lbmaps.SkipLB6Key, *lbmaps.SkipLB6Value) bool) {
 		f.entries.Range(func(key any, value any) bool {
 			switch key := key.(type) {
-			case lbmap.SkipLB6Key:
-				if !yield(&key, value.(*lbmap.SkipLB6Value)) {
+			case lbmaps.SkipLB6Key:
+				if !yield(&key, value.(*lbmaps.SkipLB6Value)) {
 					return false
 				}
 			}
@@ -192,7 +192,7 @@ func (f *fakeSkipLBMap) AllLB6() iter.Seq2[*lbmap.SkipLB6Key, *lbmap.SkipLB6Valu
 }
 
 // DeleteLB4 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB4(key *lbmap.SkipLB4Key) error {
+func (f *fakeSkipLBMap) DeleteLB4(key *lbmaps.SkipLB4Key) error {
 	f.entries.Delete(*key)
 	return nil
 }
@@ -208,7 +208,7 @@ func (f *fakeSkipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
 }
 
 // DeleteLB6 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB6(key *lbmap.SkipLB6Key) error {
+func (f *fakeSkipLBMap) DeleteLB6(key *lbmaps.SkipLB6Key) error {
 	f.entries.Delete(*key)
 	return nil
 }
@@ -223,4 +223,4 @@ func (f *fakeSkipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
 	panic("unimplemented")
 }
 
-var _ lbmap.SkipLBMap = &fakeSkipLBMap{}
+var _ lbmaps.SkipLBMap = &fakeSkipLBMap{}
