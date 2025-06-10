@@ -208,45 +208,34 @@ func TestSortPortNetworkPolicyRules(t *testing.T) {
 var PortNetworkPolicy1 = &cilium.PortNetworkPolicy{
 	Protocol: envoy_config_core.SocketAddress_TCP,
 	Port:     10001,
-	Rules:    nil,
 }
 
 var PortNetworkPolicy2 = &cilium.PortNetworkPolicy{
 	Protocol: envoy_config_core.SocketAddress_UDP,
 	Port:     10001,
-	Rules:    nil,
 }
 
 var PortNetworkPolicy3 = &cilium.PortNetworkPolicy{
 	Protocol: envoy_config_core.SocketAddress_UDP,
 	Port:     10002,
-	Rules:    nil,
 }
 
 var PortNetworkPolicy4 = &cilium.PortNetworkPolicy{
 	Protocol: envoy_config_core.SocketAddress_UDP,
 	Port:     10002,
-	Rules: []*cilium.PortNetworkPolicyRule{
-		PortNetworkPolicyRule1,
-	},
+	EndPort:  10003,
 }
 
 var PortNetworkPolicy5 = &cilium.PortNetworkPolicy{
 	Protocol: envoy_config_core.SocketAddress_UDP,
 	Port:     10002,
-	Rules: []*cilium.PortNetworkPolicyRule{
-		PortNetworkPolicyRule1,
-		PortNetworkPolicyRule2,
-	},
+	EndPort:  10004,
 }
 
 var PortNetworkPolicy6 = &cilium.PortNetworkPolicy{
 	Protocol: envoy_config_core.SocketAddress_UDP,
-	Port:     10002,
-	Rules: []*cilium.PortNetworkPolicyRule{
-		PortNetworkPolicyRule1,
-		PortNetworkPolicyRule3,
-	},
+	Port:     10003,
+	EndPort:  10004,
 }
 
 func TestSortPortNetworkPolicies(t *testing.T) {

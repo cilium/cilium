@@ -35,25 +35,14 @@ func (s PortNetworkPolicySlice) Less(i, j int) bool {
 		return false
 	}
 
-	rules1, rules2 := p1.Rules, p2.Rules
 	switch {
-	case len(rules1) < len(rules2):
+	case p1.EndPort < p2.EndPort:
 		return true
-	case len(rules1) > len(rules2):
+	case p1.EndPort > p2.EndPort:
 		return false
 	}
-	// Assuming that the slices are sorted.
-	for idx := range rules1 {
-		r1, r2 := rules1[idx], rules2[idx]
-		switch {
-		case PortNetworkPolicyRuleLess(r1, r2):
-			return true
-		case PortNetworkPolicyRuleLess(r2, r1):
-			return false
-		}
-	}
-
-	// Elements are equal.
+	// We don't need to compare rules as
+	// (Port, EndPort, Protocol) is unique
 	return false
 }
 
