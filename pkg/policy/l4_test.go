@@ -22,6 +22,14 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+func perSelectorPolicyToString(psp *PerSelectorPolicy) string {
+	b, err := json.Marshal(psp)
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
 func TestRedirectType(t *testing.T) {
 	require.Equal(t, redirectTypeNone, redirectTypes(0))
 	require.Equal(t, redirectTypeDNS, redirectTypes(0x1))
