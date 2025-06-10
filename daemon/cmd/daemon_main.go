@@ -195,7 +195,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(vp, option.AnnotateK8sNode)
 
-	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
+	flags.Bool(option.EnableL2NeighDiscovery, false, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
 	option.BindEnv(vp, option.EnableL2NeighDiscovery)
 
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
