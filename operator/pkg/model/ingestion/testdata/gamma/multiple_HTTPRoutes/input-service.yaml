@@ -1,0 +1,86 @@
+- metadata:
+    creationTimestamp: null
+    name: echo
+    namespace: gateway-conformance-mesh
+  spec:
+    ports:
+    - appProtocol: http
+      name: http
+      port: 80
+      targetPort: 8080
+    - appProtocol: http
+      name: http-alt
+      port: 8080
+      targetPort: 0
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: tcp
+      port: 9090
+      targetPort: 0
+    - appProtocol: grpc
+      name: grpc
+      port: 7070
+      targetPort: 0
+    selector:
+      app: echo
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: echo-v1
+    namespace: gateway-conformance-mesh
+  spec:
+    ports:
+    - appProtocol: http
+      name: http
+      port: 80
+      targetPort: 8080
+    - appProtocol: http
+      name: http-alt
+      port: 8080
+      targetPort: 0
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: tcp
+      port: 9090
+      targetPort: 0
+    - appProtocol: grpc
+      name: grpc
+      port: 7070
+      targetPort: 0
+    selector:
+      app: echo
+      version: v1
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: echo-v2
+    namespace: gateway-conformance-mesh
+  spec:
+    ports:
+    - appProtocol: http
+      name: http
+      port: 80
+      targetPort: 8080
+    - appProtocol: http
+      name: http-alt
+      port: 8080
+      targetPort: 0
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: tcp
+      port: 9090
+      targetPort: 0
+    - appProtocol: grpc
+      name: grpc
+      port: 7070
+      targetPort: 0
+    selector:
+      app: echo
+      version: v2
+  status:
+    loadBalancer: {}
