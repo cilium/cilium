@@ -244,6 +244,7 @@ generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and ser
 	-$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
 	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
@@ -261,6 +262,7 @@ generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
 	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
@@ -278,6 +280,7 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
 	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
@@ -295,6 +298,7 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
 	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
