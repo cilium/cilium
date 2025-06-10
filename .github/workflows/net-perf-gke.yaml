@@ -299,6 +299,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
+          always_capture_sysdump: true
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
 
@@ -310,6 +311,14 @@ jobs:
           done
           gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
+
+      # We needed to configure a unique suffix to ensure that the artifacts can
+      # be correctly uploaded, but we want the sysdump to have a fixed name when
+      # uploading it to the GS bucket.
+      - name: Rename sysdump before uploading it to the GS bucket
+        if : ${{ always() }}
+        run: |
+          mv "cilium-sysdump-${{ env.job_name }} (${{ join(matrix.*, ', ') }}).zip" cilium-sysdump-final.zip
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
