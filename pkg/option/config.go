@@ -3544,16 +3544,6 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 	return nil
 }
 
-// KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_
-// running in full KPR mode.
-func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
-	return c.EnableHostPort &&
-		c.EnableNodePort &&
-		c.EnableExternalIPs &&
-		c.EnableSocketLB &&
-		c.EnableSessionAffinity
-}
-
 var backupFileNames []string = []string{
 	"agent-runtime-config.json",
 	"agent-runtime-config-1.json",
