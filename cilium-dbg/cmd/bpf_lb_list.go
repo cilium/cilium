@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -30,37 +30,37 @@ var (
 )
 
 func dumpSrcRanges(serviceList map[string][]string) {
-	if err := lbmap.SourceRange4Map.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewSourceRange4Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 source range table: %s", err)
 	}
-	if err := lbmap.SourceRange6Map.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewSourceRange6Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 source range table: %s", err)
 	}
 }
 
 func dumpRevNat(serviceList map[string][]string) {
-	if err := lbmap.RevNat4Map.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewRevNat4Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 reverse NAT table: %s", err)
 	}
-	if err := lbmap.RevNat6Map.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewRevNat6Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 reverse NAT table: %s", err)
 	}
 }
 
 func dumpFrontends(serviceList map[string][]string) {
-	if err := lbmap.Service4MapV2.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewService4Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 frontend table: %s", err)
 	}
-	if err := lbmap.Service6MapV2.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewService6Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 frontend table: %s", err)
 	}
 }
 
 func dumpBackends(serviceList map[string][]string) {
-	if err := lbmap.Backend4MapV3.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewBackend4Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 backend table: %s", err)
 	}
-	if err := lbmap.Backend6MapV3.DumpIfExists(serviceList); err != nil {
+	if err := lbmaps.NewBackend6Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 backend table: %s", err)
 	}
 }
@@ -68,24 +68,24 @@ func dumpBackends(serviceList map[string][]string) {
 func dumpSVC(serviceList map[string][]string) {
 	// It's safe to use the same map for both IPv4 and IPv6, as backend
 	// IDs are allocated from the same pool regardless the protocol
-	backendMap := make(map[loadbalancer.BackendID]lbmap.BackendValue)
+	backendMap := make(map[loadbalancer.BackendID]lbmaps.BackendValue)
 
 	parseBackendEntry := func(key bpf.MapKey, value bpf.MapValue) {
-		id := key.(lbmap.BackendKey).GetID()
-		backendMap[id] = value.(lbmap.BackendValue).ToHost()
+		id := key.(lbmaps.BackendKey).GetID()
+		backendMap[id] = value.(lbmaps.BackendValue).ToHost()
 	}
-	if err := lbmap.Backend4MapV3.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	if err := lbmaps.NewBackend4Map(0).DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
 	}
-	if err := lbmap.Backend6MapV3.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	if err := lbmaps.NewBackend6Map(0).DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv6 backends table: %s", err)
 	}
 
 	parseSVCEntry := func(key bpf.MapKey, value bpf.MapValue) {
 		var entry string
 
-		svcKey := key.(lbmap.ServiceKey)
-		svcVal := value.(lbmap.ServiceValue).ToHost()
+		svcKey := key.(lbmaps.ServiceKey)
+		svcVal := value.(lbmaps.ServiceValue).ToHost()
 		svc := svcKey.String()
 		svcKey = svcKey.ToHost()
 		backendSlot := svcKey.GetBackendSlot()
@@ -117,10 +117,10 @@ func dumpSVC(serviceList map[string][]string) {
 		serviceList[svc] = append(serviceList[svc], entry)
 	}
 
-	if err := lbmap.Service4MapV2.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
+	if err := lbmaps.NewService4Map(0).DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv4 services table: %s", err)
 	}
-	if err := lbmap.Service6MapV2.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
+	if err := lbmaps.NewService6Map(0).DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv6 services table: %s", err)
 	}
 }
@@ -132,13 +132,6 @@ var bpfLBListCmd = &cobra.Command{
 	Short:   "List load-balancing configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb list")
-
-		// Ensure that the BPF map objects have been initialized before trying
-		// to list them. Note, this is _not_ creating a new map, but rather
-		// initializing the Go object representing the map. We don't need to
-		// pass the correct sizes here because once the maps are opened, their
-		// size will be read.
-		lbmap.Init(nil, lbmap.InitParams{IPv4: true, IPv6: true})
 
 		var firstTitle string
 		secondTitle := backendAddressTitle
