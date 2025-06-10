@@ -44,7 +44,7 @@ var PortRuleHTTP1 = &api.PortRuleHTTP{
 	Path:    "/foo",
 	Method:  "GET",
 	Host:    "foo.cilium.io",
-	Headers: []string{"header2: value", "header1"},
+	Headers: []string{"header1", "header2: value"},
 }
 
 var PortRuleHTTP2 = &api.PortRuleHTTP{
@@ -65,12 +65,12 @@ var PortRuleHTTP3 = &api.PortRuleHTTP{
 
 var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 	{
-		Name: ":authority",
+		Name: ":path",
 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 			StringMatch: &envoy_type_matcher.StringMatcher{
 				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
 					SafeRegex: &envoy_type_matcher.RegexMatcher{
-						Regex: "foo.cilium.io",
+						Regex: "/foo",
 					},
 				},
 			},
@@ -89,12 +89,12 @@ var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 		},
 	},
 	{
-		Name: ":path",
+		Name: ":authority",
 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 			StringMatch: &envoy_type_matcher.StringMatcher{
 				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
 					SafeRegex: &envoy_type_matcher.RegexMatcher{
-						Regex: "/foo",
+						Regex: "foo.cilium.io",
 					},
 				},
 			},
@@ -118,24 +118,24 @@ var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 
 var ExpectedHeaders2 = []*envoy_config_route.HeaderMatcher{
 	{
-		Name: ":method",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-			StringMatch: &envoy_type_matcher.StringMatcher{
-				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
-					SafeRegex: &envoy_type_matcher.RegexMatcher{
-						Regex: "PUT",
-					},
-				},
-			},
-		},
-	},
-	{
 		Name: ":path",
 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 			StringMatch: &envoy_type_matcher.StringMatcher{
 				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
 					SafeRegex: &envoy_type_matcher.RegexMatcher{
 						Regex: "/bar",
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: ":method",
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "PUT",
 					},
 				},
 			},
@@ -244,8 +244,8 @@ var ExpectedHttpRule1 = &cilium.PortNetworkPolicyRule_HttpRules{
 var ExpectedHttpRule12 = &cilium.PortNetworkPolicyRule_HttpRules{
 	HttpRules: &cilium.HttpNetworkPolicyRules{
 		HttpRules: []*cilium.HttpNetworkPolicyRule{
-			{Headers: ExpectedHeaders2},
 			{Headers: ExpectedHeaders1},
+			{Headers: ExpectedHeaders2},
 		},
 	},
 }
@@ -253,8 +253,8 @@ var ExpectedHttpRule12 = &cilium.PortNetworkPolicyRule_HttpRules{
 var ExpectedHttpRule122HeaderMatch = &cilium.PortNetworkPolicyRule_HttpRules{
 	HttpRules: &cilium.HttpNetworkPolicyRules{
 		HttpRules: []*cilium.HttpNetworkPolicyRule{
-			{Headers: ExpectedHeaders2, HeaderMatches: ExpectedHeaderMatches2},
 			{Headers: ExpectedHeaders1},
+			{Headers: ExpectedHeaders2, HeaderMatches: ExpectedHeaderMatches2},
 		},
 	},
 }
@@ -437,11 +437,11 @@ var ExpectedPerPortPolicies12RequiresV2 = []*cilium.PortNetworkPolicy{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			RemotePolicies: []uint32{1001, 1002},
-			L7:             ExpectedHttpRule1,
-		}, {
 			RemotePolicies: []uint32{1002},
 			L7:             ExpectedHttpRule12,
+		}, {
+			RemotePolicies: []uint32{1001, 1002},
+			L7:             ExpectedHttpRule1,
 		}},
 	},
 }
@@ -535,6 +535,7 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 
 	version := versioned.Latest()
 	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
+
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 

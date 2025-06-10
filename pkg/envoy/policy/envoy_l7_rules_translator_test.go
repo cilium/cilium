@@ -25,12 +25,12 @@ var PortRuleHTTP1 = &api.PortRuleHTTP{
 
 var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 	{
-		Name: ":authority",
+		Name: ":path",
 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 			StringMatch: &envoy_type_matcher.StringMatcher{
 				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
 					SafeRegex: &envoy_type_matcher.RegexMatcher{
-						Regex: "foo.cilium.io",
+						Regex: "/foo",
 					},
 				},
 			},
@@ -49,20 +49,16 @@ var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 		},
 	},
 	{
-		Name: ":path",
+		Name: ":authority",
 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 			StringMatch: &envoy_type_matcher.StringMatcher{
 				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
 					SafeRegex: &envoy_type_matcher.RegexMatcher{
-						Regex: "/foo",
+						Regex: "foo.cilium.io",
 					},
 				},
 			},
 		},
-	},
-	{
-		Name:                 "header1",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
 	},
 	{
 		Name: "header2",
@@ -73,6 +69,10 @@ var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 				},
 			},
 		},
+	},
+	{
+		Name:                 "header1",
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
 	},
 }
 

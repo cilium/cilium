@@ -50,7 +50,6 @@ func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, n
 				canShortCircuit = false
 			}
 		}
-		SortHTTPNetworkPolicyRules(httpRules)
 		return &cilium.HttpNetworkPolicyRules{
 			HttpRules: httpRules,
 		}, canShortCircuit
@@ -228,21 +227,9 @@ func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns strin
 	}
 	if len(headers) == 0 {
 		headers = nil
-	} else {
-		SortHeaderMatchers(headers)
 	}
 	if len(headerMatches) == 0 {
 		headerMatches = nil
-	} else {
-		// Optimally we should sort the headerMatches to avoid
-		// updating the policy if only the order of the rules
-		// has changed. Right now, when 'headerMatches' is a
-		// slice (rather than a map) the order only changes if
-		// the order of the rules in the imported policies
-		// changes, so there is minimal likelihood of
-		// unnecessary policy updates.
-
-		// SortHeaderMatches(headerMatches)
 	}
 
 	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
