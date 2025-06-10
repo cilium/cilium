@@ -9028,9 +9028,11 @@ type SubnetState string
 
 // Enum values for SubnetState
 const (
-	SubnetStatePending     SubnetState = "pending"
-	SubnetStateAvailable   SubnetState = "available"
-	SubnetStateUnavailable SubnetState = "unavailable"
+	SubnetStatePending                    SubnetState = "pending"
+	SubnetStateAvailable                  SubnetState = "available"
+	SubnetStateUnavailable                SubnetState = "unavailable"
+	SubnetStateFailed                     SubnetState = "failed"
+	SubnetStateFailedInsufficientCapacity SubnetState = "failed-insufficient-capacity"
 )
 
 // Values returns all known values for SubnetState. Note that this can be expanded
@@ -9042,6 +9044,8 @@ func (SubnetState) Values() []SubnetState {
 		"pending",
 		"available",
 		"unavailable",
+		"failed",
+		"failed-insufficient-capacity",
 	}
 }
 
