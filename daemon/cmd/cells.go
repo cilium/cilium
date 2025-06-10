@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
-	ciliumenvoyconfig_legacy "github.com/cilium/cilium/pkg/ciliumenvoyconfig/legacy"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -212,7 +211,6 @@ var (
 		// CiliumEnvoyConfig provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 		// and L7 loadbalancing.
 		ciliumenvoyconfig.Cell,
-		ciliumenvoyconfig_legacy.Cell,
 
 		// Cilium REST API handlers
 		restapi.Cell,
