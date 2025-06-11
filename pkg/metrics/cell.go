@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"github.com/cilium/hive/cell"
@@ -13,20 +14,40 @@ import (
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
 )
 
+// Cell provides metrics registry and the 'metrics*' shell commands.
 var Cell = cell.Module("metrics", "Metrics",
 	// Provide registry to hive, but also invoke if case no cells decide to use as dependency
 	cell.Provide(NewRegistry),
-	Metric(NewLegacyMetrics),
 	cell.Config(defaultRegistryConfig),
-	cell.Invoke(func(_ *Registry) {
-		// This is a hack to ensure that errors/warnings collected in the pre hive initialization
-		// phase are emitted as metrics.
-		FlushLoggingMetrics()
-	}),
 	cell.Config(defaultSamplerConfig),
 	cell.Provide(
 		metricsCommands,
 		newSampler,
+	),
+)
+
+// AgentCell provides metrics for the Cilium Agent. Includes [Cell] and sets up the global registry
+// variable for legacy uses. Separate allow use of [Cell] without data race issues in parallel tests
+// and without pulling in the legacy metrics.
+var AgentCell = cell.Group(
+	Cell,
+	Metric(NewLegacyMetrics),
+	cell.Invoke(
+		func(logger *slog.Logger, reg *Registry) {
+			// Register the agent status and BPF metrics.
+			// Don't register status and BPF collectors into the [r.collectors] as it is
+			// expensive to sample and currently not terrible useful to keep data on.
+			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newStatusCollector(logger)})
+			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newbpfCollector(logger)})
+
+			// Resolve the global registry variable for as long as we still have global functions
+			registryResolver.Resolve(reg)
+
+			// This is a hack to ensure that errors/warnings collected in the pre hive initialization
+			// phase are emitted as metrics.
+			FlushLoggingMetrics()
+
+		},
 	),
 )
 
