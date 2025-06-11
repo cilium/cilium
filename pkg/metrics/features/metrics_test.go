@@ -772,13 +772,13 @@ func TestUpdateEncryptionMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				IPAM:                       defaultIPAMModes[0],
-				EnableIPv4:                 true,
-				IdentityAllocationMode:     defaultIdentityAllocationModes[0],
-				DatapathMode:               defaultDeviceModes[0],
-				NodePortAcceleration:       defaultNodePortModeAccelerations[0],
-				EncryptNode:                tt.enableNode2NodeEncryption,
-				EnableEncryptionStrictMode: tt.enableStrictMode,
+				IPAM:                             defaultIPAMModes[0],
+				EnableIPv4:                       true,
+				IdentityAllocationMode:           defaultIdentityAllocationModes[0],
+				DatapathMode:                     defaultDeviceModes[0],
+				NodePortAcceleration:             defaultNodePortModeAccelerations[0],
+				EncryptNode:                      tt.enableNode2NodeEncryption,
+				EnableEncryptionStrictModeEgress: tt.enableStrictMode,
 			}
 
 			lbConfig := loadbalancer.DefaultConfig

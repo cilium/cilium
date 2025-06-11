@@ -273,7 +273,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
+          encryption-strict-egress: ${{ matrix.encryption-strict-egress }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -300,7 +300,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
-          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
+          encryption-strict-egress: ${{ matrix.encryption-strict-egress }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -352,7 +352,7 @@ jobs:
             EXTRA_CLI_FLAGS+=("--secondary-network-iface=eth1")
           fi
 
-          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+          if [ "${{ matrix.encryption-strict-egress }}" = "true" ]; then
             # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
             EXTRA_CLI_FLAGS+=("--expected-drop-reasons=+Traffic is unencrypted")
           fi
