@@ -10,7 +10,6 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -23,8 +22,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/hive"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/option"
@@ -528,71 +528,56 @@ func computeLoadAssignments(
 }
 
 // maxSyncWaitTime is the amount of time to wait for CECs to be synced to Envoy before
-// marking the (C)CEC resources as synced. This is the maximum delay introduced by the
+// allowing endpoint regeneration to proceed. This is the maximum delay introduced by the
 // CEC processing to the initial endpoint generation.
 const maxSyncWaitTime = time.Minute
 
-// registerCachesSyncedJob registers a job to wait for Table[EnvoyResource] to
-// be initialized and all entries to have been reconciled to Envoy. This will block
-// the initial endpoint generation to reduce churn.
-func registerCachesSyncedJob(p cecControllerParams, res *synced.Resources) {
+// registerRegenerationWait registers initializer to block the endpoint regeneration
+// before we've reconciled to Envoy.
+func registerRegenerationWait(p cecControllerParams, fence regeneration.Fence) {
 	if !p.DaemonConfig.EnableL7Proxy || !p.DaemonConfig.EnableEnvoyConfig {
 		return
 	}
+	fence.Add("ciliumenvoyconfig", initWaitFunc(p))
+}
 
-	var synced atomic.Bool
+func initWaitFunc(p cecControllerParams) hive.WaitFunc {
+	return func(ctx context.Context) error {
+		ctx, cancel := context.WithTimeout(ctx, maxSyncWaitTime)
+		defer cancel()
 
-	res.BlockWaitGroupToSyncResources(
-		nil, /* Use nil stop channel as we'll eventually mark synced as true */
-		nil, /* SWG */
-		synced.Load,
-		k8sAPIGroupCiliumEnvoyConfigV2,
-	)
+		// Wait until the table has been populated.
+		_, initWatch := p.EnvoyResources.Initialized(p.DB.ReadTxn())
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-initWatch:
+		}
 
-	res.BlockWaitGroupToSyncResources(
-		nil, /* Use nil stop channel as we'll eventually mark synced as true */
-		nil, /* SWG */
-		synced.Load,
-		k8sAPIGroupCiliumClusterwideEnvoyConfigV2,
-	)
-
-	p.JobGroup.Add(
-		job.OneShot(
-			"mark-caches-synced",
-			func(ctx context.Context, health cell.Health) error {
-				defer synced.Store(true)
-
-				ctx, cancel := context.WithTimeout(ctx, maxSyncWaitTime)
-				defer cancel()
-
-				// Wait until the table has been populated.
-				_, initWatch := p.EnvoyResources.Initialized(p.DB.ReadTxn())
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-initWatch:
+		// Wait for all initial resources to have been synced to Envoy.
+		seen := sets.New[EnvoyResourceName]()
+		for {
+			ers, watch := p.EnvoyResources.AllWatch(p.DB.ReadTxn())
+			done := true
+			for er := range ers {
+				if seen.Has(er.Name) {
+					continue
 				}
-
-				// Wait for all initial resources to have been synced to Envoy.
-				for {
-					ers, watch := p.EnvoyResources.AllWatch(p.DB.ReadTxn())
-					done := true
-					for er := range ers {
-						if er.Status.Kind != reconciler.StatusKindDone {
-							done = false
-							break
-						}
-					}
-					if done {
-						break
-					}
-
-					select {
-					case <-ctx.Done():
-						return nil
-					case <-watch:
-					}
+				if er.Status.Kind == reconciler.StatusKindPending {
+					done = false
+					break
 				}
+				seen.Insert(er.Name)
+			}
+			if done {
+				break
+			}
+			select {
+			case <-ctx.Done():
 				return nil
-			}))
+			case <-watch:
+			}
+		}
+		return nil
+	}
 }
