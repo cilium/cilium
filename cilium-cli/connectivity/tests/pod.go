@@ -385,7 +385,7 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				if ipFam == features.IPFamilyV6 {
-					// encryption-strict-mode-cidr only accepts an IPv4 CIDR
+					// encryption-strict-egress-cidr only accepts an IPv4 CIDR
 					return
 				}
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {

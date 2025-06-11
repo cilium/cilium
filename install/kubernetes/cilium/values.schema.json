@@ -1897,6 +1897,20 @@
             "cidr": {
               "type": "string"
             },
+            "egress": {
+              "properties": {
+                "allowRemoteNodeIdentities": {
+                  "type": "boolean"
+                },
+                "cidr": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "enabled": {
               "type": "boolean"
             },

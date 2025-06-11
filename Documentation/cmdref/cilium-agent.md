@@ -124,7 +124,7 @@ cilium-agent [flags]
       --enable-dynamic-config                                     Enables support for dynamic agent config (default true)
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
       --enable-egress-gateway                                     Enable egress gateway
-      --enable-encryption-strict-mode                             Enable encryption strict mode
+      --enable-encryption-strict-mode-egress                      Enable strict mode encryption enforcement for egress traffic
       --enable-encryption-strict-mode-ingress                     Enable strict mode encryption enforcement for ingress traffic
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-lockdown-on-policy-overflow               When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.
@@ -188,8 +188,8 @@ cilium-agent [flags]
       --enable-ztunnel                                            Use zTunnel as Cilium's encryption infrastructure
       --encrypt-interface string                                  Transparent encryption interface
       --encrypt-node                                              Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
-      --encryption-strict-mode-allow-remote-node-identities       Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
-      --encryption-strict-mode-cidr string                        In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped
+      --encryption-strict-egress-allow-remote-node-identities     Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+      --encryption-strict-egress-cidr string                      In strict-mode-egress encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped.
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-queue-size int                                   Size of EventQueue per-endpoint (default 25)
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)

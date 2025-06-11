@@ -737,15 +737,20 @@ data:
 {{- end }}
 
 {{- if .Values.encryption.strictMode.enabled }}
-  enable-encryption-strict-mode: {{ .Values.encryption.strictMode.enabled | quote }}
-
-  encryption-strict-mode-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
-
-  encryption-strict-mode-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
+  # --- DEPRECATED: Please use encryption.strictMode.egress.enabled instead
+  enable-encryption-strict-mode-egress: {{ .Values.encryption.strictMode.enabled | quote }}
+  encryption-strict-egress-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
+  encryption-strict-egress-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
 {{- end }}
 
 {{- if .Values.encryption.strictMode.ingress.enabled }}
   enable-encryption-strict-mode-ingress: {{ .Values.encryption.strictMode.ingress.enabled | quote }}
+{{- end }}
+
+{{- if .Values.encryption.strictMode.egress.enabled }}
+  enable-encryption-strict-mode-egress: {{ .Values.encryption.strictMode.egress.enabled | quote }}
+  encryption-strict-egress-cidr: {{ .Values.encryption.strictMode.egress.cidr | quote }}
+  encryption-strict-egress-allow-remote-node-identities: {{ .Values.encryption.strictMode.egress.allowRemoteNodeIdentities | quote }}
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}

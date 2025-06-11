@@ -39,7 +39,7 @@
   tunnel: 'disabled'
   encryption: 'wireguard'
   encryption-node: 'true'
-  encryption-strict-mode: 'true'
+  encryption-strict-egress: 'true'
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
