@@ -321,17 +321,6 @@ func NewKeyFromPolicyKey(pk policyTypes.Key) PolicyKey {
 	}
 }
 
-// newEntry returns a PolicyEntry representing the specified parameters in
-// network byte-order.
-func newEntry(proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
-	return PolicyEntry{
-		ProxyPortNetwork:  byteorder.HostToNetwork16(proxyPort),
-		Flags:             flags,
-		AuthRequirement:   authReq,
-		ProxyPortPriority: proxyPortPriority,
-	}
-}
-
 // NewEntryFromPolicyEntry converts a policy MapState entry to a PolicyMap entry.
 func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{

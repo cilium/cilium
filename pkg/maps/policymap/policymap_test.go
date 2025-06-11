@@ -16,6 +16,22 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// newEntry returns a PolicyEntry representing the specified parameters in
+// network byte-order.
+func newEntry(
+	proxyPortPriority policyTypes.ProxyPortPriority,
+	authReq policyTypes.AuthRequirement,
+	proxyPort uint16,
+	flags policyEntryFlags,
+) PolicyEntry {
+	return PolicyEntry{
+		ProxyPortNetwork:  byteorder.HostToNetwork16(proxyPort),
+		Flags:             flags,
+		AuthRequirement:   authReq,
+		ProxyPortPriority: proxyPortPriority,
+	}
+}
+
 // newAllowEntry returns an allow PolicyEntry for the specified parameters in
 // network byte-order.
 // This is separated out to be used in unit testing.
