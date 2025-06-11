@@ -103,130 +103,75 @@ Functionality Overview
 
 .. begin-functionality-overview
 
-Protect and secure APIs transparently
+**CNI (Container Network Interface)**
 -------------------------------------
 
-Ability to secure modern application protocols such as REST/HTTP, gRPC and
-Kafka. Traditional firewalls operate at Layer 3 and 4. A protocol running on a
-particular port is either completely trusted or blocked entirely. Cilium
-provides the ability to filter on individual application protocol requests such
-as:
+`Cilium as a CNI plugin <https://cilium.io/use-cases/cni/>`_ provides a fast, scalable, and secure networking layer for Kubernetes clusters. Built on eBPF, it eliminates the need for iptables and offers several deployment options:
 
-- Allow all HTTP requests with method ``GET`` and path ``/public/.*``. Deny all
-  other requests.
-- Allow ``service1`` to produce on Kafka topic ``topic1`` and ``service2`` to
-  consume on ``topic1``. Reject all other Kafka messages.
-- Require the HTTP header ``X-Token: [0-9]+`` to be present in all REST calls.
+-   **Overlay networking:** (VXLAN, Geneve) encapsulation-based virtual network spanning all hosts. Currently, VXLAN and Geneve are baked in but all encapsulation formats supported by Linux can be enabled. It works on almost any network infrastructure as the only requirement is IP connectivity between hosts which is typically already given.
 
-See the section `Layer 7 Policy`_ in our documentation for the latest list of
-supported protocols and examples on how to use it.
+-   **Native routing mode:** Use of the regular routing table of the Linux host. The network is required to be capable of routing the IP addresses of the application containers. It integrates with cloud routers, routing daemons, and IPv6-native infrastructure.
 
-Secure service to service communication based on identities
------------------------------------------------------------
+**Load Balancing**
+------------------
 
-Modern distributed applications rely on technologies such as application
-containers to facilitate agility in deployment and scale out on demand. This
-results in a large number of application containers being started in a short
-period of time. Typical container firewalls secure workloads by filtering on
-source IP addresses and destination ports. This concept requires the firewalls
-on all servers to be manipulated whenever a container is started anywhere in
-the cluster.
+Cilium implements distributed load balancing for traffic between application containers and to external services. The load balancing is implemented in eBPF using efficient hashtables allowing for almost unlimited scale.
 
-In order to avoid this situation which limits scale, Cilium assigns a security
-identity to groups of application containers which share identical security
-policies. The identity is then associated with all network packets emitted by
-the application containers, allowing to validate the identity at the receiving
-node. Security identity management is performed using a key-value store.
+-   **East-west load balancing** rewrites service connections at the socket level (connect()), avoiding the overhead of per-packet NAT and fully `replacing kube-proxy <https://cilium.io/use-cases/kube-proxy/>`_.
 
-Secure access to and from external services
--------------------------------------------
+-   **North-south load balancing** supports XDP for high-throughput scenarios and `layer 4 load balancing <https://cilium.io/use-cases/load-balancer/>`_ including Direct Server Return (DSR), and Maglev consistent hashing.
 
-Label based security is the tool of choice for cluster internal access control.
-In order to secure access to and from external services, traditional CIDR based
-security policies for both ingress and egress are supported. This allows to
-limit access to and from application containers to particular IP ranges.
+**Cluster Mesh**
+----------------
 
-Simple Networking
------------------
+Cilium `Cluster Mesh <https://cilium.io/use-cases/cluster-mesh/>`_ enables secure, seamless connectivity across multiple Kubernetes clusters. For operators running hybrid or multi-cloud environments, Cluster Mesh ensures a consistent security and connectivity experience.
 
-A simple flat Layer 3 network with the ability to span multiple clusters
-connects all application containers. IP allocation is kept simple by using host
-scope allocators. This means that each host can allocate IPs without any
-coordination between hosts.
+-   **Global service discovery**: Workloads across clusters can discover and connect to services as if they were local.
 
-The following multi node networking models are supported:
+-   **Unified identity model**: Security policies are enforced based on identity, not IP address, across all clusters.
 
-* **Overlay:** Encapsulation-based virtual network spanning all hosts.
-  Currently, VXLAN and Geneve are baked in but all encapsulation formats
-  supported by Linux can be enabled.
+-   **High availability**: Supports redundant paths and load balancing across clusters.
 
-  When to use this mode: This mode has minimal infrastructure and integration
-  requirements. It works on almost any network infrastructure as the only
-  requirement is IP connectivity between hosts which is typically already
-  given.
+**Network Policy**
+------------------
 
-* **Native Routing:** Use of the regular routing table of the Linux host.
-  The network is required to be capable to route the IP addresses of the
-  application containers.
+Cilium `Network Policy <https://cilium.io/use-cases/network-policy/>`_ provides identity-aware enforcement across L3–L7. Typical container firewalls secure workloads by filtering on source IP addresses and destination ports. This concept requires the firewalls on all servers to be manipulated whenever a container is started anywhere in the cluster.
 
-  When to use this mode: This mode is for advanced users and requires some
-  awareness of the underlying networking infrastructure. This mode works well
-  with:
+In order to avoid this situation which limits scale, Cilium assigns a security identity to groups of application containers which share identical security policies. The identity is then associated with all network packets emitted by the application containers, allowing to validate the identity at the receiving node.
 
-  - Native IPv6 networks
-  - In conjunction with cloud network routers
-  - If you are already running routing daemons
+-   **Identity-based security** removes reliance on brittle IP addresses.
 
-Load Balancing
---------------
+-   **L3/L4 policies** restrict traffic based on labels, protocols, and ports.
 
-Cilium implements distributed load balancing for traffic between application
-containers and to external services and is able to fully replace components
-such as kube-proxy. The load balancing is implemented in eBPF using efficient
-hashtables allowing for almost unlimited scale.
+-   **L7-aware policies** allow filtering by HTTP method, URL path, gRPC call, Kafka topic, and more:
 
-For north-south type load balancing, Cilium's eBPF implementation is optimized
-for maximum performance, can be attached to XDP (eXpress Data Path), and supports
-direct server return (DSR) as well as Maglev consistent hashing if the load
-balancing operation is not performed on the source host.
+    -   Example: Allow only GET requests to /public/.\*.
+    -   Enforce the presence of headers like X-Token: \[0-9\]+.
+    -   Permit one service to produce to Kafka topic topic1 and another to consume it.
 
-For east-west type load balancing, Cilium performs efficient service-to-backend
-translation right in the Linux kernel's socket layer (e.g. at TCP connect time)
-such that per-packet NAT operations overhead can be avoided in lower layers.
+CIDR-based egress and ingress policies are also supported for controlling access to external IPs, ideal for integrating with legacy systems or regulatory boundaries.
 
-Bandwidth Management
---------------------
+**Service Mesh**
+----------------
 
-Cilium implements bandwidth management through efficient EDT-based (Earliest Departure
-Time) rate-limiting with eBPF for container traffic that is egressing a node. This
-allows to significantly reduce transmission tail latencies for applications and to
-avoid locking under multi-queue NICs compared to traditional approaches such as HTB
-(Hierarchy Token Bucket) or TBF (Token Bucket Filter) as used in the bandwidth CNI
-plugin, for example.
+With Cilium `Service Mesh <https://cilium.io/use-cases/service-mesh/>`_, operators gain the benefits of service mesh, encryption, observability, access control, without the cost and complexity of traditional proxy-based designs. Key features include:
 
-Monitoring and Troubleshooting
-------------------------------
+-   **Mutual authentication** with automatic identity-based encryption between workloads.
 
-The ability to gain visibility and troubleshoot issues is fundamental to the
-operation of any distributed system. While we learned to love tools like
-``tcpdump`` and ``ping`` and while they will always find a special place in our
-hearts, we strive to provide better tooling for troubleshooting. This includes
-tooling to provide:
+-   **L7-aware policy enforcement** for security and compliance.
 
-- Event monitoring with metadata: When a packet is dropped, the tool doesn't
-  just report the source and destination IP of the packet, the tool provides
-  the full label information of both the sender and receiver among a lot of
-  other information.
+-   **Deep integration with the** `Kubernetes Gateway API <https://cilium.io/use-cases/gateway-api/>`_**:** Acts as a Gateway API-compliant data plane, allowing you to declaratively manage ingress, traffic splitting, and routing behavior using Kubernetes-native CRDs.
 
-- Metrics export via Prometheus: Key metrics are exported via Prometheus for
-  integration with your existing dashboards.
+**Observability and Troubleshooting**
+-------------------------------------
 
-- Hubble_: An observability platform specifically written for Cilium. It
-  provides service dependency maps, operational monitoring and alerting,
-  and application and security visibility based on flow logs.
+Observability is built into Cilium from the ground up, providing rich visibility that helps operators diagnose and understand system behavior including:
 
-.. _Hubble: https://github.com/cilium/hubble/
-.. _`Layer 7 Policy`: https://docs.cilium.io/en/stable/security/policy/language/#layer-7-examples
+-   **Hubble**: A fully integrated observability platform that offers real-time service maps, flow visibility with identity and label metadata, and DNS-aware filtering and protocol-specific insights
+
+-   **Metrics and alerting**: Integration with Prometheus, Grafana, and other monitoring systems.
+
+-   **Drop reasons and audit trails**: Get actionable insights into why traffic was dropped, including policy violations and header mismatches.
 
 .. end-functionality-overview
 
