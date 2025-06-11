@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-SUBDIRS := alignchecker mount
+SUBDIRS := alignchecker mount slogloggercheck
 
 .PHONY: all $(SUBDIRS) clean install
 
