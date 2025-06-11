@@ -681,10 +681,6 @@ static __always_inline int sock6_delete_revnat(struct bpf_sock *ctx)
     ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
     return ret;
 }
-
-static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
-					       union v6addr *addr);
-
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
