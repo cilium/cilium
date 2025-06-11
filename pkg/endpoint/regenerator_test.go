@@ -49,7 +49,7 @@ func TestRegeneratorWaitForIPCacheSync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.assert(t, regenerator.WaitForClusterMeshIPIdentitiesSync(tt.ctx))
+			tt.assert(t, regenerator.waitForClusterMeshIPIdentitiesSync(tt.ctx))
 		})
 	}
 }

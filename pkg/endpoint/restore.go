@@ -328,20 +328,8 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		}
 	}
 
-	// Wait for ipcache sync before regeneration for endpoints including
-	// the ones with fixed identity (e.g. host endpoint), this ensures that
-	// the regenerated datapath always lookups from a ready ipcache map.
-	// Additionally wait for node synchronization, as nodes also contribute
-	// entries to the ipcache map, most notably about the remote node IPs.
-	if option.Config.KVStore != "" {
-		if err := regenerator.WaitForKVStoreSync(e.aliveCtx); err != nil {
-			return ErrNotAlive
-		}
-	}
-
-	// Wait for ipcache and identities synchronization from all remote clusters,
-	// to prevent disrupting cross-cluster connections on endpoint regeneration.
-	if err := regenerator.WaitForClusterMeshIPIdentitiesSync(e.aliveCtx); err != nil {
+	// Wait for registered initializers to complete before allowing endpoint regeneration.
+	if err := regenerator.WaitForFence(e.aliveCtx); err != nil {
 		return err
 	}
 
