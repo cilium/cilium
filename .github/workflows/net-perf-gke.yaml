@@ -296,7 +296,7 @@ jobs:
           sudo chmod -R +r ./output
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && matrix.mode != 'baseline' }}
         uses: ./.github/actions/post-logic
         with:
           always_capture_sysdump: true
@@ -316,7 +316,7 @@ jobs:
       # be correctly uploaded, but we want the sysdump to have a fixed name when
       # uploading it to the GS bucket.
       - name: Rename sysdump before uploading it to the GS bucket
-        if : ${{ always() }}
+        if : ${{ always() && matrix.mode != 'baseline' }}
         run: |
           mv "cilium-sysdump-${{ env.job_name }} (${{ join(matrix.*, ', ') }}).zip" cilium-sysdump-final.zip
 
