@@ -1093,7 +1093,7 @@ static long snat_callback_tcp(__u32 i, struct snat_callback_ctx *ctx)
 	map = get_cluster_snat_map_v4(0);
 	ctx->err = snat_v4_new_mapping(ctx->ctx, map, &otuple, &ostate, &target, true, &ext_err);
 
-	if (ctx->err == DROP_NAT_NO_MAPPING && !ext_err) {
+	if (ctx->err == DROP_CUSTOM_1 && !ext_err) {
 		ctx->err = 0;
 		++ctx->fails;
 		/* Store the number of iterations when we start having 5% of failures. */
@@ -1224,7 +1224,7 @@ static long snat_callback_udp(__u32 i, struct snat_callback_ctx *ctx)
 	map = get_cluster_snat_map_v4(0);
 	ctx->err = snat_v4_new_mapping(ctx->ctx, map, &otuple, &ostate, &target, true, &ext_err);
 
-	if (ctx->err == DROP_NAT_NO_MAPPING && !ext_err) {
+	if (ctx->err == DROP_CUSTOM_1 && !ext_err) {
 		ctx->err = 0;
 		++ctx->fails;
 		/* Store the number of iterations when we start having 5% of failures. */

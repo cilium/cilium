@@ -86,3 +86,21 @@
 #define DROP_EP_NOT_READY	-203
 #define DROP_NO_EGRESS_IP	-204
 #define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
+#define DROP_CUSTOM_1		-206
+#define DROP_CUSTOM_2		-207
+#define DROP_CUSTOM_3		-208
+#define DROP_CUSTOM_4		-209
+#define DROP_CUSTOM_5		-210
+#define DROP_CUSTOM_6		-211
+#define DROP_CUSTOM_7		-212
+#define DROP_CUSTOM_8		-213
+#define DROP_CUSTOM_9		-214
+#define DROP_CUSTOM_10		-215
+#define DROP_CUSTOM_11		-216
+#define DROP_CUSTOM_12		-217
+#define DROP_CUSTOM_13		-218
+#define DROP_CUSTOM_14		-219
+#define DROP_CUSTOM_20		-220
+#define DROP_CUSTOM_21		-221
+#define DROP_CUSTOM_22		-222
+#define DROP_CUSTOM_23		-223

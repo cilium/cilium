@@ -281,7 +281,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	struct trace_ctx trace;
 
 	ret = snat_v4_rev_nat(ctx, &target, &trace, ext_err);
-	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
+	if (ret != NAT_PUNT_TO_STACK && ret > DROP_CUSTOM_1) {
 		if (IS_ERR(ret))
 			return ret;
 
