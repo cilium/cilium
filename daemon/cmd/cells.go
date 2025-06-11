@@ -104,7 +104,7 @@ var (
 		cni.Cell,
 
 		// Provide the modular metrics registry, metric HTTP server and legacy metrics cell.
-		metrics.Cell,
+		metrics.AgentCell,
 
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
