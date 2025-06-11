@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -25,7 +24,7 @@ import (
 var metricReloadInterval = 10 * time.Second
 
 type metricConfigWatcher struct {
-	logger         logging.FieldLogger
+	logger         *slog.Logger
 	configFilePath string
 	callback       func(ctx context.Context, hash uint64, config api.Config)
 	ticker         *time.Ticker
@@ -78,7 +77,7 @@ func (c *metricConfigWatcher) reload() {
 	c.logger.Debug("Attempting reload")
 	config, isSameHash, hash, err := c.readConfig()
 	if err != nil {
-		c.logger.Error("failed reading dynamic exporter config", slog.Any(logfields.Error, err))
+		c.logger.Error("failed reading dynamic exporter config", logfields.Error, err)
 	} else {
 		if !isSameHash {
 			c.callback(context.TODO(), hash, *config)

@@ -6,6 +6,7 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"sort"
@@ -18,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -34,7 +34,7 @@ type ResourceRoutePolicyMap map[resource.Key]RoutePolicyMap
 type RoutePolicyMap map[string]*types.RoutePolicy
 
 type ReconcileRoutePoliciesParams struct {
-	Logger          logging.FieldLogger
+	Logger          *slog.Logger
 	Ctx             context.Context
 	Router          types.Router
 	DesiredPolicies RoutePolicyMap
