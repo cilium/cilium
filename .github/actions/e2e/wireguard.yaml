@@ -74,3 +74,22 @@
   skip-upgrade: 'true'
   # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+- name: 'wireguard-6'
+  kernel: '5.10'
+  kube-proxy: 'iptables'
+  kpr: 'true'
+  devices: '{eth0,eth1}'
+  secondary-network: 'true'
+  tunnel: 'vxlan'
+  encryption: 'wireguard'
+  encryption-node: 'false'
+  encryption-strict-ingress: 'true'
+  # Without strict egress encryption we observed unencrytped host-to-pod packets arriving at cil_from_overlay
+  # during startup. This only seems to happen while the agent is still setting up the datapath, so possibly a
+  # bpf program attachment ordering issue as the root cause. So for now combine encryption-strict-egress and
+  # encryption-strict-ingress in CI.
+  encryption-strict-egress: 'true'
+  # Upgrades would fail no-unexpected-packet-drops as older cilium versions don't set the decrypted mark
+  skip-upgrade: 'true'
+  # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'

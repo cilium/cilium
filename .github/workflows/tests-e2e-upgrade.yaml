@@ -301,6 +301,7 @@ jobs:
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
           encryption-strict-egress: ${{ matrix.encryption-strict-egress }}
+          encryption-strict-ingress: ${{ matrix.encryption-strict-ingress }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
