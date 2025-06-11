@@ -17,11 +17,13 @@ packages=(
   ipset
   kmod
   ca-certificates
+  jq
 )
 
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
+apt-get upgrade -y
 
 # tzdata is one of the dependencies and a timezone must be set
 # to avoid interactive prompt when it is being installed
