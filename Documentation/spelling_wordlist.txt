@@ -153,6 +153,7 @@ allocator
 allocators
 allowedConfigOverrides
 allowlist
+allowRemoteNodeIdentities
 amd
 ansible
 api
@@ -745,6 +746,7 @@ statefulset
 statsd
 stdout
 stmmac
+strictMode
 structs
 subclasses
 subcommand

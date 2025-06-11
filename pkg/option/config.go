@@ -758,9 +758,9 @@ const (
 	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
 	L2AnnouncerRetryPeriod = "l2-announcements-retry-period"
 
-	// EnableEncryptionStrictEgress enables strict mode encryption enforcement for egress traffic.
+	// EnableEncryptionStrictMode enables strict mode encryption enforcement for egress traffic.
 	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
-	EnableEncryptionStrictEgress = "enable-encryption-strict-mode"
+	EnableEncryptionStrictMode = "enable-encryption-strict-mode"
 
 	// EncryptionStrictModeCIDR is the CIDR in which the strict encryption mode should be enforced.
 	EncryptionStrictModeCIDR = "encryption-strict-mode-cidr"
@@ -769,6 +769,18 @@ const (
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
+
+	// EnableEncryptionStrictEgress enables strict mode encryption enforcement for egress traffic.
+	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
+	EnableEncryptionStrictEgress = "enable-encryption-strict-mode-egress"
+
+	// EncryptionStrictEgressCIDR is the CIDR in which the strict egress encryption mode should be enforced.
+	EncryptionStrictEgressCIDR = "encryption-strict-egress-cidr"
+
+	// EncryptionStrictEgressAllowRemoteNodeIdentities allows dynamic lookup of remote node identities.
+	// This is required when tunneling is used
+	// or direct routing is used and the node CIDR and pod CIDR overlap.
+	EncryptionStrictEgressAllowRemoteNodeIdentities = "encryption-strict-egress-allow-remote-node-identities"
 
 	// EnableEncryptionStrictIngress enables strict mode encryption enforcement for ingress traffic.
 	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
@@ -1502,13 +1514,13 @@ type DaemonConfig struct {
 	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
 	WireguardTrackAllIPsFallback bool
 
-	// EncryptionStrictModeCIDR is the CIDR to use for strict mode
-	EncryptionStrictModeCIDR netip.Prefix
+	// EncryptionStrictEgressCIDR is the CIDR to use for strict mode egress
+	EncryptionStrictEgressCIDR netip.Prefix
 
-	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of node identities.
+	// EncryptionStrictEgressAllowRemoteNodeIdentities allows dynamic lookup of node identities.
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
-	EncryptionStrictModeAllowRemoteNodeIdentities bool
+	EncryptionStrictEgressAllowRemoteNodeIdentities bool
 
 	// EnableEncryptionStrictIngress enables strict mode encryption for ingress traffic.
 	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
@@ -2869,24 +2881,45 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
-	encryptionStrictegressEnabled := vp.GetBool(EnableEncryptionStrictEgress)
-	if encryptionStrictegressEnabled {
+	// This code block is for deprecated options and will be removed in Cilium 1.19.
+	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
+	if encryptionStrictModeEnabled {
 		if c.EnableIPv6 {
 			logger.Info("WireGuard encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
 		}
 
 		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
-		c.EncryptionStrictModeCIDR, err = netip.ParsePrefix(strictCIDR)
+		c.EncryptionStrictEgressCIDR, err = netip.ParsePrefix(strictCIDR)
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR), logfields.Error, err)
 		}
 
-		if !c.EncryptionStrictModeCIDR.Addr().Is4() {
+		if !c.EncryptionStrictEgressCIDR.Addr().Is4() {
 			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR))
 		}
 
-		c.EncryptionStrictModeAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
-		c.EnableEncryptionStrictEgress = encryptionStrictegressEnabled
+		c.EncryptionStrictEgressAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
+		c.EnableEncryptionStrictEgress = encryptionStrictModeEnabled
+	}
+
+	encryptionStrictEgressEnabled := vp.GetBool(EnableEncryptionStrictEgress)
+	if encryptionStrictEgressEnabled {
+		if c.EnableIPv6 {
+			logger.Info("WireGuard encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
+		}
+
+		strictCIDR := vp.GetString(EncryptionStrictEgressCIDR)
+		c.EncryptionStrictEgressCIDR, err = netip.ParsePrefix(strictCIDR)
+		if err != nil {
+			logging.Fatal(logger, fmt.Sprintf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictEgressCIDR), logfields.Error, err)
+		}
+
+		if !c.EncryptionStrictEgressCIDR.Addr().Is4() {
+			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", EncryptionStrictEgressCIDR))
+		}
+
+		c.EncryptionStrictEgressAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictEgressAllowRemoteNodeIdentities)
+		c.EnableEncryptionStrictEgress = encryptionStrictEgressEnabled
 	}
 
 	encryptionStrictIngressEnabled := vp.GetBool(EnableEncryptionStrictIngress)

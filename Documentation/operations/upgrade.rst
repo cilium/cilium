@@ -373,6 +373,11 @@ Deprecated Options
 * The flag ``--egress-multi-home-ip-rule-compat`` and the old IP rule scheme has been deprecated and will be removed
   in Cilium 1.19. Running Cilium 1.18 with the flag set to ``false`` (default value) will migrate any existing IP rules
   to the new scheme.
+* The flags ``--enable-encryption-strict-mode``, ``--encryption-strict-mode-cidr`` and
+  ``--encryption-strict-mode-allow-remote-node-identities`` have been deprecated and will be removed in
+  Cilium 1.19. Use the egress-specific options ``--enable-encryption-strict-mode-egress``,
+  ``--encryption-strict-egress-cidr`` and ``--encryption-strict-egress-allow-remote-node-identities``
+  instead.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -398,6 +403,11 @@ Helm Options
 * The Helm value of ``enableIPv4Masquerade`` in ``eni`` mode changes from ``true`` to ``false`` by default from 1.18.
 * The Helm option ``clustermesh.apiserver.kvstoremesh.enabled`` has been deprecated and will be removed in Cilium 1.19.
   Starting from 1.19 KVStoreMesh will be unconditionally enabled when the Cluster Mesh API Server is enabled.
+* The Helm options ``encryption.strictMode.enabled``, ``encryption.strictMode.cidr`` and
+  ``encryption.strictMode.allowRemoteNodeIdentities`` have been deprecated and will be removed in
+  Cilium 1.19. Use the egress-specific options ``encryption.strictMode.egress.enabled``,
+  ``encryption.strictMode.egress.cidr`` and ``encryption.strictMode.egress.allowRemoteNodeIdentities``
+  instead.
 
 Agent Options
 ~~~~~~~~~~~~~

@@ -1215,17 +1215,29 @@
    * - :spelling:ignore:`encryption.strictMode`
      - Configure the WireGuard Pod2Pod strict mode.
      - object
-     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false,"ingress":{"enabled":false}}``
+     - ``{"allowRemoteNodeIdentities":false,"cidr":"","egress":{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false},"enabled":false,"ingress":{"enabled":false}}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
-     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - Allow dynamic lookup of remote node identities. (deprecated: please use encryption.strictMode.egress.allowRemoteNodeIdentities) This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the WireGuard Pod2Pod strict mode.
+     - CIDR for the WireGuard Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.cidr)
      - string
      - ``""``
+   * - :spelling:ignore:`encryption.strictMode.egress.allowRemoteNodeIdentities`
+     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.strictMode.egress.cidr`
+     - CIDR for the WireGuard Pod2Pod strict egress mode.
+     - string
+     - ``""``
+   * - :spelling:ignore:`encryption.strictMode.egress.enabled`
+     - Enable strict egress encryption.
+     - bool
+     - ``false``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable WireGuard Pod2Pod strict mode.
+     - Enable WireGuard Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.enabled)
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.ingress.enabled`

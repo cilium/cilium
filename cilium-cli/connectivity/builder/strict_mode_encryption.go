@@ -17,7 +17,7 @@ func (t strictModeEncryption) build(ct *check.ConnectivityTest, _ map[string]str
 		// Until https://github.com/cilium/cilium/pull/35454 is backported to <1.17.0
 		WithCiliumVersion(">=1.17.0 <1.18.0").
 		WithFeatureRequirements(
-			features.RequireEnabled(features.EncryptionStrictMode),
+			features.RequireEnabled(features.EncryptionStrictEgress),
 			// Strict mode is only supported with WireGuard
 			features.RequireMode(features.EncryptionPod, "wireguard"),
 			// Strict mode always allows host-to-host tunnel traffic
@@ -32,7 +32,7 @@ func (t strictModeEncryption) build(ct *check.ConnectivityTest, _ map[string]str
 		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(
-			features.RequireEnabled(features.EncryptionStrictMode),
+			features.RequireEnabled(features.EncryptionStrictEgress),
 			// Strict mode is only supported with WireGuard
 			features.RequireMode(features.EncryptionPod, "wireguard"),
 			// Strict mode always allows host-to-host tunnel traffic
