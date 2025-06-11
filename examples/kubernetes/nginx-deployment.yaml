@@ -1,0 +1,298 @@
+# echo "GET worker.default.svc.cluster.local" | vegeta  attack -duration=10000s -max-workers 50 -rate=0 | vegeta report -every 1s
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ubuntu-deployment
+spec:
+  selector:
+    matchLabels:
+      app: ubuntu
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ubuntu
+    spec:
+      nodeName: kind-worker
+      containers:
+      - name: ubuntu
+        image: ubuntu:24.04
+        command: ["/bin/sh"]
+        args: ["-c", "sleep 36000"]
+        volumeMounts:
+        - name: usr-local-bin
+          mountPath: /usr/local/bin
+      volumes:
+      - name: usr-local-bin
+        hostPath:
+          path: /home/vagrant/go/src/github.com/cilium/cilium/_build
+          type: Directory
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: ingress-policy
+specs:
+  - endpointSelector:
+      matchLabels:
+        app: ubuntu
+    egress:
+    - toPorts:
+      - ports:
+        - port: "53"
+      - ports:
+        - port: "80"
+          protocol: TCP
+    - toEndpoints:
+      - matchLabels:
+          app: nginx
+      toPorts:
+      - listener:
+          envoyConfig:
+            name: cec-example
+          name: listener
+        ports:
+        - port: "80"
+          protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment-worker
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+      node: worker
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+        node: worker
+    spec:
+      nodeName: kind-worker
+      containers:
+      - name: nginx
+        image: nginx:1.28.0
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment-control
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+      node: control
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+        node: control
+    spec:
+      nodeName: kind-control-plane
+      containers:
+      - name: nginx
+        image: nginx:1.28.0
+        ports:
+        - containerPort: 80
+---
+#GW API
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - protocol: HTTP
+    port: 80
+    name: web-gw
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+#GW API
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-app-1
+spec:
+  parentRefs:
+  - name: my-gateway
+    namespace: default
+  rules:
+  - backendRefs:
+    - name: worker
+      port: 80
+---
+#GAMMA
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: worker
+spec:
+  parentRefs:
+  - kind: Service
+    group: ""
+    name: worker
+    port: 80
+  rules:
+  - backendRefs:
+    - name: worker
+      port: 80
+---
+#GAMMA
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: control
+spec:
+  parentRefs:
+  - kind: Service
+    group: ""
+    name: control
+    port: 80
+  rules:
+  - backendRefs:
+    - name: control
+      port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: nginx
+    node: worker
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: control
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: nginx
+    node: control
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cec-example
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: nginx
+    node: worker
+---
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  labels:
+    cilium.io/use-original-source-address: "false"
+  name: cec-example
+  namespace: default
+  annotations:
+    cec.cilium.io/inject-cilium-filters: "false"
+spec:
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    # address:
+    #   socketAddress:
+    #     address: 127.0.0.1   # Localhost
+    #     portValue: 8899     # Port to listen on
+    filterChains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          prefix: /
+        route:
+          cluster: default:cec-example:80
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/cec-example:80
+    name: default:cec-example:80
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+#  services:
+#  - listener: ""
+#    name: cec-example
+#    namespace: default
+#    ports:
+#    - 80
+  backendServices:
+  - name: cec-example
+    namespace: default
+    number:
+    - "80"
