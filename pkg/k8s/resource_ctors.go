@@ -299,6 +299,10 @@ func CiliumBGPPeerConfigResource(params CiliumResourceParams, opts ...func(*meta
 }
 
 func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
+	return EndpointsResourceWithIndexers(logger, lc, cfg, cs, nil, opts...)
+}
+
+func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs client.Clientset, indexers cache.Indexers, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -319,6 +323,7 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs cl
 		endpointsOptsModifiers:      append(opts, endpointsOptsModifier),
 		endpointSlicesOptsModifiers: append(opts, endpointSliceOptsModifier),
 	}
+
 	return resource.New[*Endpoints](
 		lc,
 		lw,
@@ -327,6 +332,7 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs cl
 		}),
 		resource.WithMetric("Endpoint"),
 		resource.WithName("endpoints"),
+		resource.WithIndexers(indexers),
 	), nil
 }
 
