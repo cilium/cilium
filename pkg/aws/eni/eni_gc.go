@@ -6,10 +6,10 @@ package eni
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -33,7 +33,7 @@ type GarbageCollectionParams struct {
 	ENITags types.Tags
 }
 
-func StartENIGarbageCollector(ctx context.Context, logger logging.FieldLogger, api EC2API, params GarbageCollectionParams) {
+func StartENIGarbageCollector(ctx context.Context, logger *slog.Logger, api EC2API, params GarbageCollectionParams) {
 	logger = logger.With(subsysLogAttr...)
 	logger.Info("Starting to garbage collect detached ENIs")
 

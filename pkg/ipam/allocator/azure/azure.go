@@ -20,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-azure"}
-
 // AllocatorAzure is an implementation of IPAM allocator interface for Azure
 type AllocatorAzure struct {
 	rootLogger *slog.Logger
@@ -31,7 +29,7 @@ type AllocatorAzure struct {
 // Init in Azure implementation doesn't need to do anything
 func (a *AllocatorAzure) Init(ctx context.Context, logger *slog.Logger) error {
 	a.rootLogger = logger
-	a.logger = a.rootLogger.With(subsysLogAttr...)
+	a.logger = a.rootLogger.With(logfields.LogSubsys, "ipam-allocator-azure")
 	return nil
 }
 
