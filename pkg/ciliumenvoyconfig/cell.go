@@ -41,7 +41,7 @@ var (
 	controllerCells = cell.Group(
 		cell.Invoke(
 			registerCECController,
-			registerCachesSyncedJob,
+			registerRegenerationWait,
 		),
 		metrics.Metric(newMetrics),
 	)
