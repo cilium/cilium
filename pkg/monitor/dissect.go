@@ -54,6 +54,7 @@ var (
 // getParser must be called with dissectLock held
 func initParser() {
 	if cache == nil {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Info("Initializing dissection cache...")
 
 		cache = &parserCache{

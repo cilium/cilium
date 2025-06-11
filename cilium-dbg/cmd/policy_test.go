@@ -8,7 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+func init() {
+	// slogloggercheck: initialize the log variable for tests
+	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-dbg")
+}
 
 func TestLoadInvalidPolicyJSON(t *testing.T) {
 	invalidJSON := []byte(`

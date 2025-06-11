@@ -31,6 +31,7 @@ func New() *cobra.Command {
 		Version:      v.GetCiliumVersion().Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := logging.SetupLogging(nil, map[string]string{}, "hubble-relay", vp.GetBool(option.DebugArg)); err != nil {
+				// slogloggercheck: log fatal errors using the default logger before it's initialized.
 				logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
 			}
 			return nil
@@ -42,6 +43,7 @@ func New() *cobra.Command {
 	vp.BindPFlags(flags)
 
 	if err := vp.ReadInConfig(); err != nil {
+		// slogloggercheck: log debug errors using the default logger before it's initialized.
 		logging.DefaultSlogLogger.Debug("Failed to read config from file",
 			logfields.Error, err,
 			logfields.Path, configFilePath,

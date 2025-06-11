@@ -327,6 +327,7 @@ func NewLabel(key string, value string, source string) Label {
 	if l.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key)
 		if err != nil {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
 				logfields.Error, err,
 				logfields.Key, l.Key,
@@ -483,6 +484,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		if err == nil {
 			l.cidr = &c
 		} else {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
 				logfields.Error, err,
 				logfields.Key, l.Key,
@@ -828,12 +830,14 @@ func parseLabel(str string, delim byte) (lbl Label) {
 
 	if lbl.Source == LabelSourceCIDR {
 		if lbl.Value != "" {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Invalid CIDR label: labels with source cidr cannot have values.",
 				logfields.Label, lbl,
 			)
 		}
 		c, err := LabelToPrefix(lbl.Key)
 		if err != nil {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
 				logfields.Label, lbl,
 			)

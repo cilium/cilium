@@ -121,6 +121,7 @@ var (
 // registerBackend must be called by kvstore backends to register themselves
 func registerBackend(name string, module backendModule) {
 	if _, ok := registeredBackends[name]; ok {
+		// slogloggercheck: it's safe to use the default logger here since it's just to print a panic.
 		logging.Panic(logging.DefaultSlogLogger, "backend already registered", logfields.Name, name)
 	}
 

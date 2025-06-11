@@ -169,7 +169,7 @@ func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sL
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		// FIXME @aanm do we still need to log this error?
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Error(
 			"unable to construct selector in label selector",
 			logfields.LogSubsys, "policy-api",

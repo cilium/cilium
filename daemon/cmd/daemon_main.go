@@ -1003,6 +1003,7 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 
 	option.Config.SetupLogging(vp, "cilium-agent")
 
+	// slogloggercheck: using default logger for configuration initialization
 	option.Config.Populate(logging.DefaultSlogLogger, vp)
 
 	// add hooks after setting up metrics in the option.Config

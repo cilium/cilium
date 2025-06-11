@@ -291,8 +291,10 @@ func init() {
 	}
 
 	// Initialize the etcd client logger.
+	// slogloggercheck: it's safe to use the default logger here since it's just to print a warning from etcdClientDebugLevel.
 	l, err := logutil.CreateDefaultZapLogger(etcdClientDebugLevel(logging.DefaultSlogLogger))
 	if err != nil {
+		// slogloggercheck: it's safe to use the default logger here since it's just to print a warning.
 		logging.DefaultSlogLogger.Warn("Failed to initialize etcd client logger",
 			logfields.Error, err,
 		)
