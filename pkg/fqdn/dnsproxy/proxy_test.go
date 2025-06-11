@@ -202,7 +202,9 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 // Setup identities, ports and endpoint IDs we will need
 var (
-	cacheAllocator          = cache.NewCachingIdentityAllocator(logging.DefaultSlogLogger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
+	// slogloggercheck: the default logger is enough for tests.
+	cacheAllocator = cache.NewCachingIdentityAllocator(logging.DefaultSlogLogger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
+	// slogloggercheck: the default logger is enough for tests.
 	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))

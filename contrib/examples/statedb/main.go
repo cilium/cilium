@@ -51,5 +51,6 @@ func main() {
 			Cell,
 			cell.Invoke(followExamples),
 		),
+		// slogloggercheck: it's just an example, so we can use the default logger
 	).Run(logging.DefaultSlogLogger)
 }

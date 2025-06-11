@@ -187,11 +187,13 @@ func (u *XDSResource) UnmarshalJSON(b []byte) (err error) {
 	if err != nil {
 		var buf bytes.Buffer
 		json.Indent(&buf, b, "", "\t")
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Warn("Ignoring invalid CiliumEnvoyConfig JSON",
 			logfields.Error, err,
 			logfields.Object, buf,
 		)
 	} else if option.Config.Debug {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Debug("CEC unmarshaled XDS Resource", logfields.Resource, prototext.Format(u.Any))
 	}
 	return nil

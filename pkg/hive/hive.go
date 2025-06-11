@@ -65,6 +65,7 @@ func New(cells ...cell.Cell) *Hive {
 		// The root slog FieldLogger.
 		cell.Provide(
 			func() logging.FieldLogger {
+				// slogloggercheck: its setup has been done before hive is Ran.
 				return logging.DefaultSlogLogger
 			},
 
@@ -79,6 +80,7 @@ func New(cells ...cell.Cell) *Hive {
 	// Scope logging and health by module ID.
 	moduleDecorators := []cell.ModuleDecorator{
 		func(mid cell.ModuleID) logging.FieldLogger {
+			// slogloggercheck: its setup has been done before hive is Ran.
 			return logging.DefaultSlogLogger.With(logfields.LogSubsys, string(mid))
 		},
 		func(hp types.Provider, fmid cell.FullModuleID) cell.Health {

@@ -27,6 +27,7 @@ func init() {
 	// Override the client so that it always returns an IOReaderObserver with no flows.
 	observe.GetHubbleClientFunc = func(_ context.Context, _ *viper.Viper) (client observerpb.ObserverClient, cleanup func() error, err error) {
 		cleanup = func() error { return nil }
+		// slogloggercheck: the default logger is enough for tests.
 		return observe.NewIOReaderObserver(logging.DefaultSlogLogger, new(bytes.Buffer)), cleanup, nil
 	}
 

@@ -33,10 +33,12 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 			}
 
 			// Initialize working directories and validate the configuration.
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			initEnv(logging.DefaultSlogLogger, h.Viper())
 
 			// Create a new logger for the daemon after we have initialized the
 			// configuration in initEnv().
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			daemonLogger := logging.DefaultSlogLogger.With(logfields.LogSubsys, daemonSubsys)
 
 			// Validate the daemon-specific global options.
@@ -46,6 +48,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 			// Initialize the daemon configuration and logging with the
 			// DefaultSlogLogger without any logfields.
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
 				logging.Fatal(daemonLogger, fmt.Sprintf("unable to run agent: %s", err))
 			} else {
@@ -66,9 +69,11 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 		h.Command(),
 	)
 
+	// slogloggercheck: using default logger for initializing global flags
 	InitGlobalFlags(logging.DefaultSlogLogger, rootCmd, h.Viper())
 
 	cobra.OnInitialize(
+		// slogloggercheck: using default logger for configuration initialization
 		option.InitConfig(logging.DefaultSlogLogger, rootCmd, "cilium-agent", "cilium", h.Viper()),
 
 		// Populate the config and initialize the logger early as these

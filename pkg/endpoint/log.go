@@ -46,10 +46,12 @@ func (e *Endpoint) PolicyDebug(msg string, attrs ...any) {
 // nil or its internal loger is not setup, it returns the default logger.
 func (e *Endpoint) Logger(subsystem string) *slog.Logger {
 	if e == nil {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		return logging.DefaultSlogLogger.With(logfields.LogSubsys, subsystem)
 	}
 	logger := e.loggerNoSubsys.Load()
 	if logger == nil {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		return logging.DefaultSlogLogger.With(logfields.LogSubsys, subsystem)
 	}
 
@@ -121,11 +123,13 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 
 	// Create a base logger without the subsys attribute for the endpoint so
 	// that we can use it in the func Logger(subsystem string) *slog.Logger
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	baseLogger := logging.DefaultSlogLogger.With(args...)
 	e.loggerNoSubsys.Store(baseLogger)
 
 	// Create a base logger with the subsys attribute.
 	args = append(args, logfields.LogSubsys, subsys)
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	baseLogger = logging.DefaultSlogLogger.With(args...)
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
