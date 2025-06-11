@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -54,11 +55,12 @@ func newRegenerator(in struct {
 
 	Logger *slog.Logger
 
-	Config      wait.TimeoutConfig
-	NodesWaitFn KVStoreNodesWaitFn
-	IPCacheSync *ipcache.IPIdentityWatcher
-	ClusterMesh *clustermesh.ClusterMesh
-	Fence       regeneration.Fence
+	Config         wait.TimeoutConfig
+	NodesWaitFn    KVStoreNodesWaitFn
+	IPCacheSync    *ipcache.IPIdentityWatcher
+	ClusterMesh    *clustermesh.ClusterMesh
+	Fence          regeneration.Fence
+	LBInitWaitFunc loadbalancer.InitWaitFunc
 }) *Regenerator {
 	waitFn := func(context.Context) error { return nil }
 	if in.ClusterMesh != nil {
@@ -93,6 +95,12 @@ func newRegenerator(in struct {
 	in.Fence.Add(
 		"clustermesh",
 		r.waitForClusterMeshIPIdentitiesSync,
+	)
+
+	// Wait for the initial load-balancing state to be reconciled to BPF maps.
+	in.Fence.Add(
+		"loadbalancer",
+		in.LBInitWaitFunc,
 	)
 	return r
 }
