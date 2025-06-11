@@ -45,7 +45,8 @@ func registerBackendNeighborSync(p backendNeighborSyncParams) {
 		job.OneShot(
 			"backend-neighbor-sync",
 			func(ctx context.Context, _ cell.Health) error {
-				return syncBackendNeighbors(p, ctx)
+				return nil
+				// return syncBackendNeighbors(p, ctx)
 			},
 		))
 }
