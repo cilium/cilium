@@ -1097,13 +1097,21 @@ encryption:
   nodeEncryption: false
   # -- Configure the Encryption Pod2Pod strict mode.
   strictMode:
-    # -- Enable Encryption Pod2Pod strict mode.
+    # -- Enable Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.enabled)
     enabled: false
-    # -- CIDR for the Encryption Pod2Pod strict mode.
+    # -- CIDR for the Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.cidr)
     cidr: ""
-    # -- Allow dynamic lookup of remote node identities.
+    # -- Allow dynamic lookup of remote node identities. (deprecated: please use encryption.strictMode.egress.allowRemoteNodeIdentities)
     # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
     allowRemoteNodeIdentities: false
+    egress:
+      # -- Enable strict egress encryption.
+      enabled: false
+      # -- CIDR for the Encryption Pod2Pod strict egress mode.
+      cidr: ""
+      # -- Allow dynamic lookup of remote node identities.
+      # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+      allowRemoteNodeIdentities: false
     ingress:
       # -- Enable strict ingress encryption.
       # When enabled, all unencrypted overlay ingress traffic will be dropped.

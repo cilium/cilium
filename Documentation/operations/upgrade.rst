@@ -387,6 +387,11 @@ Deprecated Options
   (``MaxResults=1000``) for all future API calls. Users with very large AWS accounts can set
   ``--aws-max-results-per-call=1000`` upfront to force pagination from the start. The deprecated flag still works
   during the deprecation period (``true`` maps to ``1000``, ``false`` maps to ``0``) and will be removed in Cilium 1.20.
+* The flags ``--enable-encryption-strict-mode``, ``--encryption-strict-mode-cidr`` and
+  ``--encryption-strict-mode-allow-remote-node-identities`` have been deprecated and will be removed in
+  Cilium 1.20. Use the egress-specific options ``--enable-encryption-strict-mode-egress``,
+  ``--encryption-strict-egress-cidr`` and ``--encryption-strict-egress-allow-remote-node-identities``
+  instead.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -397,6 +402,11 @@ Helm Options
   Cilium ClusterMesh without Cilium CLI and could allow you to organize your clusters definition
   in multiple Helm value files. See the Cilium Helm chart documentation or value file for more details.
 
+* The Helm options ``encryption.strictMode.enabled``, ``encryption.strictMode.cidr`` and
+  ``encryption.strictMode.allowRemoteNodeIdentities`` have been deprecated and will be removed in
+  Cilium 1.20. Use the egress-specific options ``encryption.strictMode.egress.enabled``,
+  ``encryption.strictMode.egress.cidr`` and ``encryption.strictMode.egress.allowRemoteNodeIdentities``
+  instead.
 
 Agent Options
 ~~~~~~~~~~~~~

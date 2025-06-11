@@ -1045,7 +1045,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	}
 
 	strictMode := "false"
-	if config.EnableEncryptionStrictMode {
+	if config.EnableEncryptionStrictModeEgress {
 		strictMode = "true"
 	}
 
