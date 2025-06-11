@@ -47,4 +47,8 @@ var Cell = cell.Group(
 		cell.Provide(newAdapters),
 		cell.DecorateAll(decorateAdapters),
 	),
+
+	// Provide a function to wait until load-balancing control-plane has received
+	// and reconciled the initial state.
+	cell.Provide(newInitWaitFunc),
 )

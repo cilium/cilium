@@ -10,6 +10,9 @@ k8s/add endpointslice.yaml
 db/cmp backends backends.table 
 db/cmp frontends frontends.table
 
+# Verify that the [loadbalancer.InitWaitFunc] returns.
+test/init-wait
+
 # Check the BPF maps
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
