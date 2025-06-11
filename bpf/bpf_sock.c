@@ -154,12 +154,13 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	return ret;
 }
 
-static __always_inline int sock4_delete_revnat(struct bpf_sock *ctx)
+static __always_inline int sock4_delete_revnat(struct bpf_sock *ctx,
+					       struct bpf_sock *ctx_full)
 {
     struct ipv4_revnat_tuple key = {};
     int ret = 0;
 
-    key.cookie = get_socket_cookie(ctx);
+    key.cookie = get_socket_cookie(ctx_full);
     key.address = (__u32)ctx->dst_ip4;
     key.port = (__u16)ctx->dst_port;
 
@@ -1248,21 +1249,40 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 __section("cgroup/sock_release")
 int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 {
+#ifdef ENABLE_IPV4
+	if (ctx->family == AF_INET) {
+		if (!sock4_delete_revnat(ctx, ctx))
+			update_metrics(0, METRIC_EGRESS,
+				       REASON_LB_REVNAT_DELETE);
+	}
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	if (ctx->family == AF_INET6) {
 # ifdef ENABLE_IPV4
-	if (ctx->family == AF_INET)
-		if (sock4_delete_revnat(ctx) == 0)
-			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_DELETE);
+		union v6addr addr6;
+
+		ctx_get_v6_dst_address(ctx, &addr6);
+		if (is_v4_in_v6(&addr6)) {
+			struct bpf_sock fake_ctx;
+
+			memset(&fake_ctx, 0, sizeof(fake_ctx));
+			fake_ctx.dst_ip4  = addr6.p4;
+			fake_ctx.dst_port = (__u16)ctx->dst_port;
+
+			if (!sock4_delete_revnat(&fake_ctx, ctx))
+				update_metrics(0, METRIC_EGRESS,
+					       REASON_LB_REVNAT_DELETE);
+		} else
 # endif /* ENABLE_IPV4 */
-
-# ifdef ENABLE_IPV6
-	if (ctx->family == AF_INET6)
-		if (sock6_delete_revnat(ctx) == 0)
-			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_DELETE);
-# endif /* ENABLE_IPV6 */
-
-    return SYS_PROCEED;
+		{
+			if (!sock6_delete_revnat(ctx))
+				update_metrics(0, METRIC_EGRESS,
+					       REASON_LB_REVNAT_DELETE);
+		}
+	}
+#endif /* ENABLE_IPV6 */
+	return SYS_PROCEED;
 }
-
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");
