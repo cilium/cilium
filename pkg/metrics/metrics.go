@@ -1438,7 +1438,8 @@ func (reg *Registry) NewBPFMapPressureGauge(mapname string, threshold float64) *
 func Reinitialize() {
 	reg, err := registry.Await(context.Background())
 	if err == nil {
-		reg.Reinitialize()
+		reg.inner = prometheus.NewPedanticRegistry()
+		reg.registerMetrics()
 	}
 }
 

@@ -72,13 +72,11 @@ type Registry struct {
 
 func NewRegistry(params RegistryParams) *Registry {
 	reg := &Registry{
+		inner:  prometheus.NewPedanticRegistry(),
 		params: params,
 	}
 
-	reg.Reinitialize()
-
-	// Resolve the global registry variable for as long as we still have global functions
-	registryResolver.Resolve(reg)
+	reg.registerMetrics()
 
 	if params.Config.PrometheusServeAddr != "" {
 		// The Handler function provides a default handler to expose metrics
@@ -126,20 +124,13 @@ func (r *Registry) Unregister(c prometheus.Collector) bool {
 var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 
 // Reinitialize creates a new internal registry and re-registers metrics to it.
-func (r *Registry) Reinitialize() {
-	r.inner = prometheus.NewPedanticRegistry()
-
+func (r *Registry) registerMetrics() {
 	// Default metrics which can't be disabled.
 	r.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
 	r.MustRegister(collectors.NewGoCollector(
 		collectors.WithGoCollectorRuntimeMetrics(
 			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
 		)))
-
-	// Don't register status and BPF collectors into the [r.collectors] as it is
-	// expensive to sample and currently not terrible useful to keep data on.
-	r.inner.MustRegister(metricpkg.EnabledCollector{C: newStatusCollector(r.params.Logger)})
-	r.inner.MustRegister(metricpkg.EnabledCollector{C: newbpfCollector(r.params.Logger)})
 
 	metrics := make(map[string]metricpkg.WithMetadata)
 	for i, autoMetric := range r.params.AutoMetrics {
