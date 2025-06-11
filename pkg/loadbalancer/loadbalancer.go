@@ -19,8 +19,14 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+// InitWaitFunc is provided by the load-balancing cell to wait until the
+// load-balancing control-plane has finished reconciliation of the initial
+// data set.
+type InitWaitFunc hive.WaitFunc
 
 type IPFamily = bool
 

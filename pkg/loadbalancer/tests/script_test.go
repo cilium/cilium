@@ -100,8 +100,8 @@ func TestScript(t *testing.T) {
 							EnableNodePort:       true,
 						}
 					},
-					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer) uhive.ScriptCmdsOut {
-						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
+					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
+						return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
 					},
 				),
 
@@ -151,9 +151,10 @@ func TestScript(t *testing.T) {
 }
 
 type testCommands struct {
-	w   *writer.Writer
-	lns *node.LocalNodeStore
-	ops *lbreconciler.BPFOps
+	w      *writer.Writer
+	lns    *node.LocalNodeStore
+	ops    *lbreconciler.BPFOps
+	waitFn loadbalancer.InitWaitFunc
 }
 
 func (tc testCommands) cmds() map[string]script.Cmd {
@@ -163,6 +164,7 @@ func (tc testCommands) cmds() map[string]script.Cmd {
 		"test/bpfops-summary":        tc.opsSummary(),
 		"test/set-node-labels":       tc.setNodeLabels(),
 		"test/set-node-ip":           tc.setNodeIP(),
+		"test/init-wait":             tc.initWait(),
 	}
 }
 
@@ -256,4 +258,13 @@ func (tc testCommands) setNodeIP() script.Cmd {
 			})
 			return nil, nil
 		})
+}
+
+func (tc testCommands) initWait() script.Cmd {
+	return script.Command(
+		script.CmdUsage{Summary: "Wait for InitWaitFunc() to return"},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			return nil, tc.waitFn(s.Context())
+		})
+
 }
