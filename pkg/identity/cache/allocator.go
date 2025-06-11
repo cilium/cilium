@@ -61,8 +61,9 @@ type CachingIdentityAllocator struct {
 	// allocator is initialized.
 	globalIdentityAllocatorInitialized chan struct{}
 
-	localIdentities *localIdentityCache
-
+	// localLock prevents interleaving of allocations and calls to UpdateIdentities
+	localLock           lock.Mutex
+	localIdentities     *localIdentityCache
 	localNodeIdentities *localIdentityCache
 
 	identitiesPath string
@@ -134,9 +135,22 @@ type IdentityAllocator interface {
 	// previous numeric identity exists.
 	AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, error)
 
+	// AllocateLocalIdentity allocates an identity, returning error if the set of
+	// labels would not result in a locally-scoped identity.
+	//
+	// If notifyOwner is true, then the SelectorCache is directly updated with this identity. If not,
+	// the caller *must* ensure the SelectorCache learns about this identity.
+	AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error)
+
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
 	Release(context.Context, *identity.Identity, bool) (released bool, err error)
+
+	// ReleaseLocalIdentities releases a slice of locally-scoped identities. It always
+	// updates the SelectorCache.
+	//
+	// Returns the list of released (refcount = 0) identities
+	ReleaseLocalIdentities(...identity.NumericIdentity) ([]identity.NumericIdentity, error)
 
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// labels.
@@ -430,6 +444,8 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 		"Resolving local identity",
 		logfields.IdentityLabels, lbls,
 	)
+	m.localLock.Lock()
+	defer m.localLock.Unlock()
 
 	// Allocate according to scope
 	var metricLabel string
@@ -720,34 +736,26 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 }
 
 // ReleaseRestoredIdentities releases any identities that were restored, reducing their reference
-// count and cleaning up as necessary.
+// count and cleaning up as necessary. This always notifies the owner (i.e. updates the SelectorCache).
 func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
-	deleted := make(identity.IdentityMap, len(m.restoredIdentities))
-	for _, id := range m.restoredIdentities {
-		released, err := m.Release(context.Background(), id, false)
-		if err != nil {
-			// This should never happen; these IDs are local
-			m.logger.Error(
-				"failed to release restored identity",
-				logfields.Identity, id,
-				logfields.Error, err,
-			)
-			continue
-		}
-		if option.Config.Debug {
-			m.logger.Debug(
-				"Released restored identity reference",
-				logfields.Identity, id,
-				logfields.Released, released,
-			)
-		}
-		if released {
-			deleted[id.ID] = id.LabelArray
-		}
+	nids := make([]identity.NumericIdentity, 0, len(m.restoredIdentities))
+	for nid := range m.restoredIdentities {
+		nids = append(nids, nid)
 	}
 
-	if len(deleted) > 0 && m.owner != nil {
-		m.owner.UpdateIdentities(nil, deleted)
+	dealloc, err := m.ReleaseLocalIdentities(nids...)
+	if err != nil {
+		// This should never happen; these IDs are local
+		m.logger.Error(
+			"failed to release restored identities",
+			logfields.Error, err,
+		)
+	}
+	if option.Config.Debug {
+		m.logger.Debug(
+			"Released restored identity references",
+			logfields.Count, len(dealloc),
+		)
 	}
 
 	m.restoredIdentities = nil // free memory
@@ -757,42 +765,16 @@ func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity, notifyOwner bool) (released bool, err error) {
-	metricVal := identity.ClusterLocalIdentityType
-	defer func() {
-		if released {
-			// decrement metrics, trigger checkpoint if local
-			if metricVal != identity.ClusterLocalIdentityType && m.checkpointTrigger != nil {
-				m.checkpointTrigger.Trigger()
-			}
-			for labelSource := range id.Labels.CollectSources() {
-				metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
-			}
-			metrics.Identity.WithLabelValues(metricVal).Dec()
-		}
-
-		// Remove this ID from the selectorcache and any other identity "watchers"
-		if m.owner != nil && released && notifyOwner {
-			deleted := identity.IdentityMap{
-				id.ID: id.LabelArray,
-			}
-			m.owner.UpdateIdentities(nil, deleted)
-		}
-	}()
-
 	// Ignore reserved identities.
 	if id.IsReserved() {
 		return false, nil
 	}
 
 	// Release local identities
-	// will perform post-release cleanup actions above
 	switch identity.ScopeForLabels(id.Labels) {
-	case identity.IdentityScopeLocal:
-		metricVal = identity.NodeLocalIdentityType
-		return m.localIdentities.release(id), nil
-	case identity.IdentityScopeRemoteNode:
-		metricVal = identity.RemoteNodeIdentityType
-		return m.localNodeIdentities.release(id), nil
+	case identity.IdentityScopeLocal, identity.IdentityScopeRemoteNode:
+		dealloc, err := m.ReleaseLocalIdentities(id.ID)
+		return len(dealloc) > 0, err
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -811,7 +793,77 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// ID is no longer used locally, it may still be used by
 	// remote nodes, so we can't rely on the locally computed
 	// "lastUse".
-	return m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{LabelArray: id.LabelArray})
+	released, err = m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{LabelArray: id.LabelArray})
+	if released {
+		for labelSource := range id.Labels.CollectSources() {
+			metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
+		}
+		metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Dec()
+	}
+
+	// Remove this ID from the selectorcache and any other identity "watchers"
+	if m.owner != nil && released && notifyOwner {
+		deleted := identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}
+		m.owner.UpdateIdentities(nil, deleted)
+	}
+	return
+}
+
+// ReleaseLocalIdentities releases solely local identities. It always updates
+// the SelectorCache.
+//
+// Returns the list of released (refcount = 0) identities
+func (m *CachingIdentityAllocator) ReleaseLocalIdentities(nids ...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
+	var dealloc []identity.NumericIdentity
+	var errs []error
+
+	m.localLock.Lock()
+	defer m.localLock.Unlock()
+
+	deleted := make(identity.IdentityMap, len(nids))
+
+	for _, nid := range nids {
+		if rid := identity.LookupReservedIdentity(nid); rid != nil {
+			continue
+		}
+
+		var alloc *localIdentityCache
+		var metricVal string
+		switch nid.Scope() {
+		case identity.IdentityScopeLocal:
+			alloc = m.localIdentities
+			metricVal = identity.NodeLocalIdentityType
+		case identity.IdentityScopeRemoteNode:
+			alloc = m.localNodeIdentities
+			metricVal = identity.RemoteNodeIdentityType
+		default:
+			errs = append(errs, fmt.Errorf("attempt to release non-local identity %d", nid))
+			continue
+		}
+
+		id := alloc.lookupByID(nid)
+		if id == nil {
+			continue
+		}
+		released := alloc.release(id)
+		if released {
+			dealloc = append(dealloc, nid)
+			deleted[nid] = id.LabelArray
+			for labelSource := range id.Labels.CollectSources() {
+				metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
+			}
+			metrics.Identity.WithLabelValues(metricVal).Dec()
+		}
+	}
+	if len(deleted) > 0 {
+		if m.checkpointTrigger != nil {
+			m.checkpointTrigger.Trigger()
+		}
+		m.owner.UpdateIdentities(nil, deleted)
+	}
+	return dealloc, errors.Join(errs...)
 }
 
 // WatchRemoteIdentities returns a RemoteCache instance which can be later
