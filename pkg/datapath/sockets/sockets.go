@@ -89,6 +89,7 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 	// sockets.
 	switch protocol {
 	case unix.IPPROTO_UDP:
+	redo:
 		err := filterAndDestroyUDPSockets(family, func(sock netlink.SocketID, err error) {
 			if err != nil {
 				errs = errors.Join(errs, fmt.Errorf("UDP socket with filter [%v]: %w", filter, err))
@@ -109,7 +110,20 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 		if err != nil {
 			return fmt.Errorf("failed to get sockets with filter %v: %w", filter, err)
 		}
-
+		// After we iterated all IPv4 sockets, we now need to do the same
+		// also for IPv6 client sockets given they can have IPv4-in-IPv6
+		// mapped addresses and got connected to the terminating IPv4
+		// backend this way.
+		//
+		// Note that socketlb placed the revnat entry into the IPv4-related
+		// map (not the IPv6 one!). The DestroyCB looks up the right revnat
+		// BPF map based on the filter.DestIp which in our case is an IPv4
+		// address. The filter.DestIp stores the IPv4 address internally
+		// as IPv4-mapped IPv6 form as per net.IP.
+		if family == syscall.AF_INET {
+			family = syscall.AF_INET6
+			goto redo
+		}
 	default:
 		return fmt.Errorf("unsupported protocol for socket destroy: %d", protocol)
 	}
