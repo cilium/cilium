@@ -6,6 +6,7 @@ FLAGS := -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include -O2 -g
 CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
+CLANG_FLAGS += -ftrap-function=__undefined_trap
 CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
 CLANG_FLAGS += -Wno-address-of-packed-member
 CLANG_FLAGS += -Wno-unknown-warning-option
