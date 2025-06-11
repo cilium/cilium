@@ -143,14 +143,14 @@ var (
 )
 
 func Fatal(logger FieldLogger, msg string, args ...any) {
-	logger.Error(msg, args...)
 	(*exitHandler.Load())()
+	logger.Error(msg, args...)
 	os.Exit(-1)
 }
 
 func Panic(logger FieldLogger, msg string, args ...any) {
-	logger.Error(msg, args...)
 	(*exitHandler.Load())()
+	logger.Error(msg, args...)
 	panic(msg)
 }
 
