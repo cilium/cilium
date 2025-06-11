@@ -5,23 +5,13 @@ include ../../Makefile.defs
 
 MAKEFLAGS += -r
 
-CLANG ?= clang
-
 FLAGS := -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include -g
 
-# Base CFLAGS (CLANG_FLAGS) are read from pkg/datapath/loader/compile.go
-# to keep them synced with the loader
-CLANG_FLAGS := $(FLAGS) $(shell $(GO) run $(ROOT_DIR)/pkg/datapath/loader/tools/clang_cflags.go)
+# Note, FLAGS needs to be defined before inclusion
+include ../Makefile.clang
 
 # Create dependency files for each .o file.
 CLANG_FLAGS += -MD
-
-# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifneq ($(KERNEL),54)
-CLANG_FLAGS += -mcpu=v3
-else
-CLANG_FLAGS += -mcpu=v2
-endif
 
 .PHONY: all clean run
 
