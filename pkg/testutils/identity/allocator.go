@@ -134,6 +134,32 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	return realID, true, nil
 }
 
+func (f *MockIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	scope := identity.ScopeForLabels(lbls)
+	if scope == identity.IdentityScopeGlobal {
+		return nil, false, cache.ErrNonLocalIdentity
+	}
+	return f.AllocateIdentity(nil, lbls, notifyOwner, oldNID)
+}
+
+func (f *MockIdentityAllocator) ReleaseLocalIdentities(nids ...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
+	var dealloc []identity.NumericIdentity
+	for _, nid := range nids {
+		if nid.Scope() == identity.IdentityScopeGlobal {
+			continue
+		}
+		id := f.LookupIdentityByID(nil, nid)
+		if id == nil {
+			continue
+		}
+
+		if r, _ := f.Release(nil, id, true); r {
+			dealloc = append(dealloc, nid)
+		}
+	}
+	return dealloc, nil
+}
+
 // Release releases a fake identity. It is meant to generally mock the
 // canonical identity release logic.
 func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity, _ bool) (released bool, err error) {

@@ -46,10 +46,19 @@ func (n *NoopIdentityAllocator) AllocateIdentity(ctx context.Context, lbls label
 	return initID, false, nil
 }
 
+func (n *NoopIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	initID := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	return initID, false, nil
+}
+
 func (n *NoopIdentityAllocator) Release(context.Context, *identity.Identity, bool) (released bool, err error) {
 	// No need to release identities. All endpoints will have the same identity.
 	// The existing global identities will be cleaned up.
 	return false, nil
+}
+
+func (n *NoopIdentityAllocator) ReleaseLocalIdentities(...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
+	return nil, nil
 }
 
 func (n *NoopIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
