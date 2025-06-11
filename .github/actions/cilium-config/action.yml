@@ -40,6 +40,9 @@ inputs:
   encryption-strict-egress:
     description: 'Enable strict mode egress encryption (WireGuard only)'
     default: ''
+  encryption-strict-ingress:
+    description: 'Enable strict mode ingress encryption (WireGuard only)'
+    default: 'false'
   egress-gateway:
     description: 'Enable egress gateway'
     default: 'false'
@@ -192,6 +195,9 @@ runs:
             if [ "${{ inputs.encryption-strict-egress }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.strictMode.egress.enabled=${{ inputs.encryption-strict-egress }}"
               ENCRYPT+=" --helm-set=encryption.strictMode.egress.cidr=10.244.0.0/16"
+            fi
+            if [ "${{ inputs.encryption-strict-ingress }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.strictMode.ingress.enabled=${{ inputs.encryption-strict-ingress }}"
             fi
           fi
 

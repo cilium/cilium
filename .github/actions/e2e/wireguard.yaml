@@ -74,3 +74,16 @@
   skip-upgrade: 'true'
   # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+- name: 'wireguard-6'
+  kernel: '5.10'
+  kube-proxy: 'iptables'
+  kpr: 'true'
+  devices: '{eth0,eth1}'
+  secondary-network: 'true'
+  tunnel: 'vxlan'
+  encryption: 'wireguard'
+  encryption-node: 'false'
+  encryption-strict-ingress: 'true'
+  skip-upgrade: 'true'
+  # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'
