@@ -41,14 +41,17 @@ func NewCmd() *cobra.Command {
 		Short: "Initialize an etcd data directory for use by the etcd sidecar of clustermesh-apiserver",
 		PreRun: func(cmd *cobra.Command, args []string) {
 			if err := logging.SetupLogging(nil, map[string]string{}, "etcdinit", vp.GetBool(option.DebugArg)); err != nil {
+				// slogloggercheck: log fatal errors using the default logger before it's initialized.
 				logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
 			}
 
+			// slogloggercheck: the logger has been initialized in the logging.SetupLogging call above
 			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcdinit")
 			option.LogRegisteredSlogOptions(vp, log)
 			log.Info("Cilium ClusterMesh etcd init", logfields.Version, version.Version)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			// slogloggercheck: it has been initialized in the PreRun function.
 			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcdinit")
 			err := InitEtcdLocal(log)
 			// The error has already been handled and logged by InitEtcdLocal. We just use it to determine the exit code

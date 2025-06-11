@@ -323,6 +323,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
 
 			initEnv(logger, h.Viper())
@@ -330,7 +331,9 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 			// Pass the DefaultSlogLogger to the hive after being initialized
 			// with the initEnv which sets up the logging.DefaultSlogLogger with
 			// the user-options.
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+				// slogloggercheck: log fatal errors using the default logger before it's initialized.
 				logging.Fatal(logging.DefaultSlogLogger, err.Error())
 			}
 		},
@@ -354,11 +357,13 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		h.Command(),
 	)
 
+	// slogloggercheck: using default logger for configuration initialization
 	InitGlobalFlags(logging.DefaultSlogLogger, cmd, h.Viper())
 	for _, hook := range FlagsHooks {
 		hook.RegisterProviderFlag(cmd, h.Viper())
 	}
 
+	// slogloggercheck: using default logger for configuration initialization
 	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
 
 	return cmd

@@ -195,6 +195,7 @@ var (
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},
 	}
+	// slogloggercheck: the default logger is enough for tests.
 	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)

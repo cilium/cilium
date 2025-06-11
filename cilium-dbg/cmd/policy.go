@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safeio"
@@ -37,8 +36,6 @@ var (
 )
 
 func init() {
-	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-dbg")
-
 	RootCmd.AddCommand(PolicyCmd)
 
 	// Initialize LRU here because the policy subcommands (validate, import)

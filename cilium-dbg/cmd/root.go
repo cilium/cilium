@@ -88,13 +88,16 @@ func initConfig() {
 	logDriver := vp.GetStringSlice(option.LogDriver)
 	logOpts, err := command.GetStringMapStringE(vp, option.LogOpt)
 	if err != nil {
+		// slogloggercheck: log fatal errors using the default logger before it's initialized.
 		logging.Fatal(logging.DefaultSlogLogger, fmt.Sprintf("unable to parse %s", option.LogOpt), logfields.Error, err)
 	}
 
 	if err := logging.SetupLogging(logDriver, logOpts, "cilium-dbg", vp.GetBool(option.DebugArg)); err != nil {
+		// slogloggercheck: log fatal errors using the default logger before it's initialized.
 		logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
 	}
 
+	// slogloggercheck: it has been properly initialized now.
 	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-dbg")
 
 	if cl, err := clientPkg.NewClient(vp.GetString("host")); err != nil {

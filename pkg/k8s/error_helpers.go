@@ -50,6 +50,7 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...any) {
 		return
 	}
 
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	logger := logging.DefaultSlogLogger
 
 	// We rate-limit certain categories of error message. These are matched

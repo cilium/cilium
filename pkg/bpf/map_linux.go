@@ -246,7 +246,7 @@ func (m *Map) updateMetrics() {
 func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32) *Map {
 
-	// TODO inject the logger in a better way than this.
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	defaultSlogLogger := logging.DefaultSlogLogger
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
@@ -275,7 +275,7 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec) *Map {
 
-	// TODO inject the logger in a better way than this.
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	defaultSlogLogger := logging.DefaultSlogLogger
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
@@ -492,7 +492,7 @@ func OpenMap(pinPath string, key MapKey, value MapValue) (*Map, error) {
 		return nil, err
 	}
 
-	// TODO inject the logger in a better way than this.
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	defaultSlogLogger := logging.DefaultSlogLogger
 
 	logger := defaultSlogLogger.With(

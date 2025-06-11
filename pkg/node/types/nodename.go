@@ -73,8 +73,10 @@ func init() {
 		return
 	}
 	if h, err := os.Hostname(); err != nil {
+		// slogloggercheck: it's safe to use the default logger as it's for a warning unlikely to happen.
 		logging.DefaultSlogLogger.Warn("Unable to retrieve local hostname", logfields.Error, err)
 	} else {
+		// slogloggercheck: it's safe to use the default logger as it's for a debug message.
 		logging.DefaultSlogLogger.Debug("os.Hostname() returned", logfields.NodeName, h)
 		nodeName = h
 	}
