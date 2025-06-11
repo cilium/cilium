@@ -327,13 +327,25 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.L2AnnouncerRetryPeriod)
 
 	flags.Bool(option.EnableEncryptionStrictMode, false, "Enable encryption strict mode")
+	flags.MarkDeprecated(option.EnableEncryptionStrictMode, "Please use --enable-encryption-strict-mode-egress instead. This option will be removed in v1.19")
 	option.BindEnv(vp, option.EnableEncryptionStrictMode)
 
-	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped")
+	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped.")
+	flags.MarkDeprecated(option.EncryptionStrictModeCIDR, "Please use --encryption-strict-egress-cidr instead. This option will be removed in v1.19")
 	option.BindEnv(vp, option.EncryptionStrictModeCIDR)
 
 	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
+	flags.MarkDeprecated(option.EncryptionStrictModeAllowRemoteNodeIdentities, "Please use --encryption-strict-egress-allow-remote-node-identities instead. This option will be removed in v1.19")
 	option.BindEnv(vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)
+
+	flags.Bool(option.EnableEncryptionStrictModeEgress, false, "Enable strict mode encryption enforcement for egress traffic")
+	option.BindEnv(vp, option.EnableEncryptionStrictModeEgress)
+
+	flags.String(option.EncryptionStrictEgressCIDR, "", "In strict-mode-egress encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped.")
+	option.BindEnv(vp, option.EncryptionStrictEgressCIDR)
+
+	flags.Bool(option.EncryptionStrictEgressAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
+	option.BindEnv(vp, option.EncryptionStrictEgressAllowRemoteNodeIdentities)
 
 	flags.Bool(option.EnableEncryptionStrictModeIngress, false, "Enable strict mode encryption enforcement for ingress traffic")
 	option.BindEnv(vp, option.EnableEncryptionStrictModeIngress)
