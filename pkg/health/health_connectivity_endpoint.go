@@ -255,11 +255,17 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		return nil, fmt.Errorf("create cilium-health netns: %w", err)
 	}
 
+	linkConfig := connector.LinkConfig{
+		GROIPv6MaxSize: bigTCPConfig.GetGROIPv6MaxSize(),
+		GSOIPv6MaxSize: bigTCPConfig.GetGSOIPv6MaxSize(),
+		GROIPv4MaxSize: bigTCPConfig.GetGROIPv4MaxSize(),
+		GSOIPv4MaxSize: bigTCPConfig.GetGSOIPv4MaxSize(),
+		DeviceMTU:      mtuConfig.GetDeviceMTU(),
+	}
+
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(h.logger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
-			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
+		_, epLink, err := connector.SetupVethWithNames(h.logger, healthName, epIfaceName, linkConfig,
 			info, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %w", err)
@@ -269,9 +275,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		}
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-		_, epLink, err := connector.SetupNetkitWithNames(h.logger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
-			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), l2Mode,
+		_, epLink, err := connector.SetupNetkitWithNames(h.logger, healthName, epIfaceName, linkConfig, l2Mode,
 			info, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating netkit: %w", err)
