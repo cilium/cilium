@@ -67,6 +67,58 @@ func TestHTTPCompare(t *testing.T) {
 	}
 }
 
+func TestHTTPSortHeaders(t *testing.T) {
+	setUpSuite(t)
+
+	tests := []struct {
+		name                  string
+		rule                  PortRuleHTTP
+		expectedHeaders       []string
+		expectedHeaderMatches []*HeaderMatch
+	}{
+		{
+			name:            "Headers already sorted",
+			rule:            PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"1first", "2second"}},
+			expectedHeaders: []string{"1first", "2second"},
+		},
+		{
+			name:            "Headers to be sorted",
+			rule:            PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"2second", "1first"}},
+			expectedHeaders: []string{"1first", "2second"},
+		},
+		{
+			name: "HeaderMatches already sorted",
+			rule: PortRuleHTTP{Path: "/foo$", Method: "GET", HeaderMatches: []*HeaderMatch{
+				{Name: "1first"},
+				{Name: "2second"},
+			},
+			},
+			expectedHeaderMatches: []*HeaderMatch{
+				{Name: "1first"},
+				{Name: "2second"},
+			},
+		},
+		{
+			name: "HeaderMatches to be sorted",
+			rule: PortRuleHTTP{Path: "/foo$", Method: "GET", HeaderMatches: []*HeaderMatch{
+				{Name: "2second"},
+				{Name: "1first"},
+			},
+			},
+			expectedHeaderMatches: []*HeaderMatch{
+				{Name: "1first"},
+				{Name: "2second"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		test.rule.SortHeaders()
+		require.Equal(t, test.expectedHeaders, test.rule.Headers)
+		require.Equal(t, test.expectedHeaderMatches, test.rule.HeaderMatches)
+	}
+}
+
 func TestSecretEqual(t *testing.T) {
 	setUpSuite(t)
 

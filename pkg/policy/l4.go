@@ -1492,6 +1492,9 @@ func (l4M *l4PolicyMap) FinalizePerSelectorPolicies() {
 		if l4 != nil {
 			for _, perSelectorPolicy := range l4.PerSelectorPolicies {
 				if perSelectorPolicy != nil {
+					for _, l7 := range perSelectorPolicy.HTTP {
+						l7.SortHeaders()
+					}
 					slices.SortFunc(perSelectorPolicy.HTTP, func(a, b api.PortRuleHTTP) int {
 						return a.Compare(b)
 					})

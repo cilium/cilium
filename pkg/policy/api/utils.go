@@ -21,6 +21,13 @@ func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
 	return h.Compare(o) == 0
 }
 
+func (h *PortRuleHTTP) SortHeaders() {
+	slices.Sort(h.Headers)
+	slices.SortFunc(h.HeaderMatches, func(a, b *HeaderMatch) int {
+		return a.Compare(b)
+	})
+}
+
 func (h *PortRuleHTTP) Compare(o PortRuleHTTP) int {
 	if h == nil {
 		return -1
