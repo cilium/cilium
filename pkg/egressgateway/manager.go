@@ -181,8 +181,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 }, err error) {
 	dcfg := p.DaemonConfig
 
-	// TODO: deprecate --enable-ipv4-egress-gateway, create new --enable-egress-gateway
-	if !dcfg.EnableIPv4EgressGateway {
+	if !dcfg.EnableEgressGateway {
 		return out, nil
 	}
 
@@ -198,6 +197,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
 	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	}
+
+	if !dcfg.EnableIPv6Masquerade {
+		p.Logger.Info(fmt.Sprintf("egress gateway ipv6 policies require --%s=\"true\"", option.EnableIPv6Masquerade))
 	}
 
 	out.Manager, err = newEgressGatewayManager(p)

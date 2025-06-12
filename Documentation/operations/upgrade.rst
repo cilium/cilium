@@ -374,6 +374,8 @@ Deprecated Options
 * The flag ``--egress-multi-home-ip-rule-compat`` and the old IP rule scheme has been deprecated and will be removed
   in Cilium 1.19. Running Cilium 1.18 with the flag set to ``false`` (default value) will migrate any existing IP rules
   to the new scheme.
+* The flag ``--enable-ipv4-egress-gateway`` has been deprecated in favor of ``--enable-egress-gateway`` and will
+  be removed in Cilium 1.19.
 
 Helm Options
 ~~~~~~~~~~~~
