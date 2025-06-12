@@ -256,12 +256,18 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		return nil, fmt.Errorf("create cilium-health netns: %w", err)
 	}
 
+	linkConfig := connector.LinkConfig{
+		GROIPv6MaxSize: bigTCPConfig.GetGROIPv6MaxSize(),
+		GSOIPv6MaxSize: bigTCPConfig.GetGSOIPv6MaxSize(),
+		GROIPv4MaxSize: bigTCPConfig.GetGROIPv4MaxSize(),
+		GSOIPv4MaxSize: bigTCPConfig.GetGSOIPv4MaxSize(),
+		DeviceMTU:      mtuConfig.GetDeviceMTU(),
+	}
+
+	var hostLink, epLink netlink.Link
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
-			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
-			info, sysctl)
+		hostLink, epLink, err = connector.SetupVethWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, linkConfig, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %w", err)
 		}
@@ -270,10 +276,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		}
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-		_, epLink, err := connector.SetupNetkitWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
-			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), l2Mode,
-			info, sysctl)
+		hostLink, epLink, err = connector.SetupNetkitWithNames(logging.DefaultSlogLogger, healthName, epIfaceName, linkConfig, l2Mode, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating netkit: %w", err)
 		}
@@ -281,6 +284,11 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %w", epIfaceName, err)
 		}
 	}
+
+	info.Mac = epLink.Attrs().HardwareAddr.String()
+	info.HostMac = hostLink.Attrs().HardwareAddr.String()
+	info.InterfaceIndex = int64(hostLink.Attrs().Index)
+	info.InterfaceName = hostLink.Attrs().Name
 
 	if err := ns.Do(func() error {
 		return h.configureHealthInterface(epIfaceName, ip4Address, ip6Address)
