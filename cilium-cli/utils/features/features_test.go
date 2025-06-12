@@ -127,7 +127,7 @@ func TestFeatureSet_extractFromConfigMap(t *testing.T) {
 		"enable-ipv4":                  "true",
 		"enable-ipv6":                  "true",
 		"mesh-auth-mutual-enabled":     "true",
-		"enable-ipv4-egress-gateway":   "true",
+		"enable-egress-gateway":        "true",
 		"ipam":                         "eni",
 		"enable-ipsec":                 "true",
 		"enable-local-redirect-policy": "true",
