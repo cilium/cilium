@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package client
+package testutils
 
 import (
 	"errors"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	versionapi "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
@@ -31,6 +32,7 @@ import (
 	k8sYaml "sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/container"
+	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
@@ -73,7 +75,7 @@ type FakeClientset struct {
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
-	clientsetGetters
+	k8sclient.ClientsetGetters
 
 	SlimFakeClientset *SlimFakeClientset
 
@@ -83,7 +85,7 @@ type FakeClientset struct {
 	}
 }
 
-var _ Clientset = &FakeClientset{}
+var _ k8sclient.Clientset = &FakeClientset{}
 
 func (c *FakeClientset) Slim() slim_clientset.Interface {
 	return c.SlimFakeClientset
@@ -101,9 +103,9 @@ func (c *FakeClientset) Disable() {
 	c.disabled = true
 }
 
-func (c *FakeClientset) Config() Config {
+func (c *FakeClientset) Config() k8sclient.Config {
 	//exhaustruct:ignore
-	return Config{}
+	return k8sclient.Config{}
 }
 
 func (c *FakeClientset) RestConfig() *rest.Config {
@@ -111,16 +113,16 @@ func (c *FakeClientset) RestConfig() *rest.Config {
 	return &rest.Config{}
 }
 
-func NewFakeClientset(log *slog.Logger) (*FakeClientset, Clientset) {
+func NewFakeClientset(log *slog.Logger) (*FakeClientset, k8sclient.Clientset) {
 	return NewFakeClientsetWithTracker(log, nil)
 }
 
-func NewFakeClientsetWithTracker(log *slog.Logger, ot *statedbObjectTracker) (*FakeClientset, Clientset) {
+func NewFakeClientsetWithTracker(log *slog.Logger, ot *statedbObjectTracker) (*FakeClientset, k8sclient.Clientset) {
 	version := testutils.DefaultVersion
 	return NewFakeClientsetWithVersion(log, ot, version)
 }
 
-func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, version string) (*FakeClientset, Clientset) {
+func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, version string) (*FakeClientset, k8sclient.Clientset) {
 	if version == "" {
 		version = testutils.DefaultVersion
 	}
@@ -178,7 +180,7 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 	fd := client.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(version)
 
-	client.clientsetGetters = clientsetGetters{&client}
+	client.ClientsetGetters = k8sclient.ClientsetGetters{Clientset: &client}
 	return &client, &client
 }
 
@@ -190,11 +192,16 @@ var FakeClientBuilderCell = func() cell.Cell {
 	)
 }
 
-func FakeClientBuilder(log *slog.Logger, ot *statedbObjectTracker) ClientBuilderFunc {
+func FakeClientBuilder(log *slog.Logger, ot *statedbObjectTracker) k8sclient.ClientBuilderFunc {
 	fc, _ := NewFakeClientsetWithTracker(log, ot)
-	return func(_ string) (Clientset, error) {
+	return func(_ string) (k8sclient.Clientset, error) {
 		return fc, nil
 	}
+}
+
+func toVersionInfo(rawVersion string) *versionapi.Info {
+	parts := strings.Split(rawVersion, ".")
+	return &versionapi.Info{Major: parts[0], Minor: parts[1]}
 }
 
 type prepender interface {

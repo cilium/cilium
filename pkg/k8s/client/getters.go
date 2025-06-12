@@ -20,13 +20,13 @@ type Getters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error)
 }
 
-// clientsetGetters implements the Getters interface in terms of the clientset.
-type clientsetGetters struct {
+// ClientsetGetters implements the Getters interface in terms of the clientset.
+type ClientsetGetters struct {
 	Clientset
 }
 
 // GetSecrets returns the secrets found in the given namespace and name.
-func (cs *clientsetGetters) GetSecrets(ctx context.Context, ns, name string) (map[string][]byte, error) {
+func (cs *ClientsetGetters) GetSecrets(ctx context.Context, ns, name string) (map[string][]byte, error) {
 	if !cs.IsEnabled() {
 		return nil, fmt.Errorf("GetSecrets: No k8s, cannot access k8s secrets")
 	}
@@ -39,7 +39,7 @@ func (cs *clientsetGetters) GetSecrets(ctx context.Context, ns, name string) (ma
 }
 
 // GetK8sNode returns the node with the given nodeName.
-func (cs *clientsetGetters) GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error) {
+func (cs *ClientsetGetters) GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error) {
 	if !cs.IsEnabled() {
 		return nil, fmt.Errorf("GetK8sNode: No k8s, cannot access k8s nodes")
 	}
@@ -48,7 +48,7 @@ func (cs *clientsetGetters) GetK8sNode(ctx context.Context, nodeName string) (*s
 }
 
 // GetCiliumNode returns the CiliumNode with the given nodeName.
-func (cs *clientsetGetters) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
+func (cs *ClientsetGetters) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
 	if !cs.IsEnabled() {
 		return nil, fmt.Errorf("GetK8sNode: No k8s, cannot access k8s nodes")
 	}

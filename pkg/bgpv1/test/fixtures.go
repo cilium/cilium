@@ -31,6 +31,7 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -76,7 +77,7 @@ var (
 // fixture is test harness
 type fixture struct {
 	config        fixtureConfig
-	fakeClientSet *k8sClient.FakeClientset
+	fakeClientSet *k8sFakeClient.FakeClientset
 	policyClient  v2alpha1.CiliumBGPPeeringPolicyInterface
 	secretClient  clientset_core_v1.SecretInterface
 	hive          *hive.Hive
@@ -158,7 +159,7 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 		}
 	}
 
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
+	f.fakeClientSet, _ = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
 	f.secretClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Secrets("bgp-secrets")
 

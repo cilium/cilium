@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -108,7 +109,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.hive = hive.New(
 		cell.Provide(
 			func(log *slog.Logger) k8sClient.Clientset {
-				cs, _ := k8sClient.NewFakeClientset(log)
+				cs, _ := k8sFakeClient.NewFakeClientset(log)
 				cs.Disable()
 				return cs
 			},

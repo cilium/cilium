@@ -40,7 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -71,7 +71,7 @@ func TestScript(t *testing.T) {
 		var lns *node.LocalNodeStore
 
 		h := hive.New(
-			client.FakeClientCell(),
+			k8sClient.FakeClientCell(),
 			synced.Cell,
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,

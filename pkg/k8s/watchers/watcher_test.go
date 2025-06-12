@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 )
 
@@ -27,7 +27,7 @@ func (f *fakeK8sWatcherConfiguration) KVstoreEnabled() bool {
 
 func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	logger := hivetest.Logger(t)
-	fakeClientSet, _ := client.NewFakeClientset(logger)
+	fakeClientSet, _ := k8sClient.NewFakeClientset(logger)
 	w := newWatcher(
 		logger,
 		func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups []string, waitForCachesOnly []string) {

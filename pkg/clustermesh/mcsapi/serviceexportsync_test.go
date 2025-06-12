@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -111,7 +112,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	var services resource.Resource[*slim_corev1.Service]
 	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
 	hive := hive.New(
-		k8sClient.FakeClientCell(),
+		k8sFakeClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(ServiceExportResource),
 		cell.Provide(func() operator.MCSAPIConfig {

@@ -24,6 +24,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -147,7 +148,7 @@ func TestGC(t *testing.T) {
 			)
 
 			hive := hive.New(
-				k8sClient.FakeClientCell(),
+				k8sFakeClient.FakeClientCell(),
 				k8s.ResourcesCell,
 				cell.ProvidePrivate(func() localEndpointCache {
 					return &fakeEPManager{test.managedEndpoints}
@@ -161,7 +162,7 @@ func TestGC(t *testing.T) {
 					// variable
 					return nil
 				}),
-				cell.Invoke(func(clientset *k8sClient.FakeClientset) error {
+				cell.Invoke(func(clientset *k8sFakeClient.FakeClientset) error {
 					clientset.CiliumFakeClientset.PrependReactor("get", "ciliumendpoints", k8stesting.ReactionFunc(
 						func(action k8stesting.Action) (bool, runtime.Object, error) {
 							if !test.enableCES {
