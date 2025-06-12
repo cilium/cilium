@@ -56,6 +56,12 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     make GOOS=${TARGETOS} GOARCH=${TARGETARCH} $(echo $MODIFIERS | tr -d '"') && \
     mv hubble /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble
 
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
+    make -C bpf/ bpf_sock_term.o && \
+    mv bpf/bpf_sock_term.o /tmp/bpf_sock_term.o
+
 # Extract debug symbols to /tmp/debug and strip the binaries if NOSTRIP is not set.
 # Use the appropriate objcopy for the target architecture.
 RUN set -xe && \
@@ -108,6 +114,7 @@ COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /us
 ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
 COPY --from=builder /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble /usr/bin/hubble
+COPY --from=builder /tmp/bpf_sock_term.o /bpf/bpf_sock_term.o
 RUN /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble
 WORKDIR /home/cilium
 

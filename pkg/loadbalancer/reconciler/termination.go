@@ -45,9 +45,6 @@ var SocketTerminationCell = cell.Module(
 				all:     netns.All,
 			}
 		},
-		func(log *slog.Logger) sockets.SocketDestroyer {
-			return socketDestroyer{log}
-		},
 	),
 
 	cell.Invoke(registerSocketTermination),
@@ -81,14 +78,6 @@ type netnsOps struct {
 	current func() (*netns.NetNS, error)
 	do      func(*netns.NetNS, func() error) error
 	all     func() (iter.Seq2[string, *netns.NetNS], <-chan error)
-}
-
-type socketDestroyer struct {
-	log *slog.Logger
-}
-
-func (sd socketDestroyer) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(sd.log, filter)
 }
 
 func registerSocketTermination(p socketTerminationParams) error {
