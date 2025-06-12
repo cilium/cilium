@@ -26,6 +26,28 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
+// ServiceID identifies the Kubernetes service
+type ServiceID struct {
+	Cluster   string `json:"cluster,omitempty"`
+	Name      string `json:"serviceName,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// String returns the string representation of a service ID
+func (s ServiceID) String() string {
+	if s.Cluster != "" {
+		return fmt.Sprintf("%s/%s/%s", s.Cluster, s.Namespace, s.Name)
+	}
+	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
+}
+
+// EndpointSliceID identifies a Kubernetes EndpointSlice as well as the legacy
+// v1.Endpoints.
+type EndpointSliceID struct {
+	ServiceID
+	EndpointSliceName string
+}
+
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
 // consists of a set of backend IPs in combination with a set of ports and
 // protocols. The name of the backend ports must match the names of the
@@ -455,7 +477,6 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 // The map key is the name of the endpoint slice or the name of the legacy
 // v1.Endpoint. The endpoints stored here are not namespaced since this
 // structure is only used as a value of another map that is already namespaced.
-// (see ServiceCache.endpoints).
 //
 // +deepequal-gen=true
 type EndpointSlices struct {
@@ -514,17 +535,4 @@ func (es *EndpointSlices) Delete(esName string) bool {
 	}
 	delete(es.epSlices, esName)
 	return len(es.epSlices) == 0
-}
-
-// externalEndpoints is the collection of external endpoints in all remote
-// clusters. The map key is the name of the remote cluster.
-type externalEndpoints struct {
-	endpoints map[string]*Endpoints
-}
-
-// newExternalEndpoints returns a new ExternalEndpoints
-func newExternalEndpoints() externalEndpoints {
-	return externalEndpoints{
-		endpoints: map[string]*Endpoints{},
-	}
 }

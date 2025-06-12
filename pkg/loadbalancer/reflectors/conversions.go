@@ -4,6 +4,7 @@
 package reflectors
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -97,7 +99,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	}
 
 	if localNodeStore != nil {
-		if nodeMatches, err := k8s.CheckServiceNodeExposure(localNodeStore, svc.Annotations); err != nil {
+		if nodeMatches, err := CheckServiceNodeExposure(localNodeStore, svc.Annotations); err != nil {
 			log().Warn("Ignoring node service exposure", logfields.Error, err)
 		} else if !nodeMatches {
 			return nil, nil
@@ -105,7 +107,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		}
 	}
 
-	expType, err := k8s.NewSvcExposureType(svc)
+	expType, err := NewSvcExposureType(svc)
 	if err != nil {
 		log().Warn("Ignoring annotation",
 			logfields.Error, err,
@@ -477,4 +479,81 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 		value = svc.ObjectMeta.Annotations[corev1.AnnotationTopologyMode]
 	}
 	return !(value == "" || value == "disabled" || value == "Disabled")
+}
+
+// CheckServiceNodeExposure returns true if the service should be installed onto the
+// local node, and false if the node should ignore and not install the service.
+func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, annotations map[string]string) (bool, error) {
+	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
+		ln, err := localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		selector, err := k8sLabels.Parse(serviceAnnotationValue)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
+		}
+
+		if selector.Matches(k8sLabels.Set(ln.Labels)) {
+			return true, nil
+		}
+
+		// prioritize any existing node-selector annotation - and return in any case
+		return false, nil
+	}
+
+	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
+		ln, err := localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
+		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// exposeSvcType is used to determine whether a given service can be provisioned
+// for a given service type (passed to the "canExpose" method).
+//
+// This is controlled by the ServiceTypeExposure K8s Service annotation. If it
+// set, then only the service type in the value is provisioned. For example, a
+// LoadBalancer service includes ClusterIP and NodePort (unless
+// allocateLoadBalancerNodePorts is set to false). To avoid provisioning the
+// latter two, one can set the annotation with the value "LoadBalancer".
+type exposeSvcType slim_corev1.ServiceType
+
+func NewSvcExposureType(svc *slim_corev1.Service) (*exposeSvcType, error) {
+	typ, isSet := svc.Annotations[annotation.ServiceTypeExposure]
+	if !isSet {
+		return nil, nil
+	}
+
+	svcType := slim_corev1.ServiceType(typ)
+
+	switch svcType {
+	case slim_corev1.ServiceTypeClusterIP,
+		slim_corev1.ServiceTypeNodePort,
+		slim_corev1.ServiceTypeLoadBalancer:
+	default:
+		return nil,
+			fmt.Errorf("not supported type for %q: %s", annotation.ServiceTypeExposure, typ)
+	}
+
+	expType := exposeSvcType(svcType)
+	return &expType, nil
+}
+
+// CanExpose checks whether a given service type can be provisioned.
+func (e *exposeSvcType) CanExpose(t slim_corev1.ServiceType) bool {
+	if e == nil {
+		return true
+	}
+
+	return slim_corev1.ServiceType(*e) == t
 }

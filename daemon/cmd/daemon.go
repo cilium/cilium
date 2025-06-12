@@ -106,8 +106,7 @@ type Daemon struct {
 	identityRestorer  *identityrestoration.LocalIdentityRestorer
 	ipcache           *ipcache.IPCache
 
-	k8sWatcher  *watchers.K8sWatcher
-	k8sSvcCache k8s.ServiceCache
+	k8sWatcher *watchers.K8sWatcher
 
 	endpointMetadata endpointmetadata.EndpointMetadataFetcher
 
@@ -286,7 +285,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		endpointManager:   params.EndpointManager,
 		endpointMetadata:  params.EndpointMetadata,
 		k8sWatcher:        params.K8sWatcher,
-		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
@@ -342,7 +340,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
-	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 
 	if option.Config.DNSPolicyUnloadOnShutdown {

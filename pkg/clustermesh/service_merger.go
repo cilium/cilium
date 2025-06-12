@@ -62,7 +62,6 @@ type serviceMerger struct {
 	writer      *writer.Writer
 }
 
-// MergeExternalServiceDelete implements k8s.ServiceCache.
 func (sm *serviceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
@@ -78,7 +77,6 @@ func (sm *serviceMerger) MergeExternalServiceDelete(service *serviceStore.Cluste
 	)
 }
 
-// MergeExternalServiceUpdate implements k8s.ServiceCache.
 func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService) {
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
