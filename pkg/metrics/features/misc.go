@@ -17,14 +17,14 @@ func (m Metrics) DelLRPConfig(_ k8s.ServiceID) {
 	m.NPLRPIngested.WithLabelValues(actionDel).Inc()
 }
 
-func (m Metrics) AddService(svc *k8s.Service) {
-	if svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+func (m Metrics) AddService(svc *loadbalancer.Service) {
+	if svc != nil && svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 		m.ACLBInternalTrafficPolicyIngested.WithLabelValues(actionAdd).Inc()
 	}
 }
 
-func (m Metrics) DelService(svc *k8s.Service) {
-	if svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+func (m Metrics) DelService(svc *loadbalancer.Service) {
+	if svc != nil && svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 		m.ACLBInternalTrafficPolicyIngested.WithLabelValues(actionDel).Inc()
 	}
 }

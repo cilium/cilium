@@ -173,7 +173,7 @@ func TestWriter_Service_UpsertDelete(t *testing.T) {
 		wtxn := p.Writer.WriteTxn()
 		assert.Equal(t, 1, p.ServiceTable.NumObjects(wtxn))
 
-		err := p.Writer.DeleteServiceAndFrontends(wtxn, name)
+		_, err := p.Writer.DeleteServiceAndFrontends(wtxn, name)
 		assert.NoError(t, err, "DeleteService failed")
 
 		_, _, found := p.ServiceTable.Get(wtxn, loadbalancer.ServiceByName(name))
