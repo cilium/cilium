@@ -823,9 +823,9 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	default:
 //	    if (CONFIG(conntrack_unknown_protocols)) {
 	    if (is_defined(ENABLE_CONNTRACK_UNKNOWN_PROTOCOLS)) {
-            tuple->sport = 0;
-            tuple->dport = 0;
-            break;
+        	tuple->sport = 0;
+        	tuple->dport = 0;
+        	break;
 	    }
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
