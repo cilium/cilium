@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -136,7 +137,7 @@ func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) *pol
 		idmap[id.ID] = id.LabelArray
 	}
 	logger := hivetest.Logger(t)
-	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }

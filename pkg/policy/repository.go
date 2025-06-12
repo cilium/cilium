@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -89,7 +90,7 @@ type Repository struct {
 
 	certManager certificatemanager.CertificateManager
 
-	metricsManager    api.PolicyMetrics
+	metricsManager    types.PolicyMetrics
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 }
 
@@ -114,7 +115,7 @@ func NewPolicyRepository(
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
-	metricsManager api.PolicyMetrics,
+	metricsManager types.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(logger, initialIDs)
 	repo := &Repository{

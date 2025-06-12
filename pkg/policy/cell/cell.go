@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 // Cell provides the PolicyRepository and PolicyUpdater.
@@ -60,7 +60,7 @@ type policyRepoParams struct {
 	CertManager       certificatemanager.CertificateManager
 	IdentityManager   identitymanager.IDManager
 	ClusterInfo       cmtypes.ClusterInfo
-	MetricsManager    api.PolicyMetrics
+	MetricsManager    types.PolicyMetrics
 	L7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 }
 
