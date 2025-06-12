@@ -48,6 +48,16 @@ var Cell = cell.Module(
 
 	HealthAPIEndpointsCell,
 
+	Synchronization,
+
+	usersManagementCell,
+	cell.Invoke(registerHooks),
+)
+
+var Synchronization = cell.Module(
+	"clustermesh-synchronization",
+	"Synchronize information from Kubernetes to KVStore",
+
 	cell.Group(
 		cell.Provide(
 			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
@@ -59,9 +69,6 @@ var Cell = cell.Module(
 		),
 		operatorWatchers.ServiceSyncCell,
 	),
-
-	usersManagementCell,
-	cell.Invoke(registerHooks),
 )
 
 var pprofConfig = pprof.Config{
