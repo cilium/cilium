@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/cmdref"
 )
 
 var (
@@ -69,17 +70,22 @@ Cilium is a CNI for Kubernetes to provide secure network connectivity and
 load-balancing with excellent visibility using eBPF
 
 Examples:
-# Install Cilium in current Kubernetes context
-cilium install
 
-# Check status of Cilium
-cilium status
+Install Cilium in current Kubernetes context
 
-# Enable the Hubble observability layer
-cilium hubble enable
+  $ cilium install
 
-# Perform a connectivity test
-cilium connectivity test`,
+Check status of Cilium
+
+  $ cilium status
+
+Enable the Hubble observability layer
+
+  $ cilium hubble enable
+
+Perform a connectivity test
+
+  $ cilium connectivity test`,
 		SilenceErrors: true, // this is being handled in main, no need to duplicate error messages
 		SilenceUsage:  true, // avoid showing help when usage is correct but an error occurred
 	}
@@ -107,6 +113,7 @@ cilium connectivity test`,
 		newCmdUninstallWithHelm(),
 		newCmdUpgradeWithHelm(),
 		newCmdFeatures(),
+		cmdref.NewCmd(cmd),
 	)
 
 	cmd.SetOut(os.Stdout)
