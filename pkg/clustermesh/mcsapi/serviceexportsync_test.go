@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/hive"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -108,7 +107,6 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		cancel()
 	}()
 
-	var clientset k8sClient.Clientset
 	var services resource.Resource[*slim_corev1.Service]
 	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
 	hive := hive.New(
@@ -119,11 +117,9 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 			return operator.MCSAPIConfig{ClusterMeshEnableMCSAPI: true}
 		}),
 		cell.Invoke(func(
-			cs k8sClient.Clientset,
 			svc resource.Resource[*slim_corev1.Service],
 			svcExport resource.Resource[*mcsapiv1alpha1.ServiceExport],
 		) {
-			clientset = cs
 			services = svc
 			serviceExports = svcExport
 		}),
@@ -152,6 +148,8 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	clusterName := "cluster1"
 	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	kvs := storeFactory.NewSyncStore(clusterName, client, types.ServiceExportStorePrefix)
+	go kvs.Run(ctx)
+
 	require.NoError(t, kvs.UpsertKey(ctx, &types.MCSAPIServiceSpec{
 		Cluster:                 clusterName,
 		Name:                    "remove-service",
@@ -164,17 +162,14 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		Namespace:               "default",
 		ExportCreationTimestamp: exportTime,
 	}))
-	go StartSynchronizingServiceExports(ctx, ServiceExportSyncParameters{
-		Logger:                  hivetest.Logger(t),
-		ClusterName:             "cluster1",
-		ClusterMeshEnableMCSAPI: true,
-		Clientset:               clientset,
-		ServiceExports:          serviceExports,
-		Services:                services,
-		store:                   kvs,
-		skipCrdCheck:            true,
-		SyncCallback:            func(_ context.Context) {},
-	})
+	go (&serviceExportSync{
+		logger:         hivetest.Logger(t),
+		clusterName:    clusterName,
+		enabled:        true,
+		store:          kvs,
+		serviceExports: serviceExports,
+		services:       services,
+	}).loop(ctx)
 
 	t.Run("Test basic case", func(t *testing.T) {
 		name := "basic"

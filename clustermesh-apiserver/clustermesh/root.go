@@ -17,7 +17,6 @@ import (
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
-	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
@@ -94,7 +93,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
 
-			startServer(params.ClusterInfo, params.Clientset, params.Backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice)
+			startServer(params.ClusterInfo, params.Backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice)
 			return nil
 		},
 	})
@@ -413,7 +412,6 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 
 func startServer(
 	cinfo cmtypes.ClusterInfo,
-	clientset k8sClient.Clientset,
 	backend kvstore.BackendOperations,
 	resources cmk8s.Resources,
 	factory store.Factory,
@@ -454,17 +452,6 @@ func startServer(
 		go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource(), enableCiliumEndpointSlice))
 	}
 
-	go mcsapi.StartSynchronizingServiceExports(ctx, mcsapi.ServiceExportSyncParameters{
-		Logger:                  logger,
-		ClusterName:             cinfo.Name,
-		ClusterMeshEnableMCSAPI: clusterMeshEnableMCSAPI,
-		Clientset:               clientset,
-		ServiceExports:          resources.ServiceExports,
-		Services:                resources.Services,
-		Backend:                 backend,
-		StoreFactory:            factory,
-		SyncCallback:            syncState.WaitForResource(),
-	})
 	syncState.Stop()
 
 	logger.Info("Initialization complete")
