@@ -38,7 +38,7 @@ var Cell = cell.Group(
 	// Support for HealthCheckNodePort
 	healthserver.Cell,
 
-	// Provide adapters for the legacy ServiceCache and ServiceManager APIs
+	// Provide adapters for the legacy ServiceManager APIs
 	// and implementation of the /service REST API.
 	cell.Module(
 		"loadbalancing-adapters",

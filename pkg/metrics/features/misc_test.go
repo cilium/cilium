@@ -62,7 +62,7 @@ func TestLRPConfig(t *testing.T) {
 
 func TestInternalTrafficPolicy(t *testing.T) {
 	type args struct {
-		svc k8s.Service
+		svc loadbalancer.Service
 	}
 	type metrics struct {
 		aclbInternalTrafficPolicyIngested float64
@@ -78,7 +78,7 @@ func TestInternalTrafficPolicy(t *testing.T) {
 		{
 			name: "InternalTrafficPolicy",
 			args: args{
-				svc: k8s.Service{
+				svc: loadbalancer.Service{
 					IntTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
 				},
 			},
