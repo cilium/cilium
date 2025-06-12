@@ -281,7 +281,7 @@ var (
 			// Synchronizes K8s services to KVStore.
 			cell.Provide(func(cfg *operatorOption.OperatorConfig, dcfg *option.DaemonConfig) operatorWatchers.ServiceSyncConfig {
 				return operatorWatchers.ServiceSyncConfig{
-					Enabled: cfg.SyncK8sServices && dcfg.KVStore != "",
+					Enabled: cfg.SyncK8sServices,
 				}
 			}),
 			operatorWatchers.ServiceSyncCell,
