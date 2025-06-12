@@ -15,6 +15,8 @@
 #include "signal.h"
 #include "ipfrag.h"
 
+//DECLARE_CONFIG(bool, conntrack_unknown_protocols, "Conntrack passes traffic with unknown protocols")
+
 enum ct_action {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
@@ -819,6 +821,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+//	    if (CONFIG(conntrack_unknown_protocols)) {
+	    if (is_defined(ENABLE_CONNTRACK_UNKNOWN_PROTOCOLS)) {
+            tuple->sport = 0;
+            tuple->dport = 0;
+            break;
+	    }
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}

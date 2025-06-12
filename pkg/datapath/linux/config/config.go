@@ -472,6 +472,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macByIfIndexMacro
 	cDefinesMap["IS_L3_DEV(ifindex)"] = isL3DevMacro
 
+	if option.Config.EnableBPFConntrackUnknownProtocols {
+		cDefinesMap["ENABLE_CONNTRACK_UNKNOWN_PROTOCOLS"] = "1"
+	}
+
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	const (
