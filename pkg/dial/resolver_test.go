@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -40,19 +40,19 @@ func TestServiceResolver(t *testing.T) {
 		ctx  = context.Background()
 
 		started  atomic.Bool
-		cl       *client.FakeClientset
+		cl       *k8sClient.FakeClientset
 		resolver *ServiceResolver
 	)
 
 	h := hive.New(
-		client.FakeClientCell(),
+		k8sClient.FakeClientCell(),
 
 		ServiceResolverCell,
 
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(k8s.ServiceResource),
 
-		cell.Invoke(func(cl_ *client.FakeClientset, resolver_ *ServiceResolver) {
+		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ *ServiceResolver) {
 			cl = cl_
 			resolver = resolver_
 		}))

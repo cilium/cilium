@@ -29,7 +29,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -72,7 +72,7 @@ func TestScript(t *testing.T) {
 		storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 
 		h := hive.New(
-			client.FakeClientCell(),
+			k8sClient.FakeClientCell(),
 			operatorK8s.ResourcesCell,
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),

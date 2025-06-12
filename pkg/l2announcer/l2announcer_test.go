@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -78,7 +78,7 @@ func newFixture(t testing.TB) *fixture {
 			L2AnnouncerRenewDeadline: 5 * time.Second,
 			L2AnnouncerRetryPeriod:   2 * time.Second,
 		},
-		Clientset: &client.FakeClientset{
+		Clientset: &k8sClient.FakeClientset{
 			KubernetesFakeClientset: fake.NewSimpleClientset(),
 		},
 		L2AnnounceTable: tbl,
@@ -1127,7 +1127,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 				EnableL2Announcements: true,
 			}
 		}),
-		client.FakeClientCell(),
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(_ *L2Announcer) {}),
 	)

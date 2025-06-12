@@ -26,8 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -41,7 +42,7 @@ type crdStatusFixture struct {
 	reconciler      *StatusReconciler
 	db              *statedb.DB
 	reconcileErrTbl statedb.RWTable[*tables.BGPReconcileError]
-	fakeClientSet   *k8s_client.FakeClientset
+	fakeClientSet   *k8sFakeClient.FakeClientset
 	bgpnClient      cilium_client_v2.CiliumBGPNodeConfigInterface
 	bgpncMockStore  *store.MockBGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 }
@@ -55,7 +56,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 	}
 
 	f := &crdStatusFixture{}
-	f.fakeClientSet, _ = k8s_client.NewFakeClientset(l)
+	f.fakeClientSet, _ = k8sFakeClient.NewFakeClientset(l)
 	f.bgpnClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumBGPNodeConfigs()
 
 	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
@@ -98,7 +99,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 			tables.NewBGPReconcileErrorTable,
 			statedb.RWTable[*tables.BGPReconcileError].ToTable,
 		),
-		cell.Provide(func() k8s_client.Clientset {
+		cell.Provide(func() k8sClient.Clientset {
 			return f.fakeClientSet
 		}),
 		cell.Provide(func() store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig] {
@@ -339,7 +340,7 @@ func TestDisableStatusReport(t *testing.T) {
 	logger := hivetest.Logger(t)
 	nodeTypes.SetName("node0")
 
-	var cs k8s_client.Clientset
+	var cs k8sClient.Clientset
 	hive := hive.New(
 		daemon_k8s.LocalNodeCell,
 		cell.Provide(
@@ -349,9 +350,9 @@ func TestDisableStatusReport(t *testing.T) {
 					EnableBGPControlPlaneStatusReport: false,
 				}
 			},
-			k8s_client.NewFakeClientset,
+			k8sFakeClient.NewFakeClientset,
 		),
-		cell.Invoke(func(jg job.Group, ln daemon_k8s.LocalCiliumNodeResource, _cs k8s_client.Clientset) {
+		cell.Invoke(func(jg job.Group, ln daemon_k8s.LocalCiliumNodeResource, _cs k8sClient.Clientset) {
 			cs = _cs
 
 			// Create a LocalNode to obtain local node name
