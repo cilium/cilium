@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
@@ -68,6 +69,15 @@ var Synchronization = cell.Module(
 			},
 		),
 		operatorWatchers.ServiceSyncCell,
+	),
+
+	cell.Group(
+		cell.Provide(
+			func(syncState syncstate.SyncState) mcsapi.ServiceExportSyncCallback {
+				return syncState.WaitForResource()
+			},
+		),
+		mcsapi.ServiceExportSyncCell,
 	),
 )
 
