@@ -59,12 +59,15 @@ func newCmdInstallWithHelm() *cobra.Command {
 		Long: `Install Cilium in a Kubernetes cluster using Helm
 
 Examples:
-# Install Cilium in current Kubernetes context with default parameters
-cilium install
 
-# Install Cilium into Kubernetes context "kind-cluster1" and also set cluster
-# name and ID to prepare for multi-cluster capabilities.
-cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=cluster1
+Install Cilium in current Kubernetes context with default parameters
+
+  $ cilium install
+
+Install Cilium into Kubernetes context "kind-cluster1" and also set cluster
+name and ID to prepare for multi-cluster capabilities.
+
+  $ cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
@@ -167,12 +170,15 @@ func newCmdUpgradeWithHelm() *cobra.Command {
 		Long: `Upgrade a Cilium installation in a Kubernetes cluster using Helm
 
 Examples:
-# Upgrade Cilium to the latest version, using existing parameters
-cilium upgrade
 
-# Upgrade Cilium to the latest version and also set cluster name and ID
-# to prepare for multi-cluster capabilities.
-cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
+Upgrade Cilium to the latest version, using existing parameters
+
+  $ cilium upgrade
+
+Upgrade Cilium to the latest version and also set cluster name and ID
+to prepare for multi-cluster capabilities.
+
+  $ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace

@@ -28,6 +28,7 @@
 "cmdref/cilium-dbg_service_delete.md" "cmdref/cilium-dbg_service.md"
 "cmdref/cilium-dbg_service_update.md" "cmdref/cilium-dbg_service.md"
 "cmdref/cilium-dbg_bpf_lb_maglev_get.md" "cmdref/cilium-dbg_bpf_lb_maglev.md"
+"cmdref/cli_index.rst" "cmdref/index.rst"
 "security/cassandra.rst" "security/network/proxy/envoy.rst"
 "security/memcached.rst" "security/network/proxy/envoy.rst"
 "network/external-toc.rst" "network/clustermesh/index.rst"

@@ -4,19 +4,14 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-cilium
-======
+cilium-dbg
+==========
 
 .. only:: html
 
    .. toctree::
-      :maxdepth: 1
+      :maxdepth: 0
       :glob:
+      :titlesonly:
 
-      cilium-dbg
-      cilium-dbg_*
-      cilium-agent*
-      cilium-bugtool*
-      cilium-health_*
-      cilium-operator*
-      clustermesh-apiserver*
+      cilium-dbg*

@@ -6,7 +6,7 @@ examples/kubernetes/connectivity-check/connectivity-*.yaml linguist-generated
 pkg/k8s/apis/cilium.io/v2/client/crds/*.yaml linguist-generated
 test/controlplane/**/v1.[0-9][0-9]/*.yaml linguist-generated
 test/controlplane/services/graceful-termination/*.yaml linguist-generated
-Documentation/cmdref/** linguist-generated
+Documentation/cmdref/*.md linguist-generated
 Documentation/crdlist.rst linguist-generated
 Documentation/helm-values.rst linguist-generated
 Documentation/codeowners.rst linguist-generated
