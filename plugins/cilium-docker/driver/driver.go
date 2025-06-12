@@ -434,10 +434,15 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
+		linkConfig := connector.LinkConfig{
+			GROIPv6MaxSize: int(driver.conf.GROMaxSize),
+			GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
+			GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
+			GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
+			DeviceMTU:      int(driver.conf.DeviceMTU),
+		}
 		var veth *netlink.Veth
-		veth, _, _, err = connector.SetupVeth(driver.logger, create.EndpointID, int(driver.conf.DeviceMTU),
-			int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize),
-			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+		veth, _, _, err = connector.SetupVeth(driver.logger, create.EndpointID, linkConfig, endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
 		defer removeLinkOnErr(veth)
 	}
 	if err != nil {
