@@ -442,7 +442,12 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 			DeviceMTU:      int(driver.conf.DeviceMTU),
 		}
 		var veth *netlink.Veth
-		veth, _, _, err = connector.SetupVeth(driver.logger, create.EndpointID, linkConfig, endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+		var peer netlink.Link
+		veth, peer, _, err = connector.SetupVeth(driver.logger, create.EndpointID, linkConfig, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+		endpoint.Mac = peer.Attrs().HardwareAddr.String()
+		endpoint.HostMac = veth.Attrs().HardwareAddr.String()
+		endpoint.InterfaceIndex = int64(veth.Attrs().Index)
+		endpoint.InterfaceName = veth.Name
 		defer removeLinkOnErr(veth)
 	}
 	if err != nil {
