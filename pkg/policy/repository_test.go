@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 // mustAdd inserts a rule into the policy repository
@@ -1676,7 +1677,7 @@ func TestDefaultAllow(t *testing.T) {
 func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(hivetest.Logger(t), nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
@@ -1824,7 +1825,7 @@ func TestReplaceByResource(t *testing.T) {
 func TestReplaceByLabels(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(hivetest.Logger(t), nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)

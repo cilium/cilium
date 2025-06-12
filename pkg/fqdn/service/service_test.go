@@ -27,9 +27,9 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/time"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
@@ -82,7 +82,7 @@ func TestFQDNDataServer(t *testing.T) {
 					},
 
 					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
-						pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+						pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 						return ipcache.NewIPCache(&ipcache.Configuration{
 							Context:           t.Context(),
 							Logger:            logger,
