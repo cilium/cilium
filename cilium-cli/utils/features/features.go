@@ -101,7 +101,7 @@ const (
 
 	IngressController Feature = "ingress-controller"
 
-	EgressGateway Feature = "enable-ipv4-egress-gateway"
+	EgressGateway Feature = "enable-egress-gateway"
 	GatewayAPI    Feature = "enable-gateway-api"
 
 	EnableEnvoyConfig Feature = "enable-envoy-config"
@@ -348,7 +348,7 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[EgressGateway] = Status{
-		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
+		Enabled: cm.Data[string(EgressGateway)] == "true" || cm.Data["enable-ipv4-egress-gateway"] == "true",
 	}
 
 	fs[CIDRMatchNodes] = Status{

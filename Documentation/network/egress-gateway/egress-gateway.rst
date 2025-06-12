@@ -101,7 +101,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
         .. code-block:: yaml
 
             enable-bpf-masquerade: true
-            enable-ipv4-egress-gateway: true
+            enable-egress-gateway: true
             kube-proxy-replacement: true
 
 Rollout both the agent pods and the operator pods to make the changes effective:
