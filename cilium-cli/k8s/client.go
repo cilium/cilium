@@ -561,6 +561,7 @@ const (
 	KindMicrok8s
 	KindRancherDesktop
 	KindK3s
+	KindOpenShift
 )
 
 func (k Kind) String() string {
@@ -583,6 +584,8 @@ func (k Kind) String() string {
 		return "rancher-desktop"
 	case KindK3s:
 		return "K3s"
+	case KindOpenShift:
+		return "OpenShift"
 	default:
 		return "invalid"
 	}
@@ -665,6 +668,17 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 		if instanceType == "k3s" {
 			f.Kind = KindK3s
 			return f
+		}
+	}
+
+	apiList, err := c.Clientset.Discovery().ServerGroups()
+	if err == nil {
+		apiGroups := apiList.Groups
+		for i := range apiGroups {
+			if apiGroups[i].Name == "route.openshift.io" {
+				f.Kind = KindOpenShift
+				return f
+			}
 		}
 	}
 
