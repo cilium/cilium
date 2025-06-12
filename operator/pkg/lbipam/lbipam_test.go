@@ -2391,7 +2391,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		Cell,
 
 		// Dependencies
-		client.FakeClientCell,
+		client.FakeClientCell(),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
 				EnableBGPControlPlane: true,

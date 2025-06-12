@@ -1127,7 +1127,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 				EnableL2Announcements: true,
 			}
 		}),
-		client.FakeClientCell,
+		client.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(_ *L2Announcer) {}),
 	)

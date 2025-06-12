@@ -37,7 +37,7 @@ func TestRegisterController(t *testing.T) {
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	hive := hive.New(
-		k8sClient.FakeClientBuilderCell,
+		k8sClient.FakeClientBuilderCell(),
 		k8s.ResourcesCell,
 		cell.Provide(func() Config {
 			return defaultConfig
@@ -90,7 +90,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	h := hive.New(
-		k8sClient.FakeClientBuilderCell,
+		k8sClient.FakeClientBuilderCell(),
 		k8s.ResourcesCell,
 		cell.Provide(func() Config {
 			return defaultConfig

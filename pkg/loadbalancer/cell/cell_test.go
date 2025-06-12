@@ -27,7 +27,7 @@ import (
 func TestCell(t *testing.T) {
 
 	h := hive.New(
-		client.FakeClientCell,
+		client.FakeClientCell(),
 		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,
 		maglev.Cell,

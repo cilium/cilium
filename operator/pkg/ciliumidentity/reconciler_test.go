@@ -55,7 +55,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 	var fakeClient *k8sClient.FakeClientset
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,

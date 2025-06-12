@@ -111,7 +111,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	var services resource.Resource[*slim_corev1.Service]
 	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(ServiceExportResource),
 		cell.Provide(func() operator.MCSAPIConfig {

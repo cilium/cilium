@@ -233,7 +233,7 @@ func fixture(t *testing.T, sources string) (*hive.Hive, *statedb.DB, statedb.RWT
 	)
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		cell.Provide(
 			NewConfigTable,
 			NewConfigMapReflector,

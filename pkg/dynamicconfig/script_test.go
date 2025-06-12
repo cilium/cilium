@@ -37,7 +37,7 @@ func TestScript(t *testing.T) {
 	version.Force(testutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		h := hive.New(
-			client.FakeClientCell,
+			client.FakeClientCell(),
 			Cell,
 		)
 

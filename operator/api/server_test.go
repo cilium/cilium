@@ -31,7 +31,7 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 	var testSrv Server
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		cell.Invoke(func(cs *k8sClient.FakeClientset) {
 			cs.Disable()
 		}),
@@ -99,7 +99,7 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 	var testSrv Server
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		MetricsHandlerCell,
 		HealthHandlerCell(
 			func() bool {

@@ -31,7 +31,7 @@ func TestScript(t *testing.T) {
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
-				FakeClientCell,
+				FakeClientCell(),
 			)
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 			h.RegisterFlags(flags)

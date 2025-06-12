@@ -537,7 +537,7 @@ func testHive(maps lbmaps.LBMaps,
 			"loadbalancer-test",
 			"Test module",
 
-			client.FakeClientCell,
+			client.FakeClientCell(),
 			node.LocalNodeStoreCell,
 
 			cell.Provide(

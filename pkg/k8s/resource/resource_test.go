@@ -410,7 +410,7 @@ func TestResource_CompletionOnStop(t *testing.T) {
 	var nodes resource.Resource[*corev1.Node]
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		nodesResource,
 		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
 			nodes = r

@@ -106,7 +106,7 @@ func TestScript(t *testing.T) {
 			}),
 		)
 		h := ciliumhive.New(
-			client.FakeClientCell,
+			client.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			metrics.Cell,
 			bgpv1.Cell,

@@ -74,7 +74,7 @@ func TestScript(t *testing.T) {
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
-				client.FakeClientCell,
+				client.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
 

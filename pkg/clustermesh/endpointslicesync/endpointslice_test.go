@@ -92,7 +92,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	var services resource.Resource[*slim_corev1.Service]
 	logger := hivetest.Logger(t)
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,

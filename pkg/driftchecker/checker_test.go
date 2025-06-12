@@ -177,7 +177,7 @@ func fixture(t *testing.T, cellAllSettings map[string]any) (*hive.Hive, *statedb
 	)
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		metrics.Metric(MetricsProvider),
 		cell.Provide(
 			dynamicconfig.NewConfigTable,
