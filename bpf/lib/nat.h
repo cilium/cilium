@@ -1955,8 +1955,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		    type != ICMPV6_ECHO_REQUEST)
 			return DROP_INVALID;
 
-		port_off = offsetof(struct icmp6hdr,
-				    icmp6_dataun.u_echo.identifier);
+		inner_l3_off = off + sizeof(struct icmp6hdr);
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
 				   &tuple.dport, sizeof(tuple.dport)) < 0)
