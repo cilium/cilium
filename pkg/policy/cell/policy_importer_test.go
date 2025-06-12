@@ -101,7 +101,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 	pi := &policyImporter{
 		log:  slog.Default(),
-		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, policyapi.NewPolicyMetricsNoop()),
+		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, policytypes.NewPolicyMetricsNoop()),
 		epm:  epm,
 		ipc:  ipc,
 
@@ -244,11 +244,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 							},
 						},
 					},
-					repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop()),
+					repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop()),
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(
@@ -277,7 +277,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
@@ -317,7 +317,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(
@@ -346,7 +346,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
@@ -384,7 +384,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
@@ -408,7 +408,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
@@ -450,7 +450,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
@@ -44,7 +45,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	idcache := make(identity.IdentityMap, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(hivetest.Logger(t), fakeAllocator.GetIdentityCache(), nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(hivetest.Logger(t), fakeAllocator.GetIdentityCache(), nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()

@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
@@ -56,7 +57,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 
 	s := &EndpointSuite{
 		orchestrator: &fakeTypes.FakeOrchestrator{},
-		repo:         policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		repo:         policy.NewPolicyRepository(logger, nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop()),
 		mgr:          cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{}),
 	}
 

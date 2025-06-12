@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -69,7 +70,7 @@ func newTestData(logger *slog.Logger) *testData {
 
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, api.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, policytypes.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
 	td.testPolicyContext.sc = td.sc
