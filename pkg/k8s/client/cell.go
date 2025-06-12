@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -22,7 +21,6 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	versionapi "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -116,7 +114,7 @@ type compositeClientset struct {
 	*KubernetesClientset
 	*APIExtClientset
 	*CiliumClientset
-	clientsetGetters
+	ClientsetGetters
 
 	controller        *controller.Manager
 	slim              *SlimClientset
@@ -188,7 +186,7 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 		return nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
-	client.clientsetGetters = clientsetGetters{&client}
+	client.ClientsetGetters = ClientsetGetters{&client}
 
 	// The cilium client uses JSON marshalling.
 	rc.ContentConfig.ContentType = `application/json`
@@ -407,11 +405,6 @@ func runHeartbeat(logger *slog.Logger, heartBeat func(context.Context) error, ti
 func isConnReady(c kubernetes.Interface) error {
 	_, err := c.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
 	return err
-}
-
-func toVersionInfo(rawVersion string) *versionapi.Info {
-	parts := strings.Split(rawVersion, ".")
-	return &versionapi.Info{Major: parts[0], Minor: parts[1]}
 }
 
 type ClientBuilderFunc func(name string) (Clientset, error)

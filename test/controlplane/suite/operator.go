@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 )
 
 type operatorHandle struct {
@@ -34,12 +35,12 @@ func (h *operatorHandle) tearDown() {
 	}
 }
 
-func setupCiliumOperatorHive(clients *k8sClient.FakeClientset) *hive.Hive {
+func setupCiliumOperatorHive(clients *k8sFakeClient.FakeClientset) *hive.Hive {
 	return hive.New(
 		cell.Provide(func() k8sClient.Clientset {
 			return clients
 		}),
-		k8sClient.FakeClientBuilderCell(),
+		k8sFakeClient.FakeClientBuilderCell(),
 		cmd.ControlPlane,
 	)
 }

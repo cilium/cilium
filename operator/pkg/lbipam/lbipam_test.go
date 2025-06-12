@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -2383,7 +2383,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 	}
 
 	var (
-		fakeClientset *client.FakeClientset
+		fakeClientset *k8sClient.FakeClientset
 		counters      *testCounters
 	)
 	testHive := hive.New(
@@ -2391,7 +2391,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		Cell,
 
 		// Dependencies
-		client.FakeClientCell(),
+		k8sClient.FakeClientCell(),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
 				EnableBGPControlPlane: true,
@@ -2409,7 +2409,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		}),
 		cell.Invoke(func(
 			tc *testCounters,
-			cf *client.FakeClientset,
+			cf *k8sClient.FakeClientset,
 		) {
 			counters = tc
 			fakeClientset = cf

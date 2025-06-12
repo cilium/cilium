@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
@@ -104,7 +105,7 @@ func TestResource_WithFakeClient(t *testing.T) {
 		}
 
 		nodes          resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+		fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 
 		events <-chan resource.Event[*corev1.Node]
 	)
@@ -410,7 +411,7 @@ func TestResource_CompletionOnStop(t *testing.T) {
 	var nodes resource.Resource[*corev1.Node]
 
 	hive := hive.New(
-		k8sClient.FakeClientCell(),
+		k8sFakeClient.FakeClientCell(),
 		nodesResource,
 		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
 			nodes = r
@@ -455,7 +456,7 @@ func TestResource_CompletionOnStop(t *testing.T) {
 func TestResource_WithTransform(t *testing.T) {
 	type StrippedNode = metav1.PartialObjectMetadata
 	var strippedNodes resource.Resource[*StrippedNode]
-	var fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+	var fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -527,7 +528,7 @@ func TestResource_WithoutIndexers(t *testing.T) {
 			},
 		}
 		nodeResource   resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+		fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -634,7 +635,7 @@ func TestResource_WithIndexers(t *testing.T) {
 			},
 		}
 		nodeResource   resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+		fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 
 		indexName = "node-index-key"
 		indexFunc = func(obj any) ([]string, error) {
@@ -741,7 +742,7 @@ var RetryFiveTimes resource.ErrorHandler = func(key resource.Key, numRetries int
 func TestResource_Retries(t *testing.T) {
 	var (
 		nodes          resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+		fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 	)
 
 	var rateLimiterUsed atomic.Int64
@@ -880,7 +881,7 @@ func TestResource_Observe(t *testing.T) {
 				Phase: "init",
 			},
 		}
-		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+		fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 		nodes          resource.Resource[*corev1.Node]
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -1023,7 +1024,7 @@ func TestResource_SkippedDonePanics(t *testing.T) {
 			},
 		}
 		nodes          resource.Resource[*corev1.Node]
-		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
+		fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 		events         <-chan resource.Event[*corev1.Node]
 	)
 

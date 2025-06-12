@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -49,7 +49,7 @@ func TestScript(t *testing.T) {
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
-				client.FakeClientCell(),
+				k8sClient.FakeClientCell(),
 				TablesCell,
 
 				// Instantiate the tables we're testing. Without this the

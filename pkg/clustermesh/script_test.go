@@ -38,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -86,7 +86,7 @@ func TestScript(t *testing.T) {
 		configDir := t.TempDir()
 
 		h := hive.New(
-			client.FakeClientCell(),
+			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			lbcell.Cell,

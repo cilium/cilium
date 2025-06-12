@@ -18,7 +18,7 @@ import (
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	clrestapi "github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/pkg/hive"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 )
 
 func TestAPIServerK8sDisabled(t *testing.T) {

@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -537,7 +537,7 @@ func testHive(maps lbmaps.LBMaps,
 			"loadbalancer-test",
 			"Test module",
 
-			client.FakeClientCell(),
+			k8sClient.FakeClientCell(),
 			node.LocalNodeStoreCell,
 
 			cell.Provide(

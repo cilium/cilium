@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -88,14 +89,14 @@ func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery
 }
 
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
-	var fakeClient *k8sClient.FakeClientset
+	var fakeClient *k8sFakeClient.FakeClientset
 	var services resource.Resource[*slim_corev1.Service]
 	logger := hivetest.Logger(t)
 	hive := hive.New(
-		k8sClient.FakeClientCell(),
+		k8sFakeClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(
-			c *k8sClient.FakeClientset,
+			c *k8sFakeClient.FakeClientset,
 			svc resource.Resource[*slim_corev1.Service],
 		) error {
 			fakeClient = c
