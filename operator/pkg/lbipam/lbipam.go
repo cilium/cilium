@@ -1757,7 +1757,7 @@ func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, pool *cilium_api_v2.C
 
 	var svsModified []*ServiceView
 	poolRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
-	for _, poolRange := range poolRanges {
+	for _, poolRange := range slices.Clone(poolRanges) {
 		// Remove allocations from services if the ranges no longer exist
 		ipam.rangesStore.Delete(poolRange)
 		svsModified = append(svsModified, ipam.deleteRangeAllocations(poolRange)...)
