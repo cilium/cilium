@@ -15,9 +15,6 @@ type ServiceManager interface {
 	// GetDeepCopyServices returns a deep-copy of all installed services.
 	GetDeepCopyServices() []*lb.LegacySVC
 
-	// GetServiceIDs returns a list of IDs of all installed services.
-	GetServiceIDs() []lb.ServiceID
-
 	// GetCurrentTs retrieves the current timestamp.
 	GetCurrentTs() time.Time
 

@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/reconciler"
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -147,20 +146,6 @@ func (s *serviceManagerAdapter) GetLastUpdatedTs() time.Time {
 	// Used by kubeproxyhealthz. Unclear how important it is to have real last updated time here.
 	// We could e.g. keep a timestamp behind an atomic in BPFOps to implement that.
 	return time.Now()
-}
-
-// GetServiceIDs implements service.ServiceReader.
-func (s *serviceManagerAdapter) GetServiceIDs() []loadbalancer.ServiceID {
-	// Used by pkg/act.
-
-	txn := s.db.ReadTxn()
-	ids := make([]loadbalancer.ServiceID, 0, s.frontends.NumObjects(txn))
-	for fe := range s.frontends.All(txn) {
-		if fe.Status.Kind == reconciler.StatusKindDone {
-			ids = append(ids, fe.ID)
-		}
-	}
-	return ids
 }
 
 // GetServiceNameByAddr implements service.ServiceReader.
