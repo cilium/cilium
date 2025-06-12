@@ -35,7 +35,7 @@ func SetupNetkitRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the temporary link, the name of the temporary link
 // and error if something fails.
-func SetupNetkit(defaultLogger *slog.Logger, id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
+func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -43,15 +43,14 @@ func SetupNetkit(defaultLogger *slog.Logger, id string, mtu, groIPv6MaxSize, gso
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
-	netkit, link, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, mtu,
-		groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize, l2Mode, ep, sysctl)
+	netkit, link, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, ep, sysctl)
 	return netkit, link, tmpIfName, err
 }
 
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the peer link and error if something fails.
-func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	var epHostMAC, epLXCMAC mac.MAC
 	var err error
@@ -142,70 +141,14 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 		)
 	}
 
-	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
-		return nil, nil, fmt.Errorf("unable to set MTU to %q: %w", peerIfName, err)
-	}
-
-	hostNetkit, err := safenetlink.LinkByName(lxcIfName)
+	err = configurePair(netkit, peer, cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to lookup netkit just created: %w", err)
-	}
-
-	if err = netlink.LinkSetMTU(hostNetkit, mtu); err != nil {
-		return nil, nil, fmt.Errorf("unable to set MTU to %q: %w", lxcIfName, err)
-	}
-
-	if err = netlink.LinkSetUp(netkit); err != nil {
-		return nil, nil, fmt.Errorf("unable to bring up netkit pair: %w", err)
-	}
-
-	if groIPv6MaxSize > 0 {
-		if err = netlink.LinkSetGROMaxSize(hostNetkit, groIPv6MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
-				lxcIfName, err)
-		}
-		if err = netlink.LinkSetGROMaxSize(peer, groIPv6MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
-				peerIfName, err)
-		}
-	}
-
-	if gsoIPv6MaxSize > 0 {
-		if err = netlink.LinkSetGSOMaxSize(hostNetkit, gsoIPv6MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
-				lxcIfName, err)
-		}
-		if err = netlink.LinkSetGSOMaxSize(peer, gsoIPv6MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
-				peerIfName, err)
-		}
-	}
-
-	if groIPv4MaxSize > 0 {
-		if err = netlink.LinkSetGROIPv4MaxSize(hostNetkit, groIPv4MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
-				lxcIfName, err)
-		}
-		if err = netlink.LinkSetGROIPv4MaxSize(peer, groIPv4MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
-				peerIfName, err)
-		}
-	}
-
-	if gsoIPv4MaxSize > 0 {
-		if err = netlink.LinkSetGSOIPv4MaxSize(hostNetkit, gsoIPv4MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
-				lxcIfName, err)
-		}
-		if err = netlink.LinkSetGSOIPv4MaxSize(peer, gsoIPv4MaxSize); err != nil {
-			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
-				peerIfName, err)
-		}
+		return nil, nil, err
 	}
 
 	ep.Mac = peer.Attrs().HardwareAddr.String()
-	ep.HostMac = hostNetkit.Attrs().HardwareAddr.String()
-	ep.InterfaceIndex = int64(hostNetkit.Attrs().Index)
+	ep.HostMac = netkit.Attrs().HardwareAddr.String()
+	ep.InterfaceIndex = int64(netkit.Attrs().Index)
 	ep.InterfaceName = lxcIfName
 
 	return netkit, peer, nil

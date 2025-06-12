@@ -635,12 +635,18 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
 		}
 
+		linkConfig := connector.LinkConfig{
+			GROIPv6MaxSize: int(conf.GROMaxSize),
+			GSOIPv6MaxSize: int(conf.GSOMaxSize),
+			GROIPv4MaxSize: int(conf.GROIPV4MaxSize),
+			GSOIPv4MaxSize: int(conf.GSOIPV4MaxSize),
+			DeviceMTU:      int(conf.DeviceMTU),
+		}
+
 		switch conf.DatapathMode {
 		case datapathOption.DatapathModeVeth:
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			veth, peer, tmpIfName, err := connector.SetupVeth(scopedLogger, cniID, int(conf.DeviceMTU),
-				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
+			veth, peer, tmpIfName, err := connector.SetupVeth(scopedLogger, cniID, linkConfig, ep, sysctl)
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on host side: %w", err)
 			}
@@ -672,9 +678,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			netkit, peer, tmpIfName, err := connector.SetupNetkit(scopedLogger, cniID, int(conf.DeviceMTU),
-				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
+			netkit, peer, tmpIfName, err := connector.SetupNetkit(scopedLogger, cniID, linkConfig, l2Mode, ep, sysctl)
 			if err != nil {
 				return fmt.Errorf("unable to set up netkit on host side: %w", err)
 			}
