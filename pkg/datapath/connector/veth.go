@@ -10,7 +10,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -19,13 +18,13 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 )
 
-// SetupVethRemoteNs renames the netdevice in the target namespace to the
+// RenameLinkInRemoteNs renames the netdevice in the target namespace to the
 // provided dstIfName.
-func SetupVethRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
+func RenameLinkInRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
 	return ns.Do(func() error {
 		err := link.Rename(srcIfName, dstIfName)
 		if err != nil {
-			return fmt.Errorf("failed to rename veth from %q to %q: %w", srcIfName, dstIfName, err)
+			return fmt.Errorf("failed to rename link from %q to %q: %w", srcIfName, dstIfName, err)
 		}
 		return nil
 	})
@@ -35,7 +34,7 @@ func SetupVethRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
-func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, string, error) {
+func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -43,7 +42,7 @@ func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, ep *models
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
-	veth, link, err := SetupVethWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, ep, sysctl)
+	veth, link, err := SetupVethWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, sysctl)
 	return veth, link, tmpIfName, err
 }
 
@@ -61,7 +60,7 @@ type LinkConfig struct {
 // SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the peer link and error if something fails.
-func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
+func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
 	// by default (controlled by MACAddressPolicy). As setting happens
@@ -125,11 +124,6 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 	if err != nil {
 		return nil, nil, err
 	}
-
-	ep.Mac = peer.Attrs().HardwareAddr.String()
-	ep.HostMac = veth.Attrs().HardwareAddr.String()
-	ep.InterfaceIndex = int64(veth.Attrs().Index)
-	ep.InterfaceName = lxcIfName
 
 	return veth, peer, nil
 }

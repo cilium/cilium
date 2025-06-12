@@ -635,6 +635,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
 		}
 
+		cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 		linkConfig := connector.LinkConfig{
 			GROIPv6MaxSize: int(conf.GROMaxSize),
 			GSOIPv6MaxSize: int(conf.GSOMaxSize),
@@ -642,75 +643,54 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			GSOIPv4MaxSize: int(conf.GSOIPV4MaxSize),
 			DeviceMTU:      int(conf.DeviceMTU),
 		}
-
+		var hostLink, epLink netlink.Link
+		var tmpIfName string
+		var l2Mode bool
 		switch conf.DatapathMode {
 		case datapathOption.DatapathModeVeth:
-			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			veth, peer, tmpIfName, err := connector.SetupVeth(scopedLogger, cniID, linkConfig, ep, sysctl)
-			if err != nil {
-				return fmt.Errorf("unable to set up veth on host side: %w", err)
-			}
-			defer func() {
-				if err != nil {
-					if err2 := netlink.LinkDel(veth); err2 != nil {
-						scopedLogger.Warn(
-							"Failed to clean up and delete veth",
-							logfields.Error, err2,
-							logfields.Veth, veth.Name,
-						)
-					}
-				}
-			}()
-
-			res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
-				Name: veth.Attrs().Name,
-				Mac:  veth.Attrs().HardwareAddr.String(),
-			})
-
-			if err := netlink.LinkSetNsFd(peer, ns.FD()); err != nil {
-				return fmt.Errorf("unable to move veth pair %q to netns %s: %w", peer, args.Netns, err)
-			}
-
-			err = connector.SetupVethRemoteNs(ns, tmpIfName, epConf.IfName())
-			if err != nil {
-				return fmt.Errorf("unable to set up veth on container side: %w", err)
-			}
+			l2Mode = true
+			hostLink, epLink, tmpIfName, err = connector.SetupVeth(scopedLogger, cniID, linkConfig, sysctl)
 		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
-			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
-			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			netkit, peer, tmpIfName, err := connector.SetupNetkit(scopedLogger, cniID, linkConfig, l2Mode, ep, sysctl)
-			if err != nil {
-				return fmt.Errorf("unable to set up netkit on host side: %w", err)
-			}
-			defer func() {
-				if err != nil {
-					if err2 := netlink.LinkDel(netkit); err2 != nil {
-						scopedLogger.Warn(
-							"Failed to clean up and delete netkit",
-							logfields.Error, err2,
-							logfields.Netkit, netkit.Name,
-						)
-					}
-				}
-			}()
-
-			iface := &cniTypesV1.Interface{
-				Name: netkit.Attrs().Name,
-			}
-			if l2Mode {
-				iface.Mac = netkit.Attrs().HardwareAddr.String()
-			}
-			res.Interfaces = append(res.Interfaces, iface)
-
-			if err := netlink.LinkSetNsFd(peer, ns.FD()); err != nil {
-				return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", peer, args.Netns, err)
-			}
-
-			err = connector.SetupNetkitRemoteNs(ns, tmpIfName, epConf.IfName())
-			if err != nil {
-				return fmt.Errorf("unable to set up netkit on container side: %w", err)
-			}
+			l2Mode = conf.DatapathMode == datapathOption.DatapathModeNetkitL2
+			hostLink, epLink, tmpIfName, err = connector.SetupNetkit(scopedLogger, cniID, linkConfig, l2Mode, sysctl)
 		}
+		if err != nil {
+			return fmt.Errorf("unable to set up link on host side: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				if err2 := netlink.LinkDel(hostLink); err2 != nil {
+					scopedLogger.Warn(
+						"Failed to clean up and delete link",
+						logfields.Error, err2,
+						logfields.Veth, hostLink.Attrs().Name,
+					)
+				}
+			}
+		}()
+
+		iface := &cniTypesV1.Interface{
+			Name: hostLink.Attrs().Name,
+		}
+		if l2Mode {
+			iface.Mac = hostLink.Attrs().HardwareAddr.String()
+		}
+		res.Interfaces = append(res.Interfaces, iface)
+
+		if err := netlink.LinkSetNsFd(epLink, ns.FD()); err != nil {
+			return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", epLink, args.Netns, err)
+		}
+		err = connector.RenameLinkInRemoteNs(ns, tmpIfName, epConf.IfName())
+		if err != nil {
+			return fmt.Errorf("unable to set up netkit on container side: %w", err)
+		}
+
+		if l2Mode {
+			ep.Mac = epLink.Attrs().HardwareAddr.String()
+			ep.HostMac = hostLink.Attrs().HardwareAddr.String()
+		}
+		ep.InterfaceIndex = int64(hostLink.Attrs().Index)
+		ep.InterfaceName = hostLink.Attrs().Name
 
 		var (
 			ipConfig   *cniTypesV1.IPConfig

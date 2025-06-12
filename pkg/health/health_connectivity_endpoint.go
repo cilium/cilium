@@ -263,10 +263,10 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		DeviceMTU:      mtuConfig.GetDeviceMTU(),
 	}
 
+	var hostLink, epLink netlink.Link
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(h.logger, healthName, epIfaceName, linkConfig,
-			info, sysctl)
+		hostLink, epLink, err = connector.SetupVethWithNames(h.logger, healthName, epIfaceName, linkConfig, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %w", err)
 		}
@@ -275,8 +275,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		}
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-		_, epLink, err := connector.SetupNetkitWithNames(h.logger, healthName, epIfaceName, linkConfig, l2Mode,
-			info, sysctl)
+		hostLink, epLink, err = connector.SetupNetkitWithNames(h.logger, healthName, epIfaceName, linkConfig, l2Mode, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating netkit: %w", err)
 		}
@@ -284,6 +283,11 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %w", epIfaceName, err)
 		}
 	}
+
+	info.Mac = epLink.Attrs().HardwareAddr.String()
+	info.HostMac = hostLink.Attrs().HardwareAddr.String()
+	info.InterfaceIndex = int64(hostLink.Attrs().Index)
+	info.InterfaceName = hostLink.Attrs().Name
 
 	if err := ns.Do(func() error {
 		return h.configureHealthInterface(epIfaceName, ip4Address, ip6Address)

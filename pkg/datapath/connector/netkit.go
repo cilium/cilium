@@ -10,32 +10,17 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/netns"
 )
-
-// SetupNetkitRemoteNs renames the netdevice in the target namespace to the
-// provided dstIfName.
-func SetupNetkitRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
-	return ns.Do(func() error {
-		err := link.Rename(srcIfName, dstIfName)
-		if err != nil {
-			return fmt.Errorf("failed to rename netkit from %q to %q: %w", srcIfName, dstIfName, err)
-		}
-		return nil
-	})
-}
 
 // SetupNetkit sets up the net interface, the temporary interface and fills up some
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the temporary link, the name of the temporary link
 // and error if something fails.
-func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
+func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -43,14 +28,14 @@ func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode b
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
-	netkit, link, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, ep, sysctl)
+	netkit, link, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, sysctl)
 	return netkit, link, tmpIfName, err
 }
 
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the peer link and error if something fails.
-func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	var epHostMAC, epLXCMAC mac.MAC
 	var err error
@@ -145,11 +130,6 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 	if err != nil {
 		return nil, nil, err
 	}
-
-	ep.Mac = peer.Attrs().HardwareAddr.String()
-	ep.HostMac = netkit.Attrs().HardwareAddr.String()
-	ep.InterfaceIndex = int64(netkit.Attrs().Index)
-	ep.InterfaceName = lxcIfName
 
 	return netkit, peer, nil
 }
