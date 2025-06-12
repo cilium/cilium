@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.15.18
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Policy updates to Envoy no longer consider a single selector as an L3 wildcard. Cilium bpf datapath policy enforcement is not done for Cilium Ingress policy enforcement so the L3 identity needs to be enforced in all cases. (Backport PR cilium/cilium#39562, Upstream PR cilium/cilium#39511, @jrajahalme)
+
+**CI Changes:**
+* bpf: test: fix up mis-spelled HAVE_NETNS_COOKIE (Backport PR cilium/cilium#39562, Upstream PR cilium/cilium#39420, @julianwiedmann)
+* call for metrics in smoke tests from runner instead of installing apt/curl on cilium pod (Backport PR cilium/cilium#39864, Upstream PR cilium/cilium#37362, @Artyop)
+* Re-optimize CI build process (Backport PR cilium/cilium#39864, Upstream PR cilium/cilium#39802, @aanm)
+
+**Misc Changes:**
+* [v1.15] deps: bump github.com/osrg/gobgp/v3 to v3.35.0 (cilium/cilium#39224, @ferozsalam)
+* Add a section to talk about the native routing masquerading in the cloud environment. (Backport PR cilium/cilium#39562, Upstream PR cilium/cilium#39343, @liyihuang)
+* bpf: Skip lxc src IP check for proxy traffic (Backport PR cilium/cilium#39562, Upstream PR cilium/cilium#39530, @sayboras)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#39479, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#39572, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#39710, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#39881, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v31 (v1.15) (cilium/cilium#39612, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 4c0a181 (v1.15) (cilium/cilium#39708, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 86b4cff (v1.15) (cilium/cilium#39611, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.4 (v1.15) (cilium/cilium#39953, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1749031919-98c55b1d0c1154fb6c9e760583c2dcd7778686e2 (v1.15) (cilium/cilium#39888, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1749271279-0864395884b263913eac200ee2048fd985f8e626 (v1.15) (cilium/cilium#39937, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#39709, @cilium-renovate[bot])
+
+**Other Changes:**
+* [v1.15] proxy: Bump cilium/proxy version (cilium/cilium#39592, @sayboras)
+* install: Update image digests for v1.15.17 (cilium/cilium#39546, @cilium-release-bot[bot])
+
 ## v1.15.17
 
 Summary of Changes
