@@ -1776,8 +1776,8 @@ func TestDisablePool(t *testing.T) {
 // TestPoolDelete tests that when a pool is deleted, all of the IPs from that pool are released and that any effected
 // services get a new IP from another pool.
 func TestPoolDelete(t *testing.T) {
-	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	poolB := mkPool(poolBUID, "pool-b", []string{"10.0.20.0/24"})
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "10.1.10.0/24"})
+	poolB := mkPool(poolBUID, "pool-b", []string{"10.0.20.0/24", "10.1.20.0/24"})
 
 	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
@@ -1800,8 +1800,10 @@ func TestPoolDelete(t *testing.T) {
 		t.Error("Expected service to receive exactly one ingress IP")
 	}
 
+	svcAddr := svcA.Status.LoadBalancer.Ingress[0].IP
+
 	var allocPool string
-	if strings.HasPrefix(svcA.Status.LoadBalancer.Ingress[0].IP, "10.0.10") {
+	if strings.HasPrefix(svcAddr, "10.0.10") || strings.HasPrefix(svcAddr, "10.1.10") {
 		allocPool = "pool-a"
 	} else {
 		allocPool = "pool-b"
