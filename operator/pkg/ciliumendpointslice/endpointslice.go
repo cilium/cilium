@@ -17,6 +17,7 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -59,7 +60,10 @@ func (c *Controller) initializeQueue() {
 		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
 	c.standardQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
+		workqueue.TypedRateLimitingQueueConfig[CESKey]{
+			Name:            "cilium_endpoint_slice",
+			MetricsProvider: metrics.MetricsProvider,
+		})
 }
 
 func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {

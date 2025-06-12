@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 
-	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
@@ -72,7 +71,7 @@ func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws
 }
 
 // Init sets up ENI limits based on given options
-func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
+func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 	var aMetrics ec2shim.MetricsAPI
@@ -85,7 +84,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "ec2", operatorMetrics.Registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "ec2", reg)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
@@ -119,13 +118,13 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 // Start kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
 	var iMetrics ipam.MetricsAPI
 
 	a.logger.Info("Starting ENI allocator...")
 
 	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, operatorMetrics.Registry)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, reg)
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}

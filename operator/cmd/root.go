@@ -520,21 +520,34 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+type params struct {
+	cell.In
+	Lifecycle       cell.Lifecycle
+	Clientset       k8sClient.Clientset
+	Resources       operatorK8s.Resources
+	Factory         store.Factory
+	SvcResolver     *dial.ServiceResolver
+	CfgMCSAPI       cmoperator.MCSAPIConfig
+	Metrics         *UnmanagedPodsMetric
+	MetricsRegistry *metrics.Registry
+	Logger          *slog.Logger
+}
+
+func registerLegacyOnLeader(p params) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:                  ctx,
-		cancel:               cancel,
-		clientset:            clientset,
-		resources:            resources,
-		storeFactory:         factory,
-		svcResolver:          svcResolver,
-		cfgMCSAPI:            cfgMCSAPI,
-		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
-		metrics:              metrics,
-		logger:               logger,
+		ctx:             ctx,
+		cancel:          cancel,
+		clientset:       p.Clientset,
+		resources:       p.Resources,
+		storeFactory:    p.Factory,
+		svcResolver:     p.SvcResolver,
+		cfgMCSAPI:       p.CfgMCSAPI,
+		metrics:         p.Metrics,
+		logger:          p.Logger,
+		metricsRegistry: p.MetricsRegistry,
 	}
-	lc.Append(cell.Hook{
+	p.Lifecycle.Append(cell.Hook{
 		OnStart: legacy.onStart,
 		OnStop:  legacy.onStop,
 	})
@@ -551,6 +564,7 @@ type legacyOnLeader struct {
 	cfgMCSAPI            cmoperator.MCSAPIConfig
 	cfgClusterMeshPolicy cmtypes.PolicyConfig
 	metrics              *UnmanagedPodsMetric
+	metricsRegistry      *metrics.Registry
 
 	logger *slog.Logger
 }
@@ -609,7 +623,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			logging.Fatal(legacy.logger, fmt.Sprintf("%s allocator is not supported by this version of %s", ipamMode, binaryName))
 		}
 
-		if err := alloc.Init(legacy.ctx, legacy.logger); err != nil {
+		if err := alloc.Init(legacy.ctx, legacy.logger, legacy.metricsRegistry); err != nil {
 			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to init %s allocator", ipamMode), logfields.Error, err)
 		}
 
@@ -620,7 +634,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				watcherLogger)
 		}
 
-		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
+		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset}, legacy.metricsRegistry)
 		if err != nil {
 			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to start %s allocator", ipamMode), logfields.Error, err)
 		}
