@@ -29,7 +29,7 @@ func TestHealthHandlerK8sDisabled(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		cell.Invoke(func(cs *k8sClient.FakeClientset) {
 			cs.Disable()
 		}),
@@ -82,7 +82,7 @@ func TestHealthHandlerK8sEnabled(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 
 		HealthHandlerCell(
 			func() bool {

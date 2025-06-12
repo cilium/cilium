@@ -147,7 +147,7 @@ func TestGC(t *testing.T) {
 			)
 
 			hive := hive.New(
-				k8sClient.FakeClientCell,
+				k8sClient.FakeClientCell(),
 				k8s.ResourcesCell,
 				cell.ProvidePrivate(func() localEndpointCache {
 					return &fakeEPManager{test.managedEndpoints}

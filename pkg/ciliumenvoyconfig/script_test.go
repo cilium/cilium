@@ -70,7 +70,7 @@ func TestScript(t *testing.T) {
 		var lns *node.LocalNodeStore
 
 		h := hive.New(
-			client.FakeClientCell,
+			client.FakeClientCell(),
 			synced.Cell,
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,

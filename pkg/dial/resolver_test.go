@@ -45,7 +45,7 @@ func TestServiceResolver(t *testing.T) {
 	)
 
 	h := hive.New(
-		client.FakeClientCell,
+		client.FakeClientCell(),
 
 		ServiceResolverCell,
 

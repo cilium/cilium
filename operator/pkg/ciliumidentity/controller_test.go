@@ -109,7 +109,7 @@ func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*c
 	var cidMetrics Metrics
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Provide(func() config {

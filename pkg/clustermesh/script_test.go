@@ -86,7 +86,7 @@ func TestScript(t *testing.T) {
 		configDir := t.TempDir()
 
 		h := hive.New(
-			client.FakeClientCell,
+			client.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			lbcell.Cell,

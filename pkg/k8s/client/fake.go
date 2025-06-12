@@ -37,21 +37,26 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 )
 
-var FakeClientCell = cell.Module(
-	"k8s-fake-client",
-	"Fake Kubernetes client",
+// We do not create a cell as global variable since
+// compiler will compile all of the fake protobufs into the release
+// binary which increases the binary size by ~20 MB
+var FakeClientCell = func() cell.Cell {
+	return cell.Module(
+		"k8s-fake-client",
+		"Fake Kubernetes client",
 
-	cell.ProvidePrivate(
-		newStateDBObjectTracker,
-	),
+		cell.ProvidePrivate(
+			newStateDBObjectTracker,
+		),
 
-	cell.Provide(
-		NewFakeClientsetWithTracker,
-		func(fc *FakeClientset) hive.ScriptCmdsOut {
-			return hive.NewScriptCmds(FakeClientCommands(fc))
-		},
-	),
-)
+		cell.Provide(
+			NewFakeClientsetWithTracker,
+			func(fc *FakeClientset) hive.ScriptCmdsOut {
+				return hive.NewScriptCmds(FakeClientCommands(fc))
+			},
+		),
+	)
+}
 
 type (
 	MCSAPIFakeClientset     = mcsapi_fake.Clientset
@@ -177,10 +182,13 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 	return &client, &client
 }
 
-var FakeClientBuilderCell = cell.Group(
-	cell.ProvidePrivate(newStateDBObjectTracker),
-	cell.Provide(FakeClientBuilder),
-)
+// See a comment for FakeClientCell
+var FakeClientBuilderCell = func() cell.Cell {
+	return cell.Group(
+		cell.ProvidePrivate(newStateDBObjectTracker),
+		cell.Provide(FakeClientBuilder),
+	)
+}
 
 func FakeClientBuilder(log *slog.Logger, ot *statedbObjectTracker) ClientBuilderFunc {
 	fc, _ := NewFakeClientsetWithTracker(log, ot)
