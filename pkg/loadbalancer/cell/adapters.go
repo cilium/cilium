@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
@@ -39,6 +40,7 @@ import (
 type adapterParams struct {
 	cell.In
 
+	Clientset    client.Clientset
 	JobGroup     job.Group
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
@@ -91,7 +93,7 @@ func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManager
 	// (*Daemon).initRestore in daemon/cmd/state.go. Once ClusterMesh has switched
 	// to using the Writer directly this can be removed.
 	var initDone func(writer.WriteTxn)
-	if p.TestConfig == nil {
+	if p.TestConfig == nil && p.Clientset.IsEnabled() {
 		initDone = p.Writer.RegisterInitializer("adapters")
 	} else {
 		initDone = func(writer.WriteTxn) {}
