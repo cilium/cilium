@@ -82,7 +82,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 
 	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
-	policyRepo := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	policyRepo := policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	ipc := &mockipc.MockIPCache{}
 	nm := namemanager.New(namemanager.ManagerParams{
 		Config: namemanager.NameManagerConfig{

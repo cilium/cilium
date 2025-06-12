@@ -24,8 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api"
 	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -46,7 +46,7 @@ var Cell = cell.Module(
 		func(m Metrics) featureMetrics {
 			return m
 		},
-		func(m Metrics) api.PolicyMetrics {
+		func(m Metrics) policytypes.PolicyMetrics {
 			return m
 		},
 		func(m Metrics) redirectpolicy.LRPMetrics {
