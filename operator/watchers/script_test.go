@@ -72,7 +72,7 @@ func TestScript(t *testing.T) {
 		storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 
 		h := hive.New(
-			client.FakeClientCell,
+			client.FakeClientCell(),
 			operatorK8s.ResourcesCell,
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),

@@ -41,7 +41,7 @@ func TestIdentitiesGC(t *testing.T) {
 		metrics.Metric(NewMetrics),
 
 		// provide a fake clientset
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		// provide a fake spire client
 		spire.FakeCellClient,
 		// provide resources

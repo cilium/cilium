@@ -32,7 +32,7 @@ func TestRegisterController(t *testing.T) {
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
@@ -70,7 +70,7 @@ func TestRegisterControllerOnce(t *testing.T) {
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
@@ -108,7 +108,7 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Provide(func() SharedConfig {
