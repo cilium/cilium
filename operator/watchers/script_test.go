@@ -26,9 +26,9 @@ import (
 	"go.uber.org/goleak"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -56,9 +55,6 @@ func TestScript(t *testing.T) {
 	}
 	log := hivetest.Logger(t, opts...)
 
-	operatorOption.Config.SyncK8sServices = true
-	option.Config.KVStore = "dummy"
-
 	// Due to the kvstore global variables we cannot run these tests in parallel
 	// (scripttest calls t.Parallel()). Use a mutex to serialize the test execution.
 	// Remove this once kvstore globals are removed.
@@ -72,20 +68,18 @@ func TestScript(t *testing.T) {
 
 		h := hive.New(
 			k8sClient.FakeClientCell(),
+			cell.Provide(k8s.ServiceResource),
 			operatorK8s.ResourcesCell,
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
-			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, uhive.ScriptCmdOut) {
+			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdOut) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
 				return client, uhive.NewScriptCmd("kvstore/list", kvstoreListCommand(client))
 			}),
 
-			cell.Provide(func(client kvstore.BackendOperations) ServiceSyncConfig {
-				return ServiceSyncConfig{
-					Enabled: true,
-					Backend: client,
-				}
+			cell.Provide(func() ServiceSyncConfig {
+				return ServiceSyncConfig{Enabled: true}
 			}),
 			ServiceSyncCell,
 

@@ -25,17 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/promise"
 )
-
-type ServiceSyncCallback func(context.Context)
 
 type ServiceSyncConfig struct {
 	// Enabled if true enables the k8s services to kvstore synchronization.
 	Enabled bool
-
-	// Backend if given is used instead of [kvstore.Client].
-	Backend kvstore.BackendOperations
 
 	// Synced if given is called when synchronization here is done. This is
 	// used by clustermesh-apiserver to further wait for its resources to be
@@ -65,6 +59,7 @@ type ServiceSyncParams struct {
 	Log                     *slog.Logger
 	ClusterInfo             cmtypes.ClusterInfo
 	Clientset               k8sClient.Clientset
+	KVStoreClient           kvstore.Client
 	Services                resource.Resource[*slim_corev1.Service]
 	Endpoints               resource.Resource[*k8s.Endpoints]
 	StoreFactory            store.Factory
@@ -73,19 +68,22 @@ type ServiceSyncParams struct {
 
 type serviceSync struct {
 	ServiceSyncParams
-
-	storePromise promise.Promise[store.SyncStore]
+	store store.SyncStore
 }
 
 func registerServiceSync(jg job.Group, p ServiceSyncParams) {
-	if !p.Config.Enabled || !p.Clientset.IsEnabled() {
+	if !p.Config.Enabled || !p.Clientset.IsEnabled() || !p.KVStoreClient.IsEnabled() {
 		return
 	}
 
-	s := &serviceSync{ServiceSyncParams: p}
-
-	storeResolver, storePromise := promise.New[store.SyncStore]()
-	s.storePromise = storePromise
+	s := &serviceSync{
+		ServiceSyncParams: p,
+		store: p.StoreFactory.NewSyncStore(
+			p.ClusterInfo.Name,
+			p.KVStoreClient,
+			serviceStore.ServiceStorePrefix,
+		),
+	}
 
 	jg.Add(
 		job.OneShot(
@@ -94,20 +92,8 @@ func registerServiceSync(jg job.Group, p ServiceSyncParams) {
 		),
 		job.OneShot(
 			"run-store",
-			func(ctx context.Context, health cell.Health) error {
-				var backend kvstore.BackendOperations
-				if s.Config.Backend != nil {
-					backend = s.Config.Backend
-				} else {
-					backend = kvstore.LegacyClient()
-				}
-				store := s.StoreFactory.NewSyncStore(
-					s.ClusterInfo.Name,
-					backend,
-					serviceStore.ServiceStorePrefix,
-				)
-				storeResolver.Resolve(store)
-				store.Run(ctx)
+			func(ctx context.Context, _ cell.Health) error {
+				s.store.Run(ctx)
 				return nil
 			},
 		),
@@ -115,11 +101,6 @@ func registerServiceSync(jg job.Group, p ServiceSyncParams) {
 }
 
 func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
-	store, err := s.storePromise.Await(ctx)
-	if err != nil {
-		return err
-	}
-
 	converter := s.ClusterServiceConverter
 
 	services, err := s.Services.Store(ctx)
@@ -141,7 +122,7 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 	endpointEvents := s.Endpoints.Events(ctx)
 
 	upsert := func(cs *serviceStore.ClusterService) {
-		if err := store.UpsertKey(ctx, cs); err != nil {
+		if err := s.store.UpsertKey(ctx, cs); err != nil {
 			// An error is triggered only in case it concerns service marshaling,
 			// as kvstore operations are automatically re-tried in case of error.
 			s.Log.Warn("Failed synchronizing service",
@@ -165,9 +146,9 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 			case resource.Sync:
 				s.Log.Info("Initial list of services successfully received from Kubernetes")
 				if s.Config.Synced != nil {
-					store.Synced(ctx, s.Config.Synced)
+					s.store.Synced(ctx, s.Config.Synced)
 				} else {
-					store.Synced(ctx)
+					s.store.Synced(ctx)
 				}
 			case resource.Upsert:
 				svc := ev.Object
@@ -175,10 +156,10 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 				if toUpsert {
 					upsert(cs)
 				} else {
-					store.DeleteKey(ctx, cs)
+					s.store.DeleteKey(ctx, cs)
 				}
 			case resource.Delete:
-				store.DeleteKey(ctx, converter.ForDeletion(ev.Object))
+				s.store.DeleteKey(ctx, converter.ForDeletion(ev.Object))
 			}
 
 		case ev, ok := <-endpointEvents:

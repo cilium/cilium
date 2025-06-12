@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
 )
@@ -51,10 +50,9 @@ var Cell = cell.Module(
 
 	cell.Group(
 		cell.Provide(
-			func(backend kvstore.Client, syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
+			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
 				return operatorWatchers.ServiceSyncConfig{
 					Enabled: true,
-					Backend: backend,
 					Synced:  syncState.WaitForResource(),
 				}
 			},
