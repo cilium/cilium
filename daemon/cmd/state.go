@@ -463,11 +463,6 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
 	bootstrapStats.restore.Start()
 	if option.Config.RestoreState {
-		// When we regenerate restored endpoints, it is guaranteed that we have
-		// received the full list of policies present at the time the daemon
-		// is bootstrapped.
-		d.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
-
 		go func() {
 			if d.clientset.IsEnabled() {
 				// Configure the controller which removes any leftover Kubernetes
@@ -530,6 +525,11 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 				syncServices(false /* all services */)
 			}
 		}()
+
+		// When we regenerate restored endpoints, it is guaranteed that we have
+		// received the full list of policies present at the time the daemon
+		// is bootstrapped.
+		d.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
 	} else {
 		d.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
 	}
