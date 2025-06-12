@@ -1,5 +1,64 @@
 # Changelog
 
+## v1.17.5
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* aws/ENI: Only use pagination when not specifying IDs (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39120, @HadrienPatte)
+* Fix connections to deleted service backends not getting terminated in certain cases involving services with multiple protocol ports. (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#37745, @foyerunix)
+* Fix handle_policy_egress programs not being cleaned up during endpoint teardown (Backport PR cilium/cilium#39685, Upstream PR cilium/cilium#39560, @ti-mo)
+* Fixed bug where datapath is unable to compile when active connection tracking and IPv6 are enabled at the same time. (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39509, @dylandreimerink)
+* Fixes a bug where a CIDRRule of  0.0.0.0/0 would not select all external traffic. (Backport PR cilium/cilium#39765, Upstream PR cilium/cilium#39693, @squeed)
+* gateway-api: Use original source address for GAMMA (Backport PR cilium/cilium#39685, Upstream PR cilium/cilium#39206, @sayboras)
+* helm/hubble: Fix wrong value for metrics server tls existingSecret (Backport PR cilium/cilium#39685, Upstream PR cilium/cilium#39668, @devodev)
+* install/kubernetes: change mapDynamicSizeRatio from number to string (Backport PR cilium/cilium#39963, Upstream PR cilium/cilium#39834, @aanm)
+* operator: skip retry of node taint update when node not found (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39517, @jshr-w)
+* Persist parent interface index of endpoint across agent restarts (Backport PR cilium/cilium#39765, Upstream PR cilium/cilium#39575, @dylandreimerink)
+* Policy updates to Envoy no longer consider a single selector as an L3 wildcard. Cilium bpf datapath policy enforcement is not done for Cilium Ingress policy enforcement so the L3 identity needs to be enforced in all cases. (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39511, @jrajahalme)
+
+**CI Changes:**
+* bpf: test: fix up mis-spelled HAVE_NETNS_COOKIE (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39420, @julianwiedmann)
+* call for metrics in smoke tests from runner instead of installing apt/curl on cilium pod (Backport PR cilium/cilium#39862, Upstream PR cilium/cilium#37362, @Artyop)
+* gh: e2e: enable secondary-network LB testing for all KPR=true configs (Backport PR cilium/cilium#39780, Upstream PR cilium/cilium#39718, @julianwiedmann)
+* gh: eks: restore concurrent execution of connectivity tests (Backport PR cilium/cilium#39685, Upstream PR cilium/cilium#39673, @julianwiedmann)
+* Re-optimize CI build process (Backport PR cilium/cilium#39862, Upstream PR cilium/cilium#39802, @aanm)
+
+**Misc Changes:**
+* .github/workflows: remove cilium-cli from build-go-caches (cilium/cilium#39801, @aanm)
+* [v1.17] bpf: host: don't detect WG traffic in from-netdev@cilium_wg0 (cilium/cilium#38233, @julianwiedmann)
+* Add a section to talk about the native routing masquerading in the cloud environment. (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39343, @liyihuang)
+* bpf: host: flag Cilium's ESP traffic as TRACE_REASON_ENCRYPTED (Backport PR cilium/cilium#39685, Upstream PR cilium/cilium#39558, @julianwiedmann)
+* bpf: Skip lxc src IP check for proxy traffic (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39530, @sayboras)
+* bpf:wireguard: reuse MARK_MAGIC_ENCRYPT for encrypted packets (Backport PR cilium/cilium#39652, Upstream PR cilium/cilium#39651, @smagnani96)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#39476, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#39704, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#39570, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#39687, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#39821, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#39879, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v31 (v1.17) (cilium/cilium#39607, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v31.1 (v1.17) (cilium/cilium#39951, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 4c0a181 (v1.17) (cilium/cilium#39725, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 81bf592 (v1.17) (cilium/cilium#39822, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 86b4cff (v1.17) (cilium/cilium#39605, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to 188ddfb (v1.17) (cilium/cilium#39606, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.4 (v1.17) (cilium/cilium#39949, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1749031919-98c55b1d0c1154fb6c9e760583c2dcd7778686e2 (v1.17) (cilium/cilium#39886, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1749271279-0864395884b263913eac200ee2048fd985f8e626 (v1.17) (cilium/cilium#39935, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#39703, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#39950, @cilium-renovate[bot])
+* HELM: Adding Label Support to clustermesh apiserver service (Backport PR cilium/cilium#39564, Upstream PR cilium/cilium#39520, @camrossi)
+* mtu/endpoint_updater.go: Check for unix.EINVAL not os.ErrInvalid (Backport PR cilium/cilium#39862, Upstream PR cilium/cilium#39658, @dylandreimerink)
+* mtu: Catch expected error in endpoint MTU updater (Backport PR cilium/cilium#39685, Upstream PR cilium/cilium#36596, @dylandreimerink)
+* pkg/fswatcher: Rewrite without underlying use of fsnotify (Backport PR cilium/cilium#39963, Upstream PR cilium/cilium#38537, @glibsm)
+
+**Other Changes:**
+* [v1.17] chore(deps): revert etcd bump to v3.6.0 (cilium/cilium#39628, @giorio94)
+* [v1.17] vendor: Bump Hive and StateDB (cilium/cilium#39689, @joamaki)
+* install: Update image digests for v1.17.4 (cilium/cilium#39548, @cilium-release-bot[bot])
+
 ## v1.17.4
 
 Summary of Changes
