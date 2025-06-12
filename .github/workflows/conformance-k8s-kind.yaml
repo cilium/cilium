@@ -178,8 +178,7 @@ jobs:
 
           # Kubernetes e2e tests use ginkgo and tags to select the tests that should run based on two regex, focus and skip:
           # Focus tests:
-          # \[Conformance\]|\[sig-network\]: Conformance tests are defined by the project to guarantee a consistent behaviour and some mandatory features on all clusters
-          #                                  sig-network tests are defined by sig-networkto guarantee a consistent behaviour on all the the k8s network implementations
+          # \[sig-network\]: sig-network tests are defined by sig-network to guarantee a consistent behaviour on all the the k8s network implementations
           # Skipped tests:
           # Disruptive|Serial : require to run in serial and perform disruptive operations on clusters (reboots, ...)
           # Federation|PerformanceDNS : unrelated sig-network tests
@@ -196,7 +195,7 @@ jobs:
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
-            --focus="\[Conformance\]|\[sig-network\]"     \
+            --focus="\[sig-network\]"     \
             --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|should.serve.endpoints.on.same.port.and.different.protocols"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
