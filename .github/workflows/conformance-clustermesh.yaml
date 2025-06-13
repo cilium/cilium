@@ -669,7 +669,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
-          job_status: "success"
+          job_status: "${{ job.status }}"
           capture_features_tested: false
           capture_sysdump: false
 
