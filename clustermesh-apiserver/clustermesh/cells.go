@@ -4,6 +4,8 @@
 package clustermesh
 
 import (
+	"errors"
+
 	"github.com/cilium/hive/cell"
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
@@ -34,6 +36,7 @@ var Cell = cell.Module(
 
 	k8sClient.Cell,
 	cmk8s.ResourcesCell,
+	cell.Invoke(registerClientsetValidator),
 
 	// Shared synchronization structures for waiting on K8s resources to
 	// be synced
@@ -115,6 +118,19 @@ var Synchronization = cell.Module(
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2a1.CiliumEndpointSlice]),
 	),
 )
+
+func registerClientsetValidator(lc cell.Lifecycle, client k8sClient.Clientset) {
+	lc.Append(cell.Hook{
+		// Executed inside a start hook to avoid blocking when the hive is not
+		// actually started (e.g., the dependency graph is output).
+		OnStart: func(cell.HookContext) error {
+			if !client.IsEnabled() {
+				return errors.New("Kubernetes client not configured, cannot continue")
+			}
+			return nil
+		},
+	})
+}
 
 var pprofConfig = pprof.Config{
 	Pprof:        false,
