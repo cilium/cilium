@@ -9,16 +9,12 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/go-openapi/runtime/middleware"
 
-	"github.com/cilium/cilium/api/v1/models"
-	serviceapi "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -72,75 +68,6 @@ func (s *serviceManagerAdapter) GetCurrentTs() time.Time {
 	return time.Now()
 }
 
-// GetDeepCopyServices implements service.ServiceManager.
-func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.LegacySVC) {
-	// Used by REST API.
-	txn := s.db.ReadTxn()
-	for fe := range s.frontends.All(txn) {
-		bes := []*loadbalancer.LegacyBackend{}
-		svc := fe.Service
-		for be := range fe.Backends {
-			// Get the instance of the referenced service. This may be different from fe.ServiceName
-			// if it is being redirected.
-			beModel := &loadbalancer.LegacyBackend{
-				FEPortName: "",
-				ID:         0,
-				Weight:     be.Weight,
-				NodeName:   be.NodeName,
-				ZoneID:     s.daemonConfig.GetZoneID(be.Zone),
-				L3n4Addr:   be.Address,
-				State:      be.State,
-				Preferred:  true,
-			}
-			if len(be.PortNames) == 0 {
-				bes = append(bes, beModel)
-			} else {
-				for _, portName := range be.PortNames {
-					beModel = beModel.DeepCopy()
-					beModel.FEPortName = portName
-					bes = append(bes, beModel)
-				}
-			}
-		}
-		proxyPort := uint16(0)
-		if svc.ProxyRedirect != nil {
-			proxyPort = svc.ProxyRedirect.ProxyPort
-		}
-
-		svcType := fe.Type
-		if fe.RedirectTo != nil {
-			svcType = loadbalancer.SVCTypeLocalRedirect
-		}
-
-		svcModel := &loadbalancer.LegacySVC{
-			Frontend: loadbalancer.L3n4AddrID{
-				L3n4Addr: fe.Address,
-				ID:       loadbalancer.ID(fe.ID),
-			},
-			Type:        svcType,
-			Name:        fe.ServiceName,
-			Annotations: fe.Service.Annotations,
-			Backends:    bes,
-
-			ForwardingMode:            "", // FIXME (not implemented)
-			ExtTrafficPolicy:          svc.ExtTrafficPolicy,
-			IntTrafficPolicy:          svc.IntTrafficPolicy,
-			NatPolicy:                 svc.NatPolicy,
-			SourceRangesPolicy:        "",                                  // FIXME (not implemented)
-			ProxyDelegation:           loadbalancer.SVCProxyDelegationNone, // FIXME (not implemented)
-			SessionAffinity:           svc.SessionAffinity,
-			SessionAffinityTimeoutSec: uint32(svc.SessionAffinityTimeout),
-			HealthCheckNodePort:       svc.HealthCheckNodePort,
-			LoadBalancerAlgorithm:     svc.GetLBAlgorithmAnnotation(),
-			LoadBalancerSourceRanges:  nil, // FIXME CIDR vs *CIDR
-			L7LBProxyPort:             proxyPort,
-			LoopbackHostport:          svc.LoopbackHostPort,
-		}
-		svcs = append(svcs, svcModel)
-	}
-	return
-}
-
 // GetLastUpdatedTs implements service.ServiceManager.
 func (s *serviceManagerAdapter) GetLastUpdatedTs() time.Time {
 	// Used by kubeproxyhealthz. Unclear how important it is to have real last updated time here.
@@ -162,48 +89,3 @@ func (s *serviceManagerAdapter) GetServiceNameByAddr(addr loadbalancer.L3n4Addr)
 }
 
 var _ service.ServiceManager = &serviceManagerAdapter{}
-
-type serviceRestApiHandlerParams struct {
-	cell.In
-
-	Logger         *slog.Logger
-	ServiceManager service.ServiceManager
-}
-
-type serviceRestApiHandlerOut struct {
-	cell.Out
-
-	GetServiceHandler serviceapi.GetServiceHandler
-}
-
-func newServiceRestApiHandler(params serviceRestApiHandlerParams) serviceRestApiHandlerOut {
-	return serviceRestApiHandlerOut{
-		GetServiceHandler: &getServiceHandler{
-			logger:         params.Logger,
-			serviceManager: params.ServiceManager,
-		},
-	}
-}
-
-type getServiceHandler struct {
-	logger         *slog.Logger
-	serviceManager service.ServiceManager
-}
-
-func (h *getServiceHandler) Handle(params serviceapi.GetServiceParams) middleware.Responder {
-	h.logger.Debug(
-		"GET /service request",
-		logfields.Params, params,
-	)
-	list := GetServiceModelList(h.serviceManager)
-	return serviceapi.NewGetServiceOK().WithPayload(list)
-}
-
-func GetServiceModelList(svc service.ServiceManager) []*models.Service {
-	svcs := svc.GetDeepCopyServices()
-	list := make([]*models.Service, 0, len(svcs))
-	for _, v := range svcs {
-		list = append(list, v.GetModel())
-	}
-	return list
-}
