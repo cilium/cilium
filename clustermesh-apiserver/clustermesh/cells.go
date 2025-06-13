@@ -52,7 +52,7 @@ var Cell = cell.Module(
 	Synchronization,
 
 	usersManagementCell,
-	cell.Invoke(registerHooks),
+	cell.Invoke(RegisterHooks),
 )
 
 var Synchronization = cell.Module(

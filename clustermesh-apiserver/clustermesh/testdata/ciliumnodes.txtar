@@ -1,0 +1,190 @@
+#! --cluster-id=3 --cluster-name=cluster3
+
+hive/start
+
+# Add two CiliumNodes
+k8s/add node-1.yaml node-2.yaml
+
+# Assert that the synced key gets created. We compare on the key only as the
+# value is the timestamp at which synchronization completed
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/nodes/v1$' synced.actual
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/nodes/v1/cluster3/test-node-1 node-1.actual
+* cmp node-1.actual node-1.expected
+kvstore/list -o json cilium/state/nodes/v1/cluster3/test-node-2 node-2.actual
+* cmp node-2.actual node-2.expected
+
+# Update one of the CiliumNodes
+replace '10.244.0.134' '10.244.0.135' node-1.yaml
+k8s/update node-1.yaml
+
+# Wait for synchronization
+replace '10.244.0.134' '10.244.0.135' node-1.expected
+kvstore/list -o json cilium/state/nodes/v1/cluster3/test-node-1 node-1.actual
+* cmp node-1.actual node-1.expected
+
+# Delete one of the CiliumNodes
+k8s/delete node-2.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/nodes/v1/cluster3/test-node-2 node-2.actual
+* empty node-2.actual
+
+# ---
+
+-- node-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node-1
+  labels:
+    kubernetes.io/hostname: test-node-1
+  annotations:
+    network.cilium.io/wg-pub-key: VRksOB6ZNds4oXWIGfSVpvc0gBhcOWFmzvTDcyvULlI=
+spec:
+  addresses:
+  - ip: 172.18.0.2
+    type: InternalIP
+  - ip: fc00:c111::2
+    type: InternalIP
+  - ip: 10.244.0.10
+    type: CiliumInternalIP
+  - ip: fd00:10:244::e2d6
+    type: CiliumInternalIP
+  bootid: 570d3fd1-93db-4862-ba99-6a3c2c10c38f
+  health:
+    ipv4: 10.244.0.134
+    ipv6: fd00:10:244::d812
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+    - fd00:10:244::/64
+
+-- node-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node-2
+  labels:
+    kubernetes.io/hostname: test-node-2
+spec:
+  addresses:
+  - ip: 172.18.0.3
+    type: InternalIP
+  - ip: fc00:c111::3
+    type: InternalIP
+  - ip: 10.244.1.130
+    type: CiliumInternalIP
+  - ip: fd00:10:244:1::9089
+    type: CiliumInternalIP
+  bootid: c1d2cda2-aca0-4033-abca-3843298860b9
+  encryption:
+    key: 7
+  health:
+    ipv4: 10.244.1.153
+    ipv6: fd00:10:244:1::835d
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+    - fd00:10:244:1::/64
+
+-- node-1.expected --
+# cilium/state/nodes/v1/cluster3/test-node-1
+{
+  "Name": "test-node-1",
+  "Cluster": "cluster3",
+  "IPAddresses": [
+    {
+      "Type": "InternalIP",
+      "IP": "172.18.0.2"
+    },
+    {
+      "Type": "InternalIP",
+      "IP": "fc00:c111::2"
+    },
+    {
+      "Type": "CiliumInternalIP",
+      "IP": "10.244.0.10"
+    },
+    {
+      "Type": "CiliumInternalIP",
+      "IP": "fd00:10:244::e2d6"
+    }
+  ],
+  "IPv4AllocCIDR": {
+    "IP": "10.244.0.0",
+    "Mask": "////AA=="
+  },
+  "IPv4SecondaryAllocCIDRs": null,
+  "IPv6AllocCIDR": {
+    "IP": "fd00:10:244::",
+    "Mask": "//////////8AAAAAAAAAAA=="
+  },
+  "IPv6SecondaryAllocCIDRs": null,
+  "IPv4HealthIP": "10.244.0.134",
+  "IPv6HealthIP": "fd00:10:244::d812",
+  "IPv4IngressIP": "",
+  "IPv6IngressIP": "",
+  "ClusterID": 3,
+  "Source": "custom-resource",
+  "EncryptionKey": 0,
+  "Labels": {
+    "kubernetes.io/hostname": "test-node-1"
+  },
+  "Annotations": {
+    "network.cilium.io/wg-pub-key": "VRksOB6ZNds4oXWIGfSVpvc0gBhcOWFmzvTDcyvULlI="
+  },
+  "NodeIdentity": 0,
+  "WireguardPubKey": "VRksOB6ZNds4oXWIGfSVpvc0gBhcOWFmzvTDcyvULlI=",
+  "BootID": "570d3fd1-93db-4862-ba99-6a3c2c10c38f"
+}
+-- node-2.expected --
+# cilium/state/nodes/v1/cluster3/test-node-2
+{
+  "Name": "test-node-2",
+  "Cluster": "cluster3",
+  "IPAddresses": [
+    {
+      "Type": "InternalIP",
+      "IP": "172.18.0.3"
+    },
+    {
+      "Type": "InternalIP",
+      "IP": "fc00:c111::3"
+    },
+    {
+      "Type": "CiliumInternalIP",
+      "IP": "10.244.1.130"
+    },
+    {
+      "Type": "CiliumInternalIP",
+      "IP": "fd00:10:244:1::9089"
+    }
+  ],
+  "IPv4AllocCIDR": {
+    "IP": "10.244.1.0",
+    "Mask": "////AA=="
+  },
+  "IPv4SecondaryAllocCIDRs": null,
+  "IPv6AllocCIDR": {
+    "IP": "fd00:10:244:1::",
+    "Mask": "//////////8AAAAAAAAAAA=="
+  },
+  "IPv6SecondaryAllocCIDRs": null,
+  "IPv4HealthIP": "10.244.1.153",
+  "IPv6HealthIP": "fd00:10:244:1::835d",
+  "IPv4IngressIP": "",
+  "IPv6IngressIP": "",
+  "ClusterID": 3,
+  "Source": "custom-resource",
+  "EncryptionKey": 7,
+  "Labels": {
+    "kubernetes.io/hostname": "test-node-2"
+  },
+  "Annotations": null,
+  "NodeIdentity": 0,
+  "WireguardPubKey": "",
+  "BootID": "c1d2cda2-aca0-4033-abca-3843298860b9"
+}
