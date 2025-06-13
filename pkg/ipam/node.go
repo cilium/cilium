@@ -756,9 +756,19 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 		}
 		// Handshake can be aborted from every state except 'released'
 		// 'released' state is removed by the agent once the IP has been removed from ciliumnode's IPAM pool as well.
+		// But if the IP is back in the pool, we need to remove it from the release status map.
 		if status == ipamOption.IPAMReleased {
+			// Check if the IP is back in the pool despite being marked as released
+			if _, ok := n.resource.Spec.IPAM.Pool[ip]; ok {
+				delete(n.resource.Status.IPAM.ReleaseIPs, ip)
+				delete(n.ipv4Alloc.ipsMarkedForRelease, ip)
+				delete(n.ipv4Alloc.ipReleaseStatus, ip)
+			}
+
+			// If it's still released and not in the pool, we don't need to do anything
 			continue
 		}
+
 		if status, ok := n.ipv4Alloc.ipReleaseStatus[ip]; ok && status != ipamOption.IPAMReleased {
 			delete(n.ipv4Alloc.ipsMarkedForRelease, ip)
 			delete(n.ipv4Alloc.ipReleaseStatus, ip)
