@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/logcookie"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -48,6 +49,8 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
+	// GetLog returns the policy log string associated with the given cookie, if it exists.
+	GetLog(cookie uint32) (log string, exists bool)
 	Iterate(f func(rule *api.Rule))
 	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
@@ -80,17 +83,20 @@ type Repository struct {
 	// Always positive (>0).
 	revision atomic.Uint64
 
-	// SelectorCache tracks the selectors used in the policies
+	// selectorCache tracks the selectors used in the policies
 	// resolved from the repository.
 	selectorCache *SelectorCache
 
-	// PolicyCache tracks the selector policies created from this repo
+	// policyCache tracks the selector policies created from this repo
 	policyCache *policyCache
 
 	certManager certificatemanager.CertificateManager
 
 	metricsManager    api.PolicyMetrics
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
+
+	// logCookies managers the cookies associated with policy log strings.
+	logCookies logcookie.Bakery[uint32, string]
 }
 
 func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -126,6 +132,7 @@ func NewPolicyRepository(
 		certManager:       certManager,
 		metricsManager:    metricsManager,
 		l7RulesTranslator: l7RulesTranslator,
+		logCookies:        logcookie.NewBakery[uint32, string](),
 	}
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
@@ -601,4 +608,14 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 	defer p.mutex.RUnlock()
 
 	return p.policyCache.GetPolicySnapshot()
+}
+
+// AllocateLogCookie allocates a policy log cookie for the log string.
+func (p *Repository) AllocateLogCookie(log string) (cookie uint32, ok bool) {
+	return p.logCookies.Allocate(log)
+}
+
+// GetLog returns the policy log string associated with the given cookie, if it exists.
+func (p *Repository) GetLog(cookie uint32) (log string, exists bool) {
+	return p.logCookies.Get(cookie)
 }

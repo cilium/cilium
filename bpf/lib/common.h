@@ -329,6 +329,7 @@ struct policy_entry {
 	__u8		proxy_port_priority;
 	__u8		pad1;
 	__u16	        pad2;
+	__u32		cookie;
 };
 
 /*
