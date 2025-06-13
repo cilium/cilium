@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -1232,23 +1231,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
 		logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
-	}
-
-	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
-	// that may be added or removed at runtime.
-	if option.Config.EnableIPSec &&
-		!option.Config.TunnelingEnabled() &&
-		len(option.Config.EncryptInterface) == 0 &&
-		// If devices are required, we don't look at the EncryptInterface, as we
-		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
-		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired() &&
-		option.Config.IPAM != ipamOption.IPAMENI {
-		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(logger)
-		if err != nil {
-			logging.Fatal(logger, "Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.", logfields.Error, err)
-		}
-		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
 
 	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
