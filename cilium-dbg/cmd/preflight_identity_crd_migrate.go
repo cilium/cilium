@@ -250,10 +250,6 @@ func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
 	client := setupKvstore(ctx, log)
 
-	if err := <-client.Connected(wctx); err != nil {
-		logging.Fatal(log, "Cannot connect to the kvstore", logfields.Error, err)
-	}
-
 	idPath := path.Join(cache.IdentitiesPath, "id")
 	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(log, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: client})
 	if err != nil {

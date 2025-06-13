@@ -90,19 +90,9 @@ func (e *ExtraOptions) StatusCheckInterval(allConnected bool) time.Duration {
 
 // backendModule is the interface that each kvstore backend has to implement.
 type backendModule interface {
-	// getName must return the name of the backend
-	getName() string
-
 	// setConfig must configure the backend with the specified options.
 	// This function is called once before newClient().
 	setConfig(logger *slog.Logger, opts map[string]string) error
-
-	// setConfigDummy must configure the backend with dummy configuration
-	// for testing purposes. This is a replacement for setConfig().
-	setConfigDummy()
-
-	// getConfig must return the backend configuration.
-	getConfig() map[string]string
 
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
@@ -141,10 +131,6 @@ func getBackend(name string) backendModule {
 // must implement. Direct use of this interface is possible but will bypass the
 // tracing layer.
 type BackendOperations interface {
-	// Connected returns a channel which is closed whenever the kvstore client
-	// is connected to the kvstore server.
-	Connected(ctx context.Context) <-chan error
-
 	// Status returns the status of the kvstore client
 	Status() *models.Status
 

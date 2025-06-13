@@ -134,8 +134,7 @@ func TestScript(t *testing.T) {
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
-				kvstore.SetupInMemory(db)
-				client := kvstore.SetupDummy(t, "in-memory")
+				client := kvstore.NewInMemoryClient(db, "__all__")
 				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
 			}),
 
