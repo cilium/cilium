@@ -737,9 +737,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
-          job_status: "success"
-          capture_features_tested: false
-          capture_sysdump: false
+          job_status: "${{ job.status }}"
 
   merge-upload-and-status:
     name: Merge Upload and Status
