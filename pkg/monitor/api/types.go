@@ -4,6 +4,8 @@
 package api
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -193,6 +195,32 @@ type AgentNotify struct {
 	Text string
 }
 
+// Decode decodes the message in 'data' into the struct.
+func (a *AgentNotify) Decode(data []byte) error {
+	buf := bytes.NewBuffer(data[1:])
+	dec := gob.NewDecoder(buf)
+	return dec.Decode(a)
+}
+
+// GetSrc retrieves the sorce endpoint for the message
+func (a *AgentNotify) GetSrc() uint16 {
+	return 0
+}
+
+// GetDst retrieves the destination endpoint for the message.
+func (a *AgentNotify) GetDst() uint16 {
+	return 0
+}
+
+// Dump prints the message according to the verbosity level specified
+func (n *AgentNotify) Dump(args *DumpArgs) {
+	if args.Verbosity == JSON {
+		fmt.Fprintln(args.Buf, n.getJSON())
+	} else {
+		fmt.Fprintf(args.Buf, ">> %s: %s\n", resolveAgentType(n.Type), n.Text)
+	}
+}
+
 // AgentNotifyMessage is a notification from the agent. It is similar to
 // AgentNotify, but the notification is an unencoded struct. See the *Message
 // constructors in this package for possible values.
@@ -253,18 +281,8 @@ func resolveAgentType(t AgentNotification) string {
 	return fmt.Sprintf("%d", t)
 }
 
-// DumpInfo dumps an agent notification
-func (n *AgentNotify) DumpInfo() {
-	fmt.Printf(">> %s: %s\n", resolveAgentType(n.Type), n.Text)
-}
-
 func (n *AgentNotify) getJSON() string {
 	return fmt.Sprintf(`{"type":"agent","subtype":"%s","message":%s}`, resolveAgentType(n.Type), n.Text)
-}
-
-// DumpJSON prints notification in json format
-func (n *AgentNotify) DumpJSON() {
-	fmt.Println(n.getJSON())
 }
 
 // PolicyUpdateNotification structures update notification
