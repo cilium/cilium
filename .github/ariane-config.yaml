@@ -59,6 +59,9 @@ triggers:
   /ci-integration:
     workflows:
     - integration-test.yaml
+  /ci-kubespray:
+    workflows:
+    - conformance-kubespray.yaml
   /ci-multi-pool:
     workflows:
     - conformance-multi-pool.yaml
@@ -113,6 +116,8 @@ workflows:
   conformance-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md|.*_test\.go)$)
   conformance-ingress.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md|.*_test\.go)$)
+  conformance-kubespray.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md|.*_test\.go)$)
   conformance-multi-pool.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|.*\.md|.*_test\.go)$)
