@@ -671,6 +671,14 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 
+#if defined(ENABLE_WIREGUARD)
+	/* If cilium sets MARK_MAGIC_DECRYPT the mark is only needed until
+	 * we reach this program. To not cause any further collision with the
+	 * `decrypted` variable, clear the mark.
+	 */
+	ctx->mark = 0;
+#endif
+
 /* We need to handle following possible packets come to this program
  *
  * 1. ESP packets coming from overlay (encrypted and not marked)

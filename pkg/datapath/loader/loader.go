@@ -421,8 +421,7 @@ func attachCiliumNet(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint,
 func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
 
-	// Selectively attach bpf_host to cilium_wg0.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
+	if option.Config.EnableWireguard {
 		devices = append(devices, wgTypes.IfaceName)
 	}
 
@@ -661,23 +660,7 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 			log.WithField("device", device).Error(err)
 		}
 	}
-	// Selectively detach cil_from_netdev from ingress.
-	if !option.Config.NeedBPFHostOnWireGuardDevice() {
-		if err := detachSKBProgram(device, symbolFromHostNetdevEp,
-			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-			log.WithField("device", wgTypes.IfaceName).Error(err)
-		}
-		// When downgrading from v1.18 we must also detach cil_from_wireguard:
-		// - if the hook is still needed, then cil_from_wireguard is removed in
-		//   attachNetworkDevices() as soon as cil_from_netdev is inserted;
-		// - otherwise we handle here its removal.
-		if err := detachSKBProgram(device, symbolFromWireguard,
-			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-			log.WithField("device", device).Error(err)
-		}
-		// Cleanup also calls map from v1.18 after downgrade.
-		cleanCallsMaps(fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index))
-	}
+
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
