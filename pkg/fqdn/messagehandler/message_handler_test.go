@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	mockipc "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -82,7 +83,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 
 	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
-	policyRepo := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	policyRepo := policy.NewPolicyRepository(logger, nil, nil, nil, nil, policytypes.NewPolicyMetricsNoop())
 	ipc := &mockipc.MockIPCache{}
 	nm := namemanager.New(namemanager.ManagerParams{
 		Config: namemanager.NameManagerConfig{
