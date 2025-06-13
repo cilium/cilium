@@ -23,7 +23,7 @@ var Cell = cell.Module(
 	cell.Provide(new),
 )
 
-func new(metrics Metrics, clusterInfo types.ClusterInfo) SyncState {
+func new(lc cell.Lifecycle, metrics Metrics, clusterInfo types.ClusterInfo) SyncState {
 	ss := SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
 
 	go func() {
@@ -31,6 +31,14 @@ func new(metrics Metrics, clusterInfo types.ClusterInfo) SyncState {
 		<-ss.WaitChannel()
 		metrics.BootstrapDuration.WithLabelValues(clusterInfo.Name).Set(syncTime.Seconds())
 	}()
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			ss.Stop()
+			return nil
+		},
+	})
+
 	return ss
 }
 
