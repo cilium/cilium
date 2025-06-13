@@ -481,19 +481,9 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.AssignedStaticIP = stats.AssignedStaticIP
 	}
 
-	// Get used IP count with prefixes included
-	usedIPForExcessCalc := n.stats.IPv4.UsedIPs
-	preAllocForExcessCalc := n.getPreAllocate()
-	if n.ops.IsPrefixDelegated() {
-		usedIPForExcessCalc = n.ops.GetUsedIPWithPrefixes()
-		// We mark an entire prefix as used, even if only one IP is allocated.
-		// Set PreAllocate = 0 for ExcessIPs calculation only. This helps identify unused IPs or prefixes accurately.
-		preAllocForExcessCalc = 0
-	}
-
 	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
 	n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
-	n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, usedIPForExcessCalc, preAllocForExcessCalc, n.getMinAllocate(), n.getMaxAboveWatermark())
+	n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
 	scopedLog.Debug(
@@ -671,7 +661,9 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	// request may have been resolved in the meantime.
 	if n.manager.releaseExcessIPs && stats.IPv4.ExcessIPs > 0 {
 		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, n.logger.Load())
-		return a, nil
+		if a.release != nil {
+			return a, nil
+		}
 	}
 
 	// Validate that the node still requires addresses to be allocated, the

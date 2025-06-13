@@ -159,55 +159,69 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 			continue
 		}
 
-		scopedLog.Debug(
-			"Considering ENI for IPPrefix release",
-			fieldEniID, e.ID,
-			logfields.NeedIndex, *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
-			logfields.Index, e.Number,
-			logfields.NumAddresses, len(e.Addresses),
-			logfields.LenPrefixes, len(ipPrefixes),
-		)
-
 		matchedIPs := []string{}
+		// Returns the first ENI with either IPPrefixes/secondary IPs to release instead of
+		// looking for an ENI with max IPPrefixes/secondary IPs to release for faster and
+		// lower latency when early ENIs are eligible.
 		if len(ipPrefixes) > 0 {
+			scopedLog.Debug(
+				"Considering ENI for IPPrefix release",
+				fieldEniID, e.ID,
+				logfields.NeedIndex, *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
+				logfields.Index, e.Number,
+				logfields.NumAddresses, len(e.Addresses),
+				logfields.LenPrefixes, len(ipPrefixes),
+			)
 			usedIPs := n.k8sObj.Status.IPAM.Used
 			unusedIPPrefixes := []string{}
+			if excessIPs >= option.ENIPDBlockSizeIPv4 {
+				// Identify unused IP prefixes to release
+				for _, prefix := range ipPrefixes {
+					prefixAddr, err := netip.ParsePrefix(prefix)
+					if err != nil {
+						continue
+					}
 
-			// Identify unused IP prefixes to release
-			for _, prefix := range ipPrefixes {
-				// Prevent removing IPPrefix added to resolve IP deficit.
-				remainingExcessIps := excessIPs - len(unusedIPPrefixes)*option.ENIPDBlockSizeIPv4
-				if remainingExcessIps < option.ENIPDBlockSizeIPv4 {
-					break
-				}
-				prefixAddr, err := netip.ParsePrefix(prefix)
-				if err != nil {
-					continue
-				}
+					found := false
+					for ip := range usedIPs {
+						if prefixAddr.Contains(netip.MustParseAddr(ip)) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						unusedIPPrefixes = append(unusedIPPrefixes, prefix)
+						for _, ipStr := range e.Addresses {
+							ip := netip.MustParseAddr(ipStr)
+							if prefixAddr.Contains(ip) {
+								matchedIPs = append(matchedIPs, ipStr)
+							}
+						}
+						// Reduce excessIPs with option.ENIPDBlockSizeIPv4 number of IPs after adding a prefix
+						excessIPs = excessIPs - option.ENIPDBlockSizeIPv4
+					}
 
-				found := false
-				for ip := range usedIPs {
-					if prefixAddr.Contains(netip.MustParseAddr(ip)) {
-						found = true
+					if excessIPs < option.ENIPDBlockSizeIPv4 {
 						break
 					}
 				}
-				if !found {
-					unusedIPPrefixes = append(unusedIPPrefixes, prefix)
-					for _, ipStr := range e.Addresses {
-						ip := netip.MustParseAddr(ipStr)
-						if prefixAddr.Contains(ip) {
-							matchedIPs = append(matchedIPs, ipStr)
-						}
-					}
-				}
 			}
-			if len(unusedIPPrefixes) > 0 {
+
+			secondaryIPs := GetIndividualIPs(ipPrefixes, e.Addresses)
+			if len(unusedIPPrefixes) > 0 || len(secondaryIPs) > 0 {
 				r.InterfaceID = eniId
 				r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-				r.IPsToRelease = matchedIPs
 				r.IPPrefixesToRelease = unusedIPPrefixes
+
+				if len(secondaryIPs) > 0 {
+					matchedIPs = append(matchedIPs, secondaryIPs...)
+				}
+				r.IPsToRelease = matchedIPs
+				// Return since we have either IPprefixes/secondary IPs to release
+				return r
 			}
+			// Look for next ENI if we do not have an ENI with either a Prefix/secondary IP to release
+			continue
 		}
 		scopedLog.Debug(
 			"Considering ENI for IP release",
@@ -246,18 +260,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 		if firstENIWithFreeIPFound || eniWithMoreFreeIPsFound {
 			r.InterfaceID = eniId
 			r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-			freeIPs := freeIpsOnENI[:maxReleaseOnENI]
-
-			if len(ipPrefixes) > 0 {
-				secondaryIPs := GetIndividualIPs(ipPrefixes, freeIPs)
-				if len(secondaryIPs) > 0 {
-					r.IPsToRelease = append(matchedIPs, secondaryIPs...)
-				}
-				return r
-
-			}
-			r.IPsToRelease = freeIPs
-			return r
+			r.IPsToRelease = freeIpsOnENI[:maxReleaseOnENI]
 		}
 	}
 	return r
@@ -301,6 +304,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	if len(r.IPPrefixesToRelease) > 0 {
 		r.IPsToRelease = GetIndividualIPs(r.IPPrefixesToRelease, r.IPsToRelease)
 	}
+
 	if len(r.IPsToRelease) <= 0 {
 		return nil
 	}
