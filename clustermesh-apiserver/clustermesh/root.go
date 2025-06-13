@@ -5,7 +5,6 @@ package clustermesh
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -16,7 +15,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -60,7 +58,6 @@ type parameters struct {
 
 	CfgMCSAPI   operator.MCSAPIConfig
 	ClusterInfo cmtypes.ClusterInfo
-	Clientset   k8sClient.Clientset
 	Backend     kvstore.Client
 	SyncState   syncstate.SyncState
 
@@ -70,10 +67,6 @@ type parameters struct {
 func RegisterHooks(lc cell.Lifecycle, params parameters) error {
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			if !params.Clientset.IsEnabled() {
-				return errors.New("Kubernetes client not configured, cannot continue.")
-			}
-
 			startServer(params.ClusterInfo, params.Backend, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
 			return nil
 		},
