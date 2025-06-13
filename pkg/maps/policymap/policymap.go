@@ -284,25 +284,6 @@ func (key *PolicyKey) String() string {
 
 func (key *PolicyKey) New() bpf.MapKey { return &PolicyKey{} }
 
-// NewKey returns a PolicyKey representing the specified parameters in network
-// byte-order.
-func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8) PolicyKey {
-	prefixLen := StaticPrefixBits
-	if proto != 0 || dport != 0 {
-		prefixLen += uint32(NexthdrBits)
-		if dport != 0 {
-			prefixLen += uint32(portPrefixLen)
-		}
-	}
-	return PolicyKey{
-		Prefixlen:        prefixLen,
-		Identity:         uint32(id),
-		TrafficDirection: uint8(trafficDirection),
-		Nexthdr:          uint8(proto),
-		DestPortNetwork:  byteorder.HostToNetwork16(dport),
-	}
-}
-
 // NewKeyFromPolicyKey converts a policy MapState key to a bpf PolicyMap key.
 func NewKeyFromPolicyKey(pk policyTypes.Key) PolicyKey {
 	prefixLen := StaticPrefixBits

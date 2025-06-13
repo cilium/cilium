@@ -16,6 +16,31 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// newKey returns a PolicyKey representing the specified parameters in network
+// byte-order.
+func newKey(
+	trafficDirection trafficdirection.TrafficDirection,
+	id identity.NumericIdentity,
+	proto u8proto.U8proto,
+	dport uint16,
+	portPrefixLen uint8,
+) PolicyKey {
+	prefixLen := StaticPrefixBits
+	if proto != 0 || dport != 0 {
+		prefixLen += uint32(NexthdrBits)
+		if dport != 0 {
+			prefixLen += uint32(portPrefixLen)
+		}
+	}
+	return PolicyKey{
+		Prefixlen:        prefixLen,
+		Identity:         uint32(id),
+		TrafficDirection: uint8(trafficDirection),
+		Nexthdr:          uint8(proto),
+		DestPortNetwork:  byteorder.HostToNetwork16(dport),
+	}
+}
+
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
 func newEntry(
@@ -320,8 +345,7 @@ func TestPolicyMapWildcarding(t *testing.T) {
 			require.Equal(t, policyTypes.AuthRequirement(0), tt.args.authReq, "Test: %s data error: authType must be zero with a deny key", tt.name)
 		}
 
-		// Get key
-		key := NewKey(tt.args.trafficDirection, tt.args.id, tt.args.proto, tt.args.dport, tt.args.dportPrefixLen)
+		key := newKey(tt.args.trafficDirection, tt.args.id, tt.args.proto, tt.args.dport, tt.args.dportPrefixLen)
 
 		// Compure entry & validate key and entry
 		var entry PolicyEntry
