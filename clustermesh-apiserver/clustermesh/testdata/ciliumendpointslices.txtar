@@ -1,0 +1,440 @@
+#! --cluster-id=3 --cluster-name=cluster3 --enable-cilium-endpoint-slice=true
+
+hive/start
+
+# Add two CiliumEndpointSlices
+k8s/add endpointslice-1.yaml endpointslice-2.yaml
+
+# Assert that the synced key gets created. We compare on the key only as the
+# value is the timestamp at which synchronization completed
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/ip/v1$' synced.actual
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1+2.actual
+* cmp ips-1+2.actual ips-1+2.expected
+
+# Update one of the CiliumEndpointSlices
+k8s/update endpointslice-1-v2.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1+2-v2.actual
+* cmp ips-1+2-v2.actual ips-1+2-v2.expected
+
+# Add one more CiliumEndpointSlices
+k8s/add endpointslice-3.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1+2+3.actual
+* cmp ips-1+2+3.actual ips-1+2+3.expected
+
+# Delete one of the CiliumEndpointSlices
+k8s/delete endpointslice-2.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1+3.actual
+* cmp ips-1+3.actual ips-1+3.expected
+
+# ---
+
+-- endpointslice-1.yaml --
+apiVersion: cilium.io/v2alpha1
+endpoints:
+- encryption: {}
+  id: 199472
+  name: foo-001
+  networking:
+    addressing:
+    - ipv4: 10.244.1.79
+      ipv6: fd00:10:244:1::d643
+    node: 172.18.0.3
+- encryption:
+    key: 5
+  id: 199475
+  name: foo-002
+  networking:
+    addressing:
+    - ipv4: 10.244.2.74
+      ipv6: fd00:10:244:2::e024
+    node: 172.18.0.2
+- encryption: {}
+  id: 199475
+  name: foo-003
+  networking:
+    addressing:
+    - ipv4: 10.244.2.91
+      ipv6: fd00:10:244:2::e4b4
+    node: 172.18.0.2
+kind: CiliumEndpointSlice
+metadata:
+  name: ces-c7hlcxqpt-rwqlm
+namespace: qux
+
+-- endpointslice-1-v2.yaml --
+apiVersion: cilium.io/v2alpha1
+endpoints:
+- encryption: {}
+  id: 199477
+  name: foo-001
+  networking:
+    addressing:
+    - ipv4: 10.244.2.15
+      ipv6: fd00:10:244:2::d615
+    node: 172.18.0.2
+- encryption: {}
+  id: 199481
+  name: foo-009
+  networking:
+    addressing:
+    - ipv4: 10.244.2.91
+      ipv6: fd00:10:244:2::e4b3
+    node: 172.18.0.2
+kind: CiliumEndpointSlice
+metadata:
+  name: ces-c7hlcxqpt-rwqlm
+namespace: qux
+
+-- endpointslice-2.yaml --
+apiVersion: cilium.io/v2alpha1
+endpoints:
+- encryption: {}
+  id: 199494
+  name: foo-004
+  networking:
+    addressing:
+    - ipv4: 10.244.2.78
+      ipv6: fd00:10:244:2::9182
+    node: 172.18.0.2
+kind: CiliumEndpointSlice
+metadata:
+  name: ces-l4wvwxg7q-wgmhr
+namespace: fred
+
+-- endpointslice-3.yaml --
+apiVersion: cilium.io/v2alpha1
+endpoints:
+- encryption: {}
+  id: 199494
+  name: foo-005
+  networking:
+    addressing:
+    - ipv4: 10.244.2.120
+      ipv6: fd00:10:244:2::5e16
+    node: 172.18.0.2
+kind: CiliumEndpointSlice
+metadata:
+  name: ces-67mn6kyjn-4tmqc
+namespace: fred
+
+-- ips-1+2.expected --
+# cilium/state/ip/v1/default/10.244.1.79
+{
+  "IP": "10.244.1.79",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/10.244.2.74
+{
+  "IP": "10.244.2.74",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199475,
+  "Key": 5,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-002"
+}
+# cilium/state/ip/v1/default/10.244.2.78
+{
+  "IP": "10.244.2.78",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-004"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199475,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-003"
+}
+# cilium/state/ip/v1/default/fd00:10:244:1::d643
+{
+  "IP": "fd00:10:244:1::d643",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::9182
+{
+  "IP": "fd00:10:244:2::9182",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-004"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e024
+{
+  "IP": "fd00:10:244:2::e024",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199475,
+  "Key": 5,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-002"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b4
+{
+  "IP": "fd00:10:244:2::e4b4",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199475,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-003"
+}
+-- ips-1+2-v2.expected --
+# cilium/state/ip/v1/default/10.244.2.15
+{
+  "IP": "10.244.2.15",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/10.244.2.78
+{
+  "IP": "10.244.2.78",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-004"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::9182
+{
+  "IP": "fd00:10:244:2::9182",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-004"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::d615
+{
+  "IP": "fd00:10:244:2::d615",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b3
+{
+  "IP": "fd00:10:244:2::e4b3",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009"
+}
+-- ips-1+2+3.expected --
+# cilium/state/ip/v1/default/10.244.2.120
+{
+  "IP": "10.244.2.120",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-005"
+}
+# cilium/state/ip/v1/default/10.244.2.15
+{
+  "IP": "10.244.2.15",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/10.244.2.78
+{
+  "IP": "10.244.2.78",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-004"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::5e16
+{
+  "IP": "fd00:10:244:2::5e16",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-005"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::9182
+{
+  "IP": "fd00:10:244:2::9182",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-004"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::d615
+{
+  "IP": "fd00:10:244:2::d615",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b3
+{
+  "IP": "fd00:10:244:2::e4b3",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009"
+}
+-- ips-1+3.expected --
+# cilium/state/ip/v1/default/10.244.2.120
+{
+  "IP": "10.244.2.120",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-005"
+}
+# cilium/state/ip/v1/default/10.244.2.15
+{
+  "IP": "10.244.2.15",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::5e16
+{
+  "IP": "fd00:10:244:2::5e16",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-005"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::d615
+{
+  "IP": "fd00:10:244:2::d615",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b3
+{
+  "IP": "fd00:10:244:2::e4b3",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009"
+}
