@@ -22,16 +22,13 @@ import (
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
-	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -96,78 +93,6 @@ func RegisterHooks(lc cell.Lifecycle, params parameters) error {
 		},
 	})
 	return nil
-}
-
-type identitySynchronizer struct {
-	store        store.SyncStore
-	syncCallback func(context.Context)
-	logger       *slog.Logger
-}
-
-func newIdentitySynchronizer(ctx context.Context, logger *slog.Logger, cinfo cmtypes.ClusterInfo, backend kvstore.BackendOperations, factory store.Factory, syncCallback func(context.Context)) synchronizer {
-	identitiesStore := factory.NewSyncStore(cinfo.Name, backend,
-		path.Join(identityCache.IdentitiesPath, "id"),
-		store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath))
-	go identitiesStore.Run(ctx)
-
-	return &identitySynchronizer{store: identitiesStore, syncCallback: syncCallback, logger: logger}
-}
-
-func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
-	array := make(labels.LabelArray, 0, len(base))
-	for sourceAndKey, value := range base {
-		array = append(array, labels.NewLabel(sourceAndKey, value, ""))
-	}
-	return array.Sort()
-}
-
-func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
-	identity := obj.(*ciliumv2.CiliumIdentity)
-	if len(identity.SecurityLabels) == 0 {
-		is.logger.Warn(
-			"Ignoring invalid identity",
-			logfields.Error, errors.New("missing security labels"),
-			logfields.Identity, identity.Name,
-		)
-		// Do not return an error, since it is pointless to retry.
-		// We will receive a new update event if the security labels change.
-		return nil
-	}
-
-	labelArray := parseLabelArrayFromMap(identity.SecurityLabels)
-
-	var labels []byte
-	for _, l := range labelArray {
-		labels = append(labels, l.FormatForKVStore()...)
-	}
-
-	is.logger.Info("Upserting identity in etcd", logfields.Identity, identity.Name)
-	kv := store.NewKVPair(identity.Name, string(labels))
-	if err := is.store.UpsertKey(ctx, kv); err != nil {
-		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		is.logger.Warn("Unable to upsert identity in etcd", logfields.Error, err)
-	}
-
-	return nil
-}
-
-func (is *identitySynchronizer) delete(ctx context.Context, key resource.Key) error {
-	is.logger.Info("Deleting identity from etcd", logfields.Identity, key.Name)
-
-	if err := is.store.DeleteKey(ctx, store.NewKVPair(key.Name, "")); err != nil {
-		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		is.logger.Warn("Unable to delete node from etcd",
-			logfields.Error, err,
-			logfields.Identity, key.Name,
-		)
-	}
-
-	return nil
-}
-
-func (is *identitySynchronizer) synced(ctx context.Context) error {
-	is.logger.Info("Initial list of identities successfully received from Kubernetes")
-	return is.store.Synced(ctx, is.syncCallback)
 }
 
 type ipmap map[string]struct{}
@@ -377,7 +302,6 @@ func startServer(
 	}
 
 	ctx := context.Background()
-	go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource()))
 
 	if enableCiliumEndpointSlice {
 		logger.Info("Synchronizing endpoints using CiliumEndpointSlices")
