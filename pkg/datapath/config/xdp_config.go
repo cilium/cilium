@@ -14,6 +14,8 @@ type BPFXDP struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Drop traffic to non-existent ports on virtual IPs.
+	DropTrafficToVirtualIps bool `config:"drop_traffic_to_virtual_ips"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -22,6 +24,8 @@ type BPFXDP struct {
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
+	// Reply to ICMP echo requests on virtual IPs.
+	ReplyToIcmpEchoOnVirtualIps bool `config:"reply_to_icmp_echo_on_virtual_ips"`
 	// Pull security context from IP cache.
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 
@@ -29,8 +33,8 @@ type BPFXDP struct {
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x5dc, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFXDP{0x5dc, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, node}
+		false, false, node}
 }

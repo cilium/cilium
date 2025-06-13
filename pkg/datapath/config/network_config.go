@@ -9,9 +9,14 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	// Drop traffic to non-existent ports on virtual IPs.
+	DropTrafficToVirtualIps bool `config:"drop_traffic_to_virtual_ips"`
+	// Reply to ICMP echo requests on virtual IPs.
+	ReplyToIcmpEchoOnVirtualIps bool `config:"reply_to_icmp_echo_on_virtual_ips"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{node}
+	return &BPFNetwork{false, false, node}
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -154,6 +155,10 @@ type BPFOps struct {
 	// (or HostPort) service (by port).
 	nodePortAddrByPort map[nodePortAddrKey][]netip.Addr
 
+	// wildcardServicesByIP tracks which service IDs have wildcard entries for each IP.
+	// This is used to manage reference counting for wildcard entries.
+	wildcardServicesByIP map[string]sets.Set[loadbalancer.ID]
+
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 }
@@ -221,6 +226,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
 	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
+	ops.wildcardServicesByIP = map[string]sets.Set[loadbalancer.ID]{}
 
 	// Restore backend IDs
 	err = ops.LBMaps.DumpBackend(func(key maps.BackendKey, value maps.BackendValue) {
@@ -420,28 +426,8 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	// Delete wildcard service entry for ClusterIP and LoadBalancer services
-	if (ops.cfg.DropTrafficToVirtualIPs || ops.cfg.ReplyToICMPEchoOnVirtualIPs) && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
-		var wildcardKey lbmap.ServiceKey
-		if fe.Address.IsIPv6() {
-			wildcardKey = lbmap.NewService6Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
-		} else {
-			wildcardKey = lbmap.NewService4Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
-		}
-
-		ops.log.Debug("Delete wildcard service entry for virtual IP",
-			logfields.ID, feID,
-			logfields.Type, fe.Type,
-			logfields.Address, fe.Address.AddrCluster)
-
-		if err := ops.LBMaps.DeleteService(wildcardKey.ToNetwork()); err != nil {
-			// Don't fail the whole operation if wildcard entry deletion fails
-			ops.log.Warn("Failed to delete wildcard service entry",
-				logfields.Error, err,
-				logfields.Type, fe.Type,
-				logfields.Address, fe.Address)
-		}
-	}
+	// Delete wildcard service entry for ClusterIP and LoadBalancer services (with reference counting)
+	ops.deleteWildcardServiceEntry(fe, feID, ip)
 
 	err = ops.LBMaps.DeleteRevNat(revNatKey.ToNetwork())
 	if err != nil {
@@ -999,7 +985,51 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// Create wildcard service entry (port 0) for ClusterIP and LoadBalancer services
 	// to enable dropping traffic to non-existent ports or ICMP echo replies on virtual IPs
-	if (ops.cfg.DropTrafficToVirtualIPs || ops.cfg.ReplyToICMPEchoOnVirtualIPs) && (fe.Type == loadbalancer.SVCTypeClusterIP || fe.Type == loadbalancer.SVCTypeLoadBalancer) {
+	ops.upsertWildcardServiceEntry(fe, feID, ip, svcVal)
+
+	numPreviousBackends := len(ops.backendReferences[fe.Address])
+
+	if backendCount != numPreviousBackends {
+		ops.log.Debug("Cleanup service slots",
+			logfields.ID, feID,
+			logfields.Count, backendCount,
+			logfields.Previous, numPreviousBackends)
+		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
+			return fmt.Errorf("cleanup service slots: %w", err)
+		}
+	}
+
+	// Finally update the new references. This makes sure any failures reconciling the service slots
+	// above can be retried and entries are not leaked.
+	ops.updateReferences(fe.Address, backendAddrs)
+
+	return nil
+}
+
+// upsertWildcardServiceEntry creates a wildcard service entry (port 0) for ClusterIP and LoadBalancer services
+// to enable dropping traffic to non-existent ports or ICMP echo replies on virtual IPs.
+func (ops *BPFOps) upsertWildcardServiceEntry(fe *loadbalancer.Frontend, feID loadbalancer.ID, ip net.IP, svcVal lbmap.ServiceValue) {
+	if !(ops.cfg.DropTrafficToVirtualIPs || ops.cfg.ReplyToICMPEchoOnVirtualIPs) {
+		return
+	}
+
+	if fe.Type != loadbalancer.SVCTypeClusterIP && fe.Type != loadbalancer.SVCTypeLoadBalancer {
+		return
+	}
+
+	// Create a key to identify this IP for tracking
+	ipKey := ip.String()
+	
+	// Add this service ID to the set of services with wildcard entries for this IP
+	if ops.wildcardServicesByIP[ipKey] == nil {
+		ops.wildcardServicesByIP[ipKey] = sets.New[loadbalancer.ID]()
+	}
+	
+	// If this is the first service on this IP, create the wildcard entry
+	isFirstService := len(ops.wildcardServicesByIP[ipKey]) == 0
+	ops.wildcardServicesByIP[ipKey].Insert(feID)
+
+	if isFirstService {
 		// Create a new key for the wildcard entry
 		var wildcardKey lbmap.ServiceKey
 		var wildcardVal lbmap.ServiceValue
@@ -1032,24 +1062,51 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 				logfields.Address, fe.Address)
 		}
 	}
+}
 
-	numPreviousBackends := len(ops.backendReferences[fe.Address])
-
-	if backendCount != numPreviousBackends {
-		ops.log.Debug("Cleanup service slots",
-			logfields.ID, feID,
-			logfields.Count, backendCount,
-			logfields.Previous, numPreviousBackends)
-		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
-			return fmt.Errorf("cleanup service slots: %w", err)
-		}
+// deleteWildcardServiceEntry handles the deletion of wildcard service entries with reference counting.
+// It only deletes the wildcard entry when the last service on that IP is removed.
+func (ops *BPFOps) deleteWildcardServiceEntry(fe *loadbalancer.Frontend, feID loadbalancer.ID, ip net.IP) {
+	if !(ops.cfg.DropTrafficToVirtualIPs || ops.cfg.ReplyToICMPEchoOnVirtualIPs) {
+		return
 	}
 
-	// Finally update the new references. This makes sure any failures reconciling the service slots
-	// above can be retried and entries are not leaked.
-	ops.updateReferences(fe.Address, backendAddrs)
+	if fe.Type != loadbalancer.SVCTypeClusterIP && fe.Type != loadbalancer.SVCTypeLoadBalancer {
+		return
+	}
 
-	return nil
+	// Create a key to identify this IP for tracking
+	ipKey := ip.String()
+
+	// Remove this service ID from the set
+	if serviceIDs, exists := ops.wildcardServicesByIP[ipKey]; exists {
+		serviceIDs.Delete(feID)
+
+		// If this was the last service on this IP, delete the wildcard entry
+		if len(serviceIDs) == 0 {
+			delete(ops.wildcardServicesByIP, ipKey)
+
+			var wildcardKey lbmap.ServiceKey
+			if fe.Address.IsIPv6() {
+				wildcardKey = lbmap.NewService6Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
+			} else {
+				wildcardKey = lbmap.NewService4Key(ip, 0, u8proto.ANY, fe.Address.Scope, 0)
+			}
+
+			ops.log.Debug("Delete wildcard service entry for virtual IP",
+				logfields.ID, feID,
+				logfields.Type, fe.Type,
+				logfields.Address, fe.Address.AddrCluster)
+
+			if err := ops.LBMaps.DeleteService(wildcardKey.ToNetwork()); err != nil {
+				// Don't fail the whole operation if wildcard entry deletion fails
+				ops.log.Warn("Failed to delete wildcard service entry",
+					logfields.Error, err,
+					logfields.Type, fe.Type,
+					logfields.Address, fe.Address)
+			}
+		}
+	}
 }
 
 func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {

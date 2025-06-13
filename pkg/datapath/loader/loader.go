@@ -190,6 +190,10 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
+
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
 
@@ -347,6 +351,10 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -423,6 +431,10 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
+
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -584,6 +596,10 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
+
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.

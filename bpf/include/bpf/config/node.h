@@ -22,3 +22,6 @@ NODE_CONFIG(__u32, trace_payload_len, "Length of payload to capture when tracing
 #define TRACE_PAYLOAD_LEN CONFIG(trace_payload_len) /* Backwards compatibility */
 
 NODE_CONFIG(__u32, trace_payload_len_overlay, "Length of payload to capture when tracing overlay packets.")
+
+DECLARE_CONFIG(bool, drop_traffic_to_virtual_ips, "Drop traffic to non-existent ports on virtual IPs")
+DECLARE_CONFIG(bool, reply_to_icmp_echo_on_virtual_ips, "Reply to ICMP echo requests on virtual IPs")

@@ -188,3 +188,4 @@ int lxc_icmpv6_echo_reply_no_per_packet_lb_check(__maybe_unused const struct __c
 
 	test_finish();
 }
+
