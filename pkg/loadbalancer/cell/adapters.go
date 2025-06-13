@@ -173,31 +173,16 @@ type serviceRestApiHandlerParams struct {
 type serviceRestApiHandlerOut struct {
 	cell.Out
 
-	GetServiceIDHandler serviceapi.GetServiceIDHandler
-	GetServiceHandler   serviceapi.GetServiceHandler
+	GetServiceHandler serviceapi.GetServiceHandler
 }
 
 func newServiceRestApiHandler(params serviceRestApiHandlerParams) serviceRestApiHandlerOut {
 	return serviceRestApiHandlerOut{
-		GetServiceIDHandler: &getServiceIDHandler{
-			logger:         params.Logger,
-			serviceManager: params.ServiceManager,
-		},
 		GetServiceHandler: &getServiceHandler{
 			logger:         params.Logger,
 			serviceManager: params.ServiceManager,
 		},
 	}
-}
-
-type getServiceIDHandler struct {
-	logger         *slog.Logger
-	serviceManager service.ServiceManager
-}
-
-func (h *getServiceIDHandler) Handle(params serviceapi.GetServiceIDParams) middleware.Responder {
-	// Lookups by ID not supported.
-	return serviceapi.NewGetServiceIDNotFound()
 }
 
 type getServiceHandler struct {

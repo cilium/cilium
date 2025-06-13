@@ -174,9 +174,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		ServiceGetServiceHandler: service.GetServiceHandlerFunc(func(params service.GetServiceParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
 		}),
-		ServiceGetServiceIDHandler: service.GetServiceIDHandlerFunc(func(params service.GetServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.GetServiceID has not yet been implemented")
-		}),
 		DaemonPatchConfigHandler: daemon.PatchConfigHandlerFunc(func(params daemon.PatchConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.PatchConfig has not yet been implemented")
 		}),
@@ -323,8 +320,6 @@ type CiliumAPIAPI struct {
 	RecorderGetRecorderMasksHandler recorder.GetRecorderMasksHandler
 	// ServiceGetServiceHandler sets the operation handler for the get service operation
 	ServiceGetServiceHandler service.GetServiceHandler
-	// ServiceGetServiceIDHandler sets the operation handler for the get service ID operation
-	ServiceGetServiceIDHandler service.GetServiceIDHandler
 	// DaemonPatchConfigHandler sets the operation handler for the patch config operation
 	DaemonPatchConfigHandler daemon.PatchConfigHandler
 	// EndpointPatchEndpointIDHandler sets the operation handler for the patch endpoint ID operation
@@ -541,9 +536,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.ServiceGetServiceHandler == nil {
 		unregistered = append(unregistered, "service.GetServiceHandler")
-	}
-	if o.ServiceGetServiceIDHandler == nil {
-		unregistered = append(unregistered, "service.GetServiceIDHandler")
 	}
 	if o.DaemonPatchConfigHandler == nil {
 		unregistered = append(unregistered, "daemon.PatchConfigHandler")
@@ -823,10 +815,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/service"] = service.NewGetService(o.context, o.ServiceGetServiceHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/service/{id}"] = service.NewGetServiceID(o.context, o.ServiceGetServiceIDHandler)
 	if o.handlers["PATCH"] == nil {
 		o.handlers["PATCH"] = make(map[string]http.Handler)
 	}

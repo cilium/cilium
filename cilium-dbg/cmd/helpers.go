@@ -86,16 +86,6 @@ func requirePath(cmd *cobra.Command, args []string) {
 	}
 }
 
-func requireServiceID(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		Usagef(cmd, "Missing service id argument")
-	}
-
-	if args[0] == "" {
-		Usagef(cmd, "Empty service id argument")
-	}
-}
-
 // TablePrinter prints the map[string][]string, which is an usual representation
 // of dumped BPF map, using tabwriter.
 func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
