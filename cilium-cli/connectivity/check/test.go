@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -167,6 +168,18 @@ func (t *Test) Name() string {
 
 func (t *Test) Failed() bool {
 	return t.failed
+}
+
+func (t *Test) FailureMessages() string {
+	failureMessages := []string{}
+	for _, s := range t.scenarios {
+		for _, m := range s {
+			if m.failureMessage != "" {
+				failureMessages = append(failureMessages, m.failureMessage)
+			}
+		}
+	}
+	return strings.Join(failureMessages, ";")
 }
 
 // ScenarioName returns the Test name and Scenario name concatenated in

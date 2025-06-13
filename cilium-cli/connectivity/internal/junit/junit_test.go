@@ -19,7 +19,7 @@ var suitesText = `<?xml version="1.0" encoding="UTF-8"?>
               <skipped message="test2 skipped"></skipped>
           </testcase>
           <testcase name="test3" classname="test" status="failed" time="7">
-              <failure message="test3 failed" type="failure">failure &gt; expected</failure>
+              <failure message="test3 failed" failureMessage="failure message" type="failure">failure &gt; expected</failure>
           </testcase>
       </testsuite>
   </testsuites>`
@@ -43,7 +43,7 @@ var suites = TestSuites{
 				{Name: "test2", Classname: "test", Status: "skipped", Time: 0,
 					Skipped: &Skipped{Message: "test2 skipped"}},
 				{Name: "test3", Classname: "test", Status: "failed", Time: 7,
-					Failure: &Failure{Message: "test3 failed", Type: "failure", Value: "failure > expected"}},
+					Failure: &Failure{Message: "test3 failed", FailureMessage: "failure message", Type: "failure", Value: "failure > expected"}},
 			},
 		},
 	},
