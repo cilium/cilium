@@ -89,6 +89,7 @@ func registerLRPReflector(enabled lrpIsEnabled, db *statedb.DB, jg job.Group, lw
 			Name:          "lrps",
 			Table:         lrps,
 			ListerWatcher: lw,
+			MetricScope:   "CiliumLocalRedirectPolicy",
 			Transform: func(_ statedb.ReadTxn, obj any) (*LocalRedirectPolicy, bool) {
 				clrp, ok := obj.(*ciliumv2.CiliumLocalRedirectPolicy)
 				if !ok {
