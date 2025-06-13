@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -24,7 +25,6 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 var Cell = cell.Module(
@@ -41,10 +41,11 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 	}
 	g := &payloadGetters{
 		log:               params.Log,
+		db:                params.DB,
+		frontends:         params.Frontends,
 		identityAllocator: params.IdentityAllocator,
 		endpointManager:   params.EndpointManager,
 		ipcache:           params.Ipcache,
-		serviceManager:    params.ServiceManager,
 	}
 	var parserOpts []parserOptions.Option
 	if params.Config.EnableRedact {
@@ -78,10 +79,11 @@ type payloadParserParams struct {
 
 	Log *slog.Logger
 
+	DB                *statedb.DB
+	Frontends         statedb.Table[*loadbalancer.Frontend]
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	Ipcache           *ipcache.IPCache
-	ServiceManager    service.ServiceManager
 	CGroupManager     manager.CGroupManager
 	LinkCache         *link.LinkCache
 
@@ -94,7 +96,8 @@ type payloadGetters struct {
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
 	ipcache           *ipcache.IPCache
-	serviceManager    service.ServiceManager
+	db                *statedb.DB
+	frontends         statedb.Table[*loadbalancer.Frontend]
 }
 
 // GetIdentity implements IdentityGetter. It looks up identity by ID from
@@ -165,12 +168,13 @@ func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Se
 			Port: port,
 		},
 	}
-	namespace, name, ok := h.serviceManager.GetServiceNameByAddr(addr)
-	if !ok {
+
+	fe, _, found := h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
+	if !found {
 		return nil
 	}
 	return &flowpb.Service{
-		Namespace: namespace,
-		Name:      name,
+		Namespace: fe.ServiceName.Namespace,
+		Name:      fe.ServiceName.Name,
 	}
 }
