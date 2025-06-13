@@ -49,6 +49,8 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
+	// GetLog returns the policy log string associated with the given cookie, if it exists.
+	GetLog(cookie uint32) (log string, exists bool)
 	Iterate(f func(rule *api.Rule))
 	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
@@ -611,4 +613,9 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 // AllocateLogCookie allocates a policy log cookie for the log string.
 func (p *Repository) AllocateLogCookie(log string) (cookie uint32, ok bool) {
 	return p.logCookies.Allocate(log)
+}
+
+// GetLog returns the policy log string associated with the given cookie, if it exists.
+func (p *Repository) GetLog(cookie uint32) (log string, exists bool) {
+	return p.logCookies.Get(cookie)
 }
