@@ -116,7 +116,7 @@ type EgressGateway struct {
 	// policy will use the first IPv4 assigned to the interface with the
 	// default route.
 	//
-	// +kubebuilder:validation:Format=ipv4
+	// +kubebuilder:validation:Pattern=`^(([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4})$`
 	EgressIP string `json:"egressIP,omitempty"`
 }
 
