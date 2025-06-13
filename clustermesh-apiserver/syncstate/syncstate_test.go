@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 func TestSyncState(t *testing.T) {
 	var doneFuncs []func(context.Context)
-	ss := new(MetricsProvider(), types.ClusterInfo{Name: "test"})
+	ss := SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
 
 	// add several resource to the SyncState
 	for range 3 {
