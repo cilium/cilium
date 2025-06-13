@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
@@ -57,7 +56,6 @@ type parameters struct {
 	CfgMCSAPI   operator.MCSAPIConfig
 	ClusterInfo cmtypes.ClusterInfo
 	Backend     kvstore.Client
-	SyncState   syncstate.SyncState
 
 	Logger *slog.Logger
 }
@@ -65,7 +63,7 @@ type parameters struct {
 func RegisterHooks(lc cell.Lifecycle, params parameters) error {
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			startServer(params.ClusterInfo, params.Backend, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
+			startServer(params.ClusterInfo, params.Backend, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
 			return nil
 		},
 	})
@@ -75,7 +73,6 @@ func RegisterHooks(lc cell.Lifecycle, params parameters) error {
 func startServer(
 	cinfo cmtypes.ClusterInfo,
 	backend kvstore.BackendOperations,
-	syncState syncstate.SyncState,
 	clusterMeshEnableMCSAPI bool,
 	logger *slog.Logger,
 ) {
@@ -98,8 +95,6 @@ func startServer(
 	if err != nil {
 		logging.Fatal(logger, "Unable to set local cluster config on kvstore", logfields.Error, err)
 	}
-
-	syncState.Stop()
 
 	logger.Info("Initialization complete")
 }
