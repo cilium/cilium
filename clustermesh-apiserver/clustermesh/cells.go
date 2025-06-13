@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
@@ -78,6 +79,14 @@ var Synchronization = cell.Module(
 			},
 		),
 		mcsapi.ServiceExportSyncCell,
+	),
+
+	cell.Group(
+		cell.Provide(
+			newCiliumNodeOptions,
+			newCiliumNodeConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumNode]),
 	),
 )
 
