@@ -235,6 +235,24 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
+	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
+	// that may be added or removed at runtime.
+	if option.Config.EnableIPSec &&
+		!option.Config.TunnelingEnabled() &&
+		len(option.Config.EncryptInterface) == 0 &&
+		// If devices are required, we don't look at the EncryptInterface, as we
+		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
+		// bpf_host onto physical devices as chosen by configuration.
+		!option.Config.AreDevicesRequired() &&
+		option.Config.IPAM != ipamOption.IPAMENI {
+		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
+		if err != nil {
+			return nil, nil,
+				fmt.Errorf("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface. Err: %w", err)
+		}
+		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
+	}
+
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
 	// finishKubeProxyReplacementInit(), which is called later after the device
