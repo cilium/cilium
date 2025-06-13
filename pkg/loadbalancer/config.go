@@ -487,7 +487,7 @@ type TestConfig struct {
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
-	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
+	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps (0..1)")
 }
 
 // ExternalConfig are configuration options derived from external sources such as

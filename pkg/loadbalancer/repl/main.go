@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -72,31 +73,34 @@ import (
 // These commands are also part of the "cilium-dbg shell" command in the cilium-agent
 // deployment.
 func main() {
-	h := hive.New(
-		client.Cell,
-		daemonk8s.ResourcesCell,
-		daemonk8s.TablesCell,
-		maglev.Cell,
-		node.LocalNodeStoreCell,
-		cell.Provide(source.NewSources),
-		cell.Provide(
-			tables.NewNodeAddressTable,
-			statedb.RWTable[tables.NodeAddress].ToTable,
-			func() *option.DaemonConfig {
-				return &option.DaemonConfig{
-					EnableIPv4:           true,
-					EnableIPv6:           true,
-					KubeProxyReplacement: option.KubeProxyReplacementTrue,
-				}
-			},
-			func() *loadbalancer.TestConfig {
-				return &loadbalancer.TestConfig{}
-			},
-		),
-		cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
-		lbcell.Cell,
-	)
-	h.RegisterFlags(pflag.CommandLine)
+	Hive.RegisterFlags(pflag.CommandLine)
 	pflag.Parse()
-	uhive.RunRepl(h, os.Stdin, os.Stdout, "load-balancer> ")
+	uhive.RunRepl(Hive, os.Stdin, os.Stdout, "load-balancer> ")
 }
+
+var Hive = hive.New(
+	client.Cell,
+	daemonk8s.ResourcesCell,
+	daemonk8s.TablesCell,
+	maglev.Cell,
+	node.LocalNodeStoreCell,
+	metrics.Cell,
+	cell.Config(loadbalancer.TestConfig{}),
+	cell.Provide(source.NewSources),
+	cell.Provide(
+		tables.NewNodeAddressTable,
+		statedb.RWTable[tables.NodeAddress].ToTable,
+		func() *option.DaemonConfig {
+			return &option.DaemonConfig{
+				EnableIPv4:           true,
+				EnableIPv6:           true,
+				KubeProxyReplacement: option.KubeProxyReplacementTrue,
+			}
+		},
+		func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig {
+			return &cfg
+		},
+	),
+	cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
+	lbcell.Cell,
+)
