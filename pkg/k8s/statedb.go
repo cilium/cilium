@@ -22,7 +22,9 @@ import (
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -138,6 +140,10 @@ type ReflectorConfig[Obj any] struct {
 	// Optional promise for waiting for the CRD referenced by the [ListerWatcher] to
 	// be registered.
 	CRDSync promise.Promise[synced.CRDSync]
+
+	// Optional metric scope for updating the [metrics.KubernetesEventReceived] metric
+	// when ingesting an object.
+	MetricScope string
 
 	// ClearTableOnStop if true will cause all inserted objects to be deleted (using QueryAll)
 	// when the reflector is stopped.
@@ -311,6 +317,8 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 
 		// Buffer the events into a map, coalescing them by key.
 		func(buf *buffer, ev CacheStoreEvent) *buffer {
+			r.updateMetrics(ev)
+
 			if buf == nil {
 				buf = bufferPool.Get().(*buffer)
 			}
@@ -434,6 +442,29 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	}
 
 	return err
+}
+
+func (r *k8sReflector[Obj]) updateMetrics(ev CacheStoreEvent) {
+	if r.MetricScope == "" {
+		return
+	}
+	var action string
+	switch ev.Kind {
+	case CacheStoreEventAdd:
+		action = resources.MetricCreate
+	case CacheStoreEventUpdate:
+		action = resources.MetricUpdate
+	case CacheStoreEventDelete:
+		action = resources.MetricDelete
+	default:
+		return
+	}
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, r.MetricScope, action).SetToCurrentTime()
+	const (
+		valid = "true"
+		equal = "false"
+	)
+	metrics.KubernetesEventReceived.WithLabelValues(r.MetricScope, action, valid, equal).Inc()
 }
 
 // ListerWatcherToObservable turns a ListerWatcher into an observable using the
