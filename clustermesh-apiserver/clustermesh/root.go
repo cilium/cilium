@@ -6,29 +6,18 @@ package clustermesh
 import (
 	"context"
 	"errors"
-	"iter"
 	"log/slog"
-	"net"
-	"path"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
 
-	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
-	ciliumv2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -69,14 +58,11 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 type parameters struct {
 	cell.In
 
-	CfgMCSAPI    operator.MCSAPIConfig
-	ClusterInfo  cmtypes.ClusterInfo
-	Clientset    k8sClient.Clientset
-	Resources    cmk8s.Resources
-	Backend      kvstore.Client
-	StoreFactory store.Factory
-	SyncState    syncstate.SyncState
-	CESConfig    cmk8s.CiliumEndpointSliceConfig
+	CfgMCSAPI   operator.MCSAPIConfig
+	ClusterInfo cmtypes.ClusterInfo
+	Clientset   k8sClient.Clientset
+	Backend     kvstore.Client
+	SyncState   syncstate.SyncState
 
 	Logger *slog.Logger
 }
@@ -88,198 +74,19 @@ func RegisterHooks(lc cell.Lifecycle, params parameters) error {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
 
-			startServer(params.ClusterInfo, params.Backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger, params.CESConfig.EnableCiliumEndpointSlice)
+			startServer(params.ClusterInfo, params.Backend, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
 			return nil
 		},
 	})
 	return nil
 }
 
-type ipmap map[string]struct{}
-
-type endpointSynchronizer struct {
-	store                     store.SyncStore
-	cache                     map[string]ipmap
-	syncCallback              func(context.Context)
-	logger                    *slog.Logger
-	enableCiliumEndpointSlice bool
-}
-
-func newEndpointSynchronizer(ctx context.Context, logger *slog.Logger, cinfo cmtypes.ClusterInfo, backend kvstore.BackendOperations, factory store.Factory, syncCallback func(context.Context), enableCiliumEndpointSlice bool) synchronizer {
-	endpointsStore := factory.NewSyncStore(cinfo.Name, backend,
-		path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
-		store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath))
-	go endpointsStore.Run(ctx)
-
-	return &endpointSynchronizer{
-		store:                     endpointsStore,
-		cache:                     make(map[string]ipmap),
-		syncCallback:              syncCallback,
-		logger:                    logger,
-		enableCiliumEndpointSlice: enableCiliumEndpointSlice,
-	}
-}
-
-func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, obj runtime.Object) error {
-	var epIter iter.Seq2[string, identity.IPIdentityPair]
-	if es.enableCiliumEndpointSlice {
-		epIter = es.cesIterator(obj)
-	} else {
-		epIter = es.cepIterator(obj)
-	}
-	es.upsertEndpoints(ctx, key, epIter)
-
-	return nil
-}
-
-func (es *endpointSynchronizer) upsertEndpoints(ctx context.Context, key resource.Key, pairs iter.Seq2[string, identity.IPIdentityPair]) error {
-	ips := make(ipmap)
-	stale := es.cache[key.String()]
-
-	log := es.logger.With(logfields.Endpoint, key)
-
-	for ip, entry := range pairs {
-		log.Info("Upserting endpoint in etcd", logfields.IPAddr, ip)
-		if err := es.store.UpsertKey(ctx, &entry); err != nil {
-			// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-			log.Warn("Unable to upsert endpoint in etcd",
-				logfields.Error, err,
-				logfields.IPAddr, ip,
-			)
-			continue
-		}
-
-		ips[ip] = struct{}{}
-		delete(stale, ip)
-	}
-
-	// Delete the stale endpoint IPs from the KVStore.
-	es.deleteEndpoints(ctx, key, stale)
-	es.cache[key.String()] = ips
-
-	return nil
-}
-
-func (es *endpointSynchronizer) cepIterator(obj runtime.Object) iter.Seq2[string, identity.IPIdentityPair] {
-	return func(yield func(string, identity.IPIdentityPair) bool) {
-		endpoint := obj.(*types.CiliumEndpoint)
-
-		if n := endpoint.Networking; n != nil {
-			for _, address := range n.Addressing {
-				for _, ip := range []string{address.IPV4, address.IPV6} {
-					if ip == "" {
-						continue
-					}
-					entry := identity.IPIdentityPair{
-						IP:           net.ParseIP(ip),
-						HostIP:       net.ParseIP(n.NodeIP),
-						K8sNamespace: endpoint.Namespace,
-						K8sPodName:   endpoint.Name,
-					}
-
-					if endpoint.Identity != nil {
-						entry.ID = identity.NumericIdentity(endpoint.Identity.ID)
-					}
-
-					if endpoint.Encryption != nil {
-						entry.Key = uint8(endpoint.Encryption.Key)
-					}
-
-					if !yield(ip, entry) {
-						return
-					}
-				}
-			}
-		}
-	}
-}
-
-func (es *endpointSynchronizer) cesIterator(obj runtime.Object) iter.Seq2[string, identity.IPIdentityPair] {
-	return func(yield func(string, identity.IPIdentityPair) bool) {
-		endpointslice := obj.(*ciliumv2a1.CiliumEndpointSlice)
-
-		for _, endpoint := range endpointslice.Endpoints {
-			if n := endpoint.Networking; n != nil {
-				for _, address := range n.Addressing {
-					for _, ip := range []string{address.IPV4, address.IPV6} {
-						if ip == "" {
-							continue
-						}
-
-						entry := identity.IPIdentityPair{
-							IP:           net.ParseIP(ip),
-							HostIP:       net.ParseIP(n.NodeIP),
-							K8sNamespace: endpointslice.Namespace,
-							K8sPodName:   endpoint.Name,
-							ID:           identity.NumericIdentity(endpoint.IdentityID),
-							Key:          uint8(endpoint.Encryption.Key),
-						}
-
-						if !yield(ip, entry) {
-							return
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-func (es *endpointSynchronizer) delete(ctx context.Context, key resource.Key) error {
-	es.deleteEndpoints(ctx, key, es.cache[key.String()])
-	delete(es.cache, key.String())
-	return nil
-}
-
-func (es *endpointSynchronizer) synced(ctx context.Context) error {
-	es.logger.Info("Initial list of endpoints successfully received from Kubernetes")
-	return es.store.Synced(ctx, es.syncCallback)
-}
-
-func (es *endpointSynchronizer) deleteEndpoints(ctx context.Context, key resource.Key, ips ipmap) {
-	log := es.logger.With(logfields.Endpoint, key)
-	for ip := range ips {
-		log.Info("Deleting endpoint from etcd", logfields.IPAddr, ip)
-
-		entry := identity.IPIdentityPair{IP: net.ParseIP(ip)}
-		if err := es.store.DeleteKey(ctx, &entry); err != nil {
-			// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-			log.Warn("Unable to delete endpoint from etcd",
-				logfields.Error, err,
-				logfields.IPAddr, ip,
-			)
-		}
-	}
-}
-
-type synchronizer interface {
-	upsert(ctx context.Context, key resource.Key, obj runtime.Object) error
-	delete(ctx context.Context, key resource.Key) error
-	synced(ctx context.Context) error
-}
-
-func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], sync synchronizer) {
-	for event := range r.Events(ctx) {
-		switch event.Kind {
-		case resource.Upsert:
-			event.Done(sync.upsert(ctx, event.Key, event.Object))
-		case resource.Delete:
-			event.Done(sync.delete(ctx, event.Key))
-		case resource.Sync:
-			event.Done(sync.synced(ctx))
-		}
-	}
-}
-
 func startServer(
 	cinfo cmtypes.ClusterInfo,
 	backend kvstore.BackendOperations,
-	resources cmk8s.Resources,
-	factory store.Factory,
 	syncState syncstate.SyncState,
 	clusterMeshEnableMCSAPI bool,
 	logger *slog.Logger,
-	enableCiliumEndpointSlice bool,
 ) {
 	logger.Info(
 		"Starting clustermesh-apiserver...",
@@ -299,16 +106,6 @@ func startServer(
 	_, err := cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, logger)
 	if err != nil {
 		logging.Fatal(logger, "Unable to set local cluster config on kvstore", logfields.Error, err)
-	}
-
-	ctx := context.Background()
-
-	if enableCiliumEndpointSlice {
-		logger.Info("Synchronizing endpoints using CiliumEndpointSlices")
-		go synchronize(ctx, resources.CiliumEndpointSlices, newEndpointSynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource(), enableCiliumEndpointSlice))
-	} else {
-		logger.Info("Synchronizing endpoints using CiliumEndpoints")
-		go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource(), enableCiliumEndpointSlice))
 	}
 
 	syncState.Stop()
