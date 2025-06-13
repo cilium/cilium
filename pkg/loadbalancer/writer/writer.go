@@ -438,12 +438,12 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 	}
 }
 
-func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {
+func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.ServiceName) (*loadbalancer.Service, error) {
 	svc, _, found := w.svcs.Get(txn, loadbalancer.ServiceByName(name))
 	if !found {
-		return statedb.ErrObjectNotFound
+		return nil, statedb.ErrObjectNotFound
 	}
-	return w.deleteService(txn, svc)
+	return svc, w.deleteService(txn, svc)
 }
 
 func (w *Writer) deleteService(txn WriteTxn, svc *loadbalancer.Service) error {
