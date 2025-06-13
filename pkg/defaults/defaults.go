@@ -565,6 +565,9 @@ const (
 
 	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = 0.5
+
+	// EnableBPFConntrackUnknownProtocols controls whether BPF conntrack passes traffic with unknown protocols.
+	EnableBPFConntrackUnknownProtocols = false
 )
 
 var (
