@@ -8,26 +8,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type KubeProxyHealthzTestSuite struct{}
 
 // Injected fake service.
-type FakeService struct {
-	injectedCurrentTs     time.Time
+type fakeLastUpdatedAter struct {
 	injectedLastUpdatedTs time.Time
 }
 
-func (s *FakeService) GetCurrentTs() time.Time {
-	return s.injectedCurrentTs
-}
-
-func (s *FakeService) GetLastUpdatedTs() time.Time {
+func (s *fakeLastUpdatedAter) GetLastUpdatedAt() time.Time {
 	return s.injectedLastUpdatedTs
 }
 
@@ -60,6 +55,14 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus 
 	var lastUpdateTs, currentTs, expectedTs time.Time
 	lastUpdateTs = time.Unix(100, 0) // Fake 100 seconds after Unix.
 	currentTs = time.Unix(200, 0)    // Fake 200 seconds after Unix.
+	prevTime := time.Now
+	time.Now = func() time.Time {
+		return currentTs
+	}
+	t.Cleanup(func() {
+		time.Now = prevTime
+	})
+
 	expectedTs = lastUpdateTs
 	if testcasepositive {
 		expectedTs = currentTs
@@ -69,8 +72,7 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus 
 		statusCollector: &FakeStatusCollector{injectedStatusResponse: models.StatusResponse{
 			Cilium: &models.Status{State: ciliumStatus},
 		}},
-		svc: &FakeService{
-			injectedCurrentTs:     currentTs,
+		lastUpdateAter: &fakeLastUpdatedAter{
 			injectedLastUpdatedTs: lastUpdateTs,
 		},
 	}
