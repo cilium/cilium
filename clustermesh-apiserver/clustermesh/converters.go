@@ -7,12 +7,23 @@ import (
 	"errors"
 	"iter"
 	"log/slog"
+	"maps"
+	"net"
 	"path"
+	"slices"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -27,6 +38,58 @@ func noneIter[T any](func(T) bool) {}
 func singleIter[T any](value T) iter.Seq[T] {
 	return func(yield func(T) bool) {
 		yield(value)
+	}
+}
+
+// ----- Generic ----- //
+
+// CachedConverter implements the common logic of a converter that, given a single
+// Kubernetes resource, returns multiple kvstore entries.
+type CachedConverter[T runtime.Object] struct {
+	// mapper knows how to map a Kubernetes resource to the corresponding kvstore entries.
+	mapper func(T) iter.Seq[store.Key]
+	// cache remembers the kvstore keys associated with any Kubernetes resource.
+	cache map[resource.Key]sets.Set[string]
+}
+
+func NewCachedCoverter[T runtime.Object](mapper func(T) iter.Seq[store.Key]) *CachedConverter[T] {
+	return &CachedConverter[T]{
+		mapper: mapper,
+		cache:  make(map[resource.Key]sets.Set[string]),
+	}
+}
+
+func (ec *CachedConverter[T]) Convert(event resource.Event[T]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey]) {
+	if event.Kind == resource.Delete {
+		toDelete := maps.Keys(ec.cache[event.Key])
+		delete(ec.cache, event.Key)
+		return noneIter[store.Key], ec.deletesIter(toDelete)
+	}
+
+	var (
+		toAdd    []store.Key
+		toDelete = ec.cache[event.Key]
+		current  = sets.New[string]()
+	)
+
+	for entry := range ec.mapper(event.Object) {
+		key := entry.GetKeyName()
+		toAdd = append(toAdd, entry)
+		current.Insert(key)
+		toDelete.Delete(key)
+	}
+
+	ec.cache[event.Key] = current
+	return slices.Values(toAdd), ec.deletesIter(maps.Keys(toDelete))
+}
+
+func (ec *CachedConverter[T]) deletesIter(keys iter.Seq[string]) iter.Seq[store.NamedKey] {
+	return func(yield func(store.NamedKey) bool) {
+		for key := range keys {
+			if !yield(store.NewKVPair(key, "")) {
+				return
+			}
+		}
 	}
 }
 
@@ -97,4 +160,93 @@ func (ic *CiliumIdentityConverter) Convert(event resource.Event[*cilium_api_v2.C
 	lbls := labels.Map2Labels(identity.SecurityLabels, "").SortedList()
 	kv := store.NewKVPair(identity.Name, string(lbls))
 	return singleIter[store.Key](kv), noneIter[store.NamedKey]
+}
+
+// ----- CiliumEndpoints - CiliumEndpointSlices ----- //
+
+func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*types.CiliumEndpoint] {
+	return Options[*types.CiliumEndpoint]{
+		Enabled:   !cfg.EnableCiliumEndpointSlice,
+		Resource:  "CiliumEndpoint",
+		Prefix:    path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		StoreOpts: []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
+	}
+}
+
+func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*types.CiliumEndpoint] {
+	return NewCachedCoverter(ciliumEndpointMapper)
+}
+
+func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
+	return func(yield func(store.Key) bool) {
+		if n := endpoint.Networking; n != nil {
+			for _, address := range n.Addressing {
+				for _, ip := range []string{address.IPV4, address.IPV6} {
+					if ip == "" {
+						continue
+					}
+					entry := identity.IPIdentityPair{
+						IP:           net.ParseIP(ip),
+						HostIP:       net.ParseIP(n.NodeIP),
+						K8sNamespace: endpoint.Namespace,
+						K8sPodName:   endpoint.Name,
+					}
+
+					if endpoint.Identity != nil {
+						entry.ID = identity.NumericIdentity(endpoint.Identity.ID)
+					}
+
+					if endpoint.Encryption != nil {
+						entry.Key = uint8(endpoint.Encryption.Key)
+					}
+
+					if !yield(&entry) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*cilium_api_v2a1.CiliumEndpointSlice] {
+	return Options[*cilium_api_v2a1.CiliumEndpointSlice]{
+		Enabled:   cfg.EnableCiliumEndpointSlice,
+		Resource:  "CiliumEndpointSlice",
+		Prefix:    path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		StoreOpts: []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
+	}
+}
+
+func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
+	return NewCachedCoverter(ciliumEndpointSliceMapper)
+}
+
+func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
+	return func(yield func(store.Key) bool) {
+		for _, endpoint := range endpointslice.Endpoints {
+			if n := endpoint.Networking; n != nil {
+				for _, address := range n.Addressing {
+					for _, ip := range []string{address.IPV4, address.IPV6} {
+						if ip == "" {
+							continue
+						}
+
+						entry := identity.IPIdentityPair{
+							IP:           net.ParseIP(ip),
+							HostIP:       net.ParseIP(n.NodeIP),
+							K8sNamespace: endpointslice.Namespace,
+							K8sPodName:   endpoint.Name,
+							ID:           identity.NumericIdentity(endpoint.IdentityID),
+							Key:          uint8(endpoint.Encryption.Key),
+						}
+
+						if !yield(&entry) {
+							return
+						}
+					}
+				}
+			}
+		}
+	}
 }

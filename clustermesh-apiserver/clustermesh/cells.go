@@ -15,8 +15,10 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
 )
@@ -95,6 +97,22 @@ var Synchronization = cell.Module(
 			newCiliumIdentityConverter,
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumIdentity]),
+	),
+
+	cell.Group(
+		cell.Provide(
+			newCiliumEndpointOptions,
+			newCiliumEndpointConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*types.CiliumEndpoint]),
+	),
+
+	cell.Group(
+		cell.Provide(
+			newCiliumEndpointSliceOptions,
+			newCiliumEndpointSliceConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*cilium_api_v2a1.CiliumEndpointSlice]),
 	),
 )
 
