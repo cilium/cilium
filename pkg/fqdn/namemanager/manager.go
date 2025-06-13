@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/stream"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -61,6 +62,14 @@ type manager struct {
 	// list of locks used as coordination points for name updates
 	// see LockName() for details.
 	nameLocks []*lock.Mutex
+
+	// selectorChanges is a stream of added and removed selectors
+	selectorChanges chan selectorChange
+}
+
+type selectorChange struct {
+	added bool
+	sel   api.FQDNSelector
 }
 
 // New creates an initialized NameManager.
@@ -89,7 +98,11 @@ func New(params ManagerParams) *manager {
 		params.PolicyRepo.GetSelectorCache().SetLocalIdentityNotifier(n)
 	}
 
-	// Set up GC and bootstrap jobs
+	// Set up jobs:
+	// - gc
+	// - bootstrap
+	// - preallocator
+	// (optional for tests)
 	if params.JobGroup != nil {
 		params.JobGroup.Add(job.Timer(
 			dnsGCJobName,
@@ -101,6 +114,16 @@ func New(params ManagerParams) *manager {
 			"remove-restored-prefixes",
 			n.removeRestoredPrefixes,
 		))
+
+		// Start the asynchronous prefix allocator
+		// (optional for tests)
+		if params.Allocator != nil && params.Config.ToFQDNsPreAllocate {
+			n.selectorChanges = make(chan selectorChange, 1024)
+			params.JobGroup.Add(job.Observer(
+				"preallocate",
+				n.processSelectorChanges,
+				stream.FromChannel(n.selectorChanges)))
+		}
 	}
 
 	return n
@@ -136,6 +159,9 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
 		if metrics.FQDNSelectors.IsEnabled() {
 			metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
 		}
+		if n.selectorChanges != nil {
+			n.selectorChanges <- selectorChange{sel: selector, added: true}
+		}
 	}
 
 	// The newly added FQDN selector could match DNS Names in the cache. If
@@ -157,6 +183,9 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 	delete(n.allSelectors, selector)
 	if metrics.FQDNSelectors.IsEnabled() {
 		metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
+	}
+	if n.selectorChanges != nil {
+		n.selectorChanges <- selectorChange{sel: selector}
 	}
 
 	// Re-compute labels for affected names and IPs
