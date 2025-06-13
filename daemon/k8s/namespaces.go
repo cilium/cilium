@@ -109,6 +109,7 @@ func namespaceReflectorConfig(cs client.Clientset, namespaces statedb.RWTable[Na
 		Name:          reflectorName,
 		Table:         namespaces,
 		ListerWatcher: lw,
+		MetricScope:   "Namespace",
 		Transform: func(_ statedb.ReadTxn, obj any) (Namespace, bool) {
 			ns, ok := obj.(*slim_corev1.Namespace)
 			if !ok {

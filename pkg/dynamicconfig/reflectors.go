@@ -99,8 +99,9 @@ func getPriorityForKey(key string, overrides resolver.ConfigOverride, index int,
 
 func configMapReflector(name string, namespace string, cs k8sClient.Clientset, t statedb.RWTable[DynamicConfig], index int, sourceLen int, overrides resolver.ConfigOverride) k8s.ReflectorConfig[DynamicConfig] {
 	return k8s.ReflectorConfig[DynamicConfig]{
-		Name:  "cm-" + name + "-" + namespace,
-		Table: t,
+		Name:        "cm-" + name + "-" + namespace,
+		Table:       t,
+		MetricScope: "ConfigMap",
 		TransformMany: func(txn statedb.ReadTxn, deleted bool, o any) (toInsert, toDelete iter.Seq[DynamicConfig]) {
 			cm := o.(*v1.ConfigMap)
 			var entries map[Key]DynamicConfig
@@ -143,8 +144,9 @@ func configMapReflector(name string, namespace string, cs k8sClient.Clientset, t
 }
 func ciliumNodeConfigReflector(name string, namespace string, cs k8sClient.Clientset, t statedb.RWTable[DynamicConfig], index int, sourceLen int, overrides resolver.ConfigOverride) k8s.ReflectorConfig[DynamicConfig] {
 	return k8s.ReflectorConfig[DynamicConfig]{
-		Name:  "cnc-" + name + "-" + namespace,
-		Table: t,
+		Name:        "cnc-" + name + "-" + namespace,
+		Table:       t,
+		MetricScope: "CiliumNodeConfig",
 		TransformMany: func(txn statedb.ReadTxn, deleted bool, o any) (toInsert, toDelete iter.Seq[DynamicConfig]) {
 			cnc := o.(*ciliumv2.CiliumNodeConfig)
 			var entries map[Key]DynamicConfig
@@ -189,8 +191,9 @@ func ciliumNodeConfigReflector(name string, namespace string, cs k8sClient.Clien
 
 func ciliumNodeReflector(name string, cs k8sClient.Clientset, t statedb.RWTable[DynamicConfig], l *slog.Logger, index int, sourceLen int, overrides resolver.ConfigOverride) k8s.ReflectorConfig[DynamicConfig] {
 	return k8s.ReflectorConfig[DynamicConfig]{
-		Name:  "node-" + name,
-		Table: t,
+		Name:        "node-" + name,
+		Table:       t,
+		MetricScope: "Node",
 		TransformMany: func(txn statedb.ReadTxn, deleted bool, o any) (toInsert, toDelete iter.Seq[DynamicConfig]) {
 			var entries map[Key]DynamicConfig
 			node := o.(*corev1.Node)
