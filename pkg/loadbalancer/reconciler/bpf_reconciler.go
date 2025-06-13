@@ -118,7 +118,8 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 
 type BPFOps struct {
 	LBMaps maps.LBMaps
-	log    *slog.Logger
+	log    rateLimitingLogger
+
 	cfg    loadbalancer.Config
 	extCfg loadbalancer.ExternalConfig
 	maglev *maglev.Maglev
@@ -185,7 +186,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		cfg:       p.Config,
 		extCfg:    p.ExternalConfig,
 		maglev:    p.Maglev,
-		log:       p.Log,
+		log:       newRateLimitingLogger(p.Log),
 		LBMaps:    p.LBMaps,
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
@@ -295,20 +296,16 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 
 		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port}
-		addrs, ok := ops.nodePortAddrByPort[key]
-		if ok {
-			for _, addr := range addrs {
-				fe = fe.Clone()
-				fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
-				if err := ops.deleteFrontend(fe); err != nil {
-					ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
-					return err
-				}
+		addrs := ops.nodePortAddrByPort[key]
+		for _, addr := range addrs {
+			fe = fe.Clone()
+			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
+			if err := ops.deleteFrontend(fe); err != nil {
+				ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
+				return err
 			}
-			delete(ops.nodePortAddrByPort, key)
-		} else {
-			ops.log.Warn("no nodePortAddrs", logfields.Port, fe.Address.Port)
 		}
+		delete(ops.nodePortAddrByPort, key)
 	}
 
 	return nil
@@ -335,7 +332,6 @@ func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, b
 }
 
 func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
-
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
 		ops.log.Debug("Delete frontend: no ID found", logfields.Address, fe.Address)
@@ -454,7 +450,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			expectedSlots = 1 + len(bes)
 		}
 		if svcKey.GetBackendSlot()+1 > expectedSlots {
-			ops.log.Info("pruneServiceMaps: deleting",
+			ops.log.Debug("pruneServiceMaps: deleting",
 				logfields.ID, svcValue.GetRevNat(),
 				logfields.Address, addr)
 			toDelete = append(toDelete, svcKey.ToNetwork())
@@ -468,7 +464,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		}
 	}
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
-		ops.log.Warn("Failed to prune service maps", logfields.Error, err)
+		ops.log.Warn("Failed to dump service maps", logfields.Error, err)
 	}
 
 	for _, key := range toDelete {
@@ -485,7 +481,7 @@ func (ops *BPFOps) pruneBackendMaps() error {
 		beValue = beValue.ToHost()
 		addr := beValueToAddr(beValue)
 		if _, ok := ops.backendStates[addr]; !ok {
-			ops.log.Info("pruneBackendMaps: deleting",
+			ops.log.Debug("pruneBackendMaps: deleting",
 				logfields.ID, beKey.GetID(),
 				logfields.Address, addr,
 			)
@@ -493,7 +489,7 @@ func (ops *BPFOps) pruneBackendMaps() error {
 		}
 	}
 	if err := ops.LBMaps.DumpBackend(beCB); err != nil {
-		ops.log.Warn("Failed to prune backend maps", logfields.Error, err)
+		ops.log.Warn("Failed to dump backend maps", logfields.Error, err)
 	}
 
 	for _, key := range toDelete {
@@ -636,7 +632,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 	}
 
 	if err := ops.updateFrontend(fe); err != nil {
-		ops.log.Warn("Updating frontend failed, retrying", logfields.Error, err)
+		ops.log.Warn("Updating frontend failed", logfields.Error, err)
 		return err
 	}
 
@@ -665,7 +661,10 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.updateFrontend(fe); err != nil {
-				ops.log.Warn("Updating frontend failed, retrying", logfields.Error, err)
+				ops.log.Warn("Updating frontend failed",
+					logfields.Error, err,
+					logfields.Address, fe.Address,
+				)
 				return err
 			}
 			old.Delete(addr)
@@ -676,7 +675,10 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.deleteFrontend(fe); err != nil {
-				ops.log.Warn("Deleting orphan frontend failed, retrying", logfields.Error, err)
+				ops.log.Warn("Deleting orphan frontend failed",
+					logfields.Error, err,
+					logfields.Address, fe.Address,
+				)
 				return err
 			}
 		}
