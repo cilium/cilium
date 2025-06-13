@@ -1026,15 +1026,22 @@ func (l *L3n4AddrID) DeepEqual(o *L3n4AddrID) bool {
 	return l.deepEqual(o)
 }
 
-// NewL3n4AddrID creates a new L3n4AddrID.
-func NewL3n4AddrID(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8, id ID) *L3n4AddrID {
-	l3n4Addr := NewL3n4Addr(protocol, addrCluster, portNumber, scope)
-	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
-}
-
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
 func (l *L3n4AddrID) IsIPv6() bool {
 	return l.L3n4Addr.IsIPv6()
+}
+
+func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
+	if base.IP == nil {
+		return nil, fmt.Errorf("missing IP address")
+	}
+
+	l4addr := NewL4Addr(base.Protocol, base.Port)
+	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
+	if err != nil {
+		return nil, err
+	}
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
 }
 
 func init() {
