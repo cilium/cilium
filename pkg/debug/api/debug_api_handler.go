@@ -9,12 +9,14 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/status"
@@ -25,7 +27,8 @@ import (
 type GetDebuginfoHandler struct {
 	endpointManager endpointmanager.EndpointManager
 	policyRepo      policy.PolicyRepository
-	serviceManager  service.ServiceManager
+	db              *statedb.DB
+	frontends       statedb.Table[*loadbalancer.Frontend]
 	wireguardAgent  *wireguard.Agent
 
 	statusCollector status.StatusCollector
@@ -57,7 +60,13 @@ func (h *GetDebuginfoHandler) Handle(params restapi.GetDebuginfoParams) middlewa
 		dr.EnvironmentVariables = append(dr.EnvironmentVariables, k+":"+v)
 	}
 
-	dr.ServiceList = getServiceModelList(h.serviceManager)
+	dr.ServiceList =
+		statedb.Collect(
+			statedb.Map(
+				h.frontends.All(h.db.ReadTxn()),
+				(*loadbalancer.Frontend).ToModel,
+			),
+		)
 
 	dr.Encryption = &models.DebugInfoEncryption{}
 	if option.Config.EnableWireguard {
@@ -67,15 +76,6 @@ func (h *GetDebuginfoHandler) Handle(params restapi.GetDebuginfoParams) middlewa
 	}
 
 	return restapi.NewGetDebuginfoOK().WithPayload(&dr)
-}
-
-func getServiceModelList(svc service.ServiceManager) []*models.Service {
-	svcs := svc.GetDeepCopyServices()
-	list := make([]*models.Service, 0, len(svcs))
-	for _, v := range svcs {
-		list = append(list, v.GetModel())
-	}
-	return list
 }
 
 func memoryMap(pid int) string {
