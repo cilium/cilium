@@ -8,6 +8,7 @@ import (
 	"context"
 	"log/slog"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -29,6 +30,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/promise"
+)
+
+var (
+	backendLockName = kvstore.BaseKeyPrefix + "/kvstoremesh-lock"
 )
 
 type Config struct {
@@ -70,6 +75,10 @@ type KVStoreMesh struct {
 
 	// clock allows to override the clock for testing purposes
 	clock clock.Clock
+
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type params struct {
@@ -108,7 +117,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 
 	// The "common" Start hook needs to be executed after that the kvstoremesh one
 	// terminated, to ensure that the backend promise has already been resolved.
-	lc.Append(km.common)
+	//	lc.Append(km.common)
 
 	return &km
 }
@@ -134,6 +143,40 @@ func RegisterSyncWaiter(p SyncWaiterParams) {
 	)
 }
 
+func (km *KVStoreMesh) run() {
+	defer km.wg.Done()
+	km.wg.Add(1)
+
+	for {
+		km.logger.Info("Locking backend lock")
+		lock, err := km.backend.LockPath(km.ctx, backendLockName)
+		if err != nil {
+			errTimer := time.NewTimer(1 * time.Second)
+			select {
+			case <-km.ctx.Done():
+				return
+			case <-errTimer.C:
+				continue
+			}
+		}
+		km.logger.Info("Locked backend lock")
+
+		km.common.Start(km.ctx)
+
+		select {
+		case <-km.ctx.Done():
+			km.common.Stop(km.ctx)
+			lock.Unlock(km.ctx)
+			return
+		// TBD: are we the only reader of the channel?
+		case e := <-km.backend.StatusCheckErrors():
+			km.logger.With(e).Info("Synchronization stopped")
+			km.common.Stop(km.ctx)
+			continue
+		}
+	}
+}
+
 func (km *KVStoreMesh) Start(ctx cell.HookContext) error {
 	backend, err := km.backendPromise.Await(ctx)
 	if err != nil {
@@ -141,10 +184,15 @@ func (km *KVStoreMesh) Start(ctx cell.HookContext) error {
 	}
 
 	km.backend = backend
+
+	km.ctx, km.cancel = context.WithCancel(context.Background())
+	go km.run()
 	return nil
 }
 
-func (km *KVStoreMesh) Stop(cell.HookContext) error {
+func (km *KVStoreMesh) Stop(ctx cell.HookContext) error {
+	km.cancel()
+	km.wg.Wait()
 	return nil
 }
 
