@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -73,7 +72,6 @@ type hubbleParams struct {
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
-	ServiceManager    service.ServiceManager
 	CGroupManager     manager.CGroupManager
 	Clientset         k8sClient.Clientset
 	K8sWatcher        *watchers.K8sWatcher
@@ -108,7 +106,6 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
-		params.ServiceManager,
 		params.CGroupManager,
 		params.Clientset,
 		params.K8sWatcher,
