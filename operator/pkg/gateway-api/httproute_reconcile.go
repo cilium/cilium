@@ -30,7 +30,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		logfields.Controller, httpRoute,
 		logfields.ParentResource, req.NamespacedName,
 	)
-	scopedLog.Info("Reconciling HTTPRoute")
+	scopedLog.InfoContext(ctx, "Reconciling HTTPRoute")
 
 	// Fetch the HTTPRoute instance
 	original := &gatewayv1.HTTPRoute{}
@@ -50,7 +50,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	hr := original.DeepCopy()
 
 	if !r.hasMatchingGatewayParent()(hr) {
-		scopedLog.Warn("HTTPRoute does not have a matching Gateway Parent, this should not be possible")
+		scopedLog.WarnContext(ctx, "HTTPRoute does not have a matching Gateway Parent, this should not be possible")
 		err := fmt.Errorf("Reconciliation failure: somehow selected a HTTPRoute without a matching Gateway parent")
 		return controllerruntime.Fail(err)
 	}
@@ -140,7 +140,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
-	scopedLog.Info("Successfully reconciled HTTPRoute")
+	scopedLog.InfoContext(ctx, "Successfully reconciled HTTPRoute")
 	return controllerruntime.Success()
 }
 
