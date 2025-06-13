@@ -1,5 +1,42 @@
 # Changelog
 
+## v1.16.11
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fixed bug where datapath is unable to compile when active connection tracking and IPv6 are enabled at the same time. (Backport PR cilium/cilium#39563, Upstream PR cilium/cilium#39509, @dylandreimerink)
+* Policy updates to Envoy no longer consider a single selector as an L3 wildcard. Cilium bpf datapath policy enforcement is not done for Cilium Ingress policy enforcement so the L3 identity needs to be enforced in all cases. (Backport PR cilium/cilium#39563, Upstream PR cilium/cilium#39511, @jrajahalme)
+
+**CI Changes:**
+* bpf: test: fix up mis-spelled HAVE_NETNS_COOKIE (Backport PR cilium/cilium#39563, Upstream PR cilium/cilium#39420, @julianwiedmann)
+* call for metrics in smoke tests from runner instead of installing apt/curl on cilium pod (Backport PR cilium/cilium#39863, Upstream PR cilium/cilium#37362, @Artyop)
+* Re-optimize CI build process (Backport PR cilium/cilium#39863, Upstream PR cilium/cilium#39802, @aanm)
+
+**Misc Changes:**
+* Add a section to talk about the native routing masquerading in the cloud environment. (Backport PR cilium/cilium#39563, Upstream PR cilium/cilium#39343, @liyihuang)
+* bpf: Skip lxc src IP check for proxy traffic (Backport PR cilium/cilium#39563, Upstream PR cilium/cilium#39530, @sayboras)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#39320, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#39711, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#39571, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#39705, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#39880, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v31 (v1.16) (cilium/cilium#39610, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 4c0a181 (v1.16) (cilium/cilium#39706, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.3 docker digest to 86b4cff (v1.16) (cilium/cilium#39608, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.4 (v1.16) (cilium/cilium#39952, @cilium-renovate[bot])
+* chore(deps): update kindest/node docker tag to v1.30.13 (v1.16) (cilium/cilium#39609, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1749031919-98c55b1d0c1154fb6c9e760583c2dcd7778686e2 (v1.16) (cilium/cilium#39887, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.6-1749271279-0864395884b263913eac200ee2048fd985f8e626 (v1.16) (cilium/cilium#39936, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#39707, @cilium-renovate[bot])
+* pkg/fswatcher: Rewrite without underlying use of fsnotify (Backport PR cilium/cilium#39964, Upstream PR cilium/cilium#38537, @glibsm)
+
+**Other Changes:**
+* [v1.16] ci: don't run k8s conformance tests in conformance-k8s-kind (cilium/cilium#40010, @tklauser)
+* [v1.16] proxy: Bump cilium/proxy version (cilium/cilium#39591, @sayboras)
+* install: Update image digests for v1.16.10 (cilium/cilium#39547, @cilium-release-bot[bot])
+
 ## v1.16.10
 
 Summary of Changes
