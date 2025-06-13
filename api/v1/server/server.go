@@ -107,7 +107,6 @@ type apiParams struct {
 	RecorderGetRecorderIDHandler         recorder.GetRecorderIDHandler
 	RecorderGetRecorderMasksHandler      recorder.GetRecorderMasksHandler
 	ServiceGetServiceHandler             service.GetServiceHandler
-	ServiceGetServiceIDHandler           service.GetServiceIDHandler
 	DaemonPatchConfigHandler             daemon.PatchConfigHandler
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
@@ -165,7 +164,6 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.RecorderGetRecorderIDHandler = p.RecorderGetRecorderIDHandler
 	api.RecorderGetRecorderMasksHandler = p.RecorderGetRecorderMasksHandler
 	api.ServiceGetServiceHandler = p.ServiceGetServiceHandler
-	api.ServiceGetServiceIDHandler = p.ServiceGetServiceIDHandler
 	api.DaemonPatchConfigHandler = p.DaemonPatchConfigHandler
 	api.EndpointPatchEndpointIDHandler = p.EndpointPatchEndpointIDHandler
 	api.EndpointPatchEndpointIDConfigHandler = p.EndpointPatchEndpointIDConfigHandler

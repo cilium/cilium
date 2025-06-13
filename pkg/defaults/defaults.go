@@ -415,10 +415,6 @@ const (
 	// K8sClientBurst is the default burst for the cilium-agent k8s client.
 	K8sClientBurst = 20
 
-	// K8sServiceCacheSize is the default value for option.K8sServiceCacheSize
-	// which denotes the value of Cilium's K8s service cache size.
-	K8sServiceCacheSize = 128
-
 	// AllowICMPFragNeeded is the default value for option.AllowICMPFragNeeded flag.
 	// It is enabled by default and directs that the ICMP Fragmentation needed type
 	// packets are allowed to enable TCP Path MTU.

@@ -30,8 +30,7 @@ type k8sEndpointsWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	ServiceCache k8s.ServiceCache
-	IPCache      *ipcache.IPCache
+	IPCache *ipcache.IPCache
 }
 
 func newK8sEndpointsWatcher(params k8sEndpointsWatcherParams) *K8sEndpointsWatcher {
@@ -39,7 +38,6 @@ func newK8sEndpointsWatcher(params k8sEndpointsWatcherParams) *K8sEndpointsWatch
 		k8sResourceSynced: params.K8sResourceSynced,
 		k8sAPIGroups:      params.K8sAPIGroups,
 		resources:         params.Resources,
-		k8sSvcCache:       params.ServiceCache,
 		ipcache:           params.IPCache,
 		stop:              make(chan struct{}),
 	}
@@ -55,8 +53,7 @@ type K8sEndpointsWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 	resources    agentK8s.Resources
 
-	k8sSvcCache k8s.ServiceCache
-	ipcache     ipcacheManager
+	ipcache ipcacheManager
 
 	stop chan struct{}
 }
@@ -97,7 +94,6 @@ func (k *K8sEndpointsWatcher) endpointsInit() {
 					k.updateEndpoint(event.Object, swg)
 				case resource.Delete:
 					k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-					k.k8sSvcCache.DeleteEndpoints(event.Object.EndpointSliceID, swg)
 				}
 				event.Done(nil)
 			}
@@ -110,7 +106,6 @@ func (k *K8sEndpointsWatcher) stopWatcher() {
 }
 
 func (k *K8sEndpointsWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
-	k.k8sSvcCache.UpdateEndpoints(eps, swgEps)
 	k.addKubeAPIServerServiceEndpoints(eps)
 }
 
