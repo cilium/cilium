@@ -188,6 +188,7 @@ func registerCECK8sReflector(
 			Table:         tbl,
 			ListerWatcher: lws.cec,
 			Transform:     transform,
+			MetricScope:   "CiliumEnvoyConfig",
 			QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[*CEC]) iter.Seq2[*CEC, statedb.Revision] {
 				return statedb.Filter(
 					tbl.All(txn),
@@ -210,6 +211,7 @@ func registerCECK8sReflector(
 			Table:         tbl,
 			ListerWatcher: lws.ccec,
 			Transform:     transform,
+			MetricScope:   "CiliumClusterwideEnvoyConfig",
 			QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[*CEC]) iter.Seq2[*CEC, statedb.Revision] {
 				return statedb.Filter(
 					tbl.All(txn),
