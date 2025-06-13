@@ -253,11 +253,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
 		})
 	}
-	if api.ServiceGetServiceIDHandler == nil {
-		api.ServiceGetServiceIDHandler = service.GetServiceIDHandlerFunc(func(params service.GetServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.GetServiceID has not yet been implemented")
-		})
-	}
 	if api.DaemonPatchConfigHandler == nil {
 		api.DaemonPatchConfigHandler = daemon.PatchConfigHandlerFunc(func(params daemon.PatchConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.PatchConfig has not yet been implemented")
