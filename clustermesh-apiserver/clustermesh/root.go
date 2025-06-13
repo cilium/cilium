@@ -86,7 +86,7 @@ type parameters struct {
 	Logger *slog.Logger
 }
 
-func registerHooks(lc cell.Lifecycle, params parameters) error {
+func RegisterHooks(lc cell.Lifecycle, params parameters) error {
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			if !params.Clientset.IsEnabled() {
