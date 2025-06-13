@@ -75,17 +75,4 @@ func (s *serviceManagerAdapter) GetLastUpdatedTs() time.Time {
 	return time.Now()
 }
 
-// GetServiceNameByAddr implements service.ServiceReader.
-func (s *serviceManagerAdapter) GetServiceNameByAddr(addr loadbalancer.L3n4Addr) (string, string, bool) {
-	// Used by hubble.
-
-	txn := s.db.ReadTxn()
-
-	fe, _, found := s.frontends.Get(txn, loadbalancer.FrontendByAddress(addr))
-	if !found {
-		return "", "", false
-	}
-	return fe.Service.Name.Namespace, fe.Service.Name.Name, true
-}
-
 var _ service.ServiceManager = &serviceManagerAdapter{}

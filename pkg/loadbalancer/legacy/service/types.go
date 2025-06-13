@@ -4,7 +4,6 @@
 package service
 
 import (
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -17,8 +16,4 @@ type ServiceManager interface {
 
 	// GetLastUpdatedTs retrieves the last updated timestamp.
 	GetLastUpdatedTs() time.Time
-
-	// GetServiceNameByAddr looks up service by IP/port. Hubble uses this function
-	// to annotate flows with service information.
-	GetServiceNameByAddr(addr lb.L3n4Addr) (string, string, bool)
 }
