@@ -17,22 +17,20 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// ServiceInterface to help with testing.
-type ServiceInterface interface {
-	GetLastUpdatedTs() time.Time
-	GetCurrentTs() time.Time
+type lastUpdatedAter interface {
+	GetLastUpdatedAt() time.Time
 }
 
 type kubeproxyHealthzHandler struct {
 	statusCollector status.StatusCollector
-	svc             ServiceInterface
+	lastUpdateAter  lastUpdatedAter
 }
 
 var kubeProxyHealthzCell = cell.Module(
@@ -50,11 +48,11 @@ type kubeProxyHealthParams struct {
 
 	Logger   *slog.Logger
 	JobGroup job.Group
+	BPFOps   *reconciler.BPFOps
 
 	AgentConfig     *option.DaemonConfig
 	Config          config
 	StatusCollector status.StatusCollector
-	ServiceManager  service.ServiceManager
 }
 
 type config struct {
@@ -88,7 +86,10 @@ func registerKubeProxyHealthzHTTPService(params kubeProxyHealthParams) error {
 		}
 
 		mux := http.NewServeMux()
-		mux.Handle("/healthz", kubeproxyHealthzHandler{statusCollector: params.StatusCollector, svc: params.ServiceManager})
+		mux.Handle("/healthz", kubeproxyHealthzHandler{
+			statusCollector: params.StatusCollector,
+			lastUpdateAter:  params.BPFOps,
+		})
 
 		srv := &http.Server{
 			Addr:    addr,
@@ -123,17 +124,17 @@ func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 
 	statusCode := http.StatusOK
-	currentTs := h.svc.GetCurrentTs()
-	lastUpdateTs := currentTs
+	currentTs := time.Now()
+	lastUpdatedAt := currentTs
 	// We piggy back here on Cilium daemon health. If Cilium is healthy, we can
 	// reasonably assume that the node networking is ready.
 	sr := h.statusCollector.GetStatus(true, true)
 	if isUnhealthy(&sr) {
 		statusCode = http.StatusServiceUnavailable
-		lastUpdateTs = h.svc.GetLastUpdatedTs()
+		lastUpdatedAt = h.lastUpdateAter.GetLastUpdatedAt()
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(statusCode)
-	fmt.Fprintf(w, `{"lastUpdated": %q,"currentTime": %q}`, lastUpdateTs, currentTs)
+	fmt.Fprintf(w, `{"lastUpdated": %q,"currentTime": %q}`, lastUpdatedAt, currentTs)
 }
