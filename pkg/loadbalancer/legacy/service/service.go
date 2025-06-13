@@ -904,7 +904,7 @@ func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 	// Update managed neighbor entries of the LB, this is needed so that
 	// neighbor entries for the backends are always up to date if they
 	// reside in the same L2. In particular XDP cannot resolve on-demand.
-	s.upsertBackendNeighbors(newBackends, obsoleteBackends)
+	// s.upsertBackendNeighbors(newBackends, obsoleteBackends)
 
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
