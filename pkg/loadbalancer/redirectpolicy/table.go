@@ -4,6 +4,8 @@
 package redirectpolicy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -14,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -79,7 +82,7 @@ func newLRPListerWatcher(cs client.Clientset) lrpListerWatcher {
 	return k8sUtils.ListerWatcherFromTyped(cs.CiliumV2().CiliumLocalRedirectPolicies("" /* all namespaces */))
 }
 
-func registerLRPReflector(enabled lrpIsEnabled, db *statedb.DB, jg job.Group, lw lrpListerWatcher, lrps statedb.RWTable[*LocalRedirectPolicy]) {
+func registerLRPReflector(enabled lrpIsEnabled, cfg Config, db *statedb.DB, log *slog.Logger, jg job.Group, lw lrpListerWatcher, lrps statedb.RWTable[*LocalRedirectPolicy]) {
 	if !enabled || lw == nil {
 		return
 	}
@@ -94,7 +97,13 @@ func registerLRPReflector(enabled lrpIsEnabled, db *statedb.DB, jg job.Group, lw
 				if !ok {
 					return nil, false
 				}
-				rp, err := parseLRP(clrp, true)
+				rp, err := parseLRP(cfg, log, clrp)
+				if err != nil {
+					log.Warn("Ignoring malformed CiliumLocalRedirectPolicy",
+						logfields.K8sNamespace, clrp.Namespace,
+						logfields.Name, clrp.Name,
+						logfields.Error, err)
+				}
 				return rp, err == nil
 			},
 		})

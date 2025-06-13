@@ -731,6 +731,12 @@ data:
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
 
+{{- if hasKey .Values "localRedirectPolicies" }}
+{{- if hasKey .Values.localRedirectPolicies "addressMatcherCIDRs" }}
+  lrp-address-matcher-cidrs: {{ join " " .Values.localRedirectPolicies.addressMatcherCIDRs | quote }}
+{{- end }}
+{{- end }}
+
 {{- if .Values.ipv4NativeRoutingCIDR }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}

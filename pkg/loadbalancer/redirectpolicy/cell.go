@@ -24,6 +24,8 @@ var Cell = cell.Module(
 	"local-redirect-policies",
 	"Controller for CiliumLocalRedirectPolicy",
 
+	cell.Config(DefaultConfig),
+
 	cell.Provide(
 		// Provide Table[*LocalRedirectPolicy]. Used from replaceAPI.
 		statedb.RWTable[*LocalRedirectPolicy].ToTable,
