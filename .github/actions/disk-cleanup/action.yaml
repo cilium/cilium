@@ -22,22 +22,25 @@ runs:
       run: |
         echo "Removing unnecessary files to free up disk space..."
         # https://github.com/actions/runner-images/issues/2840#issuecomment-2272410832
-        sudo rm -rf \
-          /opt/hostedtoolcache \
-          /opt/google/chrome \
-          /opt/microsoft/msedge \
-          /opt/microsoft/powershell \
-          /opt/pipx \
-          /opt/ghc \
-          /usr/local/.ghcup \
-          /usr/lib/mono \
-          /usr/local/julia* \
-          /usr/local/lib/android \
-          /usr/local/lib/node_modules \
-          /usr/local/share/chromium \
-          /usr/local/share/powershell \
-          /usr/share/dotnet \
-          /usr/share/swift
+        # Use parallel deletion with xargs for faster processing
+        # Use all available CPU cores for maximum speed
+        cat << EOF | xargs -P $(nproc) -I {} sudo rm -rf {}
+        /opt/hostedtoolcache
+        /opt/google/chrome
+        /opt/microsoft/msedge
+        /opt/microsoft/powershell
+        /opt/pipx
+        /opt/ghc
+        /usr/local/.ghcup
+        /usr/lib/mono
+        /usr/local/julia*
+        /usr/local/lib/android
+        /usr/local/lib/node_modules
+        /usr/local/share/chromium
+        /usr/local/share/powershell
+        /usr/share/dotnet
+        /usr/share/swift
+        EOF
     - name: Assess disk usage after cleanup
       shell: bash
       run: |
