@@ -88,6 +88,14 @@ var Synchronization = cell.Module(
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumNode]),
 	),
+
+	cell.Group(
+		cell.Provide(
+			newCiliumIdentityOptions,
+			newCiliumIdentityConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumIdentity]),
+	),
 )
 
 var pprofConfig = pprof.Config{
