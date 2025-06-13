@@ -17,3 +17,6 @@
 
 NODE_CONFIG(union v4addr, service_loopback_ipv4, "IPv4 source address used for SNAT when a Pod talks to itself over a Service")
 NODE_CONFIG(union v6addr, router_ipv6, "Internal IPv6 router address assigned to the cilium_host interface")
+
+DECLARE_CONFIG(bool, drop_traffic_to_virtual_ips, "Drop traffic to non-existent ports on virtual IPs")
+DECLARE_CONFIG(bool, reply_to_icmp_echo_on_virtual_ips, "Reply to ICMP echo requests on virtual IPs")

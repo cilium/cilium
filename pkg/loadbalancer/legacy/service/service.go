@@ -1777,58 +1777,6 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 		return err
 	}
 
-	// Create wildcard service entry (port 0) for ClusterIP and LoadBalancer services
-	// to enable dropping traffic to non-existent ports or ICMP echo replies on virtual IPs
-	if (s.lbConfig.DropTrafficToVirtualIPs || s.lbConfig.ReplyToICMPEchoOnVirtualIPs) &&
-		(svc.svcType == lb.SVCTypeClusterIP || svc.svcType == lb.SVCTypeLoadBalancer) {
-
-		ip := svc.frontend.L3n4Addr.AddrCluster.AsNetIP()
-
-		if debugLogsEnabled {
-			scopedLog.Debug("Update wildcard service entry for virtual IP",
-				logfields.ID, svc.frontend.ID,
-				logfields.Type, svc.svcType,
-				logfields.Address, svc.frontend.L3n4Addr.AddrCluster)
-		}
-
-		// Use UpsertService to create the wildcard entry with port=0 and protocol=ANY
-		wildcardParams := &datapathTypes.UpsertServiceParams{
-			ID:                        uint16(svc.frontend.ID),
-			IP:                        ip,
-			Port:                      0, // Wildcard port
-			Protocol:                  uint8(u8proto.ANY),
-			PreferredBackends:         map[string]*lb.LegacyBackend{}, // No backends for wildcard
-			ActiveBackends:            map[string]*lb.LegacyBackend{},
-			NonActiveBackends:         []lb.BackendID{},
-			PrevBackendsCount:         0,
-			IPv6:                      v6FE,
-			NatPolicy:                 natPolicy,
-			Type:                      svc.svcType,
-			ForwardingMode:            svc.svcForwardingMode,
-			ExtLocal:                  isExtLocal,
-			IntLocal:                  isIntLocal,
-			Scope:                     svc.frontend.L3n4Addr.Scope,
-			SessionAffinity:           false, // No session affinity for wildcard
-			SessionAffinityTimeoutSec: 0,
-			SourceRangesPolicy:        svc.svcSourceRangesPolicy,
-			ProxyDelegation:           svc.svcProxyDelegation,
-			CheckSourceRange:          checkLBSrcRange,
-			UseMaglev:                 false, // No maglev for wildcard
-			L7LBProxyPort:             0,
-			Name:                      svc.svcName,
-			LoopbackHostport:          svc.LoopbackHostport,
-			LoadBalancingAlgorithm:    svc.loadBalancerAlgorithm,
-		}
-
-		if err := s.lbmap.UpsertService(wildcardParams); err != nil {
-			// Don't fail the whole operation if wildcard entry fails
-			scopedLog.Warn("Failed to create wildcard service entry",
-				logfields.Error, err,
-				logfields.Type, svc.svcType,
-				logfields.Address, svc.frontend.L3n4Addr.AddrCluster)
-		}
-	}
-
 	// If L7 LB is configured for this service then BPF level session affinity is not used.
 	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)

@@ -149,14 +149,22 @@ skip_service_lookup:
 			if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
 			    icmphdr.type == ICMP_ECHO) {
 				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
-				struct lb4_key icmp_key = {};
+				struct lb4_key icmp_key = {
+					.address = new_ip4->daddr,
+					.dport = 0,
+					.backend_slot = 0,
+					.proto = IPPROTO_ANY,
+					.scope = LB_LOOKUP_SCOPE_EXT,
+				};
 				struct lb4_service *icmp_svc;
-				
-				icmp_key.address = new_ip4->daddr;
-				icmp_key.dport = 0;
-				icmp_key.proto = IPPROTO_ANY;
 
+				/* First try external scope (where ClusterIP/LoadBalancer/NodePort services live) */
 				icmp_svc = lb4_lookup_service(&icmp_key, false);
+				if (!icmp_svc) {
+					/* Then try internal scope (for dual-scope LoadBalancer/NodePort services) */
+					icmp_key.scope = LB_LOOKUP_SCOPE_INT;
+					icmp_svc = lb4_lookup_service(&icmp_key, false);
+				}
 				if (icmp_svc) {
 					ret = icmp_send_echo_reply(ctx);
 					if (!ret) {
@@ -261,14 +269,23 @@ skip_service_lookup:
 			if (ctx_load_bytes(ctx, icmp_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
 			    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
 				/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
-				struct lb6_key icmp_key __align_stack_8 = {};
+				struct lb6_key icmp_key __align_stack_8 = {
+					.dport = 0,
+					.backend_slot = 0,
+					.proto = IPPROTO_ANY,
+					.scope = LB_LOOKUP_SCOPE_EXT,
+				};
 				struct lb6_service *icmp_svc;
 				
 				ipv6_addr_copy(&icmp_key.address, (union v6addr *)&new_ip6->daddr);
-				icmp_key.dport = 0;
-				icmp_key.proto = IPPROTO_ANY;
 
+				/* First try external scope (where ClusterIP/LoadBalancer/NodePort services live) */
 				icmp_svc = lb6_lookup_service(&icmp_key, false);
+				if (!icmp_svc) {
+					/* Then try internal scope (for dual-scope LoadBalancer/NodePort services) */
+					icmp_key.scope = LB_LOOKUP_SCOPE_INT;
+					icmp_svc = lb6_lookup_service(&icmp_key, false);
+				}
 				if (icmp_svc) {
 					/* This is an ICMPv6 echo request to a service IP.
 					 * Convert it to an echo reply and redirect back to the pod.
@@ -958,14 +975,23 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 		if (ctx_load_bytes(ctx, icmp6_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
 		    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
 			/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
-			struct lb6_key icmp6_key __align_stack_8 = {};
+			struct lb6_key icmp6_key __align_stack_8 = {
+				.dport = 0,
+				.backend_slot = 0,
+				.proto = IPPROTO_ANY,
+				.scope = LB_LOOKUP_SCOPE_EXT,
+			};
 			struct lb6_service *icmp6_svc;
 			
 			ipv6_addr_copy((union v6addr *)&icmp6_key.address, (union v6addr *)&ip6->daddr);
-			icmp6_key.dport = 0;
-			icmp6_key.proto = IPPROTO_ANY;
 
+			/* First try external scope (where ClusterIP/LoadBalancer/NodePort services live) */
 			icmp6_svc = lb6_lookup_service(&icmp6_key, false);
+			if (!icmp6_svc) {
+				/* Then try internal scope (for dual-scope LoadBalancer/NodePort services) */
+				icmp6_key.scope = LB_LOOKUP_SCOPE_INT;
+				icmp6_svc = lb6_lookup_service(&icmp6_key, false);
+			}
 			if (icmp6_svc) {
 				int icmp_ret;
 				
@@ -1558,14 +1584,22 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 		if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
 		    icmphdr.type == ICMP_ECHO) {
 			/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
-			struct lb4_key icmp_key = {};
+			struct lb4_key icmp_key = {
+				.address = ip4->daddr,
+				.dport = 0,
+				.backend_slot = 0,
+				.proto = IPPROTO_ANY,
+				.scope = LB_LOOKUP_SCOPE_EXT,
+			};
 			struct lb4_service *icmp_svc;
-			
-			icmp_key.address = ip4->daddr;
-			icmp_key.dport = 0;
-			icmp_key.proto = IPPROTO_ANY;
 
+			/* First try external scope (where ClusterIP/LoadBalancer/NodePort services live) */
 			icmp_svc = lb4_lookup_service(&icmp_key, false);
+			if (!icmp_svc) {
+				/* Then try internal scope (for dual-scope LoadBalancer/NodePort services) */
+				icmp_key.scope = LB_LOOKUP_SCOPE_INT;
+				icmp_svc = lb4_lookup_service(&icmp_key, false);
+			}
 			if (icmp_svc) {
 				int icmp_ret;
 				
