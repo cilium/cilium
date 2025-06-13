@@ -19,6 +19,8 @@ FROM ${CILIUM_RUNTIME_IMAGE} AS rootfs
 # we want to re-run 'apt-get upgrade' for stale images.
 ENV FORCE_BUILD=1
 
+COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu
+
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 RUN \
@@ -48,8 +50,6 @@ RUN \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu
 
 COPY --from=golang-dist /usr/local/go /usr/local/go
 RUN mkdir -p /go
