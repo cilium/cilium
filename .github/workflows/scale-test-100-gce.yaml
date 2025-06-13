@@ -106,7 +106,7 @@ jobs:
           fi
 
           # Retrieve the desired version from the arguments.
-          if [[ ${{ inputs.extra-args }} =~ version=([-+.0-9a-z]+) ]]; then
+          if [[ "${{ inputs.extra-args }}" =~ version=([-+.0-9a-z]+) ]]; then
             VERSION=${BASH_REMATCH[1]}
           else
             VERSION=""
