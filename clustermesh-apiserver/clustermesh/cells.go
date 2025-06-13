@@ -4,17 +4,23 @@
 package clustermesh
 
 import (
+	"errors"
+
 	"github.com/cilium/hive/cell"
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/pprof"
 )
@@ -30,6 +36,7 @@ var Cell = cell.Module(
 
 	k8sClient.Cell,
 	cmk8s.ResourcesCell,
+	cell.Invoke(registerClientsetValidator),
 
 	// Shared synchronization structures for waiting on K8s resources to
 	// be synced
@@ -48,6 +55,16 @@ var Cell = cell.Module(
 
 	HealthAPIEndpointsCell,
 
+	Synchronization,
+
+	usersManagementCell,
+	cell.Invoke(RegisterHooks),
+)
+
+var Synchronization = cell.Module(
+	"clustermesh-synchronization",
+	"Synchronize information from Kubernetes to KVStore",
+
 	cell.Group(
 		cell.Provide(
 			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
@@ -60,9 +77,60 @@ var Cell = cell.Module(
 		operatorWatchers.ServiceSyncCell,
 	),
 
-	usersManagementCell,
-	cell.Invoke(registerHooks),
+	cell.Group(
+		cell.Provide(
+			func(syncState syncstate.SyncState) mcsapi.ServiceExportSyncCallback {
+				return syncState.WaitForResource()
+			},
+		),
+		mcsapi.ServiceExportSyncCell,
+	),
+
+	cell.Group(
+		cell.Provide(
+			newNodeOptions,
+			newNodeConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumNode]),
+	),
+
+	cell.Group(
+		cell.Provide(
+			newIdentityOptions,
+			newIdentityConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumIdentity]),
+	),
+
+	cell.Group(
+		cell.Provide(
+			newEndpointOptions,
+			newEndpointConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*types.CiliumEndpoint]),
+	),
+
+	cell.Group(
+		cell.Provide(
+			newEndpointSliceOptions,
+			newEndpointSliceConverter,
+		),
+		cell.Invoke(RegisterSynchronizer[*cilium_api_v2a1.CiliumEndpointSlice]),
+	),
 )
+
+func registerClientsetValidator(lc cell.Lifecycle, client k8sClient.Clientset) {
+	lc.Append(cell.Hook{
+		// Executed inside a start hook to avoid blocking when the hive is not
+		// actually started (e.g., the dependency graph is output).
+		OnStart: func(cell.HookContext) error {
+			if !client.IsEnabled() {
+				return errors.New("Kubernetes client not configured, cannot continue")
+			}
+			return nil
+		},
+	})
+}
 
 var pprofConfig = pprof.Config{
 	Pprof:        false,

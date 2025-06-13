@@ -124,7 +124,6 @@ type SyncWaiterParams struct {
 
 func RegisterSyncWaiter(p SyncWaiterParams) {
 	syncedCallback := p.SyncState.WaitForResource()
-	p.SyncState.Stop()
 
 	p.JobGroup.Add(
 		job.OneShot("kvstoremesh-sync-waiter", func(ctx context.Context, health cell.Health) error {
