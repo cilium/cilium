@@ -35,8 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -170,68 +168,6 @@ func (is *identitySynchronizer) delete(ctx context.Context, key resource.Key) er
 func (is *identitySynchronizer) synced(ctx context.Context) error {
 	is.logger.Info("Initial list of identities successfully received from Kubernetes")
 	return is.store.Synced(ctx, is.syncCallback)
-}
-
-type nodeStub struct {
-	cluster string
-	name    string
-}
-
-func (n *nodeStub) GetKeyName() string {
-	return nodeTypes.GetKeyNodeName(n.cluster, n.name)
-}
-
-type nodeSynchronizer struct {
-	clusterInfo  cmtypes.ClusterInfo
-	store        store.SyncStore
-	syncCallback func(context.Context)
-	logger       *slog.Logger
-}
-
-func newNodeSynchronizer(ctx context.Context, logger *slog.Logger, cinfo cmtypes.ClusterInfo, backend kvstore.BackendOperations, factory store.Factory, syncCallback func(context.Context)) synchronizer {
-	nodesStore := factory.NewSyncStore(cinfo.Name, backend, nodeStore.NodeStorePrefix)
-	go nodesStore.Run(ctx)
-
-	return &nodeSynchronizer{clusterInfo: cinfo, store: nodesStore, syncCallback: syncCallback, logger: logger}
-}
-
-func (ns *nodeSynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
-	n := nodeTypes.ParseCiliumNode(obj.(*ciliumv2.CiliumNode))
-	n.Cluster = ns.clusterInfo.Name
-	n.ClusterID = ns.clusterInfo.ID
-
-	ns.logger.Info("Upserting node in etcd", logfields.Node, n.Name)
-
-	if err := ns.store.UpsertKey(ctx, &n); err != nil {
-		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		ns.logger.Warn("Unable to upsert node in etcd", logfields.Error, err)
-	}
-
-	return nil
-}
-
-func (ns *nodeSynchronizer) delete(ctx context.Context, key resource.Key) error {
-	n := nodeStub{
-		cluster: ns.clusterInfo.Name,
-		name:    key.Name,
-	}
-
-	ns.logger.Info("Deleting node from etcd", logfields.Node, key.Name)
-
-	if err := ns.store.DeleteKey(ctx, &n); err != nil {
-		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		ns.logger.Warn("Unable to delete node from etcd",
-			logfields.Error, err,
-			logfields.Node, key.Name,
-		)
-	}
-
-	return nil
-}
-
-func (ns *nodeSynchronizer) synced(ctx context.Context) error {
-	ns.logger.Info("Initial list of nodes successfully received from Kubernetes")
-	return ns.store.Synced(ctx, ns.syncCallback)
 }
 
 type ipmap map[string]struct{}
@@ -442,7 +378,6 @@ func startServer(
 
 	ctx := context.Background()
 	go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource()))
-	go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, logger, cinfo, backend, factory, syncState.WaitForResource()))
 
 	if enableCiliumEndpointSlice {
 		logger.Info("Synchronizing endpoints using CiliumEndpointSlices")
