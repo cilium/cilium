@@ -12,9 +12,6 @@ import (
 // It is implemented by service handler which main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
 type ServiceManager interface {
-	// GetDeepCopyServices returns a deep-copy of all installed services.
-	GetDeepCopyServices() []*lb.LegacySVC
-
 	// GetCurrentTs retrieves the current timestamp.
 	GetCurrentTs() time.Time
 
