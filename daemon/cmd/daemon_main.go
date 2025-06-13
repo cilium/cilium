@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -69,6 +68,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -323,9 +323,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
 	option.BindEnv(vp, option.BPFSocketLBHostnsOnly)
 
-	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
-	option.BindEnv(vp, option.EnableSocketLB)
-
 	flags.Bool(option.EnableSocketLBPodConnectionTermination, true, "Enable terminating connections to deleted service backends when socket-LB is enabled")
 	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
 	option.BindEnv(vp, option.EnableSocketLBPodConnectionTermination)
@@ -347,10 +344,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(vp, option.EnablePolicy)
-
-	flags.Bool(option.EnableExternalIPs, false, fmt.Sprintf("Enable k8s service externalIPs feature (requires enabling %s)", option.EnableNodePort))
-	flags.MarkDeprecated(option.EnableExternalIPs, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
-	option.BindEnv(vp, option.EnableExternalIPs)
 
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
 	option.BindEnv(vp, option.EnableL7Proxy)
@@ -488,21 +481,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(vp, option.Labels)
 
-	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementFalse, "Enable kube-proxy replacement")
-	option.BindEnv(vp, option.KubeProxyReplacement)
-
-	flags.Bool(option.EnableHostPort, false, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
-	flags.MarkDeprecated(option.EnableHostPort, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
-	option.BindEnv(vp, option.EnableHostPort)
-
-	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
-	flags.MarkDeprecated(option.EnableNodePort, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
-	option.BindEnv(vp, option.EnableNodePort)
-
-	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
-	flags.MarkDeprecated(option.EnableSVCSourceRangeCheck, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
-	option.BindEnv(vp, option.EnableSVCSourceRangeCheck)
-
 	flags.String(option.AddressScopeMax, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
 	flags.MarkHidden(option.AddressScopeMax)
 	option.BindEnv(vp, option.AddressScopeMax)
@@ -558,10 +536,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(vp, option.NodePortBindProtection)
-
-	flags.Bool(option.EnableSessionAffinity, true, "Enable support for service session affinity")
-	option.BindEnv(vp, option.EnableSessionAffinity)
-	flags.MarkDeprecated(option.EnableSessionAffinity, "The flag to control Session Affinity has been deprecated, and it will be removed in v1.19. The feature will be unconditionally enabled.")
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
@@ -1244,23 +1218,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
 	}
 
-	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
-	// that may be added or removed at runtime.
-	if option.Config.EnableIPSec &&
-		!option.Config.TunnelingEnabled() &&
-		len(option.Config.EncryptInterface) == 0 &&
-		// If devices are required, we don't look at the EncryptInterface, as we
-		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
-		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired() &&
-		option.Config.IPAM != ipamOption.IPAMENI {
-		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(logger)
-		if err != nil {
-			logging.Fatal(logger, "Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.", logfields.Error, err)
-		}
-		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
-	}
-
 	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
 		logging.Fatal(logger, fmt.Sprintf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName))
 	}
@@ -1463,6 +1420,7 @@ type daemonParams struct {
 	LBConfig            loadbalancer.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 	DNSNameManager      namemanager.NameManager
+	KPRConfig           kpr.KPRConfig
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1653,7 +1611,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			&EndpointMapManager{
 				logger:          d.logger,
 				EndpointManager: d.endpointManager,
-			}, d.bwManager, d.lbConfig)
+			}, d.bwManager, d.lbConfig, d.kprCfg)
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
 
