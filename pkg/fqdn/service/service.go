@@ -10,8 +10,10 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
@@ -29,6 +31,14 @@ import (
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
 )
 
+// rulesSnapshot is a struct that holds the current state of the policy rules
+// It is used to send the current state of the policy rules to the client(standalone DNS proxy)
+type rulesSnapshot struct {
+	lock.Mutex
+	// rules is the current state of the policy rules
+	rules map[identity.NumericIdentity]policy.SelectorPolicy
+}
+
 // FQDNDataServer is the server for the standalone DNS proxy grpc server
 // It is responsible for handling the FQDN mapping requests from the SDP
 // and sending the DNS Policy updates to the SDP.
@@ -43,6 +53,10 @@ type FQDNDataServer struct {
 
 	endpointManager endpointmanager.EndpointManager
 
+	// streams is a map of the active streams and their cancel functions
+	// Streams are added when a client(standalone dns proxy) subscribes to policy rules and removed when the client/server closes the connection
+	streams lock.Map[pb.FQDNData_StreamPolicyStateServer, context.CancelFunc]
+
 	// updateOnDNSMsg is a function to update the DNS message in the cilium agent on receiving the FQDN mapping
 	updateOnDNSMsg messagehandler.DNSMessageHandler
 
@@ -51,6 +65,13 @@ type FQDNDataServer struct {
 
 	// currentIdentityToIP is a map of the identity to list of IPs
 	currentIdentityToIP map[identity.NumericIdentity][]netip.Prefix
+
+	// rulesSnapshot is a snapshot of the current state of the policy rules
+	rulesSnapshot rulesSnapshot
+
+	// policyRulesResponse is a map of the request id(unique uuid) to the response received from the standalone DNS proxy
+	// It is used to track the response for the policy rules sent to the standalone DNS proxy
+	policyRulesResponse lock.Map[string, pb.ResponseCode]
 
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
@@ -102,17 +123,112 @@ type PolicyUpdater interface {
 
 // StreamPolicyState is a bidirectional streaming RPC to subscribe to DNS policies
 // SDP calls this method to subscribe to DNS policies
-// For each stream, we start a goroutine to receive the DNS policies ACKs
+// For each stream, we start a goroutine to receive the DNS policies ACKs for that particular client.
 // The flow of the method is as follows:
-// 1. Add the stream to the map( called by the client i.e SDP)
-// 2. Start a goroutine to receive the DNS policies ACKs for that particular client.
-// 3. Send the current state of the DNS rules to the client (We store the current state fo DNS rules during the endpoint regeneration see UpdatePolicyRulesLocked)
-// 4. Wait for the context to be done
-// Note: this method is left empty on purpose and will be update with the actual implementation in the future PRs for the standalone DNS proxy
+//  1. Add the stream to the local map(called by the client i.e SDP)
+//  2. Start a goroutine to receive the DNS policies ACKs for that particular client.
+//  3. Send the current state of the DNS rules to the client (We store the current state of
+//     DNS rules during the endpoint regeneration see UpdatePolicyRules)
+//  4. Wait for the context to be done and return the error if any
+//  5. Delete the stream from the local map
 func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateServer) error {
-	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
-	stream.Send(&pb.PolicyState{RequestId: "test"})
-	return nil
+	streamCtx, cancel := context.WithCancel(stream.Context())
+	s.streams.Store(stream, cancel)
+
+	ackRecvStream := make(chan struct{}, 1)
+	errChan := make(chan error)
+	// Start a goroutine to receive the DNS policies ACKs
+	go func() {
+		if err := s.receiveDNSPolicyACKs(stream, ackRecvStream); err != nil {
+			s.log.Error("Error receiving DNS policies ACK", logfields.Error, err)
+			cancel() // Cancel the context to close the stream
+			s.deleteStream(stream)
+			errChan <- err
+			return
+		}
+	}()
+	// Wait for the ACK channel to be closed
+	select {
+	case <-ackRecvStream:
+		// ACK channel is closed, we can proceed
+	case err := <-errChan:
+		// Error receiving the ACK
+		if err != nil {
+			s.log.Error("Error receiving DNS policies ACK", logfields.Error, err)
+			return err
+		}
+	}
+	s.log.Debug("Received ACK for DNS policies")
+
+	// Send the current state of the DNS policies to the client
+	s.log.Debug("Sending current state of DNS policies to the client")
+	if err := s.UpdatePolicyRules(nil, false); err != nil {
+		s.log.Error("Error sending current state of DNS rules", logfields.Error, err)
+		cancel() // Cancel the context to close the stream
+		s.deleteStream(stream)
+		return err
+	}
+
+	s.log.Debug("Waiting for context to be done for streaming DNS policies")
+	<-streamCtx.Done()
+	err := streamCtx.Err()
+	s.log.Warn("Context done for streaming DNS policies", logfields.Error, err)
+	s.deleteStream(stream)
+	return err
+}
+
+// receiveDNSPolicyACKs receives the DNS policies ACKs from the client
+// If the success is false, we can send cancel signal to the channel
+// in that case SDP will recreate the stream.
+// The flow of the method is as follows:
+// 1. Close the ACK channel for the stream to send the current state of the DNS policies
+// 2. Start a loop to receive the DNS policies ACKs
+// 3. If the context is done, return the error
+// 4. If the error is not nil, return the error
+// 5. If the response code is not NO_ERROR, send cancel signal to the channel
+// 6. Delete the request from the map
+func (s *FQDNDataServer) receiveDNSPolicyACKs(stream pb.FQDNData_StreamPolicyStateServer, ack chan struct{}) error {
+	var once sync.Once
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			s.log.Info("Stream context is finished, closing the stream")
+			return stream.Context().Err()
+		default:
+			// Continue receiving the DNS policies ACKs
+		}
+		once.Do(func() {
+			close(ack)
+		})
+		response, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		s.log.Debug("Received DNS policies ACK", logfields.Response, response)
+		requestId := response.GetRequestId()
+		_, ok := s.policyRulesResponse.Load(requestId)
+		if !ok {
+			s.log.Warn("Received Message id not found", logfields.ID, requestId)
+		} else {
+			s.log.Debug("Received response for dns message id", logfields.ID, requestId)
+
+			// We can send cancel signal to the channel if the response code is not NO_ERROR,
+			// in that case SDP will recreate the stream.
+			responseCode := response.GetResponse()
+			if responseCode != pb.ResponseCode_RESPONSE_CODE_NO_ERROR {
+				s.log.Error("Received error response for dns message id", logfields.ID, requestId)
+				cancel, ok := s.streams.Load(stream)
+				if ok {
+					cancel()
+				}
+			}
+
+			// Delete the request from the map
+			s.policyRulesResponse.Delete(requestId)
+			s.log.Debug("Deleted request id from the map", logfields.ID, requestId)
+		}
+	}
 }
 
 // NewServer creates a new FQDNDataServer which is used to handle the Standalone DNS Proxy grpc service
@@ -125,12 +241,27 @@ func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg m
 		log:                 logger,
 		prefixLengths:       counter.DefaultPrefixLengthCounter(),
 		listener:            listener,
+		streams:             lock.Map[pb.FQDNData_StreamPolicyStateServer, context.CancelFunc]{},
+		rulesSnapshot: rulesSnapshot{
+			rules: make(map[identity.NumericIdentity]policy.SelectorPolicy),
+		},
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
 	fqdnDataServer.grpcServer = grpcServer
 	pb.RegisterFQDNDataServer(grpcServer, fqdnDataServer)
 	return fqdnDataServer
+}
+
+// deleteStream deletes the stream from the map
+func (s *FQDNDataServer) deleteStream(stream pb.FQDNData_StreamPolicyStateServer) {
+	_, ok := s.streams.Load(stream)
+	if ok {
+		s.log.Debug("Deleting stream", logfields.ID, stream)
+		s.streams.Delete(stream)
+	} else {
+		s.log.Warn("Stream not found", logfields.ID, stream)
+	}
 }
 
 // OnIPIdentityCacheChange is a method to receive the IP identity cache change events
@@ -192,8 +323,27 @@ func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity
 // 2. when the client subscribes to DNS policies, we send the current state of the DNS rules to the client(flag rulesUpdate as false)
 // 3. when the IP identity cache changes, we update the current state of the identity to IP mapping and send the current state of the DNS rules to
 // the client(flag rulesUpdate as false)
-// Note: this method is left empty on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
+// Note: this method is sending constant test data on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
 func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
+	s.rulesSnapshot.Lock()
+	defer s.rulesSnapshot.Unlock()
+
+	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
+	requestId := uuid.New().String()
+	policyState := &pb.PolicyState{
+		RequestId: requestId,
+	}
+
+	s.streams.Range(func(stream pb.FQDNData_StreamPolicyStateServer, cancel context.CancelFunc) bool {
+		s.log.Debug("Sending DNS policies to client", logfields.ID, requestId)
+		s.policyRulesResponse.Store(requestId, pb.ResponseCode_RESPONSE_CODE_NO_ERROR)
+		if err := stream.Send(policyState); err != nil {
+			s.log.Error("Error sending DNS policies to client", logfields.Error, err)
+			// Cancel the goroutine and remove the stream from the map eventually
+			cancel()
+		}
+		return true
+	})
 	return nil
 }
 
@@ -247,6 +397,14 @@ func (s *FQDNDataServer) ListenAndServe(ctx context.Context, health cell.Health)
 func (s *FQDNDataServer) Stop() {
 	if s.grpcServer == nil {
 		return
+	}
+	// clean up the streams
+	s.streams.Range(func(stream pb.FQDNData_StreamPolicyStateServer, cancel context.CancelFunc) bool {
+		cancel()
+		return true
+	})
+	if !s.streams.IsEmpty() {
+		s.log.Warn("Not all streams are closed, some stream might be still active")
 	}
 	// Stop the grpc server
 	s.grpcServer.GracefulStop()
