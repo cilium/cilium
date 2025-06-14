@@ -59,6 +59,44 @@ func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, n
 	return nil, true
 }
 
+func createStringMatcher(matchType, value string) *envoy_type_matcher.StringMatcher {
+	switch matchType {
+	case string(policyapi.Exact):
+		return &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+				Exact: value,
+			},
+		}
+	case string(policyapi.Prefix):
+		return &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_Prefix{
+				Prefix: value,
+			},
+		}
+	case string(policyapi.Suffix):
+		return &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_Suffix{
+				Suffix: value,
+			},
+		}
+	case string(policyapi.SafeRegex):
+		return &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher.RegexMatcher{
+					Regex: value,
+				},
+			},
+		}
+	default:
+		// Default to Exact match if matchType is unknown
+		return &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+				Exact: value,
+			},
+		}
+	}
+}
+
 func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers) + len(h.HeaderMatches)
@@ -120,15 +158,12 @@ func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns strin
 		if len(strs) == 2 {
 			// Remove ':' in "X-Key: true"
 			key := strings.TrimRight(strs[0], ":")
-			// Header presence and matching (literal) value needed.
+			// Use the HeaderMatchType from PortRuleHTTP
+			matchType := h.HeaderMatchType
 			headers = append(headers, &envoy_config_route.HeaderMatcher{
 				Name: key,
 				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-					StringMatch: &envoy_type_matcher.StringMatcher{
-						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-							Exact: strs[1],
-						},
-					},
+					StringMatch: createStringMatcher(string(matchType), strs[1]),
 				},
 			})
 		} else {

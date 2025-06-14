@@ -54,6 +54,15 @@ type HeaderMatch struct {
 	Value string `json:"value,omitempty"`
 }
 
+type HeaderMatchType string
+
+const (
+	Exact     HeaderMatchType = "Exact"
+	Prefix    HeaderMatchType = "Prefix"
+	Suffix    HeaderMatchType = "Suffix"
+	SafeRegex HeaderMatchType = "SafeRegex"
+)
+
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are
 // optional, if all fields are empty or missing, the rule does not have any
 // effect.
@@ -99,6 +108,10 @@ type PortRuleHTTP struct {
 	//
 	// +kubebuilder:validation:Optional
 	Headers []string `json:"headers,omitempty"`
+
+	// HeaderMatchType specifies the type of match to apply to the headers.
+	// Supported values are "Exact", "Prefix", "Suffix", and "SafeRegex".
+	HeaderMatchType HeaderMatchType `json:"headerMatchType,omitempty"`
 
 	// HeaderMatches is a list of HTTP headers which must be
 	// present and match against the given values. Mismatch field can be used
