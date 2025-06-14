@@ -12,7 +12,7 @@ Kubernetes Without kube-proxy
 
 This guide explains how to provision a Kubernetes cluster without ``kube-proxy``,
 and to use Cilium to fully replace it. For simplicity, we will use ``kubeadm`` to
-bootstrap the cluster.
+bootstrap the cluster. test2
 
 For help with installing ``kubeadm`` and for more provisioning options please refer to
 `the official Kubeadm documentation <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/>`_.
