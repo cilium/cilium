@@ -591,6 +591,18 @@ data:
 {{ if .Values.eni.gcTags }}
   eni-gc-tags: {{ .Values.eni.gcTags | toRawJson | quote }}
 {{- end }}
+{{- if .Values.eni.preAllocate }}
+  aws-ipam-pre-allocate: {{ .Values.eni.preAllocate | quote }}
+{{- end }}
+{{- if .Values.eni.minAllocate }}
+  aws-ipam-min-allocate: {{ .Values.eni.minAllocate | quote }}
+{{- end }}
+{{- if .Values.eni.maxAllocate }}
+  aws-ipam-max-allocate: {{ .Values.eni.maxAllocate | quote }}
+{{- end }}
+{{- if .Values.eni.maxAboveWatermark }}
+  aws-ipam-max-above-watermark: {{ .Values.eni.maxAboveWatermark | quote }}
+{{- end }}
 
 {{- if .Values.azure.enabled }}
   enable-endpoint-routes: "true"

@@ -87,6 +87,28 @@ Configuration
   You may override this behavior by setting a cluster-specific ``--eni-gc-tags``
   tag set.
 
+* The following AWS-specific IPAM parameters can be configured via Helm values
+  or operator flags to control IP address allocation behavior:
+
+  * ``eni.preAllocate`` (Helm) or ``--aws-ipam-pre-allocate`` (operator flag):
+    Number of IP addresses to pre-allocate per ENI before a pod is scheduled.
+    Default: 8
+
+  * ``eni.minAllocate`` (Helm) or ``--aws-ipam-min-allocate`` (operator flag):
+    Minimum number of IP addresses to allocate per ENI. Useful for ensuring
+    a minimum pool of addresses is always available.
+    Default: 0
+
+  * ``eni.maxAllocate`` (Helm) or ``--aws-ipam-max-allocate`` (operator flag):
+    Maximum number of IP addresses to allocate per ENI. If not specified, this
+    is set to the maximum allowed for the ENI based on the instance type.
+    Default: 0 (use instance type maximum)
+
+  * ``eni.maxAboveWatermark`` (Helm) or ``--aws-ipam-max-above-watermark`` (operator flag):
+    Maximum number of IP addresses to allocate above the watermark. Controls
+    how many additional IPs are allocated beyond the current need.
+    Default: 0
+
 Custom ENI Configuration
 ========================
 

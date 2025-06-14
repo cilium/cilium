@@ -14,6 +14,10 @@ cilium-operator [flags]
       --alibaba-cloud-vpc-id string                          Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
       --aws-enable-prefix-delegation                         Allows operator to allocate prefixes to ENIs instead of individual IP addresses
+      --aws-ipam-max-above-watermark int                     Maximum number of IP addresses that can be allocated beyond the current need when using AWS ENI IPAM mode
+      --aws-ipam-max-allocate int                            Maximum number of IP addresses that can be allocated to a node when using AWS ENI IPAM mode (0 = unlimited)
+      --aws-ipam-min-allocate int                            Minimum number of IP addresses that must be allocated when using AWS ENI IPAM mode
+      --aws-ipam-pre-allocate int                            Number of IP addresses that must be pre-allocated when using AWS ENI IPAM mode (default 8)
       --aws-release-excess-ips                               Enable releasing excess free IP addresses from AWS ENI.
       --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
       --azure-resource-group string                          Resource group to use for Azure IPAM
