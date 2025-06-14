@@ -4114,9 +4114,6 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        },
-        "refreshPeriod": {
-          "type": "string"
         }
       },
       "type": "object"

@@ -2671,11 +2671,7 @@
    * - :spelling:ignore:`l2NeighDiscovery.enabled`
      - Enable L2 neighbor discovery in the agent
      - bool
-     - ``true``
-   * - :spelling:ignore:`l2NeighDiscovery.refreshPeriod`
-     - Override the agent's default neighbor resolution refresh period.
-     - string
-     - ``"30s"``
+     - ``false``
    * - :spelling:ignore:`l2announcements`
      - Configure L2 announcements
      - object

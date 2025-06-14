@@ -19,6 +19,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/dial"
@@ -85,6 +86,8 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		),
 		kvstore.Cell(kvstore.DisabledBackendName),
 		fakeDatapath.Cell,
+		neighbor.ForwardableIPCell,
+		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
 		prefilter.Cell,
 		monitorAgent.Cell,
 		metrics.Cell,
