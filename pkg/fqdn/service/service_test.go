@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/time"
@@ -125,6 +126,7 @@ func TestFQDNDataServer(t *testing.T) {
 					func() listenConfig {
 						return newBufconnListener(lis)
 					},
+					newPolicyRulesTable,
 					newServer,
 				),
 				cell.Invoke(func(_ *FQDNDataServer) {}))
@@ -202,12 +204,9 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 				},
 
 				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
-					pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 					return ipcache.NewIPCache(&ipcache.Configuration{
 						Context:           t.Context(),
 						IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
-						PolicyHandler:     pr.GetSelectorCache(),
-						DatapathHandler:   em,
 					})
 				},
 				func(ipc *ipcache.IPCache) namemanager.NameManager {
@@ -226,7 +225,6 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 							Lifecycle:         lc,
 							Logger:            logger,
 							NameManager:       nil,
-							ProxyInstance:     nil,
 							ProxyAccessLogger: nil,
 						})
 				},
@@ -239,6 +237,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 				func() listenConfig {
 					return newBufconnListener(lis)
 				},
+				newPolicyRulesTable,
 				newServer,
 			)),
 		cell.Invoke(func(_f *FQDNDataServer) {
@@ -266,12 +265,10 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 }
 
 // Test the gRPC server and client connection
-// GRPC server should be able to create a stream and store the stream
-// in the server. The grpc server should be able to reuse the stream
-// and send the response to the client.
-// The client should be able to receive the response from the server.
-// The client should be able to send the request to the server.
-// The server should be able to receive the request from the client.
+// GRPC server should be able to create a stream with the client.
+// It should send the current policy state to the client and the client should be able to receive it.
+// The server starts a watch on the policy rules being updated in the database.
+// On each update to the policy rules, the server should send the updated policy state to the client.
 func TestSuccessfullyStreamPolicyState(t *testing.T) {
 	buffer := 1024 * 1024
 	lis := bufconn.Listen(buffer)
@@ -287,51 +284,56 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 	connected := false
 	var receivedResultClient *pb.PolicyState
 	var clientStream pb.FQDNData_StreamPolicyStateClient
-	testutils.WaitUntil(func() bool {
-		clientStream, err = c.StreamPolicyState(t.Context())
-		if err != nil {
-			return false
+	var closeChan = make(chan struct{}, 1)
+	// A goroutine to simulate the server sending policy rules updates to grpc server.
+	// This will run in the background and update the policy rules every 2 seconds
+	// This mimics the CNP updates that would normally trigger the server to send policy state updates to the client.
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		count := 1
+		for {
+			select {
+			case <-closeChan:
+				return
+			case <-ticker.C:
+				policyRules := make(map[identity.NumericIdentity]policy.SelectorPolicy)
+				policyRules[identity.NumericIdentity(count)] = nil
+				fqdnDataServer.UpdatePolicyRules(policyRules, true)
+				count++
+			}
 		}
+	}()
+
+	clientStream, err = c.StreamPolicyState(t.Context())
+	require.NoError(t, err)
+
+	count := 0
+	testutils.WaitUntil(func() bool {
 		receivedResultClient, err = clientStream.Recv()
 		if err != nil {
 			return false
 		}
-
-		if receivedResultClient.GetRequestId() == "" {
-			return false
-		} else {
+		if receivedResultClient.GetRequestId() != "" {
+			t.Logf("Received request from client: %s", receivedResultClient.GetRequestId())
+			clientStream.Send(&pb.PolicyStateResponse{
+				RequestId: receivedResultClient.GetRequestId(),
+				Response:  pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			})
+			count++
 			connected = true
-			return true
+			if count == 2 { // We expect to receive 2 responses from the server (one for initial connection and one for the first update)
+				return true
+			}
 		}
+		return false
 	}, 5*time.Second)
 
 	// If the server is running, we should get a response from the server
 	if !connected {
 		t.Fatalf("failed to connect to server")
 	}
-
-	require.False(t, fqdnDataServer.streams.IsEmpty())
-	require.False(t, fqdnDataServer.policyRulesResponse.IsEmpty())
-
-	// Send the response from client to the server
-	// and check if the server received the response
-	if clientStream != nil {
-		clientStream.Send(&pb.PolicyStateResponse{
-			RequestId: receivedResultClient.GetRequestId(),
-			Response:  pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
-		})
-	} else {
-		t.Fatalf("clientStream is nil, cannot send PolicyStateResponse")
-	}
-
-	// Check if the server received the response
-	err = testutils.WaitUntil(func() bool {
-		return fqdnDataServer.policyRulesResponse.IsEmpty()
-	}, 5*time.Second)
-	require.NoError(t, err)
-
-	// check to make sure stream are not empty
-	require.False(t, fqdnDataServer.streams.IsEmpty())
 
 	// close the connection from the client
 	// and check if the server received the response
@@ -340,10 +342,9 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 	} else {
 		t.Fatalf("clientStream is nil, cannot close stream")
 	}
-	err = testutils.WaitUntil(func() bool {
-		return fqdnDataServer.streams.IsEmpty()
-	}, 5*time.Second)
-	require.NoError(t, err)
+
+	// close the goroutine that is sending updates to the server
+	closeChan <- struct{}{}
 
 	t.Cleanup(func() {
 		//Stop the client
@@ -363,7 +364,7 @@ func TestHandleIPUpsert(t *testing.T) {
 	endptMgr := endpointmanager.New(hivetest.Logger(t), nil, &dummyEpSyncher{}, nil, nil, nil)
 
 	// create a new server instance
-	server := NewServer(endptMgr, nil, 1234, hivetest.Logger(t), nil)
+	server := NewServer(endptMgr, nil, 1234, hivetest.Logger(t), nil, nil, nil)
 
 	// Prepare a valid IPv4 (1.2.3.4/32).
 	prefix := netip.MustParsePrefix("1.2.3.4/32")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -29,6 +30,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Provide(newDefaultListener),
+	cell.ProvidePrivate(newPolicyRulesTable),
 	cell.Provide(newServer),
 )
 
@@ -43,10 +45,12 @@ type serverParams struct {
 	Config            FQDNConfig
 	DaemonConfig      *option.DaemonConfig
 	DefaultListener   listenConfig
+	DB                *statedb.DB
+	PolicyRulesTable  statedb.RWTable[policyRules]
 }
 
 func newServer(params serverParams) *FQDNDataServer {
-	srv := NewServer(params.EndpointManager, params.DNSRequestHandler, params.Config.StandaloneDNSProxyServerPort, params.Logger, params.DefaultListener)
+	srv := NewServer(params.EndpointManager, params.DNSRequestHandler, params.Config.StandaloneDNSProxyServerPort, params.Logger, params.DefaultListener, params.DB, params.PolicyRulesTable)
 
 	if !params.Config.EnableStandaloneDNSProxy {
 		return srv
