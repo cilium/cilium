@@ -165,7 +165,6 @@ jobs:
             --set=enableIPv4Masquerade=true \
             --set=bpf.masquerade=true \
             --set=kubeProxyReplacement=true \
-            --set=l7Proxy=false \
             --set=egressMasqueradeInterfaces="" \
             --set=eni.enabled=true \
             --set=ipam.mode=eni \
