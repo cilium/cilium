@@ -1,7 +1,7 @@
 metadata:
   creationTimestamp: null
   labels:
-    cilium.io/use-original-source-address: "false"
+    cilium.io/use-original-source-address: "true"
   name: cilium-ingress-random-namespace-host-rules
   namespace: random-namespace
 spec:
