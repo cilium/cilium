@@ -324,6 +324,7 @@ EventTypeFilter is a filter describing a particular event type.
 | ingress_allowed_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies allowing the ingress of the flow. |
 | egress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the egress of the flow. |
 | ingress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the ingress of the flow. |
+| policy_log | [string](#string) | repeated | The set of Log values for policies that matched this flow. If no matched policies have an explicit log value configured, this list is empty. Duplicate values are elided; each entry is unique. |
 
 
 
