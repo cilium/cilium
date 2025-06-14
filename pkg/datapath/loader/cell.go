@@ -15,6 +15,8 @@ var Cell = cell.Module(
 
 	cell.Provide(NewLoader),
 	cell.Provide(NewCompilationLock),
+
+	cell.ProvidePrivate(newBuiltinRewrites),
 )
 
 // NewLoader returns a new loader.

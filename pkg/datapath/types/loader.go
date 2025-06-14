@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 )
@@ -85,4 +87,52 @@ type CompilationLock interface {
 	Unlock()
 	RLock()
 	RUnlock()
+}
+
+// EndpointProgRewriter provides the constant and map rewrites for an endpoint-specific BPF program
+type EndpointProgRewriter interface {
+	Rewrite(ep EndpointConfiguration, lnc *LocalNodeConfiguration) (constants any, mapRenames map[string]string)
+}
+
+// EndpointProgRewriterFn implements EndpointProgRewriter for standalone functions
+type EndpointProgRewriterFn[T any] func(ep EndpointConfiguration, lnc *LocalNodeConfiguration) (T, map[string]string)
+
+func (f EndpointProgRewriterFn[T]) Rewrite(ep EndpointConfiguration, lnc *LocalNodeConfiguration) (any, map[string]string) {
+	return f(ep, lnc)
+}
+
+// HostProgRewriter provides the constant and map rewrites for a host endpoint BPF program
+type HostProgRewriter interface {
+	Rewrite(ep EndpointConfiguration, lnc *LocalNodeConfiguration, link netlink.Link) (constants any, mapRenames map[string]string)
+}
+
+// HostProgRewriterFn implements HostProgRewriter for standalone functions
+type HostProgRewriterFn[T any] func(ep EndpointConfiguration, lnc *LocalNodeConfiguration, link netlink.Link) (T, map[string]string)
+
+func (f HostProgRewriterFn[T]) Rewrite(ep EndpointConfiguration, lnc *LocalNodeConfiguration, link netlink.Link) (any, map[string]string) {
+	return f(ep, lnc, link)
+}
+
+// DeviceProgRewriter provides the constant and map rewrites for a device-specific BPF program
+type DeviceProgRewriter interface {
+	Rewrite(lnc *LocalNodeConfiguration, link netlink.Link) (constants any, mapRenames map[string]string)
+}
+
+// DeviceProgRewriterFn implements DeviceProgRewriter for standalone functions
+type DeviceProgRewriterFn[T any] func(lnc *LocalNodeConfiguration, link netlink.Link) (T, map[string]string)
+
+func (f DeviceProgRewriterFn[T]) Rewrite(lnc *LocalNodeConfiguration, link netlink.Link) (any, map[string]string) {
+	return f(lnc, link)
+}
+
+// ProgRewriter provides the constant and map rewrites for a generic BPF program
+type ProgRewriter interface {
+	Rewrite(lnc *LocalNodeConfiguration) (constants any, mapRenames map[string]string)
+}
+
+// ProgRewriterFn implements ProgRewriter for standalone functions
+type ProgRewriterFn[T any] func(lnc *LocalNodeConfiguration) (T, map[string]string)
+
+func (f ProgRewriterFn[T]) Rewrite(lnc *LocalNodeConfiguration) (any, map[string]string) {
+	return f(lnc)
 }
