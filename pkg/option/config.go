@@ -1069,6 +1069,10 @@ const (
 
 	// ConnectivityProbeFrequencyRatio is the name of the option to specify the connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = "connectivity-probe-frequency-ratio"
+
+	// EnableBPFConntrackUnknownProtocols controls whether BPF conntrack passes traffic with IP protocols such as
+	// VRRP, IGMP. Such traffic will be allowed/dropped based on user defined policies.
+	EnableBPFConntrackUnknownProtocols = "enable-bpf-conntrack-unknown-protocols"
 )
 
 // Default string arguments
@@ -2073,6 +2077,10 @@ type DaemonConfig struct {
 
 	// ConnectivityProbeFrequencyRatio is the ratio of the connectivity probe frequency vs resource consumption
 	ConnectivityProbeFrequencyRatio float64
+
+	// EnableBPFConntrackUnknownProtocols controls whether BPF conntrack passes traffic with IP protocols such as
+	// VRRP, IGMP. Such traffic will be allowed/dropped based on user defined policies.
+	EnableBPFConntrackUnknownProtocols bool
 }
 
 var (
@@ -2791,6 +2799,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 	c.BootIDFile = vp.GetString(BootIDFilename)
+	c.EnableBPFConntrackUnknownProtocols = vp.GetBool(EnableBPFConntrackUnknownProtocols)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {

@@ -18,6 +18,8 @@ const (
 	ProtoSCTP   L4Proto = "SCTP"
 	ProtoICMP   L4Proto = "ICMP"
 	ProtoICMPv6 L4Proto = "ICMPV6"
+	ProtoVRRP   L4Proto = "VRRP"
+	ProtoIGMP   L4Proto = "IGMP"
 	ProtoAny    L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
@@ -57,7 +59,7 @@ type PortProtocol struct {
 	// Named port specified for a container may narrow this down, but may not
 	// contradict this.
 	//
-	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;ANY
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;VRRP;IGMP;ANY
 	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }

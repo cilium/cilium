@@ -964,6 +964,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Float64(option.ConnectivityProbeFrequencyRatio, defaults.ConnectivityProbeFrequencyRatio, "Ratio of the connectivity probe frequency vs resource usage, a float in [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing frequency is dynamically adjusted based on the cluster size.")
 	option.BindEnv(vp, option.ConnectivityProbeFrequencyRatio)
 
+	flags.Bool(option.EnableBPFConntrackUnknownProtocols, defaults.EnableBPFConntrackUnknownProtocols, "Enable BPF connection tracking to pass traffic with unknown protocols.")
+	option.BindEnv(vp, option.EnableBPFConntrackUnknownProtocols)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}

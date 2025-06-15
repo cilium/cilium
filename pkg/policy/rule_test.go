@@ -1002,6 +1002,84 @@ func TestICMPPolicy(t *testing.T) {
 	td.policyMapEquals(t, expected, nil, &rule3)
 }
 
+// TestIPProtocols tests protocols with no transport ports.
+func TestIPProtocols(t *testing.T) {
+	td := newTestData(hivetest.Logger(t))
+
+	rule1 := api.Rule{
+		// TODO: Extend the test utils to process nodeselectors.
+		//NodeSelector: nodeSelectorA,
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{
+								Protocol: api.ProtoVRRP,
+							},
+							{
+								Port:     "0",
+								Protocol: api.ProtoIGMP,
+							},
+						},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{
+								Port:     "0",
+								Protocol: api.ProtoVRRP,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"0/vrrp": {
+			Port:     0,
+			Protocol: api.ProtoVRRP,
+			U8Proto:  u8proto.ProtoIDs["vrrp"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+		"0/igmp": {
+			Port:     0,
+			Protocol: api.ProtoIGMP,
+			U8Proto:  u8proto.ProtoIDs["igmp"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+	})
+
+	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/egress": {
+		Port:     0,
+		Protocol: api.ProtoVRRP,
+		U8Proto:  u8proto.ProtoIDs["vrrp"],
+		Ingress:  false,
+		wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+	}})
+
+	td.policyMapEquals(t, expectedIn, expectedOut, &rule1)
+}
+
 // Tests the restrictions of combining certain label-based L3 and L4 policies.
 // This ensures that the user is informed of policy combinations that are not
 // implemented in the datapath.

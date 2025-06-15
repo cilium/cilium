@@ -640,16 +640,12 @@ func (pr *PortDenyRule) sanitize() error {
 }
 
 func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
-	if pp.Port == "" {
-		return isZero, errors.New("Port must be specified")
-	}
-
 	// Port names are formatted as IANA Service Names.  This means that
 	// some legal numeric literals are no longer considered numbers, e.g,
 	// 0x10 is now considered a name rather than number 16.
 	if iana.IsSvcName(pp.Port) {
 		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
-	} else {
+	} else if pp.Port != "" {
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
 		if err != nil {
 			return isZero, fmt.Errorf("unable to parse port: %w", err)
