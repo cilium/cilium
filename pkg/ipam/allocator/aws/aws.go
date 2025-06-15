@@ -116,7 +116,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	return nil
 }
 
-// Start kicks of ENI allocation, the initial connection to AWS
+// Start kicks off ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
 func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
@@ -135,7 +135,11 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	}
 	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
-		operatorOption.Config.AWSEnablePrefixDelegation)
+		operatorOption.Config.AWSEnablePrefixDelegation,
+		ipam.WithIPAMPreAllocate(operatorOption.Config.AWSIPAMPreAllocate),
+		ipam.WithIPAMMinAllocate(operatorOption.Config.AWSIPAMMinAllocate),
+		ipam.WithIPAMMaxAllocate(operatorOption.Config.AWSIPAMMaxAllocate),
+		ipam.WithIPAMMaxAboveWatermark(operatorOption.Config.AWSIPAMMaxAboveWatermark))
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}

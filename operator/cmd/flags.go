@@ -50,6 +50,18 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
 	option.BindEnv(vp, operatorOption.ParallelAllocWorkers)
 
+	flags.Int(operatorOption.AWSIPAMPreAllocate, defaults.IPAMPreAllocation, "Number of IP addresses that must be pre-allocated when using AWS ENI IPAM mode")
+	option.BindEnv(vp, operatorOption.AWSIPAMPreAllocate)
+
+	flags.Int(operatorOption.AWSIPAMMinAllocate, defaults.IPAMMinAllocation, "Minimum number of IP addresses that must be allocated when using AWS ENI IPAM mode")
+	option.BindEnv(vp, operatorOption.AWSIPAMMinAllocate)
+
+	flags.Int(operatorOption.AWSIPAMMaxAllocate, defaults.IPAMMaxAllocation, "Maximum number of IP addresses that can be allocated to a node when using AWS ENI IPAM mode (0 = unlimited)")
+	option.BindEnv(vp, operatorOption.AWSIPAMMaxAllocate)
+
+	flags.Int(operatorOption.AWSIPAMMaxAboveWatermark, defaults.IPAMMaxAboveWatermark, "Maximum number of IP addresses that can be allocated beyond the current need when using AWS ENI IPAM mode")
+	option.BindEnv(vp, operatorOption.AWSIPAMMaxAboveWatermark)
+
 	// Operator-specific flags
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(vp, option.ConfigFile)
