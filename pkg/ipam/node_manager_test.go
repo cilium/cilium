@@ -19,6 +19,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -587,6 +588,121 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 	require.NotNil(t, node)
 	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 3, node.Stats().IPv4.UsedIPs)
+}
+
+// TestNodeManagerAbortReleaseIPReassignment tests a scenario where:
+// 1. An IP is released and marked as released in status.ipam.release-ips
+// 2. The IP is removed from spec.ipam.pool
+// 3. Before being removed from status.ipam.release-ips, the same IP is reassigned to the pool (ie. AWS ENI in the case of AWS ENI IPAM)
+// 4. The IP is no longer considered excess, so the release handshake is aborted and the IP is deleted from status.ipam.release-ips
+func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
+	var wg sync.WaitGroup
+	operatorOption.Config.ExcessIPReleaseDelay = 2
+	am := newAllocationImplementationMock()
+	require.NotNil(t, am)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
+
+	// Announce node, wait for IPs to become available
+	cn := newCiliumNode("node4", 1, 3, 0)
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node4", 0) }, 5*time.Second))
+
+	node := mngr.Get("node4")
+	require.NotNil(t, node)
+	require.Equal(t, 3, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
+
+	// Use 3 out of 4 IPs
+	mngr.Upsert(updateCiliumNode(cn, 3))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node4", 0) }, 5*time.Second))
+
+	node = mngr.Get("node4")
+	require.NotNil(t, node)
+	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 3, node.Stats().IPv4.UsedIPs)
+
+	// Release one IP
+	mngr.Upsert(updateCiliumNode(node.resource, 2))
+
+	node = mngr.Get("node4")
+	require.NotNil(t, node)
+	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 2, node.Stats().IPv4.UsedIPs)
+
+	node.instanceSync.Trigger()
+
+	// This is the key IP that will be released and later reassigned
+	var releasedIP string
+	wg.Add(1)
+
+	time.AfterFunc(3*time.Second, func() {
+		defer wg.Done()
+
+		// Mark IP as excess
+		node.instanceSync.Trigger()
+		time.Sleep(1 * time.Second)
+
+		a, err := node.determineMaintenanceAction()
+		require.NoError(t, err)
+		require.NotNil(t, a)
+		require.NotNil(t, a.release)
+		require.NotEmpty(t, a.release.IPsToRelease)
+
+		// Get the IP being released
+		releasedIP = a.release.IPsToRelease[0]
+		require.NotEmpty(t, releasedIP)
+
+		node.PopulateIPReleaseStatus(node.resource)
+
+		// Verify it's marked for release in the CiliumNode resource
+		require.Contains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
+		require.Equal(t, ipamOption.IPAMMarkForRelease, string(node.resource.Status.IPAM.ReleaseIPs[releasedIP]))
+
+		// Fake acknowledge IP for release like agent would
+		testipam.FakeAcknowledgeReleaseIps(node.resource)
+
+		// Resync one more time to process acknowledgements.
+		node.instanceSync.Trigger()
+
+		time.Sleep(1 * time.Second)
+
+		// Now simulate the operator releasing the IP and marking it as released
+		delete(node.resource.Spec.IPAM.Pool, releasedIP)
+		node.resource.Status.IPAM.ReleaseIPs[releasedIP] = ipamOption.IPAMReleased
+		// Also mark it as released in the internal ipReleaseStatus map
+		node.ipv4Alloc.ipReleaseStatus[releasedIP] = ipamOption.IPAMReleased
+
+		// Normally at this point, the agent would see the IP is released and remove it from Status.IPAM.ReleaseIPs
+		// But before that happens, simulate the IP being reassigned back to the pool
+		if node.resource.Spec.IPAM.Pool == nil {
+			node.resource.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
+		}
+		node.resource.Spec.IPAM.Pool[releasedIP] = ipamTypes.AllocationIP{Resource: "eni-test"}
+		node.ops.AllocateIPs(context.Background(), &AllocationAction{
+			IPv4: IPAllocationAction{
+				AvailableForAllocation: 1,
+			},
+		})
+
+		node.poolMaintainer.Trigger()
+		node.instanceSync.Trigger()
+
+		time.Sleep(1 * time.Second)
+		node.PopulateIPReleaseStatus(node.resource)
+
+		require.NotContains(t, node.ipv4Alloc.ipReleaseStatus, releasedIP)
+		require.NotContains(t, node.ipv4Alloc.ipsMarkedForRelease, releasedIP)
+		require.NotContains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
+	})
+
+	wg.Wait()
+
+	node = mngr.Get("node4")
+	require.NotNil(t, node)
+	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 2, node.Stats().IPv4.UsedIPs)
 }
 
 type nodeState struct {
