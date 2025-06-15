@@ -23,6 +23,7 @@ import (
 
 // +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName={svcim,svcimport}
 
 // ServiceImport describes a service imported from clusters in a ClusterSet.
 type ServiceImport struct {
