@@ -16,13 +16,13 @@ require (
 	github.com/aws/smithy-go v1.22.3
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250603084345-cfe999dc5363
+	github.com/cilium/charts 4951bc76b501
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.18.1-0.20250603151700-df9ebe841740
+	github.com/cilium/ebpf 3f1a755f1451
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
-	github.com/cilium/hive v0.0.0-20250523125409-7cbbf5e0d9f5
+	github.com/cilium/hive 5a5dacdfb354
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250526114940-b80199397e8a
 	github.com/cilium/statedb v0.4.0
@@ -51,7 +51,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
 	github.com/google/cel-go v0.25.0
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-github/v71 v71.0.0
+	github.com/google/go-github/v72 v72.0.0
 	github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.0
@@ -135,8 +135,8 @@ require (
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
-	sigs.k8s.io/mcs-api v0.1.1-0.20250513123917-5e5359a979c7
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20250513123917-5e5359a979c7
+	sigs.k8s.io/mcs-api 38bab5ba476b
+	sigs.k8s.io/mcs-api/controllers 38bab5ba476b
 	sigs.k8s.io/yaml v1.4.0
 )
 

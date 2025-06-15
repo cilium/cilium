@@ -116,6 +116,8 @@ github.com/chai2010/gettext-go v1.0.2 h1:1Lwwip6Q2QGsAdl/ZKPCwTe9fe0CjlUbqj5bFNS
 github.com/chai2010/gettext-go v1.0.2/go.mod h1:y+wnP2cHYaVj19NZhYKAwEMH2CI1gNHeQQ+5AjwawxA=
 github.com/cilium/charts v0.0.0-20250603084345-cfe999dc5363 h1:EcpmyJBUtR+dEoRKPQGGNZGqtSndkcyPhZG0wuKIslk=
 github.com/cilium/charts v0.0.0-20250603084345-cfe999dc5363/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
+github.com/cilium/charts v0.0.0-20250610040554-4951bc76b501 h1:WJEcrrkXd8yIE/dF0PZqCEd19yFWLioAG2GeUjj5CHo=
+github.com/cilium/charts v0.0.0-20250610040554-4951bc76b501/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/controller-tools v0.16.5-1 h1:aJLd2riNwIP+qVwA9bFBu2GDk6fQVecJt/0bZF2IYOw=
 github.com/cilium/controller-tools v0.16.5-1/go.mod h1:8vztuRVzs8IuuJqKqbXCSlXcw+lkAv/M2sTpg55qjMY=
 github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce h1:gqzXY3NuHllVVDw9vD49mlXx+9bYFPlg23rdrkQNFDM=
@@ -126,6 +128,8 @@ github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a h1:PRGN7B+72mj3OtLL2
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a/go.mod h1:/7LC2GOgyXJ7maupZlaVIumYQiGPIgllSf6mA9sg6RU=
 github.com/cilium/ebpf v0.18.1-0.20250603151700-df9ebe841740 h1:u9M4mYNNcKmtwvUARzv8WHkU82t/0RCpGPaM84hkpr0=
 github.com/cilium/ebpf v0.18.1-0.20250603151700-df9ebe841740/go.mod h1:fLCgMo3l8tZmAdM3B2XqdFzXBpwkcSTroaVqN08OWVY=
+github.com/cilium/ebpf v0.18.1-0.20250611134719-3f1a755f1451 h1:l0sDQXLiBJllT5EHEuGvzcb+cLLj4vA2cOWZd2uS2Jw=
+github.com/cilium/ebpf v0.18.1-0.20250611134719-3f1a755f1451/go.mod h1:fLCgMo3l8tZmAdM3B2XqdFzXBpwkcSTroaVqN08OWVY=
 github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba h1:Ddc5e+pz0/nY0XiAEW/UcIlvnaHACSuF77ePyMNX510=
 github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba/go.mod h1:9MPoeojWVEBLFnioKXTvRoqGWTs9Dt252r1ACFsi8K8=
 github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c h1:+/SPdDam5Mha4QzOByEoBE7hfq8aUxnioItyKM48U6M=
@@ -134,6 +138,8 @@ github.com/cilium/fake v0.7.0 h1:4EKBtTweQrJoD4q45qDGu8udulmYMo48Y0BhEbrB1jc=
 github.com/cilium/fake v0.7.0/go.mod h1:hA1YsEjgIs5Gdeq/DVrDWGuhLCoVok7THTvQaGDO5bc=
 github.com/cilium/hive v0.0.0-20250523125409-7cbbf5e0d9f5 h1:4OEwVAEJexf32TK0De6kSAtElaCUwv5slSGmyNKNUSw=
 github.com/cilium/hive v0.0.0-20250523125409-7cbbf5e0d9f5/go.mod h1:pI2GJ1n3SLKIQVFrKF7W6A6gb6BQkZ+3Hp4PAEo5SuI=
+github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354 h1:4G9PC8nQw4pGW5wCMA0g8J8rK1l4C3owlceAOQggXzs=
+github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354/go.mod h1:pI2GJ1n3SLKIQVFrKF7W6A6gb6BQkZ+3Hp4PAEo5SuI=
 github.com/cilium/linters v0.2.0 h1:YxtPFl1XxOErU6I97qgmmMeGISDNHftoLRdF1G96J9U=
 github.com/cilium/linters v0.2.0/go.mod h1:52Q1VLE13zT9Vy5vcOBT8m3uPDzRjBmEhcMB4pWuXj8=
 github.com/cilium/lumberjack/v2 v2.4.1 h1:tU92KFJmLQ4Uls5vTgok5b5RbfxpawRia7L14y2qDBs=
@@ -351,6 +357,7 @@ github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX
 github.com/google/go-github v17.0.0+incompatible/go.mod h1:zLgOLi98H3fifZn+44m+umXrS52loVEgC2AApnigrVQ=
 github.com/google/go-github/v71 v71.0.0 h1:Zi16OymGKZZMm8ZliffVVJ/Q9YZreDKONCr+WUd0Z30=
 github.com/google/go-github/v71 v71.0.0/go.mod h1:URZXObp2BLlMjwu0O8g4y6VBneUj2bCHgnI8FfgZ51M=
+github.com/google/go-github/v72 v72.0.0/go.mod h1:WWtw8GMRiL62mvIquf1kO3onRHeWWKmK01qdCY8c5fg=
 github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4 h1:2cF5oCuHDHTsC1S1eePsrHKGs1Co9Q6XOc8nhysGer4=
 github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4/go.mod h1:BUoZvAC+k4aLzq3+719tLz4jZum9m7lfwuXKtq8n5VM=
 github.com/google/go-querystring v1.0.0/go.mod h1:odCYkC5MyYFN7vkCjXpyrEuKhc/BUO6wN/zVPAxq5ck=
@@ -1058,8 +1065,12 @@ sigs.k8s.io/kustomize/kyaml v0.19.0 h1:RFge5qsO1uHhwJsu3ipV7RNolC7Uozc0jUBC/61XS
 sigs.k8s.io/kustomize/kyaml v0.19.0/go.mod h1:FeKD5jEOH+FbZPpqUghBP8mrLjJ3+zD3/rf9NNu1cwY=
 sigs.k8s.io/mcs-api v0.1.1-0.20250513123917-5e5359a979c7 h1:6TgwPTtgochkVAzuSjl6b8u+o4KBgLi5/s8B2fREm38=
 sigs.k8s.io/mcs-api v0.1.1-0.20250513123917-5e5359a979c7/go.mod h1:M1Zjh0Jn/Z5e/2JHsZyEeLMw0qGBBmkJqEOc+OceERY=
+sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b h1:Yw4HHwvbgioWqvyUauZM4pvf2QrMNM38ILbKV46Niio=
+sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20250513123917-5e5359a979c7 h1:9FXh+ohfjtLD9UkFmYBzQzXb02d//2waaR6QehTyCpw=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20250513123917-5e5359a979c7/go.mod h1:+ZTKacf5PGpIh+NjwMJqloeXJspb8wxkOgWB4m0L+xI=
+sigs.k8s.io/mcs-api/controllers v0.0.0-20250610011024-38bab5ba476b h1:ETzVIxICarI4GK58WRKccEWt/Hn623hcbohbypXNeaE=
+sigs.k8s.io/mcs-api/controllers v0.0.0-20250610011024-38bab5ba476b/go.mod h1:58tAw+r41eczKabKA5KwwLabGlO6YLbtkYtKif9sDr0=
 sigs.k8s.io/randfill v0.0.0-20250304075658-069ef1bbf016/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
