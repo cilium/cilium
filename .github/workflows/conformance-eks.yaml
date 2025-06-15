@@ -59,7 +59,7 @@ env:
   test_concurrency: 3
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.208.0
+  eksctl_version: v0.210.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.33.1
 
