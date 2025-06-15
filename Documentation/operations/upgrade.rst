@@ -418,6 +418,9 @@ Helm Options
   ``ciliumEndpointSlice.enabled`` instead to enable CiliumEndpointSlices.
 * ``localRedirectPolicy`` helm option has been deprecated. Set ``localRedirectPolicies.enabled`` instead.
 * The new ``localRedirectPolicies.addressMatcherCIDRs`` option can be used to limit what addresses are allowed in an address match of a CiliumLocalRedirectPolicy.
+* The default value for ``operator.tolerations`` has been narrowed to only include the following tolerations:
+   ``node-role.kubernetes.io/control-plane`` , ``node-role.kubernetes.io/master`` , ``node.kubernetes.io/not-ready`` and ``node.cilium.io/agent-not-ready``. This will 
+   block the operator running on drained nodes. 
 
 Agent Options
 ~~~~~~~~~~~~~
