@@ -1,5 +1,10 @@
 # Release History
 
+## 1.10.1 (2025-06-10)
+
+### Bugs Fixed
+- `AzureCLICredential` and `AzureDeveloperCLICredential` could wait indefinitely for subprocess output
+
 ## 1.10.0 (2025-05-14)
 
 ### Features Added
