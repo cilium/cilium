@@ -1,10 +1,10 @@
 # The development version of clang is distributed as the 'clang' binary,
 # while stable/released versions have a version number attached.
 # Pin the default clang to a stable version.
-CLANG ?= clang-17
-STRIP ?= llvm-strip-17
-OBJCOPY ?= llvm-objcopy-17
-CFLAGS := -O2 -g -Wall -Werror $(CFLAGS)
+CLANG ?= clang-20
+STRIP ?= llvm-strip-20
+OBJCOPY ?= llvm-objcopy-20
+CFLAGS := -O2 -g -Wall -Werror -mcpu=v2 $(CFLAGS)
 
 CI_KERNEL_URL ?= https://github.com/cilium/ci-kernels/raw/master/
 
@@ -25,8 +25,8 @@ IMAGE := $(shell cat ${REPODIR}/testdata/docker/IMAGE)
 VERSION := $(shell cat ${REPODIR}/testdata/docker/VERSION)
 
 TARGETS := \
-	testdata/loader-clang-11 \
 	testdata/loader-clang-14 \
+	testdata/loader-clang-17 \
 	testdata/loader-$(CLANG) \
 	testdata/manyprogs \
 	testdata/btf_map_init \
@@ -66,7 +66,7 @@ container-all:
 		-v "${REPODIR}":/ebpf -w /ebpf --env MAKEFLAGS \
 		--env HOME="/tmp" \
 		--env BPF2GO_CC="$(CLANG)" \
-		--env BPF2GO_FLAGS="-fdebug-prefix-map=/ebpf=. $(CFLAGS)" \
+		--env BPF2GO_CFLAGS="$(CFLAGS)" \
 		"${IMAGE}:${VERSION}" \
 		make all
 
@@ -76,7 +76,7 @@ container-shell:
 	${CONTAINER_ENGINE} run --rm -ti ${CONTAINER_RUN_ARGS} \
 		-v "${REPODIR}":/ebpf -w /ebpf \
 		--env BPF2GO_CC="$(CLANG)" \
-		--env BPF2GO_FLAGS="-fdebug-prefix-map=/ebpf=. $(CFLAGS)" \
+		--env BPF2GO_CFLAGS="$(CFLAGS)" \
 		"${IMAGE}:${VERSION}"
 
 clean:

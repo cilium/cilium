@@ -85,6 +85,11 @@ type MapSpec struct {
 
 	// The key and value type of this map. May be nil.
 	Key, Value btf.Type
+
+	// Tags is a list of btf_decl_tag attributes set on the map definition.
+	//
+	// Decorate a map definition with `__attribute__((btf_decl_tag("foo")))`.
+	Tags []string
 }
 
 func (ms *MapSpec) String() string {
@@ -103,6 +108,7 @@ func (ms *MapSpec) Copy() *MapSpec {
 	cpy.Contents = slices.Clone(cpy.Contents)
 	cpy.Key = btf.Copy(cpy.Key)
 	cpy.Value = btf.Copy(cpy.Value)
+	cpy.Tags = slices.Clone(cpy.Tags)
 
 	if cpy.InnerMap == ms {
 		cpy.InnerMap = &cpy
