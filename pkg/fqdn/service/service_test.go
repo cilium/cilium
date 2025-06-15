@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/time"
@@ -125,6 +126,7 @@ func TestFQDNDataServer(t *testing.T) {
 					func() listenConfig {
 						return newBufconnListener(lis)
 					},
+					newPolicyRulesTable,
 					newServer,
 				),
 				cell.Invoke(func(_ *FQDNDataServer) {}))
@@ -188,6 +190,168 @@ func TestFQDNDataServer(t *testing.T) {
 	}
 }
 
+func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNSProxy bool, standaloneDNSProxyServerPort int, lis *bufconn.Listener) (*hive.Hive, *FQDNDataServer) {
+
+	var fqdnDataServer *FQDNDataServer
+	h := hive.New(
+		cell.Module(
+			"test-fqdn-grpc-server",
+			"Test FQDN gRPC server",
+			cell.Config(defaultConfig),
+			cell.Provide(
+				func(logger *slog.Logger) endpointmanager.EndpointManager {
+					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+				},
+
+				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+					return ipcache.NewIPCache(&ipcache.Configuration{
+						Context:           t.Context(),
+						IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+					})
+				},
+				func(ipc *ipcache.IPCache) namemanager.NameManager {
+					return namemanager.New(namemanager.ManagerParams{
+						Config: namemanager.NameManagerConfig{
+							MinTTL:            1,
+							DNSProxyLockCount: defaults.DNSProxyLockCount,
+							StateDir:          defaults.StateDir,
+						},
+						IPCache: ipc,
+					})
+				},
+				func(lc cell.Lifecycle, logger *slog.Logger) messagehandler.DNSMessageHandler {
+					return messagehandler.NewDNSMessageHandler(
+						messagehandler.DNSMessageHandlerParams{
+							Lifecycle:         lc,
+							Logger:            logger,
+							NameManager:       nil,
+							ProxyAccessLogger: nil,
+						})
+				},
+				func() *option.DaemonConfig {
+					return &option.DaemonConfig{
+						EnableL7Proxy:    enableL7Proxy,
+						ToFQDNsProxyPort: port,
+					}
+				},
+				func() listenConfig {
+					return newBufconnListener(lis)
+				},
+				newPolicyRulesTable,
+				newServer,
+			)),
+		cell.Invoke(func(_f *FQDNDataServer) {
+			fqdnDataServer = _f
+		}))
+
+	hive.AddConfigOverride(
+		h,
+		func(cfg *FQDNConfig) {
+			cfg.EnableStandaloneDNSProxy = true
+			cfg.StandaloneDNSProxyServerPort = 40045
+		})
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, t.Context()); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	t.Cleanup(func() {
+		// Stop the server
+		if err := h.Stop(tlog, context.TODO()); err != nil {
+			t.Fatalf("failed to stop: %s", err)
+		}
+	})
+	return h, fqdnDataServer
+}
+
+// Test the gRPC server and client connection
+// GRPC server should be able to create a stream with the client.
+// It should send the current policy state to the client and the client should be able to receive it.
+// The server starts a watch on the policy rules being updated in the database.
+// On each update to the policy rules, the server should send the updated policy state to the client.
+func TestSuccessfullyStreamPolicyState(t *testing.T) {
+	buffer := 1024 * 1024
+	lis := bufconn.Listen(buffer)
+	_, fqdnDataServer := setupServer(t, 1234, true, true, 40045, lis)
+
+	conn, err := grpc.NewClient("passthrough://bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return lis.Dial()
+	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+
+	c := pb.NewFQDNDataClient(conn)
+
+	connected := false
+	var receivedResultClient *pb.PolicyState
+	var clientStream pb.FQDNData_StreamPolicyStateClient
+	var closeChan = make(chan struct{}, 1)
+	// A goroutine to simulate the server sending policy rules updates to grpc server.
+	// This will run in the background and update the policy rules every 2 seconds
+	// This mimics the CNP updates that would normally trigger the server to send policy state updates to the client.
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		count := 1
+		for {
+			select {
+			case <-closeChan:
+				return
+			case <-ticker.C:
+				policyRules := make(map[identity.NumericIdentity]policy.SelectorPolicy)
+				policyRules[identity.NumericIdentity(count)] = nil
+				fqdnDataServer.UpdatePolicyRules(policyRules, true)
+				count++
+			}
+		}
+	}()
+
+	clientStream, err = c.StreamPolicyState(t.Context())
+	require.NoError(t, err)
+
+	count := 0
+	testutils.WaitUntil(func() bool {
+		receivedResultClient, err = clientStream.Recv()
+		if err != nil {
+			return false
+		}
+		if receivedResultClient.GetRequestId() != "" {
+			t.Logf("Received request from client: %s", receivedResultClient.GetRequestId())
+			clientStream.Send(&pb.PolicyStateResponse{
+				RequestId: receivedResultClient.GetRequestId(),
+				Response:  pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			})
+			count++
+			connected = true
+			if count == 2 { // We expect to receive 2 responses from the server (one for initial connection and one for the first update)
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second)
+
+	// If the server is running, we should get a response from the server
+	if !connected {
+		t.Fatalf("failed to connect to server")
+	}
+
+	// close the connection from the client
+	// and check if the server received the response
+	if clientStream != nil {
+		clientStream.CloseSend()
+	} else {
+		t.Fatalf("clientStream is nil, cannot close stream")
+	}
+
+	// close the goroutine that is sending updates to the server
+	closeChan <- struct{}{}
+
+	t.Cleanup(func() {
+		//Stop the client
+		conn.Close()
+	})
+}
+
 type dummyEpSyncher struct{}
 
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
@@ -200,7 +364,7 @@ func TestHandleIPUpsert(t *testing.T) {
 	endptMgr := endpointmanager.New(hivetest.Logger(t), nil, &dummyEpSyncher{}, nil, nil, nil)
 
 	// create a new server instance
-	server := NewServer(endptMgr, nil, 1234, hivetest.Logger(t), nil)
+	server := NewServer(endptMgr, nil, 1234, hivetest.Logger(t), nil, nil, nil)
 
 	// Prepare a valid IPv4 (1.2.3.4/32).
 	prefix := netip.MustParsePrefix("1.2.3.4/32")

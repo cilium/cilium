@@ -12,6 +12,9 @@ import (
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
@@ -29,6 +32,14 @@ import (
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
 )
 
+// rulesSnapshot is a struct that holds the current state of the policy rules
+// It is used to send the current state of the policy rules to the client(standalone DNS proxy)
+type rulesSnapshot struct {
+	lock.Mutex
+	// rules is the current state of the policy rules
+	rules map[identity.NumericIdentity]policy.SelectorPolicy
+}
+
 // FQDNDataServer is the server for the standalone DNS proxy grpc server
 // It is responsible for handling the FQDN mapping requests from the SDP
 // and sending the DNS Policy updates to the SDP.
@@ -43,6 +54,13 @@ type FQDNDataServer struct {
 
 	endpointManager endpointmanager.EndpointManager
 
+	// db is the database used to store the policy rules table
+	db *statedb.DB
+
+	// policyRulesTable is the table used to store the policy rules
+	// Changes to this table are used to send the current state of the DNS rules to the client
+	policyRulesTable statedb.RWTable[policyRules]
+
 	// updateOnDNSMsg is a function to update the DNS message in the cilium agent on receiving the FQDN mapping
 	updateOnDNSMsg messagehandler.DNSMessageHandler
 
@@ -51,6 +69,9 @@ type FQDNDataServer struct {
 
 	// currentIdentityToIP is a map of the identity to list of IPs
 	currentIdentityToIP map[identity.NumericIdentity][]netip.Prefix
+
+	// rulesSnapshot is a snapshot of the current state of the policy rules
+	rulesSnapshot rulesSnapshot
 
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
@@ -63,7 +84,23 @@ type FQDNDataServer struct {
 	listener listenConfig
 }
 
+type policyRules struct {
+	Identity identity.NumericIdentity
+	SelPol   policy.SelectorPolicy
+}
+
+const PolicyRulesTableName = "policy-rules"
+
 var (
+	idIndex = statedb.Index[policyRules, uint32]{
+		Name: "id",
+		FromObject: func(e policyRules) index.KeySet {
+			return index.NewKeySet(index.Uint32(e.Identity.Uint32()))
+		},
+		FromKey:    index.Uint32,
+		FromString: index.Uint32String,
+		Unique:     true,
+	}
 	kaep = keepalive.EnforcementPolicy{
 		PermitWithoutStream: true, // Allow pings even when there are no active streams
 	}
@@ -102,21 +139,96 @@ type PolicyUpdater interface {
 
 // StreamPolicyState is a bidirectional streaming RPC to subscribe to DNS policies
 // SDP calls this method to subscribe to DNS policies
-// For each stream, we start a goroutine to receive the DNS policies ACKs
+// For each stream, we subscribe to the changes in the policy rules table and send the current state of the DNS rules to the client.
 // The flow of the method is as follows:
-// 1. Add the stream to the map( called by the client i.e SDP)
-// 2. Start a goroutine to receive the DNS policies ACKs for that particular client.
-// 3. Send the current state of the DNS rules to the client (We store the current state fo DNS rules during the endpoint regeneration see UpdatePolicyRulesLocked)
-// 4. Wait for the context to be done
-// Note: this method is left empty on purpose and will be update with the actual implementation in the future PRs for the standalone DNS proxy
+//  1. Send the current state of the DNS rules to the client.
+//  2. Subscribe to the changes in the policy rules table and wait for changes.
+//  3. For each change in the policy rules table, send the current state of the DNS rules to the client.
+//  4. If the stream context is done, return.
 func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateServer) error {
-	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
-	stream.Send(&pb.PolicyState{RequestId: "test"})
+	streamCtx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	wtxn := s.db.WriteTxn(s.policyRulesTable)
+	changeIterator, err := s.policyRulesTable.Changes(wtxn)
+	if err != nil {
+		wtxn.Abort()
+		return fmt.Errorf("failed to watch policy rules table: %w", err)
+	}
+	wtxn.Commit()
+
+	// Send the current state of the DNS policies to the client
+	if err := s.sendAndRecvAckForDNSPolicies(stream); err != nil {
+		s.log.Error("Failed to send current state of DNS policies to the client", logfields.Error, err)
+		return err
+	}
+
+	for {
+		// Wait for changes in the policy rules table.
+		// If there are changes, it will return the changes and a channel to watch for new changes.
+		// We will then send the current state of the DNS policies to the client.
+		changes, watch := changeIterator.Next(s.db.ReadTxn())
+		for range changes {
+			err := s.sendAndRecvAckForDNSPolicies(stream)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Wait until there's new changes to consume.
+		select {
+		case <-streamCtx.Done():
+			return nil
+		case <-watch:
+		}
+	}
+
+}
+
+// sendAndRecvAckForDNSPolicies sends the current state of the DNS policies to the client
+// and waits for the ACK from the client.
+func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer) error {
+	s.rulesSnapshot.Lock()
+	defer s.rulesSnapshot.Unlock()
+
+	requestID := uuid.New().String()
+	policyState := &pb.PolicyState{
+		RequestId: requestID,
+	}
+
+	if err := stream.Send(policyState); err != nil {
+		s.log.Error("Error sending DNS policies to client", logfields.Error, err)
+		return err
+	}
+	response, err := stream.Recv()
+	if err != nil {
+		s.log.Error("Error receiving DNS policies ACK from client", logfields.Error, err)
+		return err
+	}
+
+	s.log.Debug("Received DNS policies ACK from client", logfields.Response, response)
 	return nil
 }
 
+// newPolicyRulesTable creates a new table for storing the policy rules and registers it with the database.
+func newPolicyRulesTable(db *statedb.DB) (statedb.RWTable[policyRules], error) {
+	tbl, err := statedb.NewTable(
+		PolicyRulesTableName,
+		idIndex,
+	)
+	if err != nil {
+		return nil, err
+	}
+	err = db.RegisterTable(tbl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register table %s: %w", PolicyRulesTableName, err)
+	}
+	return tbl, nil
+}
+
 // NewServer creates a new FQDNDataServer which is used to handle the Standalone DNS Proxy grpc service
-func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSMessageHandler, port int, logger *slog.Logger, listener listenConfig) *FQDNDataServer {
+func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSMessageHandler, port int, logger *slog.Logger, listener listenConfig, db *statedb.DB, policyRulesTable statedb.RWTable[policyRules]) *FQDNDataServer {
+
 	fqdnDataServer := &FQDNDataServer{
 		port:                port,
 		endpointManager:     endpointManager,
@@ -125,6 +237,11 @@ func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg m
 		log:                 logger,
 		prefixLengths:       counter.DefaultPrefixLengthCounter(),
 		listener:            listener,
+		db:                  db,
+		policyRulesTable:    policyRulesTable,
+		rulesSnapshot: rulesSnapshot{
+			rules: make(map[identity.NumericIdentity]policy.SelectorPolicy),
+		},
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
@@ -192,8 +309,28 @@ func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity
 // 2. when the client subscribes to DNS policies, we send the current state of the DNS rules to the client(flag rulesUpdate as false)
 // 3. when the IP identity cache changes, we update the current state of the identity to IP mapping and send the current state of the DNS rules to
 // the client(flag rulesUpdate as false)
-// Note: this method is left empty on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
+// Note: this method is sending constant test data on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
 func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
+	s.rulesSnapshot.Lock()
+	defer s.rulesSnapshot.Unlock()
+
+	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
+	if rulesUpdate {
+		s.rulesSnapshot.rules = policies
+	}
+	wtxn := s.db.WriteTxn(s.policyRulesTable)
+	for id, selPol := range policies {
+		_, _, err := s.policyRulesTable.Insert(wtxn, policyRules{
+			Identity: id,
+			SelPol:   selPol,
+		})
+		if err != nil {
+			wtxn.Abort()
+			return err
+		}
+
+	}
+	wtxn.Commit()
 	return nil
 }
 
@@ -248,6 +385,7 @@ func (s *FQDNDataServer) Stop() {
 	if s.grpcServer == nil {
 		return
 	}
+
 	// Stop the grpc server
 	s.grpcServer.GracefulStop()
 }
