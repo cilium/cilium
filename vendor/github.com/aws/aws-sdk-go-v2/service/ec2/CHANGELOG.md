@@ -1,3 +1,7 @@
+# v1.225.1 (2025-06-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.225.0 (2025-06-09)
 
 * **Feature**: Release to support Elastic VMware Service (Amazon EVS) Subnet and Amazon EVS Network Interface Types.
