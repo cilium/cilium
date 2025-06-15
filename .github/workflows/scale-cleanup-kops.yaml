@@ -26,7 +26,7 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.4
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 525.0.0
+  gcloud_version: 526.0.1
 
 jobs:
   cleanup-kops-clusters:
@@ -44,7 +44,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/install-kops@080c1407c40367026008aff9fec13aa48c128d22 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
