@@ -304,9 +304,20 @@ spec:
       {{- end }}
       {{- end }}
       {{- end }}
-      {{- with .Values.operator.tolerations }}
       tolerations:
-        {{- toYaml . | trim | nindent 8 }}
+      {{- if gt (len .Values.operator.tolerations) 0 }}
+        {{- toYaml .Values.operator.tolerations | trim | nindent 8 }}
+      {{- else }}
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: Exists
+        - key: "node-role.kubernetes.io/master" #deprecated
+          operator: Exists
+        - key: "node.kubernetes.io/not-ready"
+          operator: Exists
+        {{- with (coalesce .Values.agentNotReadyTaintKey "node.cilium.io/agent-not-ready") }}
+        - key: {{ . }}
+          operator: Exists
+        {{- end }}
       {{- end }}
       volumes:
         # To read the configuration from the config map
