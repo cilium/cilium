@@ -649,20 +649,6 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/Service"
-  "/service/{id}":
-    get:
-      summary: Retrieve configuration of a service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Service"
-        '404':
-          description: Service not found
 
   "/recorder":
     get:

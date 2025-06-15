@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -120,9 +121,10 @@ type BPFOps struct {
 	LBMaps maps.LBMaps
 	log    rateLimitingLogger
 
-	cfg    loadbalancer.Config
-	extCfg loadbalancer.ExternalConfig
-	maglev *maglev.Maglev
+	cfg           loadbalancer.Config
+	extCfg        loadbalancer.ExternalConfig
+	maglev        *maglev.Maglev
+	lastUpdatedAt atomic.Pointer[time.Time]
 
 	serviceIDAlloc     idAllocator
 	restoredServiceIDs sets.Set[loadbalancer.ID]
@@ -191,8 +193,19 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
 	}
+	ops.setLastUpdatedAt()
+
 	p.Lifecycle.Append(cell.Hook{OnStart: ops.start})
 	return ops
+}
+
+func (ops *BPFOps) GetLastUpdatedAt() time.Time {
+	return *ops.lastUpdatedAt.Load()
+}
+
+func (ops *BPFOps) setLastUpdatedAt() {
+	now := time.Now()
+	ops.lastUpdatedAt.Store(&now)
 }
 
 func (ops *BPFOps) start(cell.HookContext) (err error) {
@@ -283,6 +296,8 @@ func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+	defer ops.setLastUpdatedAt()
+
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -627,6 +642,8 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+	defer ops.setLastUpdatedAt()
+
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
