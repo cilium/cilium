@@ -1062,7 +1062,7 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalN
 	deviceNames := cfg.DeviceNames()
 
 	// Add cilium_wg0 if necessary.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
+	if option.Config.EnableWireguard {
 		deviceNames = append(slices.Clone(deviceNames), wgtypes.IfaceName)
 	}
 
