@@ -264,6 +264,12 @@ func (ipc *IPCache) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) sour
 	return ipc.metadata.getLocked(prefix).Source()
 }
 
+func (m *metadata) get(prefix cmtypes.PrefixCluster) prefixInfo {
+	m.RLock()
+	defer m.RUnlock()
+	return m.getLocked(prefix)
+}
+
 func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) prefixInfo {
 	return m.m[canonicalPrefix(prefix)]
 }
@@ -277,6 +283,8 @@ func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) prefixInfo {
 // - 10.1.1.0/24 -> "d=e"
 // the complete set of labels for 10.1.1.0/24 is [a=c, d=e, foo=bar]
 func (m *metadata) mergeParentLabels(lbls labels.Labels, prefixCluster cmtypes.PrefixCluster) {
+	m.RLock()
+	defer m.RUnlock()
 	hasCIDR := lbls.HasSource(labels.LabelSourceCIDR) // we should only merge one CIDR label
 
 	// Iterate over all shorter prefixes, from `prefix` to 0.0.0.0/0 // ::/0.
@@ -366,14 +374,12 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		unmanagedPrefixes = make(map[cmtypes.PrefixCluster]Identity)
 	)
 
-	ipc.metadata.RLock()
-
 	for i, prefix := range modifiedPrefixes {
 		pstr := prefix.String()
 		oldID, entryExists := ipc.LookupByIP(pstr)
 		oldTunnelIP, oldEncryptionKey := ipc.getHostIPCache(pstr)
 		oldEndpointFlags := ipc.getEndpointFlags(pstr)
-		prefixInfo := ipc.metadata.getLocked(prefix)
+		prefixInfo := ipc.metadata.get(prefix)
 		var newID *identity.Identity
 		var isNew bool
 		if prefixInfo == nil {
@@ -551,8 +557,6 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		}
 
 	}
-	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
-	ipc.metadata.RUnlock()
 
 	// Batch update the SelectorCache and policymaps with the newly allocated identities.
 	// This must be done before writing them to the ipcache, or else traffic may be dropped.
