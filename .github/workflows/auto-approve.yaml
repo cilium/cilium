@@ -56,6 +56,6 @@ jobs:
         reviewers=$(gh pr view ${PULL_REQUEST_NUMBER} --json reviewRequests --jq '.reviewRequests[] | select(."__typename"=="User") | .login')
         for reviewer in $reviewers; do
           if [ "$reviewer" != "ciliumbot" ]; then
-            gh pr edit ${PULL_REQUEST_NUMBER} --remove-reviewer "$reviewer"
+            gh -R ${GITHUB_REPOSITORY} pr edit ${PULL_REQUEST_NUMBER} --remove-reviewer "$reviewer"
           fi
         done
