@@ -211,7 +211,8 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 		lbClass := svc.Spec.LoadBalancerClass
 		svc.Spec = desired.Spec
 		svc.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(svc, desired)
+		svc.Labels = desired.Labels
+		svc.Annotations = desired.Annotations
 
 		// Ignore the loadBalancerClass if it was set by a mutating webhook
 		svc.Spec.LoadBalancerClass = lbClass
@@ -225,7 +226,8 @@ func (r *gatewayReconciler) ensureEndpoints(ctx context.Context, desired *corev1
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
 		ep.Subsets = desired.Subsets
 		ep.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(ep, desired)
+		ep.Labels = desired.Labels
+		ep.Annotations = desired.Annotations
 		return nil
 	})
 	return err
@@ -235,7 +237,8 @@ func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *cili
 	cec := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
 		cec.Spec = desired.Spec
-		setMergedLabelsAndAnnotations(cec, desired)
+		cec.Labels = desired.Labels
+		cec.Annotations = desired.Annotations
 		return nil
 	})
 	return err
