@@ -1,11 +1,11 @@
-#! --devices=dummy+ --force-device-detection
+#! --devices=dummy+ --force-device-detection --device-prefixes-to-exclude=ex-dummy,dummy
 
 # Tests the behavior of device detection when forced detection is enabled.
 
 # Start the hive
 hive start
 
-# Add dummy0 interface - matches devices wildcard, should be selected.
+# Add dummy0 interface - matches devices wildcard, should be selected even it matches device-prefixes-to-exclude
 exec ip link add dummy0 type dummy
 exec ip addr add 192.168.0.1/24 dev dummy0
 exec ip link set dummy0 up
@@ -21,8 +21,13 @@ exec ip link add eth0 type dummy
 exec ip addr add 1.2.3.4/24 dev eth0
 exec ip link set eth0 up
 
+# Add ex-dummy3 interface - should be excluded due to device-prefixes-to-exclude
+exec ip link add ex-dummy3 type dummy
+exec ip addr add 192.168.1.1/24 dev ex-dummy3
+exec ip link set ex-dummy3 up
+
 # Verify selected devices. All 3 of them should be selected.
-db/cmp --grep='^(lo|dummy|eth)' devices devices.table
+db/cmp --grep='^(lo|dummy|eth|ex)' devices devices.table
 
 # ---------------------------------------------
 
@@ -32,3 +37,4 @@ lo          false      device
 dummy0      true       dummy
 dummy1      true       dummy
 eth0        true       dummy
+ex-dummy3   false      dummy

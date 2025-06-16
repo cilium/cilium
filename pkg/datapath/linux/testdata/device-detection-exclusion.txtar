@@ -1,0 +1,33 @@
+#! --device-prefixes-to-exclude=ex1-dummy,ex2-dummy
+
+# Tests the behavior of device detection when device-prefixes-to-exclude is provided
+
+# Start the hive
+hive start
+
+# Add dummy0 interface - doesn't match prefix, should be selected.
+exec ip link add dummy0 type dummy
+exec ip addr add 192.168.0.1/24 dev dummy0
+exec ip link set dummy0 up
+
+# Add ex1-dummy interface - matches prefix, should be excluded.
+exec ip link add ex1-dummy1 type dummy
+exec ip addr add 192.168.1.1/24 dev ex1-dummy1
+exec ip link set ex1-dummy1 up
+
+# Add ex2-dummy2 interface - matches prefix, should be excluded.
+exec ip link add ex2-dummy2 type dummy
+exec ip addr add 192.168.2.1/24 dev ex2-dummy2
+exec ip link set ex2-dummy2 up
+
+# Verify selected devices. Only dummy0 should be selected.
+db/cmp --grep='^(lo|dummy|ex)' devices devices.table
+
+# ---------------------------------------------
+
+-- devices.table --
+Name        Selected   Type
+lo          false      device
+dummy0      true       dummy
+ex1-dummy1  false      dummy
+ex2-dummy2  false      dummy

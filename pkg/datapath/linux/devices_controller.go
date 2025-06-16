@@ -71,6 +71,8 @@ func (c DevicesConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
 
 	flags.Bool(option.ForceDeviceDetection, false, "Forces the auto-detection of devices, even if specific devices are explicitly listed")
+
+	flags.StringSlice("device-prefixes-to-exclude", []string{}, "List of prefixes of devices to exclude from cilium management. Devices selected by --devices won't be excluded")
 }
 
 var (
@@ -98,6 +100,8 @@ type DevicesConfig struct {
 	// ForceDeviceDetection forces the auto-detection of devices,
 	// even if user-specific devices are explicitly listed.
 	ForceDeviceDetection bool
+	// DevicePrefixesToExclude excludes devices that have the prefixes.
+	DevicePrefixesToExclude []string
 }
 
 type devicesControllerParams struct {
@@ -118,9 +122,10 @@ type devicesController struct {
 	params devicesControllerParams
 	log    *slog.Logger
 
-	initialized          chan struct{}
-	filter               tables.DeviceFilter
-	enforceAutoDetection bool
+	initialized             chan struct{}
+	filter                  tables.DeviceFilter
+	enforceAutoDetection    bool
+	devicePrefixesToExclude []string
 
 	// deadLinkIndexes tracks the set of links that have been deleted. This is needed
 	// to avoid processing route or address updates after a link delete as they may
@@ -132,12 +137,13 @@ type devicesController struct {
 
 func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route], statedb.Table[*tables.Neighbor]) {
 	dc := &devicesController{
-		params:               p,
-		initialized:          make(chan struct{}),
-		filter:               tables.DeviceFilter(p.Config.Devices),
-		enforceAutoDetection: p.Config.ForceDeviceDetection,
-		log:                  p.Log,
-		deadLinkIndexes:      sets.New[int](),
+		params:                  p,
+		initialized:             make(chan struct{}),
+		filter:                  tables.DeviceFilter(p.Config.Devices),
+		enforceAutoDetection:    p.Config.ForceDeviceDetection,
+		devicePrefixesToExclude: append(defaults.ExcludedDevicePrefixes, p.Config.DevicePrefixesToExclude...),
+		log:                     p.Log,
+		deadLinkIndexes:         sets.New[int](),
 	}
 	lc.Append(dc)
 	return dc, p.DeviceTable, p.RouteTable, p.NeighborTable
@@ -646,7 +652,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 	}
 
 	// Never consider devices with any of the excluded devices.
-	for _, p := range defaults.ExcludedDevicePrefixes {
+	for _, p := range dc.devicePrefixesToExclude {
 		if strings.HasPrefix(d.Name, p) {
 			return false, fmt.Sprintf("excluded prefix %q", p)
 		}
