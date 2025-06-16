@@ -46,7 +46,7 @@ jobs:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
