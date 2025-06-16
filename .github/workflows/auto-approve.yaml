@@ -53,7 +53,7 @@ jobs:
         gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve
 
         echo "Remove other reviewers except ciliumbot to avoid noise"
-        reviewers=$(gh pr view ${PULL_REQUEST_NUMBER} --json reviewRequests --jq '.reviewRequests[] | select(."__typename"=="User") | .login')
+        reviewers=$(gh -R ${GITHUB_REPOSITORY} pr view ${PULL_REQUEST_NUMBER} --json reviewRequests --jq '.reviewRequests[] | select(."__typename"=="User") | .login')
         for reviewer in $reviewers; do
           if [ "$reviewer" != "ciliumbot" ]; then
             gh -R ${GITHUB_REPOSITORY} pr edit ${PULL_REQUEST_NUMBER} --remove-reviewer "$reviewer"
