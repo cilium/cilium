@@ -231,12 +231,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	if option.Config.TunnelingEnabled() && params.TunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
-		if option.Config.EnableWireguard {
-			return nil, nil, fmt.Errorf("WireGuard requires an IPv4 underlay")
-		}
-	}
-
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if option.Config.EnableIPSec &&
