@@ -871,13 +871,6 @@ ciliumEndpointSlice:
     - nodes: 100
       limit: 50
       burst: 100
-  # @schema
-  # enum: ["identity", "fcfs"]
-  # @schema
-  # -- The slicing mode to use for CiliumEndpointSlices.
-  # identity groups together CiliumEndpoints that share the same identity.
-  # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
-  sliceMode: identity
 # @schema
 # enum: ["agent", "operator", "both"]
 # @schema

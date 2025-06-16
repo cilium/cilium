@@ -531,7 +531,7 @@
    * - :spelling:ignore:`ciliumEndpointSlice`
      - CiliumEndpointSlice configuration options.
      - object
-     - ``{"enabled":false,"rateLimits":[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}],"sliceMode":"identity"}``
+     - ``{"enabled":false,"rateLimits":[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}]}``
    * - :spelling:ignore:`ciliumEndpointSlice.enabled`
      - Enable Cilium EndpointSlice feature.
      - bool
@@ -540,10 +540,6 @@
      - List of rate limit options to be used for the CiliumEndpointSlice controller. Each object in the list must have the following fields: nodes: Count of nodes at which to apply the rate limit. limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50. burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
      - list
      - ``[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}]``
-   * - :spelling:ignore:`ciliumEndpointSlice.sliceMode`
-     - The slicing mode to use for CiliumEndpointSlices. identity groups together CiliumEndpoints that share the same identity. fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
-     - string
-     - ``"identity"``
    * - :spelling:ignore:`cleanBpfState`
      - Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care!
      - bool
