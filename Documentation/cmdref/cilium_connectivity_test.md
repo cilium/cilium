@@ -116,6 +116,7 @@ cilium connectivity test [flags]
       --test-namespace string                                 Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1) (default "cilium-test")
       --timeout duration                                      Maximum time to allow the connectivity test suite to take
   -t, --timestamp                                             Show timestamp in messages
+      --tolerations strings                                   Extra NoSchedule tolerations added to test pods
   -v, --verbose                                               Show informational messages and don't buffer any lines
 ```
 
