@@ -169,6 +169,7 @@ func registerCECK8sReflector(
 				Name:      objMeta.GetName(),
 				Namespace: objMeta.GetNamespace(),
 			},
+			Labels:           objMeta.Labels,
 			Selector:         selector,
 			SelectsLocalNode: selectsLocalNode,
 			ServicePorts:     servicePorts,
