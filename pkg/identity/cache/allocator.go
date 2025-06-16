@@ -329,6 +329,10 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 // The CachingIdentityAllocator is used in multiple places, but we only want to
 // checkpoint the "primary" allocator
 func (m *CachingIdentityAllocator) EnableCheckpointing() {
+	// Disallow other local allocation until we've restored from the checkpoint.
+	// This will be unlocked in ReleaseIdentities
+	m.localLock.Lock()
+
 	controllerManager := controller.NewManager()
 	controllerGroup := controller.NewGroup("identity-allocator")
 	controllerName := "local-identity-checkpoint"
@@ -387,6 +391,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
+
 	}
 	m.watcher.watch(m.events)
 
@@ -468,6 +473,10 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 	)
 	m.localLock.Lock()
 	defer m.localLock.Unlock()
+	return m.allocateLocalIdentityLocked(lbls, notifyOwner, oldNID)
+}
+
+func (m *CachingIdentityAllocator) allocateLocalIdentityLocked(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
 
 	// Allocate according to scope
 	var metricLabel string
@@ -667,6 +676,16 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 	if m.checkpointPath == "" {
 		return nil, nil // unit test
 	}
+
+	if m.checkpointTrigger == nil {
+		m.logger.Error("BUG: RestoreLocalIdentities() called without EnableCheckpointing()")
+		return nil, nil
+	}
+
+	// The allocator was started with local allocation locked to ensure restoration
+	// always runs first. Once done, we must unlock so other allocation can proceed.
+	defer m.localLock.Unlock()
+
 	scopedLog := m.logger.With(logfields.Path, m.checkpointPath)
 
 	// Read in checkpoint file
@@ -724,7 +743,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 			continue
 		}
 
-		newID, _, err := m.AllocateLocalIdentity(
+		newID, _, err := m.allocateLocalIdentityLocked(
 			oldID.Labels,
 			false,    // do not add to selector cache; we'll batch that later
 			oldID.ID, // request previous numeric ID
