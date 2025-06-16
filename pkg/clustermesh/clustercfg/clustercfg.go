@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package utils
+package clustercfg
 
 import (
 	"context"
@@ -19,12 +19,12 @@ import (
 )
 
 var (
-	// ErrClusterConfigNotFound is the sentinel error returned by
-	// GetClusterConfig if the cluster configuration is not found.
-	ErrClusterConfigNotFound = errors.New("not found")
+	// ErrNotFound is the sentinel error returned by [clustercfg.Get] if the
+	// cluster configuration is not found.
+	ErrNotFound = errors.New("not found")
 
-	// clusterConfigEnforcerGroup is the group for the controllers enforcing
-	clusterConfigEnforcerGroup = controller.NewGroup("clustermesh-cluster-config-enforcer")
+	// enforcerGroup is the group for the controllers enforcing
+	enforcerGroup = controller.NewGroup("clustermesh-cluster-config-enforcer")
 
 	// runInterval is the cluster configuration enforcement interval
 	runInterval = 5 * time.Minute
@@ -35,7 +35,7 @@ type ClusterConfigBackend interface {
 	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 }
 
-func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend ClusterConfigBackend) error {
+func Set(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend ClusterConfigBackend) error {
 	key := path.Join(kvstore.ClusterConfigPrefix, clusterName)
 
 	val, err := json.Marshal(config)
@@ -54,10 +54,10 @@ func SetClusterConfig(ctx context.Context, clusterName string, config cmtypes.Ci
 	return nil
 }
 
-// EnforceClusterConfig synchronously writes the cluster configuration, and
-// additionally registers a background task to periodically enforce its presence
+// Enforce synchronously writes the cluster configuration, and additionally
+// registers a background task to periodically enforce its presence
 // (e.g., in case the associated lease unexpectedly expired).
-func EnforceClusterConfig(
+func Enforce(
 	ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig,
 	backend ClusterConfigBackend, log *slog.Logger,
 ) (stopAndWait func(), err error) {
@@ -70,10 +70,10 @@ func EnforceClusterConfig(
 		fmt.Sprintf("clustermesh-cluster-config-enforcer-%s", clusterName),
 		controller.ControllerParams{
 			Context:     ctx,
-			Group:       clusterConfigEnforcerGroup,
+			Group:       enforcerGroup,
 			RunInterval: runInterval,
 			DoFunc: func(ctx context.Context) error {
-				err := SetClusterConfig(ctx, clusterName, config, backend)
+				err := Set(ctx, clusterName, config, backend)
 				select {
 				case ch <- err:
 					if err != nil {
@@ -99,7 +99,7 @@ func EnforceClusterConfig(
 	return mgr.RemoveAllAndWait, err
 }
 
-func GetClusterConfig(ctx context.Context, clusterName string, backend ClusterConfigBackend) (cmtypes.CiliumClusterConfig, error) {
+func Get(ctx context.Context, clusterName string, backend ClusterConfigBackend) (cmtypes.CiliumClusterConfig, error) {
 	var config cmtypes.CiliumClusterConfig
 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
@@ -111,7 +111,7 @@ func GetClusterConfig(ctx context.Context, clusterName string, backend ClusterCo
 	}
 
 	if val == nil {
-		return cmtypes.CiliumClusterConfig{}, ErrClusterConfigNotFound
+		return cmtypes.CiliumClusterConfig{}, ErrNotFound
 	}
 
 	if err := json.Unmarshal(val, &config); err != nil {

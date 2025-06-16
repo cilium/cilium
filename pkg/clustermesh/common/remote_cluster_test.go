@@ -15,8 +15,8 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -37,7 +37,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	const name = "remote"
 	path := filepath.Join(t.TempDir(), name)
 	writeFile(t, path, fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
-	require.NoError(t, utils.SetClusterConfig(context.Background(), name, types.CiliumClusterConfig{ID: 2}, client))
+	require.NoError(t, clustercfg.Set(context.Background(), name, types.CiliumClusterConfig{ID: 2}, client))
 
 	wait := func(t *testing.T, ch <-chan struct{}, msg string) {
 		t.Helper()

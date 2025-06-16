@@ -24,9 +24,9 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -258,7 +258,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// Assert that the cluster config got properly propagated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				cfg, err := utils.GetClusterConfig(ctx, "foo", client)
+				cfg, err := clustercfg.Get(ctx, "foo", client)
 				assert.NoError(c, err)
 				assert.Equal(c, tt.dstcfg, cfg)
 			}, timeout, tick, "Failed to retrieve the cluster config")
@@ -539,7 +539,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	// Let's manually create a fake cluster configuration for the remote cluster,
 	// because we are using the same kvstore. This will be used as a synchronization
 	// point to stop the hive while blocked waiting for the grace period.
-	require.NoError(t, utils.SetClusterConfig(ctx, "remote", types.CiliumClusterConfig{ID: 20}, client))
+	require.NoError(t, clustercfg.Set(ctx, "remote", types.CiliumClusterConfig{ID: 20}, client))
 
 	var km *KVStoreMesh
 	h := hive.New(

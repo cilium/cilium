@@ -10,9 +10,9 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
@@ -93,7 +93,7 @@ func startServer(
 		},
 	}
 
-	_, err := cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, logger)
+	_, err := clustercfg.Enforce(context.Background(), cinfo.Name, config, backend, logger)
 	if err != nil {
 		logging.Fatal(logger, "Unable to set local cluster config on kvstore", logfields.Error, err)
 	}
