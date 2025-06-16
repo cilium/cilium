@@ -667,6 +667,7 @@ func testCheckpointRestore(t *testing.T, testConfig testConfig) {
 	dir := t.TempDir()
 	mgr.checkpointPath = filepath.Join(dir, CheckpointFile)
 	mgr.EnableCheckpointing()
+	mgr.RestoreLocalIdentities()
 
 	for _, l := range []string{
 		"cidr:1.1.1.1/32;reserved:kube-apiserver",
@@ -697,6 +698,7 @@ func testCheckpointRestore(t *testing.T, testConfig testConfig) {
 	newMgr := NewCachingIdentityAllocator(logger, owner, NewTestAllocatorConfig())
 	defer newMgr.Close()
 	newMgr.checkpointPath = mgr.checkpointPath
+	newMgr.EnableCheckpointing()
 
 	restored, err := newMgr.RestoreLocalIdentities()
 	assert.NoError(t, err)

@@ -122,7 +122,10 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 		// Allocator: allocates local and cluster-wide security identities.
 		cacheIDAlloc := cache.NewCachingIdentityAllocator(params.Log, iao, allocatorConfig)
-		cacheIDAlloc.EnableCheckpointing()
+
+		if option.Config.RestoreState && !option.Config.DryMode {
+			cacheIDAlloc.EnableCheckpointing()
+		}
 
 		idAlloc = cacheIDAlloc
 	} else {
