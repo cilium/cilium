@@ -680,20 +680,35 @@ func (ct *ConnectivityTest) detectPodCIDRs() {
 			continue
 		}
 
+		// PodIPs match HostIPs given that the pod is running in host network.
+		hostIPs := pod.Pod.Status.PodIPs
+
 		for _, cidr := range n.Spec.IPAM.PodCIDRs {
-			// PodIPs match HostIPs given that the pod is running in host network.
-			for _, ip := range pod.Pod.Status.PodIPs {
-				f := features.GetIPFamily(ip.IP)
-				if strings.Contains(cidr, ":") != (f == features.IPFamilyV6) {
-					// Skip if the host IP of the pod mismatches with pod CIDR.
-					// Cannot create a route with the gateway IP family
-					// mismatching the subnet.
-					continue
-				}
-				ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, ip.IP})
+			ct.params.PodCIDRs = append(ct.params.PodCIDRs, toPodCIDRs(cidr, hostIPs...)...)
+		}
+
+		// additional IP pools from multi-pool IPAM mode
+		for _, pool := range n.Spec.IPAM.Pools.Allocated {
+			for _, podCIDR := range pool.CIDRs {
+				ct.params.PodCIDRs = append(ct.params.PodCIDRs, toPodCIDRs(string(podCIDR), hostIPs...)...)
 			}
 		}
 	}
+}
+
+func toPodCIDRs(cidr string, podIPs ...corev1.PodIP) []podCIDRs {
+	var podCIDRsInfo []podCIDRs
+	for _, ip := range podIPs {
+		f := features.GetIPFamily(ip.IP)
+		if strings.Contains(cidr, ":") != (f == features.IPFamilyV6) {
+			// Skip if the host IP of the pod mismatches with pod CIDR.
+			// Cannot create a route with the gateway IP family
+			// mismatching the subnet.
+			continue
+		}
+		podCIDRsInfo = append(podCIDRsInfo, podCIDRs{cidr, ip.IP})
+	}
+	return podCIDRsInfo
 }
 
 // detectNodeCIDRs produces one or more CIDRs that cover all nodes in the cluster.
