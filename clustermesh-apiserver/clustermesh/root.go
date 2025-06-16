@@ -4,17 +4,9 @@
 package clustermesh
 
 import (
-	"context"
-	"log/slog"
-
-	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -50,53 +42,4 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 	h.RegisterFlags(rootCmd.Flags())
 	rootCmd.AddCommand(h.Command())
 	return rootCmd
-}
-
-type parameters struct {
-	cell.In
-
-	CfgMCSAPI   operator.MCSAPIConfig
-	ClusterInfo cmtypes.ClusterInfo
-	Backend     kvstore.Client
-
-	Logger *slog.Logger
-}
-
-func RegisterHooks(lc cell.Lifecycle, params parameters) error {
-	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			startServer(params.ClusterInfo, params.Backend, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
-			return nil
-		},
-	})
-	return nil
-}
-
-func startServer(
-	cinfo cmtypes.ClusterInfo,
-	backend kvstore.BackendOperations,
-	clusterMeshEnableMCSAPI bool,
-	logger *slog.Logger,
-) {
-	logger.Info(
-		"Starting clustermesh-apiserver...",
-		logfields.ClusterName, cinfo.Name,
-		logfields.ClusterID, cinfo.ID,
-	)
-
-	config := cmtypes.CiliumClusterConfig{
-		ID: cinfo.ID,
-		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
-			SyncedCanaries:        true,
-			MaxConnectedClusters:  cinfo.MaxConnectedClusters,
-			ServiceExportsEnabled: &clusterMeshEnableMCSAPI,
-		},
-	}
-
-	_, err := clustercfg.Enforce(context.Background(), cinfo.Name, config, backend, logger)
-	if err != nil {
-		logging.Fatal(logger, "Unable to set local cluster config on kvstore", logfields.Error, err)
-	}
-
-	logger.Info("Initialization complete")
 }

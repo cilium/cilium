@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -55,10 +56,12 @@ var Cell = cell.Module(
 
 	HealthAPIEndpointsCell,
 
+	clustercfgcell.WithSyncedCanaries(true),
+	clustercfgcell.Cell,
+
 	Synchronization,
 
 	usersManagementCell,
-	cell.Invoke(RegisterHooks),
 )
 
 var Synchronization = cell.Module(

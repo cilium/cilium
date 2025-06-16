@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -74,8 +75,9 @@ func TestScript(t *testing.T) {
 				return syncstate.SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
 			}),
 
+			clustercfgcell.WithSyncedCanaries(true),
+			clustercfgcell.Cell,
 			clustermesh.Synchronization,
-			cell.Invoke(clustermesh.RegisterHooks),
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
