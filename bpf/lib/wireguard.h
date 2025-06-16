@@ -71,31 +71,16 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 # if defined(HAVE_ENCAP)
-		/* A rudimentary check (inspired by is_enap()) whether a pkt
-		 * is coming from tunnel device. In tunneling mode WG needs to
-		 * encrypt such pkts, so that src sec ID can be transferred.
+		/* In tunneling mode WG needs to encrypt tunnel traffic,
+		 * so that src sec ID can be transferred.
 		 *
 		 * This also handles IPv6, as IPv6 pkts are encapsulated w/
 		 * IPv4 tunneling.
-		 *
-		 * TODO: in v1.17, we can trust that to-overlay will mark all
-		 * traffic. Then replace this with ctx_is_overlay().
 		 */
-		if (ip4->protocol == IPPROTO_UDP) {
-			int l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-			__be16 dport;
-
-			if (l4_load_port(ctx, l4_off + UDP_DPORT_OFF, &dport) < 0) {
-				/* IP fragmentation is not expected after the
-				 * encap. So this is non-Cilium's pkt.
-				 */
-				break;
-			}
-
-			if (dport == bpf_htons(TUNNEL_PORT))
-				goto overlay_encrypt;
-		}
+		if (ctx_is_overlay(ctx))
+			goto overlay_encrypt;
 # endif /* HAVE_ENCAP */
+
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
 		if (src_sec_identity == UNKNOWN_ID) {
