@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	clustercfg "github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -107,7 +107,7 @@ func startKvstoreWatchdog(logger *slog.Logger, client kvstore.Client, cfgMCSAPI 
 						MaxConnectedClusters:  option.Config.MaxConnectedClusters,
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
-				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, client); err != nil {
+				if err := clustercfg.Set(ctx, option.Config.ClusterName, cfg, client); err != nil {
 					logger.Warn("Unable to set local cluster config", logfields.Error, err)
 				}
 			}

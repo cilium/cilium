@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -92,7 +92,7 @@ func TestClusterMesh(t *testing.T) {
 			config.Capabilities.SyncedCanaries = true
 		}
 
-		err := cmutils.SetClusterConfig(ctx, name, config, client)
+		err := clustercfg.Set(ctx, name, config, client)
 		require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 	}
 
@@ -161,7 +161,7 @@ func TestClusterMesh(t *testing.T) {
 			MaxConnectedClusters: 255,
 		},
 	}
-	err := cmutils.SetClusterConfig(ctx, "cluster1", config, client)
+	err := clustercfg.Set(ctx, "cluster1", config, client)
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")
 	// Ugly hack to trigger config update
 	etcdConfigNew := append(etcdConfig, []byte("\n")...)

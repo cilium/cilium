@@ -27,9 +27,9 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -167,7 +167,7 @@ func TestScript(t *testing.T) {
 							MaxConnectedClusters: 255,
 						},
 					}
-					err := cmutils.SetClusterConfig(context.TODO(), name, config, client)
+					err := clustercfg.Set(context.TODO(), name, config, client)
 					require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 				}
 			}),

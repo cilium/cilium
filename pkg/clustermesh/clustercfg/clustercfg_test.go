@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package utils
+package clustercfg
 
 import (
 	"context"
@@ -64,32 +64,32 @@ func TestGetSetClusterConfig(t *testing.T) {
 	cfg2 := cmtypes.CiliumClusterConfig{ID: 22, Capabilities: cmtypes.CiliumClusterConfigCapabilities{Cached: true}}
 	cfg3 := cmtypes.CiliumClusterConfig{ID: 33, Capabilities: cmtypes.CiliumClusterConfigCapabilities{Cached: true}}
 
-	require.NoError(t, SetClusterConfig(ctx, "foo", cfg1, &mb), "failed to write cluster configuration")
-	require.NoError(t, SetClusterConfig(ctx, "bar", cfg2, &mb), "failed to write cluster configuration")
-	require.NoError(t, SetClusterConfig(ctx, "bar", cfg3, &mb), "failed to update cluster configuration")
-	require.NoError(t, SetClusterConfig(ctx, "bar", cfg3, &mb), "failed to update cluster configuration (same value)")
+	require.NoError(t, Set(ctx, "foo", cfg1, &mb), "failed to write cluster configuration")
+	require.NoError(t, Set(ctx, "bar", cfg2, &mb), "failed to write cluster configuration")
+	require.NoError(t, Set(ctx, "bar", cfg3, &mb), "failed to update cluster configuration")
+	require.NoError(t, Set(ctx, "bar", cfg3, &mb), "failed to update cluster configuration (same value)")
 
 	mb.withError("error")
-	require.ErrorIs(t, SetClusterConfig(ctx, "error", cfg1, &mb), mockerr, "kvstore error not propagated correctly")
+	require.ErrorIs(t, Set(ctx, "error", cfg1, &mb), mockerr, "kvstore error not propagated correctly")
 
-	got, err := GetClusterConfig(ctx, "foo", &mb)
+	got, err := Get(ctx, "foo", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
 	require.Equal(t, got, cfg1, "retrieved configuration does not match expected one")
 
-	got, err = GetClusterConfig(ctx, "bar", &mb)
+	got, err = Get(ctx, "bar", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
 	require.Equal(t, got, cfg3, "retrieved configuration does not match expected one")
 
-	_, err = GetClusterConfig(ctx, "not-existing", &mb)
-	require.ErrorIs(t, err, ErrClusterConfigNotFound, "incorrect error for not found configuration")
+	_, err = Get(ctx, "not-existing", &mb)
+	require.ErrorIs(t, err, ErrNotFound, "incorrect error for not found configuration")
 
 	mb.withError("error")
-	_, err = GetClusterConfig(ctx, "error", &mb)
+	_, err = Get(ctx, "error", &mb)
 	require.ErrorIs(t, err, mockerr, "kvstore error not propagated correctly")
 
 	// Simulate invalid data stored in the kvstore
 	mb.UpdateIfDifferent(ctx, path.Join(kvstore.ClusterConfigPrefix, "invalid"), []byte("invalid"), true)
-	_, err = GetClusterConfig(ctx, "invalid", &mb)
+	_, err = Get(ctx, "invalid", &mb)
 	require.ErrorContains(t, err, "invalid character", "unmarshaling error not propagated correctly")
 }
 
@@ -107,31 +107,31 @@ func TestEnforceClusterConfig(t *testing.T) {
 	cfg1 := cmtypes.CiliumClusterConfig{ID: 11, Capabilities: cmtypes.CiliumClusterConfigCapabilities{SyncedCanaries: true}}
 	cfg2 := cmtypes.CiliumClusterConfig{ID: 22, Capabilities: cmtypes.CiliumClusterConfigCapabilities{Cached: true}}
 
-	stopAndWait1, err := EnforceClusterConfig(ctx, "foo", cfg1, &mb, log)
+	stopAndWait1, err := Enforce(ctx, "foo", cfg1, &mb, log)
 	defer stopAndWait1()
 	require.NoError(t, err, "failed to write cluster configuration")
 
-	stopAndWait2, err := EnforceClusterConfig(ctx, "bar", cfg2, &mb, log)
+	stopAndWait2, err := Enforce(ctx, "bar", cfg2, &mb, log)
 	defer stopAndWait2()
 	require.NoError(t, err, "failed to write cluster configuration")
 
 	mb.withError("error")
-	stopAndWait3, err := EnforceClusterConfig(ctx, "error", cfg2, &mb, log)
+	stopAndWait3, err := Enforce(ctx, "error", cfg2, &mb, log)
 	defer stopAndWait3()
 	require.ErrorIs(t, err, mockerr, "kvstore error not propagated correctly")
 
-	got, err := GetClusterConfig(ctx, "foo", &mb)
+	got, err := Get(ctx, "foo", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
 	require.Equal(t, got, cfg1, "retrieved configuration does not match expected one")
 
-	got, err = GetClusterConfig(ctx, "bar", &mb)
+	got, err = Get(ctx, "bar", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
 	require.Equal(t, got, cfg2, "retrieved configuration does not match expected one")
 
 	// Externally mutate the cluster configuration, and assert that it gets eventually reconciled.
-	require.NoError(t, SetClusterConfig(ctx, "bar", cfg1, &mb), "failed to override cluster configuration")
+	require.NoError(t, Set(ctx, "bar", cfg1, &mb), "failed to override cluster configuration")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		got, err = GetClusterConfig(ctx, "bar", &mb)
+		got, err = Get(ctx, "bar", &mb)
 		assert.NoError(c, err, "failed to read cluster configuration")
 		assert.Equal(c, got, cfg2, "retrieved configuration does not match expected one")
 	}, timeout, tick)

@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -193,7 +193,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					default:
 					}
 
-					if errors.Is(err, cmutils.ErrClusterConfigNotFound) {
+					if errors.Is(err, clustercfg.ErrNotFound) {
 						rc.logger.Warn("Unable to get remote cluster configuration",
 							logfields.Error, err,
 							logfields.Hint, "If KVStoreMesh is enabled, check whether it is connected to the target cluster."+
@@ -302,7 +302,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 		Group: clusterConfigControllerGroup,
 		DoFunc: func(ctx context.Context) error {
 			rc.logger.Debug("Retrieving cluster configuration from remote kvstore")
-			config, err := cmutils.GetClusterConfig(ctx, rc.name, backend)
+			config, err := clustercfg.Get(ctx, rc.name, backend)
 			if err != nil {
 				lastErrorLock.Lock()
 				lastError = err
