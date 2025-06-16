@@ -1238,7 +1238,7 @@ data:
   disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
 {{- end }}
 
-{{- if or .Values.ciliumEndpointSlice.enabled .Values.enableCiliumEndpointSlice }}
+{{- if .Values.ciliumEndpointSlice.enabled }}
   enable-cilium-endpoint-slice: "true"
   {{- if .Values.ciliumEndpointSlice.rateLimits }}
   ces-rate-limits: {{ .Values.ciliumEndpointSlice.rateLimits | toJson | quote }}

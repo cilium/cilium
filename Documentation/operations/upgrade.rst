@@ -404,6 +404,8 @@ Helm Options
   Starting from 1.19 KVStoreMesh will be unconditionally enabled when the Cluster Mesh API Server is enabled.
 * The ``l2NeighDiscovery.refreshPeriod`` option has been removed. Cilium will now refresh neighbor entries based on the ``base_reachable_time_ms`` sysctl value associated with that entry.
 * The ``l2NeighDiscovery.enabled`` option has been changed to default to ``false``.
+* The deprecated Helm option ``enableCiliumEndpointSlice`` has been removed. Set
+  ``ciliumEndpointSlice.enabled`` instead to enable CiliumEndpointSlices.
 
 Agent Options
 ~~~~~~~~~~~~~
