@@ -97,7 +97,7 @@ func (w *fence) Wait(ctx context.Context) error {
 		)
 		log.Info("Fence waiting")
 		if err := fn(ctx); err != nil {
-			log.Error("Fence error",
+			log.Info("Fence error",
 				logfields.Error, err)
 			return fmt.Errorf("%s: %w", name, err)
 		}
