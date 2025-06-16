@@ -97,8 +97,8 @@ Address               Type        ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:8080/TCP
 
 -- cec.table --
-Name                    Services
-test/envoy-lb-listener  test/echo
+Name                    Labels   Services
+test/envoy-lb-listener  foo=bar  test/echo
 
 -- envoy-resources.table --
 Name                            Listeners                                  Endpoints                    References             Status   Error
@@ -111,6 +111,8 @@ kind: CiliumEnvoyConfig
 metadata:
   name: envoy-lb-listener
   namespace: test
+  labels:
+    foo: bar
 spec:
   services:
     - name: echo
