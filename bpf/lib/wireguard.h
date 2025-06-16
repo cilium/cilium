@@ -68,6 +68,14 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	__u32 magic __maybe_unused = 0;
 
+# if defined(HAVE_ENCAP)
+		/* In tunneling mode WG needs to encrypt tunnel traffic,
+		 * so that src sec ID can be transferred.
+		 */
+		if (ctx_is_overlay(ctx))
+			goto overlay_encrypt;
+# endif /* HAVE_ENCAP */
+
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
 
@@ -110,16 +118,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
-# if defined(HAVE_ENCAP)
-		/* In tunneling mode WG needs to encrypt tunnel traffic,
-		 * so that src sec ID can be transferred.
-		 *
-		 * This also handles IPv6, as IPv6 pkts are encapsulated w/
-		 * IPv4 tunneling.
-		 */
-		if (ctx_is_overlay(ctx))
-			goto overlay_encrypt;
-# endif /* HAVE_ENCAP */
 
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
