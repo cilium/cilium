@@ -16,11 +16,11 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -85,7 +85,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		},
 	}
 
-	stopAndWait, err := cmutils.EnforceClusterConfig(ctx, rc.name, dstcfg, rc.localBackend, rc.logger)
+	stopAndWait, err := clustercfg.Enforce(ctx, rc.name, dstcfg, rc.localBackend, rc.logger)
 	defer stopAndWait()
 	if err != nil {
 		ready <- fmt.Errorf("failed to propagate cluster configuration: %w", err)
