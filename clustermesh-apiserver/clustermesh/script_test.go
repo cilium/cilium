@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
@@ -40,6 +41,18 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
+	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
+	t.Cleanup(func() {
+		goleak.VerifyNone(t,
+			goleak.IgnoreCurrent(),
+
+			// To ignore goroutine started by the workqueue. It reports metrics
+			// on unfinished work with default tick period of 0.5s - it terminates
+			// no longer than 0.5s after the workqueue is stopped.
+			goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
+		)
+	})
+
 	version.Force(testutils.DefaultVersion)
 
 	var opts []hivetest.LogOption
