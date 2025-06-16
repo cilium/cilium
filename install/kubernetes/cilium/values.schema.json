@@ -1714,9 +1714,6 @@
       },
       "type": "object"
     },
-    "enableCiliumEndpointSlice": {
-      "type": "boolean"
-    },
     "enableCriticalPriorityClass": {
       "type": "boolean"
     },
