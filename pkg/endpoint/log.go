@@ -107,10 +107,15 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 		}
 	}
 
+	// Pre-count the attributes to allocate the exact capacity needed
 	var (
-		args   []any
 		subsys any
+		// Pre-allocate slice with exact capacity (key+value pair for each attribute)
+		// 11 is the number of attributes we store in e.loggerAttrs, minus the logfields.LogSubsys attribute)
+		args = make([]any, 0, 2*(11-1))
 	)
+
+	// Fill the pre-allocated slice
 	e.loggerAttrs.Range(func(k string, v any) bool {
 		// Skip the subsys field so that we can use 'args' for both loggers
 		if k == logfields.LogSubsys {
@@ -128,9 +133,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 	e.loggerNoSubsys.Store(baseLogger)
 
 	// Create a base logger with the subsys attribute.
-	args = append(args, logfields.LogSubsys, subsys)
-	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
-	baseLogger = logging.DefaultSlogLogger.With(args...)
+	baseLoggerWithSubsys := baseLogger.With(logfields.LogSubsys, subsys)
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger.
@@ -141,7 +144,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 		// baseLogger.SetLevel(slog.LevelDebug)
 	}
 
-	e.logger.Store(baseLogger)
+	e.logger.Store(baseLoggerWithSubsys)
 }
 
 // Only to be called from UpdateLogger() above
