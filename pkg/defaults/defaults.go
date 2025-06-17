@@ -488,6 +488,12 @@ const (
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"
 
+	// TracePayloadLen is the default length of payload to capture when tracing.
+	// The value is aligned to 2 cache-lines (64B each):
+	// - decreasing below 64B would not be enough for decoding typical headers
+	// - any value between 64B-128B would still require access to 2 cache-lines
+	TracePayloadLen = 128
+
 	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
 	UseCiliumInternalIPForIPsec = false
 

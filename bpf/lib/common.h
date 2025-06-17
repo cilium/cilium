@@ -475,10 +475,6 @@ enum {
 	CAPTURE_EGRESS = 2,
 };
 
-#ifndef TRACE_PAYLOAD_LEN
-#define TRACE_PAYLOAD_LEN 128ULL
-#endif
-
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
