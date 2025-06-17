@@ -690,6 +690,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			currentRule.GetPriority(),
 			currentRule.getDeny(),
 			currentRule.getAuthRequirement(),
+			0, // TODO: cookie
 		)
 	}
 
@@ -1732,7 +1733,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
+		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq, 0) // TODO: cookie
 
 		if option.Config.Debug {
 			authString := "default"
