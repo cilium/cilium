@@ -25,6 +25,9 @@
 #include "common.h"
 #include "pktgen.h"
 
+/* Assign lower values for testing, so that we don't need to craft big packet. */
+ASSIGN_CONFIG(__u32, trace_payload_len, 10UL);
+
 /* Defining checks for packets from L3 devices as a macro for reusability. */
 #define L3_DEVICE_CHECK(flags, is_ipv4)                                      \
 {                                                                            \
@@ -179,4 +182,48 @@ CHECK("tc", "ctx_classify6")
 int ctx_classify6_check(struct __ctx_buff *ctx)
 {
 	return check(ctx, false);
+}
+
+PKTGEN("tc", "compute_capture_len")
+static __always_inline int
+compute_capture_len_pktgen(struct __ctx_buff *ctx) {
+	return pktgen(ctx, true);
+}
+
+CHECK("tc", "compute_capture_len")
+int compute_capture_len_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	__u64 cap_len;
+	__u32 monitor;
+
+	/*
+	 * Ensure capture length equal to monitor with monitor != 0.
+	 */
+	TEST("monitor-nonzero", {
+		monitor = 1;
+		cap_len = compute_capture_len(ctx, monitor);
+		assert(cap_len == monitor);
+	})
+
+	/*
+	 * Ensure capture length equal to ctx_full_len with monitor > ctx_full_len.
+	 */
+	TEST("monitor-greater", {
+		monitor = (__u32)(ctx_full_len(ctx) + 1);
+		cap_len = compute_capture_len(ctx, monitor);
+		assert(cap_len == ctx_full_len(ctx));
+	})
+
+	/*
+	 * Ensure capture length equal to default trace_payload_len with monitor == 0.
+	 */
+	TEST("monitor-zero", {
+		monitor = 0;
+		cap_len = compute_capture_len(ctx, monitor);
+		assert(cap_len == CONFIG(trace_payload_len));
+	})
+
+	test_finish();
 }
