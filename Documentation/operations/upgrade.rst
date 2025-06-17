@@ -351,7 +351,7 @@ Deprecated Options
   and will be removed in Cilium 1.19.
 * ``--l2-pod-announcements-interface`` has been deprecated in favor of
   ``--l2-pod-announcements-interface-pattern`` and will be removed in Cilium 1.19.
-* The flag ``--enable-session-affinity`` has been deprecated and will be removed in Cilium 1.19.
+* The flag ``--enable-session-affinity`` (``sessionAffinity`` in Helm) has been deprecated and will be removed in Cilium 1.19.
   The Session Affinity feature will be unconditionally enabled. Also, in Cilium 1.18, the
   feature is enabled by default.
 * The custom calls feature (``--enable-custom-calls``) has been deprecated, and will
@@ -362,12 +362,12 @@ Deprecated Options
   and ``--hubble-recorder-sink-queue-size`` have been deprecated. The Hubble Recorder feature will be
   removed in Cilium 1.19.
   You can use `pwru <https://github.com/cilium/pwru>`_ with ``--filter-trace-xdp`` to trace XDP requests.
-* The flags ``--enable-node-port``, ``--enable-host-port``, ``--enable-external-ips`` have been deprecated
+* The flags ``--enable-node-port`` (``nodePort.enabled`` in Helm), ``--enable-host-port``, ``--enable-external-ips`` have been deprecated
   and will be removed in Cilium 1.19. The kube-proxy replacement features will be only enabled when
   ``--kube-proxy-replacent`` is set to ``true``.
 * The flag ``--enable-k8s-endpoint-slice`` have been deprecated and will be removed in Cilium 1.19.
   The K8s Endpoint Slice feature will be unconditionally enabled.
-* The flag ``--enable-internal-traffic-policy`` has been deprecated and will be removed in Cilium 1.19. The
+* The flag ``--enable-internal-traffic-policy`` (``enableInternalTrafficPolicy`` in Helm) has been deprecated and will be removed in Cilium 1.19. The
   ``internalTrafficPolicy`` field in a Kubernetes Service object will be unconditionally respected.
 * The flag ``--enable-svc-source-range-check`` (``svcSourceRangeCheck`` in Helm) has been deprecated
   and will be removed in Cilium 1.19. The feature will be enabled automatically when ``--kube-proxy-replacent``
