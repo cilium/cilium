@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
@@ -47,9 +48,9 @@ func Cell(defaultBackend string) cell.Cell {
 			Opts      ExtraOptions `optional:"true"`
 
 			Stats BootstrapStat `optional:"true"`
-		}) Client {
+		}) (Client, hive.ScriptCmdsOut) {
 			if in.Config.KVStore == DisabledBackendName {
-				return &clientImpl{enabled: false}
+				return &clientImpl{enabled: false}, hive.ScriptCmdsOut{}
 			}
 
 			in.Opts.LeaseTTL = cmp.Or(in.Opts.LeaseTTL, in.Config.KVStoreLeaseTTL)
@@ -63,7 +64,7 @@ func Cell(defaultBackend string) cell.Cell {
 			}
 
 			in.Lifecycle.Append(cl)
-			return cl
+			return cl, hive.NewScriptCmds(cl.commands())
 		}),
 
 		cell.Invoke(Config.Validate),
