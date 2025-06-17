@@ -1,5 +1,13 @@
 {{/* validate deprecated options are not being used */}}
 
+{{/* Options removed in v1.18 */}}
+{{- if (dig "enableCiliumEndpointSlice" "" .Values.AsMap) }}
+  {{ fail "enableCiliumEndpointSlice was deprecated in v1.16 and has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if (dig "ciliumEndpointSlice" "sliceMode" "" .Values.AsMap) }}
+  {{ fail "ciliumEndpointSlice.sliceMode has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}
+{{- end }}
+
 {{/* Options deprecated in v1.15 and removed in v1.16 */}}
 {{- if or
   (dig "encryption" "keyFile" "" .Values.AsMap)
