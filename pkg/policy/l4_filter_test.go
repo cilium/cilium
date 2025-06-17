@@ -141,11 +141,11 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	defer pol.detach(true, 0)
 
 	if expectedIn != nil {
-		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), expectedIn.TestingOnlyDiff(pol.L4Policy.Ingress.PortRules))
+		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), pol.L4Policy.Ingress.PortRules.TestingOnlyDiff(expectedIn))
 	}
 
 	if expectedOut != nil {
-		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
+		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), pol.L4Policy.Egress.PortRules.TestingOnlyDiff(expectedOut))
 	}
 }
 
