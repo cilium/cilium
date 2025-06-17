@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <bpf/config/node.h>
+
 #include "lib/common.h"
 #include "lib/ipv4.h"
 #include "lib/ipv6.h"
@@ -196,4 +198,24 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __
 
 out:
 	return flags;
+}
+
+/**
+ * compute_capture_len
+ * @ctx: socket buffer
+ * @monitor: the monitor value
+ *
+ * Compute capture length for the trace/drop notification event.
+ * Return at most `ctx_full_len` bytes.
+ * With monitor=0, use the config value `trace_payload_len`.
+ */
+static __always_inline __u64
+compute_capture_len(struct __ctx_buff *ctx, __u32 monitor)
+{
+	__u32 cap_len_default = CONFIG(trace_payload_len);
+
+	if (monitor == 0)
+		monitor = cap_len_default;
+
+	return min_t(__u64, monitor, ctx_full_len(ctx));
 }
