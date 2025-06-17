@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/version"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/hive"
+	shellclient "github.com/cilium/cilium/pkg/shell/client"
 )
 
 var RootCmd = &cobra.Command{
@@ -36,6 +37,7 @@ func init() {
 		kvstoremesh.NewCmd(hive.New(common.Cell, kvstoremesh.Cell)),
 		clustermeshdbg.RootCmd,
 		kvstoremeshdbg.RootCmd,
+		shellclient.ShellCmd,
 	)
 }
 

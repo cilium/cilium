@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 )
 
 var Cell = cell.Module(
@@ -46,4 +47,8 @@ var Cell = cell.Module(
 
 		return nil
 	}),
+
+	// Shell for inspecting the clustermesh-apiserver/kvstoremesh.
+	// Listens on the 'shell.sock' UNIX socket.
+	shell.Cell,
 )

@@ -73,6 +73,17 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml /var/lib/cil
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/clustermesh-apiserver /usr/bin/clustermesh-apiserver
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 
+# The Cilium Shell expects to be able to create a unix socket in /var/run/cilium
+# Create the directory in advance to make sure that it has write privileges (we
+# set 0777 permissions to the leaf directory), given that this container is
+# typically run as a non-root user.
+#
+# tar --utc -tvf images/clustermesh-apiserver/var-run-cilium.tar
+# drwxr-xr-x root/root         0 2025-06-15 00:00 var/
+# drwxr-xr-x root/root         0 2025-06-15 00:00 var/run/
+# drwxrwxrwx root/root         0 2025-06-15 00:00 var/run/cilium/
+ADD images/clustermesh-apiserver/var-run-cilium.tar /
+
 # Configure gops to use a temporary directory, to prevent permission
 # issues depending on the UID configured to run the entrypoint.
 ENV GOPS_CONFIG_DIR=/tmp/gops
