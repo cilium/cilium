@@ -206,8 +206,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __be16 proto, __u16 line, __u8 file)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
-			      ctx_len);
+	__u64 cap_len;
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
@@ -230,6 +229,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	}
 
 	flags = ctx_classify(ctx, proto, obs_point);
+	cap_len = compute_capture_len(ctx, monitor);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
@@ -255,8 +255,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u16 line, __u8 file)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
-			      ctx_len);
+	__u64 cap_len;
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
@@ -279,6 +278,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	}
 
 	flags = ctx_classify(ctx, bpf_htons(ETH_P_IP), obs_point);
+	cap_len = compute_capture_len(ctx, monitor);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
@@ -304,8 +304,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 monitor, __u16 line, __u8 file)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
-			      ctx_len);
+	__u64 cap_len;
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
@@ -328,6 +327,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	}
 
 	flags = ctx_classify(ctx, bpf_htons(ETH_P_IPV6), obs_point);
+	cap_len = compute_capture_len(ctx, monitor);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
