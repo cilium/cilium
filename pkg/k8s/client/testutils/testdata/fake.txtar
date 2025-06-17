@@ -51,18 +51,27 @@ db/cmp k8s-object-tracker object-tracker.table
 k8s/delete service.yaml limitrange.yaml ciliumenvoyconfig.yaml apiext_crd.yaml mcs_svcexport.yaml
 k8s/summary summary.actual
 cmp summary.empty summary.actual
-db/empty k8s-object-tracker
+db/cmp k8s-object-tracker deleted.table
 
 ###
 
 -- object-tracker.table --
-ID                                                                                           Type
-*;/v1, Resource=services;test/echo                                                           *v1.Service
-*;apiextensions.k8s.io/v1, Resource=customresourcedefinitions;/ciliumenvoyconfigs.cilium.io  *v1.CustomResourceDefinition
-*;cilium.io/v2, Resource=ciliumenvoyconfigs;default/cec                                      *v2.CiliumEnvoyConfig
-*;multicluster.x-k8s.io/v1alpha1, Resource=serviceexports;/test                              *v1alpha1.ServiceExport
-k8s;/v1, Resource=limitranges;bar/foo                                                        *v1.LimitRange
-k8s;/v1, Resource=services;test/echo                                                         *v1.Service
+ID                                                                                           Type                          Deleted
+*;/v1, Resource=services;test/echo                                                           *v1.Service                   false
+*;apiextensions.k8s.io/v1, Resource=customresourcedefinitions;/ciliumenvoyconfigs.cilium.io  *v1.CustomResourceDefinition  false
+*;cilium.io/v2, Resource=ciliumenvoyconfigs;default/cec                                      *v2.CiliumEnvoyConfig         false
+*;multicluster.x-k8s.io/v1alpha1, Resource=serviceexports;/test                              *v1alpha1.ServiceExport       false
+k8s;/v1, Resource=limitranges;bar/foo                                                        *v1.LimitRange                false
+k8s;/v1, Resource=services;test/echo                                                         *v1.Service                   false
+
+-- deleted.table --
+ID                                                                                           Deleted
+*;/v1, Resource=services;test/echo                                                           true
+*;apiextensions.k8s.io/v1, Resource=customresourcedefinitions;/ciliumenvoyconfigs.cilium.io  true
+*;cilium.io/v2, Resource=ciliumenvoyconfigs;default/cec                                      true
+*;multicluster.x-k8s.io/v1alpha1, Resource=serviceexports;/test                              true
+k8s;/v1, Resource=limitranges;bar/foo                                                        true
+k8s;/v1, Resource=services;test/echo                                                         true
 
 -- summary.expected --
 *:
