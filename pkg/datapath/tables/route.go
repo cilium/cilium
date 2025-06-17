@@ -81,10 +81,19 @@ type RouteID struct {
 	Dst       netip.Prefix
 }
 
+// Key returns the StateDB key for the route identifier.
+// For prefix searching key prefix is returned if [LinkIndex] or [Dst]
+// are not defined.
 func (id RouteID) Key() index.Key {
 	key := make([]byte, 0, 4 /* table */ +4 /* link */ +17 /* prefix & bits */)
 	key = binary.BigEndian.AppendUint32(key, uint32(id.Table))
+	if id.LinkIndex == 0 && !id.Dst.IsValid() {
+		return key
+	}
 	key = binary.BigEndian.AppendUint32(key, uint32(id.LinkIndex))
+	if !id.Dst.IsValid() {
+		return key
+	}
 	addrBytes := id.Dst.Addr().As16()
 	key = append(key, addrBytes[:]...)
 	return append(key, uint8(id.Dst.Bits()))

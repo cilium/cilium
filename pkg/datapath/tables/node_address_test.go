@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -797,14 +798,17 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		cell.Provide(
 			NewDeviceTable,
 			statedb.RWTable[*Device].ToTable,
+			NewRouteTable,
+			statedb.RWTable[*Route].ToTable,
 		),
 		cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
-		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], na statedb.Table[NodeAddress], lns *node.LocalNodeStore) {
+		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], r statedb.RWTable[*Route], na statedb.Table[NodeAddress], lns *node.LocalNodeStore) {
 			db = db_
 			devices = d
 			nodeAddrs = na
 			localNodeStore = lns
 			db.RegisterTable(d)
+			db.RegisterTable(r)
 		}),
 
 		// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig
@@ -999,4 +1003,229 @@ func TestFallbackAddresses(t *testing.T) {
 	})
 	assert.Equal(t, "20.0.0.1", f.ipv4.addr.Addr.String())
 	assert.False(t, updated, "updated")
+}
+
+// TestNodeAddressFromRoute tests that addresses learned via routes are correctly
+// processed and added as NodeAddresses.
+func TestNodeAddressFromRoute(t *testing.T) {
+	// This is the "virtual" IP we will add via a route, simulating the GCE scenario.
+	routeBasedIPv4 := netip.MustParseAddr("203.0.113.5")
+	routeBasedPrefixIPv4 := netip.PrefixFrom(routeBasedIPv4, 32)
+	routeBasedIPv6 := netip.MustParseAddr("2001:db8::1")
+	routeBasedPrefixIPv6 := netip.PrefixFrom(routeBasedIPv6, 128)
+
+	// We'll add the route to a dummy "eth0" device.
+	testDevice := &Device{
+		Index:    10,
+		Name:     "eth0",
+		Flags:    net.FlagUp,
+		Selected: true,
+	}
+
+	// Define our test scenarios.
+	testCases := []struct {
+		name               string
+		nodePortAddrs      []string
+		ipAlreadyOnDevice  bool // To test duplicate avoidance
+		customizeRoute     func(*Route)
+		expectNodePortFlag bool
+	}{
+		{
+			name:               "no-nodeport-whitelist",
+			expectNodePortFlag: false, // No whitelist, so NodePort is false
+		},
+		{
+			name:               "nodeport-cidr-match",
+			nodePortAddrs:      []string{"203.0.113.0/24", "10.0.0.0/8"},
+			expectNodePortFlag: true, // Address is in the whitelisted CIDR
+		},
+		{
+			name:               "nodeport-cidr-no-match",
+			nodePortAddrs:      []string{"192.168.0.0/16"},
+			expectNodePortFlag: false, // Address is NOT in the whitelisted CIDR
+		},
+		{
+			name:              "duplicate-ip",
+			ipAlreadyOnDevice: true, // Simulate the IP already existing on the device
+		},
+		{
+			name: "route-with-src-ignored",
+			customizeRoute: func(r *Route) {
+				r.Src = netip.MustParseAddr("192.168.1.1")
+			},
+			expectNodePortFlag: false,
+		},
+		{
+			name:               "ipv6-route",
+			expectNodePortFlag: false,
+		},
+		{
+			name:               "ipv6-route-nodeport-match",
+			nodePortAddrs:      []string{"2001:db8::/64"},
+			expectNodePortFlag: true,
+		},
+		{
+			name:               "ipv6-route-no-nodeport-match",
+			nodePortAddrs:      []string{"2001:db9::/64"},
+			expectNodePortFlag: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up a self-contained test environment for this case.
+			var (
+				db        *statedb.DB
+				devices   statedb.RWTable[*Device]
+				routes    statedb.RWTable[*Route]
+				nodeAddrs statedb.Table[NodeAddress]
+			)
+
+			h := hive.New(
+				node.LocalNodeStoreCell,
+				cell.Provide(
+					NewDeviceTable,
+					statedb.RWTable[*Device].ToTable,
+					NewRouteTable,
+					statedb.RWTable[*Route].ToTable,
+				),
+				NodeAddressCell,
+				cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
+				cell.Provide(func() *option.DaemonConfig {
+					return &option.DaemonConfig{AddressScopeMax: defaults.AddressScopeMax}
+				}),
+
+				// Capture table handles for use in the test.
+				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], r statedb.RWTable[*Route], na statedb.Table[NodeAddress]) {
+					db = db_
+					devices = d
+					routes = r
+					nodeAddrs = na
+
+					db.RegisterTable(d)
+					db.RegisterTable(r)
+				}),
+			)
+
+			// Set configuration values using Viper before starting the hive.
+			if tc.nodePortAddrs != nil {
+				h.Viper().Set("nodeport-addresses", strings.Join(tc.nodePortAddrs, ","))
+			}
+
+			// Start the hive, which will run the controller's initial reconciliation
+			tlog := hivetest.Logger(t)
+			require.NoError(t, h.Start(tlog, context.TODO()))
+			t.Cleanup(func() {
+				assert.NoError(t, h.Stop(tlog, context.TODO()))
+			})
+
+			var routeBasedIP netip.Addr
+			var routeBasedPrefix netip.Prefix
+			if strings.Contains(tc.name, "ipv6") {
+				routeBasedIP = routeBasedIPv6
+				routeBasedPrefix = routeBasedPrefixIPv6
+			} else {
+				routeBasedIP = routeBasedIPv4
+				routeBasedPrefix = routeBasedPrefixIPv4
+			}
+
+			// Perform the action we want to test
+			txn := db.WriteTxn(devices, routes)
+			_, watch := nodeAddrs.AllWatch(txn)
+
+			if tc.ipAlreadyOnDevice {
+				testDeviceWithAddr := *testDevice // clone
+				testDeviceWithAddr.Addrs = []DeviceAddress{{Addr: routeBasedIP, Scope: RT_SCOPE_UNIVERSE}}
+				devices.Insert(txn, &testDeviceWithAddr)
+			} else {
+				devices.Insert(txn, testDevice)
+			}
+
+			route := &Route{
+				LinkIndex: testDevice.Index,
+				Dst:       routeBasedPrefix,
+				Scope:     uint8(RT_SCOPE_HOST),
+				Table:     RT_TABLE_LOCAL,
+			}
+			if tc.customizeRoute != nil {
+				tc.customizeRoute(route)
+			}
+			routes.Insert(txn, route)
+
+			txn.Commit()
+
+			if tc.customizeRoute != nil {
+				// For customized routes that are ignored, we don't expect an update
+				// as the test device itself has no addresses.
+				select {
+				case <-watch:
+					t.Fatalf("unexpected node address update for test: %s", tc.name)
+				case <-time.After(200 * time.Millisecond):
+					// Expected to not receive an update.
+				}
+			} else {
+				// For all other cases, we expect an update.
+				select {
+				case <-watch:
+					// Update received, continue.
+				case <-time.After(2 * time.Second):
+					t.Fatalf("timed out waiting for node address update for test: %s", tc.name)
+				}
+			}
+
+			// Check if the outcome is what we expect
+			allNodeAddrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+
+			var foundAddr *NodeAddress
+			var foundAddrCount int
+			for i, addr := range allNodeAddrs {
+				if tc.ipAlreadyOnDevice && addr.DeviceName == WildcardDeviceName {
+					continue
+				}
+				if addr.Addr == routeBasedIP {
+					addrCopy := allNodeAddrs[i]
+					foundAddr = &addrCopy
+					foundAddrCount++
+				}
+			}
+
+			if tc.customizeRoute != nil {
+				assert.Nil(t, foundAddr, "Address from customized route should be ignored")
+				return
+			}
+
+			if tc.ipAlreadyOnDevice {
+				assert.NotNil(t, foundAddr, "IP should be present as it was added to the device")
+				assert.Equal(t, 1, foundAddrCount, "Should not find duplicate node addresses for the same IP")
+				return
+			}
+
+			require.NotNil(t, foundAddr, "Expected address %s to be discovered from route, but it was not", routeBasedIP)
+			assert.Equal(t, "eth0", foundAddr.DeviceName, "Address should be associated with correct device")
+			assert.True(t, foundAddr.Primary, "Address discovered from a route should be considered Primary")
+			assert.Equal(t, tc.expectNodePortFlag, foundAddr.NodePort, "NodePort flag for address %s was not as expected", routeBasedIP)
+
+			// Test route deletion
+			if !tc.ipAlreadyOnDevice && tc.customizeRoute == nil {
+				t.Run("deletion", func(t *testing.T) {
+					txn := db.WriteTxn(routes)
+					_, watch := nodeAddrs.AllWatch(txn)
+					routes.Delete(txn, route)
+					txn.Commit()
+					<-watch
+
+					allNodeAddrsAfterDelete := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+					var foundAddrAfterDelete *NodeAddress
+					for i, addr := range allNodeAddrsAfterDelete {
+						if addr.Addr == routeBasedIP {
+							addrCopy := allNodeAddrsAfterDelete[i]
+							foundAddrAfterDelete = &addrCopy
+							break
+						}
+					}
+					assert.Nil(t, foundAddrAfterDelete, "Address from route should be deleted")
+				})
+			}
+		})
+	}
 }
