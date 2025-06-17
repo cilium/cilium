@@ -488,11 +488,19 @@ const (
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"
 
-	// TracePayloadLen is the default length of payload to capture when tracing.
+	// TracePayloadLen is the default length of payload to capture when tracing native packets.
 	// The value is aligned to 2 cache-lines (64B each):
 	// - decreasing below 64B would not be enough for decoding typical headers
 	// - any value between 64B-128B would still require access to 2 cache-lines
 	TracePayloadLen = 128
+
+	// TracePayloadLenOverlay is the default length of payload to capture when tracing overlay packets.
+	// The above TracePayloadLen might not be enough, resulting in a decode error for packets:
+	// - TCPv6 with options over VXLANv4 (>=134B) -- decode error
+	// - TCPv6 with SRv6 segments (>=136B) -- decode error
+	// - {ICMP,UDP,TCP}v6 over (future) VXLANv6 (>=132B) -- decode error
+	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
+	TracePayloadLenOverlay = 192
 
 	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
 	UseCiliumInternalIPForIPsec = false
