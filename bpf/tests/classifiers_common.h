@@ -27,6 +27,7 @@
 
 /* Assign lower values for testing, so that we don't need to craft big packet. */
 ASSIGN_CONFIG(__u32, trace_payload_len, 10UL);
+ASSIGN_CONFIG(__u32, trace_payload_len_overlay, 20UL);
 
 /* Defining checks for packets from L3 devices as a macro for reusability. */
 #define L3_DEVICE_CHECK(flags, is_ipv4)                                      \
@@ -195,6 +196,8 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 {
 	test_init();
 
+	enum trace_point obs_point = TRACE_TO_OVERLAY;
+	cls_flags_t flags = CLS_FLAG_NONE;
 	__u64 cap_len;
 	__u32 monitor;
 
@@ -203,7 +206,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-nonzero", {
 		monitor = 1;
-		cap_len = compute_capture_len(ctx, monitor);
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == monitor);
 	})
 
@@ -212,7 +215,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-greater", {
 		monitor = (__u32)(ctx_full_len(ctx) + 1);
-		cap_len = compute_capture_len(ctx, monitor);
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == ctx_full_len(ctx));
 	})
 
@@ -221,8 +224,53 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-zero", {
 		monitor = 0;
-		cap_len = compute_capture_len(ctx, monitor);
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len));
+	})
+
+	/*
+	 * Ensure capture length equal to default trace_payload_len with monitor == 0 and no
+	 * overlay flags being set.
+	 */
+	TEST("monitor-non-overlay-flag", {
+		monitor = 0;
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len));
+	})
+
+	/*
+	 * Ensure capture length equal to default trace_payload_len with monitor == 0 but invalid
+	 * overlay observation point.
+	 */
+	TEST("monitor-non-overlay-point", {
+		flags = CLS_FLAG_TUNNEL;
+		monitor = 0;
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len));
+	})
+
+	/*
+	 * Ensure capture length equal to default trace_payload_len_overlay with monitor == 0
+	 * and a valid overlay observation point.
+	 */
+	TEST("monitor-zero-overlay", {
+		obs_point = TRACE_POINT_UNKNOWN;
+		flags = CLS_FLAG_TUNNEL;
+		monitor = 0;
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len_overlay));
+	})
+
+	/*
+	 * Ensure capture length equal to default trace_payload_len_overlay with
+	 * monitor == TRACE_PAYLOAD_LEN and a valid overlay observation point.
+	 */
+	TEST("monitor-payloadlen-overlay", {
+		obs_point = TRACE_POINT_UNKNOWN;
+		flags = CLS_FLAG_TUNNEL;
+		monitor = CONFIG(trace_payload_len);
+		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
+		assert(cap_len == CONFIG(trace_payload_len_overlay));
 	})
 
 	test_finish();
