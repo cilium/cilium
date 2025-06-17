@@ -14,6 +14,8 @@ type BPFHost struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Masquerade traffic to remote nodes.
+	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
 	// devices. (default __ETH_HLEN).
 	EthHeaderLength uint8 `config:"eth_header_length"`
@@ -36,7 +38,7 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, 0x0, node}

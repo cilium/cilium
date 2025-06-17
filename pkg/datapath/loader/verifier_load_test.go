@@ -23,9 +23,10 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(1) {
+		for permutation := range permute(2) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.SecctxFromIPCache = permutation[0]
+			cfg.EnableRemoteNodeMasquerade = permutation[1]
 			if !yield(cfg) {
 				return
 			}
