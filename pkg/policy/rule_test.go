@@ -2479,6 +2479,66 @@ func TestMergeL7DuplicatedRules(t *testing.T) {
 	td.policyMapEquals(t, nil, expected, &rule1)
 }
 
+func TestMergeL7DuplicatedRulesByHeader(t *testing.T) {
+	td := newTestData(hivetest.Logger(t))
+
+	rule1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Headers: []string{"firstHeader", "secondHeader"}},
+							{Method: "GET", Headers: []string{"secondHeader", "firstHeader"}},
+							{Method: "GET", HeaderMatches: []*api.HeaderMatch{
+								{Name: "firstHeader", Value: "value1"},
+								{Name: "secondHeader", Value: "value2"},
+							}},
+							{Method: "GET", HeaderMatches: []*api.HeaderMatch{
+								{Name: "secondHeader", Value: "value2"},
+								{Name: "firstHeader", Value: "value1"},
+							}},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		PerSelectorPolicies: L7DataMap{
+			td.cachedSelectorC: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{
+						{Method: "GET", HeaderMatches: []*api.HeaderMatch{
+							{Name: "firstHeader", Value: "value1"},
+							{Name: "secondHeader", Value: "value2"},
+						}},
+						{Method: "GET", Headers: []string{"firstHeader", "secondHeader"}},
+					},
+				},
+			},
+		},
+		Ingress: false,
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.cachedSelectorB: {nil},
+			td.cachedSelectorC: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, nil, expected, &rule1)
+}
+
 func TestMergeListenerReference(t *testing.T) {
 	// No listener remains a no listener
 	ps := &PerSelectorPolicy{}
