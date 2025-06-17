@@ -204,17 +204,29 @@ out:
  * compute_capture_len
  * @ctx: socket buffer
  * @monitor: the monitor value
+ * @flags: the classifier flags (CLS_FLAG_*)
+ * @obs_point: the trace observation point (TRACE_{FROM,TO}_*)
  *
  * Compute capture length for the trace/drop notification event.
  * Return at most `ctx_full_len` bytes.
- * With monitor=0, use the config value `trace_payload_len`.
+ * With monitor=0, use the config value `trace_payload_len` for native packets, and
+ * `trace_payload_len_overlay` for overlay packets with CLS_FLAG_{VXLAN,GENEVE} set. For overlay
+ * packets, reuse the `obs_point` to save complexity.
  */
 static __always_inline __u64
-compute_capture_len(struct __ctx_buff *ctx, __u32 monitor)
+compute_capture_len(struct __ctx_buff *ctx, __u64 monitor,
+		    cls_flags_t flags __maybe_unused,
+		    enum trace_point obs_point __maybe_unused)
 {
 	__u32 cap_len_default = CONFIG(trace_payload_len);
 
-	if (monitor == 0)
+#ifdef HAVE_ENCAP
+	if ((can_observe_overlay_mark(obs_point) || can_observe_overlay_hdr(obs_point)) &&
+	    flags & CLS_FLAG_TUNNEL)
+		cap_len_default = CONFIG(trace_payload_len_overlay);
+#endif
+
+	if (monitor == 0 || monitor == CONFIG(trace_payload_len))
 		monitor = cap_len_default;
 
 	return min_t(__u64, monitor, ctx_full_len(ctx));
