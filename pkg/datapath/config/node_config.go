@@ -13,9 +13,11 @@ type Node struct {
 	RouterIPv6 [16]byte `config:"router_ipv6"`
 	// IPv4 source address used for SNAT when a Pod talks to itself over a Service.
 	ServiceLoopbackIPv4 [4]byte `config:"service_loopback_ipv4"`
+	// Length of payload to capture when tracing.
+	TracePayloadLen uint32 `config:"trace_payload_len"`
 }
 
 func NewNode() *Node {
 	return &Node{[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0}}
+		[4]byte{0x0, 0x0, 0x0, 0x0}, 0x0}
 }
