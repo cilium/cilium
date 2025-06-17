@@ -154,7 +154,7 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	return ret;
 }
 
-static __always_inline int sock4_delete_revnat(struct bpf_sock *ctx,
+static __always_inline int sock4_delete_revnat(const struct bpf_sock *ctx,
 					       struct bpf_sock *ctx_full)
 {
     struct ipv4_revnat_tuple key = {};
