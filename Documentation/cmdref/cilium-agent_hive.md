@@ -69,6 +69,7 @@ cilium-agent hive [flags]
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
+      --enable-route-based-node-ip-discovery                      When enabled, the agent discovers potential node addresses from preferred IPs in routing table entries.
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy

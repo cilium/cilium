@@ -2283,6 +2283,8 @@ nodePort:
   autoProtectPortRange: true
   # -- Enable healthcheck nodePort server for NodePort services
   enableHealthCheck: true
+  # -- Enable route based node IP discovery
+  enableRouteBasedNodeIPDiscovery: false
   # -- Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs
   # EnableHealthCheck to be enabled
   enableHealthCheckLoadBalancerIP: false

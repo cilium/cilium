@@ -168,6 +168,7 @@ cilium-agent [flags]
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
+      --enable-route-based-node-ip-discovery                      When enabled, the agent discovers potential node addresses from preferred IPs in routing table entries.
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
