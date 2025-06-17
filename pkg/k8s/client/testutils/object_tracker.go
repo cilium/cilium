@@ -75,12 +75,14 @@ func newStateDBObjectTracker(db *statedb.DB, log *slog.Logger) (*statedbObjectTr
 
 type object struct {
 	objectId
-	o runtime.Object
+	deleted bool
+	o       runtime.Object
 }
 
 func (o object) TableHeader() []string {
 	return []string{
 		"ID",
+		"Deleted",
 		"Type",
 	}
 }
@@ -88,6 +90,7 @@ func (o object) TableHeader() []string {
 func (o object) TableRow() []string {
 	return []string{
 		o.objectId.String(),
+		fmt.Sprintf("%v", o.deleted),
 		fmt.Sprintf("%T", o.o),
 	}
 }
@@ -294,10 +297,10 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 	wtxn := s.db.WriteTxn(s.tbl)
 	version := s.tbl.Revision(wtxn) + 1
 	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
-	_, found, _ := s.tbl.Insert(wtxn, object{
+	old, found, _ := s.tbl.Insert(wtxn, object{
 		objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()),
 		o:        obj})
-	if found {
+	if found && !old.deleted {
 		wtxn.Abort()
 		gr := gvr.GroupResource()
 		err := apierrors.NewAlreadyExists(gr, newMeta.GetName())
@@ -318,8 +321,12 @@ func (s *statedbObjectTracker) Delete(gvr schema.GroupVersionResource, ns string
 		logfields.K8sNamespace, ns,
 		logfields.Name, name)
 
+	obj := object{deleted: true, objectId: newObjectId(s.domain, gvr, ns, name)}
 	wtxn := s.db.WriteTxn(s.tbl)
-	_, found, _ := s.tbl.Delete(wtxn, object{objectId: newObjectId(s.domain, gvr, ns, name)})
+	_, found, _ := s.tbl.Modify(wtxn, obj, func(old, new object) object {
+		old.deleted = true
+		return old
+	})
 	if !found {
 		wtxn.Abort()
 		err := apierrors.NewNotFound(gvr.GroupResource(), name)
@@ -342,7 +349,7 @@ func (s *statedbObjectTracker) Get(gvr schema.GroupVersionResource, ns string, n
 
 	txn := s.db.ReadTxn()
 	obj, rev, found := s.tbl.Get(txn, objectIndex.Query(newObjectId(s.domain, gvr, ns, name)))
-	if !found {
+	if !found || obj.deleted {
 		err := apierrors.NewNotFound(gvr.GroupResource(), name)
 		log.Debug("Get", logfields.Error, err)
 		return nil, err
@@ -389,6 +396,9 @@ func (s *statedbObjectTracker) List(gvr schema.GroupVersionResource, gvk schema.
 	txn := s.db.ReadTxn()
 
 	for obj := range s.tbl.All(txn) {
+		if obj.deleted {
+			continue
+		}
 		if obj.domain != s.domain || obj.gvr != gvr ||
 			(ns != "" && obj.Namespace != ns) {
 			continue
@@ -419,6 +429,7 @@ func (s *statedbObjectTracker) List(gvr schema.GroupVersionResource, gvk schema.
 		logfieldGVR, gvr,
 		logfields.K8sNamespace, ns,
 		logfields.Count, len(matchingObjects),
+		logfields.Version, m.GetResourceVersion(),
 	)
 	return list, nil
 }
@@ -456,8 +467,8 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 		logfields.Object, obj,
 		logfieldResourceVersion, version)
 
-	_, found, _ := s.tbl.Insert(wtxn, object{objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()), o: obj})
-	if !found {
+	oldObj, found, _ := s.tbl.Insert(wtxn, object{objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()), o: obj})
+	if !found || oldObj.deleted {
 		wtxn.Abort()
 		gr := gvr.GroupResource()
 		err := apierrors.NewNotFound(gr, newMeta.GetName())
@@ -472,15 +483,8 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 // Watch watches objects from the tracker. Watch returns a channel
 // which will push added / modified / deleted object.
 func (s *statedbObjectTracker) Watch(gvr schema.GroupVersionResource, ns string, opts ...metav1.ListOptions) (watch.Interface, error) {
-	wtxn := s.db.WriteTxn(s.tbl)
-	changeIter, err := s.tbl.Changes(wtxn)
-	wtxn.Commit()
-	if err != nil {
-		// Impossible
-		panic(err)
-	}
-
 	var fieldSelector fields.Selector
+	var err error
 	version := uint64(0)
 	if len(opts) > 0 && opts[0].ResourceVersion != "" {
 		opt := opts[0]
@@ -505,12 +509,12 @@ func (s *statedbObjectTracker) Watch(gvr schema.GroupVersionResource, ns string,
 
 	w := &statedbWatch{
 		clientset:     s.domain,
+		tbl:           s.tbl,
 		log:           s.log,
 		version:       version,
 		gvr:           gvr,
 		ns:            ns,
 		db:            s.db,
-		iter:          changeIter,
 		stop:          make(chan struct{}),
 		stopped:       make(chan struct{}),
 		events:        make(chan watch.Event, 1),
@@ -523,12 +527,12 @@ func (s *statedbObjectTracker) Watch(gvr schema.GroupVersionResource, ns string,
 
 type statedbWatch struct {
 	clientset     string
+	tbl           statedb.Table[object]
 	log           *slog.Logger
 	gvr           schema.GroupVersionResource
 	ns            string
 	version       statedb.Revision
 	db            *statedb.DB
-	iter          statedb.ChangeIterator[object]
 	stop          chan struct{}
 	stopOnce      sync.Once
 	stopped       chan struct{}
@@ -545,13 +549,11 @@ func (w *statedbWatch) feed() {
 	defer close(w.stopped)
 	defer close(w.events)
 	seen := sets.New[string]()
+	lastRev := w.version
 	for {
-		changes, changesWatch := w.iter.Next(w.db.ReadTxn())
-		for change := range changes {
-			if change.Revision <= w.version {
-				continue
-			}
-			obj := change.Object
+		objs, objsWatch := w.tbl.LowerBoundWatch(w.db.ReadTxn(), statedb.ByRevision[object](lastRev+1))
+		for obj, rev := range objs {
+			lastRev = rev
 			if obj.domain != w.clientset {
 				continue
 			}
@@ -571,7 +573,7 @@ func (w *statedbWatch) feed() {
 			ev.Object = obj.o.DeepCopyObject()
 
 			switch {
-			case change.Deleted:
+			case obj.deleted:
 				ev.Type = watch.Deleted
 				seen.Delete(obj.Name)
 			case seen.Has(obj.Name):
@@ -586,7 +588,7 @@ func (w *statedbWatch) feed() {
 				logfields.K8sNamespace, obj.Namespace,
 				logfields.Name, obj.Name,
 				logfields.Type, ev.Type,
-				logfieldResourceVersion, change.Revision,
+				logfieldResourceVersion, rev,
 				logfields.Object, ev.Object,
 			)
 			select {
@@ -598,9 +600,8 @@ func (w *statedbWatch) feed() {
 		select {
 		case <-w.stop:
 			return
-		case <-changesWatch:
+		case <-objsWatch:
 		}
-
 	}
 }
 
