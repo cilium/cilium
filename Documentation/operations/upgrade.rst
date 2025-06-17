@@ -330,6 +330,8 @@ communicating via the proxy must reconnect to re-establish connections.
   recommended to check :ref:`change_policy_default_local_cluster` for details and migration recommendations to update
   your network policies in advance for the Cilium 1.19 upgrade.
 * Creating or deleting policies via the local REST api is deprecated. This will be removed entirely in v1.19.
+* ``enable-remote-node-masquerade`` config option is introduced. To masquerade traffic to remote nodes in BPF masquerading mode, use the option ``enable-remote-node-masquerade: "true"``. This option requires ``enable-bpf-masquerade: "true"`` and also either
+  ``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and IPv6, respectively. This flag currently masquerades traffic to node ``InternalIP`` addresses. This may change in future. See :gh-issue:`35823` and :gh-issue:`17177` for further discussion on this topic.
 
 Removed Options
 ~~~~~~~~~~~~~~~
