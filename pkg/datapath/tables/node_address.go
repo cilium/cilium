@@ -212,6 +212,7 @@ type nodeAddressControllerParams struct {
 	Jobs            job.Group
 	DB              *statedb.DB
 	Devices         statedb.Table[*Device]
+	Routes          statedb.Table[*Route]
 	NodeAddresses   statedb.RWTable[NodeAddress]
 	AddressScopeMax AddressScopeMax
 	LocalNode       *node.LocalNodeStore
@@ -220,7 +221,6 @@ type nodeAddressControllerParams struct {
 type nodeAddressController struct {
 	nodeAddressControllerParams
 
-	deviceChanges     statedb.ChangeIterator[*Device]
 	k8sIPv4, k8sIPv6  netip.Addr
 	fallbackAddresses fallbackAddresses
 }
@@ -244,34 +244,22 @@ func (n *nodeAddressController) register() {
 	n.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				txn := n.DB.WriteTxn(n.NodeAddresses, n.Devices /* for delete tracker */)
-				defer txn.Abort()
-
-				// Start tracking deletions of devices.
-				var err error
-				n.deviceChanges, err = n.Devices.Changes(txn)
-				if err != nil {
-					return fmt.Errorf("DeleteTracker: %w", err)
-				}
-
 				if node, err := n.LocalNode.Get(ctx); err == nil {
 					n.updateK8sNodeIPs(node)
 				}
 
-				// Do an immediate update to populate the table before it is read from.
-				for dev := range n.Devices.All(txn) {
-					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
-					n.updateWildcardDevice(txn, dev, false)
-				}
-				txn.Commit()
+				// Perform an initial synchronous reconciliation to populate the table.
+				// This ensures that dependent cells see the initial state when they start.
+				// The watch channels returned here will be the initial channels for the run loop.
+				initialDevicesWatch, initialRoutesWatch := n.reconcile()
 
-				// Start a job in the background to incremental refresh
-				// the node addresses.
-				n.Jobs.Add(job.OneShot("node-address-update", n.run))
+				// Start the background job for continuous reconciliation.
+				n.Jobs.Add(job.OneShot("node-address-update", func(ctx context.Context, reporter cell.Health) error {
+					return n.run(ctx, reporter, initialDevicesWatch, initialRoutesWatch)
+				}))
 				return nil
 			},
 		})
-
 }
 
 func (n *nodeAddressController) updateK8sNodeIPs(node node.LocalNode) (updated bool) {
@@ -294,113 +282,155 @@ func (n *nodeAddressController) updateK8sNodeIPs(node node.LocalNode) (updated b
 	return
 }
 
-func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) error {
-	localNodeChanges := stream.ToChannel(ctx, n.LocalNode)
-	n.updateK8sNodeIPs(<-localNodeChanges)
-
+func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health, initialDevicesWatch, initialRoutesWatch <-chan struct{}) error {
+	localNodeChanges := stream.ToChannel(ctx, stream.Debounce(n.LocalNode, nodeAddressControllerMinInterval))
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
+
+	// Use the initial watch channels provided from the OnStart hook.
+	devicesWatch := initialDevicesWatch
+	routesWatch := initialRoutesWatch
+
 	for {
-		txn := n.DB.WriteTxn(n.NodeAddresses)
-		changes, watch := n.deviceChanges.Next(txn)
-		for change := range changes {
-			dev := change.Object
-
-			var new []NodeAddress
-			if !change.Deleted {
-				new = n.getAddressesFromDevice(dev)
-			}
-			n.update(txn, new, reporter, dev.Name)
-			n.updateWildcardDevice(txn, dev, change.Deleted)
-		}
-		txn.Commit()
-
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-watch:
-		case localNode, ok := <-localNodeChanges:
-			if !ok {
-				localNodeChanges = nil
-				break
-			}
-			if n.updateK8sNodeIPs(localNode) {
-				// Recompute the node addresses as the k8s node IP has changed, which
-				// affects the prioritization.
-				txn := n.DB.WriteTxn(n.NodeAddresses)
-				for dev := range n.Devices.All(txn) {
-					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
-					n.updateWildcardDevice(txn, dev, false)
-				}
-				txn.Commit()
-			}
-		}
+		// Rate-limit to batch multiple updates together.
 		if err := limiter.Wait(ctx); err != nil {
 			return err
 		}
-	}
-}
 
-// updateWildcardDevice updates the wildcard device ("*") with the fallback addresses. The fallback
-// addresses are the most suitable IPv4 and IPv6 address on any network device, whether it's
-// selected for datapath use or not.
-func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *Device, deleted bool) {
-	if strings.HasPrefix(dev.Name, "lxc") {
-		// Always ignore lxc devices.
-		return
-	}
-
-	if !n.updateFallbacks(txn, dev, deleted) {
-		// No changes
-		return
-	}
-
-	// Clear existing fallback addresses.
-	iter := n.NodeAddresses.List(txn, NodeAddressDeviceNameIndex.Query(WildcardDeviceName))
-	for addr := range iter {
-		n.NodeAddresses.Delete(txn, addr)
-	}
-
-	newAddrs := []NodeAddress{}
-	for _, fallback := range n.fallbackAddresses.addrs() {
-		if !fallback.IsValid() {
-			continue
-		}
-		nodeAddr := NodeAddress{
-			Addr:       fallback,
-			NodePort:   false,
-			Primary:    true,
-			DeviceName: WildcardDeviceName,
-		}
-		newAddrs = append(newAddrs, nodeAddr)
-		n.NodeAddresses.Insert(txn, nodeAddr)
-	}
-
-	n.Log.Info(
-		"Fallback node addresses updated",
-		logfields.Addresses, showAddresses(newAddrs),
-		logfields.Device, WildcardDeviceName,
-	)
-}
-
-func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device, deleted bool) (updated bool) {
-	if dev.Name == defaults.HostDevice {
-		return false
-	}
-
-	fallbacks := &n.fallbackAddresses
-	if deleted && fallbacks.fromDevice(dev) {
-		fallbacks.clear()
-		for dev := range n.Devices.All(txn) {
-			if strings.HasPrefix(dev.Name, "lxc") {
-				// Never pick the fallback from lxc* devices.
+		// Wait for changes from any input source.
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-devicesWatch:
+			// A device has changed.
+		case <-routesWatch:
+			// A route has changed.
+		case localNode, ok := <-localNodeChanges:
+			if !ok {
+				localNodeChanges = nil
 				continue
 			}
-			fallbacks.update(dev)
+			// Update Kubernetes node IPs. Reconciliation will happen after rate-limiting.
+			n.updateK8sNodeIPs(localNode)
 		}
-		return true
-	} else {
-		return n.fallbackAddresses.update(dev)
+
+		// Perform the full reconciliation and get new watch channels for the next iteration.
+		devicesWatch, routesWatch = n.reconcile()
 	}
+}
+
+// reconcile performs a full reconciliation of the NodeAddress table. It computes
+// the desired state from the Devices table and updates the NodeAddress table
+// to match it. It returns the read transaction and new watch channels for Devices and Routes.
+func (n *nodeAddressController) reconcile() (<-chan struct{}, <-chan struct{}) {
+	rtxn := n.DB.ReadTxn()
+	// Get iterators for the current state and new watch channels.
+	allDevices, devicesWatch := n.Devices.AllWatch(rtxn)
+	localRoutes, routesWatch := n.Routes.PrefixWatch(rtxn, RouteIDIndex.Query(RouteID{Table: RT_TABLE_LOCAL}))
+
+	// A map to hold the desired state of node addresses, keyed by device name.
+	newAddrsByDevice := make(map[string][]NodeAddress)
+	addrsFound := sets.New[netip.Addr]()
+
+	// Get addresses from devices
+	n.fallbackAddresses.clear()
+	for dev := range allDevices {
+		deviceAddrs := n.getAddressesFromDevice(dev)
+		if deviceAddrs == nil {
+			continue
+		}
+		newAddrsByDevice[dev.Name] = deviceAddrs
+		for _, addr := range deviceAddrs {
+			addrsFound.Insert(addr.Addr)
+		}
+
+		// Update fallback address candidates. lxc and cilium_host devices are ignored.
+		if !strings.HasPrefix(dev.Name, "lxc") && dev.Name != defaults.HostDevice {
+			n.fallbackAddresses.update(dev)
+		}
+	}
+
+	for route := range localRoutes {
+		// We are only interested in local routes, which are used for IPs that are assigned
+		// to the host (e.g. on GCE). These routes are in the local table, have host scope,
+		// and have no source address.
+		if route.Scope != uint8(RT_SCOPE_HOST) || route.Src.IsValid() {
+			continue
+		}
+
+		dst := route.Dst
+		if !dst.IsValid() || dst.Addr().IsUnspecified() || dst.Addr().IsLoopback() {
+			continue
+		}
+
+		if addrsFound.Has(dst.Addr()) {
+			continue
+		}
+
+		dev, _, found := n.Devices.Get(rtxn, DeviceIDIndex.Query(route.LinkIndex))
+		if !found {
+			continue
+		}
+
+		if !n.shouldUseDeviceForNodeAddress(dev) {
+			continue
+		}
+
+		nodePort := false
+		if len(n.Config.NodePortAddresses) > 0 {
+			nodePort = dev.Name != defaults.HostDevice && ip.PrefixesContains(n.Config.NodePortAddresses, dst.Addr())
+
+		}
+		nodeAddr := NodeAddress{
+			Addr:       dst.Addr(),
+			NodePort:   nodePort,
+			Primary:    true, // Preferred source on a route is a strong candidate for a primary address.
+			DeviceName: dev.Name,
+		}
+		newAddrsByDevice[dev.Name] = append(newAddrsByDevice[dev.Name], nodeAddr)
+		addrsFound.Insert(dst.Addr())
+	}
+
+	// Derive wildcard addresses from fallback candidates
+	var wildcardAddrs []NodeAddress
+	for _, fallback := range n.fallbackAddresses.addrs() {
+		if fallback.IsValid() {
+			wildcardAddrs = append(wildcardAddrs, NodeAddress{
+				Addr:       fallback,
+				NodePort:   false,
+				Primary:    true,
+				DeviceName: WildcardDeviceName,
+			})
+		}
+	}
+
+	if len(wildcardAddrs) > 0 {
+		newAddrsByDevice[WildcardDeviceName] = wildcardAddrs
+		n.Log.Info(
+			"Fallback node addresses updated",
+			logfields.Addresses, showAddresses(wildcardAddrs),
+			logfields.Device, WildcardDeviceName,
+		)
+	}
+
+	wtxn := n.DB.WriteTxn(n.NodeAddresses)
+	defer wtxn.Abort()
+
+	// Apply changes to the NodeAddress table
+	devicesWithAddrs := sets.New[string]()
+	for addr := range n.NodeAddresses.All(wtxn) {
+		devicesWithAddrs.Insert(addr.DeviceName)
+	}
+
+	for devName, addrs := range newAddrsByDevice {
+		n.update(wtxn, addrs, n.Health, devName)
+		devicesWithAddrs.Delete(devName)
+	}
+
+	for deletedDevName := range devicesWithAddrs {
+		n.update(wtxn, nil, n.Health, deletedDevName)
+	}
+	wtxn.Commit()
+	return devicesWatch, routesWatch
 }
 
 // updates the node addresses of a single device.
@@ -452,18 +482,26 @@ var whitelistDevices = []string{
 	"lo",
 }
 
-func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
+func (n *nodeAddressController) shouldUseDeviceForNodeAddress(dev *Device) bool {
 	// Don't exclude addresses attached to dummy devices, since they may be setup by
 	// processes like nodelocaldns, and these devices aren't always brought up. See
 	// https://github.com/kubernetes/dns/blob/fa0192f004c9571cf24d8e9868be07f57380fccb/pkg/netif/netif.go#L24-L36
 	// Failure to include these addresses in node addresses will trigger fib_lookup
 	// when bpf host routing is enabled and result in packet drops.
 	if dev.Type != "dummy" && dev.Flags&net.FlagUp == 0 {
-		return nil
+		return false
 	}
 
 	// Ignore non-whitelisted & non-selected devices.
 	if !slices.Contains(whitelistDevices, dev.Name) && (!dev.Selected && dev.Type != "dummy") {
+		return false
+	}
+
+	return true
+}
+
+func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
+	if !n.shouldUseDeviceForNodeAddress(dev) {
 		return nil
 	}
 
@@ -490,7 +528,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 
 		// index to which this address is appended.
 		index := len(addrs)
-
 		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
 		if addr.Addr.Is4() {
 			if addr.Addr.Unmap() == n.k8sIPv4.Unmap() {
@@ -498,7 +535,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 				ipv4PublicIndex = index
 				ipv4PrivateIndex = index
 			}
-
 			if ipv4PublicIndex < 0 && isPublic {
 				ipv4PublicIndex = index
 			}
@@ -513,7 +549,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 				ipv6PublicIndex = index
 				ipv6PrivateIndex = index
 			}
-
 			if ipv6PublicIndex < 0 && isPublic {
 				ipv6PublicIndex = index
 			}
@@ -598,7 +633,6 @@ func showAddresses(addrs []NodeAddress) string {
 // the 'NodePort' address (when --nodeport-addresses is not specified).
 func SortedAddresses(addrs []DeviceAddress) []DeviceAddress {
 	addrs = slices.Clone(addrs)
-
 	sort.SliceStable(addrs, func(i, j int) bool {
 		switch {
 		case !addrs[i].Secondary && addrs[j].Secondary:
@@ -639,26 +673,8 @@ func (f *fallbackAddresses) addrs() []netip.Addr {
 	return []netip.Addr{f.ipv4.addr.Addr, f.ipv6.addr.Addr}
 }
 
-func (f *fallbackAddresses) fromDevice(dev *Device) bool {
-	return (f.ipv4.dev != nil && f.ipv4.dev.Name == dev.Name) ||
-		(f.ipv6.dev != nil && f.ipv6.dev.Name == dev.Name)
-}
-
-func (f *fallbackAddresses) clearDevice(dev *Device) {
-	// Clear the fallbacks if they were from a prior version of this device
-	// as the addresses may have been removed.
-	if f.ipv4.dev != nil && f.ipv4.dev.Name == dev.Name {
-		f.ipv4 = fallbackAddress{}
-	}
-	if f.ipv6.dev != nil && f.ipv6.dev.Name == dev.Name {
-		f.ipv6 = fallbackAddress{}
-	}
-}
-
 func (f *fallbackAddresses) update(dev *Device) (updated bool) {
 	prevIPv4, prevIPv6 := f.ipv4.addr, f.ipv6.addr
-
-	f.clearDevice(dev)
 
 	// Iterate over all addresses to see if any of them make for a better
 	// fallback address.
