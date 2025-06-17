@@ -36,9 +36,9 @@ export CILIUM_NODEINIT_VERSION:=c54c7edeab7fde4da68e59acd319ab24af242c3f
 export CILIUM_NODEINIT_DIGEST:=sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c
 
 # renovate: datasource=docker
-export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION:=v1.33.3-1749716792-9cbedf28d3f4e8d7ff482744138ac3bdf65a868c
-export CILIUM_ENVOY_DIGEST:=sha256:bea4f2294e795ab1642eba912673eabba3ed1fff5124ba2e307f396810b32780
+export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy-dev
+export CILIUM_ENVOY_VERSION:=d1f07cbd73e9129aed6fdc42530312563158868f
+export CILIUM_ENVOY_DIGEST:=sha256:1cabb51b0c80a2085e322f7a3c40046a8ae55eba2cc00a898092237009c8ee0c
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
