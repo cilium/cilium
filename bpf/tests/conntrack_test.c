@@ -24,6 +24,8 @@ static __u64 __now;
 #define REPORT_ALL_FLAGS 0xFF
 #define REPORT_NO_FLAGS 0x0
 
+ASSIGN_CONFIG(__u32, trace_payload_len, 128UL);
+
 /* Advance global (fake) time by one unit. */
 void advance_time(void)
 {
@@ -45,7 +47,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		struct ct_entry entry = {};
 		union tcp_flags flags = {};
 		__u32 then;
-		int monitor;
+		int monitor = 0;
 
 		/* No update initially; mostly just because __now is less than the
 		 * default report interval.
@@ -106,7 +108,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 			test_fatal("ct entry lookup failed");
 
 		union tcp_flags seen_flags = {0};
-		__u32 monitor;
+		__u32 monitor = 0;
 
 		seen_flags.value |= TCP_FLAG_SYN;
 
@@ -218,7 +220,7 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 		struct ipv4_ct_tuple tuple = {};
 		struct ct_state ct_state = {};
 		union tcp_flags seen_flags = {0};
-		__u32 monitor;
+		__u32 monitor = 0;
 
 		tuple.nexthdr = IPPROTO_TCP;
 		tuple.flags = CT_SERVICE;
