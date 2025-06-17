@@ -37,8 +37,6 @@ concurrency:
 env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.4
-  # Adding k8s.local to the end makes kops happy-
-  # has stricter DNS naming requirements.
   test_name: node-throughput
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
