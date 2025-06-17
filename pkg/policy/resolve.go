@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/logcookie"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -337,7 +338,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
-	calculatedPolicy.toMapState(logger)
+	calculatedPolicy.toMapState(logger, p.SelectorCache.logCookies)
 	if !policyOwner.IsHost() {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
@@ -491,9 +492,9 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
-	p.L4Policy.Ingress.toMapState(logger, p)
-	p.L4Policy.Egress.toMapState(logger, p)
+func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery logcookie.PolicyLogBakery) {
+	p.L4Policy.Ingress.toMapState(logger, p, logCookieBakery)
+	p.L4Policy.Egress.toMapState(logger, p, logCookieBakery)
 }
 
 // toMapState transforms the L4DirectionPolicy into
@@ -502,9 +503,9 @@ func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
+func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy, logCookieBakery logcookie.PolicyLogBakery) {
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(logger, p, l4policy.features, ChangeState{})
+		l4.toMapState(logger, p, l4policy.features, ChangeState{}, logCookieBakery)
 		return true
 	})
 }
