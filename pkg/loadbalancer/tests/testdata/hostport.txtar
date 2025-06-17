@@ -29,8 +29,10 @@ lb/maps-dump lbmaps.actual
 replace 'phase: Running' 'phase: Succeeded' pod.yaml
 k8s/update pod.yaml
 
-# Services should be empty
+# Services and maps should be empty
 * db/empty services
+lb/maps-dump lbmaps.actual
+* empty lbmaps.actual
 
 # Add a new pod to take over the HostPort
 k8s/add other-pod.yaml
