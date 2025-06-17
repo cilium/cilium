@@ -354,8 +354,11 @@ const (
 	// StateDir is the directory path to store runtime state
 	StateDir = "state-dir"
 
-	// TracePayloadlen length of payload to capture when tracing
+	// TracePayloadlen length of payload to capture when tracing native packets.
 	TracePayloadlen = "trace-payloadlen"
+
+	// TracePayloadlenOverlay length of payload to capture when tracing overlay packets.
+	TracePayloadlenOverlay = "trace-payloadlen-overlay"
 
 	// Version prints the version information
 	Version = "version"
@@ -1547,19 +1550,20 @@ type DaemonConfig struct {
 	EnableIPMasqAgent           bool
 	IPMasqAgentConfigPath       string
 
-	EnableBPFClockProbe bool
-	EnableEgressGateway bool
-	EnableEnvoyConfig   bool
-	InstallIptRules     bool
-	MonitorAggregation  string
-	PreAllocateMaps     bool
-	IPv6NodeAddr        string
-	IPv4NodeAddr        string
-	SocketPath          string
-	TracePayloadlen     int
-	Version             string
-	PrometheusServeAddr string
-	ToFQDNsMinTTL       int
+	EnableBPFClockProbe    bool
+	EnableEgressGateway    bool
+	EnableEnvoyConfig      bool
+	InstallIptRules        bool
+	MonitorAggregation     string
+	PreAllocateMaps        bool
+	IPv6NodeAddr           string
+	IPv4NodeAddr           string
+	SocketPath             string
+	TracePayloadlen        int
+	TracePayloadlenOverlay int
+	Version                string
+	PrometheusServeAddr    string
+	ToFQDNsMinTTL          int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -2712,6 +2716,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.ExternalEnvoyProxy = vp.GetBool(ExternalEnvoyProxy)
 	c.SocketPath = vp.GetString(SocketPath)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
+	c.TracePayloadlenOverlay = vp.GetInt(TracePayloadlenOverlay)
 	c.Version = vp.GetString(Version)
 	c.PolicyTriggerInterval = vp.GetDuration(PolicyTriggerInterval)
 	c.CTMapEntriesTimeoutTCP = vp.GetDuration(CTMapEntriesTimeoutTCPName)
