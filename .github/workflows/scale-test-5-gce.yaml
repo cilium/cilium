@@ -327,6 +327,7 @@ jobs:
             --tear-down-prometheus-server=false \
             --nodes=5 \
             --report-dir=./report \
+            --k8s-clients-number=5 \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
             --testoverrides=./testing/overrides/load_throughput.yaml \
