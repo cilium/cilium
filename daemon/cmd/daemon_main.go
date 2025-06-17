@@ -636,8 +636,11 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ServiceNoBackendResponse, defaults.ServiceNoBackendResponse, "Response to traffic for a service without backends")
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
 
-	flags.Int(option.TracePayloadlen, defaults.TracePayloadLen, "Length of payload to capture when tracing")
+	flags.Int(option.TracePayloadlen, defaults.TracePayloadLen, "Length of payload to capture when tracing native packets.")
 	option.BindEnv(vp, option.TracePayloadlen)
+
+	flags.Int(option.TracePayloadlenOverlay, defaults.TracePayloadLenOverlay, "Length of payload to capture when tracing overlay packets.")
+	option.BindEnv(vp, option.TracePayloadlenOverlay)
 
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(vp, option.Version)
