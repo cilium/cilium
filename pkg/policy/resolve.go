@@ -387,7 +387,6 @@ var errMissingKey = errors.New("Key not found")
 
 // GetRuleMeta returns the list of labels of the rules that contributed
 // to the entry at this key.
-// The returned string is the string representation of a LabelArrayList.
 func (p *EndpointPolicy) GetRuleMeta(k Key) (RuleMeta, error) {
 	entry, ok := p.policyMapState.get(k)
 	if !ok {
