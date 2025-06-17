@@ -14,6 +14,8 @@ type BPFWireguard struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Masquerade traffic to remote nodes.
+	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -29,7 +31,7 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard(node Node) *BPFWireguard {
-	return &BPFWireguard{0x5dc, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFWireguard{0x5dc, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, node}
