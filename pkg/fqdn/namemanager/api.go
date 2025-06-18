@@ -161,7 +161,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		activeConnections := fqdn.NewDNSCache(0)
-		zombies, _ := ep.DNSZombies.GC()
+		zombies, dead := ep.DNSZombies.GC()
 		lookupTime := time.Now()
 		for _, zombie := range zombies {
 			namesToRegen.Insert(zombie.Names...)
@@ -170,6 +170,11 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 			}
 		}
 		n.cache.UpdateFromCache(activeConnections, nil)
+
+		// Persist the changes made to DNS{History, Zombies} for the endpoint.
+		if len(namesToRegen) > 0 || len(dead) > 0 {
+			ep.SyncEndpointHeaderFile()
+		}
 	}
 
 	// We may have removed entries; remove them from the ipcache metadata layer
