@@ -124,6 +124,11 @@ func (n *manager) doGC(ctx context.Context) error {
 		for _, zombie := range dead {
 			namesToClean.Insert(zombie.Names...)
 		}
+
+		// Sync endpoint persisted state if DNS state changed during GC run.
+		if len(affectedNames) > 0 || len(dead) > 0 {
+			ep.SyncEndpointHeaderFile()
+		}
 	}
 
 	if namesToClean.Len() == 0 {

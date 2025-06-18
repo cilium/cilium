@@ -177,7 +177,7 @@ func (gc *GC) Enable() {
 			}
 
 			if len(eps) > 0 || initialScan {
-				gc.logger.Info("Starting initial GC of connection tracking")
+				gc.logger.Info("Starting GC of connection tracking", logfields.First, initialScan)
 				maxDeleteRatio, success = gc.runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
@@ -195,6 +195,11 @@ func (gc *GC) Enable() {
 				gc.logger.Info("initial gc of ct and nat maps completed",
 					logfields.Duration, time.Since(gcStart),
 				)
+			} else {
+				gc.logger.Debug("CT GC Run completed",
+					logfields.Success, success,
+					logfields.Duration, time.Since(gcStart),
+					logfields.NextRunIn, interval)
 			}
 
 			triggeredBySignal = false
