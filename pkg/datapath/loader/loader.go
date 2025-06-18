@@ -205,6 +205,10 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		}
 	}
 
+	if option.Config.EnableUnknownProtocols {
+		cfg.EnableUnknownProtocols = true
+	}
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -415,6 +419,10 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	if !option.Config.EnableHostLegacyRouting {
 		cfg.SecctxFromIPCache = true
+	}
+
+	if option.Config.EnableUnknownProtocols {
+		cfg.EnableUnknownProtocols = true
 	}
 
 	ifindex := link.Attrs().Index

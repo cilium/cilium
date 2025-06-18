@@ -572,6 +572,9 @@ const (
 
 	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = 0.5
+
+	// EnableUnknownProtocols controls whether traffic with unknown protocols is supported in datapath.
+	EnableUnknownProtocols = false
 )
 
 var (
