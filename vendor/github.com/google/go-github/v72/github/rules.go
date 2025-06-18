@@ -99,14 +99,34 @@ const (
 	MergeGroupingStrategyHeadGreen MergeGroupingStrategy = "HEADGREEN"
 )
 
-// MergeMethod models a GitHub merge method.
-type MergeMethod string
+// PullRequestMergeMethod is used in PullRequestRuleParameters,
+// where the GitHub API expects lowercase merge method values: "merge", "rebase", "squash".
+//
+// NOTE: GitHub's API inconsistently uses different casing for the same logical values
+// across different rules.
+//
+// TODO: Unify with MergeQueueMergeMethod once the GitHub API uses consistent casing.
+type PullRequestMergeMethod string
 
-// This is the set of GitHub merge methods.
 const (
-	MergeMethodMerge  MergeMethod = "merge"
-	MergeMethodRebase MergeMethod = "rebase"
-	MergeMethodSquash MergeMethod = "squash"
+	PullRequestMergeMethodMerge  PullRequestMergeMethod = "merge"
+	PullRequestMergeMethodRebase PullRequestMergeMethod = "rebase"
+	PullRequestMergeMethodSquash PullRequestMergeMethod = "squash"
+)
+
+// MergeQueueMergeMethod is used in MergeQueueRuleParameters,
+// where the GitHub API expects uppercase merge method values: "MERGE", "REBASE", "SQUASH".
+//
+// NOTE: This type exists alongside PullRequestMergeMethod solely due to API casing inconsistencies.
+// It enforces the correct usage by API context.
+//
+// TODO: Unify with PullRequestMergeMethod once the GitHub API uses consistent casing.
+type MergeQueueMergeMethod string
+
+const (
+	MergeQueueMergeMethodMerge  MergeQueueMergeMethod = "MERGE"
+	MergeQueueMergeMethodRebase MergeQueueMergeMethod = "REBASE"
+	MergeQueueMergeMethodSquash MergeQueueMergeMethod = "SQUASH"
 )
 
 // PatternRuleOperator models a GitHub pattern rule operator.
@@ -383,7 +403,7 @@ type MergeQueueRuleParameters struct {
 	GroupingStrategy             MergeGroupingStrategy `json:"grouping_strategy"`
 	MaxEntriesToBuild            int                   `json:"max_entries_to_build"`
 	MaxEntriesToMerge            int                   `json:"max_entries_to_merge"`
-	MergeMethod                  MergeMethod           `json:"merge_method"`
+	MergeMethod                  MergeQueueMergeMethod `json:"merge_method"`
 	MinEntriesToMerge            int                   `json:"min_entries_to_merge"`
 	MinEntriesToMergeWaitMinutes int                   `json:"min_entries_to_merge_wait_minutes"`
 }
@@ -395,13 +415,13 @@ type RequiredDeploymentsRuleParameters struct {
 
 // PullRequestRuleParameters represents the pull_request rule parameters.
 type PullRequestRuleParameters struct {
-	AllowedMergeMethods               []MergeMethod `json:"allowed_merge_methods"`
-	AutomaticCopilotCodeReviewEnabled *bool         `json:"automatic_copilot_code_review_enabled,omitempty"`
-	DismissStaleReviewsOnPush         bool          `json:"dismiss_stale_reviews_on_push"`
-	RequireCodeOwnerReview            bool          `json:"require_code_owner_review"`
-	RequireLastPushApproval           bool          `json:"require_last_push_approval"`
-	RequiredApprovingReviewCount      int           `json:"required_approving_review_count"`
-	RequiredReviewThreadResolution    bool          `json:"required_review_thread_resolution"`
+	AllowedMergeMethods               []PullRequestMergeMethod `json:"allowed_merge_methods"`
+	AutomaticCopilotCodeReviewEnabled *bool                    `json:"automatic_copilot_code_review_enabled,omitempty"`
+	DismissStaleReviewsOnPush         bool                     `json:"dismiss_stale_reviews_on_push"`
+	RequireCodeOwnerReview            bool                     `json:"require_code_owner_review"`
+	RequireLastPushApproval           bool                     `json:"require_last_push_approval"`
+	RequiredApprovingReviewCount      int                      `json:"required_approving_review_count"`
+	RequiredReviewThreadResolution    bool                     `json:"required_review_thread_resolution"`
 }
 
 // RequiredStatusChecksRuleParameters represents the required status checks rule parameters.
