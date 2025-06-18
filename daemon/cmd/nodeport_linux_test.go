@@ -46,7 +46,7 @@ func setupNodePortSuite(tb testing.TB) *NodePortSuite {
 	return s
 }
 
-func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
+func TestPrivilegedCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 	s := setupNodePortSuite(t)
 
 	cases := []struct {

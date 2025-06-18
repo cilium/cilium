@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestPolicyMap(t *testing.T) {
+func TestPrivilegedPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	logger := hivetest.Logger(t)

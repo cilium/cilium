@@ -56,7 +56,7 @@ func TestWriteFeatureHeader(t *testing.T) {
 	}
 }
 
-func TestExecuteHeaderProbes(t *testing.T) {
+func TestPrivilegedExecuteHeaderProbes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	if ExecuteHeaderProbes(hivetest.Logger(t)) == nil {
@@ -64,7 +64,7 @@ func TestExecuteHeaderProbes(t *testing.T) {
 	}
 }
 
-func TestSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
+func TestPrivilegedSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "5.2", "BPF_ADJ_ROOM_MAC mode support in bpf_skb_adjust_room")
 	assert.NoError(t, HaveSKBAdjustRoomL2RoomMACSupport(hivetest.Logger(t)))
@@ -74,33 +74,33 @@ func TestIPv6Support(t *testing.T) {
 	assert.NoError(t, HaveIPv6Support())
 }
 
-func TestHaveBPF(t *testing.T) {
+func TestPrivilegedHaveBPF(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, HaveBPF())
 }
 
-func TestHaveBPFJIT(t *testing.T) {
+func TestPrivilegedHaveBPFJIT(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, HaveBPFJIT())
 }
 
-func TestHaveDeadCodeElimSupport(t *testing.T) {
+func TestPrivilegedHaveDeadCodeElimSupport(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, HaveDeadCodeElim())
 }
 
-func TestHaveTCBPF(t *testing.T) {
+func TestPrivilegedHaveTCBPF(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, HaveTCBPF())
 }
 
-func TestHaveTCX(t *testing.T) {
+func TestPrivilegedHaveTCX(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.6", "tcx bpf_link")
 	assert.NoError(t, HaveTCX())
 }
 
-func TestHaveNetkit(t *testing.T) {
+func TestPrivilegedHaveNetkit(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.7", "netkit bpf_link")
 	assert.NoError(t, HaveNetkit())

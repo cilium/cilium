@@ -51,7 +51,7 @@ func devicesControllerTestSetup(t *testing.T) {
 	})
 }
 
-func TestDevicesControllerScript(t *testing.T) {
+func TestPrivilegedDevicesControllerScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	devicesControllerTestSetup(t)
 

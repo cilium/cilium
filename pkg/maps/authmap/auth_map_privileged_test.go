@@ -24,7 +24,7 @@ func setup(tb testing.TB) {
 	require.NoError(tb, err)
 }
 
-func TestAuthMap(t *testing.T) {
+func TestPrivilegedAuthMap(t *testing.T) {
 	setup(t)
 	authMap := newMap(hivetest.Logger(t), 10)
 	err := authMap.init()
