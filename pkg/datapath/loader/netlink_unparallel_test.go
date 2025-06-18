@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestSetupIPIPDevices(t *testing.T) {
+func TestPrivilegedSetupIPIPDevices(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 

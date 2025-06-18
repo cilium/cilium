@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func Test_removeOldRouterState(t *testing.T) {
+func TestPrivilegedRemoveOldRouterState(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	t.Run("test-1", func(t *testing.T) {
@@ -93,7 +93,7 @@ func createDevices(t *testing.T) {
 	assert.NoError(t, netlink.AddrAdd(ciliumHost, addr))
 }
 
-func Test_removeStaleEPIfaces(t *testing.T) {
+func TestPrivilegedRemoveStaleEPIfaces(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)

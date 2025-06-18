@@ -32,7 +32,7 @@ func TestMatches(t *testing.T) {
 	require.False(t, empty.Contains(a)) // a is NOT in empty
 }
 
-func TestParse(t *testing.T) {
+func TestPrivilegedParse(t *testing.T) {
 	require.Equal(t, LabelArray{}, ParseLabelArray())
 	require.Equal(t, LabelArray{ParseLabel("magic")}, ParseLabelArray("magic"))
 	// LabelArray is sorted

@@ -77,8 +77,8 @@ func TestUpdateLookup(t *testing.T) {
 	}
 }
 
-// TestDelete tests that we can forcibly clear parts of the cache.
-func TestDelete(t *testing.T) {
+// TestPrivilegedDelete tests that we can forcibly clear parts of the cache.
+func TestPrivilegedDelete(t *testing.T) {
 	logger := hivetest.Logger(t)
 	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 

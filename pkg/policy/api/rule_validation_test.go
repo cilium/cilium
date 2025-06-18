@@ -1041,7 +1041,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNodeSelector(t *testing.T) {
+func TestPrivilegedNodeSelector(t *testing.T) {
 	setUpSuite(t)
 
 	// Operator in MatchExpressions is invalid, so sanitization should fail.

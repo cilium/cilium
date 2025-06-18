@@ -39,7 +39,7 @@ type peeringState struct {
 // Test_NeighborAddDel validates neighbor add and delete are working as expected. Test validates this using
 // peering status which is reported from BGP control plane.
 // Topology - (BGP CP) === (2 x gobgp instances)
-func Test_NeighborAddDel(t *testing.T) {
+func TestPrivilegedNeighborAddDel(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -187,7 +187,7 @@ func Test_NeighborAddDel(t *testing.T) {
 }
 
 // Test_NeighborGracefulRestart tests graceful restart configuration knobs with single peer.
-func Test_NeighborGracefulRestart(t *testing.T) {
+func TestPrivilegedNeighborGracefulRestart(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {

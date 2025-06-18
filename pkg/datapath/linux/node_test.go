@@ -84,7 +84,7 @@ func TestCreateNodeRouteSpecMtu(t *testing.T) {
 	require.Equal(t, 0, generatedRoute.MTU)
 }
 
-func TestLocalRule(t *testing.T) {
+func TestPrivilegedLocalRule(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)

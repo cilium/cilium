@@ -33,7 +33,7 @@ func mustCgroupProgram(t *testing.T) *ebpf.Program {
 }
 
 // Attach a program to a clean cgroup hook, no replacing necessary.
-func TestAttachCgroup(t *testing.T) {
+func TestPrivilegedAttachCgroup(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -54,7 +54,7 @@ func TestAttachCgroup(t *testing.T) {
 
 // Replace an existing program attached using PROG_ATTACH. On newer kernels,
 // this will attempt to replace a PROG_ATTACH with a bpf_link.
-func TestAttachCgroupWithPreviousAttach(t *testing.T) {
+func TestPrivilegedAttachCgroupWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -89,7 +89,7 @@ func TestAttachCgroupWithPreviousAttach(t *testing.T) {
 }
 
 // On kernels that support it, update a bpf_link attachment by opening a pin.
-func TestAttachCgroupWithExistingLink(t *testing.T) {
+func TestPrivilegedAttachCgroupWithExistingLink(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -132,7 +132,7 @@ func TestAttachCgroupWithExistingLink(t *testing.T) {
 }
 
 // Detach an existing PROG_ATTACH.
-func TestDetachCGroupWithPreviousAttach(t *testing.T) {
+func TestPrivilegedDetachCGroupWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -159,7 +159,7 @@ func TestDetachCGroupWithPreviousAttach(t *testing.T) {
 }
 
 // Detach an existing bpf_link.
-func TestDetachCGroupWithExistingLink(t *testing.T) {
+func TestPrivilegedDetachCGroupWithExistingLink(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
