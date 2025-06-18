@@ -205,6 +205,8 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		}
 	}
 
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -416,6 +418,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	if !option.Config.EnableHostLegacyRouting {
 		cfg.SecctxFromIPCache = true
 	}
+
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
@@ -695,6 +699,8 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg := config.NewBPFOverlay(nodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -743,6 +749,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	if !option.Config.EnableHostLegacyRouting {
 		cfg.SecctxFromIPCache = true
 	}
+
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
