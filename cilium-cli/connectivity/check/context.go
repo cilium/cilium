@@ -337,9 +337,6 @@ func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHoo
 	if err := ct.getNodes(ctx); err != nil {
 		return err
 	}
-	if err := ct.getCiliumNodes(ctx); err != nil {
-		return err
-	}
 	// Detect Cilium version after Cilium pods have been initialized and before feature
 	// detection.
 	if err := ct.detectCiliumVersion(ctx); err != nil {
@@ -370,6 +367,9 @@ func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHoo
 		return err
 	}
 	if err := ct.patchDeployment(ctx); err != nil {
+		return err
+	}
+	if err := ct.getCiliumNodes(ctx); err != nil {
 		return err
 	}
 	if ct.params.Hubble {
