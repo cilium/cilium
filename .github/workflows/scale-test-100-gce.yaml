@@ -341,8 +341,7 @@ jobs:
         run: |
           ./clusterloader \
             -v=2 \
-            --testconfig=./testing/load/config.yaml \
-            --testconfig=./testing/custom/netpol/config.yaml \
+            --testconfig=./testing/custom/servicechurn/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
