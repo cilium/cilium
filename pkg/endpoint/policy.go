@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
@@ -1014,6 +1013,15 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 		addressFamily = "IPv6"
 	}
 
+	logger := e.getLogger()
+
+	// Don't create controller if we can't get node IP
+	hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(logger))
+	if err != nil {
+		logger.Error("Failed to get node IP for endpoint sync", logfields.Error, err)
+		return
+	}
+
 	e.controllers.UpdateController(
 		fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
@@ -1027,14 +1035,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return nil
 				}
-				logger := e.getLogger()
 
 				ID := e.SecurityIdentity.ID
-				hostIP, ok := netipx.FromStdIP(node.GetIPv4(logger))
-				if !ok {
-					e.runlock()
-					return controller.NewExitReason("Failed to convert node IPv4 address")
-				}
 				key := node.GetEndpointEncryptKeyIndex(logger)
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
@@ -1090,8 +1092,12 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.
-	e.runIPIdentitySync(e.IPv4)
-	e.runIPIdentitySync(e.IPv6)
+	if option.Config.EnableIPv4 {
+		e.runIPIdentitySync(e.IPv4)
+	}
+	if option.Config.EnableIPv6 {
+		e.runIPIdentitySync(e.IPv6)
+	}
 
 	if oldIdentity != identity.StringID() {
 		e.getLogger().Info(
