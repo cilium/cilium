@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // HookDelivery represents the data that is received from GitHub's Webhook Delivery API
@@ -39,11 +40,26 @@ func (d HookDelivery) String() string {
 	return Stringify(d)
 }
 
+// getHeader common function for GetHeader funcs of HookRequest & HookResponse.
+func getHeader(headers map[string]string, key string) string {
+	for k, v := range headers {
+		if strings.EqualFold(k, key) {
+			return v
+		}
+	}
+	return ""
+}
+
 // HookRequest is a part of HookDelivery that contains
 // the HTTP headers and the JSON payload of the webhook request.
 type HookRequest struct {
 	Headers    map[string]string `json:"headers,omitempty"`
 	RawPayload *json.RawMessage  `json:"payload,omitempty"`
+}
+
+// GetHeader gets the value associated with the given key (ignoring key case).
+func (r *HookRequest) GetHeader(key string) string {
+	return getHeader(r.Headers, key)
 }
 
 func (r HookRequest) String() string {
@@ -55,6 +71,11 @@ func (r HookRequest) String() string {
 type HookResponse struct {
 	Headers    map[string]string `json:"headers,omitempty"`
 	RawPayload *json.RawMessage  `json:"payload,omitempty"`
+}
+
+// GetHeader gets the value associated with the given key (ignoring key case).
+func (r *HookResponse) GetHeader(key string) string {
+	return getHeader(r.Headers, key)
 }
 
 func (r HookResponse) String() string {

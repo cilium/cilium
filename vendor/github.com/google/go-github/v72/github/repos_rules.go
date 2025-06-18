@@ -38,8 +38,13 @@ type rulesetClearBypassActors struct {
 // GitHub API docs: https://docs.github.com/rest/repos/rules#get-rules-for-a-branch
 //
 //meta:operation GET /repos/{owner}/{repo}/rules/branches/{branch}
-func (s *RepositoriesService) GetRulesForBranch(ctx context.Context, owner, repo, branch string) (*BranchRules, *Response, error) {
+func (s *RepositoriesService) GetRulesForBranch(ctx context.Context, owner, repo, branch string, opts *ListOptions) (*BranchRules, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/rules/branches/%v", owner, repo, branch)
+
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -55,14 +60,28 @@ func (s *RepositoriesService) GetRulesForBranch(ctx context.Context, owner, repo
 	return rules, resp, nil
 }
 
+// RepositoryListRulesetsOptions specifies optional parameters to the
+// RepositoriesService.GetAllRulesets method.
+type RepositoryListRulesetsOptions struct {
+	// IncludesParents indicates whether to include rulesets configured at the organization or enterprise level that apply to the repository.
+	IncludesParents *bool `url:"includes_parents,omitempty"`
+	ListOptions
+}
+
 // GetAllRulesets gets all the repository rulesets for the specified repository.
-// If includesParents is true, rulesets configured at the organization or enterprise level that apply to the repository will be returned.
+// By default, this endpoint will include rulesets configured at the organization or enterprise level that apply to the repository.
+// To exclude those rulesets, set the `RepositoryListRulesetsOptions.IncludesParents` parameter to `false`.
 //
 // GitHub API docs: https://docs.github.com/rest/repos/rules#get-all-repository-rulesets
 //
 //meta:operation GET /repos/{owner}/{repo}/rulesets
-func (s *RepositoriesService) GetAllRulesets(ctx context.Context, owner, repo string, includesParents bool) ([]*RepositoryRuleset, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/rulesets?includes_parents=%v", owner, repo, includesParents)
+func (s *RepositoriesService) GetAllRulesets(ctx context.Context, owner, repo string, opts *RepositoryListRulesetsOptions) ([]*RepositoryRuleset, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/rulesets", owner, repo)
+
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {

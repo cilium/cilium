@@ -15,8 +15,13 @@ import (
 // GitHub API docs: https://docs.github.com/rest/orgs/rules#get-all-organization-repository-rulesets
 //
 //meta:operation GET /orgs/{org}/rulesets
-func (s *OrganizationsService) GetAllRepositoryRulesets(ctx context.Context, org string) ([]*RepositoryRuleset, *Response, error) {
+func (s *OrganizationsService) GetAllRepositoryRulesets(ctx context.Context, org string, opts *ListOptions) ([]*RepositoryRuleset, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/rulesets", org)
+
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {

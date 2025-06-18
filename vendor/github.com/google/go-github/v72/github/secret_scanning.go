@@ -16,24 +16,32 @@ type SecretScanningService service
 
 // SecretScanningAlert represents a GitHub secret scanning alert.
 type SecretScanningAlert struct {
-	Number                   *int        `json:"number,omitempty"`
-	CreatedAt                *Timestamp  `json:"created_at,omitempty"`
-	URL                      *string     `json:"url,omitempty"`
-	HTMLURL                  *string     `json:"html_url,omitempty"`
-	LocationsURL             *string     `json:"locations_url,omitempty"`
-	State                    *string     `json:"state,omitempty"`
-	Resolution               *string     `json:"resolution,omitempty"`
-	ResolvedAt               *Timestamp  `json:"resolved_at,omitempty"`
-	ResolvedBy               *User       `json:"resolved_by,omitempty"`
-	SecretType               *string     `json:"secret_type,omitempty"`
-	SecretTypeDisplayName    *string     `json:"secret_type_display_name,omitempty"`
-	Secret                   *string     `json:"secret,omitempty"`
-	Repository               *Repository `json:"repository,omitempty"`
-	UpdatedAt                *Timestamp  `json:"updated_at,omitempty"`
-	PushProtectionBypassed   *bool       `json:"push_protection_bypassed,omitempty"`
-	PushProtectionBypassedBy *User       `json:"push_protection_bypassed_by,omitempty"`
-	PushProtectionBypassedAt *Timestamp  `json:"push_protection_bypassed_at,omitempty"`
-	ResolutionComment        *string     `json:"resolution_comment,omitempty"`
+	Number                                     *int        `json:"number,omitempty"`
+	CreatedAt                                  *Timestamp  `json:"created_at,omitempty"`
+	URL                                        *string     `json:"url,omitempty"`
+	HTMLURL                                    *string     `json:"html_url,omitempty"`
+	LocationsURL                               *string     `json:"locations_url,omitempty"`
+	State                                      *string     `json:"state,omitempty"`
+	Resolution                                 *string     `json:"resolution,omitempty"`
+	ResolvedAt                                 *Timestamp  `json:"resolved_at,omitempty"`
+	ResolvedBy                                 *User       `json:"resolved_by,omitempty"`
+	SecretType                                 *string     `json:"secret_type,omitempty"`
+	SecretTypeDisplayName                      *string     `json:"secret_type_display_name,omitempty"`
+	Secret                                     *string     `json:"secret,omitempty"`
+	Repository                                 *Repository `json:"repository,omitempty"`
+	UpdatedAt                                  *Timestamp  `json:"updated_at,omitempty"`
+	IsBase64Encoded                            *bool       `json:"is_base64_encoded,omitempty"`
+	MultiRepo                                  *bool       `json:"multi_repo,omitempty"`
+	PubliclyLeaked                             *bool       `json:"publicly_leaked,omitempty"`
+	PushProtectionBypassed                     *bool       `json:"push_protection_bypassed,omitempty"`
+	PushProtectionBypassedBy                   *User       `json:"push_protection_bypassed_by,omitempty"`
+	PushProtectionBypassedAt                   *Timestamp  `json:"push_protection_bypassed_at,omitempty"`
+	ResolutionComment                          *string     `json:"resolution_comment,omitempty"`
+	PushProtectionBypassRequestComment         *string     `json:"push_protection_bypass_request_comment,omitempty"`
+	PushProtectionBypassRequestHTMLURL         *string     `json:"push_protection_bypass_request_html_url,omitempty"`
+	PushProtectionBypassRequestReviewer        *User       `json:"push_protection_bypass_request_reviewer,omitempty"`
+	PushProtectionBypassRequestReviewerComment *string     `json:"push_protection_bypass_request_reviewer_comment,omitempty"`
+	Validity                                   *string     `json:"validity,omitempty"`
 }
 
 // SecretScanningAlertLocation represents the location for a secret scanning alert.
@@ -71,6 +79,12 @@ type SecretScanningAlertListOptions struct {
 	// A comma-separated list of validities that, when present, will return alerts that match the validities in this list.
 	// Valid options are active, inactive, and unknown.
 	Validity string `url:"validity,omitempty"`
+
+	// A boolean value representing whether or not to filter alerts by the publicly-leaked tag being present. Default: false.
+	IsPubliclyLeaked bool `url:"is_publicly_leaked,omitempty"`
+
+	// A boolean value representing whether or not to filter alerts by the multi-repo tag being present. Default: false.
+	IsMultiRepo bool `url:"is_multi_repo,omitempty"`
 
 	// The direction to sort the results by. Possible values are: asc, desc. Default: desc.
 	Direction string `url:"direction,omitempty"`

@@ -95,6 +95,7 @@ var (
 		"pull_request_review_thread":      &PullRequestReviewThreadEvent{},
 		"pull_request_target":             &PullRequestTargetEvent{},
 		"push":                            &PushEvent{},
+		"registry_package":                &RegistryPackageEvent{},
 		"repository":                      &RepositoryEvent{},
 		"repository_dispatch":             &RepositoryDispatchEvent{},
 		"repository_import":               &RepositoryImportEvent{},
