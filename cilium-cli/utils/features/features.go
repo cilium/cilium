@@ -168,7 +168,7 @@ func (fs Set) MatchRequirements(reqs ...Requirement) (bool, string) {
 			return false, fmt.Sprintf("requires Feature %s mode %s, got %s", req.Feature, req.mode, status.Mode)
 		}
 		if req.requireModeIsNot && (req.mode == status.Mode) {
-			return false, fmt.Sprintf("requires Feature %s mode %s to not equal %s, req.Feature", req.Feature, status.Mode, req.mode)
+			return false, fmt.Sprintf("requires Feature %s not equal to %s", req.Feature, req.mode)
 		}
 	}
 
