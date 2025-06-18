@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStatMap(t *testing.T) {
+func TestPrivilegedStatMap(t *testing.T) {
 	policyMap := setupPolicyMapPrivilegedTestSuite(t)
 	require.NotNil(t, policyMap)
 

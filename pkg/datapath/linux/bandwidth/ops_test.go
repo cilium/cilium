@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestOps(t *testing.T) {
+func TestPrivilegedOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 

@@ -115,7 +115,7 @@ func mapsEqual(a, b *Map) bool {
 		reflect.DeepEqual(a.spec, b.spec)
 }
 
-func TestOpen(t *testing.T) {
+func TestPrivilegedOpen(t *testing.T) {
 	setup(t)
 
 	// Ensure that os.IsNotExist() can be used with Map.Open()
@@ -142,7 +142,7 @@ func TestOpen(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOpenMap(t *testing.T) {
+func TestPrivilegedOpenMap(t *testing.T) {
 	testMap := setup(t)
 	logger := hivetest.Logger(t)
 
@@ -155,7 +155,7 @@ func TestOpenMap(t *testing.T) {
 	require.True(t, mapsEqual(openedMap, testMap))
 }
 
-func TestOpenOrCreate(t *testing.T) {
+func TestPrivilegedOpenOrCreate(t *testing.T) {
 	setup(t)
 
 	// existingMap is the same as testMap. OpenOrCreate should skip recreation.
@@ -186,7 +186,7 @@ func TestOpenOrCreate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRecreateMap(t *testing.T) {
+func TestPrivilegedRecreateMap(t *testing.T) {
 	testMap := setup(t)
 
 	parallelMap := NewMap("cilium_test",
@@ -230,7 +230,7 @@ func TestRecreateMap(t *testing.T) {
 	require.EqualValues(t, value, value2)
 }
 
-func TestBasicManipulation(t *testing.T) {
+func TestPrivilegedBasicManipulation(t *testing.T) {
 	setup(t)
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
@@ -422,7 +422,7 @@ func TestBasicManipulation(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSubscribe(t *testing.T) {
+func TestPrivilegedSubscribe(t *testing.T) {
 	setup(t)
 
 	existingMap := NewMap("cilium_test",
@@ -466,7 +466,7 @@ func TestSubscribe(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDump(t *testing.T) {
+func TestPrivilegedDump(t *testing.T) {
 	testMap := setup(t)
 
 	key1 := &TestKey{Key: 105}
@@ -539,7 +539,7 @@ func TestDump(t *testing.T) {
 	}, dump5)
 }
 
-func TestDumpPerCPU(t *testing.T) {
+func TestPrivilegedDumpPerCPU(t *testing.T) {
 	testMap := setupPerCPU(t)
 
 	key1 := &TestKey{Key: 0}
@@ -588,13 +588,13 @@ func TestDumpPerCPU(t *testing.T) {
 	}, dump)
 }
 
-// TestDumpReliablyWithCallbackOverlapping attempts to test that DumpReliablyWithCallback
+// TestPrivilegedDumpReliablyWithCallbackOverlapping attempts to test that DumpReliablyWithCallback
 // will reliably iterate all keys that are known to be in a map, even if keys that are ahead
 // of the current iteration can be deleted or updated concurrently.
 // This test is not deterministic, it establishes a condition where we have keys that are known
 // to be in the map and other keys which are volatile.  The test passes if the dump can reliably
 // iterate all keys that are not volatile.
-func TestDumpReliablyWithCallbackOverlapping(t *testing.T) {
+func TestPrivilegedDumpReliablyWithCallbackOverlapping(t *testing.T) {
 	setup(t)
 
 	iterations := 10000
@@ -679,11 +679,11 @@ func TestDumpReliablyWithCallbackOverlapping(t *testing.T) {
 	wg.Wait()
 }
 
-// TestDumpReliablyWithCallback tests that DumpReliablyWithCallback by concurrently
+// TestPrivilegedDumpReliablyWithCallback tests that DumpReliablyWithCallback by concurrently
 // upserting/removing keys in range [0, 4) in the map and then continuously dumping
 // the map.
 // The test validates that all keys that are not being removed/added are contained in the dump.
-func TestDumpReliablyWithCallback(t *testing.T) {
+func TestPrivilegedDumpReliablyWithCallback(t *testing.T) {
 	setup(t)
 
 	maxEntries := uint32(256)
@@ -769,7 +769,7 @@ func TestDumpReliablyWithCallback(t *testing.T) {
 	wg.Wait()
 }
 
-func TestDeleteAll(t *testing.T) {
+func TestPrivilegedDeleteAll(t *testing.T) {
 	testMap := setup(t)
 
 	key1 := &TestKey{Key: 105}
@@ -806,14 +806,14 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetModel(t *testing.T) {
+func TestPrivilegedGetModel(t *testing.T) {
 	testMap := setup(t)
 
 	model := testMap.GetModel()
 	require.NotNil(t, model)
 }
 
-func TestCheckAndUpgrade(t *testing.T) {
+func TestPrivilegedCheckAndUpgrade(t *testing.T) {
 	setup(t)
 
 	// CheckAndUpgrade removes map file if upgrade is needed
@@ -848,7 +848,7 @@ func TestCheckAndUpgrade(t *testing.T) {
 	DisableMapPreAllocation()
 }
 
-func TestUnpin(t *testing.T) {
+func TestPrivilegedUnpin(t *testing.T) {
 	setup(t)
 
 	var exist bool
@@ -887,7 +887,7 @@ func TestUnpin(t *testing.T) {
 	require.False(t, exist)
 }
 
-func TestCreateUnpinned(t *testing.T) {
+func TestPrivilegedCreateUnpinned(t *testing.T) {
 	setup(t)
 
 	m := NewMap("cilium_test_create_unpinned",
@@ -938,7 +938,7 @@ func BenchmarkMapLookup(b *testing.B) {
 	}
 }
 
-func TestErrorResolver(t *testing.T) {
+func TestPrivilegedErrorResolver(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 	CheckOrMountFS(logger, "")
@@ -1030,7 +1030,7 @@ func TestBatchIteratorTypes(t *testing.T) {
 	assert.NotNil(t, iter)
 }
 
-func TestBatchIterator(t *testing.T) {
+func TestPrivilegedBatchIterator(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	runTest := func(mapType ebpf.MapType, size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]) {

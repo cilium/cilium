@@ -33,7 +33,7 @@ func path(tb testing.TB, m *bpf.Map) string {
 	return path
 }
 
-func TestPerClusterMaps(t *testing.T) {
+func TestPrivilegedPerClusterMaps(t *testing.T) {
 	setup(t)
 
 	maps := newPerClusterNATMaps(true, true, option.NATMapEntriesGlobalDefault)
@@ -112,7 +112,7 @@ func TestPerClusterMaps(t *testing.T) {
 	require.NoError(t, maps.DeleteClusterNATMaps(cmtypes.ClusterIDMax), "Failed to delete maps")
 }
 
-func TestPerClusterMapsCleanup(t *testing.T) {
+func TestPrivilegedPerClusterMapsCleanup(t *testing.T) {
 	setup(t)
 
 	tests := []struct {

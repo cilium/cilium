@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestAttachCgroup(t *testing.T) {
+func TestPrivilegedAttachCgroup(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// Cgroup attachment expected to succeed in all testing environments.

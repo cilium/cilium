@@ -17,7 +17,7 @@ import (
 
 // TestIsMountFSbyMount tests the public function IsMountFS by performing
 // an actual mount.
-func TestIsMountFSbyMount(t *testing.T) {
+func TestPrivilegedIsMountFSbyMount(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	tmpDir, err := os.MkdirTemp("", "IsMountFS_")

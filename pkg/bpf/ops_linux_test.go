@@ -41,7 +41,7 @@ func (o *TestObject) BinaryValue() encoding.BinaryMarshaler {
 
 var emptySeq iter.Seq2[*TestObject, statedb.Revision] = func(yield func(*TestObject, uint64) bool) {}
 
-func Test_MapOps(t *testing.T) {
+func TestPrivilegedMapOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	testMap := NewMap("cilium_ops_test",
@@ -96,7 +96,7 @@ func Test_MapOps(t *testing.T) {
 	assert.Empty(t, data)
 }
 
-func Test_MapOpsPrune(t *testing.T) {
+func TestPrivilegedMapOpsPrune(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// This tests pruning with an LPM trie. This ensures we do not regress, as
@@ -138,7 +138,7 @@ func Test_MapOpsPrune(t *testing.T) {
 
 // Test_MapOps_ReconcilerExample serves as a testable example for the map ops.
 // This is not an "Example*" function as it can only run privileged.
-func Test_MapOps_ReconcilerExample(t *testing.T) {
+func TestPrivilegedMapOps_ReconcilerExample(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	exampleMap := NewMap("example",

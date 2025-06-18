@@ -236,7 +236,7 @@ func setupAndRunTest(t *testing.T, n int, proto netlink.Proto, testFn func(t *te
 	testFn(t, conns)
 }
 
-func TestDestroy(t *testing.T) {
+func TestPrivilegedDestroy(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	n := 3
 	log := hivetest.Logger(t)
@@ -273,7 +273,7 @@ func TestDestroy(t *testing.T) {
 	})
 }
 
-func TestIterateAndDestroy(t *testing.T) {
+func TestPrivilegedIterateAndDestroy(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 	setupAndRunTest(t, 1, unix.IPPROTO_TCP, func(t *testing.T, clientConns []net.Conn) {

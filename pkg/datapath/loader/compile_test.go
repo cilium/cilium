@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestCompile(t *testing.T) {
+func TestPrivilegedCompile(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	debugOutput := func(p *progInfo) *progInfo {

@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestVRFMapsHive(t *testing.T) {
+func TestPrivilegedVRFMapsHive(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	type in struct {

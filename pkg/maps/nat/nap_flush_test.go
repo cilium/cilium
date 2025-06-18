@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-func TestFlushNat(t *testing.T) {
+func TestPrivilegedFlushNat(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	numEntries := 5

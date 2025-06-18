@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestAttachDetachTCX(t *testing.T) {
+func TestPrivilegedAttachDetachTCX(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -55,7 +55,7 @@ func TestAttachDetachTCX(t *testing.T) {
 	})
 }
 
-func TestHasCiliumTCXLinks(t *testing.T) {
+func TestPrivilegedHasCiliumTCXLinks(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	skipTCXUnsupported(t)

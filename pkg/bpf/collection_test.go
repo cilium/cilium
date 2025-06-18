@@ -38,7 +38,7 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	assert.NotContains(t, spec.Programs, "e")
 }
 
-func TestUpgradeMap(t *testing.T) {
+func TestPrivilegedUpgradeMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 

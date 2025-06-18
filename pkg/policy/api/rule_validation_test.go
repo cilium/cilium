@@ -1026,7 +1026,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNodeSelector(t *testing.T) {
+func TestPrivilegedNodeSelector(t *testing.T) {
 	// Operator in MatchExpressions is invalid, so sanitization should fail.
 	labelSel := &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{

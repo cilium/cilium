@@ -43,7 +43,7 @@ import (
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
-func TestScript(t *testing.T) {
+func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	defer goleak.VerifyNone(t)

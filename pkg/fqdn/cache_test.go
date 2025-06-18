@@ -73,8 +73,8 @@ func TestUpdateLookup(t *testing.T) {
 	}
 }
 
-// TestDelete tests that we can forcibly clear parts of the cache.
-func TestDelete(t *testing.T) {
+// TestPrivilegedDelete tests that we can forcibly clear parts of the cache.
+func TestPrivilegedDelete(t *testing.T) {
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),
 		"test2.com": netip.MustParseAddr("2.2.2.2"),

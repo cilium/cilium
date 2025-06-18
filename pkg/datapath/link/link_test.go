@@ -16,7 +16,7 @@ func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
-func TestDeleteByName(t *testing.T) {
+func TestPrivilegedDeleteByName(t *testing.T) {
 	setup(t)
 
 	testCases := []struct {
@@ -42,7 +42,7 @@ func TestDeleteByName(t *testing.T) {
 	}
 }
 
-func TestRename(t *testing.T) {
+func TestPrivilegedRename(t *testing.T) {
 	setup(t)
 
 	testCases := []struct {
