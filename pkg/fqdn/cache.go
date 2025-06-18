@@ -617,7 +617,7 @@ func (c *DNSCache) GetIPs() map[netip.Addr][]string {
 //
 //	ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
 //	ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
-//	that expired before the current time.
+//	that expired or had a lookup time before the current time.
 //
 // expireLookupsBefore requires a lookup to have a LookupTime before it in
 // order to remove it.
@@ -1088,10 +1088,11 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 // returned by GC.
 func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart, estNext time.Time) {
 	zombies.Lock()
+	defer zombies.Unlock()
+
 	zombies.lastCTGCUpdate = ctGCStart
 	zombies.nextCTGCUpdate = estNext
 	zombies.ctGCRevision++
-	zombies.Unlock()
 }
 
 // NextCTGCUpdate returns the estimated next CT GC time.
