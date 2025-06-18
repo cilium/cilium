@@ -12,8 +12,7 @@ import (
 type bgpControlPlane struct{}
 
 func (t bgpControlPlane) build(ct *check.ConnectivityTest, _ map[string]string) {
-	// prefix the test name with `seq-` to run it sequentially
-	newTest("seq-bgp-control-plane-v1", ct).
+	newTest("bgp-control-plane-v1", ct).
 		// NOTE: BGPv1 was removed in v1.19, this test can be removed once v1.18 is out of support
 		WithCiliumVersion(">=1.16.0 <1.19.0").
 		WithCondition(func() bool {
@@ -25,8 +24,7 @@ func (t bgpControlPlane) build(ct *check.ConnectivityTest, _ map[string]string) 
 		).
 		WithScenarios(tests.BGPAdvertisements(1, bgpPeeringPolicyYAML))
 
-	// prefix the test name with `seq-` to run it sequentially
-	newTest("seq-bgp-control-plane-v2", ct).
+	newTest("bgp-control-plane-v2", ct).
 		WithCiliumVersion(">=1.16.0").
 		WithCondition(func() bool {
 			return ct.Params().IncludeUnsafeTests
