@@ -43,8 +43,7 @@ spec:
   #
   # Entries on this list have the exact same configuration options as the
   # EgressGateway field above.
-  - egressGateway:
-    nodeSelector:
+  - nodeSelector:
       matchLabels:
         egress-node: "true"
     egressIP: "192.168.60.100"
