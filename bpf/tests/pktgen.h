@@ -20,6 +20,7 @@
 #include <linux/udp.h>
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
+#include <linux/igmp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -167,6 +168,7 @@ enum pkt_layer {
 	PKT_LAYER_ICMPV6,
 	PKT_LAYER_SCTP,
 	PKT_LAYER_ESP,
+	PKT_LAYER_IGMP,
 
 	/* Tunnel layers */
 	PKT_LAYER_GENEVE,
@@ -450,6 +452,13 @@ __attribute__((warn_unused_result))
 struct icmp6hdr *pktgen__push_icmp6hdr(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct icmp6hdr), PKT_LAYER_ICMPV6);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct igmphdr *pktgen__push_igmphdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct igmphdr), PKT_LAYER_IGMP);
 }
 
 /* Push an empty ESP header onto the packet */
@@ -753,6 +762,40 @@ pktgen__push_ipv4_icmp_packet(struct pktgen *builder,
 	return l4;
 }
 
+static __always_inline struct igmphdr *
+pktgen__push_ipv4_igmp_packet(struct pktgen *builder,
+			      __u8 *smac, __u8 *dmac,
+			      __be32 saddr, __be32 daddr,
+			      __u8 igmp_type)
+{
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct igmphdr *l4;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_iphdr(builder);
+	if (!l3)
+		return NULL;
+
+	l3->saddr = saddr;
+	l3->daddr = daddr;
+
+	l4 = pktgen__push_igmphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->type = igmp_type;
+	l4->code = 0;
+	l4->csum = 0;
+
+	return l4;
+}
+
 static __always_inline struct tcphdr *
 pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
@@ -909,6 +952,9 @@ static __always_inline void pktgen__finish_ipv4(const struct pktgen *builder, in
 		break;
 	case PKT_LAYER_ESP:
 		ipv4_layer->protocol = IPPROTO_ESP;
+		break;
+	case PKT_LAYER_IGMP:
+		ipv4_layer->protocol = IPPROTO_IGMP;
 		break;
 	default:
 		break;
@@ -1281,6 +1327,9 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_VXLAN:
+			break;
+
+		case PKT_LAYER_IGMP:
 			break;
 
 		case PKT_LAYER_DATA:
