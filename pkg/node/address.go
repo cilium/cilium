@@ -226,13 +226,18 @@ func GetInternalIPv6(logger *slog.Logger) net.IP {
 	return clone(n.GetNodeInternalIPv6())
 }
 
+// GetNodeIP returns node IP, prioritizing IPv4 if enabled in config
+func GetNodeIP(logger *slog.Logger) net.IP {
+	if option.Config.EnableIPv4 {
+		return GetIPv4(logger)
+	}
+	return GetIPv6(logger)
+}
+
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
-	if option.Config.EnableIPv4 {
-		return GetIPv4(logger).String()
-	}
-	return GetIPv6(logger).String()
+	return GetNodeIP(logger).String()
 }
 
 // SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
