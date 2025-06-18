@@ -594,6 +594,11 @@ Users (Alphabetically)
       L: https://www.nutanix.com/products/kubernetes-management-platform
       Q: @tuxtof
 
+    * N: Outscale Kubernetes as a Service (OKS)
+      D: Cilium is the default Container Network Interface (CNI) used by OUTSCALE on all clusters provisioned through its Kubernetes offering, OKS.
+      U: CNI, Hubble, CiliumNetworkPolicy, kube-proxy replacement, eBPF 
+      L: https://fr.outscale.com/cloud-experience/outscale-kubernetes-as-a-service/
+
     * N: Overstock Inc.
       D: Overstock is using Cilium as the main CNI plugin on bare-metal clusters (self hosted k8s).
       U: Networking, network policy, hubble, observability
