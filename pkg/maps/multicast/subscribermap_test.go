@@ -19,7 +19,7 @@ const (
 	TestGroupV4OuterMapName = "test_cilium_mcast_group_v4_outer"
 )
 
-func TestSubscriberMap(t *testing.T) {
+func TestPrivilegedSubscriberMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 

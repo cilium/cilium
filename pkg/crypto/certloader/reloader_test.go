@@ -387,7 +387,7 @@ func TestKeypairAndCACertPool(t *testing.T) {
 	}
 }
 
-func TestReload(t *testing.T) {
+func TestPrivilegedReload(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
