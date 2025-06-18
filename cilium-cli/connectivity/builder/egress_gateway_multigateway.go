@@ -14,8 +14,7 @@ import (
 type egressGatewayMultigateway struct{}
 
 func (t egressGatewayMultigateway) build(ct *check.ConnectivityTest, _ map[string]string) {
-	// Prefix the test name with `seq-` to run it sequentially.
-	newTest("seq-egress-gateway-multigateway", ct).
+	newTest("egress-gateway-multigateway", ct).
 		WithCiliumVersion(">=1.18.0").
 		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
