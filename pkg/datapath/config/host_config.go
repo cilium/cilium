@@ -12,6 +12,8 @@ type BPFHost struct {
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
+	// Pass traffic with extended IP protocols.
+	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
 	// devices. (default __ETH_HLEN).
 	EthHeaderLength uint8 `config:"eth_header_length"`
@@ -32,7 +34,7 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, 0xe, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, 0xe, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, 0x0, node}
