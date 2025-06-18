@@ -1,0 +1,102 @@
+## Input params
+# Valid actions: "create", "scale and update", "delete"
+{{$actionName := printf "%s objects" .actionName}}
+{{$namespaces := .namespaces}}
+{{$tuningSet := .tuningSet}}
+
+# Derivative variables
+{{$is_deleting := (eq .actionName "delete")}}
+{{$randomScaleFactor := DefaultParam .randomScaleFactor 0}}
+{{$minReplicaFactor := SubtractFloat 1 $randomScaleFactor}}
+{{$maxReplicaFactor := AddFloat 1 $randomScaleFactor}}
+{{$operationTimeout := .operationTimeout}}
+
+# Deployments
+{{$deploymentImage := DefaultParam .deploymentImage "registry.k8s.io/pause:3.9"}}
+{{$largeDeploymentsPerNamespace := .largeDeploymentsPerNamespace}}
+{{$largeDeploymentSize := .largeDeploymentSize}}
+{{$bigDeploymentsPerNamespace := .bigDeploymentsPerNamespace}}
+{{$bigDeploymentSize := .bigDeploymentSize}}
+{{$bigDeploymentsPerNamespace := .bigDeploymentsPerNamespace}}
+{{$mediumDeploymentSize := .mediumDeploymentSize}}
+{{$mediumDeploymentsPerNamespace := .mediumDeploymentsPerNamespace}}
+{{$smallDeploymentSize := .smallDeploymentSize}}
+{{$smallDeploymentsPerNamespace := .smallDeploymentsPerNamespace}}
+
+steps:
+- name: Starting measurement for '{{$actionName}}'
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: group = load
+      operationTimeout: {{$operationTimeout}}
+
+- name: {{$actionName}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$largeDeploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: large-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $largeDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $largeDeploymentSize $maxReplicaFactor}}
+        SvcName: large-service
+        Image: {{$deploymentImage}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: big-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $bigDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $bigDeploymentSize $maxReplicaFactor}}
+        SvcName: big-service
+        Image: {{$deploymentImage}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: medium-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $mediumDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $mediumDeploymentSize $maxReplicaFactor}}
+        SvcName: medium-service
+        Image: {{$deploymentImage}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: small-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $smallDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $smallDeploymentSize $maxReplicaFactor}}
+        SvcName: small-service
+        Image: {{$deploymentImage}}
+
+- name: Waiting for '{{$actionName}}' to be completed
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+    Params:
+      action: gather
