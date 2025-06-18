@@ -168,14 +168,14 @@ func (a *Action) Run(f func(*Action)) {
 	for _, m := range a.expIngress.Metrics {
 		err := a.collectMetricsPerSource(m)
 		if err != nil {
-			a.Logf("❌ Failed to collect metrics for ingress from source %s: %w", m.Source, err)
+			a.Logf("❌ Failed to collect metrics for ingress from source %s: %s", m.Source, err)
 		}
 
 	}
 	for _, m := range a.expEgress.Metrics {
 		err := a.collectMetricsPerSource(m)
 		if err != nil {
-			a.Logf("❌ Failed to collect metrics for egress from source %s: %w", m.Source, err)
+			a.Logf("❌ Failed to collect metrics for egress from source %s: %s", m.Source, err)
 		}
 	}
 

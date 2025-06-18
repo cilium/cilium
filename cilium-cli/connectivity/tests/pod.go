@@ -336,13 +336,13 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 		for _, ciliumPod := range ct.CiliumPods() {
 			addr, err := netip.ParseAddr(echoIP)
 			if err != nil {
-				ct.Warnf("invalid pod IP address: %w", err)
+				ct.Warnf("invalid pod IP address: %s", err)
 				continue
 			}
 
 			restore, err := ipcacheDeleteAndRestore(ctx, ct, ciliumPod, netip.PrefixFrom(addr, addr.BitLen()), s.useExactMatch)
 			if err != nil {
-				ct.Warnf("ipcache ip entries delete and restore failed: %w", err)
+				ct.Warnf("ipcache ip entries delete and restore failed: %s", err)
 				continue
 			}
 			defer restore()
@@ -354,14 +354,14 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 		for _, ciliumPod := range ct.CiliumPods() {
 			prefixes, err := remoteNodesPodCIDRs(ctx, ciliumPod)
 			if err != nil {
-				ct.Warnf("unable to get remote nodes pod CIDRs: %w", err)
+				ct.Warnf("unable to get remote nodes pod CIDRs: %s", err)
 				continue
 			}
 
 			for _, prefix := range prefixes {
 				restore, err := ipcacheDeleteAndRestore(ctx, ct, ciliumPod, prefix, s.useExactMatch)
 				if err != nil {
-					ct.Warnf("ipcache pod CIDR entries delete and restore failed: %w", err)
+					ct.Warnf("ipcache pod CIDR entries delete and restore failed: %s", err)
 					continue
 				}
 				defer restore()
@@ -495,7 +495,7 @@ func ipcacheDeleteAndRestore(
 		}
 		output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, updateCmd)
 		if err != nil {
-			ct.Warnf("failed to restore ipcache entry: %q, %w, %q", updateCmd, err, output.String())
+			ct.Warnf("failed to restore ipcache entry: %q, %s, %q", updateCmd, err, output.String())
 		}
 	}, nil
 }

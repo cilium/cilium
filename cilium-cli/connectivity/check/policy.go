@@ -51,7 +51,7 @@ func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[P
 			if err == nil {
 				break
 			}
-			ct.Debugf("Failed to get policy revision from pod %s (%d/%d): %w", cp, i, getPolicyRevisionRetries, err)
+			ct.Debugf("Failed to get policy revision from pod %s (%d/%d): %s", cp, i, getPolicyRevisionRetries, err)
 		}
 		if err != nil {
 			return revisions, err
