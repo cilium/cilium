@@ -40,7 +40,7 @@ spec:
     #
     # If this field is used the contents of the egressGateway field above will
     # be ignored.
-    # 
+    #
     # Entries on this list have the exact same configuration options as the
     # EgressGateway field above.
   - egressGateway:
