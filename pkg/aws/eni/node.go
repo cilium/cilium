@@ -153,11 +153,14 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	// addresses available for release
 	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
 		e := n.enis[eniId]
-		ipPrefixes := e.Prefixes
+
 		// Ignore if the ENI is not managed by Cilium
 		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
 			continue
 		}
+		ipPrefixes := e.Prefixes
+		ipsOnENI := e.Addresses
+		usedIPs := n.k8sObj.Status.IPAM.Used
 
 		matchedIPs := []string{}
 		// Returns the first ENI with either IPPrefixes/secondary IPs to release instead of
@@ -171,8 +174,9 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 				logfields.Index, e.Number,
 				logfields.NumAddresses, len(e.Addresses),
 				logfields.LenPrefixes, len(ipPrefixes),
+				logfields.ExcessIPs, excessIPs,
 			)
-			usedIPs := n.k8sObj.Status.IPAM.Used
+
 			unusedIPPrefixes := []string{}
 			if excessIPs >= option.ENIPDBlockSizeIPv4 {
 				// Identify unused IP prefixes to release
@@ -212,10 +216,17 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 				r.InterfaceID = eniId
 				r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
 				r.IPPrefixesToRelease = unusedIPPrefixes
-
 				if len(secondaryIPs) > 0 {
-					matchedIPs = append(matchedIPs, secondaryIPs...)
+					secondaryIPs = getUnusedIPs(usedIPs, secondaryIPs, e.IP)
+					maxReleaseOnENI := min(excessIPs, len(secondaryIPs))
+					matchedIPs = append(matchedIPs, secondaryIPs[:maxReleaseOnENI]...)
 				}
+				scopedLog.Debug(
+					"ENI has unused secondary IPs and/or IPPrefixes that can be released",
+					fieldEniID, e.ID,
+					logfields.Prefix, unusedIPPrefixes,
+					logfields.IPAddrs, matchedIPs,
+				)
 				r.IPsToRelease = matchedIPs
 				// Return since we have either IPPrefixes/secondary IPs to release
 				return r
@@ -232,17 +243,8 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 		)
 
 		// Count free IP addresses on this ENI
-		ipsOnENI := n.k8sObj.Status.ENI.ENIs[e.ID].Addresses
-		freeIpsOnENI := []string{}
-		for _, ip := range ipsOnENI {
-			_, ipUsed := n.k8sObj.Status.IPAM.Used[ip]
-			// exclude primary IPs
-			if !ipUsed && ip != e.IP {
-				freeIpsOnENI = append(freeIpsOnENI, ip)
-			}
-		}
+		freeIpsOnENI := getUnusedIPs(usedIPs, ipsOnENI, e.IP)
 		freeOnENICount := len(freeIpsOnENI)
-
 		if freeOnENICount <= 0 {
 			continue
 		}
@@ -274,6 +276,17 @@ func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) err
 
 	return nil
 
+}
+
+// Get Unused Individual IPs
+func getUnusedIPs(usedIPs ipamTypes.AllocationMap, ipAddresses []string, primaryIP string) (unusedIPs []string) {
+	for _, ipStr := range ipAddresses {
+		_, usedIP := usedIPs[ipStr]
+		if !usedIP && ipStr != primaryIP {
+			unusedIPs = append(unusedIPs, ipStr)
+		}
+	}
+	return unusedIPs
 }
 
 // Get Individual IPs that do not belong to any IPPrefix
