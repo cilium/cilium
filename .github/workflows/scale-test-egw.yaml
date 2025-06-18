@@ -600,7 +600,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@080c1407c40367026008aff9fec13aa48c128d22 # main
+        uses: cilium/scale-tests-action/export-results@3e496a64133e35f5a9f241ebc5eccd56653a92a5 # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
