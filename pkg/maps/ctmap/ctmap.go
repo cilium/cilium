@@ -541,7 +541,7 @@ func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 //
 // In all 4 cases we create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries.
-// See the unit test TestOrphanNatGC for more examples.
+// See the unit test TestPrivilegedOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap

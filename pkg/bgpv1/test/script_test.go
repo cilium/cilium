@@ -53,7 +53,7 @@ const (
 	probeTCPMD5Flag    = "probe-tcp-md5"
 )
 
-func TestScript(t *testing.T) {
+func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 
