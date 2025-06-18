@@ -1917,15 +1917,15 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 			    "` + perClientHighPriorityDeploymentName + `": ` + highPrioDeployAnnotations.String() + `
 			}`)
 		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 		// Create low priority client on other node
 		if err = ct.createClientPerfDeployment(ctx, perClientLowPriorityDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 		// Create high priority client on other node
 		if err = ct.createClientPerfDeployment(ctx, perClientHighPriorityDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 
 		return nil
@@ -1944,69 +1944,69 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 			    "` + perServerIngressDeploymentName + `": ` + ingressBandwidthAnnotations.String() + `
 			}`)
 		if err = ct.createServerPerfDeployment(ctx, perServerEgressDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create server deployment %s (egress): %w", perServerEgressDeploymentName, err)
+			ct.Warnf("unable to create server deployment %s (egress): %s", perServerEgressDeploymentName, err)
 		}
 		if err = ct.createServerPerfDeployment(ctx, perServerIngressDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create server deployment %s (ingress): %w", perServerIngressDeploymentName, err)
+			ct.Warnf("unable to create server deployment %s (ingress): %s", perServerIngressDeploymentName, err)
 		}
 		if err = ct.createClientPerfDeployment(ctx, perClientEgressDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create client deployment %s (egress): %w", perClientEgressDeploymentName, err)
+			ct.Warnf("unable to create client deployment %s (egress): %s", perClientEgressDeploymentName, err)
 		}
 		if err = ct.createClientPerfDeployment(ctx, perClientIngressDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create client deployment %s (ingress): %w", perClientIngressDeploymentName, err)
+			ct.Warnf("unable to create client deployment %s (ingress): %s", perClientIngressDeploymentName, err)
 		}
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
 		if ct.params.PerfParameters.SameNode {
 			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, serverNode.Name, false); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			// Create second client on other node
 			if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, clientNode.Name, false); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.HostToPod {
 		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 	}
 
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.HostToPod {
 		if ct.params.PerfParameters.SameNode {
 			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, serverNode.Name, true); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			// Create second client on other node
 			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, clientNode.Name, true); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 	}
 
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.PodToHost {
 		if err = ct.createServerPerfDeployment(ctx, perfServerHostNetDeploymentName, serverNode.Name, true); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 	}
 
 	if ct.params.PerfParameters.KernelProfiles {
 		if err = ct.createProfilingPerfDeployment(ctx, PerfServerProfilingDeploymentName, serverNode.Name); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			if err = ct.createProfilingPerfDeployment(ctx, PerfClientProfilingAcrossDeploymentName, clientNode.Name); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 	}
