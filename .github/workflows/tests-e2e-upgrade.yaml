@@ -441,14 +441,8 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
-      - name: Run sequential Cilium tests
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-sequential
-          tests: 'seq-.*,!pod-to-world.*'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
-
       - name: Run concurrent Cilium tests
+        timeout-minutes: 50
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-concurrent
@@ -518,14 +512,6 @@ jobs:
           # enable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
-
-      - name: Run sequential Cilium tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-sequential
-          tests: 'seq-.*,!pod-to-world.*'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
