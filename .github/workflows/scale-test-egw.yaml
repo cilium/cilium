@@ -30,11 +30,6 @@ on:
         default: 20
         type: number
 
-# For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
-
 permissions:
   # To be able to access the repository with actions/checkout
   contents: read
