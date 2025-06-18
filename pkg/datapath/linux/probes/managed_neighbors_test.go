@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestManagedNeighbors(t *testing.T) {
+func TestPrivilegedManagedNeighbors(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "5.16", "NTF_EXT_MANAGED")
 

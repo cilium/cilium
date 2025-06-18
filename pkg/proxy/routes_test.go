@@ -40,7 +40,7 @@ func filterDefaultRouteIPv6(t *testing.T, rt []netlink.Route) netlink.Route {
 	return rt[i]
 }
 
-func TestRoutes(t *testing.T) {
+func TestPrivilegedRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	t.Run("IPv4", func(t *testing.T) {

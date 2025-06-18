@@ -120,9 +120,9 @@ func Benchmark_MapUpdate(b *testing.B) {
 	require.Equal(b, b.N, t)
 }
 
-// TestCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
+// TestPrivilegedCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
 // their CT entry (GH#12625).
-func TestCtGcIcmp(t *testing.T) {
+func TestPrivilegedCtGcIcmp(t *testing.T) {
 	setupCTMap(t)
 
 	// Init maps
@@ -235,9 +235,9 @@ func TestCtGcIcmp(t *testing.T) {
 	require.Empty(t, buf)
 }
 
-// TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
+// TestPrivilegedCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
 // their CT entry.
-func TestCtGcTcp(t *testing.T) {
+func TestPrivilegedCtGcTcp(t *testing.T) {
 	setupCTMap(t)
 	// Init maps
 	natMap := nat.NewMap(nil, "cilium_nat_any4_test", nat.IPv4, 1000)
@@ -349,9 +349,9 @@ func TestCtGcTcp(t *testing.T) {
 	require.Empty(t, buf)
 }
 
-// TestCtGcDsr tests whether DSR NAT entries are removed upon a removal of
+// TestPrivilegedCtGcDsr tests whether DSR NAT entries are removed upon a removal of
 // their CT entry (== CT_EGRESS).
-func TestCtGcDsr(t *testing.T) {
+func TestPrivilegedCtGcDsr(t *testing.T) {
 	setupCTMap(t)
 
 	// Init maps
@@ -444,7 +444,7 @@ func TestCtGcDsr(t *testing.T) {
 }
 
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
-func TestOrphanNatGC(t *testing.T) {
+func TestPrivilegedOrphanNatGC(t *testing.T) {
 	setupCTMap(t)
 
 	// Init maps
@@ -744,7 +744,7 @@ func TestOrphanNatGC(t *testing.T) {
 
 // TestCount checks whether the CT map batch lookup dumps the count of the
 // entire map.
-func TestCount(t *testing.T) {
+func TestPrivilegedCount(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// Set the max size of the map explicitly so we can provide enough buffer
