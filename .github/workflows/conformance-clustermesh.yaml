@@ -227,16 +227,19 @@ jobs:
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
 
-        # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
-        #  - name: '9'
-        #    tunnel: 'vxlan'
-        #    ipFamily: 'ipv6'
-        #    encryption: 'disabled'
-        #    kube-proxy: 'none'
-        #    mode: 'kvstoremesh'
-        #    tls-auto-method: certmanager
-        #    cm-auth-mode-1: 'cluster'
-        #    cm-auth-mode-2: 'cluster'
+          - name: '9'
+            tunnel: 'vxlan'
+            ipFamily: 'ipv6'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: certmanager
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
 
           - name: '10'
             tunnel: 'vxlan'
@@ -297,7 +300,10 @@ jobs:
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             "
 
-          CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
+          CILIUM_INSTALL_TUNNEL=" \
+            --helm-set=tunnelProtocol=${{ matrix.tunnel }} \
+            --helm-set=underlayProtocol=${{ matrix.ipFamily == 'ipv6' && 'ipv6' || 'ipv4' }} \
+          "
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
               --helm-set=autoDirectNodeRoutes=true \
