@@ -18,6 +18,8 @@ const (
 	ProtoSCTP   L4Proto = "SCTP"
 	ProtoICMP   L4Proto = "ICMP"
 	ProtoICMPv6 L4Proto = "ICMPV6"
+	ProtoVRRP   L4Proto = "VRRP"
+	ProtoIGMP   L4Proto = "IGMP"
 	ProtoAny    L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
