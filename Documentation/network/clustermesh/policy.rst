@@ -48,7 +48,9 @@ between two clusters. The cluster name refers to the name given via the
 
 Note that by default policies automatically select endpoints from all the clusters unless it is explicitly specified.
 To restrict endpoint selection to the local cluster by default you can enable the option ``--policy-default-local-cluster``
-via the ConfigMap option ``policy-default-local-cluster`` or the Helm value ``clustermesh.policyDefaultLocalCluster``.
+via the ConfigMap option ``policy-default-local-cluster`` or the Helm value ``clustermesh.policyDefaultLocalCluster``. Changing
+this option is a **breaking change** for existing policies. To migrate this setting safely read :ref:`change_policy_default_local_cluster` for
+more details.
 
 The following policy illustrates how to explicitly allow pods to communicate to all clusters.
 
