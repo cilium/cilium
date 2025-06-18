@@ -45,8 +45,10 @@ func NewDNSProxyCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			initEnv(logging.DefaultSlogLogger, h.Viper())
 
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
 				log.Fatal(err)
 			}
@@ -57,6 +59,8 @@ func NewDNSProxyCmd(h *hive.Hive) *cobra.Command {
 	cmd.AddCommand(
 		h.Command(),
 	)
+
+	// slogloggercheck: using default logger for configuration initialization
 	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Standalone-DNS-Proxy", "standalone-dns-proxy", h.Viper()))
 
 	return cmd
