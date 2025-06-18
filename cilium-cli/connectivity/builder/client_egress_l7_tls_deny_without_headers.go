@@ -14,7 +14,7 @@ type clientEgressL7TlsDenyWithoutHeaders struct{}
 func (t clientEgressL7TlsDenyWithoutHeaders) build(ct *check.ConnectivityTest, templates map[string]string) {
 	// Test L7 HTTPS interception using an egress policy on the clients.
 	// Fail to load site due to missing headers.
-	newTest("seq-client-egress-l7-tls-deny-without-headers", ct).
+	newTest("client-egress-l7-tls-deny-without-headers", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithCABundleSecret().
