@@ -125,7 +125,7 @@ func (n *manager) doGC(ctx context.Context) error {
 			namesToClean.Insert(zombie.Names...)
 		}
 
-		// Sync endpoint persisted state if DNS state changed during GC run.
+		// Sync endpoint's persisted state if the DNS state changed during this GC run.
 		if len(affectedNames) > 0 || len(dead) > 0 {
 			ep.SyncEndpointHeaderFile()
 		}
