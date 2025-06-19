@@ -32,6 +32,10 @@ type mapKVPair[K, V any] struct {
 // This is not implemented as a method on Map[K,V] as hash maps require the
 // comparable constraint and we do not need to limit Map[K, V] to that.
 func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
+	if len(hm) == 0 {
+		return Map[K, V]{}
+	}
+
 	m.ensureTree()
 	txn := m.tree.Txn()
 	for k, v := range hm {
@@ -46,7 +50,7 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 // an empty map does not allocate anything.
 func (m *Map[K, V]) ensureTree() {
 	if m.tree == nil {
-		m.tree = New[mapKVPair[K, V]](RootOnlyWatch)
+		m.tree = New[mapKVPair[K, V]](RootOnlyWatch, NoCache)
 	}
 	m.bytesFromKey = lookupKeyType[K]()
 }
@@ -79,6 +83,9 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 		// Map is a struct passed by value, so we can modify
 		// it without changing the caller's view of it.
 		m.tree = txn.CommitOnly()
+		if m.tree.Len() == 0 {
+			m.tree = nil
+		}
 	}
 	return m
 }
@@ -255,6 +262,9 @@ func (m Map[K, V]) MarshalYAML() (any, error) {
 func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.SequenceNode {
 		return fmt.Errorf("%T.UnmarshalYAML: expected sequence", m)
+	}
+	if len(value.Content) == 0 {
+		return nil
 	}
 	m.ensureTree()
 	txn := m.tree.Txn()

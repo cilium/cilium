@@ -75,11 +75,11 @@ func prefixSearch[T any](root *header[T], key []byte) (*Iterator[T], <-chan stru
 		}
 
 		switch {
-		case bytes.Equal(key, this.prefix[:min(len(key), len(this.prefix))]):
+		case bytes.Equal(key, this.prefix()[:min(len(key), int(this.prefixLen))]):
 			return newIterator(this), watch
 
-		case bytes.HasPrefix(key, this.prefix):
-			key = key[len(this.prefix):]
+		case bytes.HasPrefix(key, this.prefix()):
+			key = key[this.prefixLen:]
 			if len(key) == 0 {
 				return newIterator(this), this.watch
 			}
@@ -124,14 +124,14 @@ func lowerbound[T any](start *header[T], key []byte) *Iterator[T] {
 	this := start
 loop:
 	for {
-		switch bytes.Compare(this.prefix, key[:min(len(key), len(this.prefix))]) {
+		switch bytes.Compare(this.prefix(), key[:min(len(key), int(this.prefixLen))]) {
 		case -1:
 			// Prefix is smaller, stop here and return an iterator for
 			// the larger nodes in the parent's.
 			break loop
 
 		case 0:
-			if len(this.prefix) == len(key) {
+			if int(this.prefixLen) == len(key) {
 				// Exact match.
 				edges = append(edges, []*header[T]{this})
 				break loop
@@ -140,7 +140,7 @@ loop:
 			// Prefix matches the beginning of the key, but more
 			// remains of the key. Drop the matching part and keep
 			// going further.
-			key = key[len(this.prefix):]
+			key = key[this.prefixLen:]
 
 			if this.kind() == nodeKind256 {
 				children := this.node256().children[:]
@@ -162,7 +162,7 @@ loop:
 
 				// Find the smallest child that is equal or larger than the lower bound
 				idx := sort.Search(len(children), func(i int) bool {
-					return children[i].prefix[0] >= key[0]
+					return children[i].key() >= key[0]
 				})
 				if idx >= this.size() {
 					break loop
