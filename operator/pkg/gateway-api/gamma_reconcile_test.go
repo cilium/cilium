@@ -60,6 +60,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		serviceKey []types.NamespacedName
 		wantErr    bool
 	}{
+		{name: "mesh-basic", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-split", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-frontend", serviceKey: []types.NamespacedName{serviceKeyEchoV2}},
 		{name: "mesh-matching", serviceKey: []types.NamespacedName{serviceKeyEcho}},
