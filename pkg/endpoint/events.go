@@ -363,6 +363,13 @@ func (e *Endpoint) Stop() {
 	// will be processed on its EventQueue, specifically regenerations.
 	e.eventQueue.WaitToBeDrained()
 
+	// Shutdown the DNS History trigger after event queue has been drained.
+	// This makes sure that any pending changes to endpoint DNS state are flushed
+	// to disk.
+	if trigger := e.dnsHistoryTrigger.Swap(nil); trigger != nil {
+		trigger.Shutdown()
+	}
+
 	// Given that we are deleting the endpoint and that no more builds are
 	// going to occur for this endpoint, close the channel which signals whether
 	// the endpoint has its BPF program compiled or not to avoid it persisting
