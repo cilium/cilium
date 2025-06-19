@@ -39,28 +39,22 @@ var (
 	mismatchSvcSelector  = &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
 	ingressV4            = "192.168.0.1"
 	ingressV4Prefix      = "192.168.0.1/32"
-	ingressV4PrefixNet   = "192.168.0.0/24"
-	ingressV4PrefixAggr  = "192.168.0.1/24"
+	ingressV4PrefixAggr  = "192.168.0.0/24"
 	externalV4           = "192.168.0.2"
 	externalV4Prefix     = "192.168.0.2/32"
-	externalV4PrefixNet  = "192.168.0.0/24"
-	externalV4PrefixAggr = "192.168.0.2/24"
+	externalV4PrefixAggr = "192.168.0.0/24"
 	clusterV4            = "192.168.0.3"
 	clusterV4Prefix      = "192.168.0.3/32"
-	clusterV4PrefixNet   = "192.168.0.0/24"
-	clusterV4PrefixAggr  = "192.168.0.3/24"
+	clusterV4PrefixAggr  = "192.168.0.0/24"
 	ingressV6            = "2001:db8::1"
 	ingressV6Prefix      = "2001:db8::1/128"
-	ingressV6PrefixNet   = "2001:db8::/120"
-	ingressV6PrefixAggr  = "2001:db8::1/120"
+	ingressV6PrefixAggr  = "2001:db8::/120"
 	externalV6           = "2001:db8::2"
 	externalV6Prefix     = "2001:db8::2/128"
-	externalV6PrefixNet  = "2001:db8::/120"
-	externalV6PrefixAggr = "2001:db8::2/120"
+	externalV6PrefixAggr = "2001:db8::/120"
 	clusterV6            = "2001:db8::3"
 	clusterV6Prefix      = "2001:db8::3/128"
-	clusterV6PrefixNet   = "2001:db8::/120"
-	clusterV6PrefixAggr  = "2001:db8::3/120"
+	clusterV6PrefixAggr  = "2001:db8::/120"
 	aggregation          = Aggregation{aggregationLengthIPv4: 24, aggregationLengthIPv6: 120}
 
 	redLBSvc = &slim_corev1.Service{
@@ -812,10 +806,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4PrefixNet: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4PrefixAggr)),
+							ingressV4PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4PrefixAggr)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6PrefixNet: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6PrefixAggr)),
+							ingressV6PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6PrefixAggr)),
 						},
 					},
 				},
@@ -1099,10 +1093,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4PrefixNet: types.NewPathForPrefix(netip.MustParsePrefix(externalV4PrefixAggr)),
+							externalV4PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(externalV4PrefixAggr)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6PrefixNet: types.NewPathForPrefix(netip.MustParsePrefix(externalV6PrefixAggr)),
+							externalV6PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(externalV6PrefixAggr)),
 						},
 					},
 				},
@@ -1435,10 +1429,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4PrefixNet: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4PrefixAggr)),
+							clusterV4PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4PrefixAggr)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6PrefixNet: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6PrefixAggr)),
+							clusterV6PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6PrefixAggr)),
 						},
 					},
 				},
