@@ -607,6 +607,29 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Configure IPAM without using the configuration yet.
 	d.configureIPAM()
 
+	// If ipv6 is enabled and the host does not have an IPv6 address, return an error
+	if option.Config.EnableIPv6 {
+		localNode, err := d.nodeLocalStore.Get(ctx)
+		if err != nil {
+			d.logger.Error("unable to get local node", logfields.Error, err)
+			return nil, nil, fmt.Errorf("unable to get local node: %w", err)
+		}
+
+		ipv6 := localNode.GetNodeIP(true)
+		if ipv6 == nil {
+			d.logger.Error(
+				"No IPv6 support on node as ipv6 address is nil",
+				logfields.NodeName, localNode.Name,
+			)
+			return nil, nil, fmt.Errorf("node %s does not have an IPv6 address", localNode.Name)
+		}
+		d.logger.Info(
+			"Received node IPv6 address after IPAM configuration",
+			logfields.NodeName, localNode.Name,
+			logfields.IPv6, ipv6,
+		)
+	}
+
 	// Start IPAM
 	d.startIPAM()
 
