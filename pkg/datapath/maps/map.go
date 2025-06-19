@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -162,6 +163,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			ipmasq.MapNameIPv6,
 			cidrmap.MapName + "v6_dyn",
 			cidrmap.MapName + "v6_fix",
+			nat.NatExclusionMapNameIPv6,
 		}...)
 	}
 
@@ -184,6 +186,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			ipmasq.MapNameIPv4,
 			cidrmap.MapName + "v4_dyn",
 			cidrmap.MapName + "v4_fix",
+			nat.NatExclusionMapNameIPv4,
 		}...)
 	}
 
