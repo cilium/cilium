@@ -252,18 +252,23 @@ type tableInternal interface {
 	proto() any                             // Returns the zero value of 'Obj', e.g. the prototype
 	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
 	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
-	acquired(*txn)
+	acquired(*writeTxn)
 	getAcquiredInfo() string
 }
 
 type ReadTxn interface {
-	getTxn() *txn
+	indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, error)
+	mustIndexReadTxn(meta TableMeta, indexPos int) indexReadTxn
+	getTableEntry(meta TableMeta) *tableEntry
+	root() dbRoot
 
 	// WriteJSON writes the contents of the database as JSON.
 	WriteJSON(w io.Writer, tables ...string) error
 }
 
 type WriteTxn interface {
+	getTxn() *writeTxn
+
 	// WriteTxn is always also a ReadTxn
 	ReadTxn
 
