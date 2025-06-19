@@ -819,6 +819,12 @@ type DNSZombieMappings struct {
 
 	// perHostLimit is the number of maximum number of IP per host.
 	perHostLimit int
+
+	// maybeOutOfSync indicates if the Zombie mapping state was updated
+	// through an out-of-band operation, like CT GC run.
+	// The owner can use this field to check if the corresponding state
+	// maybe needs a resync.
+	maybeOutOfSync bool
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
@@ -1075,6 +1081,7 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 
 	if zombie, exists := zombies.deletes[ip]; exists {
 		zombie.AliveAt = now
+		zombies.maybeOutOfSync = true
 	}
 }
 
@@ -1254,4 +1261,23 @@ func (zombies *DNSZombieMappings) UnmarshalJSON(raw []byte) error {
 		zombie.revisionAddedAt = zombies.ctGCRevision
 	}
 	return nil
+}
+
+// MaybeOutOfSync indicates if the zombie mappings require a sync to the persisted state.
+func (zombies *DNSZombieMappings) MaybeOutOfSync() bool {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	return zombies.maybeOutOfSync
+}
+
+// MarkSynced is intended to be called from ZombieMappings owner to indicate
+// that all out-of-band changes to the object are synced.
+// Example: From Endpoint object to indicate that changes to AliveTime for
+// zombie mappings are persisted to endpoint's state on the disk.
+func (zombies *DNSZombieMappings) MarkSynced() {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	zombies.maybeOutOfSync = false
 }
