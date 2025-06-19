@@ -66,14 +66,22 @@ type Config struct {
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
+
+	// IPv4MasqueradeSrcExclusionCIDRs for source IPs that should be excluded from masquerading
+	IPv4MasqueradeSrcExclusionCIDRs string
+
+	// IPv6MasqueradeSrcExclusionCIDRs for source IPs that should be excluded from masquerading
+	IPv6MasqueradeSrcExclusionCIDRs string
 }
 
 var defaultConfig = Config{
-	IPTablesLockTimeout:        5 * time.Second,
-	PrependIptablesChains:      true,
-	DisableIptablesFeederRules: []string{},
-	IPTablesRandomFully:        false,
-	EnableXTSocketFallback:     true,
+	IPTablesLockTimeout:             5 * time.Second,
+	PrependIptablesChains:           true,
+	DisableIptablesFeederRules:      []string{},
+	IPTablesRandomFully:             false,
+	EnableXTSocketFallback:          true,
+	IPv4MasqueradeSrcExclusionCIDRs: "",
+	IPv6MasqueradeSrcExclusionCIDRs: "",
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -82,6 +90,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("iptables-random-fully", def.IPTablesRandomFully, "Set iptables flag random-fully on masquerading rules")
 	flags.Bool("prepend-iptables-chains", def.PrependIptablesChains, "Prepend custom iptables chains instead of appending")
 	flags.Bool("enable-xt-socket-fallback", def.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
+	flags.String("ipv4-masquerade-src-exclusion-cidrs", def.IPv4MasqueradeSrcExclusionCIDRs, "IPv4 CIDR for source IPs that should be excluded from masquerading")
+	flags.String("ipv6-masquerade-src-exclusion-cidrs", def.IPv6MasqueradeSrcExclusionCIDRs, "IPv6 CIDR for source IPs that should be excluded from masquerading")
 }
 
 type SharedConfig struct {
