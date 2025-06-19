@@ -662,6 +662,9 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 		Name:        "sync_endpoint_header_file",
 		MinInterval: 5 * time.Second,
 		TriggerFunc: e.syncEndpointHeaderFile,
+		ShutdownFunc: func() {
+			e.syncEndpointHeaderFile([]string{"Sync Endpoint DNS State on Shutdown"})
+		},
 	})
 	if err != nil {
 		e.getLogger().Error(
@@ -1284,10 +1287,6 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.removeDirectories()
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
-
-	if trigger := e.dnsHistoryTrigger.Swap(nil); trigger != nil {
-		trigger.Shutdown()
-	}
 
 	if !e.isProperty(PropertyFakeEndpoint) {
 		e.scrubIPsInConntrackTableLocked()
@@ -2464,6 +2463,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
 
+	startTime := time.Now()
 	// The following GetDNSRules call will acquire a read-lock on the IPCache.
 	// Because IPCache itself will potentially acquire endpoint locks in its
 	// critical section, we must _not_ hold endpoint.mutex while calling
@@ -2483,10 +2483,14 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 
 	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
 		e.getLogger().Warn(
-			"could not sync header file",
+			"Could not sync header file",
 			logfields.Error, err,
 			logfields.Reason, reasons,
 		)
+	} else {
+		e.getLogger().Debug("Endpoint header and config file sync completed",
+			logfields.Reason, reasons,
+			logfields.Duration, time.Since(startTime))
 	}
 }
 
@@ -2494,7 +2498,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 // file. This includes updating the current DNS History information.
 func (e *Endpoint) SyncEndpointHeaderFile() {
 	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil {
-		trigger.Trigger()
+		trigger.TriggerWithReason("SyncEndpointDNSState")
 	}
 }
 
