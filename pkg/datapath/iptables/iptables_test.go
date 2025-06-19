@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 )
 
 type expectation struct {
@@ -860,5 +862,62 @@ func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
 	}
 	if err := mockIp6tables.checkExpectations(); err != nil {
 		t.Error(err)
+	}
+}
+
+// TestInstallMasqueradeRules_SrcExclusionFirst tests the installation of
+// SNAT source exclusion rules before the catch-all MASQUERADE rule.
+func TestInstallMasqueradeRules_SrcExclusionFirst(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+
+	allocRange := "10.0.0.0/16"
+	snatDstExclusionCIDR := "192.168.0.0/16"
+	snatSrcExclusionCIDRs := "10.0.0.0/8,172.16.0.0/12"
+	hostMasqueradeIP := "1.1.1.1"
+	localDeliveryInterface := "cilium_host"
+
+	// Build expected catch-all MASQUERADE command via helper used in code
+	masqCmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, nil, false)
+	if len(masqCmds) != 1 {
+		t.Fatalf("expected single masq command, got %d: %v", len(masqCmds), masqCmds)
+	}
+	mark := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
+
+	mockIp4tables.expectations = []expectation{
+		{args: "-t nat -I CILIUM_POST_nat 1 -s 10.0.0.0/8 -j ACCEPT -m comment --comment cilium: snat src exclusion"},
+		{args: "-t nat -I CILIUM_POST_nat 1 -s 172.16.0.0/12 -j ACCEPT -m comment --comment cilium: snat src exclusion"},
+		{args: strings.Join(masqCmds[0], " ")},
+		{args: fmt.Sprintf("-t nat -A CILIUM_POST_nat -m mark --mark %s -m comment --comment exclude proxy return traffic from masquerade -j ACCEPT", mark)},
+		{args: fmt.Sprintf("-t nat -A CILIUM_POST_nat -s 127.0.0.1 -o %s -m comment --comment cilium host->cluster from 127.0.0.1 masquerade -j SNAT --to-source %s", localDeliveryInterface, hostMasqueradeIP)},
+	}
+
+	m := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:                  true,
+			EnableMasqueradeRouteSource: false,
+			MasqueradeInterfaces:        nil,
+			NodeIpsetNeeded:             false,
+			TunnelingEnabled:            false,
+			EnableEndpointRoutes:        true,
+		},
+		cfg: Config{
+			IPTablesRandomFully: false,
+		},
+	}
+
+	if err := m.installMasqueradeRules(
+		mockIp4tables,
+		nil, // nativeDevices (unused when EnableMasqueradeRouteSource=false)
+		localDeliveryInterface,
+		snatDstExclusionCIDR,
+		snatSrcExclusionCIDRs,
+		allocRange,
+		hostMasqueradeIP,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Fatal(err)
 	}
 }

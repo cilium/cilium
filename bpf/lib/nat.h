@@ -116,6 +116,15 @@ struct ipv4_nat_target {
 };
 
 struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lpm_v4_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 16384);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_nat_exclusion_v4 __section_maps_btf;
+
+struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
 	__type(value, struct ipv4_nat_entry);
@@ -585,6 +594,16 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 	tuple->flags = dir;
 }
 
+static __always_inline bool
+nat_v4_exclusion_match(__be32 ip, const void *map)
+{
+	struct lpm_v4_key pfx = {
+		.lpm.prefixlen = 32,
+	};
+	memcpy(pfx.lpm.data, &ip, sizeof(pfx.addr));
+	return map_lookup_elem(map, &pfx);
+}
+
 /* The function contains a core logic for deciding whether an egressing packet
  * has to be SNAT-ed, filling the relevant state in the target parameter if
  * that's the case.
@@ -713,20 +732,18 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		return NAT_PUNT_TO_STACK;
 #endif
 
+	/* Do not MASQ if src IP belongs to the exclusion CIDR */
+	if (nat_v4_exclusion_match(tuple->saddr, &cilium_nat_exclusion_v4))
+		return NAT_PUNT_TO_STACK;
+
 	/* if this is a localhost endpoint, no SNAT is needed */
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
 	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
-	{
-		struct lpm_v4_key pfx;
-
-		pfx.lpm.prefixlen = 32;
-		memcpy(pfx.lpm.data, &tuple->daddr, sizeof(pfx.addr));
-		if (map_lookup_elem(&cilium_ipmasq_v4, &pfx))
-			return NAT_PUNT_TO_STACK;
-	}
+	if (nat_v4_exclusion_match(tuple->daddr, &cilium_ipmasq_v4))
+		return NAT_PUNT_TO_STACK;
 #endif
 
 	/* Masquerading for pod-to-remote-node traffic depends on the
@@ -1187,6 +1204,15 @@ struct ipv6_nat_target {
 };
 
 struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lpm_v6_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 16384);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_nat_exclusion_v6 __section_maps_btf;
+
+struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
 	__type(value, struct ipv6_nat_entry);
@@ -1594,6 +1620,23 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 	tuple->flags = dir;
 }
 
+static __always_inline bool
+nat_v6_exclusion_match(const union v6addr *ip6, const void *map)
+{
+	struct lpm_v6_key pfx __align_stack_8;
+
+	pfx.lpm.prefixlen = 128;
+	/* pfx.lpm is aligned on 8 bytes on the stack, but pfx.lpm.data
+	 * is on 4 (after pfx.lpm.prefixlen). Copy piece-by-piece to
+	 * satisfy the verifier.
+	 */
+	memcpy(pfx.lpm.data, &ip6->p1, 4);
+	memcpy(pfx.lpm.data + 4, &ip6->p2, 4);
+	memcpy(pfx.lpm.data + 8, &ip6->p3, 4);
+	memcpy(pfx.lpm.data + 12, &ip6->p4, 4);
+	return map_lookup_elem(map, &pfx);
+}
+
 static __always_inline int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv6_ct_tuple *tuple __maybe_unused,
@@ -1668,25 +1711,17 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
+	/* Do not MASQ if src IP belongs to the exclusion CIDR */
+	if (nat_v6_exclusion_match(&tuple->saddr, &cilium_nat_exclusion_v6))
+		return NAT_PUNT_TO_STACK;
+
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
+	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
-	{
-		struct lpm_v6_key pfx __align_stack_8;
-
-		pfx.lpm.prefixlen = sizeof(pfx.addr) * 8;
-		/* pfx.lpm is aligned on 8 bytes on the stack, but pfx.lpm.data
-		 * is on 4 (after pfx.lpm.prefixlen). As the CT tuple is on the
-		 * stack as well, we need to copy piece-by-piece.
-		 */
-		memcpy(pfx.lpm.data, &tuple->daddr.p1, 4);
-		memcpy(pfx.lpm.data + 4, &tuple->daddr.p2, 4);
-		memcpy(pfx.lpm.data + 8, &tuple->daddr.p3, 4);
-		memcpy(pfx.lpm.data + 12, &tuple->daddr.p4, 4);
-		if (map_lookup_elem(&cilium_ipmasq_v6, &pfx))
-			return NAT_PUNT_TO_STACK;
-	}
+	if (nat_v6_exclusion_match(&tuple->daddr, &cilium_ipmasq_v6))
+		return NAT_PUNT_TO_STACK;
 #endif
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
