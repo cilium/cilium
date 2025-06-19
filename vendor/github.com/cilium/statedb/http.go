@@ -74,11 +74,11 @@ func (h dbHandler) query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	txn := h.db.ReadTxn().getTxn()
+	txn := h.db.ReadTxn()
 
 	// Look up the table
 	var table TableMeta
-	for _, e := range txn.root {
+	for _, e := range txn.root() {
 		if e.meta.Name() == req.Table {
 			table = e.meta
 			break
@@ -161,7 +161,7 @@ func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {
 
 	// Look up the table
 	var tableMeta TableMeta
-	for _, e := range h.db.ReadTxn().getTxn().root {
+	for _, e := range h.db.ReadTxn().root() {
 		if e.meta.Name() == tableName {
 			tableMeta = e.meta
 			break

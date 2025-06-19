@@ -1,37 +1,49 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package part
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
-const nodeMutatedSize = 32 // must be power-of-two
+const nodeMutatedSize = 256 // must be power-of-two
 
-type nodeMutated[T any] struct {
-	ptrs [nodeMutatedSize]*header[T]
+type nodeMutated struct {
+	ptrs [nodeMutatedSize]uintptr
 	used bool
 }
 
-func (p *nodeMutated[T]) put(ptr *header[T]) {
+func nodeMutatedSet[T any](nm *nodeMutated, ptr *header[T]) {
+	if nm == nil {
+		return
+	}
 	ptrInt := uintptr(unsafe.Pointer(ptr))
-	p.ptrs[slot(ptrInt)] = ptr
-	p.used = true
+	nm.ptrs[slot(ptrInt)] = ptrInt
+	nm.used = true
 }
 
-func (p *nodeMutated[T]) exists(ptr *header[T]) bool {
+func nodeMutatedExists[T any](nm *nodeMutated, ptr *header[T]) bool {
+	if nm == nil {
+		return false
+	}
 	ptrInt := uintptr(unsafe.Pointer(ptr))
-	return p.ptrs[slot(ptrInt)] == ptr
+	return nm.ptrs[slot(ptrInt)] == ptrInt
 }
 
 func slot(p uintptr) int {
-	var slot uint8
+	p >>= 4 // ignore low order bits
 	// use some relevant bits from the pointer
-	slot = slot + uint8(p>>4)
-	slot = slot + uint8(p>>12)
-	slot = slot + uint8(p>>20)
+	slot := uint8(p) ^ uint8(p>>8) ^ uint8(p>>16)
 	return int(slot & (nodeMutatedSize - 1))
 }
 
-func (p *nodeMutated[T]) clear() {
-	if p.used {
-		clear(p.ptrs[:])
+func (nm *nodeMutated) clear() {
+	if nm == nil {
+		return
 	}
-	p.used = false
+	if nm.used {
+		clear(nm.ptrs[:])
+	}
+	nm.used = false
 }

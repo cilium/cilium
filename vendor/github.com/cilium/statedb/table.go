@@ -132,10 +132,10 @@ type genTable[Obj any] struct {
 	primaryAnyIndexer    anyIndexer
 	secondaryAnyIndexers map[string]anyIndexer
 	indexPositions       map[string]int
-	lastWriteTxn         atomic.Pointer[txn]
+	lastWriteTxn         atomic.Pointer[writeTxn]
 }
 
-func (t *genTable[Obj]) acquired(txn *txn) {
+func (t *genTable[Obj]) acquired(txn *writeTxn) {
 	t.lastWriteTxn.Store(txn)
 }
 
@@ -222,7 +222,7 @@ func (t *genTable[Obj]) ToTable() Table[Obj] {
 }
 
 func (t *genTable[Obj]) Initialized(txn ReadTxn) (bool, <-chan struct{}) {
-	table := txn.getTxn().getTableEntry(t)
+	table := txn.getTableEntry(t)
 	if len(table.pendingInitializers) == 0 {
 		return true, closedWatchChannel
 	}
@@ -230,7 +230,7 @@ func (t *genTable[Obj]) Initialized(txn ReadTxn) (bool, <-chan struct{}) {
 }
 
 func (t *genTable[Obj]) PendingInitializers(txn ReadTxn) []string {
-	return txn.getTxn().getTableEntry(t).pendingInitializers
+	return txn.getTableEntry(t).pendingInitializers
 }
 
 func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn, name string) func(WriteTxn) {
@@ -258,16 +258,16 @@ func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn, name string) func(Writ
 }
 
 func (t *genTable[Obj]) Revision(txn ReadTxn) Revision {
-	return txn.getTxn().getTableEntry(t).revision
+	return txn.getTableEntry(t).revision
 }
 
 func (t *genTable[Obj]) NumObjects(txn ReadTxn) int {
-	table := txn.getTxn().getTableEntry(t)
+	table := txn.getTableEntry(t)
 	return table.numObjects()
 }
 
 func (t *genTable[Obj]) numDeletedObjects(txn ReadTxn) int {
-	table := txn.getTxn().getTableEntry(t)
+	table := txn.getTableEntry(t)
 	return table.numDeletedObjects()
 }
 
@@ -278,27 +278,29 @@ func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64
 
 func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, watch <-chan struct{}, ok bool) {
 	indexPos := t.indexPos(q.index)
-	itxn := txn.getTxn()
 	var (
 		ops    part.Ops[object]
 		unique bool
 	)
-	if itxn.modifiedTables != nil {
-		if table := itxn.modifiedTables[t.tablePos()]; table != nil {
-			// Since we're not returning an iterator here we can optimize and not use
-			// indexReadTxn which clones if this is a WriteTxn (to avoid invalidating iterators).
-			indexEntry := &table.indexes[indexPos]
-			if indexEntry.txn != nil {
-				ops = indexEntry.txn
-			} else {
-				ops = indexEntry.tree
+	if wtxn, ok := txn.(WriteTxn); ok {
+		itxn := wtxn.getTxn()
+		if itxn.modifiedTables != nil {
+			if table := itxn.modifiedTables[t.tablePos()]; table != nil {
+				// Since we're not returning an iterator here we can optimize and not use
+				// indexReadTxn which clones if this is a WriteTxn (to avoid invalidating iterators).
+				indexEntry := &table.indexes[indexPos]
+				if indexEntry.txn != nil {
+					ops = indexEntry.txn
+				} else {
+					ops = indexEntry.tree
+				}
+				unique = indexEntry.unique
 			}
-			unique = indexEntry.unique
 		}
 	}
 
 	if ops == nil {
-		entry := itxn.root[t.tablePos()].indexes[indexPos]
+		entry := txn.root()[t.tablePos()].indexes[indexPos]
 		ops = entry.tree
 		unique = entry.unique
 	}
@@ -343,7 +345,7 @@ func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Rev
 }
 
 func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
-	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
+	indexTxn := txn.mustIndexReadTxn(t, t.indexPos(q.index))
 	// Since LowerBound query may be invalidated by changes in another branch
 	// of the tree, we cannot just simply watch the node we seeked to. Instead
 	// we watch the whole table for changes.
@@ -361,7 +363,7 @@ func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revisio
 }
 
 func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
-	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
+	indexTxn := txn.mustIndexReadTxn(t, t.indexPos(q.index))
 	iter, watch := indexTxn.Prefix(q.key)
 	if indexTxn.unique {
 		return partSeq[Obj](iter), watch
@@ -375,7 +377,7 @@ func (t *genTable[Obj]) All(txn ReadTxn) iter.Seq2[Obj, Revision] {
 }
 
 func (t *genTable[Obj]) AllWatch(txn ReadTxn) (iter.Seq2[Obj, Revision], <-chan struct{}) {
-	indexTxn := txn.getTxn().mustIndexReadTxn(t, PrimaryIndexPos)
+	indexTxn := txn.mustIndexReadTxn(t, PrimaryIndexPos)
 	return partSeq[Obj](indexTxn.Iterator()), indexTxn.RootWatch()
 }
 
@@ -385,7 +387,7 @@ func (t *genTable[Obj]) List(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision]
 }
 
 func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
-	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
+	indexTxn := txn.mustIndexReadTxn(t, t.indexPos(q.index))
 	if indexTxn.unique {
 		// Unique index means that there can be only a single matching object.
 		// Doing a Get() is more efficient than constructing an iterator.

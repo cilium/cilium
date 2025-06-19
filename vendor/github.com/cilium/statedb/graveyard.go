@@ -39,8 +39,8 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 		toBeDeleted := map[TableMeta][]deadObjectRevisionKey{}
 
 		// Do a lockless read transaction to find potential dead objects.
-		txn := db.ReadTxn().getTxn()
-		for _, table := range txn.root {
+		rtxn := db.ReadTxn()
+		for _, table := range rtxn.root() {
 			tableName := table.meta.Name()
 			start := time.Now()
 
@@ -61,7 +61,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 
 			// Find objects to be deleted by iterating over the graveyard revision index up
 			// to the low watermark.
-			indexTree := txn.mustIndexReadTxn(table.meta, GraveyardRevisionIndexPos)
+			indexTree := rtxn.mustIndexReadTxn(table.meta, GraveyardRevisionIndexPos)
 
 			objIter := indexTree.Iterator()
 			for key, obj, ok := objIter.Next(); ok; key, obj, ok = objIter.Next() {
@@ -85,7 +85,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 
 		// Dead objects found, do a write transaction against all tables with dead objects in them.
 		tablesToModify := slices.Collect(maps.Keys(toBeDeleted))
-		txn = db.WriteTxn(tablesToModify[0], tablesToModify[1:]...).getTxn()
+		txn := db.WriteTxn(tablesToModify[0], tablesToModify[1:]...).getTxn()
 		for meta, deadObjs := range toBeDeleted {
 			tableName := meta.Name()
 			start := time.Now()
@@ -110,8 +110,8 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 		}
 
 		// Update object count metrics.
-		txn = db.ReadTxn().getTxn()
-		for _, table := range txn.root {
+		rtxn = db.ReadTxn()
+		for _, table := range rtxn.root() {
 			name := table.meta.Name()
 			db.metrics.GraveyardObjectCount(string(name), table.numDeletedObjects())
 			db.metrics.ObjectCount(string(name), table.numObjects())
@@ -122,8 +122,8 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 // graveyardIsEmpty returns true if no objects exist in the graveyard of any table.
 // Used in tests.
 func (db *DB) graveyardIsEmpty() bool {
-	txn := db.ReadTxn().getTxn()
-	for _, table := range txn.root {
+	txn := db.ReadTxn()
+	for _, table := range txn.root() {
 		indexEntry := table.indexes[table.meta.indexPos(GraveyardIndex)]
 		if indexEntry.tree.Len() != 0 {
 			return false
