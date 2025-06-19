@@ -12,10 +12,9 @@ IPsec Transparent Encryption
 
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
-configuration is complete all traffic between Cilium-managed endpoints, as well
-as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
-Kubernetes secrets to distribute keys. Alternatively, keys may be manually
-distributed, but that is not shown here.
+configuration is complete, all traffic between Cilium-managed endpoints will be
+encrypted using IPsec. This guide uses Kubernetes secrets to distribute keys.
+Alternatively, keys may be manually distributed, but that is not shown here.
 
 Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
