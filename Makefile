@@ -84,6 +84,20 @@ build-container-clustermesh-apiserver: ## Builds components required for the clu
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
+tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
+	@$(ECHO_CHECK) running privileged tests...
+	## We split tests into two parts: one that can be run in parallel
+	## and tests that cannot be run in parallel with other packages
+	## One drawback of this approach is that
+	## if first set of tests fails, second one is not run
+	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf TESTPKGS="$(TESTPKGS)" GO_TEST="$(GO_TEST)" ./test/run-privileged-tests.sh $(TEST_LDFLAGS) \
+		$(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf TESTPKGS="$(UNPARALLELTESTPKGS)" GO_TEST="$(GO_TEST)" ./test/run-privileged-tests.sh $(TEST_LDFLAGS) \
+		$(GOTEST_BASE) -json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+	tail -n+2 coverage2.out >> coverage.out
+	rm coverage2.out
+	$(MAKE) generate-cov
+
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
 	## We split tests into two parts: one that can be run in parallel
