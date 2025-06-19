@@ -582,6 +582,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					ones, _ := excludeCIDR.Mask.Size()
 					cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
 				}
+
+				// Add source exclusion CIDR if configured
+				if option.Config.MasqueradeSrcExclusionCIDR != nil && option.Config.MasqueradeSrcExclusionCIDR.IP.To4() != nil {
+					cDefinesMap["IPV4_SNAT_EXCLUSION_SRC_CIDR"] =
+						fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(option.Config.MasqueradeSrcExclusionCIDR.IP))
+					ones, _ := option.Config.MasqueradeSrcExclusionCIDR.Mask.Size()
+					cDefinesMap["IPV4_SNAT_EXCLUSION_SRC_CIDR_LEN"] = fmt.Sprintf("%d", ones)
+				}
 			}
 			if option.Config.EnableIPv6Masquerade {
 				cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
@@ -600,6 +608,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
 					extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
 					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
+				}
+
+				// Add source exclusion CIDR if configured
+				if option.Config.MasqueradeSrcExclusionCIDR != nil && option.Config.MasqueradeSrcExclusionCIDR.IP.To16() != nil {
+					extraMacrosMap["IPV6_SNAT_EXCLUSION_SRC_CIDR"] = option.Config.MasqueradeSrcExclusionCIDR.IP.String()
+					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_SRC_CIDR", option.Config.MasqueradeSrcExclusionCIDR.IP))
+					extraMacrosMap["IPV6_SNAT_EXCLUSION_SRC_CIDR_MASK"] = option.Config.MasqueradeSrcExclusionCIDR.Mask.String()
+					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_SRC_CIDR_MASK", option.Config.MasqueradeSrcExclusionCIDR.Mask))
 				}
 			}
 		}

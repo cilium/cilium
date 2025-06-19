@@ -1331,7 +1331,11 @@ func (m *Manager) installMasqueradeRules(
 		//     range
 		// * Non-tunnel mode:
 		//   * May not be targeted to an IP in the cluster range
-		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, m.sharedCfg.MasqueradeInterfaces,
+		srcExclusionCIDR := ""
+		if m.sharedCfg.MasqueradeSrcExclusionCIDR != nil {
+			srcExclusionCIDR = m.sharedCfg.MasqueradeSrcExclusionCIDR.String()
+		}
+		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, srcExclusionCIDR, m.sharedCfg.MasqueradeInterfaces,
 			m.cfg.IPTablesRandomFully)
 		for _, cmd := range cmds {
 			if err := prog.runProg(cmd); err != nil {
@@ -1849,12 +1853,17 @@ func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []st
 	return cmds
 }
 
-func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
+func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string, snatSrcExclusionCIDR string,
 	masqueradeInterfaces []string, iptablesRandomFully bool) [][]string {
 	preArgs := []string{
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
 		"!", "-d", snatDstExclusionCIDR,
+	}
+
+	// If source exclusion CIDR is set, add a rule to exclude those sources from masquerading
+	if snatSrcExclusionCIDR != "" {
+		preArgs = append(preArgs, "!", "-s", snatSrcExclusionCIDR)
 	}
 
 	postArgs := []string{

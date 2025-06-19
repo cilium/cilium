@@ -716,6 +716,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		return NAT_PUNT_TO_STACK;
 #endif
 
+	/* Do not MASQ if src IP belongs to the exclusion CIDR
+	 * (masquerade-src-exclusion-cidr if specified).
+	 */
+#ifdef IPV4_SNAT_EXCLUSION_SRC_CIDR
+	if (ipv4_is_in_subnet(tuple->saddr, IPV4_SNAT_EXCLUSION_SRC_CIDR,
+			      IPV4_SNAT_EXCLUSION_SRC_CIDR_LEN))
+		return NAT_PUNT_TO_STACK;
+#endif
+
 	/* if this is a localhost endpoint, no SNAT is needed */
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
