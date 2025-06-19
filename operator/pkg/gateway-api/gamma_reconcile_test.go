@@ -66,6 +66,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		{name: "mesh-redirect-host-and-status", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-redirect-path", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-redirect-port", serviceKey: []types.NamespacedName{serviceKeyEcho}},
+		{name: "mesh-redirect-scheme", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 	}
 
 	for _, tt := range tests {
