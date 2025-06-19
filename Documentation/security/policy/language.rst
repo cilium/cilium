@@ -1214,6 +1214,17 @@ the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
 To reuse this policy, replace the ``port:`` values with ports used in your
 environment.
 
+In order to allow protocols such as VRRP and IGMP that don't have any transport-layer
+ports, set ``--enable-extended-ip-protocols`` flag to true. By default, such traffic is
+dropped with ``DROP_CT_UNKNOWN_PROTO`` error.
+
+As an example, the following policy allows egress traffic on any node with
+the label ``type=egress-worker`` on TCP ports 22, 6443/443 (kube-apiserver), 2379
+(etcd), and 4240 (health checks), UDP port 8472 (VXLAN), and traffic with VRRP protocol.
+
+.. literalinclude:: ../../../examples/policies/host/allow-extended-protocols.yaml
+  :language: yaml
+
 .. _troubleshooting_host_policies:
 
 Troubleshooting Host Policies
