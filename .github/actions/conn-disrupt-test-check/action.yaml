@@ -24,6 +24,10 @@ inputs:
     required: false
     default: 1
     description: 'Concurrency level to run tests'
+  kernel:
+    required: false
+    default: ''
+    description: 'Do not run NS conn distrupt tests for kernel 5.4'
 
 runs:
   using: composite
@@ -31,15 +35,25 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
+        # extract kernel version prefix
+        version=${{ inputs.kernel }}
+        version=${version%%-*}
+
         if [[ -n "${{ inputs.tests }}" ]]; then
           TEST_ARG="${{ inputs.tests }}"
         else
           TEST_ARG="no-interrupted-connections"
-          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
+          if [[ "${version}" != "5.4" ]]; then
+            EXTRA_ARG="$EXTRA_ARG --include-conn-disrupt-test-ns-traffic"
+          fi
         fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
-          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
+          if [[ "${version}" != "5.4" ]]; then
+            EXTRA_ARG="$EXTRA_ARG --include-conn-disrupt-test-ns-traffic"
+          fi
         fi
         ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
