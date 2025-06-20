@@ -382,4 +382,5 @@
   ipv4: 'false'
   tunnel: 'vxlan'
   underlay: 'ipv6'
+  encryption: 'wireguard'
   skip-upgrade: 'true'
