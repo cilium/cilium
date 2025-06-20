@@ -126,7 +126,7 @@ jobs:
 
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    runs-on: ubuntu-22.04
     name: 'Setup & Test'
     env:
       job_name: 'Setup & Test'
