@@ -136,17 +136,6 @@ func WaitForNodeInformation(ctx context.Context, log *slog.Logger, localNode Loc
 			logfields.K8sNodeIP, k8sNodeIP,
 		)
 
-		// If the host does not have an IPv6 address, return an error
-		if option.Config.EnableIPv6 && nodeIP6 == nil {
-			log.Error(
-				"No IPv6 support on node as ipv6 address is nil",
-				logfields.NodeName, n.Name,
-				logfields.IPv4, nodeIP4,
-				logfields.IPv6, nodeIP6,
-			)
-			return fmt.Errorf("node %s does not have an IPv6 address", n.Name)
-		}
-
 		useNodeCIDR(n)
 	} else {
 		// if node resource could not be received, fail if
