@@ -114,7 +114,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 		var reqs []reconcile.Request
 		gwList := &gatewayv1.GatewayList{}
 		if err := r.Client.List(ctx, gwList); err != nil {
-			scopedLog.Error("Unable to list Gateways")
+			scopedLog.ErrorContext(ctx, "Unable to list Gateways")
 			return nil
 		}
 
@@ -129,7 +129,8 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 				},
 			}
 			reqs = append(reqs, req)
-			scopedLog.Info("Queueing gateway",
+			scopedLog.InfoContext(ctx,
+				"Queueing gateway",
 				logfields.K8sNamespace, gw.GetNamespace(),
 				gateway, gw.GetName(),
 			)
@@ -152,7 +153,8 @@ func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandl
 			return nil
 		}
 
-		scopedLog.Info("Enqueued gateway for owning service",
+		scopedLog.InfoContext(ctx,
+			"Enqueued gateway for owning service",
 			logfields.K8sNamespace, a.GetNamespace(),
 			logfields.Gateway, key,
 		)
@@ -231,17 +233,18 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 			Name:      string(parent.Name),
 		}, gw); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				scopedLog.Error("Failed to get Gateway", logfields.Error, err)
+				scopedLog.ErrorContext(ctx, "Failed to get Gateway", logfields.Error, err)
 			}
 			continue
 		}
 
 		if !hasMatchingController(ctx, c, controllerName, logger)(gw) {
-			scopedLog.Debug("Gateway does not have matching controller, skipping")
+			scopedLog.DebugContext(ctx, "Gateway does not have matching controller, skipping")
 			continue
 		}
 
-		scopedLog.Info("Enqueued gateway for Route",
+		scopedLog.InfoContext(ctx,
+			"Enqueued gateway for Route",
 			logfields.K8sNamespace, ns,
 			logfields.ParentResource, parent.Name,
 			logfields.Route, object.GetName())
@@ -306,7 +309,7 @@ func (r *gatewayReconciler) enqueueAll() handler.MapFunc {
 		list := &gatewayv1.GatewayList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {
-			scopedLog.Error("Failed to list Gateway", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to list Gateway", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -319,7 +322,7 @@ func (r *gatewayReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: gw,
 			})
-			scopedLog.Info("Enqueued Gateway for resource", gateway, gw)
+			scopedLog.InfoContext(ctx, "Enqueued Gateway for resource", gateway, gw)
 		}
 		return requests
 	}

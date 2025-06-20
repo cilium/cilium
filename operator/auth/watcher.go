@@ -70,12 +70,14 @@ func (iw *IdentityWatcher) run(ctx context.Context) error {
 		switch e.Kind {
 		case resource.Upsert:
 			err = iw.identityClient.Upsert(ctx, e.Object.GetName())
-			iw.logger.Info("Upsert identity",
+			iw.logger.InfoContext(ctx,
+				"Upsert identity",
 				logfields.Identity, e.Object.GetName(),
 				logfields.Error, err)
 		case resource.Delete:
 			err = iw.identityClient.Delete(ctx, e.Object.GetName())
-			iw.logger.Info("Delete identity",
+			iw.logger.InfoContext(ctx,
+				"Delete identity",
 				logfields.Identity, e.Object.GetName(),
 				logfields.Error, err)
 		}

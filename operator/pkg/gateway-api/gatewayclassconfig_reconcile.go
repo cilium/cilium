@@ -24,7 +24,7 @@ func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logfields.Resource, req.NamespacedName,
 	)
 
-	scopedLog.Info("Reconciling GatewayClassConfig")
+	scopedLog.InfoContext(ctx, "Reconciling GatewayClassConfig")
 	original := &v2alpha1.CiliumGatewayClassConfig{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -42,7 +42,7 @@ func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return controllerruntime.Fail(err)
 	}
 
-	scopedLog.Info("Successfully reconciled GatewayClass")
+	scopedLog.InfoContext(ctx, "Successfully reconciled GatewayClass")
 	return controllerruntime.Success()
 }
 

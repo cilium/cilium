@@ -80,9 +80,9 @@ func (g *GC) Start(ctx cell.HookContext) error {
 			return nil
 		}
 		g.interval = 0
-		g.logger.Info("Running the garbage collector only once to clean up leftover CiliumEndpoint custom resources")
+		g.logger.InfoContext(ctx, "Running the garbage collector only once to clean up leftover CiliumEndpoint custom resources")
 	} else {
-		g.logger.Info("Starting to garbage collect stale CiliumEndpoint custom resources")
+		g.logger.InfoContext(ctx, "Starting to garbage collect stale CiliumEndpoint custom resources")
 	}
 
 	g.mgr = controller.NewManager()
@@ -110,9 +110,9 @@ func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
 	if err == nil {
 		return true
 	} else if k8serrors.IsNotFound(err) {
-		g.logger.Info("CiliumEndpoint CRD cannot be found, skipping garbage collection", logfields.Error, err)
+		g.logger.InfoContext(ctx, "CiliumEndpoint CRD cannot be found, skipping garbage collection", logfields.Error, err)
 	} else {
-		g.logger.Error("Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
+		g.logger.ErrorContext(ctx, "Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
 			logfields.Error, err)
 	}
 	return false
@@ -121,7 +121,7 @@ func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
 func (g *GC) doGC(ctx context.Context) error {
 	cepStore, err := g.ciliumEndpoints.Store(ctx)
 	if err != nil {
-		g.logger.Error("Couldn't get CEP Store", logfields.Error, err)
+		g.logger.ErrorContext(ctx, "Couldn't get CEP Store", logfields.Error, err)
 		return err
 	}
 	// For each CEP we fetched, check if we know about it
@@ -159,7 +159,7 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 	podChecked := false
 	podStore, err := g.pods.Store(ctx)
 	if err != nil {
-		scopedLog.Warn("Unable to get pod store", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to get pod store", logfields.Error, err)
 		return false
 	}
 
@@ -210,7 +210,7 @@ func (g *GC) checkPodForCEP(key resource.Key, podStore resource.Store[*slim_core
 func (g *GC) deleteCEP(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, scopedLog *slog.Logger) error {
 	ciliumClient := g.clientset.CiliumV2()
 	scopedLog = scopedLog.With(logfields.EndpointID, cep.Status.ID)
-	scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
+	scopedLog.DebugContext(ctx, "Orphaned CiliumEndpoint is being garbage collected")
 	propagationPolicy := metav1.DeletePropagationBackground // because these are const strings but the API wants pointers
 	err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
 		ctx,
@@ -227,9 +227,9 @@ func (g *GC) deleteCEP(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, s
 	case err == nil:
 		g.metrics.EndpointGCObjects.WithLabelValues(LabelValueOutcomeSuccess).Inc()
 	case k8serrors.IsNotFound(err), k8serrors.IsConflict(err):
-		scopedLog.Debug("Unable to delete CEP, will retry again", logfields.Error, err)
+		scopedLog.DebugContext(ctx, "Unable to delete CEP, will retry again", logfields.Error, err)
 	default:
-		scopedLog.Warn("Unable to delete orphaned CEP", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to delete orphaned CEP", logfields.Error, err)
 		g.metrics.EndpointGCObjects.WithLabelValues(LabelValueOutcomeFail).Inc()
 		return err
 	}
