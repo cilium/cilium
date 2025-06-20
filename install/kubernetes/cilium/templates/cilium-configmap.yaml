@@ -794,6 +794,9 @@ data:
 {{- if hasKey .Values.nodePort "addresses" }}
   nodeport-addresses: {{ get .Values.nodePort "addresses" | join "," | quote }}
 {{- end }}
+{{- if hasKey .Values.nodePort "enableRouteBasedNodeIPDiscovery" }}
+  enable-route-based-node-ip-discovery: {{ .Values.nodePort.enableRouteBasedNodeIPDiscovery | quote }}
+{{- end }}
 {{- if hasKey .Values.nodePort "directRoutingDevice" }}
   direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
 {{- end }}
