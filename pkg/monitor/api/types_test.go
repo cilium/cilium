@@ -4,6 +4,8 @@
 package api
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"slices"
 	"testing"
@@ -147,4 +149,18 @@ func TestStartMessage(t *testing.T) {
 	require.NoError(t, err)
 	// Truncate with duration <=0 will strip any monotonic clock reading
 	require.True(t, parsedTS.Equal(now.Truncate(0)))
+}
+
+func TestDecodeAgentNotify(t *testing.T) {
+	expectedMsg := AgentNotify{
+		Type: MessageTypeAgent,
+		Text: `{"type":"agent"}`,
+	}
+	buf := &bytes.Buffer{}
+	buf.WriteByte(byte(MessageTypeAgent))
+	require.NoError(t, gob.NewEncoder(buf).Encode(expectedMsg))
+
+	msg := AgentNotify{}
+	require.NoError(t, msg.Decode(buf.Bytes()))
+	require.Equal(t, expectedMsg, msg)
 }
