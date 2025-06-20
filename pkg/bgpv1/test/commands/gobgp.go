@@ -25,8 +25,8 @@ import (
 const (
 	waitStateTimeout = 30 * time.Second
 
-	serverASNFlag      = "server-asn"
-	serverASNFlagShort = "s"
+	serverNameFlag      = "server-name"
+	serverNameFlagShort = "s"
 
 	routerIDFlag      = "router-id"
 	routerIDFlagShort = "r"
@@ -39,13 +39,46 @@ const (
 )
 
 type GoBGPCmdContext struct {
-	servers map[uint32]*server.BgpServer
+	servers map[string]*server.BgpServer
 }
 
 func NewGoBGPCmdContext() *GoBGPCmdContext {
 	return &GoBGPCmdContext{
-		servers: make(map[uint32]*server.BgpServer),
+		servers: make(map[string]*server.BgpServer),
 	}
+}
+
+func (ctx *GoBGPCmdContext) AddServer(name string, srv *server.BgpServer) {
+	if _, found := ctx.servers[name]; found {
+		panic("Server " + name + " already exists")
+	}
+	ctx.servers[name] = srv
+}
+
+func (ctx *GoBGPCmdContext) DeleteServer(name string) {
+	if _, found := ctx.servers[name]; !found {
+		return
+	}
+	delete(ctx.servers, name)
+}
+
+func (ctx *GoBGPCmdContext) NServers() int {
+	return len(ctx.servers)
+}
+
+func (ctx *GoBGPCmdContext) GetServer(name string) (*server.BgpServer, bool) {
+	if name == "" {
+		if ctx.NServers() > 0 {
+			// Return fierst server if no name is specified
+			for _, srv := range ctx.servers {
+				return srv, true
+			}
+		} else {
+			return nil, false
+		}
+	}
+	srv, found := ctx.servers[name]
+	return srv, found
 }
 
 func (ctx *GoBGPCmdContext) Cleanup() {
@@ -69,7 +102,7 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Add a new GoBGP server instance",
-			Args:    "asn ip port",
+			Args:    "name asn ip port",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP(routerIDFlag, routerIDFlagShort, "", "router-id of the server. Defaults to server ip if not provided.")
 			},
@@ -77,20 +110,21 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 				"Add a new GoBGP server instance with the specified parameters.",
 				"The server will be stopped during the test cleanup, but can be also removed during the test with gobgp/delete-server command.",
 				"",
+				"'Name' is the name of the server.",
 				"'ASN' is the autonomous system number of this instance.",
 				"'ip' is the IP address on which the server listens for incoming connections.",
 				"'port' is the port number on which the server listens for incoming connections.",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 3 {
-				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-server asn ip port'")
+			if len(args) < 4 {
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-server name asn ip port'")
 			}
-			asn, err := strconv.Atoi(args[0])
+			asn, err := strconv.Atoi(args[1])
 			if err != nil {
 				return nil, fmt.Errorf("could not parse asn: %w", err)
 			}
-			port, err := strconv.Atoi(args[2])
+			port, err := strconv.Atoi(args[3])
 			if err != nil {
 				return nil, fmt.Errorf("could not parse port: %w", err)
 			}
@@ -99,7 +133,7 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 				return nil, err
 			}
 			if routerID == "" {
-				routerID = args[1]
+				routerID = args[2]
 			}
 
 			// start new GoBGP server
@@ -112,16 +146,16 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			err = gobgpServer.StartBgp(s.Context(), &gobgpapi.StartBgpRequest{Global: &gobgpapi.Global{
 				Asn:             uint32(asn),
 				RouterId:        routerID,
-				ListenAddresses: []string{args[1]},
+				ListenAddresses: []string{args[2]},
 				ListenPort:      int32(port),
 			}})
 			if err != nil {
 				gobgpServer.Stop()
 				return nil, err
 			}
-			cmdCtx.servers[uint32(asn)] = gobgpServer
+			cmdCtx.AddServer(args[0], gobgpServer)
 
-			s.Logf("Started GoBGP Server ASN: %d, ip: %s, port: %d\n", asn, args[1], port)
+			s.Logf("Started GoBGP Server Name: %s, ASN: %d, ip: %s, port: %d\n", args[0], asn, args[2], port)
 			return nil, nil
 		},
 	)
@@ -131,7 +165,7 @@ func GoBGPDeleteServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Delete an existing GoBGP server instance",
-			Args:    "asn",
+			Args:    "name",
 			Detail: []string{
 				"Delete an existing GoBGP server instance during the test run.",
 				"",
@@ -140,19 +174,14 @@ func GoBGPDeleteServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			if len(args) < 1 {
-				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/delete-server asn'")
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/delete-server name'")
 			}
-			asn, err := strconv.Atoi(args[0])
-			if err != nil {
-				return nil, fmt.Errorf("could not parse asn: %w", err)
-			}
-
-			if gobgpServer, ok := cmdCtx.servers[uint32(asn)]; ok {
+			if gobgpServer, found := cmdCtx.GetServer(args[0]); found {
 				gobgpServer.Stop()
-				delete(cmdCtx.servers, uint32(asn))
-				s.Logf("Stopped GoBGP Server ASN: %d\n", asn)
+				cmdCtx.DeleteServer(args[0])
+				s.Logf("Stopped GoBGP server: %s\n", args[0])
 			} else {
-				return nil, fmt.Errorf("GoBGP Server with asn: %d not found", asn)
+				return nil, fmt.Errorf("GoBGP Server with name: %s not found", args[0])
 			}
 			return nil, nil
 		},
@@ -165,7 +194,7 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Summary: "Add a new peer the GoBGP server instance",
 			Args:    "ip remote-asn",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.Uint32P(serverASNFlag, serverASNFlagShort, 0, "ASN number of the GoBGP server instance. Can be omitted if only one instance is active.")
+				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
 				fs.StringP(passwordFlag, passwordFlagShort, "", "Authentication password used for the peer.")
 			},
 			Detail: []string{
@@ -243,7 +272,7 @@ func GoBGPWaitStateCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Summary: "Wait until the GoBGP peer is in the specified state",
 			Args:    "peer state",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.Uint32P(serverASNFlag, serverASNFlagShort, 0, "ASN number of the GoBGP server instance. Can be omitted if only one instance is active.")
+				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
 				fs.DurationP(timeoutFlag, timeoutFlagShort, waitStateTimeout, "Maximum amount of time to wait for the peering state")
 			},
 			Detail: []string{
@@ -319,7 +348,7 @@ func GoBGPPeersCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 		script.CmdUsage{
 			Summary: "List peers on the GoBGP server",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.Uint32P(serverASNFlag, serverASNFlagShort, 0, "ASN number of the GoBGP server instance. Can be omitted if only one instance is active.")
+				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
 				addOutFileFlag(fs)
 			},
 			Detail: []string{
@@ -367,7 +396,7 @@ func GoBGPRoutesCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Summary: "List routes on the GoBGP server",
 			Args:    "[afi] [safi]",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.Uint32P(serverASNFlag, serverASNFlagShort, 0, "ASN number of the GoBGP server instance. Can be omitted if only one instance is active.")
+				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
 				addOutFileFlag(fs)
 			},
 			Detail: []string{
@@ -428,22 +457,18 @@ func getGoBGPServer(s *script.State, ctx *GoBGPCmdContext) (*server.BgpServer, e
 	if len(ctx.servers) == 0 {
 		return nil, fmt.Errorf("no GoBGP servers configured")
 	}
-	asn, err := s.Flags.GetUint32(serverASNFlag)
+	name, err := s.Flags.GetString(serverNameFlag)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse %s: %w", serverASNFlag, err)
+		return nil, fmt.Errorf("could not parse %s: %w", serverNameFlag, err)
 	}
-	if asn == 0 {
-		// asn not specified
-		if len(ctx.servers) > 1 {
-			return nil, fmt.Errorf("multiple GoBGP servers are active, %s flag is required", serverASNFlag)
-		} else {
-			// only one server configured, return it
-			for _, serv := range ctx.servers {
-				return serv, nil
-			}
-		}
+	if name == "" && ctx.NServers() > 1 {
+		return nil, fmt.Errorf("multiple GoBGP servers are active, %s flag is required", serverNameFlag)
 	}
-	return ctx.servers[asn], nil
+	srv, found := ctx.GetServer(name)
+	if !found {
+		return nil, fmt.Errorf("GoBGP server with name '%s' not found", name)
+	}
+	return srv, nil
 }
 
 func printPeerHeader(w *tabwriter.Writer) {

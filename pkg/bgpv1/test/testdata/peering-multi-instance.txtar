@@ -6,68 +6,68 @@
 hive start
 
 # Configure gobgp servers
-gobgp/add-server 65010 10.99.0.101 1790
-gobgp/add-server 65011 10.99.0.102 1790
-gobgp/add-server 65012 10.99.0.103 1790
+gobgp/add-server test0 65010 10.99.0.101 1790
+gobgp/add-server test1 65011 10.99.0.102 1790
+gobgp/add-server test2 65012 10.99.0.103 1790
 
 # Configure peers on GoBGP
-gobgp/add-peer --server-asn=65010 10.99.0.110 65001
-gobgp/add-peer --server-asn=65011 10.99.0.110 65001
-gobgp/add-peer --server-asn=65012 10.99.0.110 65002
+gobgp/add-peer -s test0 10.99.0.110 65001
+gobgp/add-peer -s test1 10.99.0.110 65001
+gobgp/add-peer -s test2 10.99.0.110 65002
 
 # Configure BGP on Cilium - only first peer
 k8s/add cilium-node.yaml bgp-peer-config.yaml bgp-advertisement.yaml
 k8s/add bgp-node-config-1.yaml
 
 # Wait for first peering to be established
-gobgp/wait-state --server-asn=65010 10.99.0.110 ESTABLISHED
+gobgp/wait-state -s test0 10.99.0.110 ESTABLISHED
 
 # Validate peering state (server 65010)
-gobgp/peers --server-asn=65010 -o peers.actual
+gobgp/peers -s test0 -o peers.actual
 * cmp gobgp-peers-65001.expected peers.actual
 
 # Validate PodCIDR routes (server 65010)
-gobgp/routes --server-asn=65010 -o routes.actual
+gobgp/routes -s test0 -o routes.actual
 * cmp gobgp-routes-podcidr-65001.expected routes.actual
 
 # Configure BGP on Cilium - add second and third peer
 k8s/update bgp-node-config-2.yaml
 
 # Wait for second peering to be established
-gobgp/wait-state --server-asn=65011 10.99.0.110 ESTABLISHED
+gobgp/wait-state -s test1 10.99.0.110 ESTABLISHED
 
 # Wait for third peering to be established
-gobgp/wait-state --server-asn=65012 10.99.0.110 ESTABLISHED
+gobgp/wait-state -s test2 10.99.0.110 ESTABLISHED
 
 # Validate peering state (server 65011)
-gobgp/peers --server-asn=65011 -o peers.actual
+gobgp/peers -s test1 -o peers.actual
 * cmp gobgp-peers-65001.expected peers.actual
 
 # Validate PodCIDR routes (server 65011)
-gobgp/routes --server-asn=65011 -o routes.actual
+gobgp/routes -s test1 -o routes.actual
 * cmp gobgp-routes-podcidr-65001.expected routes.actual
 
 # Validate peering state (server 65012)
-gobgp/peers --server-asn=65012 -o peers.actual
+gobgp/peers -s test2 -o peers.actual
 * cmp gobgp-peers-65002.expected peers.actual
 
 # Validate PodCIDR routes (server 65012)
-gobgp/routes --server-asn=65012 -o routes.actual
+gobgp/routes -s test2 -o routes.actual
 * cmp gobgp-routes-podcidr-65002.expected routes.actual
 
 # Add a k8s service
 k8s/add service.yaml
 
 # Validate PodCIDR + Service routes (server 65010)
-gobgp/routes --server-asn=65010 -o routes.actual
+gobgp/routes -s test0 -o routes.actual
 * cmp gobgp-routes-all-65001.expected routes.actual
 
 # Validate PodCIDR + Service routes (server 65011)
-gobgp/routes --server-asn=65011 -o routes.actual
+gobgp/routes -s test1 -o routes.actual
 * cmp gobgp-routes-all-65001.expected routes.actual
 
 # Validate PodCIDR + Service routes (server 65012)
-gobgp/routes --server-asn=65012 -o routes.actual
+gobgp/routes -s test2 -o routes.actual
 * cmp gobgp-routes-all-65002.expected routes.actual
 
 # Validate peers on Cilium
@@ -86,11 +86,11 @@ bgp/route-policies -o policies.actual
 k8s/update bgp-node-config-1.yaml
 
 # Validate peering state (server 65010)
-gobgp/peers --server-asn=65010 -o peers.actual
+gobgp/peers -s test0 -o peers.actual
 * cmp gobgp-peers-65001.expected peers.actual
 
 # Validate PodCIDR + Service routes (server 65010)
-gobgp/routes --server-asn=65010 -o routes.actual
+gobgp/routes -s test0 -o routes.actual
 * cmp gobgp-routes-all-65001.expected routes.actual
 
 #####

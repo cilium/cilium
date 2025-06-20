@@ -7,7 +7,7 @@
 hive start
 
 # Configure gobgp server
-gobgp/add-server 65010 10.99.4.211 1790
+gobgp/add-server test 65010 10.99.4.211 1790
 
 # Configure peers on GoBGP
 gobgp/add-peer 10.99.4.212 65001

@@ -7,12 +7,12 @@
 hive start
 
 # Configure gobgp server
-gobgp/add-server --router-id=1.2.3.4 65010 fd00::bb:cc:dd:1 1790
-gobgp/add-server --router-id=5.6.7.8 65011 fd00::bb:cc:dd:2 1790
+gobgp/add-server test0 --router-id=1.2.3.4 65010 fd00::bb:cc:dd:1 1790
+gobgp/add-server test1 --router-id=5.6.7.8 65011 fd00::bb:cc:dd:2 1790
 
 # Configure peers on GoBGP
-gobgp/add-peer --server-asn=65010 fd00::bb:cc:dd:10 65001
-gobgp/add-peer --server-asn=65011 fd00::bb:cc:dd:10 65001
+gobgp/add-peer -s test0 fd00::bb:cc:dd:10 65001
+gobgp/add-peer -s test1 fd00::bb:cc:dd:10 65001
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml
@@ -20,27 +20,27 @@ k8s/add bgp-peer-config-1.yaml bgp-advertisement-1.yaml
 k8s/add bgp-peer-config-2.yaml bgp-advertisement-2.yaml
 
 # Wait for peerings to be established
-gobgp/wait-state --server-asn=65010 fd00::bb:cc:dd:10 ESTABLISHED
-gobgp/wait-state --server-asn=65011 fd00::bb:cc:dd:10 ESTABLISHED
+gobgp/wait-state -s test0 fd00::bb:cc:dd:10 ESTABLISHED
+gobgp/wait-state -s test1 fd00::bb:cc:dd:10 ESTABLISHED
 
 
 # Add a LoadBalancer service
 k8s/add service-lb.yaml
 
 # Validate the IPv4 LoadBalancer service route (65010)
-gobgp/routes --server-asn=65010 -o routes.actual ipv4 unicast
+gobgp/routes -s test0 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-svc1-lb-ipv4.expected routes.actual
 
 # Validate the IPv6 LoadBalancer service route (65010)
-gobgp/routes --server-asn=65010 -o routes.actual ipv6 unicast
+gobgp/routes -s test0 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-svc1-lb-ipv6.expected routes.actual
 
 # Validate the IPv4 ClusterIP + LoadBalancer service route (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+gobgp/routes -s test1 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-svc1-cluster-lb-ipv4.expected routes.actual
 
 # Validate the IPv6 ClusterIP + LoadBalancer service route (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+gobgp/routes -s test1 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-svc1-cluster-lb-ipv6.expected routes.actual
 
 
@@ -48,19 +48,19 @@ gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
 k8s/add service-cluster-external.yaml
 
 # Validate the IPv4 LoadBalancer service route (65010)
-gobgp/routes --server-asn=65010 -o routes.actual ipv4 unicast
+gobgp/routes -s test0 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-svc1-lb-ipv4.expected routes.actual
 
 # Validate the IPv6 LoadBalancer service route (65010)
-gobgp/routes --server-asn=65010 -o routes.actual ipv6 unicast
+gobgp/routes -s test0 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-svc1-lb-ipv6.expected routes.actual
 
 # Validate all IPv4 ClusterIP + ExternalIP service routes (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+gobgp/routes -s test1 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-all-ipv4.expected routes.actual
 
 # Validate all IPv6 ClusterIP + ExternalIP service routes (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+gobgp/routes -s test1 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-all-ipv6.expected routes.actual
 
 
@@ -68,19 +68,19 @@ gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
 k8s/delete service-lb.yaml
 
 # Validate empty LoadBalancerIP service routes (65010)
-gobgp/routes --server-asn=65010 -o routes.actual ipv4 unicast
+gobgp/routes -s test0 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-empty.expected routes.actual
 
 # Validate empty LoadBalancerIP service routes (65010)
-gobgp/routes --server-asn=65010 -o routes.actual ipv6 unicast
+gobgp/routes -s test0 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-empty.expected routes.actual
 
 # Validate IPv4 svc2 ClusterIP + ExternalIP service routes (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+gobgp/routes -s test1 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-svc2-cluster-external-ipv4.expected routes.actual
 
 # Validate IPv6 svc2 ClusterIP + ExternalIP service routes (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+gobgp/routes -s test1 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-svc2-cluster-external-ipv6.expected routes.actual
 
 
@@ -88,11 +88,11 @@ gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
 k8s/update service-cluster-external-updated.yaml
 
 # Validate updated IPv4 svc2 ClusterIP + ExternalIP service routes (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+gobgp/routes -s test1 -o routes.actual ipv4 unicast
 * cmp gobgp-routes-svc2-cluster-external-updated-ipv4.expected routes.actual
 
 # Validate updated IPv6 svc2 ClusterIP + ExternalIP service routes (65011)
-gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+gobgp/routes -s test1 -o routes.actual ipv6 unicast
 * cmp gobgp-routes-svc2-cluster-external-updated-ipv6.expected routes.actual
 
 
