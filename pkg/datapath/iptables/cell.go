@@ -5,6 +5,7 @@ package iptables
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -33,6 +34,7 @@ var Cell = cell.Module(
 
 			EnableIPv4:                  cfg.EnableIPv4,
 			EnableIPv6:                  cfg.EnableIPv6,
+			MasqueradeSrcExclusionCIDR:  cfg.MasqueradeSrcExclusionCIDR,
 			EnableBPFTProxy:             cfg.EnableBPFTProxy,
 			InstallNoConntrackIptRules:  cfg.InstallNoConntrackIptRules,
 			EnableEndpointRoutes:        cfg.EnableEndpointRoutes,
@@ -102,4 +104,5 @@ type SharedConfig struct {
 	EnableMasqueradeRouteSource bool
 	EnableL7Proxy               bool
 	InstallIptRules             bool
+	MasqueradeSrcExclusionCIDR  *cidr.CIDR
 }

@@ -879,6 +879,9 @@ const (
 	// IPv6NativeRoutingCIDR describes a v6 CIDR in which pod IPs are routable
 	IPv6NativeRoutingCIDR = "ipv6-native-routing-cidr"
 
+	// MasqueradeSrcExclusionCIDR is the CIDR for source IPs that should be excluded from masquerading
+	MasqueradeSrcExclusionCIDR = "masquerade-src-exclusion-cidr"
+
 	// MasqueradeInterfaces is the selector used to select interfaces subject to
 	// egress masquerading
 	MasqueradeInterfaces = "egress-masquerade-interfaces"
@@ -1821,8 +1824,13 @@ type DaemonConfig struct {
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR *cidr.CIDR
 
-	// IPv6NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	// IPv6NativeRoutingCIDR describes a v6 CIDR in which pod IPs are assigned and
+	// routing is performed natively without encapsulation or NAT
 	IPv6NativeRoutingCIDR *cidr.CIDR
+
+	// MasqueradeSrcExclusionCIDR describes a CIDR for pod source IPs that should be excluded
+	// from masquerading
+	MasqueradeSrcExclusionCIDR *cidr.CIDR
 
 	// MasqueradeInterfaces is the selector used to select interfaces subject
 	// to egress masquerading.
@@ -2463,6 +2471,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		return err
 	}
 
+	if err := c.checkMasqueradeSrcExclusionCIDR(); err != nil {
+		return err
+	}
+
 	if err := c.checkIPAMDelegatedPlugin(); err != nil {
 		return err
 	}
@@ -2823,8 +2835,14 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)
-
 	if ipv4NativeRoutingCIDR != "" {
+		masqueradeSrcExclusionCIDR := vp.GetString(MasqueradeSrcExclusionCIDR)
+		if masqueradeSrcExclusionCIDR != "" {
+			c.MasqueradeSrcExclusionCIDR, err = cidr.ParseCIDR(masqueradeSrcExclusionCIDR)
+			if err != nil {
+				logging.Fatal(logger, fmt.Sprintf("Invalid %s value: %s", MasqueradeSrcExclusionCIDR, masqueradeSrcExclusionCIDR), logfields.Error, err)
+			}
+		}
 		c.IPv4NativeRoutingCIDR, err = cidr.ParseCIDR(ipv4NativeRoutingCIDR)
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Unable to parse CIDR '%s'", ipv4NativeRoutingCIDR), logfields.Error, err)
@@ -3186,6 +3204,28 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 		EnableIPMasqAgent,
 		RoutingMode, RoutingModeNative,
 		IPAM, c.IPAMMode())
+}
+
+func (c *DaemonConfig) checkMasqueradeSrcExclusionCIDR() error {
+	// If masquerading is not enabled, no need for source exclusion CIDR
+	if !c.EnableIPv4Masquerade && !c.EnableIPv6Masquerade {
+		if c.MasqueradeSrcExclusionCIDR != nil {
+			return fmt.Errorf("cannot specify --%s when masquerading is disabled", MasqueradeSrcExclusionCIDR)
+		}
+		return nil
+	}
+
+	// CIDR is optional, but if specified it must match the IP family of enabled masquerading
+	if c.MasqueradeSrcExclusionCIDR != nil {
+		if c.EnableIPv4Masquerade && len(c.MasqueradeSrcExclusionCIDR.IP) != net.IPv4len {
+			return fmt.Errorf("--%s must be an IPv4 CIDR when IPv4 masquerading is enabled", MasqueradeSrcExclusionCIDR)
+		}
+		if c.EnableIPv6Masquerade && len(c.MasqueradeSrcExclusionCIDR.IP) != net.IPv6len {
+			return fmt.Errorf("--%s must be an IPv6 CIDR when IPv6 masquerading is enabled", MasqueradeSrcExclusionCIDR)
+		}
+	}
+
+	return nil
 }
 
 func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
