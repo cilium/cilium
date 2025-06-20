@@ -377,6 +377,11 @@ Deprecated Options
   to the new scheme.
 * The flag ``--enable-ipv4-egress-gateway`` has been deprecated in favor of ``--enable-egress-gateway`` and will
   be removed in Cilium 1.19.
+* The flags ``--enable-encryption-strict-mode``, ``--encryption-strict-mode-cidr`` and
+  ``--encryption-strict-mode-allow-remote-node-identities`` have been deprecated and will be removed in
+  Cilium 1.19. Use the egress-specific options ``--enable-encryption-strict-mode-egress``,
+  ``--encryption-strict-egress-cidr`` and ``--encryption-strict-egress-allow-remote-node-identities``
+  instead.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -406,6 +411,11 @@ Helm Options
 * The ``l2NeighDiscovery.enabled`` option has been changed to default to ``false``.
 * The deprecated Helm option ``enableCiliumEndpointSlice`` has been removed. Set
   ``ciliumEndpointSlice.enabled`` instead to enable CiliumEndpointSlices.
+* The Helm options ``encryption.strictMode.enabled``, ``encryption.strictMode.cidr`` and
+  ``encryption.strictMode.allowRemoteNodeIdentities`` have been deprecated and will be removed in
+  Cilium 1.19. Use the egress-specific options ``encryption.strictMode.egress.enabled``,
+  ``encryption.strictMode.egress.cidr`` and ``encryption.strictMode.egress.allowRemoteNodeIdentities``
+  instead.
 
 Agent Options
 ~~~~~~~~~~~~~
@@ -416,6 +426,8 @@ Agent Options
 * The ``--enable-l2-neigh-discovery`` flag has been changed to default to ``false``.
 * The ``kvstore-connectivity-timeout`` flag is renamed to ``identity-allocation-timeout`` to better reflect its purpose.
 * The ``kvstore-periodic-sync`` flag is renamed to ``identity-allocation-sync-interval`` to better reflect its purpose.
+* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
+  it only available when WireGuard and tunneling are enabled as well.
 
 Cluster Mesh API Server Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
