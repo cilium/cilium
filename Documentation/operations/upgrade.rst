@@ -320,6 +320,10 @@ communicating via the proxy must reconnect to re-establish connections.
 * CiliumIdentity CRD does not contain Security Labels in metadata anymore except for the namespace label.
 * The support for Envoy Go Extensions (proxylib) is deprecated, and will be removed in a future release.
 * The kube_proxy_healthz endpoint no longer requires Kubernetes control plane connectivity to succeed.
+* A new opt-out option ``policy-default-local-cluster`` has been added in Cilium 1.18 and will become a default option in Cilium 1.19.
+  If you are using Cilium ClusterMesh and network policies, you must take action to update your network policies to avoid this change
+  from breaking connectivity for applications across different clusters.
+  See :ref:`change_policy_default_local_cluster` for details and migrations recommendations.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -763,6 +767,144 @@ Rollout Instructions
 #. Once you are ready to decommission the KVStore, re-deploy first the Agents and then the Operator with ``--identity-allocation-mode=crd``.
    This will make Cilium read and write identities only to CRDs.
 #. You can now decommission the KVStore.
+
+.. _change_policy_default_local_cluster:
+
+Preparing for a ``policy-default-local-cluster`` change
+#######################################################
+
+Cilium network policies used to implicitly select endpoints from all the clusters.
+In Cilium 1.18, we are introducing a new option called ``policy-default-local-cluster``
+which will be set by default in Cilium 1.19. This option restrict endpoints
+selection to the local cluster by default. If you are using ClusterMesh and
+network policies this will be a **breaking change** and you **need to take action**
+before upgrading to Cilium 1.19.
+
+This new option can be set in the ConfigMap or via the Helm value ``clustermesh.policyDefaultLocalCluster``
+and you can of course still force ``policy-default-local-cluster`` to ``false`` in Cilium 1.19 to keep
+the existing behavior. Note that we will deprecate and eventually remove this option in a future release
+so we encourage you to actively plan your migration to set ``policy-default-local-cluster`` to ``true``.
+
+Migrating network policies in practice
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The command ``cilium clustermesh inspect-policy-default-local-cluster --all-namespaces`` can help you
+discover all the policies that will change as a result of changing ``policy-default-local-cluster``.
+You can also replace ``--all-namespaces`` with ``-n my-namespace`` if you want to only inspect
+policies from a particular namespace.
+
+Let's take an imaginary situation where we would have one network policy to update:
+
+.. code-block:: shell-session
+
+    $ cilium clustermesh prepare-policy-default-local-cluster --all-namespaces
+
+    ⚠️ CiliumNetworkPolicy 0/1
+            ⚠️ svc1/allow-from-svc2
+
+    ✅ CiliumClusterWideNetworkPolicy 0/0
+
+    ✅ NetworkPolicy 0/0
+
+
+In this situation you have only one CiliumNetworkPolicy which will be affected by a
+``policy-default-local-cluster`` change. Let's take a look at the policy:
+
+.. code-block:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: allow-from-svc2
+      namespace: svc1
+    spec:
+      description: "Allow ingress traffic from svc2"
+      endpointSelector:
+        matchLabels:
+          name: svc1
+      ingress:
+      - fromEndpoints:
+        - matchLabels:
+            name: svc2
+
+This network policy does not explicitly select a cluster. This means that with ``policy-default-local-cluster``
+sets to ``false`` it will allow traffic coming from svc1 in any clusters connected in your ClusterMesh.
+With ``policy-default-local-cluster`` sets to ``true`` (which will be set by default in Cilium 1.19),
+this policy will allow traffic from svc1 from only the local cluster instead.
+
+If svc1 and svc2 are always in the same cluster you can set ``policy-default-local-cluster`` to ``true``
+or wait for Cilium 1.19 where it will be set by default.
+
+In case you want to do this on this individual policy rather than at a global level or that
+svc2 is located on a remote cluster you can update your policy like that:
+
+.. code-block:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: allow-from-svc2
+      namespace: svc1
+    spec:
+      description: "Allow ingress traffic from svc2"
+      endpointSelector:
+        matchLabels:
+          name: svc1
+      ingress:
+      - fromEndpoints:
+        - matchLabels:
+            name: svc2
+            io.cilium.k8s.policy.cluster: fixme-cluster-name
+
+If the svc2 is located in multiple cluster you can also use a ``matchExpressions``
+selecting multiple clusters like that:
+
+.. code-block:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: allow-from-svc2
+      namespace: svc1
+    spec:
+      description: "Allow ingress traffic from svc2"
+      endpointSelector:
+        matchLabels:
+          name: svc1
+      ingress:
+      - fromEndpoints:
+        - matchLabels:
+            name: svc2
+          matchExpressions:
+            - key: io.cilium.k8s.policy.cluster
+              operator: In
+              values:
+                - fixme-cluster-name-1
+                - fixme-cluster-name-2
+
+Alternatively, you can also allow traffic from svc2 located in every clusters and restore
+the same behavior as setting ``policy-default-local-cluster`` to ``false`` but on this
+individual policy:
+
+.. code-block:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: allow-from-svc2
+      namespace: svc1
+    spec:
+      description: "Allow ingress traffic from svc2"
+      endpointSelector:
+        matchLabels:
+          name: svc1
+      ingress:
+      - fromEndpoints:
+        - matchLabels:
+            name: svc2
+          matchExpressions:
+            - key: io.cilium.k8s.policy.cluster
+              operator: Exists
 
 .. _cnp_validation:
 
