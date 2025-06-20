@@ -74,11 +74,11 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8081
+            port: http
         readinessProbe:
           httpGet:
             path: /
-            port: 8081
+            port: http
         {{- with .Values.hubble.ui.frontend.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -127,13 +127,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8090
+            port: grpc
         {{- end }}
         {{- if .Values.hubble.ui.backend.readinessProbe.enabled }}
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 8090
+            port: grpc
         {{- end }}
         ports:
         - name: grpc
