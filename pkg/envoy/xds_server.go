@@ -1497,7 +1497,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			}
 		}
 
-		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
+		rulesMap := make(map[string]*cilium.PortNetworkPolicyRule, len(l4.PerSelectorPolicies))
 		allowAll := false
 
 		// Assume none of the rules have side-effects so that rule evaluation can
@@ -1524,7 +1524,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 					// the other rules.
 					allowAll = true
 				}
-				rules = append(rules, rule)
+				rulesMap["wildcard"] = rule
 			}
 		} else {
 			for sel, l7 := range l4.PerSelectorPolicies {
@@ -1549,7 +1549,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 						// the other rules.
 						allowAll = true
 					}
-					rules = append(rules, rule)
+					rulesMap[sel.String()] = rule
 				}
 			}
 		}
@@ -1560,14 +1560,14 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 				logfields.TrafficDirection, dir,
 				logfields.Port, port,
 			)
-			rules = nil
+			rulesMap = nil
 		}
 
 		// No rule for this port matches any remote identity.
 		// This means that no traffic was explicitly allowed for this port.
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
-		if !allowAll && len(rules) == 0 {
+		if !allowAll && len(rulesMap) == 0 {
 			s.logger.Debug("Skipping PortNetworkPolicy due to no matching remote identities",
 				logfields.EndpointID, ep.GetID(),
 				logfields.TrafficDirection, dir,
@@ -1581,7 +1581,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			Port:     uint32(port),
 			EndPort:  uint32(l4.EndPort),
 			Protocol: protocol,
-			Rules:    envoypolicy.SortPortNetworkPolicyRules(rules),
+			Rules:    envoypolicy.SortPortNetworkPolicyRulesMap(rulesMap),
 		})
 		return true
 	})

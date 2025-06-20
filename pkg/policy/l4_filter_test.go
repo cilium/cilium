@@ -141,11 +141,11 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	defer pol.detach(true, 0)
 
 	if expectedIn != nil {
-		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), expectedIn.TestingOnlyDiff(pol.L4Policy.Ingress.PortRules))
+		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), pol.L4Policy.Ingress.PortRules.TestingOnlyDiff(expectedIn))
 	}
 
 	if expectedOut != nil {
-		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
+		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), pol.L4Policy.Egress.PortRules.TestingOnlyDiff(expectedOut))
 	}
 }
 
@@ -408,7 +408,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
+					HTTP: []api.PortRuleHTTP{{}, {Path: "/", Method: "GET"}},
 				},
 			},
 		},
@@ -461,7 +461,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 				L7Parser: ParserTypeHTTP,
 				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
+					HTTP: []api.PortRuleHTTP{{}, {Path: "/", Method: "GET"}},
 				},
 			},
 		},
@@ -2050,10 +2050,10 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{{
-							MatchPattern: "example.com",
-						}, {
 							// Wildcard rule should be added
 							MatchPattern: "*",
+						}, {
+							MatchPattern: "example.com",
 						}},
 					},
 					L7Parser: ParserTypeDNS,
@@ -2118,12 +2118,12 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{
-							Path:   "/api",
-							Method: "GET",
-						}, {
-							// Empty HTTP rule should be added
-						}},
+						HTTP: []api.PortRuleHTTP{
+							{}, // Empty HTTP rule should be added
+							{
+								Path:   "/api",
+								Method: "GET",
+							}},
 					},
 					L7Parser: ParserTypeHTTP,
 					Priority: ListenerPriorityHTTP,
@@ -2254,12 +2254,13 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorB: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
-						DNS: []api.PortRuleDNS{{
-							MatchPattern: "example.com",
-						}, {
-							// Wildcard rule should be added
-							MatchPattern: "*",
-						}},
+						DNS: []api.PortRuleDNS{
+							{
+								// Wildcard rule should be added
+								MatchPattern: "*",
+							}, {
+								MatchPattern: "example.com",
+							}},
 					},
 					L7Parser: ParserTypeDNS,
 					Priority: ListenerPriorityDNS,

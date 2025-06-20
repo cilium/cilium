@@ -124,6 +124,33 @@ func generateCIDREgressRule(i int) api.EgressRule {
 	}
 }
 
+func generateL7EgressRule(i, httpPortRules int) api.EgressRule {
+	portRules := []api.PortRuleHTTP{}
+	for j := 0; j < httpPortRules; j++ {
+		portRules = append(portRules, api.PortRuleHTTP{
+			Path:    "/foo",
+			Method:  "GET",
+			Headers: []string{fmt.Sprintf("%d: %d", i, j)},
+		})
+	}
+
+	return api.EgressRule{
+		ToPorts: []api.PortRule{
+			{
+				Ports: []api.PortProtocol{
+					{
+						Port:     "80",
+						Protocol: api.ProtoTCP,
+					},
+				},
+				Rules: &api.L7Rules{
+					HTTP: portRules,
+				},
+			},
+		},
+	}
+}
+
 func generateCIDREgressDenyRule(i int) api.EgressDenyRule {
 	port := fmt.Sprintf("%d", 80+i%131)
 	prefix := []string{"8", "16", "24", "28", "32"}[(i+21)%5]
