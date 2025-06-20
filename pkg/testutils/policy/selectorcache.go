@@ -8,12 +8,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy/logcookie"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity, logCookieBakery logcookie.PolicyLogBakery) {
 }
 
 func (d *DummySelectorCacheUser) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx) {

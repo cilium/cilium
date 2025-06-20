@@ -23,7 +23,11 @@ import (
 
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
-func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
+func CorrelatePolicy(
+	logger *slog.Logger,
+	endpointGetter getters.EndpointGetter,
+	f *flowpb.Flow,
+) {
 	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
 		// If it's not a policy verdict, we don't care.
 		return
@@ -62,7 +66,8 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 
 	info, ok := lookupPolicyForKey(epInfo,
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
-		f.GetPolicyMatchType())
+		f.GetPolicyMatchType(),
+	)
 	if !ok {
 		logger.Debug(
 			"unable to find policy for policy verdict notification",
@@ -94,8 +99,8 @@ func extractFlowKey(f *flowpb.Flow) (
 	endpointID uint16,
 	remoteIdentity identity.NumericIdentity,
 	proto u8proto.U8proto,
-	dport uint16) {
-
+	dport uint16,
+) {
 	switch f.GetTrafficDirection() {
 	case flowpb.TrafficDirection_EGRESS:
 		direction = trafficdirection.Egress

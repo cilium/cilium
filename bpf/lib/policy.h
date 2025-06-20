@@ -87,13 +87,15 @@ struct {
 
 static __always_inline int
 __policy_check(struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
-	       __u16 *proxy_port)
+	       __u16 *proxy_port, __u32 *cookie)
 {
 	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
 	 * match, and the chosen policy has no explicit auth type: in this case the auth type is
 	 * derived from the less specific policy entry.
 	 */
 	__u8 auth_type;
+
+	*cookie = policy->cookie;
 
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
@@ -133,7 +135,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
 		    __u8 proto, int off __maybe_unused, int dir,
 		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
-		    __u16 *proxy_port)
+		    __u16 *proxy_port, __u32 *cookie)
 {
 	struct policy_entry *policy;
 	struct policy_entry *l4policy;
@@ -244,7 +246,7 @@ check_policy:
 		p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :	/* 1. id/proto/port */
 		p_len > 0 ? POLICY_MATCH_L3_PROTO :			/* 3. id/proto/ANY */
 		POLICY_MATCH_L3_ONLY;					/* 5. id/ANY/ANY */
-	return __policy_check(policy, l4policy, ext_err, proxy_port);
+	return __policy_check(policy, l4policy, ext_err, proxy_port, cookie);
 
 check_l4_policy:
 	p_len = l4policy->lpm_prefix_length;
@@ -255,7 +257,7 @@ check_l4_policy:
 		p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
 		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
 		POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
-	return __policy_check(l4policy, policy, ext_err, proxy_port);
+	return __policy_check(l4policy, policy, ext_err, proxy_port, cookie);
 }
 
 /**
@@ -272,6 +274,8 @@ check_l4_policy:
  *				AND IPv4 fragment tracking is disabled
  * @arg match_type		Pointer to store layers used for policy match
  * @arg ext_err		Pointer to store extended error information if this packet isn't allowed
+ * @arg proxy_port	Pointer to store port for proxy redirect
+ * @arg cookie		Pointer to store policy log cookie, if any
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
@@ -282,13 +286,13 @@ static __always_inline int
 policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
 		   __u16 ethertype, __be16 dport, __u8 proto, int l4_off,
 		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
-		   __s8 *ext_err, __u16 *proxy_port)
+		   __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
 {
 	int ret;
 
 	ret = __policy_can_access(map, ctx, dst_id, src_id, ethertype, dport,
 				  proto, l4_off, CT_INGRESS, is_untracked_fragment,
-				  match_type, ext_err, proxy_port);
+				  match_type, ext_err, proxy_port, cookie);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 
@@ -310,11 +314,12 @@ static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const voi
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
-					       __s8 *ext_err, __u16 *proxy_port)
+					       __s8 *ext_err, __u16 *proxy_port,
+					       __u32 *cookie)
 {
 	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
 				 tuple->nexthdr, l4_off, is_untracked_fragment,
-				 match_type, audited, ext_err, proxy_port);
+				 match_type, audited, ext_err, proxy_port, cookie);
 }
 
 static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
@@ -323,11 +328,12 @@ static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
-					       __s8 *ext_err, __u16 *proxy_port)
+					       __s8 *ext_err, __u16 *proxy_port,
+					       __u32 *cookie)
 {
 	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, is_untracked_fragment,
-				 match_type, audited, ext_err, proxy_port);
+				 match_type, audited, ext_err, proxy_port, cookie);
 }
 
 #ifdef HAVE_ENCAP
@@ -340,7 +346,7 @@ static __always_inline bool is_encap(__be16 dport, __u8 proto)
 static __always_inline int
 policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
 		  __u16 ethertype, __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
-		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
 {
 	int ret;
 
@@ -350,7 +356,7 @@ policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 d
 #endif
 	ret = __policy_can_access(map, ctx, src_id, dst_id, ethertype, dport,
 				  proto, l4_off, CT_EGRESS, false, match_type,
-				  ext_err, proxy_port);
+				  ext_err, proxy_port, cookie);
 	if (ret >= 0)
 		return ret;
 	cilium_dbg(ctx, DBG_POLICY_DENIED, src_id, dst_id);
@@ -368,20 +374,20 @@ static __always_inline int policy_can_egress6(struct __ctx_buff *ctx, const void
 					      const struct ipv6_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
-					      __u16 *proxy_port)
+					      __u16 *proxy_port, __u32 *cookie)
 {
 	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
-				 ext_err, proxy_port);
+				 ext_err, proxy_port, cookie);
 }
 
 static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void *map,
 					      const struct ipv4_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
-					      __u16 *proxy_port)
+					      __u16 *proxy_port, __u32 *cookie)
 {
 	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
-				 ext_err, proxy_port);
+				 ext_err, proxy_port, cookie);
 }
