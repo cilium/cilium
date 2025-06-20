@@ -115,8 +115,12 @@ spec:
                     type: string
                   type:
                     default: LoadBalancer
-                    description: Sets the Service.Spec.Type in generated Service objects
-                      to the given value.
+                    description: |-
+                      Sets the Service.Spec.Type in generated Service objects to the given value.
+                      Only LoadBalancer and NodePort are supported.
+                    enum:
+                    - LoadBalancer
+                    - NodePort
                     type: string
                 type: object
             type: object
