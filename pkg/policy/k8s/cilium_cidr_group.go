@@ -222,8 +222,16 @@ func translateCIDRGroupRefs(cnp *types.SlimCNP, cidrsSets map[string][]api.CIDR)
 
 func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 	for i := range spec.Ingress {
+		// CIDRSet is mutually exclusive with other types of selectors like `Entities`.
+		// See comment for policy/api.{Ingress,Egress}Rule
+		// Don't process the selector if {To,From}CIDRSet is not set in the rule, so
+		// as to avoid any unintended mutation on rule selectors.
+		if spec.Ingress[i].FromCIDRSet == nil {
+			continue
+		}
+
 		cidrSet := translateCIDRRuleSlice(spec.Ingress[i].FromCIDRSet, cidrsSets)
-		// Careful to distinguish between nil (unset, selecting everything) and
+		// Careful to distinguish between nil (unset) and
 		// empty list (selecting nothing), hence this overly explicit code.
 		if cidrSet == nil {
 			cidrSet = make([]api.CIDRRule, 0)
@@ -231,6 +239,10 @@ func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 		spec.Ingress[i].FromCIDRSet = cidrSet
 	}
 	for i := range spec.IngressDeny {
+		if spec.IngressDeny[i].FromCIDRSet == nil {
+			continue
+		}
+
 		cidrSet := translateCIDRRuleSlice(spec.IngressDeny[i].FromCIDRSet, cidrsSets)
 		if cidrSet == nil {
 			cidrSet = make([]api.CIDRRule, 0)
@@ -238,6 +250,10 @@ func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 		spec.IngressDeny[i].FromCIDRSet = cidrSet
 	}
 	for i := range spec.Egress {
+		if spec.Egress[i].ToCIDRSet == nil {
+			continue
+		}
+
 		cidrSet := translateCIDRRuleSlice(spec.Egress[i].ToCIDRSet, cidrsSets)
 		if cidrSet == nil {
 			cidrSet = make([]api.CIDRRule, 0)
@@ -245,6 +261,10 @@ func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 		spec.Egress[i].ToCIDRSet = cidrSet
 	}
 	for i := range spec.EgressDeny {
+		if spec.EgressDeny[i].ToCIDRSet == nil {
+			continue
+		}
+
 		cidrSet := translateCIDRRuleSlice(spec.EgressDeny[i].ToCIDRSet, cidrsSets)
 		if cidrSet == nil {
 			cidrSet = make([]api.CIDRRule, 0)

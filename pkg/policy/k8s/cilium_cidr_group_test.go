@@ -13,6 +13,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -1174,6 +1175,22 @@ func TestCIDRGroupRefsToCIDRsSets(t *testing.T) {
 }
 
 func TestCIDRGroupRefsTranslate(t *testing.T) {
+	testEntitySelector := api.IngressRule{
+		IngressCommonRule: api.IngressCommonRule{
+			FromEntities: api.EntitySlice{
+				api.EntityHost,
+				api.EntityHealth,
+			},
+		},
+	}
+	testEndpointSelector := api.EgressRule{
+		EgressCommonRule: api.EgressCommonRule{
+			ToEndpoints: api.EndpointSelectorSlice{
+				api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)),
+			},
+		},
+	}
+
 	testCases := [...]struct {
 		name      string
 		cnp       *types.SlimCNP
@@ -2314,6 +2331,93 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 							},
 						},
 						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        "110.0.0.0/8",
+											ExceptCIDRs: []api.CIDR{"110.96.0.0/12", "110.112.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "with Ingress/Egress rules and multiple selectors",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Ingress: []api.IngressRule{
+							testEntitySelector,
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+											ExceptCIDRs:  []api.CIDR{"10.96.0.0/12", "10.112.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							testEndpointSelector,
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1-e",
+											ExceptCIDRs:  []api.CIDR{"110.96.0.0/12", "110.112.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrsSets: map[string][]api.CIDR{
+				"cidr-group-1":   {"10.0.0.0/8"},
+				"cidr-group-1-e": {"110.0.0.0/8"},
+			},
+			expected: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Ingress: []api.IngressRule{
+							testEntitySelector,
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        "10.0.0.0/8",
+											ExceptCIDRs: []api.CIDR{"10.96.0.0/12", "10.112.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							testEndpointSelector,
 							{
 								EgressCommonRule: api.EgressCommonRule{
 									ToCIDRSet: api.CIDRRuleSlice{
