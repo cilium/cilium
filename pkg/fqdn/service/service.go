@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -24,21 +25,13 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
 )
-
-// rulesSnapshot is a struct that holds the current state of the policy rules
-// It is used to send the current state of the policy rules to the client(standalone DNS proxy)
-type rulesSnapshot struct {
-	lock.Mutex
-	// rules is the current state of the policy rules
-	rules map[identity.NumericIdentity]policy.SelectorPolicy
-}
 
 // FQDNDataServer is the server for the standalone DNS proxy grpc server
 // It is responsible for handling the FQDN mapping requests from the SDP
@@ -64,14 +57,8 @@ type FQDNDataServer struct {
 	// updateOnDNSMsg is a function to update the DNS message in the cilium agent on receiving the FQDN mapping
 	updateOnDNSMsg messagehandler.DNSMessageHandler
 
-	// identityToIPMutex is a mutex to protect the current state of the identity to Ip mapping
-	identityToIPMutex lock.Mutex
-
-	// currentIdentityToIP is a map of the identity to list of IPs
-	currentIdentityToIP map[identity.NumericIdentity][]netip.Prefix
-
-	// rulesSnapshot is a snapshot of the current state of the policy rules
-	rulesSnapshot rulesSnapshot
+	// identityToIPsTable is a table for storing the current state of the identity to IPs mapping
+	identityToIPsTable statedb.RWTable[identityToIPs]
 
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
@@ -89,12 +76,29 @@ type policyRules struct {
 	SelPol   policy.SelectorPolicy
 }
 
-const PolicyRulesTableName = "policy-rules"
+type identityToIPs struct {
+	Identity identity.NumericIdentity
+	IPs      []netip.Prefix
+}
+
+const (
+	PolicyRulesTableName   = "policy-rules"
+	IdentityToIPsTableName = "identity-to-ip"
+)
 
 var (
 	idIndex = statedb.Index[policyRules, uint32]{
 		Name: "id",
 		FromObject: func(e policyRules) index.KeySet {
+			return index.NewKeySet(index.Uint32(e.Identity.Uint32()))
+		},
+		FromKey:    index.Uint32,
+		FromString: index.Uint32String,
+		Unique:     true,
+	}
+	idIndexIdentityToIP = statedb.Index[identityToIPs, uint32]{
+		Name: "id",
+		FromObject: func(e identityToIPs) index.KeySet {
 			return index.NewKeySet(index.Uint32(e.Identity.Uint32()))
 		},
 		FromKey:    index.Uint32,
@@ -137,6 +141,12 @@ type PolicyUpdater interface {
 	UpdatePolicyRules(map[identity.NumericIdentity]policy.SelectorPolicy, bool) error
 }
 
+var closedWatchChannel = func() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}()
+
 // StreamPolicyState is a bidirectional streaming RPC to subscribe to DNS policies
 // SDP calls this method to subscribe to DNS policies
 // For each stream, we subscribe to the changes in the policy rules table and send the current state of the DNS rules to the client.
@@ -149,37 +159,28 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 	streamCtx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	wtxn := s.db.WriteTxn(s.policyRulesTable)
-	changeIterator, err := s.policyRulesTable.Changes(wtxn)
-	if err != nil {
-		wtxn.Abort()
-		return fmt.Errorf("failed to watch policy rules table: %w", err)
-	}
-	wtxn.Commit()
+	limiter := rate.NewLimiter(time.Second, 1)
+	defer limiter.Stop()
 
-	// Send the current state of the DNS policies to the client
-	if err := s.sendAndRecvAckForDNSPolicies(stream); err != nil {
-		s.log.Error("Failed to send current state of DNS policies to the client", logfields.Error, err)
-		return err
-	}
+	rulesWatch := closedWatchChannel
 
 	for {
-		// Wait for changes in the policy rules table.
-		// If there are changes, it will return the changes and a channel to watch for new changes.
-		// We will then send the current state of the DNS policies to the client.
-		changes, watch := changeIterator.Next(s.db.ReadTxn())
-		for range changes {
-			err := s.sendAndRecvAckForDNSPolicies(stream)
-			if err != nil {
-				return err
-			}
-		}
 
-		// Wait until there's new changes to consume.
 		select {
 		case <-streamCtx.Done():
-			return nil
-		case <-watch:
+			return streamCtx.Err()
+		case <-rulesWatch:
+			// If there are changes in the policy rules table, we will send the current state
+			// of the DNS policies to the client.
+			rules, watch := s.policyRulesTable.AllWatch(s.db.ReadTxn())
+			if err := s.sendAndRecvAckForDNSPolicies(stream, rules); err != nil {
+				return err
+			}
+			rulesWatch = watch
+		}
+		// Limit the rate at which we send the full snapshots
+		if err := limiter.Wait(streamCtx); err != nil {
+			return err
 		}
 	}
 
@@ -187,10 +188,7 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 
 // sendAndRecvAckForDNSPolicies sends the current state of the DNS policies to the client
 // and waits for the ACK from the client.
-func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer) error {
-	s.rulesSnapshot.Lock()
-	defer s.rulesSnapshot.Unlock()
-
+func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer, rules iter.Seq2[policyRules, statedb.Revision]) error {
 	requestID := uuid.New().String()
 	policyState := &pb.PolicyState{
 		RequestId: requestID,
@@ -226,22 +224,35 @@ func newPolicyRulesTable(db *statedb.DB) (statedb.RWTable[policyRules], error) {
 	return tbl, nil
 }
 
+// newIdentityToIPsTable creates a new table for storing the identity to IP mapping and registers it with the database.
+func newIdentityToIPsTable(db *statedb.DB) (statedb.RWTable[identityToIPs], error) {
+	tbl, err := statedb.NewTable(
+		IdentityToIPsTableName,
+		idIndexIdentityToIP,
+	)
+	if err != nil {
+		return nil, err
+	}
+	err = db.RegisterTable(tbl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register table identity-to-ip: %w", err)
+	}
+	return tbl, nil
+}
+
 // NewServer creates a new FQDNDataServer which is used to handle the Standalone DNS Proxy grpc service
-func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSMessageHandler, port int, logger *slog.Logger, listener listenConfig, db *statedb.DB, policyRulesTable statedb.RWTable[policyRules]) *FQDNDataServer {
+func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSMessageHandler, port int, logger *slog.Logger, listener listenConfig, db *statedb.DB, policyRulesTable statedb.RWTable[policyRules], identityToIPsTable statedb.RWTable[identityToIPs]) *FQDNDataServer {
 
 	fqdnDataServer := &FQDNDataServer{
-		port:                port,
-		endpointManager:     endpointManager,
-		updateOnDNSMsg:      updateOnDNSMsg,
-		currentIdentityToIP: make(map[identity.NumericIdentity][]netip.Prefix),
-		log:                 logger,
-		prefixLengths:       counter.DefaultPrefixLengthCounter(),
-		listener:            listener,
-		db:                  db,
-		policyRulesTable:    policyRulesTable,
-		rulesSnapshot: rulesSnapshot{
-			rules: make(map[identity.NumericIdentity]policy.SelectorPolicy),
-		},
+		port:               port,
+		endpointManager:    endpointManager,
+		updateOnDNSMsg:     updateOnDNSMsg,
+		log:                logger,
+		prefixLengths:      counter.DefaultPrefixLengthCounter(),
+		listener:           listener,
+		db:                 db,
+		policyRulesTable:   policyRulesTable,
+		identityToIPsTable: identityToIPsTable,
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
@@ -252,28 +263,53 @@ func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg m
 
 // OnIPIdentityCacheChange is a method to receive the IP identity cache change events
 func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr types.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
-	s.identityToIPMutex.Lock()
-	defer s.identityToIPMutex.Unlock()
-
 	if cidr.ClusterID() != 0 {
 		return
 	}
+
+	txn := s.db.WriteTxn(s.identityToIPsTable)
 	prefix := cidr.AsPrefix()
 	if cidr.ClusterID() == 0 {
 		switch modType {
 		case ipcache.Upsert:
 			if oldID != nil {
 				// Remove from the old identity
-				s.deleteFromIdentityToIPLocked(oldID, prefix)
+				err := s.deleteFromIdentityToIPLocked(txn, oldID, prefix)
+				if err != nil {
+					s.log.Error("Failed to delete old identity from identity to IP mapping", logfields.Error, err)
+					return
+				}
 			}
-			s.currentIdentityToIP[newID.ID] = append(s.currentIdentityToIP[newID.ID], prefix)
+
+			newObj := identityToIPs{
+				Identity: newID.ID,
+				IPs:      []netip.Prefix{prefix},
+			}
+			_, _, err := s.identityToIPsTable.Modify(txn, newObj, func(oldObj identityToIPs, newObj identityToIPs) identityToIPs {
+				// Update the existing record with the new IPs
+				newIPs := append(oldObj.IPs, prefix)
+				return identityToIPs{
+					Identity: oldObj.Identity,
+					IPs:      newIPs,
+				}
+			})
+			if err != nil {
+				txn.Abort()
+				s.log.Error("Failed to update identity to IP mapping", logfields.Error, err)
+				return
+			}
 			s.prefixLengths.Add([]netip.Prefix{prefix})
 		case ipcache.Delete:
 			if oldID != nil {
-				s.deleteFromIdentityToIPLocked(oldID, prefix)
+				err := s.deleteFromIdentityToIPLocked(txn, oldID, prefix)
+				if err != nil {
+					s.log.Error("Failed to delete identity from identity to IP mapping", logfields.Error, err)
+					return
+				}
 			}
 		}
 	}
+	txn.Commit()
 }
 
 // deleteFromIdentityToIPLocked deletes the given IP from the identity to IP mapping
@@ -281,23 +317,43 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 // It is also called when the IP is upserted with a new identity
 // It removes the prefix from the prefixLengths map
 // It is called with the identityToIpMutex lock held
-func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity, prefix netip.Prefix) error {
+func (s *FQDNDataServer) deleteFromIdentityToIPLocked(txn statedb.WriteTxn, identity *ipcache.Identity, prefix netip.Prefix) error {
 	if identity == nil {
 		return fmt.Errorf("identity is nil")
 	}
 
-	if ips, ok := s.currentIdentityToIP[identity.ID]; ok {
-		newIPs := slices.DeleteFunc(ips, func(existing netip.Prefix) bool {
-			if existing == prefix {
-				s.prefixLengths.Delete([]netip.Prefix{prefix})
-				return true
+	existing, _, found := s.identityToIPsTable.Get(txn, idIndexIdentityToIP.Query(identity.ID.Uint32()))
+	if !found {
+		return fmt.Errorf("identity %d not found in identity to IP mapping", identity.ID.Uint32())
+	}
+
+	// Remove the given prefix from the slice.
+	newIPs := slices.DeleteFunc(existing.IPs, func(p netip.Prefix) bool {
+		if p == prefix {
+			s.prefixLengths.Delete([]netip.Prefix{prefix})
+			return true
+		}
+		return false
+	})
+
+	if len(newIPs) == 0 {
+		// If no IPs remain, delete the record.
+		_, _, err := s.identityToIPsTable.Delete(txn, existing)
+		if err != nil {
+			txn.Abort()
+			return fmt.Errorf("failed to delete identity to IP mapping: %w", err)
+		}
+	} else {
+		// Update the record with the new IP list.
+		_, _, err := s.identityToIPsTable.Modify(txn, existing, func(oldObj identityToIPs, newObj identityToIPs) identityToIPs {
+			return identityToIPs{
+				Identity: oldObj.Identity,
+				IPs:      newIPs,
 			}
-			return false
 		})
-		if len(newIPs) == 0 {
-			delete(s.currentIdentityToIP, identity.ID)
-		} else {
-			s.currentIdentityToIP[identity.ID] = newIPs
+		if err != nil {
+			txn.Abort()
+			return fmt.Errorf("failed to update identity to IP mapping: %w", err)
 		}
 	}
 	return nil
@@ -311,13 +367,7 @@ func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity
 // the client(flag rulesUpdate as false)
 // Note: this method is sending constant test data on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
 func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
-	s.rulesSnapshot.Lock()
-	defer s.rulesSnapshot.Unlock()
-
 	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
-	if rulesUpdate {
-		s.rulesSnapshot.rules = policies
-	}
 	wtxn := s.db.WriteTxn(s.policyRulesTable)
 	for id, selPol := range policies {
 		_, _, err := s.policyRulesTable.Insert(wtxn, policyRules{
