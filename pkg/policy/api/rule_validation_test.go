@@ -1126,6 +1126,52 @@ func TestTooManyPortsRule(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestInvalidIPProtocolRules(t *testing.T) {
+	setUpSuite(t)
+
+	nonZeroPortRule1 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				ToPorts: []PortRule{
+					{
+						Ports: []PortProtocol{
+							{
+								Port:     "1",
+								Protocol: ProtoVRRP,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := nonZeroPortRule1.Sanitize()
+	require.Error(t, err)
+
+	nonZeroPortRule2 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToPorts: []PortRule{
+					{
+						Ports: []PortProtocol{
+							{
+								Port:     "1",
+								Protocol: ProtoIGMP,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = nonZeroPortRule2.Sanitize()
+	require.Error(t, err)
+}
+
 func TestTooManyICMPFields(t *testing.T) {
 	setUpSuite(t)
 

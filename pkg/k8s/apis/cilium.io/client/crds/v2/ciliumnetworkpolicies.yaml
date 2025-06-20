@@ -696,8 +696,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -707,10 +709,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             maxItems: 40
                             type: array
@@ -1661,8 +1663,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -1672,10 +1676,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             type: array
                         type: object
@@ -2546,8 +2550,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -2557,10 +2563,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             maxItems: 40
                             type: array
@@ -3423,8 +3429,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -3434,10 +3442,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             type: array
                         type: object
@@ -4194,8 +4202,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -4205,10 +4215,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               maxItems: 40
                               type: array
@@ -5160,8 +5170,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -5171,10 +5183,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               type: array
                           type: object
@@ -6046,8 +6058,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -6057,10 +6071,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               maxItems: 40
                               type: array
@@ -6924,8 +6938,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -6935,10 +6951,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               type: array
                           type: object
