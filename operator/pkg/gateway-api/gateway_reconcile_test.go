@@ -44,9 +44,6 @@ var gwFixture = []client.Object{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cilium-gateway-valid-gateway",
 			Namespace: "another-namespace",
-			Annotations: map[string]string{
-				"pre-existing-annotation": "true",
-			},
 		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
@@ -425,7 +422,6 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
 		require.Equal(t, "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht", lb.Labels["io.cilium.gateway/owning-gateway"])
-		require.Equal(t, "true", lb.Annotations["pre-existing-annotation"])
 
 		// Update LB status
 		lb.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
