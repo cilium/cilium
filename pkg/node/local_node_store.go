@@ -15,6 +15,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -41,6 +42,7 @@ type LocalNode struct {
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
 	ServiceLoopbackIPv4 net.IP
+	UnderlayProtocol    tunnel.UnderlayProtocol
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local
