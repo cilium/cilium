@@ -4066,6 +4066,13 @@ func init() {
       "description": "Metric information",
       "type": "object",
       "properties": {
+        "additionalInfo": {
+          "description": "Additional information of the metric",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
         "labels": {
           "description": "Labels of the metric",
           "type": "object",
@@ -10115,6 +10122,13 @@ func init() {
       "description": "Metric information",
       "type": "object",
       "properties": {
+        "additionalInfo": {
+          "description": "Additional information of the metric",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
         "labels": {
           "description": "Labels of the metric",
           "type": "object",
