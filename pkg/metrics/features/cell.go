@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
@@ -90,7 +90,7 @@ type featuresParams struct {
 	MutualAuth          auth.MeshAuthConfig
 	BandwidthManager    types.BandwidthManager
 	BigTCP              types.BigTCPConfig
-	L2PodAnnouncement   garp.L2PodAnnouncementConfig
+	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
 }
 
