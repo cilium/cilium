@@ -68,7 +68,7 @@ var DevicesControllerCell = cell.Module(
 )
 
 func (c DevicesConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
+	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'; support '!' to exclude devices, e.g. '!eth+' excludes any device with prefix 'eth'. Note '!' says nothing about which ones to include. A device must match other criteria to be selected; The filters are matched in order and whatever matched first wins.")
 
 	flags.Bool(option.ForceDeviceDetection, false, "Forces the auto-detection of devices, even if specific devices are explicitly listed")
 }
@@ -624,11 +624,12 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 	}
 
 	// If user specified devices or wildcards, then skip the device if it doesn't match.
-	// If the device does match and user not requested auto detection, then skip further checks.
-	// If the device does match and user requested auto detection, then continue to further checks.
+	// If the device does not match and user not requested auto detection, then skip further checks.
+	// If the device does not match and user requested auto detection, then continue to further checks.
 	if dc.filter.NonEmpty() {
-		if dc.filter.Match(d.Name) {
-			return true, ""
+		matched, reverse := dc.filter.Match(d.Name)
+		if matched {
+			return !reverse, ""
 		}
 		if !dc.enforceAutoDetection {
 			return false, fmt.Sprintf("not matching user filter %v", dc.filter)
