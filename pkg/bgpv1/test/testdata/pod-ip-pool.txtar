@@ -6,7 +6,7 @@
 hive start
 
 # Configure GoBGP server
-gobgp/add-server 65010 10.99.2.1 1790
+gobgp/add-server test 65010 10.99.2.1 1790
 gobgp/add-peer 10.99.2.2 65001
 
 # Configure BGP on Cilium
