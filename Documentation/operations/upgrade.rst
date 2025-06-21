@@ -406,6 +406,8 @@ Helm Options
 * The ``l2NeighDiscovery.enabled`` option has been changed to default to ``false``.
 * The deprecated Helm option ``enableCiliumEndpointSlice`` has been removed. Set
   ``ciliumEndpointSlice.enabled`` instead to enable CiliumEndpointSlices.
+* ``localRedirectPolicy`` helm option has been deprecated. Set ``localRedirectPolicies.enabled`` instead.
+* The new ``localRedirectPolicies.addressMatcherCIDRs`` option can be used to limit what addresses are allowed in an address match of a CiliumLocalRedirectPolicy.
 
 Agent Options
 ~~~~~~~~~~~~~

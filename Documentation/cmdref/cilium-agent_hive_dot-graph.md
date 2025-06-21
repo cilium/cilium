@@ -163,6 +163,7 @@ cilium-agent hive dot-graph [flags]
       --kvstore-opt stringToString                                Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous arp messages
       --lb-state-file string                                      Synchronize load-balancing state from the specified file
+      --lrp-address-matcher-cidrs strings                         Limit address matches to specific CIDRs
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --mesh-auth-enabled                                         Enable authentication processing & garbage collection (beta) (default true)
       --mesh-auth-gc-interval duration                            Interval in which auth entries are attempted to be garbage collected (default 5m0s)

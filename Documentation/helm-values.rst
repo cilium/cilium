@@ -2732,8 +2732,16 @@
      - List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation.
      - list
      - ``[]``
+   * - :spelling:ignore:`localRedirectPolicies.addressMatcherCIDRs`
+     - Limit the allowed addresses in Address Matcher rule of Local Redirect Policies to the given CIDRs. @schema@ type: [null, array] @schema@
+     - string
+     - ``nil``
+   * - :spelling:ignore:`localRedirectPolicies.enabled`
+     - Enable local redirect policies.
+     - bool
+     - ``false``
    * - :spelling:ignore:`localRedirectPolicy`
-     - Enable Local Redirect Policy.
+     - Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
      - bool
      - ``false``
    * - :spelling:ignore:`logSystemLoad`
