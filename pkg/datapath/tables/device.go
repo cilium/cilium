@@ -200,20 +200,24 @@ func (lst DeviceFilter) NonEmpty() bool {
 	return len(lst) > 0
 }
 
-// Match checks whether the given device name passes the filter
-func (lst DeviceFilter) Match(dev string) bool {
-	if len(lst) == 0 {
-		return true
-	}
+// Match checks whether the given device name matches the filter
+// The first returned bool indicates there is a matched entry.
+// The second returned bool indicates it's a reverse match, aka. the device should be excluded.
+func (lst DeviceFilter) Match(dev string) (bool, bool) {
 	for _, entry := range lst {
+		reverse := false
+		if strings.HasPrefix(entry, "!") {
+			reverse = true
+			entry = entry[1:]
+		}
 		if strings.HasSuffix(entry, "+") {
 			prefix := strings.TrimRight(entry, "+")
 			if strings.HasPrefix(dev, prefix) {
-				return true
+				return true, reverse
 			}
 		} else if dev == entry {
-			return true
+			return true, reverse
 		}
 	}
-	return false
+	return false, false
 }
