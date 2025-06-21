@@ -397,6 +397,42 @@ errors.
    yet, so Cilium drops the packets at the source. These drops will stop once
    the CiliumNode information is propagated across the cluster.
 
+.. _xfrm_state_staling_in_cilium:
+
+XFRM State Staling in Cilium
+============================
+
+Control plane disruptions can lead to connectivity issues due to stale XFRM
+states with out-of-sync IPsec anti-replay counters. This typically results in
+permanent connectivity disruptions between pods managed by Cilium. This section
+explains how these issues occur and what you can do about them.
+
+Identified Causes
+-----------------
+
+In KVStore Mode (e.g., etcd), you might encounter stale XFRM states:
+
+  * If a Cilium agent is down for prolonged time, the corresponding node entry
+    in the kvstore will be deleted due to lease expiration (see
+    :ref:`kvstore_leases`), resulting in stale XFRM states.
+
+  * If you manually recreate your key-value store, a Cilium agent might connect
+    too late to the new instance. This delay can cause the agent to miss crucial
+    node delete and create events, leading Cilium to retain outdated XFRM states
+    for those nodes.
+
+In CRD Mode, stale XFRM states can occur if you delete a CiliumNode resource and
+restart the Cilium agent DaemonSet. While other agents create fresh XFRM states
+for the new CiliumNode, the agent on that new node may retain obsolete XFRM
+states for all the other peer nodes.
+
+Mitigation
+----------
+
+To restore connectivity in those cases, perform a key rotation (see
+:ref:`ipsec_key_rotation`). This action ensures new consistent and valid XFRM
+states across all your nodes.
+
 Disabling Encryption
 ====================
 
