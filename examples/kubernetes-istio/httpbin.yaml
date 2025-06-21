@@ -1,32 +1,43 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: httpbin
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: httpbin
+  labels:
+    app: httpbin
+    service: httpbin
 spec:
-  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8080
   selector:
     app: httpbin
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: httpbin
-  labels:
-    app: httpbin
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: httpbin
+      version: v1
   template:
     metadata:
       labels:
         app: httpbin
+        version: v1
     spec:
+      serviceAccountName: httpbin
       containers:
-      - name: httpbin
-        image: docker.io/kong/httpbin
+      - image: docker.io/mccutchen/go-httpbin:v2.15.0
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 8080
