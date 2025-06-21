@@ -637,22 +637,37 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	var releasedIP string
 	wg.Add(1)
 
-	time.AfterFunc(3*time.Second, func() {
+	go func() {
 		defer wg.Done()
+		// Wait for the IP to be marked as excess for longer than the ExcessIPReleaseDelay
+		require.Eventually(t, func() bool {
+			if len(node.ipv4Alloc.ipsMarkedForRelease) == 0 {
+				return false
+			}
+
+			for _, ts := range node.ipv4Alloc.ipsMarkedForRelease {
+				if ts.Add(time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second).Before(time.Now()) {
+					return true
+				}
+			}
+
+			return false
+		}, 5*time.Second, time.Second)
 
 		// Mark IP as excess
 		node.instanceSync.Trigger()
-		time.Sleep(1 * time.Second)
 
-		a, err := node.determineMaintenanceAction()
-		require.NoError(t, err)
-		require.NotNil(t, a)
-		require.NotNil(t, a.release)
-		require.NotEmpty(t, a.release.IPsToRelease)
+		// Wait for maintenance action to identify the IP to release
+		require.Eventually(t, func() bool {
+			a, err := node.determineMaintenanceAction()
+			if err != nil || a == nil || a.release == nil || len(a.release.IPsToRelease) == 0 {
+				return false
+			}
 
-		// Get the IP being released
-		releasedIP = a.release.IPsToRelease[0]
-		require.NotEmpty(t, releasedIP)
+			// Get the IP being released
+			releasedIP = a.release.IPsToRelease[0]
+			return releasedIP != ""
+		}, 5*time.Second, time.Second)
 
 		node.PopulateIPReleaseStatus(node.resource)
 
@@ -666,7 +681,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		// Resync one more time to process acknowledgements.
 		node.instanceSync.Trigger()
 
-		time.Sleep(1 * time.Second)
+		require.Eventually(t, func() bool {
+			status, exists := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
+			return exists && string(status) == ipamOption.IPAMReadyForRelease
+		}, 5*time.Second, time.Second)
 
 		// Now simulate the operator releasing the IP and marking it as released
 		delete(node.resource.Spec.IPAM.Pool, releasedIP)
@@ -689,13 +707,15 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		node.poolMaintainer.Trigger()
 		node.instanceSync.Trigger()
 
-		time.Sleep(1 * time.Second)
-		node.PopulateIPReleaseStatus(node.resource)
+		require.Eventually(t, func() bool {
+			node.PopulateIPReleaseStatus(node.resource)
+			_, inReleaseStatus := node.ipv4Alloc.ipReleaseStatus[releasedIP]
+			_, inMarkedForRelease := node.ipv4Alloc.ipsMarkedForRelease[releasedIP]
+			_, inReleaseIPs := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
 
-		require.NotContains(t, node.ipv4Alloc.ipReleaseStatus, releasedIP)
-		require.NotContains(t, node.ipv4Alloc.ipsMarkedForRelease, releasedIP)
-		require.NotContains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
-	})
+			return !inReleaseStatus && !inMarkedForRelease && !inReleaseIPs
+		}, 5*time.Second, time.Second)
+	}()
 
 	wg.Wait()
 
