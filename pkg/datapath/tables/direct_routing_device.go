@@ -70,7 +70,8 @@ func (dr DirectRoutingDevice) Get(ctx context.Context, rxn statedb.ReadTxn) (*De
 		// User has defined a direct-routing device. Try to find the first matching
 		// device.
 		for _, dev := range devs {
-			if filter.Match(dev.Name) {
+			match, reverse := filter.Match(dev.Name)
+			if match && !reverse {
 				device = dev
 				break
 			}
