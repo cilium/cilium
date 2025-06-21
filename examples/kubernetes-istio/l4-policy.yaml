@@ -16,5 +16,5 @@ specs:
             - blue
       toPorts:
       - ports:
-        - port: "80"
+        - port: "15008"
           protocol: TCP
