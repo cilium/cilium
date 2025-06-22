@@ -20,10 +20,16 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+// LocalNodeGetter is an interface for getting the local node state
+type LocalNodeGetter interface {
+	Get(ctx context.Context) (node.LocalNode, error)
+}
 
 type lastUpdatedAter interface {
 	GetLastUpdatedAt() time.Time
@@ -32,6 +38,7 @@ type lastUpdatedAter interface {
 type kubeproxyHealthzHandler struct {
 	statusCollector status.StatusCollector
 	lastUpdateAter  lastUpdatedAter
+	localNode       LocalNodeGetter
 }
 
 var kubeProxyHealthzCell = cell.Module(
@@ -55,6 +62,7 @@ type kubeProxyHealthParams struct {
 	Config          config
 	StatusCollector status.StatusCollector
 	KPRConfig       kpr.KPRConfig
+	NodeLocalStore  *node.LocalNodeStore
 }
 
 type config struct {
@@ -91,6 +99,7 @@ func registerKubeProxyHealthzHTTPService(params kubeProxyHealthParams) error {
 		mux.Handle("/healthz", kubeproxyHealthzHandler{
 			statusCollector: params.StatusCollector,
 			lastUpdateAter:  params.BPFOps,
+			localNode:       params.NodeLocalStore,
 		})
 
 		srv := &http.Server{
@@ -130,11 +139,14 @@ func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	lastUpdatedAt := currentTs
 	// We piggy back here on Cilium daemon health. If Cilium is healthy, we can
 	// reasonably assume that the node networking is ready.
+	// If node is in terminating state, we return ServiceUnavailable.
 	sr := h.statusCollector.GetStatus(true, false)
-	if isUnhealthy(&sr) {
+	ln, _ := h.localNode.Get(r.Context())
+	if isUnhealthy(&sr) || ln.IsBeingDeleted {
 		statusCode = http.StatusServiceUnavailable
 		lastUpdatedAt = h.lastUpdateAter.GetLastUpdatedAt()
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(statusCode)
