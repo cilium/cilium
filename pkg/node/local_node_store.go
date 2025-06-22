@@ -41,6 +41,8 @@ type LocalNode struct {
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
 	ServiceLoopbackIPv4 net.IP
+	// IsBeingDeleted indicates that the local node is being deleted.
+	IsBeingDeleted bool
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local

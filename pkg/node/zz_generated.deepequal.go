@@ -61,5 +61,9 @@ func (in *LocalNode) DeepEqual(other *LocalNode) bool {
 		}
 	}
 
+	if in.IsBeingDeleted != other.IsBeingDeleted {
+		return false
+	}
+
 	return true
 }
