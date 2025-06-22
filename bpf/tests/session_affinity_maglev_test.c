@@ -170,7 +170,7 @@ static __always_inline void setup_test(void)
 
 	__lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, IPPROTO_TCP,
 			    LB_MAGLEV_LUT_SIZE, TEST_REVNAT, SVC_FLAG_ROUTABLE, 0,
-			    true, affinity_timeout);
+			    true, affinity_timeout, 0);
 
 	/* Backend ID and slot must start by 1 */
 	__u32 backends[LB_MAGLEV_LUT_SIZE];
