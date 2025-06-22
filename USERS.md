@@ -365,6 +365,11 @@ Users (Alphabetically)
       L: https://gdatasoftware.com
       Q: @farodin91
 
+    * N: Guida
+      D: Guida is using Cilium with their Managed Kubernetes offering both in public and private cloud.
+      U: CNI, Network Policies, Observability
+      L: https://www.guida.nl
+
     * N: Guidewire Software, Inc.
       D: Guidewire Software, Inc. is using Cilium for the Guidewire Cloud Platform.
       U: CNI, network policy, and network visibility
