@@ -1,3 +1,9 @@
+# v1.34.0 (2025-06-17)
+
+* **Feature**: The AWS Security Token Service APIs AssumeRoleWithSAML and AssumeRoleWithWebIdentity can now be invoked without pre-configured AWS credentials in the SDK configuration.
+* **Dependency Update**: Update to smithy-go v1.22.4.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.33.21 (2025-06-10)
 
 * **Dependency Update**: Updated to the latest SDK module versions
