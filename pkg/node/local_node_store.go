@@ -34,6 +34,8 @@ type LocalNode struct {
 	// v6 CIDR in which pod IPs are routable
 	IPv6NativeRoutingCIDR *cidr.CIDR
 	IPv4Loopback          net.IP
+	// IsBeingDeleted indicates that the local node is being deleted.
+	IsBeingDeleted bool
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local

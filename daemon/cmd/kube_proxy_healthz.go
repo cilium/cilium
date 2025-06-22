@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -28,9 +29,15 @@ type ServiceInterface interface {
 	GetCurrentTs() time.Time
 }
 
+// LocalNodeGetter is an interface for getting the local node state
+type LocalNodeGetter interface {
+	Get(ctx context.Context) (node.LocalNode, error)
+}
+
 type kubeproxyHealthzHandler struct {
-	d   DaemonInterface
-	svc ServiceInterface
+	d         DaemonInterface
+	localNode LocalNodeGetter
+	svc       ServiceInterface
 }
 
 // startKubeProxyHealthzHTTPService registers a handler function for the kube-proxy /healthz
@@ -80,7 +87,8 @@ func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// We piggy back here on Cilium daemon health. If Cilium is healthy, we can
 	// reasonably assume that the node networking is ready.
 	sr := h.d.getStatus(true, true)
-	if isUnhealthy(&sr) {
+	ln, _ := h.localNode.Get(r.Context())
+	if isUnhealthy(&sr) || ln.IsBeingDeleted {
 		statusCode = http.StatusServiceUnavailable
 		lastUpdateTs = h.svc.GetLastUpdatedTs()
 	}
