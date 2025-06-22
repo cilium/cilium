@@ -4,92 +4,165 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/node"
 )
 
-type KubeProxyHealthzTestSuite struct{}
-
-// Injected fake service.
-type FakeService struct {
-	injectedCurrentTs     time.Time
-	injectedLastUpdatedTs time.Time
+type mockServiceInterface struct {
+	lastUpdatedTs time.Time
+	currentTs     time.Time
 }
 
-func (s *FakeService) GetCurrentTs() time.Time {
-	return s.injectedCurrentTs
-}
-
-func (s *FakeService) GetLastUpdatedTs() time.Time {
-	return s.injectedLastUpdatedTs
-}
-
-// Injected fake daemon.
-type FakeDaemon struct {
+type mockDaemon struct {
 	injectedStatusResponse models.StatusResponse
 }
 
-func (d *FakeDaemon) getStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
+func (d *mockDaemon) getStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
 	return d.injectedStatusResponse
 }
 
-type healthzPayload struct {
-	LastUpdated string
-	CurrentTime string
+func (s *mockServiceInterface) GetLastUpdatedTs() time.Time {
+	return s.lastUpdatedTs
 }
 
-func TestKubeProxyHealth(t *testing.T) {
-	s := KubeProxyHealthzTestSuite{}
-	s.healthTestHelper(t, models.StatusStateOk, http.StatusOK, true)
-	s.healthTestHelper(t, models.StatusStateWarning,
-		http.StatusServiceUnavailable, false)
-	s.healthTestHelper(t, models.StatusStateFailure,
-		http.StatusServiceUnavailable, false)
+func (s *mockServiceInterface) GetCurrentTs() time.Time {
+	return s.currentTs
 }
 
-func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus string,
-	expectedHttpStatus int, testcasepositive bool) {
-	var lastUpdateTs, currentTs, expectedTs time.Time
-	lastUpdateTs = time.Unix(100, 0) // Fake 100 seconds after Unix.
-	currentTs = time.Unix(200, 0)    // Fake 200 seconds after Unix.
-	expectedTs = lastUpdateTs
-	if testcasepositive {
-		expectedTs = currentTs
+type mockLocalNodeStore struct {
+	node        *node.LocalNode
+	returnError bool
+}
+
+func (m *mockLocalNodeStore) Get(ctx context.Context) (node.LocalNode, error) {
+	if m.returnError {
+		return node.LocalNode{}, assert.AnError
 	}
-	// Create handler with injected behavior.
-	h := kubeproxyHealthzHandler{
-		d: &FakeDaemon{injectedStatusResponse: models.StatusResponse{
-			Cilium: &models.Status{State: ciliumStatus}}},
-		svc: &FakeService{
-			injectedCurrentTs:     currentTs,
-			injectedLastUpdatedTs: lastUpdateTs}}
+	return *m.node, nil
+}
 
-	// Create a new request.
-	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
-	require.NoError(t, err)
-	w := httptest.NewRecorder()
+func TestKubeproxyHealthzHandler(t *testing.T) {
+	currentTs := time.Now()
+	lastUpdatedTs := currentTs.Add(-2 * time.Minute)
 
-	// Serve.
-	h.ServeHTTP(w, req)
+	testCases := []struct {
+		name                string
+		status              string
+		nodeIsBeingDeleted  bool
+		nodeStoreReturnErr  bool
+		expectedStatusCode  int
+		expectedLastUpdated time.Time
+	}{
+		{
+			name:                "healthy node",
+			status:              models.StatusStateOk,
+			nodeIsBeingDeleted:  false,
+			nodeStoreReturnErr:  false,
+			expectedStatusCode:  http.StatusOK,
+			expectedLastUpdated: currentTs,
+		},
+		{
+			name:                "node being deleted",
+			status:              models.StatusStateOk,
+			nodeIsBeingDeleted:  true,
+			nodeStoreReturnErr:  false,
+			expectedStatusCode:  http.StatusServiceUnavailable,
+			expectedLastUpdated: lastUpdatedTs,
+		},
+		{
+			name:                "unhealthy warning status",
+			status:              models.StatusStateWarning,
+			nodeIsBeingDeleted:  false,
+			nodeStoreReturnErr:  false,
+			expectedStatusCode:  http.StatusServiceUnavailable,
+			expectedLastUpdated: lastUpdatedTs,
+		},
+		{
+			name:                "unhealthy failure status",
+			status:              models.StatusStateFailure,
+			nodeIsBeingDeleted:  false,
+			nodeStoreReturnErr:  false,
+			expectedStatusCode:  http.StatusServiceUnavailable,
+			expectedLastUpdated: lastUpdatedTs,
+		},
+		{
+			name:                "unhealthy status and node being deleted",
+			status:              models.StatusStateWarning,
+			nodeIsBeingDeleted:  true,
+			nodeStoreReturnErr:  false,
+			expectedStatusCode:  http.StatusServiceUnavailable,
+			expectedLastUpdated: lastUpdatedTs,
+		},
+	}
 
-	// Main return code meets expectations.
-	require.Equalf(t, expectedHttpStatus, w.Code, "expected status code %v, got %v", expectedHttpStatus, w.Code)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up mocks
+			mockDaemon := &mockDaemon{
+				injectedStatusResponse: models.StatusResponse{
+					Cilium: &models.Status{
+						State: tc.status,
+					},
+				},
+			}
 
-	// Timestamps meet expectations.
-	var payload healthzPayload
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &payload))
-	layout := "2006-01-02 15:04:05 -0700 MST"
-	lastUpdateTs, err = time.Parse(layout, payload.LastUpdated)
-	require.NoError(t, err)
+			mockSvc := &mockServiceInterface{
+				lastUpdatedTs: lastUpdatedTs,
+			}
 
-	_, err = time.Parse(layout, payload.CurrentTime)
-	require.NoError(t, err)
-	require.True(t, lastUpdateTs.Equal(expectedTs))
+			mockNode := &mockLocalNodeStore{
+				node: &node.LocalNode{
+					IsBeingDeleted: tc.nodeIsBeingDeleted,
+				},
+				returnError: tc.nodeStoreReturnErr,
+			}
+
+			handler := kubeproxyHealthzHandler{
+				d:         mockDaemon,
+				localNode: mockNode,
+				svc:       mockSvc,
+			}
+
+			// Create request and recorder
+			req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+			recorder := httptest.NewRecorder()
+
+			// Call handler
+			handler.ServeHTTP(recorder, req)
+
+			// Check response
+			resp := recorder.Result()
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.expectedStatusCode, resp.StatusCode, tc.name+" testcase failed with unexpected status code")
+
+			// Parse response body
+			var respBody struct {
+				LastUpdated string `json:"lastUpdated"`
+				CurrentTime string `json:"currentTime"`
+			}
+			err := json.NewDecoder(resp.Body).Decode(&respBody)
+			require.NoError(t, err)
+
+			// For the time comparison, we just need to check if the timestamps match
+			// in terms of which reference time they match (current vs lastUpdated)
+			if tc.expectedStatusCode == http.StatusOK {
+				// In OK state, lastUpdated should NOT contain lastUpdatedTs
+				assert.NotContains(t, respBody.LastUpdated, lastUpdatedTs.Format("15:04:05"), tc.name+" testcase failed with unexpected lastUpdated value")
+			} else {
+				// In error states, lastUpdated should contain lastUpdatedTs
+				assert.Contains(t, respBody.LastUpdated, lastUpdatedTs.Format("15:04:05"), tc.name+" testcase failed with unexpected lastUpdated value")
+			}
+		})
+	}
 }

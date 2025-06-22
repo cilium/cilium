@@ -77,13 +77,26 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 
 	for ev := range ini.K8sLocalNode.Events(ctx) {
 		if ev.Kind == resource.Upsert {
-			log.WithField(logfields.Node, ev.Object).Debug("Received Node upsert event")
+			log.WithField(logfields.Node, ev.Object).Debug("Received Local Node upsert event")
+			isBeingDeleted := ev.Object.DeletionTimestamp != nil
+			if isBeingDeleted {
+				// Update LocalNode to mark it as being deleted
+				store.Update(func(ln *node.LocalNode) {
+					ln.IsBeingDeleted = true
+				})
+			}
 			new := parseNode(ev.Object)
 			if !ini.mutableFieldsEqual(new) {
 				store.Update(func(ln *node.LocalNode) {
 					ini.syncFromK8s(ln, new)
 				})
 			}
+		} else if ev.Kind == resource.Delete {
+			log.WithField(logfields.Node, ev.Object).Debug("Received Local Node upsert event")
+			// Mark as being deleted on explicit delete events too
+			store.Update(func(ln *node.LocalNode) {
+				ln.IsBeingDeleted = true
+			})
 		}
 
 		ev.Done(nil)
