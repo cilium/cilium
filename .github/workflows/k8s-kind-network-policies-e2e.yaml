@@ -13,6 +13,9 @@ on:
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
+  # Run every 8 hours
+  schedule:
+    - cron: '0 4/8 * * *'
 
 permissions: read-all
 
