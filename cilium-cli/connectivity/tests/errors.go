@@ -52,19 +52,19 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
-	warningLogExceptions := []logMatcher{cantEnableJIT, delMissingService, podCIDRUnavailable,
+	warningLogExceptions := []logMatcher{cantEnableJIT, podCIDRUnavailable,
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
-		hubbleQueueFull, reflectPanic, svcNotFound, unableTranslateCIDRgroups, gobgpWarnings,
+		hubbleQueueFull, reflectPanic, unableTranslateCIDRgroups, gobgpWarnings,
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
@@ -418,10 +418,8 @@ const (
 	failedToReleaseLock    stringMatcher = "Failed to release lock:"
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
-	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
 
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
-	delMissingService           stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
 	podCIDRUnavailable          stringMatcher = " PodCIDR not available"                                                 // cf. https://github.com/cilium/cilium/issues/29680
 	unableGetNode               stringMatcher = "Unable to get node resource"                                            // cf. https://github.com/cilium/cilium/issues/29710
 	sessionAffinitySocketLB     stringMatcher = "Session affinity for host reachable services needs kernel"              // cf. https://github.com/cilium/cilium/issues/29736
@@ -439,7 +437,6 @@ const (
 	cantDeleteFromPolicyMap     stringMatcher = "cilium_call_policy: delete: key does not exist"                         // cf. https://github.com/cilium/cilium/issues/29754
 	hubbleQueueFull             stringMatcher = "hubble events queue is full"                                            // Because we run without monitor aggregation
 	reflectPanic                stringMatcher = "reflect.Value.SetUint using value obtained using unexported field"      // cf. https://github.com/cilium/cilium/issues/33766
-	svcNotFound                 stringMatcher = "service not found"                                                      // cf. https://github.com/cilium/cilium/issues/35768
 	unableTranslateCIDRgroups   stringMatcher = "Unable to translate all CIDR groups to CIDRs"                           // Can be removed once v1.17 is released.
 	gobgpWarnings               stringMatcher = "component=gobgp.BgpServerInstance"                                      // cf. https://github.com/cilium/cilium/issues/35799
 	etcdReconnection            stringMatcher = "Error observed on etcd connection, reconnecting etcd"                   // cf. https://github.com/cilium/cilium/issues/35865
