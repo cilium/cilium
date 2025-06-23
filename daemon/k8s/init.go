@@ -127,6 +127,11 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 			logfields.K8sNodeIP:        k8sNodeIP,
 		}).Info("Received own node information from API server")
 
+		if option.Config.EnableIPv6 && nodeIP6 == nil {
+			log.Warn("IPv6 is enabled, but Cilium cannot find the IPv6 address for this node. " +
+				"This may cause connectivity disruption for Endpoints that attempt to communicate using IPv6")
+		}
+
 		useNodeCIDR(n)
 	} else {
 		// if node resource could not be received, fail if
