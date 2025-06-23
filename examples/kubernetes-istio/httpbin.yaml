@@ -41,3 +41,4 @@ spec:
         name: httpbin
         ports:
         - containerPort: 8080
+        
