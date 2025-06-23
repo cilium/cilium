@@ -208,9 +208,17 @@ func (s *podToPodEncryptionV2) tunnelTCPDumpFilters4(ctx context.Context) (clien
 	// Start at the UDP header (VXLAN|GENEVE) and index into IPHeader.Src and IPHeader.Dst
 	// UDP(8)+VXLAN|GENEVE(8)+ETHER(14) = udp[30] + Offset to IPHeader.Src = udp[42]
 	// UDP(8)+VXLAN|GENEVE(8)+ETHER(14) = udp[30] + Offset to IPHeader.Dst = udp[46]
-	fmtInnerIPHeaderSrc := "udp[42:4] == %s"
-	fmtInnerIPHeaderDst := "udp[46:4] == %s"
-	fmtFilter := "%s and ( %s and %s )"
+	fmtInnerIPHeaderSrcIPv4Underlay := "udp[42:4] == %s"
+	fmtInnerIPHeaderDstIPv4Underlay := "udp[46:4] == %s"
+
+	// In case of IPv6 underlay, we cannot use the 'udp[x:y] filter. Quoting the
+	// pcap-filter map page: Note that tcp, udp and other upper-layer protocol types
+	// only apply to IPv4, not IPv6 (this will be fixed in the future). Hence, start
+	// from the IPv6 header, and assume that no extensions are present.
+	fmtInnerIPHeaderSrcIPv6Underlay := "ip6[82:4] == %s"
+	fmtInnerIPHeaderDstIPv6Underlay := "ip6[86:4] == %s"
+
+	fmtFilter := "%s and ((ip and %s and %s) or (ip6 and %s and %s))"
 
 	src, err := netip.ParseAddr(s.client.Address(features.IPFamilyV4))
 	if err != nil {
@@ -234,13 +242,19 @@ func (s *podToPodEncryptionV2) tunnelTCPDumpFilters4(ctx context.Context) (clien
 
 	// InnerIP.Src(client) -> InnerIP.Dst(server)
 	clientFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter,
-		fmt.Sprintf(fmtInnerIPHeaderSrc, srcAsHex),
-		fmt.Sprintf(fmtInnerIPHeaderDst, dstAsHex))
+		fmt.Sprintf(fmtInnerIPHeaderSrcIPv4Underlay, srcAsHex),
+		fmt.Sprintf(fmtInnerIPHeaderDstIPv4Underlay, dstAsHex),
+		fmt.Sprintf(fmtInnerIPHeaderSrcIPv6Underlay, srcAsHex),
+		fmt.Sprintf(fmtInnerIPHeaderDstIPv6Underlay, dstAsHex),
+	)
 
 	// InnerIP.Src(server) -> InnerIP.Dst(client)
 	serverFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter,
-		fmt.Sprintf(fmtInnerIPHeaderSrc, dstAsHex),
-		fmt.Sprintf(fmtInnerIPHeaderDst, srcAsHex))
+		fmt.Sprintf(fmtInnerIPHeaderSrcIPv4Underlay, dstAsHex),
+		fmt.Sprintf(fmtInnerIPHeaderDstIPv4Underlay, srcAsHex),
+		fmt.Sprintf(fmtInnerIPHeaderSrcIPv6Underlay, dstAsHex),
+		fmt.Sprintf(fmtInnerIPHeaderDstIPv6Underlay, srcAsHex),
+	)
 
 	return clientFilter, serverFilter, nil
 }
@@ -314,9 +328,17 @@ func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clien
 	// IP6 addresses are 16 bytes large, TCPDump syntax can peek at a maximum of
 	// 4 bytes at a time, therefore we'll create 4 peek directives and slice up
 	// the IPv6 address into groups of 4 byte words: (4peeks x 4bytes = 16byte IPv6 Address).
-	innerIPv6Src := "(udp[38:4] == %s and udp[42:4] == %s and udp[46:4] == %s and udp[50:4] == %s)"
-	innerIPv6Dst := "(udp[54:4] == %s and udp[58:4] == %s and udp[62:4] == %s and udp[66:4] == %s)"
-	fmtFilter := "%s and %s and %s"
+	innerIPv6SrcIPv4Underlay := "(udp[38:4] == %s and udp[42:4] == %s and udp[46:4] == %s and udp[50:4] == %s)"
+	innerIPv6DstIPv4Underlay := "(udp[54:4] == %s and udp[58:4] == %s and udp[62:4] == %s and udp[66:4] == %s)"
+
+	// In case of IPv6 underlay, we cannot use the 'udp[x:y] filter. Quoting the
+	// pcap-filter map page: Note that tcp, udp and other upper-layer protocol types
+	// only apply to IPv4, not IPv6 (this will be fixed in the future). Hence, start
+	// from the IPv6 header, and assume that no extensions are present.
+	innerIPv6SrcIPv6Underlay := "(ip6[78:4] == %s and ip6[82:4] == %s and ip6[86:4] == %s and ip6[90:4] == %s)"
+	innerIPv6DstIPv6Underlay := "(ip6[94:4] == %s and ip6[98:4] == %s and ip6[102:4] == %s and ip6[106:4] == %s)"
+
+	fmtFilter := "%s and ((ip and %s and %s) or (ip6 and %s and %s))"
 
 	src, err := netip.ParseAddr(s.client.Address(features.IPFamilyV6))
 	if err != nil {
@@ -344,14 +366,24 @@ func (s *podToPodEncryptionV2) tunnelTCPDumpFilters6(ctx context.Context) (clien
 	dstWord3 := fmt.Sprintf("0x%02x%02x%02x%02x", dstBytes[8], dstBytes[9], dstBytes[10], dstBytes[11])
 	dstWord4 := fmt.Sprintf("0x%02x%02x%02x%02x", dstBytes[12], dstBytes[13], dstBytes[14], dstBytes[15])
 
-	clientInnerIPv6Src := fmt.Sprintf(innerIPv6Src, srcWord1, srcWord2, srcWord3, srcWord4)
-	clientInnerIPv6Dst := fmt.Sprintf(innerIPv6Dst, dstWord1, dstWord2, dstWord3, dstWord4)
+	clientInnerIPv6SrcIPv4Underlay := fmt.Sprintf(innerIPv6SrcIPv4Underlay, srcWord1, srcWord2, srcWord3, srcWord4)
+	clientInnerIPv6DstIPv4Underlay := fmt.Sprintf(innerIPv6DstIPv4Underlay, dstWord1, dstWord2, dstWord3, dstWord4)
+	clientInnerIPv6SrcIPv6Underlay := fmt.Sprintf(innerIPv6SrcIPv6Underlay, srcWord1, srcWord2, srcWord3, srcWord4)
+	clientInnerIPv6DstIPv6Underlay := fmt.Sprintf(innerIPv6DstIPv6Underlay, dstWord1, dstWord2, dstWord3, dstWord4)
 
-	serverInnerIPv6Src := fmt.Sprintf(innerIPv6Src, dstWord1, dstWord2, dstWord3, dstWord4)
-	serverInnerIPv6Dst := fmt.Sprintf(innerIPv6Dst, srcWord1, srcWord2, srcWord3, srcWord4)
+	serverInnerIPv6SrcIPv4Underlay := fmt.Sprintf(innerIPv6SrcIPv4Underlay, dstWord1, dstWord2, dstWord3, dstWord4)
+	serverInnerIPv6DstIPv4Underlay := fmt.Sprintf(innerIPv6DstIPv4Underlay, srcWord1, srcWord2, srcWord3, srcWord4)
+	serverInnerIPv6SrcIPv6Underlay := fmt.Sprintf(innerIPv6SrcIPv6Underlay, dstWord1, dstWord2, dstWord3, dstWord4)
+	serverInnerIPv6DstIPv6Underlay := fmt.Sprintf(innerIPv6DstIPv6Underlay, srcWord1, srcWord2, srcWord3, srcWord4)
 
-	clientFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter, clientInnerIPv6Src, clientInnerIPv6Dst)
-	serverFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter, serverInnerIPv6Dst, serverInnerIPv6Src)
+	clientFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter,
+		clientInnerIPv6SrcIPv4Underlay, clientInnerIPv6DstIPv4Underlay,
+		clientInnerIPv6SrcIPv6Underlay, clientInnerIPv6DstIPv6Underlay,
+	)
+	serverFilter = fmt.Sprintf(fmtFilter, baseTunnelFilter,
+		serverInnerIPv6DstIPv4Underlay, serverInnerIPv6SrcIPv4Underlay,
+		serverInnerIPv6DstIPv6Underlay, serverInnerIPv6SrcIPv6Underlay,
+	)
 
 	return clientFilter, serverFilter, nil
 }
