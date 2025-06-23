@@ -194,6 +194,23 @@ The following kernel configuration options are required for proper operation:
         CONFIG_GENEVE=y
         CONFIG_FIB_RULES=y
 
+
+.. note::
+
+   On some embedded or custom Linux systems, especially when cross-compiling for
+   ARM, enabling ``CONFIG_FIB_RULES=y`` directly in the kernel ``.config`` is not sufficient,
+   as it depends on other routing-related kernel options to be enabled.
+
+   The recommended approach is to use:
+
+   ::
+
+       scripts/config --enable CONFIG_FIB_RULES
+       make olddefconfig
+
+   The kernel build system uses ``Kconfig`` logic to validate and manage dependencies, 
+   so direct edits to ``.config`` may be ignored or silently overridden.
+
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
