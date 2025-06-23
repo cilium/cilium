@@ -61,6 +61,7 @@ cilium-agent [flags]
       --bpf-neigh-global-max int                                  Maximum number of entries for the global BPF neighbor table (default 524288)
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
+      --bpf-policy-map-pressure-metrics-threshold float           Sets threshold for emitting pressure metrics of policy maps (default 0.1)
       --bpf-policy-stats-map-max int                              Maximum number of entries in bpf policy stats map (default 65536)
       --bpf-root string                                           Path to BPF filesystem
       --bpf-sock-rev-map-max int                                  Maximum number of entries for the SockRevNAT BPF map
