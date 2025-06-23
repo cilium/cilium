@@ -194,6 +194,29 @@ The following kernel configuration options are required for proper operation:
         CONFIG_GENEVE=y
         CONFIG_FIB_RULES=y
 
+
+.. note::
+
+   On some embedded or custom Linux systems, especially when cross-compiling for
+   ARM, enabling ``CONFIG_FIB_RULES=y`` directly in the kernel ``.config`` may not be sufficient,
+   as it depends on other routing-related kernel options to be enabled.
+
+   If ``CONFIG_FIB_RULES`` is missing from the final compiled kernel (e.g., not visible via
+   ``cat /boot/config-\*``), it's often faster to check the ``.config`` file after running
+   ``make config`` (or equivalent), to ensure the necessary options are set before compiling the kernel.
+
+   Make sure the following options are also enabled:
+
+   ::
+
+       CONFIG_IP_ADVANCED_ROUTER=y
+       CONFIG_IP_FIB_TRIE_STATS=y
+       CONFIG_IP_MULTIPLE_TABLES=y
+       CONFIG_IP_ROUTE_CLASSID=y
+
+   These options ensure that ``CONFIG_FIB_RULES`` becomes available and correctly set during
+   kernel configuration.
+
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
