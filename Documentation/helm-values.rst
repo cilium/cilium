@@ -440,6 +440,10 @@
      - Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema
      - int
      - ``16384``
+   * - :spelling:ignore:`bpf.policyMapPressureMetricsThreshold`
+     - Configure threshold for emitting pressure metrics of policy maps. @schema type: [null, number] @schema
+     - float64
+     - ``0.1``
    * - :spelling:ignore:`bpf.policyStatsMapMax`
      - Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema
      - int

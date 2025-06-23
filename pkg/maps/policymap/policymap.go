@@ -45,10 +45,6 @@ const (
 	// port field of map elements.
 	AllPorts = uint16(0)
 
-	// PressureMetricThreshold sets the threshold over which map pressure will
-	// be reported for the policy map.
-	PressureMetricThreshold = 0.1
-
 	// SinglePortPrefixLen represents the mask argument required to lookup or
 	// insert a single port key into the bpf map.
 	SinglePortPrefixLen = uint8(16)

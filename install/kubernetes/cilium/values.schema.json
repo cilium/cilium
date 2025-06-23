@@ -660,6 +660,12 @@
             "integer"
           ]
         },
+        "policyMapPressureMetricsThreshold": {
+          "type": [
+            "null",
+            "number"
+          ]
+        },
         "policyStatsMapMax": {
           "type": [
             "null",
