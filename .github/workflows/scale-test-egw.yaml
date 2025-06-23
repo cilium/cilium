@@ -526,7 +526,6 @@ jobs:
         timeout-minutes: 40
         env:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
-          CL2_ENABLE_PVS: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "10s"
