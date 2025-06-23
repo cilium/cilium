@@ -710,6 +710,10 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg := config.NewBPFOverlay(nodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
+
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -758,6 +762,10 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	if !option.Config.EnableHostLegacyRouting {
 		cfg.SecctxFromIPCache = true
 	}
+
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
