@@ -577,7 +577,7 @@ func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets
 		if err != nil {
 			continue
 		}
-		prefix, err := addr.Prefix(getServicePrefixLength(svc, addr, advert))
+		prefix, err := addr.Prefix(getServicePrefixLength(svc, addr, advert, v2.BGPExternalIPAddr))
 		if err != nil {
 			continue
 		}
@@ -611,7 +611,7 @@ func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.
 		if err != nil {
 			continue
 		}
-		prefix, err := addr.Prefix(getServicePrefixLength(svc, addr, advert))
+		prefix, err := addr.Prefix(getServicePrefixLength(svc, addr, advert, v2.BGPClusterIPAddr))
 		if err != nil {
 			continue
 		}
@@ -643,7 +643,7 @@ func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[
 		if err != nil {
 			continue
 		}
-		prefix, err := addr.Prefix(getServicePrefixLength(svc, addr, advert))
+		prefix, err := addr.Prefix(getServicePrefixLength(svc, addr, advert, v2.BGPLoadBalancerIPAddr))
 		if err != nil {
 			continue
 		}
@@ -735,19 +735,27 @@ func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
 	return labels.Set(svcLabels)
 }
 
-func getServicePrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v2.BGPAdvertisement) int {
+func getServicePrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v2.BGPAdvertisement, addrType v2.BGPServiceAddressType) int {
 	length := addr.BitLen()
 
-	if addr.Is4() {
-		if advert.Service.AggregationLengthIPv4 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
-			length = int(*advert.Service.AggregationLengthIPv4)
+	if addrType == v2.BGPClusterIPAddr {
+		// for iTP=Local, we always use the full prefix length
+		if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+			return length
+		}
+	} else {
+		// for eTP=Local, we always use the full prefix length
+		if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal {
+			return length
 		}
 	}
 
-	if addr.Is6() {
-		if advert.Service.AggregationLengthIPv6 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
-			length = int(*advert.Service.AggregationLengthIPv6)
-		}
+	if addr.Is4() && advert.Service.AggregationLengthIPv4 != nil {
+		length = int(*advert.Service.AggregationLengthIPv4)
+	}
+
+	if addr.Is6() && advert.Service.AggregationLengthIPv6 != nil {
+		length = int(*advert.Service.AggregationLengthIPv6)
 	}
 	return length
 }
