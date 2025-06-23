@@ -260,7 +260,6 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
         timeout-minutes: 10
         run: |
           # Don't run any tasks at this point, just setup the monitoring stack
@@ -316,7 +315,6 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
         run: |
           ./clusterloader \
             -v=2 \
