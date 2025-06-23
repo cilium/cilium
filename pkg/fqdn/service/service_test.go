@@ -86,7 +86,7 @@ func TestFQDNDataServer(t *testing.T) {
 				cell.Config(DefaultConfig),
 				cell.Provide(
 					func(logger *slog.Logger) endpointmanager.EndpointManager {
-						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 					},
 
 					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
@@ -201,7 +201,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 			cell.Config(DefaultConfig),
 			cell.Provide(
 				func(logger *slog.Logger) endpointmanager.EndpointManager {
-					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 				},
 
 				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
@@ -365,6 +365,7 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 func TestHandleIPUpsert(t *testing.T) {
 	buffer := 1024 * 1024
 	lis := bufconn.Listen(buffer)
+
 	// create a new server instance
 	_, server := setupServer(t, 1234, true, true, 40045, lis)
 
