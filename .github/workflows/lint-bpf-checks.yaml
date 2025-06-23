@@ -120,12 +120,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Run BPF tests
+        id: run-tests
         run: |
           make run_bpf_tests \
               LOG_CODEOWNERS=1 \
               JUNIT_PATH="../../test/${{ env.job_name }}.xml" \
           || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -137,11 +139,13 @@ jobs:
           junit_filename="${{ env.job_name }}.xml"
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
       - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
       - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"

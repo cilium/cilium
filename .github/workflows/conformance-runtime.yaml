@@ -381,6 +381,7 @@ jobs:
           -cilium.SSHConfig="cat ./cilium-ssh-config.txt"
 
       - name: Runtime privileged tests
+        id: run-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
         uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
@@ -440,6 +441,7 @@ jobs:
             test_results-*.tar.gz
 
       - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -452,6 +454,7 @@ jobs:
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
       - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ matrix.focus }}
@@ -465,6 +468,7 @@ jobs:
           path: features-tested-${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
