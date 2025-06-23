@@ -17,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ipmasq"
-	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var (
@@ -99,39 +97,35 @@ type IPMasqAgent struct {
 	handlerFinished        chan struct{}
 }
 
-func NewIPMasqAgent(logger *slog.Logger, reg *metrics.Registry, configPath string) (*IPMasqAgent, error) {
-	return newIPMasqAgent(logger, configPath, &ipmasq.IPMasqBPFMap{MetricsRegistry: reg})
-}
-
-func newIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create fsnotify watcher: %w", err)
-	}
-
-	configDir := filepath.Dir(configPath)
-	// The directory of the config should exist at this time, otherwise
-	// the watcher will fail to add
-	if err := watcher.Add(configDir); err != nil {
-		watcher.Close()
-		return nil, fmt.Errorf("Failed to add %q dir to fsnotify watcher: %w", configDir, err)
-	}
-
+func NewIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap) *IPMasqAgent {
 	a := &IPMasqAgent{
 		logger:                 logger,
 		configPath:             configPath,
 		nonMasqCIDRsFromConfig: map[string]netip.Prefix{},
 		nonMasqCIDRsInMap:      map[string]netip.Prefix{},
 		ipMasqMap:              ipMasqMap,
-		watcher:                watcher,
 	}
 
-	return a, nil
+	return a
 }
 
 // Start starts the ip-masq-agent goroutine which tracks the config file and
 // updates the BPF map accordingly.
-func (a *IPMasqAgent) Start() {
+func (a *IPMasqAgent) Start() error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create fsnotify watcher: %w", err)
+	}
+	a.watcher = watcher
+
+	configDir := filepath.Dir(a.configPath)
+	// The directory of the config should exist at this time, otherwise
+	// the watcher will fail to add
+	if err := a.watcher.Add(configDir); err != nil {
+		a.watcher.Close()
+		return fmt.Errorf("failed to add %q dir to fsnotify watcher: %w", configDir, err)
+	}
+
 	if err := a.restore(); err != nil {
 		a.logger.Warn("Failed to restore", logfields.Error, err)
 	}
@@ -169,6 +163,8 @@ func (a *IPMasqAgent) Start() {
 			}
 		}
 	}()
+
+	return nil
 }
 
 // Stop stops the ip-masq-agent goroutine and the watcher.
