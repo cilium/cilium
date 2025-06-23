@@ -716,6 +716,9 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -767,6 +770,9 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToIcmpEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{

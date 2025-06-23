@@ -280,6 +280,14 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
 
+	/* Skip socket layer load balancing for ICMP traffic when ICMP echo reply
+	 * on virtual IPs is enabled. This allows the TC layer to handle ICMP echo
+	 * replies on virtual IPs.
+	 */
+	if (unlikely(protocol == IPPROTO_ICMP) && CONFIG(reply_to_icmp_echo_on_virtual_ips)) {
+		return -ENXIO;
+	}
+
 	if (!udp_only && !sock_proto_enabled(protocol))
 		return -ENOTSUP;
 
@@ -1013,6 +1021,14 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
+
+	/* Skip socket layer load balancing for ICMPv6 traffic when ICMP echo reply
+	 * on virtual IPs is enabled. This allows the TC layer to handle ICMPv6 echo
+	 * replies on virtual IPs.
+	 */
+	if (unlikely(protocol == IPPROTO_ICMPV6) && CONFIG(reply_to_icmp_echo_on_virtual_ips)) {
+		return -ENXIO;
+	}
 
 	if (!udp_only && !sock_proto_enabled(protocol))
 		return -ENOTSUP;
