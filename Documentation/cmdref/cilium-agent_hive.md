@@ -63,6 +63,7 @@ cilium-agent hive [flags]
       --enable-hubble                                             Enable hubble server
       --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format.
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
+      --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-k8s                                                Enable the k8s clientset (default true)
@@ -140,6 +141,7 @@ cilium-agent hive [flags]
       --identity-management-mode string                           Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
+      --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                     Set iptables flag random-fully on masquerading rules
       --k8s-api-server-urls strings                               Kubernetes API server URLs
