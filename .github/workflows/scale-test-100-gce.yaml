@@ -105,11 +105,28 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          # Run test against specific commit SHA if provided
+          if [[ '${{ inputs.extra-args }}' =~ sha=([a-f0-9]+) ]]; then
+            SHA=${BASH_REMATCH[1]}
+          fi
+
           # Retrieve the desired version from the arguments.
-          if [[ "${{ inputs.extra-args }}" =~ version=([-+.0-9a-z]+) ]]; then
+          if [[ '${{ inputs.extra-args }}' =~ version=([-+.0-9a-z]+) ]]; then
             VERSION=${BASH_REMATCH[1]}
           else
             VERSION=""
+          fi
+
+          # Retrive number of workload nodes from the arguments.
+          if [[ '${{ inputs.extra-args }}' =~ nodes=([0-9+]+) ]]; then
+            WORKLOAD_NODES=${BASH_REMATCH[1]}
+          else
+            WORKLOAD_NODES=100
+          fi
+
+          if [ "${WORKLOAD_NODES}" -gt 1000 ]; then
+            echo "WORKLOAD_NODES cannot be larger than 1000, got ${WORKLOAD_NODES}"
+            exit 1
           fi
 
           # Adding k8s.local to the end makes kops happy
@@ -129,7 +146,6 @@ jobs:
 
           # only add SHA to the image tags if VERSION is not set
           if [ -z "${VERSION}" ]; then
-            echo sha=${SHA} >> $GITHUB_OUTPUT
             CILIUM_INSTALL_DEFAULTS+=" --set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --set=image.useDigest=false \
             --set=image.tag=${SHA} \
@@ -149,6 +165,7 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
           echo VERSION=${VERSION} >> $GITHUB_OUTPUT
+          echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
 
       - name: Checkout pull request branch (NOT TRUSTED)
         if: ${{ steps.vars.outputs.version == '' }} # We don't need to checkout the PR if it's released version
@@ -295,6 +312,7 @@ jobs:
             -v=2 \
             --testconfig=./testing/custom/common/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --nodes=${{ steps.vars.outputs.workload_nodes }} \
             --provider=gce \
             --enable-exec-service=false \
             --enable-prometheus-server \
@@ -308,7 +326,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: 100
+          node_count: ${{ steps.vars.outputs.workload_nodes }}
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -355,7 +373,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=${{ steps.vars.outputs.workload_nodes }} \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
