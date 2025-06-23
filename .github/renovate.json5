@@ -594,6 +594,7 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15"
       ]
@@ -603,9 +604,8 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
-      "allowedVersions": "/^v1\\.33\\.([0-9]+)-([0-9]+)-.*$/",
+      "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "v1.17",
         "main",
       ]
     },
