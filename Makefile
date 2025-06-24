@@ -450,8 +450,6 @@ endif
 	$(QUIET) contrib/scripts/check-xfrmstate.sh
 	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
 	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
-	@$(ECHO_CHECK) contrib/scripts/check-logrus.sh
-	$(QUIET) contrib/scripts/check-logrus.sh
 	@$(ECHO_CHECK) contrib/scripts/check-safenetlink.sh
 	$(QUIET) contrib/scripts/check-safenetlink.sh
 	@$(ECHO_CHECK) contrib/scripts/check-datapathconfig.sh
