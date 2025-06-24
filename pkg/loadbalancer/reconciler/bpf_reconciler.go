@@ -43,7 +43,7 @@ const (
 	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
 	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
 	// while agent was down).
-	initGracePeriod = 10 * time.Second
+	initGracePeriod = 1 * time.Minute
 )
 
 func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
