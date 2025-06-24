@@ -168,11 +168,11 @@ Validate installation
 
    .. code-block:: shell-session
 
-       $ kubectl create namespace cilium-test
-       $ kubectl annotate namespace cilium-test ipam.cilium.io/ip-pool=mars
+       $ kubectl create namespace cilium-test-1
+       $ kubectl annotate namespace cilium-test-1 ipam.cilium.io/ip-pool=mars
 
-   All new pods created in the namespace ``cilium-test`` will be assigned IPv4 addresses from the
-   ``mars`` pool.  Run the Cilium connectivity tests (which use namespace ``cilium-test`` by default
+   All new pods created in the namespace ``cilium-test-1`` will be assigned IPv4 addresses from the
+   ``mars`` pool.  Run the Cilium connectivity tests (which use namespace ``cilium-test-1`` by default
    to create their workloads) to verify connectivity:
 
    .. code-block:: shell-session
