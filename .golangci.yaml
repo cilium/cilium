@@ -62,6 +62,10 @@ linters:
                 - github.com/stretchr/testify/assert
                 - github.com/stretchr/testify/require
               reason: cilium/checkmate has been deprecated, see https://github.com/cilium/cilium/issues/28596
+          - github.com/sirupsen/logrus:
+              recommendations:
+                - log/slog
+              reason: Use the Go 1.21+ log/slog package for structured logging.
           - go.uber.org/multierr:
               recommendations:
                 - errors
@@ -152,6 +156,10 @@ linters:
       - linters:
           - exhaustruct
         path: .*_test\.go
+      - linters:
+          - gomodguard
+        path: test/
+        text: "logrus"
     paths:
       - third_party$
       - builtin$
