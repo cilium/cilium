@@ -193,10 +193,10 @@ func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpoint.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Endpoint event", logfields.CEPName, event.Key.String())
+			c.logger.Debug("Got Upsert Endpoint event", logfields.CEPName, event.Key)
 			c.onEndpointUpdate(event.Object)
 		case resource.Delete:
-			c.logger.Debug("Got Delete Endpoint event", logfields.CEPName, event.Key.String())
+			c.logger.Debug("Got Delete Endpoint event", logfields.CEPName, event.Key)
 			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
@@ -208,10 +208,10 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpointSlice.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Endpoint Slice event", logfields.CESName, event.Key.String())
+			c.logger.Debug("Got Upsert Endpoint Slice event", logfields.CESName, event.Key)
 			c.onSliceUpdate(event.Object)
 		case resource.Delete:
-			c.logger.Debug("Got Delete Endpoint Slice event", logfields.CESName, event.Key.String())
+			c.logger.Debug("Got Delete Endpoint Slice event", logfields.CESName, event.Key)
 			c.onSliceDelete(event.Object)
 		}
 		event.Done(nil)
