@@ -174,7 +174,6 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
           # Notes:
-          #  - Multi-pool IPAM only supports endpoint routes
           #  - iptables-based masquerading does not support multiple non-masquerade
           #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
           #    non-masquerade CIDRs.
@@ -183,12 +182,15 @@ jobs:
           #    (https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247)
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set=endpointRoutes.enabled=true \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=bpf.hostLegacyRouting=true\
             --helm-set=ipMasqAgent.enabled=true \
             --helm-set=ipam.mode=multi-pool"
+
+          if [ "${{ matrix.endpoint-routes }}" == "enabled" ]; then
+            CILIUM_INSTALL_ROUTES="--helm-set=endpointRoutes.enabled=true"
+          fi
 
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
@@ -254,7 +256,7 @@ jobs:
                 \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
             }'"
 
-          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
+          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ROUTES} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           echo kind_svc_cidr=${KIND_SVC_CIDR} >> $GITHUB_OUTPUT
