@@ -20,7 +20,7 @@ const (
 	// traceNotifyV0Len is the amount of packet data provided in a trace notification v0.
 	traceNotifyV0Len = 32
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
-	traceNotifyV1Len = 48
+	traceNotifyV1Len = 50
 )
 
 const (
@@ -59,6 +59,7 @@ type TraceNotify struct {
 	Flags    uint8
 	Ifindex  uint32
 	OrigIP   types.IPv6
+	OrigPort uint16
 	// data
 }
 
@@ -104,6 +105,7 @@ func (tn *TraceNotify) Decode(data []byte) error {
 			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV1Len, l)
 		}
 		copy(tn.OrigIP[:], data[32:48])
+		tn.OrigPort = byteorder.Native.Uint16(data[48:50])
 	}
 
 	// Decode logic for version >= v0.
@@ -120,7 +122,6 @@ func (tn *TraceNotify) Decode(data []byte) error {
 	tn.Reason = data[26]
 	tn.Flags = data[27]
 	tn.Ifindex = byteorder.Native.Uint32(data[28:32])
-
 	return nil
 }
 
