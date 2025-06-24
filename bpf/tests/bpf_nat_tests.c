@@ -30,6 +30,8 @@ static char pkt[100];
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 {
 	void *orig = dst;
+	void *inner_l4_start;
+	void *icmp_ptr;
 
 	struct ethhdr l2 = {
 		.h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
@@ -65,6 +67,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 		},
 	};
 	memcpy(dst, &icmphdr, sizeof(struct icmphdr));
+	icmp_ptr = dst;
 	dst += sizeof(struct icmphdr);
 
 	/* Embedded packet is referring the original packet that triggers the
@@ -85,6 +88,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 	memcpy(dst, &inner_l3, sizeof(struct iphdr));
 	dst += sizeof(struct iphdr);
 
+	inner_l4_start = dst;
 	__u16 sport = 32768, dport = 80;
 
 	if (egress) {
@@ -138,6 +142,15 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 	}
 		break;
 	}
+	/* account for any content longer than 64 bits of the original data datagram
+	 * in accordance with RFC 4884
+	 */
+	if (dst - inner_l4_start > 8) {
+		__u8 extra_words = (__u8) (dst - inner_l4_start - 8 + 3) / 4;
+		memcpy(icmp_ptr + offsetof(struct icmphdr, un.frag.__unused) + 1,
+			&extra_words, 1);
+	}
+
 	return (int)(dst - orig);
 }
 
