@@ -4,6 +4,7 @@
 package api
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 
@@ -46,6 +47,7 @@ type DumpArgs struct {
 	LinkMonitor getters.LinkGetter
 	Dissect     bool
 	Verbosity   Verbosity
+	Buf         *bufio.Writer
 }
 
 // MonitorEvent is the interface that all monitor events must implement to be dumped

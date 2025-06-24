@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
@@ -24,9 +25,9 @@ type LogRecordNotify struct {
 // Dump prints the message according to the verbosity level specified
 func (l *LogRecordNotify) Dump(args *api.DumpArgs) {
 	if args.Verbosity == api.JSON {
-		l.DumpJSON()
+		l.DumpJSON(args.Buf)
 	} else {
-		l.DumpInfo()
+		l.DumpInfo(args.Buf)
 	}
 }
 
@@ -79,17 +80,17 @@ func (l *LogRecordNotify) l7Proto() string {
 }
 
 // DumpInfo dumps an access log notification
-func (l *LogRecordNotify) DumpInfo() {
+func (l *LogRecordNotify) DumpInfo(buf *bufio.Writer) {
 	switch l.Type {
 	case accesslog.TypeRequest:
-		fmt.Printf("%s %s %s from %d (%s) to %d (%s), identity %d->%d, verdict %s",
+		fmt.Fprintf(buf, "%s %s %s from %d (%s) to %d (%s), identity %d->%d, verdict %s",
 			l.direction(), l.Type, l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
 			l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
 			l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
 			l.Verdict)
 
 	case accesslog.TypeResponse:
-		fmt.Printf("%s %s %s to %d (%s) from %d (%s), identity %d->%d, verdict %s",
+		fmt.Fprintf(buf, "%s %s %s to %d (%s) from %d (%s), identity %d->%d, verdict %s",
 			l.direction(), l.Type, l.l7Proto(), l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
 			l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
 			l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
@@ -102,11 +103,11 @@ func (l *LogRecordNotify) DumpInfo() {
 			url = http.URL.String()
 		}
 
-		fmt.Printf(" %s %s => %d\n", http.Method, url, http.Code)
+		fmt.Fprintf(buf, " %s %s => %d\n", http.Method, url, http.Code)
 	}
 
 	if kafka := l.Kafka; kafka != nil {
-		fmt.Printf(" %s topic %s => %d\n", kafka.APIKey, kafka.Topic.Topic, kafka.ErrorCode)
+		fmt.Fprintf(buf, " %s topic %s => %d\n", kafka.APIKey, kafka.Topic.Topic, kafka.ErrorCode)
 	}
 
 	if l.DNS != nil {
@@ -118,22 +119,22 @@ func (l *LogRecordNotify) DumpInfo() {
 
 		switch {
 		case l.Type == accesslog.TypeRequest:
-			fmt.Printf(" DNS %s: %s %s", l.DNS.ObservationSource, l.DNS.Query, qTypeStr)
+			fmt.Fprintf(buf, " DNS %s: %s %s", l.DNS.ObservationSource, l.DNS.Query, qTypeStr)
 
 		case l.Type == accesslog.TypeResponse:
-			fmt.Printf(" DNS %s: %s %s", l.DNS.ObservationSource, l.DNS.Query, qTypeStr)
+			fmt.Fprintf(buf, " DNS %s: %s %s", l.DNS.ObservationSource, l.DNS.Query, qTypeStr)
 
 			ips := make([]string, 0, len(l.DNS.IPs))
 			for _, ip := range l.DNS.IPs {
 				ips = append(ips, ip.String())
 			}
-			fmt.Printf(" TTL: %d Answer: '%s'", l.DNS.TTL, strings.Join(ips, ","))
+			fmt.Fprintf(buf, " TTL: %d Answer: '%s'", l.DNS.TTL, strings.Join(ips, ","))
 
 			if len(l.DNS.CNAMEs) > 0 {
-				fmt.Printf(" CNAMEs: %s", strings.Join(l.DNS.CNAMEs, ","))
+				fmt.Fprintf(buf, " CNAMEs: %s", strings.Join(l.DNS.CNAMEs, ","))
 			}
 		}
-		fmt.Printf("\n")
+		fmt.Fprintf(buf, "\n")
 	}
 
 	if l7 := l.L7; l7 != nil {
@@ -142,13 +143,13 @@ func (l *LogRecordNotify) DumpInfo() {
 			if k == "status" {
 				status = v
 			} else {
-				fmt.Printf(" %s:%s", k, v)
+				fmt.Fprintf(buf, " %s:%s", k, v)
 			}
 		}
 		if status != "" {
-			fmt.Printf(" => status:%s", status)
+			fmt.Fprintf(buf, " => status:%s", status)
 		}
-		fmt.Printf("\n")
+		fmt.Fprintf(buf, "\n")
 	}
 }
 
@@ -160,10 +161,10 @@ func (l *LogRecordNotify) getJSON() (string, error) {
 }
 
 // DumpJSON prints notification in json format
-func (l *LogRecordNotify) DumpJSON() {
+func (l *LogRecordNotify) DumpJSON(buf *bufio.Writer) {
 	resp, err := l.getJSON()
 	if err == nil {
-		fmt.Println(resp)
+		fmt.Fprintln(buf, resp)
 	}
 }
 
