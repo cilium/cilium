@@ -276,7 +276,7 @@ func (c *Controller) processNextItem() bool {
 		processingLatency := time.Since(processingStartTime).Seconds()
 		item.Meter(enqueuedLatency, processingLatency, err != nil, c.metrics)
 	} else {
-		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, item.Key().String())
+		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, item.Key)
 	}
 
 	c.resourceQueue.Forget(item)

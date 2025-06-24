@@ -1164,7 +1164,7 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 		for _, rt := range routes {
 			if err := netlink.RouteDel(&rt); err != nil {
 				log.Warn("Unable to delete ipsec encrypt route",
-					logfields.Route, rt.String(),
+					logfields.Route, rt,
 					logfields.Error, err,
 				)
 			}
