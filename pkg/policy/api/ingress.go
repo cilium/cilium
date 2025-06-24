@@ -72,7 +72,8 @@ type IngressCommonRule struct {
 
 	// FromEntities is a list of special entities which the endpoint subject
 	// to the rule is allowed to receive connections from. Supported entities are
-	// `world`, `cluster` and `host`
+	// `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+	// `health`, `unmanaged`, `none` and `all`.
 	//
 	// +kubebuilder:validation:Optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
