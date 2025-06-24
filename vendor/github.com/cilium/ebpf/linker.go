@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"math"
 	"slices"
 	"strings"
@@ -124,7 +123,7 @@ func hasFunctionReferences(insns asm.Instructions) bool {
 //
 // Passing a nil target will relocate against the running kernel. insns are
 // modified in place.
-func applyRelocations(insns asm.Instructions, kmodName string, bo binary.ByteOrder, b *btf.Builder, c *btf.Cache) error {
+func applyRelocations(insns asm.Instructions, bo binary.ByteOrder, b *btf.Builder, c *btf.Cache) error {
 	var relos []*btf.CORERelocation
 	var reloInsns []*asm.Instruction
 	iter := insns.Iterate()
@@ -143,22 +142,26 @@ func applyRelocations(insns asm.Instructions, kmodName string, bo binary.ByteOrd
 		bo = internal.NativeEndian
 	}
 
-	var targets []*btf.Spec
 	kernelTarget, err := c.Kernel()
 	if err != nil {
 		return fmt.Errorf("load kernel spec: %w", err)
 	}
+
+	modules, err := c.Modules()
+	if err != nil {
+		return err
+	}
+
+	targets := make([]*btf.Spec, 0, 1+len(modules))
 	targets = append(targets, kernelTarget)
 
-	if kmodName != "" {
-		kmodTarget, err := c.Module(kmodName)
-		// Ignore ErrNotExists to cater to kernels which have CONFIG_DEBUG_INFO_BTF_MODULES disabled.
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("load kernel module spec: %w", err)
+	for _, kmod := range modules {
+		spec, err := c.Module(kmod)
+		if err != nil {
+			return fmt.Errorf("load BTF for kmod %s: %w", kmod, err)
 		}
-		if err == nil {
-			targets = append(targets, kmodTarget)
-		}
+
+		targets = append(targets, spec)
 	}
 
 	fixups, err := btf.CORERelocate(relos, targets, bo, b.Add)

@@ -16,10 +16,10 @@ require (
 	github.com/aws/smithy-go v1.22.4
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250610040554-4951bc76b501
+	github.com/cilium/charts v0.0.0-20250619184735-4be7641581d4
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.18.1-0.20250611134719-3f1a755f1451
+	github.com/cilium/ebpf v0.18.1-0.20250623141833-9958a4f58fb4
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354
@@ -56,7 +56,7 @@ require (
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.0
 	github.com/google/uuid v1.6.0
-	github.com/gopacket/gopacket v1.3.2-0.20250413013317-2b39da4e3de0
+	github.com/gopacket/gopacket v1.3.2-0.20250513021322-b23ac340366c
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -81,7 +81,7 @@ require (
 	github.com/prometheus-community/pro-bing v0.7.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.64.0
+	github.com/prometheus/common v0.65.0
 	github.com/prometheus/procfs v0.16.1
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.3.5
@@ -122,21 +122,21 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.18.2
+	helm.sh/helm/v3 v3.18.3
 	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.2
 	k8s.io/apimachinery v0.33.2
 	k8s.io/cli-runtime v0.33.2
 	k8s.io/client-go v0.33.2
 	k8s.io/component-base v0.33.2
-	k8s.io/endpointslice v0.33.1
+	k8s.io/endpointslice v0.33.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.2
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
 	sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20250610011024-38bab5ba476b
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20250619142051-a23ff80a0902
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -306,7 +306,7 @@ require (
 	k8s.io/code-generator v0.33.2 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250207200755-1244d31929d7 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	oras.land/oras-go/v2 v2.5.0 // indirect
+	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/controller-tools v0.17.3 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/kustomize/api v0.19.0 // indirect

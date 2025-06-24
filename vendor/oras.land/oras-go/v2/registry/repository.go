@@ -30,7 +30,7 @@ import (
 
 // Repository is an ORAS target and an union of the blob and the manifest CASs.
 //
-// As specified by https://docs.docker.com/registry/spec/api/, it is natural to
+// As specified by https://distribution.github.io/distribution/spec/api/, it is natural to
 // assume that content.Resolver interface only works for manifests. Tagging a
 // blob may be resulted in an `ErrUnsupported` error. However, this interface
 // does not restrict tagging blobs.
@@ -87,7 +87,7 @@ type ReferenceFetcher interface {
 }
 
 // ReferrerLister provides the Referrers API.
-// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#listing-referrers
+// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#listing-referrers
 type ReferrerLister interface {
 	Referrers(ctx context.Context, desc ocispec.Descriptor, artifactType string, fn func(referrers []ocispec.Descriptor) error) error
 }
@@ -109,8 +109,8 @@ type TagLister interface {
 	// specification.
 	//
 	// References:
-	//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#content-discovery
-	//   - https://docs.docker.com/registry/spec/api/#tags
+	//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#content-discovery
+	//   - https://distribution.github.io/distribution/spec/api/#tags
 	// See also `Tags()` in this package.
 	Tags(ctx context.Context, last string, fn func(tags []string) error) error
 }
@@ -143,7 +143,7 @@ func Tags(ctx context.Context, repo TagLister) ([]string, error) {
 // Referrers lists the descriptors of image or artifact manifests directly
 // referencing the given manifest descriptor.
 //
-// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#listing-referrers
+// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#listing-referrers
 func Referrers(ctx context.Context, store content.ReadOnlyGraphStorage, desc ocispec.Descriptor, artifactType string) ([]ocispec.Descriptor, error) {
 	if !descriptor.IsManifest(desc) {
 		return nil, fmt.Errorf("the descriptor %v is not a manifest: %w", desc, errdef.ErrUnsupported)
