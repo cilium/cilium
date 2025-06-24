@@ -291,18 +291,12 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 
 			// Upsert new or changed backends
 			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
-			if len(backends) > 0 {
-				err = p.Writer.UpsertBackends(
-					txn,
-					name,
-					source.Kubernetes,
-					backends...)
-
-			}
 
 			// Release orphaned backends
+			orphans := []loadbalancer.L3n4Addr{}
 			for ep := range allEps.All() {
 				var newAddrs sets.Set[loadbalancer.L3n4Addr]
+				orph := currentBackends[ep.name]
 				if len(ep.backends) > 0 {
 					newAddrs = sets.New[loadbalancer.L3n4Addr]()
 					for addr, be := range ep.backends {
@@ -312,14 +306,13 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 								L4Addr:      *l4Addr,
 							}
 							newAddrs.Insert(l3n4Addr)
+							if orphans != nil {
+								orph.Delete(l3n4Addr)
+							}
 						}
 					}
 				}
-				old := currentBackends[ep.name]
-				err = errors.Join(
-					err,
-					p.Writer.ReleaseBackends(txn, name, old.Difference(newAddrs).UnsortedList()...),
-				)
+				orphans = append(orphans, orph.UnsortedList()...)
 				if newAddrs.Len() == 0 {
 					delete(currentBackends, ep.name)
 				} else {
@@ -327,6 +320,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				}
 			}
 
+			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, slices.Values(orphans))
 			rh.update("eps:"+name.String(), err)
 
 		case resource.Delete:
@@ -429,7 +423,7 @@ func (ae allEndpoints) insert(deleted bool, ep *k8s.Endpoints) allEndpoints {
 	return ae
 }
 
-func (ae allEndpoints) All() iter.Seq[endpointsEvent] {
+func (ae *allEndpoints) All() iter.Seq[endpointsEvent] {
 	return func(yield func(endpointsEvent) bool) {
 		if ae.head.name != "" {
 			if !yield(ae.head) {
@@ -444,7 +438,7 @@ func (ae allEndpoints) All() iter.Seq[endpointsEvent] {
 	}
 }
 
-func (ae allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] {
+func (ae *allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] {
 	return func(yield func(cmtypes.AddrCluster, *k8s.Backend) bool) {
 		for ep := range ae.All() {
 			for addr, be := range ep.backends {

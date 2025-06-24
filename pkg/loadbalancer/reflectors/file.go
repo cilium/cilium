@@ -232,7 +232,7 @@ func (s *fileReflector) synchronize(txn writer.WriteTxn, state *StateFile) (numS
 			Namespace: eps.ServiceID.Namespace,
 		}
 		bes := convertEndpoints(s.log, s.extConfig, svcName, maps.All(eps.Backends))
-		if err := s.w.UpsertBackends(txn, svcName, source.LocalAPI, bes...); err != nil {
+		if err := s.w.UpsertBackends(txn, svcName, source.LocalAPI, bes); err != nil {
 			return 0, 0, 0, fmt.Errorf("failed to upsert backends: %w", err)
 		}
 		numBackends++

@@ -397,7 +397,7 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) (out []loadbalancer.BackendParams) {
+func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) iter.Seq[loadbalancer.BackendParams] {
 	// Lazily construct the augmented logger as we very rarely log here.
 	log := sync.OnceValue(func() *slog.Logger {
 		return rawlog.With(
@@ -413,7 +413,8 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 		portNames []string
 		backend   *k8s.Backend
 	}
-	entries := map[loadbalancer.L3n4Addr]entry{}
+
+	entries := make(map[loadbalancer.L3n4Addr]entry)
 
 	for addrCluster, be := range bes {
 		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
@@ -443,23 +444,27 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 			}
 		}
 	}
-	for l3n4Addr, entry := range entries {
-		state := loadbalancer.BackendStateActive
-		if entry.backend.Terminating {
-			state = loadbalancer.BackendStateTerminating
+
+	return func(yield func(be loadbalancer.BackendParams) bool) {
+		for l3n4Addr, entry := range entries {
+			state := loadbalancer.BackendStateActive
+			if entry.backend.Terminating {
+				state = loadbalancer.BackendStateTerminating
+			}
+			be := loadbalancer.BackendParams{
+				Address:   l3n4Addr,
+				NodeName:  entry.backend.NodeName,
+				PortNames: entry.portNames,
+				Weight:    loadbalancer.DefaultBackendWeight,
+				Zone:      entry.backend.Zone,
+				ForZones:  entry.backend.HintsForZones,
+				State:     state,
+			}
+			if !yield(be) {
+				break
+			}
 		}
-		be := loadbalancer.BackendParams{
-			Address:   l3n4Addr,
-			NodeName:  entry.backend.NodeName,
-			PortNames: entry.portNames,
-			Weight:    loadbalancer.DefaultBackendWeight,
-			Zone:      entry.backend.Zone,
-			ForZones:  entry.backend.HintsForZones,
-			State:     state,
-		}
-		out = append(out, be)
 	}
-	return
 }
 
 func isTopologyAware(svc *slim_corev1.Service) bool {

@@ -6,6 +6,7 @@ package writer
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -120,10 +121,11 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				source.Kubernetes,
-				loadbalancer.BackendParams{
-					Address: beAddr,
-					State:   loadbalancer.BackendStateActive,
-				},
+				slices.Values([]loadbalancer.BackendParams{
+					{
+						Address: beAddr,
+						State:   loadbalancer.BackendStateActive,
+					}}),
 			)
 		}
 		// Don't commit the changes so we actually test the cost of Insert() of new object.
@@ -161,10 +163,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		source.Kubernetes,
-		loadbalancer.BackendParams{
-			Address: beAddr,
-			State:   loadbalancer.BackendStateActive,
-		},
+		slices.Values([]loadbalancer.BackendParams{
+			{
+				Address: beAddr,
+				State:   loadbalancer.BackendStateActive,
+			}}),
 	)
 	wtxn.Commit()
 
@@ -174,10 +177,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			source.Kubernetes,
-			loadbalancer.BackendParams{
-				Address: beAddr,
-				State:   loadbalancer.BackendStateActive,
-			},
+			slices.Values([]loadbalancer.BackendParams{
+				{
+					Address: beAddr,
+					State:   loadbalancer.BackendStateActive,
+				}}),
 		)
 	}
 	wtxn.Abort()

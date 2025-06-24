@@ -108,23 +108,26 @@ func (m *reconcilerMetricsImpl) PruneDuration(moduleID cell.FullModuleID, durati
 
 // FullReconciliationErrors implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) PruneError(moduleID cell.FullModuleID, err error) {
-	m.m.PruneCount.WithLabelValues(moduleID.String()).Inc()
+	id := moduleID.String()
+	m.m.PruneCount.WithLabelValues(id).Inc()
 	if err != nil {
-		m.m.PruneTotalErrors.WithLabelValues(moduleID.String()).Add(1)
+		m.m.PruneTotalErrors.WithLabelValues(id).Add(1)
 	}
 }
 
 // ReconciliationDuration implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
-	m.m.ReconciliationCount.WithLabelValues(moduleID.String()).Inc()
-	m.m.ReconciliationDuration.WithLabelValues(moduleID.String(), operation).
+	id := moduleID.String()
+	m.m.ReconciliationCount.WithLabelValues(id).Inc()
+	m.m.ReconciliationDuration.WithLabelValues(id, operation).
 		Observe(duration.Seconds())
 }
 
 // ReconciliationErrors implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) ReconciliationErrors(moduleID cell.FullModuleID, new, current int) {
-	m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Set(float64(current))
-	m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Add(float64(new))
+	id := moduleID.String()
+	m.m.ReconciliationCurrentErrors.WithLabelValues(id).Set(float64(current))
+	m.m.ReconciliationCurrentErrors.WithLabelValues(id).Add(float64(new))
 }
 
 var _ reconciler.Metrics = &reconcilerMetricsImpl{}
