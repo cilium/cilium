@@ -238,69 +238,69 @@ generate-apis: generate-api generate-health-api generate-hubble-api generate-ope
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
 		--default-scheme=unix \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
 
 generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
 		--default-scheme=unix \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
 
 generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/operator/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
 		--default-scheme=http \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
 
 generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremesh client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/kvstoremesh/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
 		--default-scheme=http \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
