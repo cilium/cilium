@@ -42,14 +42,14 @@ import (
 
 const (
 	// reflectorBufferSize is the maximum size of the event buffer.
-	reflectorBufferSize = 5000
+	reflectorBufferSize = 500
 
 	// reflectorWaitTime is the maximum amount of time to try and fill the buffer.
 	// A higher wait time will reduce processing of transient states and increases
 	// throughput as it gives bigger batches downstream for processing. Batching
 	// also helps to combine related objects, e.g. a Service may have multiple
 	// associated EndpointSlices and preferably these would be processed together.
-	reflectorWaitTime = 100 * time.Millisecond
+	reflectorWaitTime = 500 * time.Millisecond
 )
 
 // K8sReflectorCell reflects Kubernetes Service and EndpointSlice objects to the
