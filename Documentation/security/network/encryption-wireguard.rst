@@ -329,13 +329,13 @@ table are not subject to encryption with WireGuard and therefore assumed to be u
 | Client outside | remote Pod via    | KPR,                 | default         |
 | cluster        | Service           | overlay routing,     |                 |
 |                |                   | without DSR,         |                 |
-|                |                   | without XDP          |                 |
+|                |                   |                      |                 |
 +----------------+-------------------+----------------------+-----------------+
 | Client outside | remote Pod via    | native routing,      | node-to-node    |
-| cluster        | Service           | without XDP          |                 |
+| cluster        | Service           |                      |                 |
 +----------------+-------------------+----------------------+-----------------+
 | Client outside | remote Pod or     | DSR in Geneve mode,  | default         |
-| cluster        | remote Node via   | without XDP          |                 |
+| cluster        | remote Node via   |                      |                 |
 |                | Service           |                      |                 |
 +----------------+-------------------+----------------------+-----------------+
 | Pod            | remote Pod via L7 | L7 Proxy / Ingress   | default         |

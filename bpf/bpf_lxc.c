@@ -744,12 +744,12 @@ ct_recreate6:
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
-		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
-		if (fib_ok(ret))
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif, false);
+		if (fib_ok(ret, false))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
 					  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 
 	goto pass_to_stack;
@@ -1298,12 +1298,12 @@ skip_vtep:
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
-		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
-		if (fib_ok(ret))
+		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif, false);
+		if (fib_ok(ret, false))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
 					  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
-		return ret;
+		return bpf_exit(ctx, ret);
 	}
 
 	goto pass_to_stack;

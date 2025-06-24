@@ -280,7 +280,7 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	assert(fib_ok(*status_code));
+	assert(fib_ok(*status_code, false));
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -373,7 +373,7 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	assert(fib_ok(*status_code));
+	assert(fib_ok(*status_code, false));
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
