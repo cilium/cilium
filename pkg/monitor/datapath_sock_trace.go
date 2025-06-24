@@ -4,10 +4,8 @@
 package monitor
 
 import (
-	"bufio"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -57,7 +55,8 @@ func (t *TraceSockNotify) Dump(args *api.DumpArgs) {
 	// Currently only printed with the debug option. Extend it to info and json.
 	// GH issue: https://github.com/cilium/cilium/issues/21510
 	if args.Verbosity == api.DEBUG {
-		t.DumpDebug(args.CpuPrefix)
+		fmt.Fprintf(args.Buf, "%s [%s] cgroup_id: %d sock_cookie: %d, dst [%s]:%d %s \n",
+			args.CpuPrefix, t.XlatePointStr(), t.CgroupId, t.SockCookie, t.IP(), t.DstPort, t.L4ProtoStr())
 	}
 }
 
@@ -77,14 +76,6 @@ func (t *TraceSockNotify) Decode(data []byte) error {
 	t.Flags = data[37]
 
 	return nil
-}
-
-func (t *TraceSockNotify) DumpDebug(prefix string) {
-	buf := bufio.NewWriter(os.Stdout)
-
-	fmt.Fprintf(buf, "%s [%s] cgroup_id: %d sock_cookie: %d, dst [%s]:%d %s \n",
-		prefix, t.XlatePointStr(), t.CgroupId, t.SockCookie, t.IP(), t.DstPort, t.L4ProtoStr())
-	buf.Flush()
 }
 
 func (t *TraceSockNotify) XlatePointStr() string {

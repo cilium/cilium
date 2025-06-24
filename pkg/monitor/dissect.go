@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"bufio"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -317,9 +318,9 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 
 // Dissect parses and prints the provided data if dissect is set to true,
 // otherwise the data is printed as HEX output
-func Dissect(dissect bool, data []byte) {
+func Dissect(buf *bufio.Writer, dissect bool, data []byte) {
 	if !dissect {
-		fmt.Print(hex.Dump(data))
+		fmt.Fprint(buf, hex.Dump(data))
 		return
 	}
 
@@ -339,30 +340,30 @@ func Dissect(dissect bool, data []byte) {
 	for _, typ := range cache.decoded {
 		switch typ {
 		case layers.LayerTypeEthernet:
-			fmt.Println(gopacket.LayerString(&cache.eth))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.eth))
 		case layers.LayerTypeIPv4:
-			fmt.Println(gopacket.LayerString(&cache.ip4))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.ip4))
 		case layers.LayerTypeIPv6:
-			fmt.Println(gopacket.LayerString(&cache.ip6))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.ip6))
 		case layers.LayerTypeTCP:
-			fmt.Println(gopacket.LayerString(&cache.tcp))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.tcp))
 		case layers.LayerTypeUDP:
-			fmt.Println(gopacket.LayerString(&cache.udp))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.udp))
 		case layers.LayerTypeSCTP:
-			fmt.Println(gopacket.LayerString(&cache.sctp))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.sctp))
 		case layers.LayerTypeICMPv4:
-			fmt.Println(gopacket.LayerString(&cache.icmp4))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.icmp4))
 		case layers.LayerTypeICMPv6:
-			fmt.Println(gopacket.LayerString(&cache.icmp6))
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.icmp6))
 		default:
-			fmt.Println("Unknown layer")
+			fmt.Fprintln(buf, "Unknown layer")
 		}
 	}
 	if parserL2Dev.Truncated {
-		fmt.Println("  Packet has been truncated")
+		fmt.Fprintln(buf, "  Packet has been truncated")
 	}
 	if err != nil {
-		fmt.Println("  Failed to decode layer:", err)
+		fmt.Fprintln(buf, "  Failed to decode layer:", err)
 	}
 }
 
