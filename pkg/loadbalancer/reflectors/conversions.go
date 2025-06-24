@@ -6,6 +6,7 @@ package reflectors
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -396,19 +397,14 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []loadbalancer.BackendParams) {
+func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) (out []loadbalancer.BackendParams) {
 	// Lazily construct the augmented logger as we very rarely log here.
 	log := sync.OnceValue(func() *slog.Logger {
 		return rawlog.With(
-			logfields.Service, ep.GetName(),
-			logfields.K8sNamespace, ep.GetNamespace(),
+			logfields.Service, svcName.Name,
+			logfields.K8sNamespace, svcName.Namespace,
 		)
 	})
-
-	name = loadbalancer.ServiceName{
-		Name:      ep.ServiceID.Name,
-		Namespace: ep.ServiceID.Namespace,
-	}
 
 	// k8s.Endpoints may have the same backend address multiple times
 	// with a different port name. Collapse them down into single
@@ -419,7 +415,7 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, ep *
 	}
 	entries := map[loadbalancer.L3n4Addr]entry{}
 
-	for addrCluster, be := range ep.Backends {
+	for addrCluster, be := range bes {
 		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
 			log().Debug(
 				"Skipping Backend due to disabled IP family",

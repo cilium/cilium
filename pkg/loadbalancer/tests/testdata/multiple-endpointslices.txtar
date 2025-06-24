@@ -1,0 +1,148 @@
+#! --lb-test-fault-probability=0.0
+
+# Start the test application
+hive start
+
+# Add the service and then endpoints
+k8s/add service.yaml endpointslice.yaml endpointslice2.yaml endpointslice3.yaml
+db/cmp services services.table
+db/cmp backends backends.table 
+db/cmp frontends frontends.table
+
+# Remove the endpoints
+k8s/delete endpointslice.yaml endpointslice2.yaml endpointslice3.yaml
+
+# Wait for them to be gone
+* db/empty backends
+
+# Add them back again
+k8s/add endpointslice.yaml endpointslice2.yaml endpointslice3.yaml
+db/cmp services services.table
+db/cmp backends backends.table 
+db/cmp frontends frontends.table
+
+# Remove the service
+k8s/delete service.yaml
+
+# Wait for it to be gone
+* db/empty services frontends
+
+# And add it back
+k8s/add service.yaml
+db/cmp services services.table
+db/cmp backends backends.table 
+db/cmp frontends frontends.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy
+test/echo   k8s      http=80    Cluster
+
+-- frontends.table --
+Address               Status  Type        ServiceName   Backends
+10.96.50.104:80/TCP   Done    ClusterIP   test/echo     10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP, 10.244.2.1:80/TCP, 10.244.2.2:80/TCP + 4 more ...
+
+-- backends.table --
+Address             Instances
+10.244.1.1:80/TCP   test/echo (http)
+10.244.1.2:80/TCP   test/echo (http)
+10.244.1.3:80/TCP   test/echo (http)
+10.244.2.1:80/TCP   test/echo (http)
+10.244.2.2:80/TCP   test/echo (http)
+10.244.2.3:80/TCP   test/echo (http)
+10.244.3.1:80/TCP   test/echo (http)
+10.244.3.2:80/TCP   test/echo (http)
+10.244.3.3:80/TCP   test/echo (http)
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  - 10.244.1.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  - 10.244.2.2
+  - 10.244.2.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+  
+-- endpointslice3.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps3
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.3.1
+  - 10.244.3.2
+  - 10.244.3.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
