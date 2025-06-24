@@ -127,7 +127,7 @@ func SelectManifest(ctx context.Context, src content.ReadOnlyStorage, root ocisp
 // fields in config blob.
 func getPlatformFromConfig(ctx context.Context, src content.ReadOnlyStorage, desc ocispec.Descriptor, targetConfigMediaType string) (*ocispec.Platform, error) {
 	if desc.MediaType != targetConfigMediaType {
-		return nil, fmt.Errorf("fail to recognize platform from unknown config %s: expect %s", desc.MediaType, targetConfigMediaType)
+		return nil, fmt.Errorf("fail to recognize platform from unknown config %s: expect %s: %w", desc.MediaType, targetConfigMediaType, errdef.ErrUnsupported)
 	}
 
 	rc, err := src.Fetch(ctx, desc)

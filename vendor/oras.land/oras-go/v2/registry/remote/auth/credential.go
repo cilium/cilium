@@ -30,11 +30,11 @@ type Credential struct {
 	// RefreshToken is a bearer token to be sent to the authorization service
 	// for fetching access tokens.
 	// A refresh token is often referred as an identity token.
-	// Reference: https://docs.docker.com/registry/spec/auth/oauth/
+	// Reference: https://distribution.github.io/distribution/spec/auth/oauth/
 	RefreshToken string
 
 	// AccessToken is a bearer token to be sent to the registry.
 	// An access token is often referred as a registry token.
-	// Reference: https://docs.docker.com/registry/spec/auth/token/
+	// Reference: https://distribution.github.io/distribution/spec/auth/token/
 	AccessToken string
 }

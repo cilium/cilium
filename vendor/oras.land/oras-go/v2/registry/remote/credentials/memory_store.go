@@ -17,9 +17,12 @@ package credentials
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
 
 	"oras.land/oras-go/v2/registry/remote/auth"
+	"oras.land/oras-go/v2/registry/remote/credentials/internal/config"
 )
 
 // memoryStore is a store that keeps credentials in memory.
@@ -30,6 +33,30 @@ type memoryStore struct {
 // NewMemoryStore creates a new in-memory credentials store.
 func NewMemoryStore() Store {
 	return &memoryStore{}
+}
+
+// NewMemoryStoreFromDockerConfig creates a new in-memory credentials store from the given configuration.
+//
+// Reference: https://docs.docker.com/engine/reference/commandline/cli/#docker-cli-configuration-file-configjson-properties
+func NewMemoryStoreFromDockerConfig(c []byte) (Store, error) {
+	cfg := struct {
+		Auths map[string]config.AuthConfig `json:"auths"`
+	}{}
+	if err := json.Unmarshal(c, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal auth field: %w: %v", config.ErrInvalidConfigFormat, err)
+	}
+
+	s := &memoryStore{}
+	for addr, auth := range cfg.Auths {
+		// Normalize the auth key to hostname.
+		hostname := config.ToHostname(addr)
+		cred, err := auth.Credential()
+		if err != nil {
+			return nil, err
+		}
+		_, _ = s.store.LoadOrStore(hostname, cred)
+	}
+	return s, nil
 }
 
 // Get retrieves credentials from the store for the given server address.

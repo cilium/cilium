@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// A LimitedGroup is a collection of goroutines working on subtasks that are part of
+// LimitedGroup is a collection of goroutines working on subtasks that are part of
 // the same overall task.
 type LimitedGroup struct {
 	grp *errgroup.Group

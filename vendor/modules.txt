@@ -245,7 +245,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20250610040554-4951bc76b501
+# github.com/cilium/charts v0.0.0-20250619184735-4be7641581d4
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
@@ -261,7 +261,7 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.18.1-0.20250611134719-3f1a755f1451
+# github.com/cilium/ebpf v0.18.1-0.20250623141833-9958a4f58fb4
 ## explicit; go 1.23.0
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -990,7 +990,7 @@ github.com/google/shlex
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.3.2-0.20250413013317-2b39da4e3de0
+# github.com/gopacket/gopacket v1.3.2-0.20250513021322-b23ac340366c
 ## explicit; go 1.23.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
@@ -1318,7 +1318,7 @@ github.com/prometheus/client_golang/prometheus/testutil/promlint/validations
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.64.0
+# github.com/prometheus/common v0.65.0
 ## explicit; go 1.23.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -1924,7 +1924,7 @@ gopkg.in/yaml.v2
 gopkg.in/yaml.v3
 # gotest.tools/v3 v3.5.0
 ## explicit; go 1.17
-# helm.sh/helm/v3 v3.18.2
+# helm.sh/helm/v3 v3.18.3
 ## explicit; go 1.24.0
 helm.sh/helm/v3/internal/fileutil
 helm.sh/helm/v3/internal/resolver
@@ -2546,7 +2546,7 @@ k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/prometheus/feature
 k8s.io/component-base/metrics/prometheusextension
 k8s.io/component-base/version
-# k8s.io/endpointslice v0.33.1
+# k8s.io/endpointslice v0.33.2
 ## explicit; go 1.24.0
 k8s.io/endpointslice/metrics
 k8s.io/endpointslice/util
@@ -2614,8 +2614,8 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/trace
-# oras.land/oras-go/v2 v2.5.0
-## explicit; go 1.21
+# oras.land/oras-go/v2 v2.6.0
+## explicit; go 1.23.0
 oras.land/oras-go/v2
 oras.land/oras-go/v2/content
 oras.land/oras-go/v2/content/memory
@@ -2824,7 +2824,7 @@ sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
-# sigs.k8s.io/mcs-api/controllers v0.0.0-20250610011024-38bab5ba476b
+# sigs.k8s.io/mcs-api/controllers v0.0.0-20250619142051-a23ff80a0902
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/controllers
 # sigs.k8s.io/randfill v1.0.0

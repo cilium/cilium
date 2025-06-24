@@ -170,7 +170,7 @@ func rebaseDecoder(d *decoder, base *decoder) (*decoder, error) {
 		return nil, fmt.Errorf("rebase split spec: not a split spec")
 	}
 
-	if &d.base.raw[0] != &base.raw[0] || len(d.base.raw) != len(base.raw) {
+	if len(d.base.raw) != len(base.raw) || (len(d.base.raw) > 0 && &d.base.raw[0] != &base.raw[0]) {
 		return nil, fmt.Errorf("rebase split spec: raw BTF differs")
 	}
 
@@ -269,7 +269,9 @@ func (d *decoder) TypesByName(name essentialName) ([]Type, error) {
 	}
 
 	if len(types) == 0 {
-		return nil, fmt.Errorf("type with name %s: %w", name, ErrNotFound)
+		// Return an unwrapped error because this is on the hot path
+		// for CO-RE.
+		return nil, ErrNotFound
 	}
 
 	return types, nil

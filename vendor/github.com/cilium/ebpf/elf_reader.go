@@ -728,14 +728,16 @@ func (ec *elfCode) loadMaps() error {
 		// If the ELF has BTF, pull out the btf.Var for each map definition to
 		// extract decl tags from.
 		varsByName := make(map[string]*btf.Var)
-		var ds *btf.Datasec
-		if err := ec.btf.TypeByName(sec.Name, &ds); err == nil {
-			for _, vsi := range ds.Vars {
-				v, ok := btf.As[*btf.Var](vsi.Type)
-				if !ok {
-					return fmt.Errorf("section %v: btf.VarSecInfo doesn't point to a *btf.Var: %T", sec.Name, vsi.Type)
+		if ec.btf != nil {
+			var ds *btf.Datasec
+			if err := ec.btf.TypeByName(sec.Name, &ds); err == nil {
+				for _, vsi := range ds.Vars {
+					v, ok := btf.As[*btf.Var](vsi.Type)
+					if !ok {
+						return fmt.Errorf("section %v: btf.VarSecInfo doesn't point to a *btf.Var: %T", sec.Name, vsi.Type)
+					}
+					varsByName[string(v.Name)] = v
 				}
-				varsByName[string(v.Name)] = v
 			}
 		}
 
