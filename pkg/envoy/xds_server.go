@@ -1475,8 +1475,11 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 }
 
 func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+	r := &cilium.PortNetworkPolicyRule{
+		Deny: l7Rules.GetDeny(),
+	}
+
 	wildcard := sel.IsWildcard()
-	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
@@ -1496,8 +1499,9 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 		return r, true
 	}
 
+	// Deny rules never have L7 rules and can not be short-circuited (i.e., rule evaluation
+	// after an allow rule must continue to find the possibly applicable deny rule).
 	if l7Rules.GetDeny() {
-		r.Deny = true
 		return r, false
 	}
 
@@ -1574,34 +1578,43 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 	return r, canShortCircuit
 }
 
-// getWildcardNetworkPolicyRule returns the rule for port 0, which
+// getWildcardNetworkPolicyRules returns the rules for port 0, which
 // will be considered after port-specific rules.
-func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+func getWildcardNetworkPolicyRules(version *versioned.VersionHandle, selectors policy.L7DataMap) (rules []*cilium.PortNetworkPolicyRule) {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
-		for sel := range selectors {
+		for sel, l7 := range selectors {
 			if sel.IsWildcard() {
-				return &cilium.PortNetworkPolicyRule{}
+				return append(rules, &cilium.PortNetworkPolicyRule{
+					Deny: l7.GetDeny(),
+				})
 			}
 			selections := sel.GetSelections(version)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
 			}
-			return &cilium.PortNetworkPolicyRule{
+			return append(rules, &cilium.PortNetworkPolicyRule{
+				Deny:           l7.GetDeny(),
 				RemotePolicies: selections.AsUint32Slice(),
-			}
+			})
 		}
 	}
 
 	// Get selections for each selector and count how many there are
-	sels := make([][]uint32, 0, len(selectors))
-	wildcardFound := false
-	var count int
+	allowSlices := make([][]uint32, 0, len(selectors))
+	denySlices := make([][]uint32, 0, len(selectors))
+	wildcardAllowFound := false
+	wildcardDenyFound := false
+	var allowCount, denyCount int
 	for sel, l7 := range selectors {
 		if sel.IsWildcard() {
-			wildcardFound = true
-			break
+			if l7.GetDeny() {
+				wildcardDenyFound = true
+				break
+			} else {
+				wildcardAllowFound = true
+			}
 		}
 
 		if l7.IsRedirect() {
@@ -1615,30 +1628,52 @@ func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors po
 		if len(selections) == 0 {
 			continue
 		}
-		count += len(selections)
-		sels = append(sels, selections.AsUint32Slice())
-	}
-
-	var remotePolicies []uint32
-
-	if wildcardFound {
-		// Optimize the policy if the endpoint selector is a wildcard by
-		// keeping remote policies list empty to match all remote policies.
-	} else if count == 0 {
-		// No remote policies would match this rule. Discard it.
-		return nil
-	} else {
-		// allocate slice and copy selected identities
-		remotePolicies = make([]uint32, 0, count)
-		for _, selections := range sels {
-			remotePolicies = append(remotePolicies, selections...)
+		if l7.GetDeny() {
+			denyCount += len(selections)
+			denySlices = append(denySlices, selections.AsUint32Slice())
+		} else {
+			allowCount += len(selections)
+			allowSlices = append(allowSlices, selections.AsUint32Slice())
 		}
-		slices.Sort(remotePolicies)
-		remotePolicies = slices.Compact(remotePolicies)
 	}
-	return &cilium.PortNetworkPolicyRule{
-		RemotePolicies: remotePolicies,
+
+	if wildcardDenyFound {
+		return append(rules, &cilium.PortNetworkPolicyRule{
+			Deny: true,
+		})
 	}
+	if len(denySlices) > 0 {
+		// allocate slice and copy selected identities
+		denies := make([]uint32, 0, denyCount)
+		for _, selections := range denySlices {
+			denies = append(denies, selections...)
+		}
+		slices.Sort(denies)
+		denies = slices.Compact(denies)
+
+		rules = append(rules, &cilium.PortNetworkPolicyRule{
+			Deny:           true,
+			RemotePolicies: denies,
+		})
+	}
+
+	if wildcardAllowFound {
+		rules = append(rules, &cilium.PortNetworkPolicyRule{})
+	} else if len(allowSlices) > 0 {
+		// allocate slice and copy selected identities
+		allows := make([]uint32, 0, allowCount)
+		for _, selections := range allowSlices {
+			allows = append(allows, selections...)
+		}
+		slices.Sort(allows)
+		allows = slices.Compact(allows)
+
+		rules = append(rules, &cilium.PortNetworkPolicyRule{
+			RemotePolicies: allows,
+		})
+	}
+
+	return rules
 }
 
 func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
@@ -1655,54 +1690,92 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 	version := ep.GetPolicyVersionHandle()
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, l4Policy.Len())
-	l4Policy.ForEach(func(l4 *policy.L4Filter) bool {
-		var protocol envoy_config_core.SocketAddress_Protocol
-		switch l4.U8Proto {
-		case u8proto.TCP, u8proto.ANY:
-			protocol = envoy_config_core.SocketAddress_TCP
-		default:
-			// Other protocol rules not sent to Envoy for now.
-			return true
+	wildcardAllowAll := false
+	wildcardDenyAll := false
+
+	// Check for wildcard port policy first
+	addWildcardRules := func(l4 *policy.L4Filter) {
+		if l4 == nil {
+			return
 		}
 
-		port := l4.Port
-		if port == 0 && l4.PortName != "" {
-			port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto)
-			if port == 0 {
-				return true // Skip if a named port can not be resolved (yet)
-			}
-		}
+		wildcardRules := getWildcardNetworkPolicyRules(version, l4.PerSelectorPolicies)
 
-		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
-		allowAll := false
+		for _, rule := range wildcardRules {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:       ep.GetID(),
+				logfields.Version:          version,
+				logfields.TrafficDirection: dir,
+				logfields.Port:             "0",
+				logfields.IsDeny:           rule.Deny,
+				logfields.PolicyID:         rule.RemotePolicies,
+			}).Debug("Wildcard PortNetworkPolicyRule matching remote IDs")
 
-		// Assume none of the rules have side-effects so that rule evaluation can
-		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
-		// is set to 'false' below if any rules with side effects are encountered,
-		// causing all the applicable rules to be evaluated instead.
-		canShortCircuit := true
-
-		if port == 0 {
-			// L3-only rule, must generate L7 allow-all in case there are other
-			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
-			rule := getWildcardNetworkPolicyRule(version, l4.PerSelectorPolicies)
-			if rule != nil {
-				log.WithFields(logrus.Fields{
-					logfields.EndpointID:       ep.GetID(),
-					logfields.Version:          version,
-					logfields.TrafficDirection: dir,
-					logfields.Port:             port,
-					logfields.PolicyID:         rule.RemotePolicies,
-				}).Debug("Wildcard PortNetworkPolicyRule matching remote IDs")
-
-				if len(rule.RemotePolicies) == 0 {
+			if len(rule.RemotePolicies) == 0 {
+				if rule.Deny {
+					// Got an deny-all rule, which short-circuits all of
+					// the other rules.
+					wildcardDenyAll = true
+				} else {
 					// Got an allow-all rule, which can short-circuit all of
 					// the other rules.
-					allowAll = true
+					wildcardAllowAll = true
 				}
-				rules = append(rules, rule)
 			}
+		}
+
+		if len(wildcardRules) > 0 {
+			PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+				Port:     0,
+				EndPort:  0,
+				Protocol: envoy_config_core.SocketAddress_TCP,
+				Rules:    SortPortNetworkPolicyRules(wildcardRules),
+			})
 		} else {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:       ep.GetID(),
+				logfields.TrafficDirection: dir,
+				logfields.Port:             "0",
+			}).Debug("Skipping wildcard PortNetworkPolicy due to no matching remote identities")
+		}
+	}
+
+	addWildcardRules(l4Policy.ExactLookup("0", 0, u8proto.ANY.String()))
+	addWildcardRules(l4Policy.ExactLookup("0", 0, u8proto.TCP.String()))
+
+	if !wildcardDenyAll {
+		l4Policy.ForEach(func(l4 *policy.L4Filter) bool {
+			var protocol envoy_config_core.SocketAddress_Protocol
+			switch l4.U8Proto {
+			case u8proto.TCP, u8proto.ANY:
+				protocol = envoy_config_core.SocketAddress_TCP
+			default:
+				// Other protocol rules not sent to Envoy for now.
+				return true
+			}
+
+			port := l4.Port
+			if port == 0 && l4.PortName != "" {
+				port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto)
+			}
+
+			// Skip if a named port can not be resolved (yet)
+			// wildcard port already taken care of above
+			if port == 0 {
+				return true
+			}
+
+			rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
+
+			// Assume none of the rules have side-effects so that rule evaluation can
+			// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
+			// is set to 'false' below if any rules with side effects are encountered,
+			// causing all the applicable rules to be evaluated instead.
+			// Also set to 'false' if any deny rules exist.
+			canShortCircuit := true
+			var allowAllRule *cilium.PortNetworkPolicyRule
+			var denyAllRule *cilium.PortNetworkPolicyRule
+
 			for sel, l7 := range l4.PerSelectorPolicies {
 				rule, cs := getPortNetworkPolicyRule(version, sel, l4.L7Parser, l7, useFullTLSContext, useSDS, policySecretsNamespace)
 				if rule != nil {
@@ -1719,47 +1792,66 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 						logfields.ServerNames:      rule.ServerNames,
 					}).Debug("PortNetworkPolicyRule matching remote IDs")
 
+					if rule.Deny && len(rule.RemotePolicies) == 0 {
+						// Got an deny-all rule, which short-circuits all of
+						// the other rules on this port.
+						denyAllRule = rule
+						rules = []*cilium.PortNetworkPolicyRule{denyAllRule}
+						break
+					}
+
 					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 {
+
 						// Got an allow-all rule, which can short-circuit all of
-						// the other rules.
-						allowAll = true
+						// the other rules on this port.
+						allowAllRule = rule
 					}
 					rules = append(rules, rule)
 				}
 			}
-		}
-		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
-		if allowAll && canShortCircuit {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:       ep.GetID(),
-				logfields.TrafficDirection: dir,
-				logfields.Port:             port,
-			}).Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
-			rules = nil
-		}
 
-		// No rule for this port matches any remote identity.
-		// This means that no traffic was explicitly allowed for this port.
-		// In this case, just don't generate any PortNetworkPolicy for this
-		// port.
-		if !allowAll && len(rules) == 0 {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:       ep.GetID(),
-				logfields.TrafficDirection: dir,
-				logfields.Port:             port,
-			}).Debug("Skipping PortNetworkPolicy due to no matching remote identities")
+			// No rule for this port matches any remote identity.
+			// In this case, just don't generate any PortNetworkPolicy for this
+			// port.
+			if len(rules) == 0 {
+				log.WithFields(logrus.Fields{
+					logfields.EndpointID:       ep.GetID(),
+					logfields.TrafficDirection: dir,
+					logfields.Port:             port,
+				}).Debug("Skipping PortNetworkPolicy due to no matching remote identities")
+				return true
+			}
+
+			// Short-circuit rules if a rule allows all and all other rules can be short-circuited
+			if denyAllRule == nil && canShortCircuit {
+				if wildcardAllowAll {
+					log.WithFields(logrus.Fields{
+						logfields.EndpointID:       ep.GetID(),
+						logfields.TrafficDirection: dir,
+						logfields.Port:             port,
+					}).Debug("Short circuiting HTTP rules due to wildcard allowing all and no other rules needing attention")
+					return true
+				}
+				if allowAllRule != nil {
+					log.WithFields(logrus.Fields{
+						logfields.EndpointID:       ep.GetID(),
+						logfields.TrafficDirection: dir,
+						logfields.Port:             port,
+					}).Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
+					rules = nil
+				}
+			}
+
+			// NPDS supports port ranges.
+			PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+				Port:     uint32(port),
+				EndPort:  uint32(l4.EndPort),
+				Protocol: protocol,
+				Rules:    SortPortNetworkPolicyRules(rules),
+			})
 			return true
-		}
-
-		// NPDS supports port ranges.
-		PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-			Port:     uint32(port),
-			EndPort:  uint32(l4.EndPort),
-			Protocol: protocol,
-			Rules:    SortPortNetworkPolicyRules(rules),
 		})
-		return true
-	})
+	}
 
 	if len(PerPortPolicies) == 0 {
 		return nil
