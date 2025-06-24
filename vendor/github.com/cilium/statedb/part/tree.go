@@ -26,9 +26,6 @@ func New[T any](opts ...Option) *Tree[T] {
 		size: 0,
 		opts: o,
 	}
-	if !o.noCache() {
-		t.txn = newTxn[T](o)
-	}
 	return t
 }
 
@@ -63,6 +60,11 @@ func (t *Tree[T]) Txn() *Txn[T] {
 		txn = t.txn
 		txn.mutated.clear()
 		clear(txn.watches)
+
+		// Clear the txn from the original tree. This 'txn' will be passed
+		// on to the tree produced by Commit*() allowing reuse of it later
+		// in that lineage.
+		t.txn = nil
 	} else {
 		txn = newTxn[T](t.opts)
 	}
