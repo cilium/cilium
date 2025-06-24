@@ -243,6 +243,20 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	err = ops.LBMaps.DumpService(func(key maps.ServiceKey, value maps.ServiceValue) {
 		key = key.ToHost()
 		value = value.ToHost()
+
+		// Handle wildcard service entries separately (port 0, proto ANY)
+		if key.GetPort() == 0 && key.GetProtocol() == uint8(u8proto.ANY) {
+			ip := key.GetAddress()
+			ipKey := ip.String()
+			serviceID := loadbalancer.ID(value.GetRevNat())
+
+			if ops.wildcardServicesByIP[ipKey] == nil {
+				ops.wildcardServicesByIP[ipKey] = sets.New[loadbalancer.ID]()
+			}
+			ops.wildcardServicesByIP[ipKey].Insert(serviceID)
+			return
+		}
+
 		addr := svcKeyToAddr(key)
 		s := slices.Grow(serviceSlots[addr], key.GetBackendSlot()+1)
 		s = s[:max(len(s), key.GetBackendSlot()+1)]
@@ -473,6 +487,13 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
 			Scope:       svcKey.GetScope(),
 		}
+
+		// Skip wildcard service entries (port 0, proto ANY) used for ICMP echo replies
+		// and traffic dropping. These are managed separately with reference counting.
+		if svcKey.GetPort() == 0 && svcKey.GetProtocol() == uint8(u8proto.ANY) {
+			return
+		}
+
 		expectedSlots := 0
 		if bes, ok := ops.backendReferences[addr]; ok {
 			expectedSlots = 1 + len(bes)
@@ -1019,12 +1040,12 @@ func (ops *BPFOps) upsertWildcardServiceEntry(fe *loadbalancer.Frontend, feID lo
 
 	// Create a key to identify this IP for tracking
 	ipKey := ip.String()
-	
+
 	// Add this service ID to the set of services with wildcard entries for this IP
 	if ops.wildcardServicesByIP[ipKey] == nil {
 		ops.wildcardServicesByIP[ipKey] = sets.New[loadbalancer.ID]()
 	}
-	
+
 	// If this is the first service on this IP, create the wildcard entry
 	isFirstService := len(ops.wildcardServicesByIP[ipKey]) == 0
 	ops.wildcardServicesByIP[ipKey].Insert(feID)
