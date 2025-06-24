@@ -6,6 +6,7 @@ package api
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 )
 
 // Methods in this file are only used on Linux paired with the MonitorEvent interface.
@@ -13,9 +14,9 @@ import (
 // Dump prints the message according to the verbosity level specified
 func (n *AgentNotify) Dump(args *DumpArgs) {
 	if args.Verbosity == JSON {
-		n.DumpJSON()
+		fmt.Fprintln(args.Buf, n.getJSON())
 	} else {
-		n.DumpInfo()
+		fmt.Fprintf(args.Buf, ">> %s: %s\n", resolveAgentType(n.Type), n.Text)
 	}
 }
 
