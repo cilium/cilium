@@ -88,8 +88,8 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 				}
 				p.logger.Debug("upserting health status",
 					logfields.LastLevel, lastLevel,
-					logfields.ReporterID, s.ID.String(),
-					logfields.Status, s.String(),
+					logfields.ReporterID, s.ID,
+					logfields.Status, s,
 				)
 			}
 

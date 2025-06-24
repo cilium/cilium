@@ -521,7 +521,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		alloc := sv.AllocatedIPs[allocIdx]
 
 		releaseAllocIP := func() {
-			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP.String(), sv.Key.String()))
+			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP, sv.Key))
 			sharingGroup, _ := alloc.Origin.alloc.Get(alloc.IP)
 
 			idx := slices.Index(sharingGroup, sv)
@@ -940,7 +940,7 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 				continue
 			}
 		} else {
-			ipam.logger.Debug(fmt.Sprintf("Allocate '%s' for '%s'", reqIP.String(), sv.Key.String()))
+			ipam.logger.Debug(fmt.Sprintf("Allocate '%s' for '%s'", reqIP, sv.Key))
 			err = lbRange.alloc.Alloc(reqIP, []*ServiceView{sv})
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {

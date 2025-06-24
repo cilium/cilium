@@ -21,11 +21,11 @@ func (c *Controller) processNamespaceEvents(ctx context.Context) error {
 	for event := range c.namespace.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Namespace event ", logfields.K8sNamespace, event.Key.String())
+			c.logger.Debug("Got Upsert Namespace event ", logfields.K8sNamespace, event.Key)
 
 			c.onNamespaceUpsert(event.Object)
 		case resource.Delete:
-			c.logger.Debug("Got Delete Namespace event ", logfields.K8sNamespace, event.Key.String())
+			c.logger.Debug("Got Delete Namespace event ", logfields.K8sNamespace, event.Key)
 
 			c.onNamespaceDelete(event.Object)
 		}
