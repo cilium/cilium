@@ -22,8 +22,6 @@ import (
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides the EndpointManager which maintains the collection of locally
@@ -91,9 +89,6 @@ type EndpointsLookup interface {
 
 	// IngressEndpointExists returns true if the ingress endpoint exists.
 	IngressEndpointExists() bool
-
-	// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
-	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
 }
 
 type EndpointsModify interface {
@@ -151,19 +146,6 @@ type EndpointManager interface {
 	// InitHostEndpointLabels initializes the host endpoint's labels with the
 	// node's known labels.
 	InitHostEndpointLabels(ctx context.Context)
-
-	// GetPolicyEndpoints returns a map of all endpoints present in endpoint
-	// manager as policy.Endpoint interface set for the map key.
-	GetPolicyEndpoints() map[policy.Endpoint]struct{}
-
-	// CallbackForEndpointsAtPolicyRev registers a callback on all endpoints that
-	// exist when invoked. It is similar to WaitForEndpointsAtPolicyRevision but
-	// each endpoint that reaches the desired revision calls 'done' independently.
-	// The provided callback should not block and generally be lightweight.
-	CallbackForEndpointsAtPolicyRev(ctx context.Context, rev uint64, done func(time.Time)) error
-
-	// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
-	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
 
 	// UpdatePolicy triggers policy updates for all live endpoints.
 	// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
