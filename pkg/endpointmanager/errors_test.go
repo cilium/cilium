@@ -10,8 +10,6 @@ import (
 )
 
 func TestErrInvalidPrefix_Error(t *testing.T) {
-	setupEndpointManagerSuite(t)
-
 	type args struct {
 		err ErrInvalidPrefix
 	}
@@ -48,8 +46,6 @@ func TestErrInvalidPrefix_Error(t *testing.T) {
 }
 
 func TestIsErrUnsupportedID(t *testing.T) {
-	setupEndpointManagerSuite(t)
-
 	type args struct {
 		err error
 	}
@@ -99,8 +95,6 @@ func TestIsErrUnsupportedID(t *testing.T) {
 }
 
 func TestIsErrInvalidPrefix(t *testing.T) {
-	setupEndpointManagerSuite(t)
-
 	type args struct {
 		err error
 	}
