@@ -24,9 +24,6 @@ Enable Multi-pool IPAM mode
 #. Setup Cilium for Kubernetes using helm with the options:
 
    * ``--set ipam.mode=multi-pool``
-   * ``--set routingMode=native``
-   * ``--set autoDirectNodeRoutes=true``
-   * ``--set ipv4NativeRoutingCIDR=10.0.0.0/8``
    * ``--set kubeProxyReplacement=true``
    * ``--set bpf.masquerade=true``
 
