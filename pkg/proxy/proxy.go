@@ -117,7 +117,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				fieldProxyRedirectID, id,
 				logfields.Listener, l4.GetListener(),
 				logfields.L7Parser, l4.GetL7Parser(),
-				logfields.Object, logfields.Repr(existingRedirect),
+				logfields.Object, existingRedirect,
 				logfields.ProxyType, existingRedirect.proxyPort.ProxyType)
 
 			// Must return the proxy port when successful
@@ -230,7 +230,7 @@ func (p *Proxy) createNewRedirect(
 	}
 
 	scopedLog.Info("Created new proxy instance",
-		logfields.Object, logfields.Repr(redirect),
+		logfields.Object, redirect,
 		logfields.ProxyPort, pp.ProxyPort)
 
 	p.redirects[id] = impl

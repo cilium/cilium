@@ -237,14 +237,14 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 				m.logger.Warn("Endpoint has bandwidth annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
 					logfields.Annotation, bandwidth.IngressBandwidth,
-					logfields.Annotations, logfields.Repr(pod.Annotations),
+					logfields.Annotations, pod.Annotations,
 				)
 			}
 			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !m.bandwidthManager.Enabled() {
 				m.logger.Warn("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
 					logfields.Annotation, bandwidth.EgressBandwidth,
-					logfields.Annotations, logfields.Repr(pod.Annotations),
+					logfields.Annotations, pod.Annotations,
 				)
 			}
 			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
