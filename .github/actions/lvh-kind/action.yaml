@@ -26,7 +26,7 @@ runs:
   using: composite
   steps:
     - name: Provision LVH VMs
-      uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+      uses: cilium/little-vm-helper@e211bea46ffa2d2b96d263909787aa34c1892262 # v0.0.23
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
