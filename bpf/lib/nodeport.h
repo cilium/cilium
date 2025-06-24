@@ -1512,6 +1512,26 @@ skip_service_lookup:
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+
+#ifdef ENABLE_MASQUERADE_IPV4
+/* If dual port range is enabled, we use two separate ranges for SNAT.
+ * Otherwise, we fall back to the default single range.
+ */
+# ifdef ENABLE_IPV4_MASQ_DUAL_PORT_RANGE
+#  define NODEPORT_PORT_NAT_IPV4_RANGE1_MIN 1024
+#  define NODEPORT_PORT_NAT_IPV4_RANGE1_MAX 29999
+#  define NODEPORT_PORT_NAT_IPV4_RANGE2_MIN 32768
+#  define NODEPORT_PORT_NAT_IPV4_RANGE2_MAX 65535
+// Define the pre-calculated threshold for the weighted distribution.
+// This value is approximately ((30000 - 1024) / ((30000 - 1024) + (65536 - 32768))) * UINT32_MAX
+#  define IPV4_MASQ_DUAL_PORT_RANGE_THRESHOLD 2015596209U  // Use 'U' suffix for unsigned literal
+# else
+/* Fallback to original single range if dual port range is not enabled */
+#  define NODEPORT_PORT_NAT_IPV4_MIN NODEPORT_PORT_MIN_NAT
+#  define NODEPORT_PORT_NAT_IPV4_MAX NODEPORT_PORT_MAX_NAT
+# endif /* ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
+#endif /* ENABLE_MASQUERADE_IPV4 */
+
 static __always_inline bool nodeport_uses_dsr4(const struct lb4_service *svc,
 					       const struct ipv4_ct_tuple *tuple)
 {
@@ -2365,10 +2385,7 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
 static __always_inline
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
-	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
-	};
+	struct ipv4_nat_target target;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -2377,7 +2394,42 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret;
 
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(ENABLE_IPV4_MASQ_DUAL_PORT_RANGE)
+	/*
+	 * If expanded masquerade port ranges are enabled:
+	 * 1. Initialize the target struct to attempt RevNAT lookup in the new "low band"
+	 * port range (NODEPORT_PORT_NAT_IPV4_RANGE1_MIN/MAX).
+	 */
+	memset(&target, 0, sizeof(target));
+	target.min_port = NODEPORT_PORT_NAT_IPV4_RANGE1_MIN;
+	target.max_port = NODEPORT_PORT_NAT_IPV4_RANGE1_MAX;
 	ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
+
+	/*
+	 * 2. If no match is found in the low band range (and it's specifically "no mapping found",
+	 * not another error), then re-initialize the target struct and attempt lookup
+	 * in the original "high band" port range (NODEPORT_PORT_NAT_IPV4_RANGE2_MIN/MAX).
+	 * If NAT_PUNT_TO_STACK is returned, it means snat_v4_rev_nat_can_skip was true for RANGE1.
+	 */
+	if (ret == DROP_NAT_NO_MAPPING  || ret == NAT_PUNT_TO_STACK) {
+		memset(&target, 0, sizeof(target));
+		target.min_port = NODEPORT_PORT_NAT_IPV4_RANGE2_MIN;
+		target.max_port = NODEPORT_PORT_NAT_IPV4_RANGE2_MAX;
+		ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
+	}
+#else
+	/*
+	 * Original behavior:
+	 * only perform RevNAT lookup in the default NodePort NAT range
+	 * (NODEPORT_PORT_MIN_NAT/NODEPORT_PORT_MAX_NAT).
+	 */
+	target = (struct ipv4_nat_target){
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+	};
+
+	ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
+#endif /* ENABLE_MASQUERADE_IPV4 && ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a
@@ -2462,16 +2514,12 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 			.ifindex	= ctx_get_ifindex(ctx),
 		},
 	};
-	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
-		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
-		 * So we need to assume that the direct routing device is going to be
-		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
-		 * This will change once we have resolved GH#17158.
-		 */
-		.addr = IPV4_DIRECT_ROUTING,
-	};
+	__u16 selected_min_port;
+	__u16 selected_max_port;
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(ENABLE_IPV4_MASQ_DUAL_PORT_RANGE)
+	__u32 random_val;
+#   endif /* ENABLE_MASQUERADE_IPV4 && ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
+	struct ipv4_nat_target target;
 	struct ipv4_ct_tuple tuple = {};
 	struct trace_ctx trace = {
 		.reason = (enum trace_reason)CT_NEW,
@@ -2489,6 +2537,33 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	struct remote_endpoint_info *info;
 	__be32 tunnel_endpoint = 0;
 #endif
+
+#   if defined(ENABLE_MASQUERADE_IPV4) && defined(ENABLE_IPV4_MASQ_DUAL_PORT_RANGE)
+	random_val = get_prandom_u32();
+	// If random_val is less than the threshold, select RANGE1 (the "first" range)
+	if (random_val < IPV4_MASQ_DUAL_PORT_RANGE_THRESHOLD) {
+		selected_min_port = NODEPORT_PORT_NAT_IPV4_RANGE1_MIN;
+		selected_max_port = NODEPORT_PORT_NAT_IPV4_RANGE1_MAX;
+	} else { // Otherwise, select RANGE2 (the "second" range)
+		selected_min_port = NODEPORT_PORT_NAT_IPV4_RANGE2_MIN;
+		selected_max_port = NODEPORT_PORT_NAT_IPV4_RANGE2_MAX;
+	}
+#   elif defined(ENABLE_MASQUERADE_IPV4)
+	selected_min_port = NODEPORT_PORT_NAT_IPV4_MIN;
+	selected_max_port = NODEPORT_PORT_NAT_IPV4_MAX;
+#   else
+	selected_min_port = NODEPORT_PORT_MIN_NAT;
+	selected_max_port = NODEPORT_PORT_MAX_NAT;
+#   endif /* ENABLE_MASQUERADE_IPV4 && ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
+	memset(&target, 0, sizeof(target));
+	target.min_port = selected_min_port;
+	target.max_port = selected_max_port;
+	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
+	 * So we need to assume that the direct routing device is going to be
+	 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
+	 * This will change once we have resolved GH#17158.
+	 */
+	target.addr = IPV4_DIRECT_ROUTING;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;

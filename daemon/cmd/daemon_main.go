@@ -550,6 +550,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
 
+	flags.Bool(option.EnableIPv4MasqueradeDualPortRange, false, fmt.Sprintf("Enable dual port range for NodePort services (requires enabling %s)", option.EnableIPv4Masquerade))
+	option.BindEnv(vp, option.EnableIPv4MasqueradeDualPortRange)
+
 	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv6Masquerade)
 
@@ -1288,6 +1291,10 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 				),
 			)
 		}
+	}
+
+	if option.Config.EnableIPv4MasqueradeDualPortRange && !option.Config.EnableIPv4Masquerade {
+		logging.Fatal(logger, "Dual port range for IPv4 masquerading requires IPv4 masquerading to be enabled")
 	}
 }
 

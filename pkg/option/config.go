@@ -222,6 +222,9 @@ const (
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
+	// EnableDualPortRange enables the dual port range feature for NodePort SNAT.
+	EnableIPv4MasqueradeDualPortRange = "enable-ipv4-masq-dual-port-range"
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
@@ -1472,11 +1475,13 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	EnableIPv4Masquerade        bool
-	EnableIPv6Masquerade        bool
-	EnableBPFMasquerade         bool
-	EnableMasqueradeRouteSource bool
-	EnableIPMasqAgent           bool
+	EnableIPv4Masquerade              bool
+	EnableIPv6Masquerade              bool
+	EnableBPFMasquerade               bool
+	EnableMasqueradeRouteSource       bool
+	EnableIPv4MasqueradeDualPortRange bool
+	EnableIPMasqAgent                 bool
+	IPMasqAgentConfigPath             string
 
 	EnableBPFClockProbe    bool
 	EnableEgressGateway    bool
@@ -2645,6 +2650,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
+	c.EnableIPv4MasqueradeDualPortRange = vp.GetBool(EnableIPv4MasqueradeDualPortRange)
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.EnableMasqueradeRouteSource = vp.GetBool(EnableMasqueradeRouteSource)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)

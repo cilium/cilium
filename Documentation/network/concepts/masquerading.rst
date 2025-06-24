@@ -160,6 +160,24 @@ and ``--set ipMasqAgent.config.masqLinkLocal=false`` (or with the corresponding
 option, for IPv6) when installing Cilium via Helm to
 configure the ``ip-masq-agent`` as above.
 
+Dual-port range for masquerading
+**********************************
+
+For environments that require a large number of connections to be masqueraded,
+Cilium can be configured to use two separate port ranges for SNAT. This
+effectively increases the number of available ports for masquerading.
+
+When enabled, the following port ranges are used for SNAT:
+
+- ``1024-29999``
+- ``32768-65535``
+
+This feature can be enabled with the Helm option ``enableIPv4MasqueradeDualPortRange: true`` or the agent flag ``--enable-ipv4-masq-dual-port-range``.
+
+.. note::
+
+   This feature requires eBPF-based ipv4 masquerading to be enabled (``enable-ipv4-masquerade=true``).
+
 iptables-based
 **************
 

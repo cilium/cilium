@@ -540,6 +540,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if option.Config.EnableIPv4Masquerade {
 				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 
+				if option.Config.EnableIPv4MasqueradeDualPortRange {
+					cDefinesMap["ENABLE_IPV4_MASQ_DUAL_PORT_RANGE"] = "1"
+				}
+
 				// ip-masq-agent depends on bpf-masq
 				var excludeCIDR *cidr.CIDR
 				if option.Config.EnableIPMasqAgent {

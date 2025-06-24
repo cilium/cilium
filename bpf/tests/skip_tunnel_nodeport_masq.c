@@ -237,8 +237,17 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	if (snat) {
 		__be16 p = bpf_ntohs(l4->source);
 
+#ifdef ENABLE_DUAL_PORT_RANGE
+		bool in_range1 = (p >= NODEPORT_PORT_NAT_IPV4_RANGE1_MIN &&
+				  p <= NODEPORT_PORT_NAT_IPV4_RANGE1_MAX);
+		bool in_range2 = (p >= NODEPORT_PORT_NAT_IPV4_RANGE2_MIN &&
+				  p <= NODEPORT_PORT_NAT_IPV4_RANGE2_MAX);
+    	if (!(in_range1 || in_range2))
+        	test_fatal("src port was not snatted into the correct NodePort masquerade ranges");
+#else
 		if (p < NODEPORT_PORT_MIN_NAT || p > NODEPORT_PORT_MAX_NAT)
 			test_fatal("src port was not snatted");
+#endif
 	} else {
 		if (l4->source != SRC_PORT)
 			test_fatal("src port was changed");
