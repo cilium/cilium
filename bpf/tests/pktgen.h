@@ -82,6 +82,12 @@ static volatile const __section(".rodata") __u8 v6_node_two[] = {0xfd, 0x06, 0, 
 static volatile const __section(".rodata") __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
 
+#define v6_ext_node_one_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+#define v6_ext_node_two_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, }
+
+volatile const __u8 v6_ext_node_one[] = v6_ext_node_one_addr;
+volatile const __u8 v6_ext_node_two[] = v6_ext_node_two_addr;
+
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)
 #define tcp_src_two	__bpf_htons(33440)
@@ -470,6 +476,20 @@ __attribute__((warn_unused_result))
 struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct sctphdr), PKT_LAYER_SCTP);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct sctphdr *pktgen__push_default_sctphdr(struct pktgen *builder)
+{
+	struct sctphdr *hdr = pktgen__push_sctphdr(builder);
+
+	if (!hdr)
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	return hdr;
 }
 
 /* Push an empty UDP header onto the packet */
