@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mackerelio/go-osstat/memory"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -1207,27 +1206,6 @@ func LogRegisteredSlogOptions(vp *viper.Viper, entry *slog.Logger) {
 			entry.Info(fmt.Sprintf("  --%s='%s'", k, strings.Join(ss, ",")))
 		} else {
 			entry.Info(fmt.Sprintf("  --%s='%s'", k, vp.GetString(k)))
-		}
-	}
-}
-
-// LogRegisteredOptions logs all options that where bound to viper.
-func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
-	keys := vp.AllKeys()
-	slices.Sort(keys)
-	for _, k := range keys {
-		ss := vp.GetStringSlice(k)
-		if len(ss) == 0 {
-			sm := vp.GetStringMap(k)
-			for k, v := range sm {
-				ss = append(ss, fmt.Sprintf("%s=%s", k, v))
-			}
-		}
-
-		if len(ss) > 0 {
-			entry.Infof("  --%s='%s'", k, strings.Join(ss, ","))
-		} else {
-			entry.Infof("  --%s='%s'", k, vp.GetString(k))
 		}
 	}
 }
