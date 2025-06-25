@@ -517,16 +517,14 @@ func (w *Writer) UpsertAndReleaseBackends(txn WriteTxn, serviceName loadbalancer
 	if err != nil {
 		return err
 	}
+	refs.Insert(serviceName)
 	for addr := range orphans {
 		be, _, ok := w.bes.Get(txn, loadbalancer.BackendByAddress(addr))
-		if !ok {
-			return statedb.ErrObjectNotFound
+		if ok {
+			if err := w.removeBackendRef(txn, serviceName, be); err != nil {
+				return err
+			}
 		}
-
-		if err := w.removeBackendRef(txn, serviceName, be); err != nil {
-			return err
-		}
-		refs.Insert(serviceName)
 	}
 
 	for svc := range refs {

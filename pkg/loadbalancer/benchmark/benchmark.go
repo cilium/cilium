@@ -477,7 +477,7 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 					if be.Address.AddrCluster != wantAddr {
 						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.Address.AddrCluster, wantAddr))
 					}
-					for _, wantPort := range wantBe.Ports { // There is only one element in this map.
+					for wantPort := range wantBe.Ports { // There is only one element in this map.
 						if be.Address.Port != wantPort.Port {
 							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Address.Port, wantPort.Port))
 						}

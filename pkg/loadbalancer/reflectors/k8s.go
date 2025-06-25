@@ -276,7 +276,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		}
 	}
 
-	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
+	currentEndpoints := map[string]endpointsEvent{}
 	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, kind resource.EventKind, allEps allEndpoints) {
 		switch kind {
 		case resource.Sync:
@@ -292,35 +292,44 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			// Upsert new or changed backends
 			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
 
-			// Release orphaned backends
-			orphans := []loadbalancer.L3n4Addr{}
-			for ep := range allEps.All() {
-				var newAddrs sets.Set[loadbalancer.L3n4Addr]
-				orph := currentBackends[ep.name]
-				if len(ep.backends) > 0 {
-					newAddrs = sets.New[loadbalancer.L3n4Addr]()
-					for addr, be := range ep.backends {
-						for _, l4Addr := range be.Ports {
-							l3n4Addr := loadbalancer.L3n4Addr{
-								AddrCluster: addr,
-								L4Addr:      *l4Addr,
+			// Find orphaned backends. We are using iter.Seq to avoid unnecessary allocations.
+			var orphans iter.Seq[loadbalancer.L3n4Addr] = func(yield func(loadbalancer.L3n4Addr) bool) {
+				for ep := range allEps.All() {
+					previous, found := currentEndpoints[ep.name]
+					if !found {
+						continue
+					}
+					for addr, prevBe := range previous.backends {
+						be, foundBe := ep.backends[addr]
+						for l4Addr := range prevBe.Ports {
+							foundPort := false
+							if foundBe {
+								_, foundPort = be.Ports[l4Addr]
 							}
-							newAddrs.Insert(l3n4Addr)
-							if orphans != nil {
-								orph.Delete(l3n4Addr)
+							if !foundPort {
+								if !yield(
+									loadbalancer.L3n4Addr{
+										AddrCluster: addr,
+										L4Addr:      l4Addr,
+									}) {
+									return
+								}
 							}
 						}
 					}
 				}
-				orphans = append(orphans, orph.UnsortedList()...)
-				if newAddrs.Len() == 0 {
-					delete(currentBackends, ep.name)
+			}
+
+			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, orphans)
+
+			for ep := range allEps.All() {
+				if len(ep.backends) == 0 {
+					delete(currentEndpoints, ep.name)
 				} else {
-					currentBackends[ep.name] = newAddrs
+					currentEndpoints[ep.name] = ep
 				}
 			}
 
-			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, slices.Values(orphans))
 			rh.update("eps:"+name.String(), err)
 
 		case resource.Delete:
