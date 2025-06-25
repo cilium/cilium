@@ -137,6 +137,8 @@ jobs:
             --set=kubeProxyReplacement=true \
             --set=operator.replicas=1 \
             --set=updateStrategy.rollingUpdate.maxUnavailable=100% \
+            --set=ipam.mode=\"cluster-pool\" \
+            --set=ipam.operator.clusterPoolIPv4PodCIDRList[0]=\"10.0.0.0/9\" \
             --wait=false"
 
           # only add SHA to the image tags if VERSION is not set
@@ -240,13 +242,17 @@ jobs:
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
-          node_size: e2-standard-8
+          control_plane_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'n2-standard-8' || 'n2-standard-16' }}
+          control_plane_count: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 1 || 3 }}
+          node_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'n2-standard-8' || 'n2-standard-16' }}
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          node_cidr: 10.255.0.0/16
           kube_proxy_enabled: false
+          sync_cloud_routes: false
+          etcd_volume_size: 250
+          max_in_flight: 200
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@3e496a64133e35f5a9f241ebc5eccd56653a92a5  # main
@@ -299,7 +305,7 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 4.0 || 8.0 }}
         timeout-minutes: 10
         run: |
           # Don't run any tasks at this point, just setup the monitoring stack
@@ -347,7 +353,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 60
+        timeout-minutes: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 60 || 120 }}
         env:
           CL2_ENABLE_PVS: "false"
           CL2_ENABLE_NETWORKPOLICIES: "true"
@@ -356,7 +362,7 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 4.0 || 8.0 }}
         run: |
           ./clusterloader \
             -v=2 \
