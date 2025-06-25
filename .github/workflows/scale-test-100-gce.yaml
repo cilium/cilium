@@ -124,6 +124,7 @@ jobs:
             --set=k8sServicePort=443 \
             --set=kubeProxyReplacement=true \
             --set=operator.replicas=1 \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=100% \
             --wait=false"
 
           # only add SHA to the image tags if VERSION is not set
@@ -333,7 +334,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 40
+        timeout-minutes: 60
         env:
           CL2_ENABLE_PVS: "false"
           CL2_ENABLE_NETWORKPOLICIES: "true"
@@ -347,7 +348,10 @@ jobs:
           ./clusterloader \
             -v=2 \
             --testconfig=./testing/load/config.yaml \
+            --testconfig=./testing/custom/common/restart.yaml \
             --testconfig=./testing/custom/netpol/config.yaml \
+            --testconfig=./testing/custom/common/restart.yaml \
+            --testconfig=./testing/custom/servicechurn/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
