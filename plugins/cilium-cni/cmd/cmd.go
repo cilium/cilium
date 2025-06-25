@@ -789,6 +789,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		// Specify that endpoint must be regenerated synchronously. See GH-4409.
 		ep.SyncBuildEndpoint = true
+		ep.ContainerNetnsPath = args.Netns
 		var newEp *models.Endpoint
 		if newEp, err = c.EndpointCreate(ep); err != nil {
 			scopedLogger.Warn(

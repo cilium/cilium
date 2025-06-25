@@ -1,0 +1,23 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+# This Makefile is expected to run inside the cilium-builder image to generate
+# the proto files. Run `make proto` on ./Makefile to invoke run this inside a
+# a container.
+
+PROTOC ?= protoc
+
+PROTO_SOURCES := ./zds.proto
+
+PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-go-grpc
+PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-go
+
+PROTO_PATH := .
+
+.PHONY: all
+all:
+	@echo Generating $(PROTO_SOURCES)
+	$(QUIET)$(PROTOC) $(PROTOC_PLUGINS) -I $(PROTO_PATH) \
+		--go_out=paths=source_relative:. \
+		--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
+		$(PROTO_SOURCES)

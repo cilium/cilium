@@ -340,6 +340,10 @@ spec:
         - name: cilium-netns
           mountPath: /var/run/cilium/netns
           mountPropagation: HostToContainer
+        # TODO: Only needed if ztunnel is enabled
+        - name: ztunnel-netns
+          mountPath: /var/run/netns
+          mountPropagation: HostToContainer
         - name: etc-cni-netd
           mountPath: {{ .Values.cni.hostConfDirMountPath }}
         {{- if .Values.etcd.enabled }}
@@ -848,6 +852,11 @@ spec:
           type: DirectoryOrCreate
         # To exec into pod network namespaces
       - name: cilium-netns
+        hostPath:
+          path: /var/run/netns
+          type: DirectoryOrCreate
+        # TODO: Only needed if ztunnel is enabled
+      - name: ztunnel-netns
         hostPath:
           path: /var/run/netns
           type: DirectoryOrCreate

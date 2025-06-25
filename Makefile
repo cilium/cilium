@@ -329,6 +329,9 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
+generate-zds-api:
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C pkg/zds/proto
+
 
 generate-sdp-api: api/v1/standalone-dns-proxy/standalone-dns-proxy.proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1

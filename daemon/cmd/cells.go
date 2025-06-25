@@ -79,6 +79,7 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/zds"
 )
 
 var (
@@ -341,6 +342,9 @@ var (
 
 		// Cilium Debuginfo API
 		debugapi.Cell,
+
+		// ZDS server for ztunnel
+		zds.Cell,
 	)
 )
 
