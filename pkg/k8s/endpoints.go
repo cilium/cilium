@@ -223,7 +223,7 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 			backend.Hostname = addr.Hostname
 
 			for _, port := range sub.Ports {
-				lbPort := *loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				if port.Name != "" {
 					backend.Ports[lbPort] = append(backend.Ports[lbPort], port.Name)
 				} else {
@@ -316,12 +316,12 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 			}
 
 			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPortV1Beta1(port)
-				if lbPort != nil {
+				name, lbPort, ok := parseEndpointPortV1Beta1(port)
+				if ok {
 					if name != "" {
-						backend.Ports[*lbPort] = append(backend.Ports[*lbPort], name)
+						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
 					} else {
-						backend.Ports[*lbPort] = nil
+						backend.Ports[lbPort] = nil
 					}
 				}
 			}
@@ -332,7 +332,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 
 // parseEndpointPortV1Beta1 returns the port name and the port parsed as a
 // L4Addr from the given port.
-func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (name string, addr loadbalancer.L4Addr, ok bool) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -343,18 +343,17 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 		case slim_corev1.ProtocolSCTP:
 			proto = loadbalancer.SCTP
 		default:
-			return "", nil
+			return
 		}
 	}
 	if port.Port == nil {
-		return "", nil
+		return
 	}
-	var name string
 	if port.Name != nil {
 		name = *port.Name
 	}
 	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return cache.Strings.Get(name), lbPort
+	return cache.Strings.Get(name), lbPort, true
 }
 
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
@@ -453,12 +452,12 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			}
 
 			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPortV1(port)
-				if lbPort != nil {
+				name, lbPort, ok := parseEndpointPortV1(port)
+				if ok {
 					if name != "" {
-						backend.Ports[*lbPort] = append(backend.Ports[*lbPort], name)
+						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
 					} else {
-						backend.Ports[*lbPort] = nil
+						backend.Ports[lbPort] = nil
 					}
 				}
 			}
@@ -482,7 +481,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 
 // parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from
 // the given port.
-func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (name string, addr loadbalancer.L4Addr, ok bool) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -493,18 +492,17 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 		case slim_corev1.ProtocolSCTP:
 			proto = loadbalancer.SCTP
 		default:
-			return "", nil
+			return
 		}
 	}
 	if port.Port == nil {
-		return "", nil
+		return
 	}
-	var name string
 	if port.Name != nil {
 		name = *port.Name
 	}
 	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return cache.Strings.Get(name), lbPort
+	return cache.Strings.Get(name), lbPort, true
 }
 
 // EndpointSlices is the collection of all endpoint slices of a service.

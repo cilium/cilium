@@ -232,7 +232,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 				return nil, fmt.Errorf("invalid address matcher port: %w", err)
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
-			fe = *lb.NewL3n4Addr(proto, addrCluster, p, lb.ScopeExternal)
+			fe = lb.NewL3n4Addr(proto, addrCluster, p, lb.ScopeExternal)
 			feMappings[i] = feMapping{
 				feAddr: fe,
 				fePort: lb.FEPortName(pName),
@@ -270,7 +270,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			// frontend ip will later be populated with the clusterIP of the service.
-			fe = *lb.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, lb.ScopeExternal)
+			fe = lb.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, lb.ScopeExternal)
 			feMappings[i] = feMapping{
 				feAddr: fe,
 				fePort: lb.FEPortName(pName),

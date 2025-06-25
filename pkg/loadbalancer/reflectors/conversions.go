@@ -204,12 +204,6 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			}
 
 			for _, port := range svc.Spec.Ports {
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					log().Debug("Skipping ClusterIP due to bad L4 type/port",
-						logfields.Port, port)
-					continue
-				}
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeClusterIP,
 					PortName:    loadbalancer.FEPortName(port.Name),
@@ -218,7 +212,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				}
 				fe.Address.AddrCluster = addr
 				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = *p
+				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				fes = append(fes, fe)
 			}
 		}
@@ -265,12 +259,8 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							continue
 						}
 
-						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
-						if p == nil {
-							continue
-						}
 						fe.Address.Scope = scope
-						fe.Address.L4Addr = *p
+						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
 						fes = append(fes, fe)
 					}
 				}
@@ -307,15 +297,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							ServicePort: uint16(port.Port),
 						}
 
-						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-						if p == nil {
-							log().Debug("Skipping LoadBalancer due to bad L4 type/port",
-								logfields.Port, port)
-							continue
-						}
 						fe.Address.AddrCluster = addr
 						fe.Address.Scope = scope
-						fe.Address.L4Addr = *p
+						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 						fes = append(fes, fe)
 					}
 				}
@@ -347,16 +331,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 					ServicePort: uint16(port.Port),
 				}
 
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					log().Debug("Skipping ExternalIP due to bad L4 type/port",
-						logfields.Port, port)
-					continue
-				}
-
 				fe.Address.AddrCluster = addr
 				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = *p
+				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				fes = append(fes, fe)
 			}
 		}
