@@ -81,7 +81,7 @@ func startKvstoreWatchdog(logger *slog.Logger, client kvstore.Client) {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			keysToDelete2, err := a.RunLocksGC(ctx, keysToDelete)
 			if err != nil {
-				logger.Warn("Unable to run security identity garbage collector", logfields.Error, err)
+				logger.WarnContext(ctx, "Unable to run security identity garbage collector", logfields.Error, err)
 			} else {
 				keysToDelete = keysToDelete2
 			}

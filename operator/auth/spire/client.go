@@ -139,9 +139,9 @@ func NewClient(params params, lc cell.Lifecycle, authCfg MutualAuthConfig, cfg C
 	return client
 }
 
-func (c *Client) onStart(_ cell.HookContext) error {
+func (c *Client) onStart(ctx cell.HookContext) error {
 	go func() {
-		c.log.Info("Initializing SPIRE client")
+		c.log.InfoContext(ctx, "Initializing SPIRE client")
 		attempts := 0
 		backoffTime := backoff.Exponential{Logger: c.log, Min: 100 * time.Millisecond, Max: 10 * time.Second}
 		for {
@@ -153,12 +153,13 @@ func (c *Client) onStart(_ cell.HookContext) error {
 				c.entryMutex.Unlock()
 				break
 			}
-			c.log.Warn("Unable to connect to SPIRE server",
+			c.log.WarnContext(ctx,
+				"Unable to connect to SPIRE server",
 				logfields.Attempt, attempts+1,
 				logfields.Error, err)
 			time.Sleep(backoffTime.Duration(attempts))
 		}
-		c.log.Info("Initialized SPIRE client")
+		c.log.InfoContext(ctx, "Initialized SPIRE client")
 	}()
 	return nil
 }
@@ -169,7 +170,8 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 
 	resolvedTarget, err := resolvedK8sService(ctx, c.k8sClient, c.cfg.SpireServerAddress)
 	if err != nil {
-		c.log.Warn("Unable to resolve SPIRE server address, using original value",
+		c.log.WarnContext(ctx,
+			"Unable to resolve SPIRE server address, using original value",
 			logfields.Error, err,
 			logfields.URL, c.cfg.SpireServerAddress)
 		resolvedTarget = &c.cfg.SpireServerAddress
@@ -193,7 +195,8 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(trustedDomain))
 
-	c.log.Info("Trying to connect to SPIRE server",
+	c.log.InfoContext(ctx,
+		"Trying to connect to SPIRE server",
 		logfields.Address, c.cfg.SpireServerAddress,
 		logfields.IPAddr, resolvedTarget)
 	conn, err := grpc.NewClient(*resolvedTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
@@ -201,7 +204,8 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 		return nil, fmt.Errorf("failed to create connection to SPIRE server: %w", err)
 	}
 
-	c.log.Info("Connected to SPIRE server",
+	c.log.InfoContext(ctx,
+		"Connected to SPIRE server",
 		logfields.Address, c.cfg.SpireServerAddress,
 		logfields.IPAddr, resolvedTarget)
 	return conn, nil
