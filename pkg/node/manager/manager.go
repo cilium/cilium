@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	tunnelTypes "github.com/cilium/cilium/pkg/datapath/tunnel/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
@@ -144,7 +145,7 @@ type manager struct {
 	// This field is immutable after NewManager()
 	conf *option.DaemonConfig
 
-	underlay tunnel.UnderlayProtocol
+	underlay tunnelTypes.UnderlayProtocol
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache

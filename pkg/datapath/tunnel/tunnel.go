@@ -12,14 +12,12 @@ import (
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tunnel/types"
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
 // EncapProtocol represents the valid types of encapsulation protocols.
 type EncapProtocol string
-
-// UnderlayProtocol represents the valid types of underlay protocols for the tunnel.
-type UnderlayProtocol string
 
 const (
 	// VXLAN specifies VXLAN encapsulation
@@ -31,8 +29,8 @@ const (
 	// Disabled specifies to disable encapsulation
 	Disabled EncapProtocol = ""
 
-	IPv4 UnderlayProtocol = "ipv4"
-	IPv6 UnderlayProtocol = "ipv6"
+	IPv4 types.UnderlayProtocol = "ipv4"
+	IPv6 types.UnderlayProtocol = "ipv6"
 )
 
 func (tp EncapProtocol) String() string { return string(tp) }
@@ -52,7 +50,7 @@ func (tp EncapProtocol) toDpID() string {
 // depending on the user configuration and optional overrides required by
 // additional features.
 type Config struct {
-	underlay       UnderlayProtocol
+	underlay       types.UnderlayProtocol
 	protocol       EncapProtocol
 	port           uint16
 	srcPortLow     uint16
@@ -87,14 +85,14 @@ func newConfig(in newConfigIn) (Config, error) {
 		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
 	}
 
-	switch UnderlayProtocol(in.Cfg.UnderlayProtocol) {
+	switch types.UnderlayProtocol(in.Cfg.UnderlayProtocol) {
 	case IPv4, IPv6:
 	default:
 		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", in.Cfg.UnderlayProtocol)
 	}
 
 	cfg := Config{
-		underlay:       UnderlayProtocol(in.Cfg.UnderlayProtocol),
+		underlay:       types.UnderlayProtocol(in.Cfg.UnderlayProtocol),
 		protocol:       EncapProtocol(in.Cfg.TunnelProtocol),
 		port:           in.Cfg.TunnelPort,
 		srcPortLow:     0,
@@ -164,7 +162,7 @@ func NewTestConfig(proto EncapProtocol) Config {
 // be routed through a tunnel.
 func (cfg Config) EncapProtocol() EncapProtocol { return cfg.protocol }
 
-func (cfg Config) UnderlayProtocol() UnderlayProtocol { return cfg.underlay }
+func (cfg Config) UnderlayProtocol() types.UnderlayProtocol { return cfg.underlay }
 
 // Port returns the port used by the tunnel (0 if disabled).
 func (cfg Config) Port() uint16 { return cfg.port }

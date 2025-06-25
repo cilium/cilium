@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/tunnel/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 )
@@ -30,7 +31,7 @@ func TestConfig(t *testing.T) {
 
 		shallFail      bool
 		proto          EncapProtocol
-		underlay       UnderlayProtocol
+		underlay       types.UnderlayProtocol
 		port           uint16
 		deviceName     string
 		shouldAdaptMTU bool
