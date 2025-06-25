@@ -109,7 +109,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			continue
 		}
 
-		addr, ok := netipx.FromStdIP(node.GetK8sNodeIP())
+		addr, ok := netipx.FromStdIP(node.GetNodeIP(false))
 		if !ok {
 			continue
 		}
