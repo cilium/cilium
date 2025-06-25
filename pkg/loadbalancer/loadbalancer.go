@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"

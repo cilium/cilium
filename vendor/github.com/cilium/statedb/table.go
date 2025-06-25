@@ -16,7 +16,7 @@ import (
 
 	"github.com/cilium/statedb/internal"
 	"github.com/cilium/statedb/part"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/cilium/statedb/index"
 )
