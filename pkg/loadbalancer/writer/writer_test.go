@@ -93,7 +93,7 @@ func TestWriter_Service_UpsertDelete(t *testing.T) {
 	})
 	name := loadbalancer.NewServiceName("test", "test1")
 	addrCluster := intToAddr(1)
-	frontend := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
+	frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
 
 	// Add a dump of the state if the test fails. Note that we abort
 	// the delete write transactions so they're not visible via this.
@@ -219,7 +219,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 	mkAddr := func(port uint16) loadbalancer.L3n4Addr {
 		nextAddr++
 		addrCluster := intToAddr(nextAddr)
-		return *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, port, loadbalancer.ScopeExternal)
+		return loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, port, loadbalancer.ScopeExternal)
 	}
 	frontend := mkAddr(3000)
 
@@ -327,7 +327,7 @@ func TestWriter_Initializers(t *testing.T) {
 	complete2 := p.Writer.RegisterInitializer("test2")
 
 	wtxn := p.Writer.WriteTxn()
-	addr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 12345, loadbalancer.ScopeExternal)
+	addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 12345, loadbalancer.ScopeExternal)
 	name := loadbalancer.NewServiceName("test-ns", "test-name")
 	err := p.Writer.UpsertServiceAndFrontends(
 		wtxn,
@@ -387,9 +387,9 @@ func TestWriter_SetBackends(t *testing.T) {
 	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1231), 1231, loadbalancer.ScopeExternal)
 	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1232), 1232, loadbalancer.ScopeExternal)
 
-	beAddr1 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(121), 4241, loadbalancer.ScopeExternal)
-	beAddr2 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122), 4242, loadbalancer.ScopeExternal)
-	beAddr3 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4243, loadbalancer.ScopeExternal)
+	beAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(121), 4241, loadbalancer.ScopeExternal)
+	beAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122), 4242, loadbalancer.ScopeExternal)
+	beAddr3 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4243, loadbalancer.ScopeExternal)
 
 	backend1 := loadbalancer.BackendParams{Address: beAddr1}
 	backend2 := loadbalancer.BackendParams{Address: beAddr2}
@@ -415,9 +415,9 @@ func TestWriter_SetBackends(t *testing.T) {
 				require.NoError(t, err)
 				_, err = w.UpsertService(wtxn, &loadbalancer.Service{Name: name2})
 				require.NoError(t, err)
-				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: *feAddr1, ServiceName: name1})
+				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: feAddr1, ServiceName: name1})
 				require.NoError(t, err)
-				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: *feAddr2, ServiceName: name2})
+				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: feAddr2, ServiceName: name2})
 				require.NoError(t, err)
 			},
 		},
@@ -561,7 +561,7 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1234), 1234, loadbalancer.ScopeExternal)
 	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1235), 1235, loadbalancer.ScopeExternal)
 
-	backendTemplate := loadbalancer.BackendParams{Address: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
+	backendTemplate := loadbalancer.BackendParams{Address: loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
 	backend10 := backendTemplate
 	backend10.Weight = 10
 	backend11 := backendTemplate
@@ -588,9 +588,9 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 				require.NoError(t, err)
 				_, err = w.UpsertService(wtxn, &loadbalancer.Service{Name: name2})
 				require.NoError(t, err)
-				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: *feAddr1, ServiceName: name1})
+				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: feAddr1, ServiceName: name1})
 				require.NoError(t, err)
-				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: *feAddr2, ServiceName: name2})
+				_, err = w.UpsertFrontend(wtxn, loadbalancer.FrontendParams{Address: feAddr2, ServiceName: name2})
 				require.NoError(t, err)
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: nil, name2: nil},
