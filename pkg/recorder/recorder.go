@@ -432,7 +432,7 @@ func (r *Recorder) createRecInfoLocked(ri *RecInfo, withID bool) bool {
 }
 
 func (r *Recorder) updateRecInfoLocked(riNew, riOld *RecInfo) error {
-	triggerRegen := false
+	var triggerRegen bool
 	if r.createRecInfoLocked(riNew, true) {
 		triggerRegen = true
 	}

@@ -323,14 +323,14 @@ type JSON struct {
 // the OpenAPI spec of this type.
 //
 // See: https://github.com/kubernetes/kube-openapi/tree/master/pkg/generators
-func (_ JSON) OpenAPISchemaType() []string {
+func (JSON) OpenAPISchemaType() []string {
 	// TODO: return actual types when anyOf is supported
 	return nil
 }
 
 // OpenAPISchemaFormat is used by the kube-openapi generator when constructing
 // the OpenAPI spec of this type.
-func (_ JSON) OpenAPISchemaFormat() string { return "" }
+func (JSON) OpenAPISchemaFormat() string { return "" }
 
 // JSONSchemaURL represents a schema url.
 type JSONSchemaURL string
@@ -390,14 +390,14 @@ type JSONSchemaPropsOrStringArray struct {
 // the OpenAPI spec of this type.
 //
 // See: https://github.com/kubernetes/kube-openapi/tree/master/pkg/generators
-func (_ JSONSchemaPropsOrStringArray) OpenAPISchemaType() []string {
+func (JSONSchemaPropsOrStringArray) OpenAPISchemaType() []string {
 	// TODO: return actual types when anyOf is supported
 	return nil
 }
 
 // OpenAPISchemaFormat is used by the kube-openapi generator when constructing
 // the OpenAPI spec of this type.
-func (_ JSONSchemaPropsOrStringArray) OpenAPISchemaFormat() string { return "" }
+func (JSONSchemaPropsOrStringArray) OpenAPISchemaFormat() string { return "" }
 
 // JSONSchemaDefinitions contains the models explicitly defined in this spec.
 type JSONSchemaDefinitions map[string]JSONSchemaProps

@@ -222,8 +222,6 @@ func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan str
 	}
 
 	c.orphans = existing
-
-	return
 }
 
 func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *statedb.WatchSet {

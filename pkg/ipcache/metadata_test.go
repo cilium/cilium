@@ -645,7 +645,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	assert.Empty(t, remaining)
 
 	// Assert that there should only be the entry with the tunnelPeer set.
-	ip, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
+	_, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
 	assert.Equal(t, uint8(0), key)
 
 	// The following tests whether an entry with a high priority source

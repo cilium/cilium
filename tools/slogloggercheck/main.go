@@ -39,9 +39,7 @@ func main() {
 	// Check each path provided as argument
 	for _, arg := range args {
 		// Handle paths with trailing /...
-		if strings.HasSuffix(arg, "/...") {
-			arg = strings.TrimSuffix(arg, "/...")
-		}
+		arg = strings.TrimSuffix(arg, "/...")
 
 		if err := filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
 			if err != nil {

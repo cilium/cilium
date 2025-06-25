@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var PodStoreOutdatedErr = errors.New("pod store outdated")
+var ErrPodStoreOutdated = errors.New("pod store outdated")
 
 type EndpointMetadataFetcher interface {
 	FetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
@@ -53,7 +53,7 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, p
 	}
 
 	if uid != "" && uid != string(p.GetUID()) {
-		return nil, nil, PodStoreOutdatedErr
+		return nil, nil, ErrPodStoreOutdated
 	}
 
 	metadata, err := cemf.FetchK8sMetadataForEndpointFromPod(p)

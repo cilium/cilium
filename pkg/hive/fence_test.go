@@ -91,7 +91,7 @@ func TestFence_Errors(t *testing.T) {
 	require.NoError(t, lc.Start(log, t.Context()))
 	t.Cleanup(func() { require.NoError(t, lc.Stop(log, context.TODO())) })
 
-	require.ErrorIs(t, iwg.Wait(t.Context()), testWaitErr)
+	require.ErrorIs(t, iwg.Wait(t.Context()), errTestWait)
 
 	require.Len(t, iwg.(*fence).waitFuncs, 1)
 
@@ -118,12 +118,12 @@ func testWaitFn() (stop chan struct{}, fn WaitFunc) {
 	return
 }
 
-var testWaitErr = errors.New("fail")
+var errTestWait = errors.New("fail")
 
 func testWaitFailFn(success *bool) WaitFunc {
 	return func(ctx context.Context) error {
 		if !*success {
-			return testWaitErr
+			return errTestWait
 		}
 		return nil
 	}

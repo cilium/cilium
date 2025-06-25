@@ -107,7 +107,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 	mux := http.NewServeMux()
 
 	// Index handler is the handler for Open-API router.
-	mux.Handle("/", s.Server.GetHandler())
+	mux.Handle("/", s.GetHandler())
 	// Create a custom handler for /healthz as an alias to /v1/healthz. A http mux
 	// is required for this because open-api spec does not allow multiple base paths
 	// to be specified.

@@ -139,7 +139,7 @@ func (f *MockIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notify
 	if scope == identity.IdentityScopeGlobal {
 		return nil, false, cache.ErrNonLocalIdentity
 	}
-	return f.AllocateIdentity(nil, lbls, notifyOwner, oldNID)
+	return f.AllocateIdentity(context.TODO(), lbls, notifyOwner, oldNID)
 }
 
 func (f *MockIdentityAllocator) ReleaseLocalIdentities(nids ...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
@@ -148,12 +148,12 @@ func (f *MockIdentityAllocator) ReleaseLocalIdentities(nids ...identity.NumericI
 		if nid.Scope() == identity.IdentityScopeGlobal {
 			continue
 		}
-		id := f.LookupIdentityByID(nil, nid)
+		id := f.LookupIdentityByID(context.TODO(), nid)
 		if id == nil {
 			continue
 		}
 
-		if r, _ := f.Release(nil, id, true); r {
+		if r, _ := f.Release(context.TODO(), id, true); r {
 			dealloc = append(dealloc, nid)
 		}
 	}

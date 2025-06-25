@@ -169,13 +169,13 @@ func newStats(params params) (*Stats, error) {
 			defer cancel()
 			nmap4, err := params.NatMap4.Await(ctx)
 			if err != nil {
-				if !errors.Is(err, nat.MapDisabled) {
+				if !errors.Is(err, nat.ErrMapDisabled) {
 					return err
 				}
 			}
 			nmap6, err := params.NatMap6.Await(ctx)
 			if err != nil {
-				if !errors.Is(err, nat.MapDisabled) {
+				if !errors.Is(err, nat.ErrMapDisabled) {
 					return err
 				}
 			}

@@ -176,9 +176,9 @@ func GinkgoPrint(message string, optionalValues ...any) {
 // GetTestName returns the test Name in a single string without spaces or /
 func GetTestName() string {
 	testDesc := ginkgo.CurrentGinkgoTestDescription()
-	name := strings.Replace(testDesc.FullTestText, " ", "_", -1)
+	name := strings.ReplaceAll(testDesc.FullTestText, " ", "_")
 	name = strings.Trim(name, "*")
-	return strings.Replace(name, "/", "-", -1)
+	return strings.ReplaceAll(name, "/", "-")
 }
 
 // BeforeAll runs the function once before any test in context

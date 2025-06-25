@@ -924,7 +924,7 @@ func SelectorFromSet(ls Set) Selector {
 // nil and empty Sets are considered equivalent to Everything().
 // The Set is validated client-side, which allows to catch errors early.
 func ValidatedSelectorFromSet(ls Set) (Selector, error) {
-	if ls == nil || len(ls) == 0 {
+	if len(ls) == 0 {
 		return internalSelector{}, nil
 	}
 	requirements := make([]Requirement, 0, len(ls))
@@ -946,7 +946,7 @@ func ValidatedSelectorFromSet(ls Set) (Selector, error) {
 // Note: this method copies the Set; if the Set is immutable, consider wrapping it with ValidatedSetSelector
 // instead, which does not copy.
 func SelectorFromValidatedSet(ls Set) Selector {
-	if ls == nil || len(ls) == 0 {
+	if len(ls) == 0 {
 		return internalSelector{}
 	}
 	requirements := make([]Requirement, 0, len(ls))

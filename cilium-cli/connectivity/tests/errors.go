@@ -40,7 +40,7 @@ type regexMatcher struct {
 }
 
 func (r regexMatcher) IsMatch(log string) bool {
-	return r.Regexp.MatchString(log)
+	return r.MatchString(log)
 }
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent

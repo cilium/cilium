@@ -232,7 +232,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 	})
 
 	expectFQDNSareApplied := func(domain string, minNumIDs int) {
-		escapedDomain := strings.Replace(domain, `.`, `\\.`, -1)
+		escapedDomain := strings.ReplaceAll(domain, `.`, `\\.`)
 		jqfilter := fmt.Sprintf(`jq -c '.[] | select(.identities|length >= %d) | select(.users|length > 0) | .selector | match("^MatchName: (\\w+\\.%s|), MatchPattern: ([\\w*]+\\.%s|)$") | length > 0'`, minNumIDs, escapedDomain, escapedDomain)
 		body := func() bool {
 			res := vm.Exec(fmt.Sprintf(`cilium-dbg policy selectors -o json | %s`, jqfilter))

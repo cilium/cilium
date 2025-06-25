@@ -400,7 +400,7 @@ func (a *ACT) countFailed(svc uint16, key lbmaps.BackendKey) {
 		)
 		return
 	}
-	zone := val.(lbmaps.BackendValue).GetZone()
+	zone := val.GetZone()
 	if zone == 0 {
 		scopedLog.Debug("Ignoring backend without zone")
 		return

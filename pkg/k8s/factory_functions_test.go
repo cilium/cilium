@@ -26,7 +26,7 @@ import (
 
 var (
 	unknownObj    = 100
-	unknownObjErr = fmt.Errorf("unknown object type %T", unknownObj)
+	errUnknownObj = fmt.Errorf("unknown object type %T", unknownObj)
 )
 
 func Test_EqualV2CNP(t *testing.T) {
@@ -1093,7 +1093,7 @@ func Test_TransformToCNP(t *testing.T) {
 					Obj: unknownObj,
 				},
 			},
-			want:     unknownObjErr,
+			want:     errUnknownObj,
 			expected: false,
 		},
 		{
@@ -1101,7 +1101,7 @@ func Test_TransformToCNP(t *testing.T) {
 			args: args{
 				obj: unknownObj,
 			},
-			want:     unknownObjErr,
+			want:     errUnknownObj,
 			expected: false,
 		},
 	}
@@ -1192,7 +1192,7 @@ func Test_TransformToCCNP(t *testing.T) {
 					Obj: unknownObj,
 				},
 			},
-			want:     unknownObjErr,
+			want:     errUnknownObj,
 			expected: false,
 		},
 		{
@@ -1200,7 +1200,7 @@ func Test_TransformToCCNP(t *testing.T) {
 			args: args{
 				obj: unknownObj,
 			},
-			want:     unknownObjErr,
+			want:     errUnknownObj,
 			expected: false,
 		},
 	}
@@ -1387,7 +1387,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 					Obj: unknownObj,
 				},
 			},
-			want:     unknownObjErr,
+			want:     errUnknownObj,
 			expected: false,
 		},
 		{
@@ -1409,7 +1409,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 			args: args{
 				obj: unknownObj,
 			},
-			want:     unknownObjErr,
+			want:     errUnknownObj,
 			expected: false,
 		},
 	}

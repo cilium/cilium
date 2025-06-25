@@ -411,11 +411,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
 	equalsEndpointPort := func(a, b discoveryv1.EndpointPort) bool {
 		return reflect.DeepEqual(a, b)
 	}
-	if !slices.EqualFunc(derivedEpSlice.Ports, desiredDerivedEndpointSlice.Ports, equalsEndpointPort) {
-		return true
-	}
-
-	return false
+	return !slices.EqualFunc(derivedEpSlice.Ports, desiredDerivedEndpointSlice.Ports, equalsEndpointPort)
 }
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) getDerivedEndpointSliceByLabel(ctx context.Context, key types.NamespacedName) (*discoveryv1.EndpointSlice, error) {

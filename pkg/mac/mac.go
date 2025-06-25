@@ -101,7 +101,7 @@ func (m *MAC) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid MAC address length %s", string(data))
 	}
 	data = data[1 : len(data)-1]
-	macStr := bytes.Replace(data, []byte(`:`), []byte(``), -1)
+	macStr := bytes.ReplaceAll(data, []byte(`:`), []byte(``))
 	if len(macStr) != 12 {
 		return fmt.Errorf("invalid MAC address format")
 	}

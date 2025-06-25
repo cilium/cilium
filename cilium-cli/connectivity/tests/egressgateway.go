@@ -668,8 +668,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node internal IPv4")
 	}
 
-	var egressGatewayNodeInternalIPv6 net.IP
-	egressGatewayNodeInternalIPv6 = ct.GetGatewayNodeInternalIP(egressGatewayNode, true)
+	var egressGatewayNodeInternalIPv6 = ct.GetGatewayNodeInternalIP(egressGatewayNode, true)
 	if ipv6Enabled && egressGatewayNodeInternalIPv6 == nil {
 		t.Fatal("Cannot get egress gateway node internal IPv6")
 	}

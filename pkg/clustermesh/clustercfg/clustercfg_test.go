@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-var mockerr = errors.New("error")
+var errMock = errors.New("error")
 
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
 var (
@@ -35,7 +35,7 @@ type mockBackend struct {
 }
 
 func (mb *mockBackend) withError(clusterName string) {
-	mb.errors.Store(path.Join(kvstore.ClusterConfigPrefix, clusterName), mockerr)
+	mb.errors.Store(path.Join(kvstore.ClusterConfigPrefix, clusterName), errMock)
 }
 
 func (mb *mockBackend) Get(_ context.Context, key string) ([]byte, error) {
@@ -70,7 +70,7 @@ func TestGetSetClusterConfig(t *testing.T) {
 	require.NoError(t, Set(ctx, "bar", cfg3, &mb), "failed to update cluster configuration (same value)")
 
 	mb.withError("error")
-	require.ErrorIs(t, Set(ctx, "error", cfg1, &mb), mockerr, "kvstore error not propagated correctly")
+	require.ErrorIs(t, Set(ctx, "error", cfg1, &mb), errMock, "kvstore error not propagated correctly")
 
 	got, err := Get(ctx, "foo", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
@@ -85,7 +85,7 @@ func TestGetSetClusterConfig(t *testing.T) {
 
 	mb.withError("error")
 	_, err = Get(ctx, "error", &mb)
-	require.ErrorIs(t, err, mockerr, "kvstore error not propagated correctly")
+	require.ErrorIs(t, err, errMock, "kvstore error not propagated correctly")
 
 	// Simulate invalid data stored in the kvstore
 	mb.UpdateIfDifferent(ctx, path.Join(kvstore.ClusterConfigPrefix, "invalid"), []byte("invalid"), true)
@@ -118,7 +118,7 @@ func TestEnforceClusterConfig(t *testing.T) {
 	mb.withError("error")
 	stopAndWait3, err := Enforce(ctx, "error", cfg2, &mb, log)
 	defer stopAndWait3()
-	require.ErrorIs(t, err, mockerr, "kvstore error not propagated correctly")
+	require.ErrorIs(t, err, errMock, "kvstore error not propagated correctly")
 
 	got, err := Get(ctx, "foo", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
