@@ -269,8 +269,8 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 				ops.restoredQuarantinedBackends[addr] = backends
 			}
 			for _, slot := range slots[1+master.GetCount():] {
-				if addr := ops.backendIDAlloc.entitiesID[loadbalancer.ID(slot.GetBackendID())]; addr != nil {
-					backends.Insert(addr.L3n4Addr)
+				if addr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(slot.GetBackendID())]; found {
+					backends.Insert(addr)
 				}
 			}
 		}
@@ -477,7 +477,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			// Drop restored quarantined state
 			if svcKey.GetBackendSlot() > 0 {
 				if beAddr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(svcValue.GetBackendID())]; found {
-					ops.deleteRestoredQuarantinedBackends(addr, beAddr.L3n4Addr)
+					ops.deleteRestoredQuarantinedBackends(addr, beAddr)
 				}
 			}
 		}
@@ -521,16 +521,16 @@ func (ops *BPFOps) pruneBackendMaps() error {
 
 func (ops *BPFOps) pruneRestoredIDs() error {
 	for id := range ops.restoredServiceIDs {
-		if addr := ops.serviceIDAlloc.entitiesID[id]; addr != nil {
-			if _, found := ops.backendReferences[addr.L3n4Addr]; !found {
+		if addr, found := ops.serviceIDAlloc.entitiesID[id]; found {
+			if _, found := ops.backendReferences[addr]; !found {
 				// This ID was restored but no frontend appeared to claim it. Free it.
 				ops.serviceIDAlloc.deleteLocalID(id)
 			}
 		}
 	}
 	for id := range ops.restoredBackendIDs {
-		if addr := ops.backendIDAlloc.entitiesID[loadbalancer.ID(id)]; addr != nil {
-			if _, found := ops.backendStates[addr.L3n4Addr]; !found {
+		if addr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(id)]; found {
+			if _, found := ops.backendStates[addr]; !found {
 				// This ID was restored but no frontend appeared to claim it. Free it.
 				ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
 			}
@@ -583,7 +583,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 			ones, _ := cidr.Mask.Size()
 			prefix := netip.PrefixFrom(cidrAddr, ones)
 			var cidrs sets.Set[netip.Prefix]
-			cidrs, ok = ops.prevSourceRanges[addr.L3n4Addr]
+			cidrs, ok = ops.prevSourceRanges[addr]
 			ok = ok && cidrs.Has(prefix)
 		}
 		if !ok {
@@ -731,7 +731,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// Assign/lookup an identifier for the service. May fail if we have run out of IDs.
 	// The Frontend.ID field is purely for debugging purposes.
-	feID, err := ops.serviceIDAlloc.acquireLocalID(fe.Address, 0)
+	feID, err := ops.serviceIDAlloc.acquireLocalID(fe.Address)
 	if err != nil {
 		return fmt.Errorf("failed to allocate id: %w", err)
 	}
@@ -817,7 +817,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
 			beID = s.id
 		} else {
-			acquiredID, err := ops.backendIDAlloc.acquireLocalID(be.Address, 0)
+			acquiredID, err := ops.backendIDAlloc.acquireLocalID(be.Address)
 			if err != nil {
 				return err
 			}
@@ -1338,128 +1338,6 @@ func (ops *BPFOps) StateSummary() string {
 	fmt.Fprintf(&b, "prevSourceRanges: %d\n", len(ops.prevSourceRanges))
 	fmt.Fprintf(&b, "restoredQuarantines: %d\n", len(ops.restoredQuarantinedBackends))
 	return b.String()
-}
-
-// idAllocator contains an internal state of the ID allocator.
-type idAllocator struct {
-	// entitiesID is a map of all entities indexed by service or backend ID
-	entitiesID map[loadbalancer.ID]*loadbalancer.L3n4AddrID
-
-	// entities is a map of all entities indexed by L3n4Addr.StringID()
-	entities map[string]loadbalancer.ID
-
-	// nextID is the next ID to attempt to allocate
-	nextID loadbalancer.ID
-
-	// maxID is the maximum ID available for allocation
-	maxID loadbalancer.ID
-
-	// initNextID is the initial nextID
-	initNextID loadbalancer.ID
-
-	// initMaxID is the initial maxID
-	initMaxID loadbalancer.ID
-}
-
-const (
-	// firstFreeServiceID is the first ID for which the services should be assigned.
-	firstFreeServiceID = loadbalancer.ID(1)
-
-	// maxSetOfServiceID is maximum number of set of service IDs that can be stored
-	// in the kvstore or the local ID allocator.
-	maxSetOfServiceID = loadbalancer.ID(0xFFFF)
-
-	// firstFreeBackendID is the first ID for which the backend should be assigned.
-	// BPF datapath assumes that backend_id cannot be 0.
-	firstFreeBackendID = loadbalancer.ID(1)
-
-	// maxSetOfBackendID is maximum number of set of backendIDs IDs that can be
-	// stored in the local ID allocator.
-	maxSetOfBackendID = loadbalancer.ID(0xFFFFFFFF)
-)
-
-func newIDAllocator(nextID loadbalancer.ID, maxID loadbalancer.ID) idAllocator {
-	return idAllocator{
-		entitiesID: map[loadbalancer.ID]*loadbalancer.L3n4AddrID{},
-		entities:   map[string]loadbalancer.ID{},
-		nextID:     nextID,
-		maxID:      maxID,
-		initNextID: nextID,
-		initMaxID:  maxID,
-	}
-}
-
-func (alloc *idAllocator) addID(svc loadbalancer.L3n4Addr, id loadbalancer.ID) loadbalancer.ID {
-	svcID := newID(svc, id)
-	alloc.entitiesID[id] = svcID
-	alloc.entities[svc.StringID()] = id
-	return id
-}
-
-func (alloc *idAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID loadbalancer.ID) (loadbalancer.ID, error) {
-	if svcID, ok := alloc.entities[svc.StringID()]; ok {
-		if svc, ok := alloc.entitiesID[svcID]; ok {
-			return svc.ID, nil
-		}
-	}
-
-	if desiredID != 0 {
-		foundSVC, ok := alloc.entitiesID[desiredID]
-		if !ok {
-			if desiredID >= alloc.nextID {
-				// We don't set nextID to desiredID+1 here, as we don't want to
-				// duplicate the logic which deals with the rollover. Next
-				// invocation of acquireLocalID(..., 0) will fix the nextID.
-				alloc.nextID = desiredID
-			}
-			return alloc.addID(svc, desiredID), nil
-		}
-		return 0, fmt.Errorf("Service ID %d is already registered to %q",
-			desiredID, foundSVC)
-	}
-
-	startingID := alloc.nextID
-	rollover := false
-	for {
-		if alloc.nextID == startingID && rollover {
-			break
-		} else if alloc.nextID == alloc.maxID {
-			alloc.nextID = alloc.initNextID
-			rollover = true
-		}
-
-		if _, ok := alloc.entitiesID[alloc.nextID]; !ok {
-			svcID := alloc.addID(svc, alloc.nextID)
-			alloc.nextID++
-			return svcID, nil
-		}
-
-		alloc.nextID++
-	}
-
-	return 0, fmt.Errorf("no service ID available")
-}
-
-func (alloc *idAllocator) deleteLocalID(id loadbalancer.ID) {
-	if svc, ok := alloc.entitiesID[id]; ok {
-		delete(alloc.entitiesID, id)
-		delete(alloc.entities, svc.StringID())
-	}
-}
-
-func (alloc *idAllocator) lookupLocalID(svc loadbalancer.L3n4Addr) (loadbalancer.ID, error) {
-	if svcID, ok := alloc.entities[svc.StringID()]; ok {
-		return svcID, nil
-	}
-
-	return 0, fmt.Errorf("ID not found")
-}
-
-func newID(svc loadbalancer.L3n4Addr, id loadbalancer.ID) *loadbalancer.L3n4AddrID {
-	return &loadbalancer.L3n4AddrID{
-		L3n4Addr: svc,
-		ID:       loadbalancer.ID(id),
-	}
 }
 
 func srcRangeKey(cidr netip.Prefix, revNATID uint16, ipv6 bool) maps.SourceRangeKey {
