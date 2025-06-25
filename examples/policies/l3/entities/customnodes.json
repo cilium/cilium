@@ -1,9 +1,0 @@
-[{
-    "labels": [{"key": "name", "value": "to-prod-from-control-plane-nodes"}],
-    "endpointSelector": {"matchLabels": {"env":"prod"}},
-    "ingress": [{
-        "fromNodes": [{
-            "matchLabels": {"node-role.kubernetes.io/control-plane": ""}
-        }]
-    }]
-}]
