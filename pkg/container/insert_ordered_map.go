@@ -30,6 +30,7 @@ func NewInsertOrderedMap[K comparable, V any]() *InsertOrderedMap[K, V] {
 // Clear the map.
 func (m *InsertOrderedMap[K, V]) Clear() {
 	clear(m.indexes)
+	clear(m.kvs)
 	m.kvs = m.kvs[:0]
 }
 
