@@ -248,9 +248,9 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 	for svcName, ports := range cec.ServicePorts {
 		resName := EnvoyResourceName{
 			Origin:    EnvoyResourceOriginBackendSync,
-			Cluster:   svcName.Cluster,
-			Namespace: svcName.Namespace,
-			Name:      svcName.Name,
+			Cluster:   svcName.Cluster(),
+			Namespace: svcName.Namespace(),
+			Name:      svcName.Name(),
 		}
 
 		res, _, found := c.envoyResources.Get(wtxn, EnvoyResourceByName(resName))
@@ -299,9 +299,9 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 func (c *cecProcessor) removeClusterReference(wtxn statedb.WriteTxn, cecName CECName, svcName loadbalancer.ServiceName) {
 	res, _, found := c.envoyResources.Get(wtxn, EnvoyResourceByName(EnvoyResourceName{
 		Origin:    EnvoyResourceOriginBackendSync,
-		Cluster:   svcName.Cluster,
-		Namespace: svcName.Namespace,
-		Name:      svcName.Name,
+		Cluster:   svcName.Cluster(),
+		Namespace: svcName.Namespace(),
+		Name:      svcName.Name(),
 	}))
 	if found {
 		newRefs := res.ClusterReferences.Remove(cecName)

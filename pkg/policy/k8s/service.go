@@ -58,8 +58,8 @@ func (s serviceEvent) Equal(other serviceEvent) bool {
 }
 
 func (s serviceEvent) getLabels() labels.Labels { return s.labels }
-func (s serviceEvent) getName() string          { return s.name.Name }
-func (s serviceEvent) getNamespace() string     { return s.name.Namespace }
+func (s serviceEvent) getName() string          { return s.name.Name() }
+func (s serviceEvent) getNamespace() string     { return s.name.Namespace() }
 
 var _ serviceDetailer = serviceEvent{}
 
@@ -381,8 +381,8 @@ var _ k8sLabels.Labels = labelsMatcher{}
 // serviceRefMatches returns true if the ToServices k8sService reference
 // matches the name/namespace of the provided service svc
 func serviceRefMatches(ref *api.K8sServiceNamespace, svcID loadbalancer.ServiceName) bool {
-	return (ref.Namespace == svcID.Namespace || ref.Namespace == "") &&
-		ref.ServiceName == svcID.Name
+	return (ref.Namespace == svcID.Namespace() || ref.Namespace == "") &&
+		ref.ServiceName == svcID.Name()
 }
 
 // serviceEndpoints stores the endpoints associated with a service
@@ -394,8 +394,8 @@ type serviceEndpoints struct {
 }
 
 func (s serviceEndpoints) getLabels() labels.Labels { return s.svc.Labels }
-func (s serviceEndpoints) getName() string          { return s.svc.Name.Name }
-func (s serviceEndpoints) getNamespace() string     { return s.svc.Name.Namespace }
+func (s serviceEndpoints) getName() string          { return s.svc.Name.Name() }
+func (s serviceEndpoints) getNamespace() string     { return s.svc.Name.Namespace() }
 
 var _ serviceDetailer = serviceEndpoints{}
 
@@ -447,7 +447,7 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {
-						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace)
+						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
 					}
 					numMatches++
 				}
@@ -456,7 +456,7 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {
-						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace)
+						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
 					}
 					numMatches++
 				}
