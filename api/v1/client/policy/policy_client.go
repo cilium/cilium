@@ -131,6 +131,8 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOp
 
 /*
 DeletePolicy deletes a policy sub tree
+
+Deprecated: will be removed in v1.19
 */
 func (a *Client) DeletePolicy(params *DeletePolicyParams, opts ...ClientOption) (*DeletePolicyOK, error) {
 	// TODO: Validate the params before sending
@@ -453,9 +455,11 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption
 }
 
 /*
-GetPolicy retrieves entire policy tree
+	GetPolicy retrieves entire policy tree
 
-Returns the entire policy tree with all children.
+	Returns the entire policy tree with all children.
+
+Deprecated: will be removed in v1.19
 */
 func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
 	// TODO: Validate the params before sending
@@ -532,6 +536,8 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...Cl
 
 /*
 PutPolicy creates or update a policy sub tree
+
+Deprecated: will be removed in v1.19
 */
 func (a *Client) PutPolicy(params *PutPolicyParams, opts ...ClientOption) (*PutPolicyOK, error) {
 	// TODO: Validate the params before sending
