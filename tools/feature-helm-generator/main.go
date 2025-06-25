@@ -91,7 +91,7 @@ func printMetrics(o io.Writer, metrics []Metric, prefix string, separators []str
 		printed = map[string]struct{}{}
 	)
 	for _, separator := range separators {
-		groupName := strings.Replace(prefix+"_"+separator, "_", "-", -1)
+		groupName := strings.ReplaceAll(prefix+"_"+separator, "_", "-")
 		fmt.Fprintf(o, ".. _%s:\n\n"+
 			"``%s``\n"+
 			"%s\n",

@@ -156,7 +156,7 @@ func (r *ciliumEnvoyConfigReconciler) getListenerResource(svc *corev1.Service) (
 		return ciliumv2.XDSResource{}, nil
 	}
 
-	var filterChains []*envoy_config_listener.FilterChain = []*envoy_config_listener.FilterChain{
+	var filterChains = []*envoy_config_listener.FilterChain{
 		{
 			FilterChainMatch: &envoy_config_listener.FilterChainMatch{
 				TransportProtocol: "raw_buffer",

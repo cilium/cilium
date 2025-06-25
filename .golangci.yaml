@@ -105,8 +105,34 @@ linters:
         - source
       args-on-sep-lines: true
     staticcheck:
+      dot-import-whitelist:
+        - github.com/cilium/cilium/api/v1/health/server/restapi
+        - github.com/cilium/cilium/api/v1/health/server/restapi/connectivity
+        - github.com/cilium/cilium/api/v1/server/restapi/policy
+        - github.com/cilium/cilium/api/v1/server/restapi/endpoint
+        - github.com/cilium/cilium/test/ginkgo-ext
+        - github.com/onsi/gomega
       checks:
-        - ST1019
+        # Default checks https://golangci-lint.run/usage/linters/#staticcheck
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1006
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # Disable additional checks that are not applicable to Cilium. Enable them if needed in the future.
+        - -ST1005
+        - -ST1008
+        - -ST1019
+        - -QF1001
+        - -QF1002
+        - -QF1003
+        - -QF1006
+        - -QF1007
+        - -QF1008
+        - -QF1012
     testifylint:
       enable-all: true
       disable: # TODO: remove each disabled rule and fix it

@@ -111,7 +111,7 @@ func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error)
 	}
 	defer conn.Close()
 
-	var expirationTime *time.Time = &clientCert.Leaf.NotAfter
+	var expirationTime = &clientCert.Leaf.NotAfter
 
 	// set up TLS socket
 

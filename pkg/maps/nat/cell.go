@@ -17,9 +17,9 @@ import (
 	"github.com/cilium/hive/cell"
 )
 
-// MapDisabled is the expected error will be if map was not created
+// ErrMapDisabled is the expected error will be if map was not created
 // due to configuration.
-var MapDisabled = fmt.Errorf("nat map is disabled")
+var ErrMapDisabled = fmt.Errorf("nat map is disabled")
 
 // Cell exposes global nat maps via Hive. These maps depend on
 // the final state of EnableNodePort, thus the maps are currently
@@ -43,8 +43,8 @@ var Cell = cell.Module(
 					return fmt.Errorf("failed to wait for config promise: %w", err)
 				}
 				if !kprCfg.EnableNodePort {
-					res4.Reject(fmt.Errorf("nat IPv4: %w", MapDisabled))
-					res6.Reject(fmt.Errorf("nat IPv6: %w", MapDisabled))
+					res4.Reject(fmt.Errorf("nat IPv4: %w", ErrMapDisabled))
+					res6.Reject(fmt.Errorf("nat IPv6: %w", ErrMapDisabled))
 					return nil
 				}
 
@@ -66,7 +66,7 @@ var Cell = cell.Module(
 					}
 					res4.Resolve(ipv4Nat)
 				} else {
-					res4.Reject(MapDisabled)
+					res4.Reject(ErrMapDisabled)
 				}
 				if cfg.EnableIPv6 {
 					if err := ipv6Nat.Open(); err != nil {
@@ -74,7 +74,7 @@ var Cell = cell.Module(
 					}
 					res6.Resolve(ipv6Nat)
 				} else {
-					res6.Reject(MapDisabled)
+					res6.Reject(ErrMapDisabled)
 				}
 				return nil
 			},

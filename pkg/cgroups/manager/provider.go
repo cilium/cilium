@@ -217,7 +217,7 @@ func toSystemd(cgroupName []string) (string, error) {
 }
 
 func escapeSystemdCgroupName(part string) string {
-	return strings.Replace(part, "-", "_", -1)
+	return strings.ReplaceAll(part, "-", "_")
 }
 
 // systemd represents slice hierarchy using `-`, so we need to follow suit when

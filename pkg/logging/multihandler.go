@@ -76,9 +76,7 @@ func (i *multiSlogHandler) WithGroup(name string) slog.Handler {
 func (i *multiSlogHandler) AddHandlers(handlers ...slog.Handler) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	for _, h := range handlers {
-		i.handlers = append(i.handlers, h)
-	}
+	i.handlers = append(i.handlers, handlers...)
 }
 
 func (i *multiSlogHandler) SetHandler(handler slog.Handler) {

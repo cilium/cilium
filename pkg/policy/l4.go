@@ -357,8 +357,6 @@ func (l7 L7ParserType) defaultPriority() ListenerPriority {
 		return ListenerPriorityHTTP
 	case ParserTypeKafka:
 		return ListenerPriorityKafka
-	default: // proxylib parsers
-		return ListenerPriorityProxylib
 	case ParserTypeTLS:
 		return ListenerPriorityTLS
 	case ParserTypeDNS:
@@ -366,6 +364,8 @@ func (l7 L7ParserType) defaultPriority() ListenerPriority {
 	case ParserTypeCRD:
 		// CRD type can have an explicit higher priority in range 1-100
 		return ListenerPriorityCRD
+	default: // proxylib parsers
+		return ListenerPriorityProxylib
 	}
 }
 

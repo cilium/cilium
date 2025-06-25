@@ -98,10 +98,10 @@ func ToUnAnchoredRegexp(pattern string) string {
 
 func escapeRegexpCharacters(pattern string) string {
 	// base case. "." becomes a literal .
-	pattern = strings.Replace(pattern, ".", "[.]", -1)
+	pattern = strings.ReplaceAll(pattern, ".", "[.]")
 
 	// base case. * becomes .*, but only for DNS valid characters
 	// NOTE: this only works because the case above does not leave the *
-	pattern = strings.Replace(pattern, "*", allowedDNSCharsREGroup+"*", -1)
+	pattern = strings.ReplaceAll(pattern, "*", allowedDNSCharsREGroup+"*")
 	return pattern
 }

@@ -55,7 +55,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 				if uid == "" {
 					return nil
 				}
-				return endpointmetadata.PodStoreOutdatedErr
+				return endpointmetadata.ErrPodStoreOutdated
 			},
 			retries: 20,
 		},
@@ -122,7 +122,7 @@ func (f *fetcher) FetchK8sMetadataForEndpoint(nsName string, podName string, uid
 
 	pod, m, err := f.fn(f.runs, nsName, podName)
 	if uid != "" && err == nil && pod != nil && string(pod.GetUID()) != uid {
-		return nil, nil, endpointmetadata.PodStoreOutdatedErr
+		return nil, nil, endpointmetadata.ErrPodStoreOutdated
 	}
 	return pod, m, err
 }

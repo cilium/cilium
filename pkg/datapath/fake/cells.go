@@ -67,8 +67,8 @@ var Cell = cell.Module(
 		func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6]) {
 			r4, p4 := promise.New[nat.NatMap4]()
 			r6, p6 := promise.New[nat.NatMap6]()
-			r4.Reject(nat.MapDisabled)
-			r6.Reject(nat.MapDisabled)
+			r4.Reject(nat.ErrMapDisabled)
+			r6.Reject(nat.ErrMapDisabled)
 			return p4, p6
 		},
 
