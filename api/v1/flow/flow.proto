@@ -292,6 +292,10 @@ message Workload {
 
 message TCP {
     uint32 source_port = 1;
+    // source_xlated_port is the post-translation source Port when the flow was
+    // SNATed. When "source_xlated_port" is set, the "source_port" field is populated
+    // with the pre-translation source Port.
+    uint32 source_xlated_port = 4;
     uint32 destination_port = 2;
     TCPFlags flags = 3;
 }
@@ -328,11 +332,19 @@ message TCPFlags {
 
 message UDP {
     uint32 source_port = 1;
+    // source_xlated_port is the post-translation source Port when the flow was
+    // SNATed. When "source_xlated_port" is set, the "source_port" field is populated
+    // with the pre-translation source Port.
+    uint32 source_xlated_port = 3;
     uint32 destination_port = 2;
 }
 
 message SCTP {
     uint32 source_port = 1;
+    // source_xlated_port is the post-translation source Port when the flow was
+    // SNATed. When "source_xlated_port" is set, the "source_port" field is populated
+    // with the pre-translation source Port.
+    uint32 source_xlated_port = 3;
     uint32 destination_port = 2;
 }
 
