@@ -371,8 +371,8 @@ jobs:
         run: |
           ./clusterloader \
             -v=2 \
-            --testconfig=./testing/load/config.yaml \
-            --testconfig=./testing/custom/common/restart.yaml \
+            ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && '--testconfig=./testing/load/config.yaml' || '' }}  \
+            ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && '--testconfig=./testing/custom/common/restart.yaml' || '' }}  \
             --testconfig=./testing/custom/netpol/config.yaml \
             --testconfig=./testing/custom/common/restart.yaml \
             --testconfig=./testing/custom/servicechurn/config.yaml \
@@ -393,7 +393,8 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          always_capture_sysdump: true
+          capture_sysdump: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && true || false }}
+          always_capture_sysdump: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && true || false }}
           artifacts_suffix: "final"
           job_status: "${{ job.status }}"
 
