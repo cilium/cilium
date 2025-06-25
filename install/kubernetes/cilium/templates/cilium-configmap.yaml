@@ -1021,7 +1021,7 @@ data:
   hubble-drop-events-interval: {{ .Values.hubble.dropEventEmitter.interval | quote }}
   hubble-drop-events-reasons: {{ .Values.hubble.dropEventEmitter.reasons | join " " | quote }}
 {{- end }}
-{{- if .Values.hubble.preferIpv6 }}
+{{- if or (eq .Values.hubble.preferIpv6 true) (eq .Values.ipv4.enabled false) }}
   hubble-prefer-ipv6: "true"
 {{- end }}
 {{- if (not (kindIs "invalid" .Values.hubble.skipUnknownCGroupIDs)) }}
