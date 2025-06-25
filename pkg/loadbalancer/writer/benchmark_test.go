@@ -48,7 +48,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 				Source: source.Kubernetes,
 			},
 			loadbalancer.FrontendParams{
-				Address:     *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
+				Address:     loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "foo",
 				ServicePort: 12345,
@@ -73,7 +73,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 					Source: source.Kubernetes,
 				},
 				loadbalancer.FrontendParams{
-					Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
+					Address:  loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 					Type:     loadbalancer.SVCTypeClusterIP,
 					PortName: "",
 				},
@@ -102,7 +102,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 			Source: source.Kubernetes,
 		},
 		loadbalancer.FrontendParams{
-			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
+			Address:  loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
 		},
@@ -116,7 +116,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 	for b.Loop() {
 		wtxn = p.Writer.WriteTxn()
 		for i := range numObjects {
-			beAddr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(i), loadbalancer.ScopeExternal)
+			beAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(i), loadbalancer.ScopeExternal)
 			p.Writer.UpsertBackends(
 				wtxn,
 				name,
@@ -152,13 +152,13 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			Source: source.Kubernetes,
 		},
 		loadbalancer.FrontendParams{
-			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
+			Address:  loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
 		},
 	)
 
-	beAddr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(1234), loadbalancer.ScopeExternal)
+	beAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(1234), loadbalancer.ScopeExternal)
 	p.Writer.UpsertBackends(
 		wtxn,
 		name,
@@ -194,7 +194,7 @@ func BenchmarkReplaceService(b *testing.B) {
 	p := fixture(b)
 
 	addrCluster := types.MustParseAddrCluster("1.0.0.1")
-	l3n4Addr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
+	l3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
 
 	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()

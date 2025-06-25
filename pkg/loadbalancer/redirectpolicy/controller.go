@@ -569,7 +569,7 @@ func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
 				addr := podAddr{
 					L3n4Addr: lb.L3n4Addr{
 						AddrCluster: addrCluster,
-						L4Addr:      *l4addr,
+						L4Addr:      l4addr,
 						Scope:       0,
 					},
 					portName: port.Name,

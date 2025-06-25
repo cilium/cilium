@@ -108,7 +108,7 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 	}
 	addr := types.MustParseAddrCluster(addrS)
 	port, _ := strconv.ParseInt(portS, 10, 16)
-	return *loadbalancer.NewL3n4Addr(
+	return loadbalancer.NewL3n4Addr(
 		loadbalancer.TCP,
 		addr, uint16(port), loadbalancer.ScopeExternal,
 	)

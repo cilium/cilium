@@ -283,7 +283,7 @@ func svcKeyToAddr(svcKey maps.ServiceKey) loadbalancer.L3n4Addr {
 	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
 	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
-	return *feL3n4Addr
+	return feL3n4Addr
 }
 
 func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
@@ -291,7 +291,7 @@ func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
 	proto := loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
 	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
-	return *beL3n4Addr
+	return beL3n4Addr
 }
 
 // Delete implements reconciler.Operations.

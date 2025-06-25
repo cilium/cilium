@@ -17,22 +17,22 @@ import (
 
 func TestL4Addr_Equals(t *testing.T) {
 	type args struct {
-		o *L4Addr
+		o L4Addr
 	}
 	tests := []struct {
 		name   string
-		fields *L4Addr
+		fields L4Addr
 		args   args
 		want   bool
 	}{
 		{
 			name: "both equal",
-			fields: &L4Addr{
+			fields: L4Addr{
 				Protocol: NONE,
 				Port:     1,
 			},
 			args: args{
-				o: &L4Addr{
+				o: L4Addr{
 					Protocol: NONE,
 					Port:     1,
 				},
@@ -41,12 +41,12 @@ func TestL4Addr_Equals(t *testing.T) {
 		},
 		{
 			name: "both different",
-			fields: &L4Addr{
+			fields: L4Addr{
 				Protocol: NONE,
 				Port:     0,
 			},
 			args: args{
-				o: &L4Addr{
+				o: L4Addr{
 					Protocol: NONE,
 					Port:     1,
 				},
@@ -60,7 +60,7 @@ func TestL4Addr_Equals(t *testing.T) {
 		},
 		{
 			name: "other nil",
-			fields: &L4Addr{
+			fields: L4Addr{
 				Protocol: NONE,
 				Port:     1,
 			},
@@ -71,7 +71,7 @@ func TestL4Addr_Equals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := tt.fields
-			if got := l.DeepEqual(tt.args.o); got != tt.want {
+			if got := l.Equals(tt.args.o); got != tt.want {
 				t.Errorf("L4Addr.DeepEqual() = %v, want %v", got, tt.want)
 			}
 		})
@@ -781,7 +781,7 @@ func BenchmarkServiceNameKey(b *testing.B) {
 	}
 }
 
-func benchmarkString(b *testing.B, addr *L3n4Addr) {
+func benchmarkString(b *testing.B, addr L3n4Addr) {
 	b.ReportAllocs()
 
 	var length int
@@ -800,7 +800,7 @@ func BenchmarkL3n4Addr_String_IPv6_Max(b *testing.B) {
 	benchmarkString(b, addr)
 }
 
-func benchmarkStringWithProtocol(b *testing.B, addr *L3n4Addr) {
+func benchmarkStringWithProtocol(b *testing.B, addr L3n4Addr) {
 	b.ReportAllocs()
 
 	for b.Loop() {

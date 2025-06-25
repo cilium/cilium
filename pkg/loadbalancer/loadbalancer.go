@@ -731,12 +731,17 @@ func (l *L4Addr) DeepEqual(o *L4Addr) bool {
 }
 
 // NewL4Addr creates a new L4Addr.
-func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
-	return &L4Addr{Protocol: protocol, Port: number}
+func NewL4Addr(protocol L4Type, number uint16) L4Addr {
+	return L4Addr{Protocol: protocol, Port: number}
+}
+
+// Equals returns true if both L4Addr are considered equal.
+func (l L4Addr) Equals(o L4Addr) bool {
+	return l.Port == o.Port && l.Protocol == o.Protocol
 }
 
 // String returns a string representation of an L4Addr
-func (l *L4Addr) String() string {
+func (l L4Addr) String() string {
 	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
 }
 
@@ -763,12 +768,9 @@ func (l *L3n4Addr) DeepEqual(o *L3n4Addr) bool {
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
-func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) *L3n4Addr {
+func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)
-
-	addr := L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport, Scope: scope}
-
-	return &addr
+	return L3n4Addr{AddrCluster: addrCluster, L4Addr: lbport, Scope: scope}
 }
 
 func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
@@ -805,7 +807,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("invalid scope \"%s\"", base.Scope)
 	}
 
-	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr, Scope: scope}, nil
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: l4addr, Scope: scope}, nil
 }
 
 // L3n4AddrFromString constructs a StateDB key by parsing the input in the form of
@@ -1093,7 +1095,7 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	if err != nil {
 		return nil, err
 	}
-	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: l4addr}, nil
 }
 
 func init() {
