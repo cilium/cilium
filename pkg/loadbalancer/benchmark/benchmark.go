@@ -407,11 +407,11 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 			i := 0
 			for svc := range writer.Services().All(txn) {
 				want := svcs[i]
-				if svc.Name.Namespace != want.Namespace {
-					err = errors.Join(err, fmt.Errorf("Incorrect namespace for service #%06d, got %q, want %q", i, svc.Name.Namespace, want.Namespace))
+				if svc.Name.Namespace() != want.Namespace {
+					err = errors.Join(err, fmt.Errorf("Incorrect namespace for service #%06d, got %q, want %q", i, svc.Name.Namespace(), want.Namespace))
 				}
-				if svc.Name.Name != want.Name {
-					err = errors.Join(err, fmt.Errorf("Incorrect name for service #%06d, got %q, want %q", i, svc.Name.Name, want.Name))
+				if svc.Name.Name() != want.Name {
+					err = errors.Join(err, fmt.Errorf("Incorrect name for service #%06d, got %q, want %q", i, svc.Name.Name(), want.Name))
 				}
 				if svc.Source != "k8s" {
 					err = errors.Join(err, fmt.Errorf("Incorrect source for service #%06d, got %q, want %q", i, svc.Source, "k8s"))
@@ -435,11 +435,11 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 			i := 0
 			for fe := range writer.Frontends().All(txn) {
 				want := svcs[i]
-				if fe.ServiceName.Namespace != want.Namespace {
-					err = errors.Join(err, fmt.Errorf("Incorrect namespace for frontend #%06d, got %q, want %q", i, fe.ServiceName.Namespace, want.Namespace))
+				if fe.ServiceName.Namespace() != want.Namespace {
+					err = errors.Join(err, fmt.Errorf("Incorrect namespace for frontend #%06d, got %q, want %q", i, fe.ServiceName.Namespace(), want.Namespace))
 				}
-				if fe.ServiceName.Name != want.Name {
-					err = errors.Join(err, fmt.Errorf("Incorrect name for frontend #%06d, got %q, want %q", i, fe.ServiceName.Name, want.Name))
+				if fe.ServiceName.Name() != want.Name {
+					err = errors.Join(err, fmt.Errorf("Incorrect name for frontend #%06d, got %q, want %q", i, fe.ServiceName.Name(), want.Name))
 				}
 				wantIP, _ := netip.ParseAddr(want.Spec.ClusterIP)
 				if fe.Address.AddrCluster.Addr() != wantIP {
@@ -490,8 +490,8 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 					err = errors.Join(err, fmt.Errorf("Incorrect instances count for backend #%06d, got %v, want %v", i, be.Instances.Len(), 1))
 				} else {
 					for k, instance := range be.Instances.All() { // There should
-						if k.ServiceName.Name != svcs[i].Name {
-							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, k.ServiceName.Name, svcs[i].Name))
+						if k.ServiceName.Name() != svcs[i].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, k.ServiceName.Name(), svcs[i].Name))
 						}
 						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
 							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))

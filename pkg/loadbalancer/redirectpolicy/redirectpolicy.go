@@ -24,10 +24,10 @@ import (
 const localRedirectServiceSuffix = ":local-redirect"
 
 func lrpServiceName(lrpID k8s.ServiceID) lb.ServiceName {
-	return lb.ServiceName{
-		Name:      lrpID.Name + localRedirectServiceSuffix,
-		Namespace: lrpID.Namespace,
-	}
+	return lb.NewServiceName(
+		lrpID.Namespace,
+		lrpID.Name+localRedirectServiceSuffix,
+	)
 }
 
 type lrpConfigType = int

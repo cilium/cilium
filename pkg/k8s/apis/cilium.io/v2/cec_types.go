@@ -108,10 +108,7 @@ type Service struct {
 }
 
 func (l *Service) ServiceName() loadbalancer.ServiceName {
-	return loadbalancer.ServiceName{
-		Namespace: l.Namespace,
-		Name:      l.Name,
-	}
+	return loadbalancer.NewServiceName(l.Namespace, l.Name)
 }
 
 type ServiceListener struct {
@@ -146,10 +143,7 @@ type ServiceListener struct {
 }
 
 func (l *ServiceListener) ServiceName() loadbalancer.ServiceName {
-	return loadbalancer.ServiceName{
-		Namespace: l.Namespace,
-		Name:      l.Name,
-	}
+	return loadbalancer.NewServiceName(l.Namespace, l.Name)
 }
 
 // +kubebuilder:pruning:PreserveUnknownFields
