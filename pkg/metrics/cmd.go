@@ -24,7 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"

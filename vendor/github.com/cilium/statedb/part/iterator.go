@@ -64,33 +64,33 @@ func newIterator[T any](start *header[T]) *Iterator[T] {
 	return &Iterator[T]{[][]*header[T]{{start}}}
 }
 
-func prefixSearch[T any](root *header[T], key []byte) (*Iterator[T], <-chan struct{}) {
+func prefixSearch[T any](root *header[T], prefix []byte) (*Iterator[T], <-chan struct{}) {
 	this := root
-	var watch <-chan struct{}
+	watch := root.watch
 	for {
+		// Does the node have part of the prefix we're looking for?
+		commonPrefix := this.prefix()[:min(len(prefix), int(this.prefixLen))]
+		if !bytes.HasPrefix(prefix, commonPrefix) {
+			// Mismatching prefix, return the watch channel from the previous matching node.
+			return newIterator[T](nil), watch
+		}
+
 		if !this.isLeaf() && this.watch != nil {
 			// Leaf watch channels only close when the leaf is manipulated,
 			// thus we only return non-leaf watch channels.
 			watch = this.watch
 		}
 
-		switch {
-		case bytes.Equal(key, this.prefix()[:min(len(key), int(this.prefixLen))]):
+		// Consume the prefix of this node
+		prefix = prefix[len(commonPrefix):]
+		if len(prefix) == 0 {
+			// Exact match to our search prefix.
 			return newIterator(this), watch
-
-		case bytes.HasPrefix(key, this.prefix()):
-			key = key[this.prefixLen:]
-			if len(key) == 0 {
-				return newIterator(this), this.watch
-			}
-
-		default:
-			return newIterator[T](nil), root.watch
 		}
 
-		this = this.find(key[0])
+		this = this.find(prefix[0])
 		if this == nil {
-			return newIterator[T](nil), root.watch
+			return newIterator[T](nil), watch
 		}
 	}
 }

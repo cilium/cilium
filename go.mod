@@ -25,7 +25,7 @@ require (
 	github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1
-	github.com/cilium/statedb v0.4.1
+	github.com/cilium/statedb v0.4.4
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.3.0
 	github.com/cloudflare/cfssl v1.6.5
@@ -105,6 +105,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.36.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
+	go.yaml.in/yaml/v3 v3.0.3
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.39.0
 	golang.org/x/mod v0.25.0
@@ -121,7 +122,6 @@ require (
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
-	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.18.3
 	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.2
@@ -137,7 +137,7 @@ require (
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
 	sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b
 	sigs.k8s.io/mcs-api/controllers v0.0.0-20250619142051-a23ff80a0902
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -293,6 +293,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
@@ -301,6 +302,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/apiserver v0.33.2 // indirect
 	k8s.io/code-generator v0.33.2 // indirect

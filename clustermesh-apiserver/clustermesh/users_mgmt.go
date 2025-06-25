@@ -12,7 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
