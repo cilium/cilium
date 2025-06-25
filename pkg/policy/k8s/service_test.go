@@ -220,24 +220,15 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	fooEpAddr1 := cmtypes.MustParseAddrCluster("10.1.1.1")
 	fooEpAddr2 := cmtypes.MustParseAddrCluster("10.1.1.2")
-	fooSvcID := loadbalancer.ServiceName{
-		Name:      "foo-svc",
-		Namespace: "foo-ns",
-	}
+	fooSvcID := loadbalancer.NewServiceName("foo-ns", "foo-svc")
 	fooEps := []cmtypes.AddrCluster{fooEpAddr1, fooEpAddr2}
 
 	barEpAddr := cmtypes.MustParseAddrCluster("192.168.1.1")
-	barSvcID := loadbalancer.ServiceName{
-		Name:      "bar-svc",
-		Namespace: "bar-ns",
-	}
+	barSvcID := loadbalancer.NewServiceName("bar-ns", "bar-svc")
 	barEps := []cmtypes.AddrCluster{barEpAddr}
 
 	// baz is similar to bar, but not an external service (thus not selectable)
-	bazSvcID := loadbalancer.ServiceName{
-		Name:      "baz-svc",
-		Namespace: "baz-ns",
-	}
+	bazSvcID := loadbalancer.NewServiceName("baz-ns", "baz-svc")
 	bazSvcSelector := map[string]string{
 		"app": "baz",
 	}
@@ -455,7 +446,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcSelector, nil)
 	bazEndpointSelectors.Generated = true
 	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace)
+	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, bazEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -550,10 +541,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, map[resource.Key]struct{}{
 		svcByNameKey: {},
 	}, p.toServicesPolicies)
-	fooSvcID := loadbalancer.ServiceName{
-		Name:      "foo-svc",
-		Namespace: "foo-ns",
-	}
+	fooSvcID := loadbalancer.NewServiceName("foo-ns", "foo-svc")
 	fooSvcSelector := map[string]string{
 		"app": "foo",
 	}
@@ -573,7 +561,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	fooEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
 	fooEndpointSelectors.Generated = true
 	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
+	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -600,7 +588,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
 	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
+	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -643,10 +631,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	// svcByLabelLbl := labels.NewLabel("io.cilium.k8s.policy.name", svcByLabelCNP.Name, "k8s")
 	svcByLabelKey := resource.NewKey(svcByLabelCNP)
 	svcByLabelResourceID := resourceIDForCiliumNetworkPolicy(svcByLabelKey, svcByLabelCNP)
-	barSvcID := loadbalancer.ServiceName{
-		Name:      "bar-svc",
-		Namespace: "bar-ns",
-	}
+	barSvcID := loadbalancer.NewServiceName("bar-ns", "bar-svc")
 	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID, nil)
 	// Upsert policies. No services are known, so generated ToEndpoints should be empty
 	assert.NoError(t, err)
@@ -666,7 +651,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	barEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(barSvcLabels), nil)
 	barEndpointSelectors.Generated = true
-	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace)
+	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, barEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -718,7 +703,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
 	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
+	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -746,7 +731,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 			args: args{
 				spec: nil,
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
 				},
 			},
 			want: false,
@@ -767,7 +752,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
 				},
 			},
 			want: true,
@@ -788,7 +773,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
 				},
 			},
 			want: true,
@@ -811,7 +796,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "not-test-ns"},
+					name: loadbalancer.NewServiceName("not-test-ns", "test-svc"),
 				},
 			},
 			want: false,
@@ -834,7 +819,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
 				},
 			},
 			want: false,
@@ -857,7 +842,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
 				},
 			},
 			want: false,
@@ -886,7 +871,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name: loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
 				},
 			},
 			want: true,
@@ -910,7 +895,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
 					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
 				},
 			},
@@ -935,7 +920,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
 					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
 				},
 			},
@@ -961,7 +946,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
 					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
 				},
 			},
@@ -987,7 +972,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
 					labels: labels.NewLabelsFromSortedList("baz=qux,foo=bar"),
 				},
 			},
@@ -1016,7 +1001,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				ev: serviceEvent{
-					name:   loadbalancer.ServiceName{Name: "test-svc", Namespace: "test-ns"},
+					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
 					labels: labels.NewLabelsFromSortedList("baz=qux,foo=bar"),
 				},
 			},
@@ -1037,7 +1022,7 @@ func TestServiceEventStream(t *testing.T) {
 		serviceEventStream(servicesFixture.db, servicesFixture.services, servicesFixture.backends),
 	)
 
-	svc := loadbalancer.ServiceName{Namespace: "test", Name: "svc1"}
+	svc := loadbalancer.NewServiceName("test", "svc1")
 	lbls := map[string]string{"foo": "bar"}
 	addr := cmtypes.MustParseAddrCluster("10.0.0.1")
 

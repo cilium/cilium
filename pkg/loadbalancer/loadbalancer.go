@@ -5,6 +5,7 @@ package loadbalancer
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/cache"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -480,53 +483,102 @@ type ServiceID uint16
 // including both the namespace and name of the service (and optionally the cluster).
 // +k8s:deepcopy-gen=true
 type ServiceName struct {
-	Namespace string
-	Name      string
-	Cluster   string
+	// str is (<cluster>/)<namespace>/<name>
+	str string
+
+	// namePos is where the name starts
+	// (<cluster>/)<namespace>/<name>
+	//                         ^
+	namePos uint16
+
+	// clusterEndPos is where the cluster (including '/' ends. If zero then there is
+	// no cluster.
+	// (<cluster>/)<namespace>/<name>
+	//             ^
+	clusterEndPos uint16
 }
 
-func (m ServiceName) MarshalYAML() (any, error) {
-	return m.String(), nil
-}
-
-func (m *ServiceName) UnmarshalYAML(value *yaml.Node) error {
-	parts := strings.Split(value.Value, "/")
-	switch len(parts) {
-	case 0: /* empty name */
-	case 1:
-		m.Name = parts[0]
-	case 2:
-		m.Namespace = parts[0]
-		m.Name = parts[1]
-	case 3:
-		m.Cluster = parts[0]
-		m.Namespace = parts[1]
-		m.Name = parts[2]
-	default:
-		return fmt.Errorf("expected 0, 1 or 2 slashes, got %d", len(parts))
+func (s ServiceName) Cluster() string {
+	if s.clusterEndPos > 0 {
+		return s.str[:s.clusterEndPos-1]
 	}
+	return ""
+}
+
+func (s ServiceName) Name() string {
+	return s.str[s.namePos:]
+}
+
+func (s ServiceName) Namespace() string {
+	return s.str[s.clusterEndPos : s.namePos-1]
+}
+
+func (n ServiceName) Key() index.Key {
+	// index.Key is never mutated so it's safe to return the underlying
+	// string as []byte without copying.
+	return unsafe.Slice(unsafe.StringData(n.str), len(n.str))
+}
+
+func NewServiceName(namespace, name string) ServiceName {
+	return NewServiceNameInCluster("", namespace, name)
+}
+
+func NewServiceNameInCluster(cluster, namespace, name string) ServiceName {
+	var b strings.Builder
+	pos := 0
+	if cluster != "" {
+		n, _ := b.WriteString(cluster)
+		b.WriteRune('/')
+		pos += n + 1
+	}
+	cendPos := pos
+	n, _ := b.WriteString(namespace)
+	b.WriteRune('/')
+	pos += n + 1
+	b.WriteString(name)
+	str := cache.Strings.Get(b.String())
+	return ServiceName{
+		str:           str,
+		clusterEndPos: uint16(cendPos),
+		namePos:       uint16(pos),
+	}
+}
+
+func (n ServiceName) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.str)
+}
+
+func (n *ServiceName) UnmarshalJSON(bs []byte) error {
+	n.str = strings.Trim(string(bs), ` \t\n\"`)
+	return nil
+}
+
+func (n ServiceName) MarshalYAML() (any, error) {
+	return n.String(), nil
+}
+
+func (n *ServiceName) UnmarshalYAML(value *yaml.Node) error {
+	n.str = strings.Trim(value.Value, ` \t\n\"`)
 	return nil
 }
 
 func (n *ServiceName) Equal(other ServiceName) bool {
-	return n.Namespace == other.Namespace &&
-		n.Name == other.Name &&
-		n.Cluster == other.Cluster
+	return n.str == other.str
 }
 
 func (n ServiceName) Compare(other ServiceName) int {
 	switch {
-	case n.Namespace < other.Namespace:
+	case n.Namespace() < other.Namespace():
 		return -1
-	case n.Namespace > other.Namespace:
+	case n.Namespace() > other.Namespace():
 		return 1
-	case n.Name < other.Name:
+	case n.Name() < other.Name():
 		return -1
-	case n.Name > other.Name:
+	case n.Name() > other.Name():
 		return 1
-	case n.Cluster < other.Cluster:
+	case n.Cluster() < other.Cluster():
 		return -1
-	case n.Cluster > other.Cluster:
+	case n.Cluster() > other.Cluster():
 		return 1
 	default:
 		return 0
@@ -534,19 +586,12 @@ func (n ServiceName) Compare(other ServiceName) int {
 }
 
 func (n ServiceName) String() string {
-	if n.Cluster != "" {
-		return n.Cluster + "/" + n.Namespace + "/" + n.Name
-	}
-
-	return n.Namespace + "/" + n.Name
+	return n.str
 }
 
 func (n ServiceName) AppendSuffix(suffix string) ServiceName {
-	return ServiceName{
-		Namespace: n.Namespace,
-		Name:      n.Name + suffix,
-		Cluster:   n.Cluster,
-	}
+	n.str += suffix
+	return n
 }
 
 // BackendID is the backend's ID.
@@ -1038,6 +1083,6 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 func init() {
 	// Register the types for use with part.Map and part.Set.
 	part.RegisterKeyType(
-		func(name ServiceName) []byte { return []byte(name.String()) })
+		func(name ServiceName) []byte { return []byte(name.Key()) })
 	part.RegisterKeyType(L3n4Addr.Bytes)
 }

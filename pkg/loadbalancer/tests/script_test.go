@@ -187,7 +187,7 @@ func (tc testCommands) updateHealth() script.Cmd {
 				return nil, fmt.Errorf("%w: expected service name, backend address and health", script.ErrUsage)
 			}
 			ns, name, _ := strings.Cut(args[0], "/")
-			svc := loadbalancer.ServiceName{Namespace: ns, Name: name}
+			svc := loadbalancer.NewServiceName(ns, name)
 
 			var beAddr loadbalancer.L3n4Addr
 			if err := beAddr.ParseFromString(args[1]); err != nil {

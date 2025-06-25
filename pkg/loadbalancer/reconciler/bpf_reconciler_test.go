@@ -153,7 +153,7 @@ type testCase struct {
 	maps, maglev []maps.MapDump
 }
 
-var testServiceName = loadbalancer.ServiceName{Name: "test", Namespace: "test"}
+var testServiceName = loadbalancer.NewServiceName("test", "test")
 
 var baseService = loadbalancer.Service{
 	Name:                   testServiceName,
@@ -729,7 +729,8 @@ var localRedirectTestCases = []testCase{
 		"LocalRedirect",
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
-			fe.RedirectTo = &loadbalancer.ServiceName{Name: "foo", Namespace: "bar"}
+			svcName := loadbalancer.NewServiceName("bar", "foo")
+			fe.RedirectTo = &svcName
 			fe.Address = autoAddr
 			return false, []loadbalancer.Backend{}
 		},
