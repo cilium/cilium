@@ -17,7 +17,7 @@ var confirmDeleteAll bool
 // policyDeleteCmd represents the policy_delete command
 var policyDeleteCmd = &cobra.Command{
 	Use:   "delete [<labels>]",
-	Short: "Delete policy rules",
+	Short: "Delete policy rules (deprecated)",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 && !confirmDeleteAll {
 			Fatalf("Please use --all flag to delete all policies")

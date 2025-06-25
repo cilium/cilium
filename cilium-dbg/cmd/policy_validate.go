@@ -18,7 +18,7 @@ var policyVerbose bool
 // policyValidateCmd represents the policy_validate command
 var policyValidateCmd = &cobra.Command{
 	Use:    "validate <path>",
-	Short:  "Validate a policy",
+	Short:  "Validate a policy (deprecated)",
 	PreRun: requirePath,
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]

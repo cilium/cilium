@@ -23,10 +23,10 @@ Manage security policies
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg policy delete](cilium-dbg_policy_delete.md)	 - Delete policy rules
-* [cilium-dbg policy get](cilium-dbg_policy_get.md)	 - Display policy node information
-* [cilium-dbg policy import](cilium-dbg_policy_import.md)	 - Import security policy in JSON format
+* [cilium-dbg policy delete](cilium-dbg_policy_delete.md)	 - Delete policy rules (deprecated)
+* [cilium-dbg policy get](cilium-dbg_policy_get.md)	 - Display policy node information (deprecated)
+* [cilium-dbg policy import](cilium-dbg_policy_import.md)	 - Import security policy in JSON format (deprecated)
 * [cilium-dbg policy selectors](cilium-dbg_policy_selectors.md)	 - Display cached information about selectors
-* [cilium-dbg policy validate](cilium-dbg_policy_validate.md)	 - Validate a policy
+* [cilium-dbg policy validate](cilium-dbg_policy_validate.md)	 - Validate a policy (deprecated)
 * [cilium-dbg policy wait](cilium-dbg_policy_wait.md)	 - Wait for all endpoints to have updated to a given policy revision
 
