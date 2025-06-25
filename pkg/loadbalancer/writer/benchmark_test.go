@@ -36,7 +36,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	// inserts slightly more costly.
 	wtxn := p.Writer.WriteTxn()
 	for i := range 1000 {
-		name := loadbalancer.ServiceName{Namespace: "test-existing", Name: fmt.Sprintf("svc-%d", i)}
+		name := loadbalancer.NewServiceName("test-existing", fmt.Sprintf("svc-%d", i))
 		var addr1 [4]byte
 		binary.BigEndian.PutUint32(addr1[:], 0x02000000+uint32(i))
 		addrCluster, _ := types.AddrClusterFromIP(addr1[:])
@@ -61,7 +61,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	for b.Loop() {
 		wtxn := p.Writer.WriteTxn()
 		for i := range numObjects {
-			name := loadbalancer.ServiceName{Namespace: "test-new", Name: fmt.Sprintf("svc-%d", i)}
+			name := loadbalancer.NewServiceName("test-new", fmt.Sprintf("svc-%d", i))
 			var addr1 [4]byte
 			binary.BigEndian.PutUint32(addr1[:], 0x01000000+uint32(i))
 			addrCluster, _ := types.AddrClusterFromIP(addr1[:])
@@ -91,7 +91,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 	addrCluster1 := types.MustParseAddrCluster("1.0.0.1")
 	addrCluster2 := types.MustParseAddrCluster("2.0.0.2")
 
-	name := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()
 
 	p.Writer.UpsertServiceAndFrontends(
@@ -140,7 +140,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 	addrCluster1 := types.MustParseAddrCluster("1.0.0.1")
 	addrCluster2 := types.MustParseAddrCluster("2.0.0.2")
 
-	name := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()
 
 	p.Writer.UpsertServiceAndFrontends(
@@ -192,7 +192,7 @@ func BenchmarkReplaceService(b *testing.B) {
 	addrCluster := types.MustParseAddrCluster("1.0.0.1")
 	l3n4Addr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
 
-	name := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()
 
 	p.Writer.UpsertServiceAndFrontends(

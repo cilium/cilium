@@ -51,11 +51,7 @@ Address              Instances
 
 -- services-expected.json --
 {
-  "Name": {
-    "Namespace": "test",
-    "Name": "echo",
-    "Cluster": ""
-  },
+  "Name": "test/echo",
   "Source": "k8s",
   "Labels": {},
   "Annotations": null,
@@ -87,11 +83,7 @@ Address              Instances
     "Scope": 0
   },
   "Type": "ClusterIP",
-  "ServiceName": {
-    "Namespace": "test",
-    "Name": "echo",
-    "Cluster": ""
-  },
+  "ServiceName": "test/echo",
   "PortName": "http",
   "ServicePort": 80,
   "Status": {
@@ -132,11 +124,7 @@ Address              Instances
     "Scope": 0
   },
   "Type": "ClusterIP",
-  "ServiceName": {
-    "Namespace": "test",
-    "Name": "echo",
-    "Cluster": ""
-  },
+  "ServiceName": "test/echo",
   "PortName": "http",
   "ServicePort": 80,
   "Status": {
@@ -180,11 +168,7 @@ Address              Instances
   "Instances": [
     {
       "k": {
-        "ServiceName": {
-          "Namespace": "test",
-          "Name": "echo",
-          "Cluster": ""
-        },
+        "ServiceName": "test/echo",
         "SourcePriority": 4
       },
       "v": {
@@ -220,11 +204,7 @@ Address              Instances
   "Instances": [
     {
       "k": {
-        "ServiceName": {
-          "Namespace": "test",
-          "Name": "echo",
-          "Cluster": ""
-        },
+        "ServiceName": "test/echo",
         "SourcePriority": 4
       },
       "v": {

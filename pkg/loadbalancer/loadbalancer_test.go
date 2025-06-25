@@ -5,13 +5,12 @@ package loadbalancer
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.yaml.in/yaml/v3"
-
-	"github.com/cilium/statedb/index"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
@@ -688,25 +687,47 @@ func TestServiceFlags_String(t *testing.T) {
 	}
 }
 
-func TestServiceNameYAML(t *testing.T) {
+func TestServiceName(t *testing.T) {
+	n := NewServiceName("", "")
+	n2 := NewServiceName("", "")
+	assert.Equal(t, "/", n.String())
+	assert.True(t, n.Equal(n2))
+
+	n = NewServiceName("foo", "bar")
+	n2 = NewServiceName("foo", "bar")
+	assert.Equal(t, "foo/bar", n.String())
+	assert.Equal(t, "foo/bar", string(n.Key()))
+	assert.Equal(t, "foo", n.Namespace())
+	assert.Equal(t, "bar", n.Name())
+	assert.True(t, n.Equal(n2))
+	n2 = NewServiceName("foo", "baz")
+	assert.False(t, n.Equal(n2))
+
+	n = NewServiceNameInCluster("foo", "bar", "quux")
+	assert.Equal(t, "foo/bar/quux", n.String())
+	assert.Equal(t, "foo", n.Cluster())
+	assert.Equal(t, "bar", n.Namespace())
+	assert.Equal(t, "quux", n.Name())
+	assert.Equal(t, "foo/bar/quux", string(n.Key()))
+	assert.False(t, n.Equal(n2))
+
+}
+
+func TestServiceNameYAMLJSON(t *testing.T) {
 	tests := []struct {
 		name ServiceName
 		want string
 	}{
 		{
-			name: ServiceName{},
-			want: "/",
-		},
-		{
-			name: ServiceName{Name: "foo"},
+			name: NewServiceName("", "foo"),
 			want: "/foo",
 		},
 		{
-			name: ServiceName{Name: "foo", Namespace: "bar"},
+			name: NewServiceName("bar", "foo"),
 			want: "bar/foo",
 		},
 		{
-			name: ServiceName{Name: "foo", Namespace: "bar", Cluster: "quux"},
+			name: NewServiceNameInCluster("quux", "bar", "foo"),
 			want: "quux/bar/foo",
 		},
 	}
@@ -719,16 +740,41 @@ func TestServiceNameYAML(t *testing.T) {
 			var name ServiceName
 			err := yaml.Unmarshal(out, &name)
 			if assert.NoError(t, err, "Unmarshal") {
-				assert.True(t, test.name.Equal(name), "Equal")
+				assert.Equal(t, test.name.Name(), name.Name(), "Name %v, namePos %d", name, name.namePos)
+				assert.Equal(t, test.name.Namespace(), name.Namespace(), "Namespace %v, clusterEndPos", name, name.clusterEndPos)
+				assert.Equal(t, test.name.Cluster(), name.Cluster(), "Cluster %v, clusterEndPos %v", name, name.clusterEndPos)
+				assert.True(t, test.name.Equal(name), "Equal %v %v", test.name, name)
 			}
 		}
+
+		out, err = json.Marshal(test.name)
+		if assert.NoError(t, err, "Marshal") {
+			s := string(out)
+			assert.Equal(t, `"`+test.want+`"`, s)
+
+			var name ServiceName
+			err := json.Unmarshal(out, &name)
+			if assert.NoError(t, err, "Unmarshal") {
+				assert.Equal(t, test.name.Name(), name.Name(), "Name %v, namePos %d", name, name.namePos)
+				assert.Equal(t, test.name.Namespace(), name.Namespace(), "Namespace %v, clusterEndPos", name, name.clusterEndPos)
+				assert.Equal(t, test.name.Cluster(), name.Cluster(), "Cluster %v, clusterEndPos %v", name, name.clusterEndPos)
+				assert.True(t, test.name.Equal(name), "Equal %v %v", test.name, name)
+			}
+		}
+	}
+}
+
+func BenchmarkNewServiceName(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		NewServiceNameInCluster("foo", "bar", "baz")
 	}
 }
 
 func BenchmarkServiceNameKey(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		if len(index.Stringer(ServiceName{"foo", "bar", "baz"})) == 0 {
+		if len(NewServiceNameInCluster("foo", "bar", "baz").Key()) == 0 {
 			// Do something so this won't be optimized out.
 			b.Fatalf("empty length")
 		}

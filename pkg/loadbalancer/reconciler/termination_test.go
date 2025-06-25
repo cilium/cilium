@@ -132,7 +132,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	wtxn := db.WriteTxn(backends)
 	be := &loadbalancer.Backend{Address: beAddr}
 	be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{
-		ServiceName:    loadbalancer.ServiceName{Name: "foo", Namespace: "bar"},
+		ServiceName:    loadbalancer.NewServiceName("bar", "foo"),
 		SourcePriority: 0,
 	}, loadbalancer.BackendParams{
 		Address:   beAddr,
@@ -431,7 +431,7 @@ func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
 		be.Address.L4Addr.Protocol = proto
 		be.Instances = be.Instances.Set(
 			loadbalancer.BackendInstanceKey{
-				ServiceName:    loadbalancer.ServiceName{Namespace: "foo", Name: "bar"},
+				ServiceName:    loadbalancer.NewServiceName("foo", "bar"),
 				SourcePriority: 0,
 			}, loadbalancer.BackendParams{
 				Address:   be.Address,

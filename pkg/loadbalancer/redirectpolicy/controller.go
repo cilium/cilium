@@ -213,7 +213,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 	cleanup := func(wtxn writer.WriteTxn) {
 		// Unset the redirect on all frontends.
 		if lrp.LRPType == lrpConfigTypeSvc {
-			targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+			targetName := lb.NewServiceName(lrp.ServiceID.Namespace, lrp.ServiceID.Name)
 			for fe := range c.p.Writer.Frontends().List(wtxn, lb.FrontendByServiceName(targetName)) {
 				c.p.Writer.SetRedirectTo(wtxn, fe, nil)
 			}
@@ -261,7 +261,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 	case lrpConfigTypeSvc:
 		// Find frontends associated with the target service that match the redirection criteria and
 		// redirect them to the LRP "pseudo-service".
-		targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+		targetName := lb.NewServiceName(lrp.ServiceID.Namespace, lrp.ServiceID.Name)
 		fes, watch := c.p.Writer.Frontends().ListWatch(wtxn, lb.FrontendByServiceName(targetName))
 		ws.Add(watch)
 		for fe := range fes {
@@ -401,7 +401,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	// If the LRP is an address matcher, then lrpServiceName == targetName and we already
 	// refreshed the frontend via SetBackends() above.
 	if lrp.LRPType == lrpConfigTypeSvc {
-		targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+		targetName := lb.NewServiceName(lrp.ServiceID.Namespace, lrp.ServiceID.Name)
 		c.p.Writer.RefreshFrontends(wtxn, targetName)
 	}
 }
@@ -534,7 +534,7 @@ func (c *lrpController) frontendsToSkip(txn statedb.ReadTxn, ws *statedb.WatchSe
 		// For address-based matching we created the frontends, so we look up from the pseudo-service
 		targetName = lrp.ServiceName()
 	} else {
-		targetName = lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+		targetName = lb.NewServiceName(lrp.ServiceID.Namespace, lrp.ServiceID.Name)
 	}
 
 	feAddrs := []lb.L3n4Addr{}

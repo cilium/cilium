@@ -75,7 +75,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		)
 	})
 
-	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
+	name := loadbalancer.NewServiceName(svc.Namespace, svc.Name)
 	s = &loadbalancer.Service{
 		Name:                name,
 		Source:              source,

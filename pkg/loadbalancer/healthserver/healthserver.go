@@ -352,7 +352,7 @@ func (h *httpHealthServer) shutdown(ctx context.Context) {
 func (h *httpHealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Use headers and JSON output compatible with kube-proxy
 	response := healthResponse{
-		Service:        healthResponseServiceName{Namespace: h.name.Namespace, Name: h.name.Name},
+		Service:        healthResponseServiceName{Namespace: h.name.Namespace(), Name: h.name.Name()},
 		LocalEndpoints: h.getLocalEndpointCount(),
 	}
 

@@ -63,10 +63,7 @@ type serviceMerger struct {
 }
 
 func (sm *serviceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {
-	name := loadbalancer.ServiceName{
-		Namespace: service.Namespace,
-		Name:      service.Name,
-	}
+	name := loadbalancer.NewServiceName(service.Namespace, service.Name)
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()
 	sm.writer.DeleteBackendsOfServiceFromCluster(
@@ -78,10 +75,7 @@ func (sm *serviceMerger) MergeExternalServiceDelete(service *serviceStore.Cluste
 }
 
 func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService) {
-	name := loadbalancer.ServiceName{
-		Namespace: service.Namespace,
-		Name:      service.Name,
-	}
+	name := loadbalancer.NewServiceName(service.Namespace, service.Name)
 
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()

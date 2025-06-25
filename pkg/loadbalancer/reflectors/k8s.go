@@ -238,7 +238,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
 			if svc == nil {
 				// The service should not be provisioned on this agent. Try to delete if it was previously.
-				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+				name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
 				rh.update("svc:"+name.String(), nil)
 
 				oldSvc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
@@ -262,7 +262,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			rh.update("svc:"+svc.Name.String(), err)
 
 		case resource.Delete:
-			name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+			name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
 			rh.update("svc:"+name.String(), nil)
 
 			svc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
@@ -283,10 +283,10 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initEndpoints(txn)
 
 		case resource.Upsert:
-			name := loadbalancer.ServiceName{
-				Name:      key.key.Name,
-				Namespace: key.key.Namespace,
-			}
+			name := loadbalancer.NewServiceName(
+				key.key.Namespace,
+				key.key.Name,
+			)
 			var err error
 
 			// Upsert new or changed backends
@@ -541,10 +541,10 @@ func (rh *reflectorHealth) report() {
 // HostPort entries for a pod. This handles the pod recreation where name stays but UID
 // changes, which we might see only as an update without any deletion.
 func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
-	return loadbalancer.ServiceName{
-		Name:      fmt.Sprintf("%s:host-port:", pod.ObjectMeta.Name),
-		Namespace: pod.ObjectMeta.Namespace,
-	}
+	return loadbalancer.NewServiceName(
+		pod.ObjectMeta.Namespace,
+		fmt.Sprintf("%s:host-port:", pod.ObjectMeta.Name),
+	)
 }
 
 func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
@@ -576,10 +576,11 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 
 			// HostPort service names are of form:
 			// <namespace>/<name>:host-port:<port>:<uid>.
-			serviceName := serviceNamePrefix
-			serviceName.Name += fmt.Sprintf("%d:%s",
-				p.HostPort,
-				pod.ObjectMeta.UID)
+			serviceName := serviceNamePrefix.AppendSuffix(
+				fmt.Sprintf("%d:%s",
+					p.HostPort,
+					pod.ObjectMeta.UID),
+			)
 
 			var ipv4, ipv6 bool
 
