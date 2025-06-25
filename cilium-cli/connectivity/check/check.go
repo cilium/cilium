@@ -111,6 +111,7 @@ type Parameters struct {
 	ExternalOtherIPv6         string
 	ServiceType               string
 	EchoServerHostPort        int
+	EchoServerHostNetNsPort   int
 	PodCIDRs                  []podCIDRs
 	NodeCIDRs                 []string
 	ControlPlaneCIDRs         []string
