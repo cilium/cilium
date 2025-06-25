@@ -17,6 +17,7 @@ import (
 
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/cache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
@@ -247,10 +248,10 @@ type endpointSlice interface {
 func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	return EndpointSliceID{
 		ServiceID: ServiceID{
-			Name:      es.GetLabels()[slim_discovery_v1.LabelServiceName],
-			Namespace: es.GetNamespace(),
+			Name:      cache.Strings.Get(es.GetLabels()[slim_discovery_v1.LabelServiceName]),
+			Namespace: cache.Strings.Get(es.GetNamespace()),
 		},
-		EndpointSliceName: es.GetName(),
+		EndpointSliceName: cache.Strings.Get(es.GetName()),
 	}
 }
 
@@ -300,17 +301,17 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
-					backend.NodeName = nodeName
+					backend.NodeName = cache.Strings.Get(nodeName)
 				}
 				if sub.Hostname != nil {
-					backend.Hostname = *sub.Hostname
+					backend.Hostname = cache.Strings.Get(*sub.Hostname)
 				}
 				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 					backend.Terminating = true
 					metrics.TerminatingEndpointsEvents.Inc()
 				}
 				if zoneName, ok := sub.Topology[corev1.LabelTopologyZone]; ok {
-					backend.Zone = zoneName
+					backend.Zone = cache.Strings.Get(zoneName)
 				}
 			}
 
@@ -353,7 +354,7 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 		name = *port.Name
 	}
 	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return name, lbPort
+	return cache.Strings.Get(name), lbPort
 }
 
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
@@ -424,19 +425,19 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 				if sub.NodeName != nil {
-					backend.NodeName = *sub.NodeName
+					backend.NodeName = cache.Strings.Get(*sub.NodeName)
 				} else {
 					if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
-						backend.NodeName = nodeName
+						backend.NodeName = cache.Strings.Get(nodeName)
 					}
 				}
 				if sub.Hostname != nil {
-					backend.Hostname = *sub.Hostname
+					backend.Hostname = cache.Strings.Get(*sub.Hostname)
 				}
 				if sub.Zone != nil {
-					backend.Zone = *sub.Zone
+					backend.Zone = cache.Strings.Get(*sub.Zone)
 				} else if zoneName, ok := sub.DeprecatedTopology[corev1.LabelTopologyZone]; ok {
-					backend.Zone = zoneName
+					backend.Zone = cache.Strings.Get(zoneName)
 				}
 				// If is not ready check if is serving and terminating
 				if !isReady &&
@@ -465,7 +466,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 				hints := (*sub.Hints).ForZones
 				backend.HintsForZones = make([]string, len(hints))
 				for i, hint := range hints {
-					backend.HintsForZones[i] = hint.Name
+					backend.HintsForZones[i] = cache.Strings.Get(hint.Name)
 				}
 			}
 		}
@@ -503,7 +504,7 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 		name = *port.Name
 	}
 	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return name, lbPort
+	return cache.Strings.Get(name), lbPort
 }
 
 // EndpointSlices is the collection of all endpoint slices of a service.
