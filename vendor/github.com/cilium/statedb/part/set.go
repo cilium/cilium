@@ -10,7 +10,7 @@ import (
 	"iter"
 	"slices"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Set is a persistent (immutable) set of values. A Set can be
