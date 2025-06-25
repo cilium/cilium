@@ -759,11 +759,31 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 					Namespace:     &h,
 				})
 		},
-		Close:             netlinkHandle.Close,
-		LinkList:          netlinkHandle.LinkList,
-		AddrList:          netlinkHandle.AddrList,
-		RouteListFiltered: netlinkHandle.RouteListFiltered,
-		NeighList:         netlinkHandle.NeighList,
+		LinkList: func() ([]netlink.Link, error) {
+			return safenetlink.WithRetryResult(func() ([]netlink.Link, error) {
+				//nolint:forbidigo
+				return netlinkHandle.LinkList()
+			})
+		},
+		AddrList: func(link netlink.Link, family int) ([]netlink.Addr, error) {
+			return safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+				//nolint:forbidigo
+				return netlinkHandle.AddrList(link, family)
+			})
+		},
+		RouteListFiltered: func(family int, filter *netlink.Route, filterMask uint64) ([]netlink.Route, error) {
+			return safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+				//nolint:forbidigo
+				return netlinkHandle.RouteListFiltered(family, filter, filterMask)
+			})
+		},
+		NeighList: func(linkIndex, family int) ([]netlink.Neigh, error) {
+			return safenetlink.WithRetryResult(func() ([]netlink.Neigh, error) {
+				//nolint:forbidigo
+				return netlinkHandle.NeighList(linkIndex, family)
+			})
+		},
+		Close: netlinkHandle.Close,
 	}, nil
 }
 
