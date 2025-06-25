@@ -452,10 +452,8 @@ func registerMappingsUpdater(p mappingUpdaterParams) {
 				for {
 					fe, _, watch, found := p.Frontends.GetWatch(
 						p.DB.ReadTxn(),
-						loadbalancer.FrontendByServiceName(loadbalancer.ServiceName{
-							Name:      "kubernetes",
-							Namespace: "default",
-						}))
+						loadbalancer.FrontendByServiceName(loadbalancer.NewServiceName(
+							"default", "kubernetes")))
 					if found {
 						mapping := frontendToMapping(fe)
 						if !mapping.Equal(previous) {

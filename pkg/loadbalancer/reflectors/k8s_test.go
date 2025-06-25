@@ -61,10 +61,10 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 	epSlice := obj.(*slim_discovery_v1.EndpointSlice)
 	logger := hivetest.Logger(b)
 	eps := k8s.ParseEndpointSliceV1(logger, epSlice)
-	name := loadbalancer.ServiceName{
-		Name:      eps.ServiceID.Name,
-		Namespace: eps.ServiceID.Namespace,
-	}
+	name := loadbalancer.NewServiceName(
+		eps.ServiceID.Namespace,
+		eps.ServiceID.Name,
+	)
 	backends := maps.All(eps.Backends)
 
 	for b.Loop() {
