@@ -15,7 +15,7 @@ import (
 // policyGetCmd represents the policy_get command
 var policyGetCmd = &cobra.Command{
 	Use:   "get [<labels>]",
-	Short: "Display policy node information",
+	Short: "Display policy node information (deprecated)",
 	Run: func(cmd *cobra.Command, args []string) {
 		if resp, err := client.PolicyGet(args); err != nil {
 			Fatalf("Cannot get policy: %s\n", err)
