@@ -22,6 +22,7 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -225,7 +226,7 @@ func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 		}
 	}
 
-	link, err := netlink.LinkByName(name)
+	link, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +241,7 @@ func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 }
 
 func removeDevice(name string) {
-	l, err := netlink.LinkByName(name)
+	l, err := safenetlink.LinkByName(name)
 	if err == nil {
 		netlink.LinkDel(l)
 	}
@@ -807,7 +808,7 @@ func lookupDirectRoute(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP) ([]netl
 	if nodeIP.To4() == nil {
 		family = netlink.FAMILY_V6
 	}
-	return netlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
+	return safenetlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T) {

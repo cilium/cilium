@@ -15,6 +15,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -97,13 +98,13 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 		require.Equal(t, n, migrated)
 		require.Equal(t, 0, failed)
 
-		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Empty(t, routes) // We don't expect any routes with the old table ID.
 
-		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -168,14 +169,14 @@ func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
 		require.Equal(t, 1, failed)
 
 		tableID := 11
-		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Len(t, routes, 1) // We expect old route to be untouched b/c we failed.
 		require.Equal(t, index, routes[0].Table)
 
-		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -238,13 +239,13 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 		require.Equal(t, n, migrated)
 		require.Equal(t, 0, failed)
 
-		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Empty(t, routes) // We don't expect any routes with the new table ID.
 
-		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -307,14 +308,14 @@ func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
 		require.Equal(t, n-1, migrated) // One failed migration.
 		require.Equal(t, 1, failed)
 
-		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Len(t, routes, 1) // We expect "new" route to be untouched b/c we failed to delete.
 		require.Equal(t, tableID, routes[0].Table)
 
-		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -373,14 +374,14 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 		require.Equal(t, n, migrated)
 		require.Equal(t, 0, failed)
 
-		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: newTableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Len(t, routes, 1) // We expect one migrated route.
 		require.Equal(t, newTableID, routes[0].Table)
 
-		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -459,7 +460,7 @@ func setUpRoutingTable(t *testing.T, ifindex, tableID, priority int) (map[string
 		require.NoError(t, netlink.RuleAdd(rule))
 
 		// Return the MAC address of the dummy device, which acts as the ENI.
-		link, err := netlink.LinkByName(devName)
+		link, err := safenetlink.LinkByName(devName)
 		require.NoError(t, err)
 
 		mac := link.Attrs().HardwareAddr.String()
@@ -474,7 +475,7 @@ func setUpRoutingTable(t *testing.T, ifindex, tableID, priority int) (map[string
 }
 
 func findRulesByPriority(prio int) ([]netlink.Rule, error) {
-	rules, err := netlink.RuleList(netlink.FAMILY_V4)
+	rules, err := safenetlink.RuleList(netlink.FAMILY_V4)
 	if err != nil {
 		return nil, err
 	}
@@ -483,16 +484,16 @@ func findRulesByPriority(prio int) ([]netlink.Rule, error) {
 }
 
 func (m *MigrateSuite) defaultNetlinkMock() {
-	m.OnRuleList = func(family int) ([]netlink.Rule, error) { return netlink.RuleList(family) }
+	m.OnRuleList = func(family int) ([]netlink.Rule, error) { return safenetlink.RuleList(family) }
 	m.OnRuleAdd = func(rule *netlink.Rule) error { return netlink.RuleAdd(rule) }
 	m.OnRuleDel = func(rule *netlink.Rule) error { return netlink.RuleDel(rule) }
 	m.OnRouteListFiltered = func(family int, filter *netlink.Route, mask uint64) ([]netlink.Route, error) {
-		return netlink.RouteListFiltered(family, filter, mask)
+		return safenetlink.RouteListFiltered(family, filter, mask)
 	}
 	m.OnRouteAdd = func(route *netlink.Route) error { return netlink.RouteAdd(route) }
 	m.OnRouteDel = func(route *netlink.Route) error { return netlink.RouteDel(route) }
 	m.OnRouteReplace = func(route *netlink.Route) error { return netlink.RouteReplace(route) }
-	m.OnLinkList = func() ([]netlink.Link, error) { return netlink.LinkList() }
+	m.OnLinkList = func() ([]netlink.Link, error) { return safenetlink.LinkList() }
 	m.OnLinkByIndex = func(ifindex int) (netlink.Link, error) { return netlink.LinkByIndex(ifindex) }
 }
 

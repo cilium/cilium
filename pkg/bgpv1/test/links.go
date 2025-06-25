@@ -10,6 +10,8 @@ import (
 	"os"
 
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 // Note : this will work only in linux environment and requires CAP_NET_ADMIN privilege
@@ -97,7 +99,7 @@ func teardownLinks(logger *slog.Logger) error {
 // setupLinkIPs configures IPs and set links up which are defined in setupLinkIPs
 func setupLinkIPs() error {
 	for name, dummy := range dummies {
-		l, err := netlink.LinkByName(name)
+		l, err := safenetlink.LinkByName(name)
 		if err != nil {
 			return err
 		}

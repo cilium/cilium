@@ -10,12 +10,13 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 func TestGroupOps(t *testing.T) {
 	logger := hivetest.Logger(t)
-	ifs, err := netlink.LinkList()
+	ifs, err := safenetlink.LinkList()
 	require.NoError(t, err)
 
 	if len(ifs) == 0 {
