@@ -162,12 +162,8 @@ func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace,
 	// Before we check for TLS config, we need to see if the force-https annotation
 	// is set.
 	forceHTTPsannotation := annotations.GetAnnotationForceHTTPSEnabled(&ing)
-	forceHTTPs := false
-
 	// We only care about enforcedHTTPS if the annotation is unset
-	if (forceHTTPsannotation == nil && enforcedHTTPS) || (forceHTTPsannotation != nil && *forceHTTPsannotation) {
-		forceHTTPs = true
-	}
+	forceHTTPs := (forceHTTPsannotation == nil && enforcedHTTPS) || (forceHTTPsannotation != nil && *forceHTTPsannotation)
 
 	// First, we check for TLS config, and set them up with Listeners to return.
 	for _, tlsConfig := range ing.Spec.TLS {

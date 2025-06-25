@@ -1265,7 +1265,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	// Since we don't update resources, we expect that we will not receive
 	// any response. However, we want to make sure that previously
 	// pending completions are still not ACKed, but they are NACKed.
-	resp, err = stream.RecvResponse()
+	_, err = stream.RecvResponse()
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	// IsCompleted is true only for completions without error
 	require.Condition(t, isNotCompletedComparison(comp1))

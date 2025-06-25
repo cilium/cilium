@@ -147,7 +147,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.priorityNamespaces["FastNamespace"] = struct{}{}
 	cesController.initializeQueue()
-	var ns string = "NotSoImportant"
+	var ns = "NotSoImportant"
 	var standardQueueLen int
 	var fastQueueLen int
 
@@ -248,7 +248,7 @@ func TestCESManagement(t *testing.T) {
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.initializeQueue()
-	var ns string = "ns"
+	var ns = "ns"
 
 	cep1 := tu.CreateStoreEndpoint(fmt.Sprintf("cep-%d", 0), ns, 0)
 	cesController.onEndpointUpdate(cep1)

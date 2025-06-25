@@ -1163,7 +1163,7 @@ const (
 
 // getEnvName returns the environment variable to be used for the given option name.
 func getEnvName(option string) string {
-	under := strings.Replace(option, "-", "_", -1)
+	under := strings.ReplaceAll(option, "-", "_")
 	upper := strings.ToUpper(under)
 	return ciliumEnvPrefix + upper
 }
