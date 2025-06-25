@@ -57,6 +57,9 @@ jobs:
 
           - name: docker-plugin
             make-target: -C plugins/cilium-docker
+
+          - name: unit-tests
+            make-target: build-unit-tests
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -98,6 +101,31 @@ jobs:
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check for disk usage and cleanup /mnt
+        shell: bash
+        run: |
+          echo "# Disk usage"
+          df -h
+          echo "# Usage for /mnt"
+          sudo du --human-readable \
+                --threshold 50m \
+                -- /mnt
+          if compgen -G "/mnt/.*" > /dev/null; then
+            echo "# Hidden files in /mnt:"
+            sudo du --human-readable --threshold 50m -- /mnt/.* 2>/dev/null
+          fi
+          echo "# Removing /mnt/tmp-pv.img"
+          sudo rm -f '/mnt/tmp-pv.img'
+
+      - name: Setup docker volumes into /mnt
+        # This allows us to make use of all available disk.
+        shell: bash
+        run: |
+          sudo systemctl stop docker
+          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
+          sudo ln -s /mnt/docker-volumes /var/lib/docker/volumes
+          sudo systemctl start docker
+
       - name: Build all programs
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
@@ -109,12 +137,14 @@ jobs:
         run: |
           set -eu -o pipefail
           # Don't build cilium-cli for arm64
-          if [[ ${{ matrix.name }} != cilium-cli ]]; then
+          if [[ ${{ matrix.name }} != cilium-cli && ${{ matrix.name }} != unit-tests ]]; then
             contrib/scripts/builder.sh make GOARCH=arm64 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
           fi
-          contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
-          contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
           contrib/scripts/builder.sh make GOARCH=amd64 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
+          if [[ ${{ matrix.name }} != unit-tests ]]; then
+            contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
+            contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
+          fi
 
       - name: Reset cache ownership to GitHub runners user
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}

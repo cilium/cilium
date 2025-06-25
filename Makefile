@@ -154,6 +154,13 @@ integration-tests: start-kvstores ## Run non-privileged Go tests and including o
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
+build-unit-tests: ## Build all the unit tests to populate golang caches.
+	@$(ECHO_CHECK) building unit tests...
+	@PKGS=$$($(GO) list $(TESTPKGS)) && \
+	NJOBS=$$(nproc) && \
+	echo "Building tests with $$NJOBS parallel jobs" && \
+	echo "$$PKGS" | xargs -P $$NJOBS -n1 sh -c '$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) -c -o /dev/null "$$0"'
+
 bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repository.
 	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 	$(MAKE) stop-kvstores
