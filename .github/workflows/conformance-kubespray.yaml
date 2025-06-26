@@ -19,7 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - main
+      - v1.18
   pull_request:
     paths:
       - '.github/workflows/conformance-kubespray.yaml'
