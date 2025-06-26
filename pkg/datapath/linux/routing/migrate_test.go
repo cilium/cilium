@@ -47,7 +47,7 @@ func setupMigrateSuite(tb testing.TB) *MigrateSuite {
 // setUpRoutingTable() as fixtures for this test suite.
 const n = 5
 
-func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
+func TestPrivilegedMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 	m := setupMigrateSuite(t)
 	logger := hivetest.Logger(t)
 	// First, we need to setupMigrateSuite the Linux routing policy database to mimic a
@@ -122,7 +122,7 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 	})
 }
 
-func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
+func TestPrivilegedMigrateENIDatapathUpgradeFailure(t *testing.T) {
 	logger := hivetest.Logger(t)
 	// This test case will cover one failure path where we successfully migrate
 	// all the old rules and routes, but fail to cleanup the old rule. This
@@ -193,7 +193,7 @@ func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
 	})
 }
 
-func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
+func TestPrivilegedMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 	// This test case will cover the successful downgrade path. We will create:
 	//   - One rule with the new priority referencing the new table ID.
 	//   - One route with the new table ID.
@@ -263,7 +263,7 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 	})
 }
 
-func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
+func TestPrivilegedMigrateENIDatapathDowngradeFailure(t *testing.T) {
 	// This test case will cover one downgrade failure path where we failed to
 	// migrate the rule to the old scheme. This test case will be set up
 	// identically to the successful case. "New" meaning the rules and routes
@@ -332,7 +332,7 @@ func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
 	})
 }
 
-func TestMigrateENIDatapathPartial(t *testing.T) {
+func TestPrivilegedMigrateENIDatapathPartial(t *testing.T) {
 	// This test case will cover one case where we find a partial rule. It will
 	// be set up with a rule with the newer priority and the user has indicated
 	// compatbility=false, meaning they intend to upgrade. The fact that

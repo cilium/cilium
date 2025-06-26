@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
+func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -86,7 +86,7 @@ func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 }
 
 // Attach a program to a clean dummy device, no replacing necessary.
-func TestAttachXDP(t *testing.T) {
+func TestPrivilegedAttachXDP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -114,7 +114,7 @@ func TestAttachXDP(t *testing.T) {
 }
 
 // Replace an existing program attached using netlink attach.
-func TestAttachXDPWithPreviousAttach(t *testing.T) {
+func TestPrivilegedAttachXDPWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -145,7 +145,7 @@ func TestAttachXDPWithPreviousAttach(t *testing.T) {
 }
 
 // On kernels that support it, make sure an existing bpf_link can be updated.
-func TestAttachXDPWithExistingLink(t *testing.T) {
+func TestPrivilegedAttachXDPWithExistingLink(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -199,7 +199,7 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 }
 
 // Detach an XDP program that was attached using netlink.
-func TestDetachXDPWithPreviousAttach(t *testing.T) {
+func TestPrivilegedDetachXDPWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)

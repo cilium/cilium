@@ -49,7 +49,7 @@ func mustXDPProgram(t *testing.T, name string) *ebpf.Program {
 	return p
 }
 
-func TestSetupDev(t *testing.T) {
+func TestPrivilegedSetupDev(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -106,7 +106,7 @@ func TestSetupDev(t *testing.T) {
 	})
 }
 
-func TestSetupTunnelDevice(t *testing.T) {
+func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -407,7 +407,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 }
 
-func TestAddHostDeviceAddr(t *testing.T) {
+func TestPrivilegedAddHostDeviceAddr(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// test IP addresses

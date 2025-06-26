@@ -20,7 +20,7 @@ func setUpSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
-func Test_firstGlobalV4Addr(t *testing.T) {
+func TestPrivileged_firstGlobalV4Addr(t *testing.T) {
 	setUpSuite(t)
 
 	testCases := []struct {

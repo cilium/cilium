@@ -26,7 +26,7 @@ func setupLinuxRoutingSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
-func TestConfigure(t *testing.T) {
+func TestPrivilegedConfigure(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ns1 := netns.NewNetNS(t)
@@ -52,7 +52,7 @@ func TestConfigure(t *testing.T) {
 	})
 }
 
-func TestConfigureZeros(t *testing.T) {
+func TestPrivilegedConfigureZeros(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ns1 := netns.NewNetNS(t)
@@ -67,7 +67,7 @@ func TestConfigureZeros(t *testing.T) {
 	})
 }
 
-func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
+func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, true, false)
@@ -76,7 +76,7 @@ func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
+func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ip := netip.Addr{}
@@ -85,7 +85,7 @@ func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDelete(t *testing.T) {
+func TestPrivilegedDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	fakeIP, fakeRoutingInfo := getFakes(t, true, false)
