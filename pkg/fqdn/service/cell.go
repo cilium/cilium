@@ -52,7 +52,7 @@ type serverParams struct {
 }
 
 func newServer(params serverParams) *FQDNDataServer {
-	srv := NewServer(params.EndpointManager, params.DNSRequestHandler, params.Config.StandaloneDNSProxyServerPort, params.Logger, params.DefaultListener, params.DB, params.PolicyRulesTable, params.IdentityToIPsTable)
+	srv := NewServer(params)
 
 	if !params.Config.EnableStandaloneDNSProxy {
 		return srv
