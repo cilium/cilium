@@ -278,12 +278,12 @@ void __ipv6_from_netdev_ns_pod_pktgen_mcast_args(struct test_args *args,
 
 	memcpy((__u8 *)args->mac_src, (__u8 *)mac_one, ETH_ALEN);
 
-	ipv6_mc_mac_set((union v6addr *)v6_pod_three,
-			(union macaddr *)args->mac_dst);
+	ipv6_sol_mc_mac_set((union v6addr *)v6_pod_three,
+			    (union macaddr *)args->mac_dst);
 
 	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, IPV6_ALEN);
 
-	ipv6_mc_addr_set((union v6addr *)v6_pod_three, &args->ip_dst);
+	ipv6_sol_mc_addr_set((union v6addr *)v6_pod_three, &args->ip_dst);
 
 	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)v6_pod_three, IPV6_ALEN);
 
@@ -457,12 +457,12 @@ void __ipv6_from_netdev_ns_node_ip_pktgen_mcast_args(struct test_args *args,
 
 	memcpy((__u8 *)args->mac_src, (__u8 *)mac_one, ETH_ALEN);
 
-	ipv6_mc_mac_set((union v6addr *)v6_pod_one,
-			(union macaddr *)args->mac_dst);
+	ipv6_sol_mc_mac_set((union v6addr *)v6_pod_one,
+			    (union macaddr *)args->mac_dst);
 
 	memcpy((__u8 *)&args->ip_src, (__u8 *)v6_pod_one, IPV6_ALEN);
 
-	ipv6_mc_addr_set((union v6addr *)v6_pod_one, &args->ip_dst);
+	ipv6_sol_mc_addr_set((union v6addr *)v6_pod_one, &args->ip_dst);
 
 	memcpy((__u8 *)&args->icmp_ns_addr, (__u8 *)&v6_node_one, IPV6_ALEN);
 

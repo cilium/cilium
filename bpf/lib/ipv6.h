@@ -195,24 +195,25 @@ static __always_inline bool ipv6_addr_equals(const union v6addr *a,
 }
 
 static __always_inline
-void ipv6_mc_mac_set(const union v6addr *addr, union macaddr *mac)
+void ipv6_sol_mc_mac_set(const union v6addr *addr, union macaddr *mac)
 {
 	mac->addr[0] = 0x33;
 	mac->addr[1] = 0x33;
-	memcpy((__u8 *)mac + 2, (__u8 *)addr + 12, 4);
+	mac->addr[2] = 0xFF;
+	memcpy((__u8 *)mac + 3, (__u8 *)addr + 13, 3);
 }
 
 static __always_inline
-bool ipv6_is_mc_mac(const union v6addr *addr, const union macaddr *mac)
+bool ipv6_is_sol_mc_mac(const union v6addr *addr, const union macaddr *mac)
 {
 	union macaddr mc_mac __align_stack_8;
 
-	ipv6_mc_mac_set(addr, &mc_mac);
+	ipv6_sol_mc_mac_set(addr, &mc_mac);
 	return eth_addrcmp((const union macaddr *)&mc_mac, mac) == 0;
 }
 
 static __always_inline
-void ipv6_mc_addr_set(const union v6addr *addr, union v6addr *mc_addr)
+void ipv6_sol_mc_addr_set(const union v6addr *addr, union v6addr *mc_addr)
 {
 	const union v6addr base_addr = { .addr = {0xff, 0x02, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0x01, 0xFF, 0, 0, 0} };
