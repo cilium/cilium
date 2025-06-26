@@ -80,7 +80,7 @@ func TestGetAnnotationServiceExternalTrafficPolicy(t *testing.T) {
 			args: args{
 				ingress: &networkingv1.Ingress{},
 			},
-			want: "Cluster",
+			want: "",
 		},
 		{
 			name: "externalTrafficPolicy as Cluster",

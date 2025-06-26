@@ -74,7 +74,7 @@ func GetAnnotationServiceType(ingress *networkingv1.Ingress) string {
 func GetAnnotationServiceExternalTrafficPolicy(ingress *networkingv1.Ingress) (string, error) {
 	val, exists := annotation.Get(ingress, ServiceExternalTrafficPolicyAnnotation)
 	if !exists {
-		return string(corev1.ServiceExternalTrafficPolicyCluster), nil
+		return "", nil
 	}
 
 	switch val {
