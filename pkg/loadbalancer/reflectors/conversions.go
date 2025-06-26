@@ -6,6 +6,7 @@ package reflectors
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -74,7 +75,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		)
 	})
 
-	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
+	name := loadbalancer.NewServiceName(svc.Namespace, svc.Name)
 	s = &loadbalancer.Service{
 		Name:                name,
 		Source:              source,
@@ -203,12 +204,6 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			}
 
 			for _, port := range svc.Spec.Ports {
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					log().Debug("Skipping ClusterIP due to bad L4 type/port",
-						logfields.Port, port)
-					continue
-				}
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeClusterIP,
 					PortName:    loadbalancer.FEPortName(port.Name),
@@ -217,7 +212,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				}
 				fe.Address.AddrCluster = addr
 				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = *p
+				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				fes = append(fes, fe)
 			}
 		}
@@ -264,12 +259,8 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							continue
 						}
 
-						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
-						if p == nil {
-							continue
-						}
 						fe.Address.Scope = scope
-						fe.Address.L4Addr = *p
+						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
 						fes = append(fes, fe)
 					}
 				}
@@ -306,15 +297,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							ServicePort: uint16(port.Port),
 						}
 
-						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-						if p == nil {
-							log().Debug("Skipping LoadBalancer due to bad L4 type/port",
-								logfields.Port, port)
-							continue
-						}
 						fe.Address.AddrCluster = addr
 						fe.Address.Scope = scope
-						fe.Address.L4Addr = *p
+						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 						fes = append(fes, fe)
 					}
 				}
@@ -346,16 +331,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 					ServicePort: uint16(port.Port),
 				}
 
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					log().Debug("Skipping ExternalIP due to bad L4 type/port",
-						logfields.Port, port)
-					continue
-				}
-
 				fe.Address.AddrCluster = addr
 				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = *p
+				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				fes = append(fes, fe)
 			}
 		}
@@ -396,74 +374,54 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []loadbalancer.BackendParams) {
-	// Lazily construct the augmented logger as we very rarely log here.
-	log := sync.OnceValue(func() *slog.Logger {
-		return rawlog.With(
-			logfields.Service, ep.GetName(),
-			logfields.K8sNamespace, ep.GetNamespace(),
-		)
-	})
-
-	name = loadbalancer.ServiceName{
-		Name:      ep.ServiceID.Name,
-		Namespace: ep.ServiceID.Namespace,
-	}
-
-	// k8s.Endpoints may have the same backend address multiple times
-	// with a different port name. Collapse them down into single
-	// entry.
-	type entry struct {
-		portNames []string
-		backend   *k8s.Backend
-	}
-	entries := map[loadbalancer.L3n4Addr]entry{}
-
-	for addrCluster, be := range ep.Backends {
-		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
-			log().Debug(
-				"Skipping Backend due to disabled IP family",
-				logfields.IPv4, cfg.EnableIPv4,
-				logfields.IPv6, cfg.EnableIPv6,
-				logfields.Address, addrCluster,
+func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) iter.Seq[loadbalancer.BackendParams] {
+	return func(yield func(be loadbalancer.BackendParams) bool) {
+		// Lazily construct the augmented logger as we very rarely log here.
+		log := sync.OnceValue(func() *slog.Logger {
+			return rawlog.With(
+				logfields.Service, svcName.Name,
+				logfields.K8sNamespace, svcName.Namespace,
 			)
-			continue
-		}
-		for portName, l4Addr := range be.Ports {
-			l3n4Addr := loadbalancer.L3n4Addr{
-				AddrCluster: addrCluster,
-				L4Addr:      *l4Addr,
-			}
-			if isIngressDummyEndpoint(l3n4Addr) {
+		})
+
+		for addrCluster, be := range bes {
+			if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
+				log().Debug(
+					"Skipping Backend due to disabled IP family",
+					logfields.IPv4, cfg.EnableIPv4,
+					logfields.IPv6, cfg.EnableIPv6,
+					logfields.Address, addrCluster,
+				)
 				continue
 			}
-			portNames := entries[l3n4Addr].portNames
-			if portName != "" {
-				portNames = append(portNames, portName)
-			}
-			entries[l3n4Addr] = entry{
-				portNames: portNames,
-				backend:   be,
+			for l4Addr, portNames := range be.Ports {
+				l3n4Addr := loadbalancer.L3n4Addr{
+					AddrCluster: addrCluster,
+					L4Addr:      l4Addr,
+				}
+				if isIngressDummyEndpoint(l3n4Addr) {
+					continue
+				}
+
+				state := loadbalancer.BackendStateActive
+				if be.Terminating {
+					state = loadbalancer.BackendStateTerminating
+				}
+				be := loadbalancer.BackendParams{
+					Address:   l3n4Addr,
+					NodeName:  be.NodeName,
+					PortNames: portNames,
+					Weight:    loadbalancer.DefaultBackendWeight,
+					Zone:      be.Zone,
+					ForZones:  be.HintsForZones,
+					State:     state,
+				}
+				if !yield(be) {
+					break
+				}
 			}
 		}
 	}
-	for l3n4Addr, entry := range entries {
-		state := loadbalancer.BackendStateActive
-		if entry.backend.Terminating {
-			state = loadbalancer.BackendStateTerminating
-		}
-		be := loadbalancer.BackendParams{
-			Address:   l3n4Addr,
-			NodeName:  entry.backend.NodeName,
-			PortNames: entry.portNames,
-			Weight:    loadbalancer.DefaultBackendWeight,
-			Zone:      entry.backend.Zone,
-			ForZones:  entry.backend.HintsForZones,
-			State:     state,
-		}
-		out = append(out, be)
-	}
-	return
 }
 
 func isTopologyAware(svc *slim_corev1.Service) bool {

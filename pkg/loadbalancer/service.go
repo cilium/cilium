@@ -272,9 +272,9 @@ var (
 	serviceNameIndex = statedb.Index[*Service, ServiceName]{
 		Name: "name",
 		FromObject: func(obj *Service) index.KeySet {
-			return index.NewKeySet(index.Stringer(obj.Name))
+			return index.NewKeySet(obj.Name.Key())
 		},
-		FromKey:    index.Stringer[ServiceName],
+		FromKey:    ServiceName.Key,
 		FromString: index.FromString,
 		Unique:     true,
 	}

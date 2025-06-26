@@ -435,8 +435,8 @@ func insertOrDelete(insert bool, db *DB, s *script.State, args ...string) (scrip
 		if err != nil {
 			return nil, fmt.Errorf("ReadFile(%s): %w", arg, err)
 		}
-		parts := strings.Split(string(data), "---")
-		for _, part := range parts {
+		parts := strings.SplitSeq(string(data), "---")
+		for part := range parts {
 			obj, err := tbl.UnmarshalYAML([]byte(part))
 			if err != nil {
 				return nil, fmt.Errorf("Unmarshal(%s): %w", arg, err)

@@ -108,12 +108,7 @@ var (
 		FromObject: func(obj *CEC) index.KeySet {
 			keys := make([]index.Key, len(obj.Spec.Services))
 			for i, svcl := range obj.Spec.Services {
-				keys[i] = index.String(
-					loadbalancer.ServiceName{
-						Namespace: svcl.Namespace,
-						Name:      svcl.Name,
-					}.String(),
-				)
+				keys[i] = loadbalancer.NewServiceName(svcl.Namespace, svcl.Name).Key()
 			}
 			return index.NewKeySet(keys...)
 		},
@@ -203,11 +198,7 @@ type EnvoyResource struct {
 }
 
 func (r *EnvoyResource) ClusterServiceName() loadbalancer.ServiceName {
-	return loadbalancer.ServiceName{
-		Namespace: r.Name.Namespace,
-		Name:      r.Name.Name,
-		Cluster:   r.Name.Cluster,
-	}
+	return loadbalancer.NewServiceNameInCluster(r.Name.Cluster, r.Name.Namespace, r.Name.Name)
 }
 
 type clusterReference struct {

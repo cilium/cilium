@@ -174,7 +174,7 @@ func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Se
 		return nil
 	}
 	return &flowpb.Service{
-		Namespace: fe.ServiceName.Namespace,
-		Name:      fe.ServiceName.Name,
+		Namespace: fe.ServiceName.Namespace(),
+		Name:      fe.ServiceName.Name(),
 	}
 }

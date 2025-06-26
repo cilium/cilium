@@ -143,8 +143,8 @@ func (fe *Frontend) ToModel() *models.Service {
 			IntTrafficPolicy:    string(svc.IntTrafficPolicy),
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: svc.HealthCheckNodePort,
-			Name:                svc.Name.Name,
-			Namespace:           svc.Name.Namespace,
+			Name:                svc.Name.Name(),
+			Namespace:           svc.Name.Namespace(),
 		},
 	}
 
@@ -152,8 +152,8 @@ func (fe *Frontend) ToModel() *models.Service {
 		spec.Flags.Type = string(SVCTypeLocalRedirect)
 	}
 
-	if svc.Name.Cluster != option.Config.ClusterName {
-		spec.Flags.Cluster = svc.Name.Cluster
+	if svc.Name.Cluster() != option.Config.ClusterName {
+		spec.Flags.Cluster = svc.Name.Cluster()
 	}
 
 	backendModel := func(be BackendParams) *models.BackendAddress {
@@ -223,9 +223,9 @@ var (
 	frontendServiceIndex = statedb.Index[*Frontend, ServiceName]{
 		Name: "service",
 		FromObject: func(fe *Frontend) index.KeySet {
-			return index.NewKeySet(index.Stringer(fe.ServiceName))
+			return index.NewKeySet(fe.ServiceName.Key())
 		},
-		FromKey:    index.Stringer[ServiceName],
+		FromKey:    ServiceName.Key,
 		FromString: index.FromString,
 		Unique:     false,
 	}
