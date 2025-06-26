@@ -1251,10 +1251,32 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #ifdef ENABLE_WIREGUARD
 	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
 	 * BPF NodePort enabled, we should change the obs point to FROM_CRYPTO.
+	 * Additionally, we mark the packet so that following programs can detect
+	 * that traffic was encrypted.
 	 * Therefore, we check THIS_INTERFACE_IFINDEX value to be set to WG_IFINDEX.
 	 */
-	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
 		obs_point = TRACE_FROM_CRYPTO;
+		ctx->mark = MARK_MAGIC_DECRYPT;
+#if defined(HAVE_ENCAP) && (!defined(ENABLE_NODEPORT) || !defined(ENABLE_NODE_ENCRYPTION))
+		/* In native routing mode we want to deliver packets to local endpoints
+ 		 * straight from BPF, without passing through the stack.
+ 		 * This matches overlay mode (where bpf_overlay would handle the delivery)
+ 		 * and native routing mode without encryption (where bpf_host at the native
+ 		 * device would handle the delivery).
+ 		 *
+ 		 * When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
+ 		 * to a remote node running a selected service endpoint must be encrypted.
+ 		 * To make the NodePort's rev-{S,D}NAT translations to happen for a reply
+ 		 * from the remote node, we need to attach bpf_host to the Cilium's WG
+ 		 * netdev (otherwise, the WG netdev after decrypting the reply will pass
+ 		 * it to the stack which drops the packet).
+		 *
+		 * Since neither of these conditions are met, we can return CTX_ACT_OK.
+ 		 */
+		return CTX_ACT_OK;
+#endif
+	}
 #endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
