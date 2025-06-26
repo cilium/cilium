@@ -272,7 +272,9 @@ func (r *ingressReconciler) buildDedicatedResources(_ context.Context, ingress *
 	if err != nil {
 		scopedLog.Warn("Failed to get externalTrafficPolicy annotation from Ingress object", logfields.Error, err)
 	}
-	svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy(eTP)
+	if eTP != "" {
+		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy(eTP)
+	}
 
 	// Explicitly set the controlling OwnerReference on the CiliumEnvoyConfig
 	if err := controllerutil.SetControllerReference(ingress, cec, r.client.Scheme()); err != nil {
@@ -338,7 +340,10 @@ func (r *ingressReconciler) createOrUpdateService(ctx context.Context, desiredSe
 		lbClass := svc.Spec.LoadBalancerClass
 		svc.Spec = desiredService.Spec
 		svc.Spec.LoadBalancerClass = lbClass
-		svc.Spec.ExternalTrafficPolicy = desiredService.Spec.ExternalTrafficPolicy
+
+		if desiredService.Spec.ExternalTrafficPolicy != "" {
+			svc.Spec.ExternalTrafficPolicy = desiredService.Spec.ExternalTrafficPolicy
+		}
 
 		svc.OwnerReferences = desiredService.OwnerReferences
 		svc.Annotations = mergeMap(svc.Annotations, desiredService.Annotations)
