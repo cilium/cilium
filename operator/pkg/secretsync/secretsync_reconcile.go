@@ -28,7 +28,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		logfields.Controller: "secret-syncer",
 		logfields.Resource:   req.NamespacedName,
 	})
-	scopedLog.Info("Reconciling secret")
+	scopedLog.Debug("Reconciling secret")
 
 	original := &corev1.Secret{}
 	if err := r.client.Get(ctx, req.NamespacedName, original); err != nil {
@@ -47,7 +47,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 				synced = synced || deleted
 			}
 
-			scopedLog.WithField(logfields.Action, action(synced)).Info("Successfully reconciled Secret")
+			scopedLog.WithField(logfields.Action, action(synced)).Debug("Successfully reconciled Secret")
 			return controllerruntime.Success()
 		}
 
@@ -85,7 +85,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		synced = synced || deleted
 	}
 
-	scopedLog.WithField(logfields.Action, action(synced)).Info("Successfully reconciled Secret")
+	scopedLog.WithField(logfields.Action, action(synced)).Debug("Successfully reconciled Secret")
 	return controllerruntime.Success()
 }
 
