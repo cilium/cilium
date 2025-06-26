@@ -191,9 +191,9 @@ jobs:
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
-          CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
+          CONCURRENT_CONNECTIVITY_TESTS=".*"
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr)"
+            CONCURRENT_CONNECTIVITY_TESTS="!(pod-to-world.*|pod-to-cidr)"
           fi
           echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
@@ -388,13 +388,6 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-precheck
 
-      - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-upgrade-${{ matrix.name }}-sequential
-          tests: 'seq-.*'
-
       - name: Run concurrent tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
@@ -444,13 +437,6 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-precheck
-
-      - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-downgrade-${{ matrix.name }}-sequential
-          tests: 'seq-.*'
 
       - name: Run concurrent tests after downgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
