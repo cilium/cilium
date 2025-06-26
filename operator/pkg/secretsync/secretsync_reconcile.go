@@ -28,7 +28,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		logfields.Controller: "secret-syncer",
 		logfields.Resource:   req.NamespacedName,
 	})
-	scopedLog.Info("Syncing secrets")
+	scopedLog.Debug("Syncing secrets")
 
 	original := &corev1.Secret{}
 	if err := r.client.Get(ctx, req.NamespacedName, original); err != nil {
@@ -75,7 +75,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		}
 	}
 
-	scopedLog.Info("Successfully synced secrets")
+	scopedLog.Debug("Successfully synced secrets")
 	return controllerruntime.Success()
 }
 
