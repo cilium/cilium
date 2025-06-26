@@ -66,3 +66,9 @@ clustermesh:
       pullPolicy: IfNotPresent
 image:
   pullPolicy: IfNotPresent
+
+cni:
+  # Set a dummy path, as we don't want the init-container to override the
+  # binary we directly copied to the node. But we still want the configuration
+  # to be created, which is also controlled by `cni.install`.
+  binPath: /opt/dummy/
