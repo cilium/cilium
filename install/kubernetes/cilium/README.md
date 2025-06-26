@@ -378,7 +378,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:9a333ed1249a16ccf540a81ddb22cdead70857dcef1100607b44a6f7877b3946","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/sayboras/cilium-envoy-dev","tag":"dbcce7cd2c6d5b1f5dd1a744a471cdb3c9d052c7","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:ad120a13385bb0a563c49743883ff6fcdc5aa2371985e273c51b80386cb084ae","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy-dev","tag":"bdf9ffa1b8522532dfb7d9198e7580e24662452b","useDigest":true}` | Envoy container image. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
