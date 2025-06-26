@@ -3,7 +3,7 @@ name: Hot Fix Image Release Build
 on:
   push:
     branches:
-      - hf/main/**
+      - hf/v1.18/**
 
 permissions:
   # To be able to access the repository with `actions/checkout`
