@@ -45,9 +45,10 @@ const (
 
 	HealthChecking Feature = "health-checking"
 
-	EncryptionPod        Feature = "encryption-pod"
-	EncryptionNode       Feature = "encryption-node"
-	EncryptionStrictMode Feature = "enable-encryption-strict-mode"
+	EncryptionPod          Feature = "encryption-pod"
+	EncryptionNode         Feature = "encryption-node"
+	EncryptionStrictMode   Feature = "enable-encryption-strict-mode"
+	EncryptionStrictEgress Feature = "enable-encryption-strict-mode-egress"
 
 	IPv4 Feature = "ipv4"
 	IPv6 Feature = "ipv6"
@@ -399,8 +400,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 		Enabled: cm.Data[string(Multicast)] == "true",
 	}
 
-	fs[EncryptionStrictMode] = Status{
-		Enabled: cm.Data[string(EncryptionStrictMode)] == "true",
+	fs[EncryptionStrictEgress] = Status{
+		// EncryptionStrictMode is deprecated, but we still support it for backwards compatibility until Cilium 1.17
+		// is EOL.
+		Enabled: cm.Data[string(EncryptionStrictMode)] == "true" || cm.Data[string(EncryptionStrictEgress)] == "true",
 	}
 
 	// This could be enabled via ClusterRole check as well, so only
