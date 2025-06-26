@@ -1,0 +1,1216 @@
+#! --lb-test-fault-probability=0.0
+# This is similar to the ingress.txtar test but derived from he 'ci-ingress' e2e test.
+# It's catching a regression where CEC controller did not recompute the backends on
+# changes (https://github.com/cilium/statedb/pull/90).
+
+hive/start
+
+k8s/add cec-headless.yaml
+
+k8s/add eps-details.yaml eps-details-headless.yaml
+k8s/add eps-basic-ingress.yaml eps-basic-ingress-headless.yaml
+k8s/add eps-cilium-envoy.yaml eps-cilium-ingress.yaml
+k8s/add svc-basic-ingress.yaml svc-basic-ingress-headless.yaml
+k8s/add svc-details.yaml svc-details-headless.yaml
+k8s/add svc-cilium-envoy.yaml svc-cilium-ingress.yaml
+k8s/add eps-details-headless-endpoint-slice.yaml
+
+# Wait a bit before adding the service. This needs to be higher than the wait
+# duration in the [cecController.processLoop].
+sleep 200ms
+k8s/add svc-headless-endpoint-slice.yaml
+
+# We should now see the details-headless-endpoint-slice endpoint.
+db/cmp envoy-resources envoy-resources.table
+
+#####
+
+-- envoy-resources.table --
+Name                                                       Status  Endpoints
+backendsync:default/cilium-ingress-basic-ingress-headless  Done
+backendsync:default/details-headless                       Done    default/details-headless:9080: 10.244.1.80
+backendsync:default/details-headless-endpoint-slice        Done    default/details-headless-endpoint-slice:9082: 10.244.1.80
+cec:default/cilium-ingress-default-basic-ingress-headless  Done
+
+-- cec-basic-ingress.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  generation: 1
+  labels:
+    cilium.io/use-original-source-address: "false"
+  name: cilium-ingress-default-basic-ingress
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: basic-ingress
+    uid: f5c7f9b6-b3c8-4f47-bab5-76e1dbd38e69
+  resourceVersion: "956"
+  uid: a04d074b-4feb-4428-9f06-d8c2f402c2b6
+spec:
+  backendServices:
+  - name: details
+    namespace: default
+    number:
+    - "9080"
+  - name: productpage
+    namespace: default
+    number:
+    - "9080"
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          pathSeparatedPrefix: /details
+        route:
+          cluster: default:details:9080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          prefix: /
+        route:
+          cluster: default:productpage:9080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/details:9080
+    name: default:details:9080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/productpage:9080
+    name: default:productpage:9080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  services:
+  - listener: ""
+    name: cilium-ingress-basic-ingress
+    namespace: default
+    ports:
+    - 80
+
+-- cec-headless.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generation: 1
+  labels:
+    cilium.io/use-original-source-address: "false"
+  name: cilium-ingress-default-basic-ingress-headless
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: basic-ingress-headless
+    uid: 4ae15c1a-6d76-4eff-a0ca-0bd9d02c4b5a
+  resourceVersion: "1117"
+  uid: c7feae1e-2047-46bd-80bd-042b577cd39e
+spec:
+  backendServices:
+  - name: details-headless
+    namespace: default
+    number:
+    - "9080"
+  - name: details-headless-endpoint-slice
+    namespace: default
+    number:
+    - "9082"
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          pathSeparatedPrefix: /details/1
+        route:
+          cluster: default:details-headless:9080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          pathSeparatedPrefix: /details/2
+        route:
+          cluster: default:details-headless-endpoint-slice:9082
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/details-headless-endpoint-slice:9082
+    name: default:details-headless-endpoint-slice:9082
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/details-headless:9080
+    name: default:details-headless:9080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  services:
+  - listener: ""
+    name: cilium-ingress-basic-ingress-headless
+    namespace: default
+    ports:
+    - 80
+
+-- svc-basic-ingress.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  labels:
+    cilium.io/ingress: "true"
+  name: cilium-ingress-basic-ingress
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    controller: true
+    kind: Ingress
+    name: basic-ingress
+    uid: f5c7f9b6-b3c8-4f47-bab5-76e1dbd38e69
+  resourceVersion: "955"
+  uid: f288c4bf-603c-4330-9d07-b9a373e1a9be
+spec:
+  allocateLoadBalancerNodePorts: true
+  clusterIP: 10.245.4.79
+  clusterIPs:
+  - 10.245.4.79
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 31147
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30302
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  conditions:
+  - lastTransitionTime: "2025-06-26T10:12:14Z"
+    message: ""
+    reason: satisfied
+    status: "True"
+    type: cilium.io/IPAMRequestSatisfied
+  loadBalancer:
+    ingress:
+    - ip: 172.18.255.193
+      ipMode: VIP
+
+-- svc-basic-ingress-headless.yaml  --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  labels:
+    cilium.io/ingress: "true"
+  name: cilium-ingress-basic-ingress-headless
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    controller: true
+    kind: Ingress
+    name: basic-ingress-headless
+    uid: 4ae15c1a-6d76-4eff-a0ca-0bd9d02c4b5a
+  resourceVersion: "1116"
+  uid: 88673d8d-f6ff-4244-b83f-194516001a48
+spec:
+  allocateLoadBalancerNodePorts: true
+  clusterIP: 10.245.21.159
+  clusterIPs:
+  - 10.245.21.159
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 32580
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 31960
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  conditions:
+  - lastTransitionTime: "2025-06-26T10:12:38Z"
+    message: ""
+    reason: satisfied
+    status: "True"
+    type: cilium.io/IPAMRequestSatisfied
+  loadBalancer:
+    ingress:
+    - ip: 172.18.255.194
+      ipMode: VIP
+
+-- svc-details.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"details","service":"details"},"name":"details","namespace":"default"},"spec":{"ports":[{"name":"http","port":9080}],"selector":{"app":"details"}}}
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  labels:
+    app: details
+    service: details
+  name: details
+  namespace: default
+  resourceVersion: "852"
+  uid: d610049d-f7c2-4a83-be39-645b42b0cb4a
+spec:
+  clusterIP: 10.245.36.72
+  clusterIPs:
+  - 10.245.36.72
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  selector:
+    app: details
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-details-headless.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"details-headless","namespace":"default"},"spec":{"clusterIP":"None","ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"name":"http","port":9080,"protocol":"TCP","targetPort":9080}]}}
+  creationTimestamp: "2025-06-26T10:12:37Z"
+  name: details-headless
+  namespace: default
+  resourceVersion: "1105"
+  uid: 6def11a3-3c22-4ec9-9f89-b31d2faf736d
+spec:
+  clusterIP: None
+  clusterIPs:
+  - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-headless-endpoint-slice.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"details-headless-endpoint-slice","namespace":"default"},"spec":{"clusterIP":"None","ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"name":"http","port":9082,"protocol":"TCP","targetPort":9080}]}}
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  name: details-headless-endpoint-slice
+  namespace: default
+  resourceVersion: "1108"
+  uid: f5104ca4-3f5b-49c9-900c-f38d7c058d85
+spec:
+  clusterIP: None
+  clusterIPs:
+  - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9082
+    protocol: TCP
+    targetPort: 9080
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-kubernetes-default.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2025-06-26T10:10:43Z"
+  labels:
+    component: apiserver
+    provider: kubernetes
+  name: kubernetes
+  namespace: default
+  resourceVersion: "203"
+  uid: 1789f3da-9e7d-4f92-820c-9e93aedda8bb
+spec:
+  clusterIP: 10.245.0.1
+  clusterIPs:
+  - 10.245.0.1
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 6443
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-productpage.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"productpage","service":"productpage"},"name":"productpage","namespace":"default"},"spec":{"ports":[{"name":"http","port":9080}],"selector":{"app":"productpage"}}}
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  labels:
+    app: productpage
+    service: productpage
+  name: productpage
+  namespace: default
+  resourceVersion: "933"
+  uid: 4f2311f7-75cd-44ee-93a6-0fa0e76bc9be
+spec:
+  clusterIP: 10.245.66.81
+  clusterIPs:
+  - 10.245.66.81
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  selector:
+    app: productpage
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-cilium-envoy.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    meta.helm.sh/release-name: cilium
+    meta.helm.sh/release-namespace: kube-system
+    prometheus.io/port: "9964"
+    prometheus.io/scrape: "true"
+  creationTimestamp: "2025-06-26T10:11:38Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: cilium-envoy
+    app.kubernetes.io/part-of: cilium
+    io.cilium/app: proxy
+    k8s-app: cilium-envoy
+  name: cilium-envoy
+  namespace: kube-system
+  resourceVersion: "503"
+  uid: 9805cacd-a6fc-43ce-b959-c58c9b6e2668
+spec:
+  clusterIP: None
+  clusterIPs:
+  - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: envoy-metrics
+    port: 9964
+    protocol: TCP
+    targetPort: envoy-metrics
+  selector:
+    k8s-app: cilium-envoy
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-cilium-ingress.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    meta.helm.sh/release-name: cilium
+    meta.helm.sh/release-namespace: kube-system
+  creationTimestamp: "2025-06-26T10:11:38Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: cilium
+    cilium.io/ingress: "true"
+  name: cilium-ingress
+  namespace: kube-system
+  resourceVersion: "842"
+  uid: c529f19f-f060-426b-80ea-08d7642d57ae
+spec:
+  allocateLoadBalancerNodePorts: true
+  clusterIP: 10.245.54.68
+  clusterIPs:
+  - 10.245.54.68
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30408
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30321
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  conditions:
+  - lastTransitionTime: "2025-06-26T10:12:13Z"
+    message: ""
+    reason: satisfied
+    status: "True"
+    type: cilium.io/IPAMRequestSatisfied
+  loadBalancer:
+    ingress:
+    - ip: 172.18.255.192
+      ipMode: VIP
+
+
+-- svc-hubble-peer.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    meta.helm.sh/release-name: cilium
+    meta.helm.sh/release-namespace: kube-system
+  creationTimestamp: "2025-06-26T10:11:38Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: hubble-peer
+    app.kubernetes.io/part-of: cilium
+    k8s-app: cilium
+  name: hubble-peer
+  namespace: kube-system
+  resourceVersion: "509"
+  uid: ea334b20-00be-40a1-8461-0414bbb9e5cb
+spec:
+  clusterIP: 10.245.37.185
+  clusterIPs:
+  - 10.245.37.185
+  internalTrafficPolicy: Local
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: peer-service
+    port: 443
+    protocol: TCP
+    targetPort: 4244
+  selector:
+    k8s-app: cilium
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-kube-dns.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/port: "9153"
+    prometheus.io/scrape: "true"
+  creationTimestamp: "2025-06-26T10:10:44Z"
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: CoreDNS
+  name: kube-dns
+  namespace: kube-system
+  resourceVersion: "243"
+  uid: 7045f9b7-4294-4499-8236-7cd3065993ff
+spec:
+  clusterIP: 10.245.0.10
+  clusterIPs:
+  - 10.245.0.10
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: metrics
+    port: 9153
+    protocol: TCP
+    targetPort: 9153
+  selector:
+    k8s-app: kube-dns
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+
+-- eps-basic-ingress-headless.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 192.192.192.192
+  conditions:
+    ready: true
+metadata:
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generateName: cilium-ingress-basic-ingress-headless-
+  generation: 1
+  labels:
+    cilium.io/ingress: "true"
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: cilium-ingress-basic-ingress-headless
+  name: cilium-ingress-basic-ingress-headless-tl9tc
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: cilium-ingress-basic-ingress-headless
+    uid: 9a761e9d-90c1-46a2-a472-831e14220f0a
+  resourceVersion: "1122"
+  uid: 6f730d25-e39c-40ea-a99d-0bc672114fc5
+ports:
+- name: ""
+  port: 9999
+  protocol: TCP
+
+-- eps-basic-ingress.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 192.192.192.192
+  conditions:
+    ready: true
+metadata:
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  generateName: cilium-ingress-basic-ingress-
+  generation: 1
+  labels:
+    cilium.io/ingress: "true"
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: cilium-ingress-basic-ingress
+  name: cilium-ingress-basic-ingress-rrs9w
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: cilium-ingress-basic-ingress
+    uid: 35a23140-e5c1-4291-a17c-1ab4e2a891d3
+  resourceVersion: "962"
+  uid: ca71ec22-8e90-4ae0-aaed-a207f24dd7fb
+ports:
+- name: ""
+  port: 9999
+  protocol: TCP
+
+-- eps-details-headless-endpoint-slice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.80
+  conditions: {}
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"addressType":"IPv4","apiVersion":"discovery.k8s.io/v1","endpoints":[{"addresses":["10.244.1.80"]}],"kind":"EndpointSlice","metadata":{"annotations":{},"labels":{"kubernetes.io/service-name":"details-headless-endpoint-slice"},"name":"details-headless-endpoint-slice","namespace":"default"},"ports":[{"name":"http","port":9080,"protocol":"TCP"}]}
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generation: 1
+  labels:
+    kubernetes.io/service-name: details-headless-endpoint-slice
+  name: details-headless-endpoint-slice
+  namespace: default
+  resourceVersion: "1107"
+  uid: bd38984e-66a0-40ce-9731-91a43383d37f
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- eps-details-headless.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.80
+  conditions:
+    ready: true
+metadata:
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generateName: details-headless-
+  generation: 1
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: details-headless
+  name: details-headless-tq5vk
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: details-headless
+    uid: c20e86f1-012c-46f2-9a35-ed648f0922a5
+  resourceVersion: "1106"
+  uid: 42ee8e8b-1f9e-4992-85a2-373b9c12d7c1
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- eps-details.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.80
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-worker
+  targetRef:
+    kind: Pod
+    name: details-v1-54ffb59669-thwmc
+    namespace: default
+    uid: 64af6a91-dc3a-4685-ad30-9f8ca09b0045
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-06-26T10:12:18Z"
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  generateName: details-
+  generation: 2
+  labels:
+    app: details
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: details
+    service: details
+  name: details-v5c8j
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: details
+    uid: d610049d-f7c2-4a83-be39-645b42b0cb4a
+  resourceVersion: "1003"
+  uid: 23ae83b8-d013-4b66-98d6-70239345e9a9
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- eps-kubernetes.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 172.18.0.2
+  conditions:
+    ready: true
+metadata:
+  creationTimestamp: "2025-06-26T10:10:43Z"
+  generation: 1
+  labels:
+    kubernetes.io/service-name: kubernetes
+  name: kubernetes
+  namespace: default
+  resourceVersion: "206"
+  uid: 8e27e075-2a02-43f4-8bc2-e7685e8c0904
+ports:
+- name: https
+  port: 6443
+  protocol: TCP
+
+-- eps-productpage.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.55
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-worker
+  targetRef:
+    kind: Pod
+    name: productpage-v1-6c58956fd9-wgqr9
+    namespace: default
+    uid: 9b9d5d62-3352-496a-835f-18f50b4659f5
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-06-26T10:12:35Z"
+  creationTimestamp: "2025-06-26T10:12:14Z"
+  generateName: productpage-
+  generation: 2
+  labels:
+    app: productpage
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: productpage
+    service: productpage
+  name: productpage-6pr9t
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: productpage
+    uid: 4f2311f7-75cd-44ee-93a6-0fa0e76bc9be
+  resourceVersion: "1087"
+  uid: a465d10e-344a-452e-a8b1-323b8e0a8309
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- eps-cilium-envoy.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 172.18.0.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-worker
+  targetRef:
+    kind: Pod
+    name: cilium-envoy-mzkjr
+    namespace: kube-system
+    uid: 10f2467c-7a2d-4ec4-a0d2-1836ae2b162c
+- addresses:
+  - 172.18.0.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-control-plane
+  targetRef:
+    kind: Pod
+    name: cilium-envoy-tl2rw
+    namespace: kube-system
+    uid: 17d95991-55c9-445f-bb16-baa57297239c
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-06-26T10:12:06Z"
+  creationTimestamp: "2025-06-26T10:11:38Z"
+  generateName: cilium-envoy-
+  generation: 5
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: cilium-envoy
+    app.kubernetes.io/part-of: cilium
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    io.cilium/app: proxy
+    k8s-app: cilium-envoy
+    kubernetes.io/service-name: cilium-envoy
+    service.kubernetes.io/headless: ""
+  name: cilium-envoy-f8llr
+  namespace: kube-system
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: cilium-envoy
+    uid: 9805cacd-a6fc-43ce-b959-c58c9b6e2668
+  resourceVersion: "806"
+  uid: d17e2b8c-c3c2-4253-8c21-fe027a1a9e03
+ports:
+- name: envoy-metrics
+  port: 9964
+  protocol: TCP
+
+-- eps-cilium-ingress.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 192.192.192.192
+  conditions:
+    ready: true
+metadata:
+  annotations:
+    meta.helm.sh/release-name: cilium
+    meta.helm.sh/release-namespace: kube-system
+  creationTimestamp: "2025-06-26T10:11:38Z"
+  generateName: cilium-ingress-
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: cilium-ingress
+  name: cilium-ingress-rg7qt
+  namespace: kube-system
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: cilium-ingress
+    uid: 5e512af4-6862-41ec-8143-e91a38e99237
+  resourceVersion: "539"
+  uid: afbd76d9-1329-45eb-96bb-6d937bdd323b
+ports:
+- name: ""
+  port: 9999
+  protocol: TCP
+
+-- eps-hubble.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 172.18.0.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-control-plane
+  targetRef:
+    kind: Pod
+    name: cilium-xddkg
+    namespace: kube-system
+    uid: e4d0a916-27cb-4b36-99f4-9d360a12eb51
+- addresses:
+  - 172.18.0.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-worker
+  targetRef:
+    kind: Pod
+    name: cilium-scx49
+    namespace: kube-system
+    uid: 2351d248-aa8c-4dda-b12a-7ad3ce51357d
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-06-26T10:12:04Z"
+  creationTimestamp: "2025-06-26T10:11:38Z"
+  generateName: hubble-peer-
+  generation: 5
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: hubble-peer
+    app.kubernetes.io/part-of: cilium
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    k8s-app: cilium
+    kubernetes.io/service-name: hubble-peer
+  name: hubble-peer-dtfdl
+  namespace: kube-system
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: hubble-peer
+    uid: ea334b20-00be-40a1-8461-0414bbb9e5cb
+  resourceVersion: "793"
+  uid: 920e1de1-e5a2-44b0-9e2a-f4bc7eceec6b
+ports:
+- name: peer-service
+  port: 4244
+  protocol: TCP
+
+-- eps-kubedns.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.0.249
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-control-plane
+  targetRef:
+    kind: Pod
+    name: coredns-674b8bbfcf-hrtxx
+    namespace: kube-system
+    uid: b360b1d9-1f93-4cb6-992c-9bef31336362
+- addresses:
+  - 10.244.0.109
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: chart-testing-control-plane
+  targetRef:
+    kind: Pod
+    name: coredns-674b8bbfcf-xp7dr
+    namespace: kube-system
+    uid: b5aea15c-cb71-42f8-bbe8-8adc19b564d0
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-06-26T10:12:07Z"
+  creationTimestamp: "2025-06-26T10:10:50Z"
+  generateName: kube-dns-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: CoreDNS
+    kubernetes.io/service-name: kube-dns
+  name: kube-dns-4rlzc
+  namespace: kube-system
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: kube-dns
+    uid: 7045f9b7-4294-4499-8236-7cd3065993ff
+  resourceVersion: "825"
+  uid: 8affd3c9-c3db-4f68-9c2c-7a7e1e5a6053
+ports:
+- name: metrics
+  port: 9153
+  protocol: TCP
+- name: dns
+  port: 53
+  protocol: UDP
+- name: dns-tcp
+  port: 53
+  protocol: TCP
