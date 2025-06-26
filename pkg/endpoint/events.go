@@ -93,43 +93,6 @@ type EndpointRegenerationResult struct {
 	err error
 }
 
-// EndpointRevisionBumpEvent contains all fields necessary to bump the policy
-// revision of a given endpoint.
-type EndpointRevisionBumpEvent struct {
-	Rev uint64
-	ep  *Endpoint
-}
-
-// Handle handles the revision bump event for the Endpoint.
-func (ev *EndpointRevisionBumpEvent) Handle(res chan any) {
-	// TODO: if the endpoint is not in a 'ready' state that means that
-	// we cannot set the policy revision, as something else has
-	// changed endpoint state which necessitates regeneration,
-	// *or* the endpoint is in a not-ready state (i.e., a prior
-	// regeneration failed, so there is no way that we can
-	// realize the policy revision yet. Should this be signaled
-	// to the routine waiting for the result of this event?
-	ev.ep.SetPolicyRevision(ev.Rev)
-	res <- struct{}{}
-}
-
-// PolicyRevisionBumpEvent queues an event for the given endpoint to set its
-// realized policy revision to rev. This may block depending on if events have
-// been queued up for the given endpoint. It blocks until the event has
-// succeeded, or if the event has been cancelled.
-func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
-	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
-	// Don't check policy revision event results - it is best effort.
-	_, err := e.eventQueue.Enqueue(epBumpEvent)
-	if err != nil {
-		e.getLogger().Error(
-			"enqueue of EndpointRevisionBumpEvent failed",
-			logfields.PolicyRevision, rev,
-			logfields.Error, err,
-		)
-	}
-}
-
 // EndpointNoTrackEvent contains all fields necessary to update the NOTRACK rules.
 type EndpointNoTrackEvent struct {
 	ep      *Endpoint
