@@ -172,7 +172,7 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attest -r -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign attest -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Image Release Digest Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -260,7 +260,7 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attest -r -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign attest -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Image Release Digest Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
