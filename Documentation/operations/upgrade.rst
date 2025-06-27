@@ -303,7 +303,7 @@ communicating via the proxy must reconnect to re-establish connections.
   you need to take action to update your network policies to avoid this change from breaking connectivity for applications
   across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
   to update your network policies.
-* Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask``.
+* Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask`` (now ``true`` by default).
 
 Removed Options
 ~~~~~~~~~~~~~~~
