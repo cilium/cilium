@@ -304,6 +304,7 @@ func TestFilterDispatch(t *testing.T) {
 }
 
 func TestFilterLeftRight(t *testing.T) {
+	maskOpts.fieldMask = nil
 	f := newFlowFilter()
 	cmd := newFlowsCmdWithFilter(viper.New(), f)
 
@@ -362,6 +363,7 @@ func TestFilterLeftRight(t *testing.T) {
 }
 
 func TestFilterType(t *testing.T) {
+	maskOpts.fieldMask = nil
 	f := newFlowFilter()
 	cmd := newFlowsCmdWithFilter(viper.New(), f)
 

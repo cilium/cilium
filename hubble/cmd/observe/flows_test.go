@@ -22,6 +22,19 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
+var defaultMask *fieldmaskpb.FieldMask
+
+// TestMain setup the defaultMask used by some test functions.
+func TestMain(m *testing.M) {
+	fm, err := fieldmaskpb.New(&flowpb.Flow{}, defaults.FieldMask...)
+	if err != nil {
+		panic(fmt.Errorf("failed to construct field mask: %w", err))
+	}
+	defaultMask = fm
+	code := m.Run()
+	os.Exit(code)
+}
+
 func TestEventTypes(t *testing.T) {
 	// Make sure to keep event type slices in sync. Agent events, debug
 	// events and recorder captures have separate subcommands and are not
@@ -47,7 +60,7 @@ func Test_getFlowsRequest(t *testing.T) {
 	filter := newFlowFilter()
 	req, err := getFlowsRequest(filter, nil, nil)
 	require.NoError(t, err)
-	assert.Equal(t, &observerpb.GetFlowsRequest{Number: defaults.FlowPrintCount}, req)
+	assert.Equal(t, &observerpb.GetFlowsRequest{Number: defaults.FlowPrintCount, FieldMask: defaultMask}, req)
 	selectorOpts.since = "2021-03-23T00:00:00Z"
 	selectorOpts.until = "2021-03-24T00:00:00Z"
 	req, err = getFlowsRequest(filter, nil, nil)
@@ -57,9 +70,10 @@ func Test_getFlowsRequest(t *testing.T) {
 	until, err := time.Parse(time.RFC3339, selectorOpts.until)
 	require.NoError(t, err)
 	assert.Equal(t, &observerpb.GetFlowsRequest{
-		Number: defaults.FlowPrintCount,
-		Since:  timestamppb.New(since),
-		Until:  timestamppb.New(until),
+		FieldMask: defaultMask,
+		Number:    defaults.FlowPrintCount,
+		Since:     timestamppb.New(since),
+		Until:     timestamppb.New(until),
 	}, req)
 }
 
@@ -69,15 +83,16 @@ func Test_getFlowsRequestWithoutSince(t *testing.T) {
 	filter := newFlowFilter()
 	req, err := getFlowsRequest(filter, nil, nil)
 	require.NoError(t, err)
-	assert.Equal(t, &observerpb.GetFlowsRequest{Number: defaults.FlowPrintCount}, req)
+	assert.Equal(t, &observerpb.GetFlowsRequest{Number: defaults.FlowPrintCount, FieldMask: defaultMask}, req)
 	selectorOpts.until = "2021-03-24T00:00:00Z"
 	req, err = getFlowsRequest(filter, nil, nil)
 	require.NoError(t, err)
 	until, err := time.Parse(time.RFC3339, selectorOpts.until)
 	require.NoError(t, err)
 	assert.Equal(t, &observerpb.GetFlowsRequest{
-		Number: defaults.FlowPrintCount,
-		Until:  timestamppb.New(until),
+		FieldMask: defaultMask,
+		Number:    defaults.FlowPrintCount,
+		Until:     timestamppb.New(until),
 	}, req)
 }
 
