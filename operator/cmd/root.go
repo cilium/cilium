@@ -41,6 +41,7 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
+	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
@@ -236,6 +237,7 @@ var (
 			cmoperator.Cell,
 			endpointslicesync.Cell,
 			mcsapi.Cell,
+			locksweeper.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -642,12 +644,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager = nm
 	}
 
-	if legacy.kvstoreClient.IsEnabled() {
-		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
-			withKVStore = true
-		}
-
-		startKvstoreWatchdog(legacy.logger, legacy.kvstoreClient)
+	if legacy.kvstoreClient.IsEnabled() && legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
+		withKVStore = true
 	}
 
 	if legacy.clientset.IsEnabled() &&
