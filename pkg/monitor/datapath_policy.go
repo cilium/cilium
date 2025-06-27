@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	// PolicyVerdictNotifyLen is the amount of packet data provided in a Policy notification
-	PolicyVerdictNotifyLen = 32
+	// PolicyVerdictNotifyLen is the length (in bytes) of the PolicyVerdictNotify message
+	// header, i.e. the offset of the packet data provided in a policy verdict notification.
+	PolicyVerdictNotifyLen = 40
 
 	// The values below are for parsing PolicyVerdictNotify. They need to be consistent
 	// with what are defined in data plane.
@@ -57,8 +58,9 @@ type PolicyVerdictNotify struct {
 	Proto       uint8
 	Flags       uint8
 	AuthType    uint8
-	Pad1        uint8
-	Pad2        uint16
+	_           [3]uint8
+	Cookie      uint32
+	_           uint32
 	// data
 }
 
@@ -85,8 +87,7 @@ func (n *PolicyVerdictNotify) decodePolicyVerdictNotify(data []byte) error {
 	n.Proto = data[26]
 	n.Flags = data[27]
 	n.AuthType = data[28]
-	n.Pad1 = data[29]
-	n.Pad2 = byteorder.Native.Uint16(data[30:32])
+	n.Cookie = byteorder.Native.Uint32(data[32:36])
 
 	return nil
 }

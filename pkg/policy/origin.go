@@ -85,6 +85,10 @@ func (ro ruleOrigin) stringLabels() stringLabels {
 	return newStringLabels(ro.LabelsString())
 }
 
+func (ro ruleOrigin) RawLog() string {
+	return string(ro.Value().log)
+}
+
 func (rm RuleMeta) Log() []string {
 	return rm.log.List()
 }
