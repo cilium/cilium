@@ -75,7 +75,7 @@ type metadata struct {
 	// If this mutex will be held at the same time as the IPCache mutex,
 	// this mutex must be taken first and then take the IPCache mutex in
 	// order to prevent deadlocks.
-	lock.RWMutex
+	lock.Mutex
 
 	// m is the actual map containing the mappings.
 	m map[cmtypes.PrefixCluster]*prefixInfo
@@ -222,9 +222,12 @@ func canonicalPrefix(prefixCluster cmtypes.PrefixCluster) cmtypes.PrefixCluster 
 	return cmtypes.NewPrefixCluster(p, clusterID)
 }
 
+// upsertLocked inserts / updates the set of metadata associated with this resource for this prefix.
+// It returns the set of affected prefixes. It may return nil if the metadata change is a no-op.
 func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source, resource types.ResourceID, info ...IPMetadata) []cmtypes.PrefixCluster {
 	prefix = canonicalPrefix(prefix)
 	changed := false
+
 	if _, ok := m.m[prefix]; !ok {
 		changed = true
 		m.m[prefix] = newPrefixInfo()
@@ -242,16 +245,14 @@ func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source,
 		changed = changed || c
 	}
 
-	if m.m[prefix].byResource[resource].shouldLogConflicts() {
-		m.m[prefix].logConflicts(m.logger.With(
-			logfields.CIDR, prefix,
-			logfields.ClusterID, prefix.ClusterID(),
-		))
-	}
-
-	if !changed {
+	// If the metadata for this resource hasn't changed, *or* it has
+	// no effect on the flattened metadata, then return zero affected prefixes.
+	if !changed || m.m[prefix].flattened.has(src, info) {
 		return nil
 	}
+
+	// Invalidated flattened metadata. Will be re-populated on next read.
+	m.m[prefix].flattened = nil
 
 	return m.findAffectedChildPrefixes(prefix)
 }
@@ -259,19 +260,31 @@ func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source,
 // GetMetadataSourceByPrefix returns the highest precedence source which has
 // provided metadata for this prefix
 func (ipc *IPCache) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source {
-	ipc.metadata.RLock()
-	defer ipc.metadata.RUnlock()
+	ipc.metadata.Lock()
+	defer ipc.metadata.Unlock()
 	return ipc.metadata.getLocked(prefix).Source()
 }
 
-func (m *metadata) get(prefix cmtypes.PrefixCluster) *prefixInfo {
-	m.RLock()
-	defer m.RUnlock()
+// get returns a deep copy of the flattened prefix info
+func (m *metadata) get(prefix cmtypes.PrefixCluster) *resourceInfo {
+	m.Lock()
+	defer m.Unlock()
 	return m.getLocked(prefix)
 }
 
-func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) *prefixInfo {
-	return m.m[canonicalPrefix(prefix)]
+// getLocked returns a deep copy of the flattened prefix info
+func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) *resourceInfo {
+	if pi, ok := m.m[canonicalPrefix(prefix)]; ok {
+		if pi.flattened == nil {
+			// re-compute the flattened set of prefixes
+			pi.flattened = pi.flatten(m.logger.With(
+				logfields.CIDR, prefix,
+				logfields.ClusterID, prefix.ClusterID(),
+			))
+		}
+		return pi.flattened.DeepCopy()
+	}
+	return nil
 }
 
 // mergeParentLabels pulls down all labels from parent prefixes, with "longer" prefixes having
@@ -283,8 +296,8 @@ func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) *prefixInfo {
 // - 10.1.1.0/24 -> "d=e"
 // the complete set of labels for 10.1.1.0/24 is [a=c, d=e, foo=bar]
 func (m *metadata) mergeParentLabels(lbls labels.Labels, prefixCluster cmtypes.PrefixCluster) {
-	m.RLock()
-	defer m.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 	hasCIDR := lbls.HasSource(labels.LabelSourceCIDR) // we should only merge one CIDR label
 
 	// Iterate over all shorter prefixes, from `prefix` to 0.0.0.0/0 // ::/0.
@@ -292,7 +305,7 @@ func (m *metadata) mergeParentLabels(lbls labels.Labels, prefixCluster cmtypes.P
 	prefix := prefixCluster.AsPrefix()
 	for bits := prefix.Bits() - 1; bits >= 0; bits-- {
 		parent, _ := prefix.Addr().Unmap().Prefix(bits) // canonical
-		if info, ok := m.m[cmtypes.NewPrefixCluster(parent, prefixCluster.ClusterID())]; ok {
+		if info := m.getLocked(cmtypes.NewPrefixCluster(parent, prefixCluster.ClusterID())); info != nil {
 			for k, v := range info.ToLabels() {
 				if v.Source == labels.LabelSourceCIDR && hasCIDR {
 					continue
@@ -389,7 +402,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 			} // else continue below to remove the old entry
 		} else {
 			// Insert to propagate the updated set of labels after removal.
-			newID, isNew, err = ipc.resolveIdentity(prefix, prefixInfo, prefixInfo.RequestedIdentity().ID())
+			newID, isNew, err = ipc.resolveIdentity(prefix, prefixInfo)
 			if err != nil {
 				// NOTE: This may fail during a 2nd or later
 				// iteration of the loop. To handle this, break
@@ -665,17 +678,17 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 //   - If the entry is not inserted (for instance, because the bpf IPCache map
 //     already has the same IP -> identity entry in the map), immediately release
 //     the reference.
-func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *resourceInfo) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
-	if identityOverrideLabels, ok := info.identityOverride(); ok {
-		id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(identityOverrideLabels, false, identity.InvalidIdentity)
+	if info.IdentityOverride() {
+		id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(info.ToLabels(), false, identity.InvalidIdentity)
 		if err != nil {
 			ipc.logger.Warn(
 				"Failed to allocate new identity for prefix's IdentityOverrideLabels.",
 				logfields.Error, err,
 				logfields.ClusterID, prefix.ClusterID(),
 				logfields.IPAddr, prefix,
-				logfields.Labels, identityOverrideLabels,
+				logfields.Labels, info.ToLabels(),
 			)
 		}
 		return id, isNew, err
@@ -716,7 +729,7 @@ func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *prefixIn
 	// This should only ever allocate an identity locally on the node,
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
-	id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(lbls, false, restoredIdentity)
+	id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(lbls, false, info.requestedIdentity.ID())
 	if err != nil {
 		ipc.logger.Warn(
 			"Failed to allocate new identity for prefix's Labels.",
@@ -867,8 +880,8 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 func (m *metadata) filterByLabels(filter labels.Labels) []cmtypes.PrefixCluster {
 	var matching []cmtypes.PrefixCluster
 	sortedFilter := filter.SortedList()
-	for prefix, info := range m.m {
-		lbls := info.ToLabels()
+	for prefix := range m.m {
+		lbls := m.getLocked(prefix).ToLabels()
 		if bytes.Contains(lbls.SortedList(), sortedFilter) {
 			matching = append(matching, prefix)
 		}
@@ -899,6 +912,9 @@ func (m *metadata) remove(prefix cmtypes.PrefixCluster, resource types.ResourceI
 	if !info.isValid() { // Labels empty, delete
 		delete(m.m, prefix)
 		m.prefixes.Delete(clusterID(prefix.ClusterID()), prefix.AsPrefix())
+	} else {
+		// erase flattened, we'll recompute on read
+		info.flattened = nil
 	}
 
 	return affected
