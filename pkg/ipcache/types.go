@@ -27,7 +27,15 @@ import (
 //
 // Note that when making a copy of this object, resourceInfo is pointer which
 // means it needs to be deep-copied via (*resourceInfo).DeepCopy().
-type prefixInfo map[ipcachetypes.ResourceID]*resourceInfo
+type prefixInfo struct {
+	byResource map[ipcachetypes.ResourceID]*resourceInfo
+}
+
+func newPrefixInfo() *prefixInfo {
+	return &prefixInfo{
+		byResource: make(map[ipcachetypes.ResourceID]*resourceInfo),
+	}
+}
 
 // IdentityOverride can be used to override the identity of a given prefix.
 // Must be provided together with a set of labels. Any other labels associated
@@ -165,7 +173,7 @@ func (m *resourceInfo) DeepCopy() *resourceInfo {
 }
 
 func (s prefixInfo) isValid() bool {
-	for _, v := range s {
+	for _, v := range s.byResource {
 		if v.isValid() {
 			return true
 		}
@@ -173,10 +181,10 @@ func (s prefixInfo) isValid() bool {
 	return false
 }
 
-func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
-	return slices.SortedStableFunc(maps.Keys(s), func(a ipcachetypes.ResourceID, b ipcachetypes.ResourceID) int {
-		if s[a].source != s[b].source {
-			if !source.AllowOverwrite(s[a].source, s[b].source) {
+func (s *prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
+	return slices.SortedStableFunc(maps.Keys(s.byResource), func(a ipcachetypes.ResourceID, b ipcachetypes.ResourceID) int {
+		if s.byResource[a].source != s.byResource[b].source {
+			if !source.AllowOverwrite(s.byResource[a].source, s.byResource[b].source) {
 				return -1
 			} else {
 				return 1
@@ -186,17 +194,20 @@ func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
 	})
 }
 
-func (s prefixInfo) ToLabels() labels.Labels {
+func (s *prefixInfo) ToLabels() labels.Labels {
 	l := labels.NewLabelsFromModel(nil)
-	for _, v := range s {
+	if s == nil {
+		return l
+	}
+	for _, v := range s.byResource {
 		l.MergeLabels(v.labels)
 	}
 	return l
 }
 
-func (s prefixInfo) Source() source.Source {
+func (s *prefixInfo) Source() source.Source {
 	src := source.Unspec
-	for _, v := range s {
+	for _, v := range s.byResource {
 		if source.AllowOverwrite(src, v.source) {
 			src = v.source
 		}
@@ -204,36 +215,36 @@ func (s prefixInfo) Source() source.Source {
 	return src
 }
 
-func (s prefixInfo) EncryptKey() ipcachetypes.EncryptKey {
-	for rid := range s {
-		if k := s[rid].encryptKey; k.IsValid() {
+func (s *prefixInfo) EncryptKey() ipcachetypes.EncryptKey {
+	for rid := range s.byResource {
+		if k := s.byResource[rid].encryptKey; k.IsValid() {
 			return k
 		}
 	}
 	return ipcachetypes.EncryptKeyEmpty
 }
 
-func (s prefixInfo) TunnelPeer() ipcachetypes.TunnelPeer {
-	for rid := range s {
-		if t := s[rid].tunnelPeer; t.IsValid() {
+func (s *prefixInfo) TunnelPeer() ipcachetypes.TunnelPeer {
+	for rid := range s.byResource {
+		if t := s.byResource[rid].tunnelPeer; t.IsValid() {
 			return t
 		}
 	}
 	return ipcachetypes.TunnelPeer{}
 }
 
-func (s prefixInfo) RequestedIdentity() ipcachetypes.RequestedIdentity {
+func (s *prefixInfo) RequestedIdentity() ipcachetypes.RequestedIdentity {
 	for _, rid := range s.sortedBySourceThenResourceID() {
-		if id := s[rid].requestedIdentity; id.IsValid() {
+		if id := s.byResource[rid].requestedIdentity; id.IsValid() {
 			return id
 		}
 	}
 	return ipcachetypes.RequestedIdentity(identity.InvalidIdentity)
 }
 
-func (s prefixInfo) EndpointFlags() ipcachetypes.EndpointFlags {
+func (s *prefixInfo) EndpointFlags() ipcachetypes.EndpointFlags {
 	for _, rid := range s.sortedBySourceThenResourceID() {
-		if flags := s[rid].endpointFlags; flags.IsValid() {
+		if flags := s.byResource[rid].endpointFlags; flags.IsValid() {
 			return flags
 		}
 	}
@@ -244,9 +255,9 @@ func (s prefixInfo) EndpointFlags() ipcachetypes.EndpointFlags {
 // the prefix info. If no override identity is present, this returns nil.
 // This pre-determined identity will overwrite any other identity which may
 // be derived from the prefix labels.
-func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
+func (s *prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 	identities := make([]labels.Labels, 0, 1)
-	for _, info := range s {
+	for _, info := range s.byResource {
 		// We emit a warning in logConflicts if an identity override
 		// was requested without labels
 		if info.identityOverride && len(info.labels) > 0 {
@@ -277,7 +288,7 @@ func (ri resourceInfo) shouldLogConflicts() bool {
 	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid() || ri.endpointFlags.IsValid()
 }
 
-func (s prefixInfo) logConflicts(scopedLog *slog.Logger) {
+func (s *prefixInfo) logConflicts(scopedLog *slog.Logger) {
 	var (
 		override           labels.Labels
 		overrideResourceID ipcachetypes.ResourceID
@@ -296,7 +307,7 @@ func (s prefixInfo) logConflicts(scopedLog *slog.Logger) {
 	)
 
 	for _, resourceID := range s.sortedBySourceThenResourceID() {
-		info := s[resourceID]
+		info := s.byResource[resourceID]
 
 		if info.identityOverride {
 			if len(override) > 0 {
