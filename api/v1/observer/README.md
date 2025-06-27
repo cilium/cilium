@@ -160,11 +160,6 @@ Experimental contains fields that are not stable yet. Support for
 experimental features is always optional and subject to change.
 
 
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| field_mask | [google.protobuf.FieldMask](#google-protobuf-FieldMask) |  | **Deprecated.** FieldMask allows clients to limit flow&#39;s fields that will be returned. For example, {paths: [&#34;source.id&#34;, &#34;destination.id&#34;]} will return flows with only these two fields set. Deprecated in favor of top-level field_mask. This field will be removed in v1.17. |
-
-
 
 
 

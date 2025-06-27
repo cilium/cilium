@@ -1686,15 +1686,7 @@ func (*ExportEvent_DebugEvent) isExportEvent_ResponseTypes() {}
 // Experimental contains fields that are not stable yet. Support for
 // experimental features is always optional and subject to change.
 type GetFlowsRequest_Experimental struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// FieldMask allows clients to limit flow's fields that will be returned.
-	// For example, {paths: ["source.id", "destination.id"]} will return flows
-	// with only these two fields set.
-	// Deprecated in favor of top-level field_mask. This field will be
-	// removed in v1.17.
-	//
-	// Deprecated: Marked as deprecated in observer/observer.proto.
-	FieldMask     *fieldmaskpb.FieldMask `protobuf:"bytes,1,opt,name=field_mask,json=fieldMask,proto3" json:"field_mask,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1729,14 +1721,6 @@ func (*GetFlowsRequest_Experimental) Descriptor() ([]byte, []int) {
 	return file_observer_observer_proto_rawDescGZIP(), []int{2, 0}
 }
 
-// Deprecated: Marked as deprecated in observer/observer.proto.
-func (x *GetFlowsRequest_Experimental) GetFieldMask() *fieldmaskpb.FieldMask {
-	if x != nil {
-		return x.FieldMask
-	}
-	return nil
-}
-
 var File_observer_observer_proto protoreflect.FileDescriptor
 
 const file_observer_observer_proto_rawDesc = "" +
@@ -1754,7 +1738,7 @@ const file_observer_observer_proto_rawDesc = "" +
 	"\x11unavailable_nodes\x18\a \x03(\tR\x10unavailableNodes\x12\x18\n" +
 	"\aversion\x18\b \x01(\tR\aversion\x12\x1d\n" +
 	"\n" +
-	"flows_rate\x18\t \x01(\x01R\tflowsRate\"\xb0\x04\n" +
+	"flows_rate\x18\t \x01(\x01R\tflowsRate\"\xf7\x03\n" +
 	"\x0fGetFlowsRequest\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x04R\x06number\x12\x14\n" +
 	"\x05first\x18\t \x01(\bR\x05first\x12\x16\n" +
@@ -1769,10 +1753,8 @@ const file_observer_observer_proto_rawDesc = "" +
 	"\fexperimental\x18\xe7\a \x01(\v2&.observer.GetFlowsRequest.ExperimentalR\fexperimental\x126\n" +
 	"\n" +
 	"extensions\x18\xf0\x93\t \x01(\v2\x14.google.protobuf.AnyR\n" +
-	"extensions\x1aM\n" +
-	"\fExperimental\x12=\n" +
-	"\n" +
-	"field_mask\x18\x01 \x01(\v2\x1a.google.protobuf.FieldMaskB\x02\x18\x01R\tfieldMaskJ\x04\b\x02\x10\x03\"\x84\x02\n" +
+	"extensions\x1a\x14\n" +
+	"\fExperimentalJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\x84\x02\n" +
 	"\x10GetFlowsResponse\x12 \n" +
 	"\x04flow\x18\x01 \x01(\v2\n" +
 	".flow.FlowH\x00R\x04flow\x129\n" +
@@ -1928,24 +1910,23 @@ var file_observer_observer_proto_depIdxs = []int32{
 	25, // 28: observer.ExportEvent.agent_event:type_name -> flow.AgentEvent
 	26, // 29: observer.ExportEvent.debug_event:type_name -> flow.DebugEvent
 	19, // 30: observer.ExportEvent.time:type_name -> google.protobuf.Timestamp
-	20, // 31: observer.GetFlowsRequest.Experimental.field_mask:type_name -> google.protobuf.FieldMask
-	2,  // 32: observer.Observer.GetFlows:input_type -> observer.GetFlowsRequest
-	4,  // 33: observer.Observer.GetAgentEvents:input_type -> observer.GetAgentEventsRequest
-	6,  // 34: observer.Observer.GetDebugEvents:input_type -> observer.GetDebugEventsRequest
-	8,  // 35: observer.Observer.GetNodes:input_type -> observer.GetNodesRequest
-	12, // 36: observer.Observer.GetNamespaces:input_type -> observer.GetNamespacesRequest
-	0,  // 37: observer.Observer.ServerStatus:input_type -> observer.ServerStatusRequest
-	3,  // 38: observer.Observer.GetFlows:output_type -> observer.GetFlowsResponse
-	5,  // 39: observer.Observer.GetAgentEvents:output_type -> observer.GetAgentEventsResponse
-	7,  // 40: observer.Observer.GetDebugEvents:output_type -> observer.GetDebugEventsResponse
-	9,  // 41: observer.Observer.GetNodes:output_type -> observer.GetNodesResponse
-	13, // 42: observer.Observer.GetNamespaces:output_type -> observer.GetNamespacesResponse
-	1,  // 43: observer.Observer.ServerStatus:output_type -> observer.ServerStatusResponse
-	38, // [38:44] is the sub-list for method output_type
-	32, // [32:38] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	2,  // 31: observer.Observer.GetFlows:input_type -> observer.GetFlowsRequest
+	4,  // 32: observer.Observer.GetAgentEvents:input_type -> observer.GetAgentEventsRequest
+	6,  // 33: observer.Observer.GetDebugEvents:input_type -> observer.GetDebugEventsRequest
+	8,  // 34: observer.Observer.GetNodes:input_type -> observer.GetNodesRequest
+	12, // 35: observer.Observer.GetNamespaces:input_type -> observer.GetNamespacesRequest
+	0,  // 36: observer.Observer.ServerStatus:input_type -> observer.ServerStatusRequest
+	3,  // 37: observer.Observer.GetFlows:output_type -> observer.GetFlowsResponse
+	5,  // 38: observer.Observer.GetAgentEvents:output_type -> observer.GetAgentEventsResponse
+	7,  // 39: observer.Observer.GetDebugEvents:output_type -> observer.GetDebugEventsResponse
+	9,  // 40: observer.Observer.GetNodes:output_type -> observer.GetNodesResponse
+	13, // 41: observer.Observer.GetNamespaces:output_type -> observer.GetNamespacesResponse
+	1,  // 42: observer.Observer.ServerStatus:output_type -> observer.ServerStatusResponse
+	37, // [37:43] is the sub-list for method output_type
+	31, // [31:37] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_observer_observer_proto_init() }
