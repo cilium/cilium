@@ -4,7 +4,7 @@
 package translation
 
 import (
-	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 

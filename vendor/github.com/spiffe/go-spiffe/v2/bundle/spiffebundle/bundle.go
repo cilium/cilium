@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -106,7 +107,7 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 			bundle.AddX509Authority(key.Certificates[0])
 		case jwtSVIDUse:
 			if err := bundle.AddJWTAuthority(key.KeyID, key.Key); err != nil {
-				return nil, spiffebundleErr.New("error adding authority %d of JWKS: %v", i, errs.Unwrap(err))
+				return nil, spiffebundleErr.New("error adding authority %d of JWKS: %v", i, errors.Unwrap(err))
 			}
 		}
 	}

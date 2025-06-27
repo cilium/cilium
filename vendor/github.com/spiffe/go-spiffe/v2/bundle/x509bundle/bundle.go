@@ -63,12 +63,13 @@ func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 // blocks.
 func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 	bundle := New(trustDomain)
+	if len(b) == 0 {
+		return bundle, nil
+	}
+
 	certs, err := pemutil.ParseCertificates(b)
 	if err != nil {
 		return nil, x509bundleErr.New("cannot parse certificate: %v", err)
-	}
-	if len(certs) == 0 {
-		return nil, x509bundleErr.New("no certificates found")
 	}
 	for _, cert := range certs {
 		bundle.AddX509Authority(cert)
@@ -80,12 +81,13 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 // with no intermediate padding if there are more than one certificate)
 func ParseRaw(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 	bundle := New(trustDomain)
+	if len(b) == 0 {
+		return bundle, nil
+	}
+
 	certs, err := x509.ParseCertificates(b)
 	if err != nil {
 		return nil, x509bundleErr.New("cannot parse certificate: %v", err)
-	}
-	if len(certs) == 0 {
-		return nil, x509bundleErr.New("no certificates found")
 	}
 	for _, cert := range certs {
 		bundle.AddX509Authority(cert)

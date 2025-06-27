@@ -22,13 +22,13 @@ func GetDefaultAddress() (string, bool) {
 // a Workload API endpoint exposed as either a Unix
 // Domain Socket or TCP socket.
 func ValidateAddress(addr string) error {
-	_, err := parseTargetFromStringAddr(addr)
+	_, err := TargetFromAddress(addr)
 	return err
 }
 
-// parseTargetFromStringAddr parses the endpoint address and returns a gRPC target
+// TargetFromAddress parses the endpoint address and returns a gRPC target
 // string for dialing.
-func parseTargetFromStringAddr(addr string) (string, error) {
+func TargetFromAddress(addr string) (string, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return "", errors.New("workload endpoint socket is not a valid URI: " + err.Error())

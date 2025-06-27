@@ -57,7 +57,66 @@ func (m *CelExpression) validate(all bool) error {
 
 	var errors []error
 
-	oneofExprSpecifierPresent := false
+	if all {
+		switch v := interface{}(m.GetCelExprParsed()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CelExpressionValidationError{
+					field:  "CelExprParsed",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CelExpressionValidationError{
+					field:  "CelExprParsed",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCelExprParsed()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CelExpressionValidationError{
+				field:  "CelExprParsed",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetCelExprChecked()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CelExpressionValidationError{
+					field:  "CelExprChecked",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CelExpressionValidationError{
+					field:  "CelExprChecked",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCelExprChecked()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CelExpressionValidationError{
+				field:  "CelExprChecked",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for CelExprString
+
 	switch v := m.ExprSpecifier.(type) {
 	case *CelExpression_ParsedExpr:
 		if v == nil {
@@ -70,7 +129,6 @@ func (m *CelExpression) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-		oneofExprSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetParsedExpr()).(type) {
@@ -112,7 +170,6 @@ func (m *CelExpression) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-		oneofExprSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetCheckedExpr()).(type) {
@@ -145,16 +202,6 @@ func (m *CelExpression) validate(all bool) error {
 
 	default:
 		_ = v // ensures v is used
-	}
-	if !oneofExprSpecifierPresent {
-		err := CelExpressionValidationError{
-			field:  "ExprSpecifier",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
 	}
 
 	if len(errors) > 0 {

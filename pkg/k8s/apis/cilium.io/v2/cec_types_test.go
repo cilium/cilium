@@ -9,8 +9,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	. "github.com/cilium/checkmate"
-	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 )
 
 var (
