@@ -38,15 +38,15 @@ var (
 		color               string
 	}
 
+	maskOpts struct {
+		fieldMask       []string
+		useDefaultMasks bool
+	}
+
 	otherOpts struct {
 		ignoreStderr    bool
 		printRawFilters bool
 		inputFile       string
-	}
-
-	experimentalOpts struct {
-		fieldMask       []string
-		useDefaultMasks bool
 	}
 
 	printer *hubprinter.Printer
@@ -159,11 +159,11 @@ func init() {
 	otherFlags.StringVar(&otherOpts.inputFile, "input-file", "",
 		"Query flows from this file instead of the server. Use '-' to read from stdin.")
 
-	otherFlags.StringSliceVar(&experimentalOpts.fieldMask, "experimental-field-mask", nil,
-		"Experimental: Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.")
+	otherFlags.StringSliceVar(&maskOpts.fieldMask, "field-mask", nil,
+		"Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.")
 
-	otherFlags.BoolVar(&experimentalOpts.useDefaultMasks, "experimental-use-default-field-masks", false,
-		"Experimental: request only visible fields when the output format is compact, tab, or dict.")
+	otherFlags.BoolVar(&maskOpts.useDefaultMasks, "use-default-field-masks", false,
+		"Request only visible fields when the output format is compact, tab, or dict.")
 }
 
 // New observer command.

@@ -128,9 +128,9 @@ denylist:
 	assert.Equal(t, expected, out)
 }
 
-func Test_getFlowsRequest_ExperimentalFieldMask_valid(t *testing.T) {
+func Test_getFlowsRequest_FieldMask_valid(t *testing.T) {
 	selectorOpts.until = ""
-	experimentalOpts.fieldMask = []string{"time", "verdict"}
+	maskOpts.fieldMask = []string{"time", "verdict"}
 	filter := newFlowFilter()
 	req, err := getFlowsRequest(filter, nil, nil)
 	require.NoError(t, err)
@@ -140,18 +140,18 @@ func Test_getFlowsRequest_ExperimentalFieldMask_valid(t *testing.T) {
 	}, req)
 }
 
-func Test_getFlowsRequest_ExperimentalFieldMask_invalid(t *testing.T) {
-	experimentalOpts.fieldMask = []string{"time", "verdict", "invalid-field"}
+func Test_getFlowsRequest_FieldMask_invalid(t *testing.T) {
+	maskOpts.fieldMask = []string{"time", "verdict", "invalid-field"}
 	filter := newFlowFilter()
 	_, err := getFlowsRequest(filter, nil, nil)
 	require.ErrorContains(t, err, "invalid-field")
 }
 
-func Test_getFlowsRequest_ExperimentalUseDefaultFieldMask(t *testing.T) {
+func Test_getFlowsRequest_UseDefaultFieldMask(t *testing.T) {
 	selectorOpts.until = ""
 	formattingOpts.output = "dict"
-	experimentalOpts.fieldMask = nil
-	experimentalOpts.useDefaultMasks = true
+	maskOpts.fieldMask = nil
+	maskOpts.useDefaultMasks = true
 	filter := newFlowFilter()
 	require.NoError(t, handleFlowArgs(os.Stdout, filter, false))
 	req, err := getFlowsRequest(filter, nil, nil)
@@ -162,10 +162,10 @@ func Test_getFlowsRequest_ExperimentalUseDefaultFieldMask(t *testing.T) {
 	}, req)
 }
 
-func Test_getFlowsRequest_ExperimentalFieldMask_non_json_output(t *testing.T) {
+func Test_getFlowsRequest_FieldMask_non_json_output(t *testing.T) {
 	selectorOpts.until = ""
 	formattingOpts.output = "compact"
-	experimentalOpts.fieldMask = []string{"time", "verdict"}
+	maskOpts.fieldMask = []string{"time", "verdict"}
 	filter := newFlowFilter()
 	err := handleFlowArgs(os.Stdout, filter, false)
 	require.ErrorContains(t, err, "not compatible")
