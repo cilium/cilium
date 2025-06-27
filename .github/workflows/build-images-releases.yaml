@@ -129,9 +129,9 @@ jobs:
       - name: Attach SBOM attestation to container image
         run: |
           if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
-            cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+            cosign attest -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
           fi
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Release Digest
         shell: bash
