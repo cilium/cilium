@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -52,7 +53,7 @@ func Test_removeOldRouterState(t *testing.T) {
 
 			// Remove the cilium_host device and assert no error on "link not found"
 			// error.
-			link, err := netlink.LinkByName(defaults.HostDevice)
+			link, err := safenetlink.LinkByName(defaults.HostDevice)
 			assert.NoError(t, err)
 			assert.NotNil(t, link)
 			assert.NoError(t, netlink.LinkDel(link))
@@ -82,7 +83,7 @@ func createDevices(t *testing.T) {
 	if err := netlink.LinkAdd(veth); err != nil {
 		assert.NoError(t, err)
 	}
-	ciliumHost, err := netlink.LinkByName(defaults.HostDevice)
+	ciliumHost, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		assert.NoError(t, err)
 	}
@@ -108,14 +109,14 @@ func Test_removeStaleEPIfaces(t *testing.T) {
 		err := netlink.LinkAdd(veth)
 		assert.NoError(t, err)
 
-		_, err = netlink.LinkByName(linkAttrs.Name)
+		_, err = safenetlink.LinkByName(linkAttrs.Name)
 		assert.NoError(t, err)
 
 		// Check that stale iface is removed
 		err = clearCiliumVeths(hivetest.Logger(t))
 		assert.NoError(t, err)
 
-		_, err = netlink.LinkByName(linkAttrs.Name)
+		_, err = safenetlink.LinkByName(linkAttrs.Name)
 		assert.Error(t, err)
 
 		return nil

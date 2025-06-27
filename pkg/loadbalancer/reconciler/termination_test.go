@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -179,7 +180,7 @@ var _ sockets.SocketDestroyer = &mockDestroyer{}
 func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
 	var conn net.Conn
 	assert.NoError(t, ns.Do(func() error {
-		ls, err := netlink.LinkList()
+		ls, err := safenetlink.LinkList()
 		assert.NoError(t, err)
 		for _, l := range ls {
 			// Netns should be default created with loopback dev
@@ -238,7 +239,7 @@ func TestSocketTermination_Datapath(t *testing.T) {
 		}
 		out := uint32(0)
 		ns.Do(func() error {
-			sock, err := netlink.SocketDiagUDP(unix.AF_INET)
+			sock, err := safenetlink.SocketDiagUDP(unix.AF_INET)
 			assert.NoError(t, err)
 			for _, s := range sock {
 				if s.ID.DestinationPort == port {
