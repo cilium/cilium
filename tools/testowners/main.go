@@ -15,7 +15,7 @@ import (
 
 	flag "github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
+	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
 func fatal(fmt string, msg ...any) {

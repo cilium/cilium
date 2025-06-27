@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
-	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
+	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
 const MetadataDelimiter = ";metadata;"

@@ -21,9 +21,9 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
-	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
 func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
