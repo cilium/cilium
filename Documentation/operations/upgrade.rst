@@ -304,7 +304,7 @@ communicating via the proxy must reconnect to re-establish connections.
   across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
   to update your network policies.
 * Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
-* Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``.
+* Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask``.
 
 * ``enable-remote-node-masquerade`` config option is introduced.
   To masquerade traffic to remote nodes in BPF masquerading mode,

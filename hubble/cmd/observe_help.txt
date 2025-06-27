@@ -169,11 +169,11 @@ Server Flags:
       --tls-server-name string        Specify a server name to verify the hostname on the returned certificate (eg: 'instance.hubble-relay.cilium.io').
 
 Other Flags:
-      --experimental-field-mask strings        Experimental: Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.
-      --experimental-use-default-field-masks   Experimental: request only visible fields when the output format is compact, tab, or dict.
-      --input-file string                      Query flows from this file instead of the server. Use '-' to read from stdin.
-      --print-raw-filters                      Print allowlist/denylist filters and exit without sending the request to Hubble server
-  -s, --silent-errors                          Silently ignores errors and warnings
+      --field-mask strings        Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.
+      --input-file string         Query flows from this file instead of the server. Use '-' to read from stdin.
+      --print-raw-filters         Print allowlist/denylist filters and exit without sending the request to Hubble server
+  -s, --silent-errors             Silently ignores errors and warnings
+      --use-default-field-masks   Request only visible fields when the output format is compact, tab, or dict.
 
 Global Flags:
       --config string   Optional config file (default "%s")
