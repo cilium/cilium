@@ -491,13 +491,13 @@ func newNode4[T any]() *header[T] {
 
 func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{}, ok bool) {
 	this := root
+	watch = root.watch
 	for {
-		watch = this.watch
-
-		// Consume the prefix
 		if !bytes.HasPrefix(key, this.prefix()) {
 			return
 		}
+
+		// Consume the prefix
 		key = key[this.prefixLen:]
 
 		if len(key) == 0 {
@@ -507,6 +507,12 @@ func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{},
 				ok = true
 			}
 			return
+		}
+
+		// Prefix matched. Remember this as the closest watch channel as we traverse
+		// further.
+		if !this.isLeaf() && this.watch != nil {
+			watch = this.watch
 		}
 
 		this = this.find(key[0])
