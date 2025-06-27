@@ -127,6 +127,9 @@ const (
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
 
+	// IsDeny is 'true' for a deny rule
+	IsDeny = "isDeny"
+
 	// AddedPolicyID is the .NumericIdentity, or set or them
 	AddedPolicyID = "policyID.Added"
 
