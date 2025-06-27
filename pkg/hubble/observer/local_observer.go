@@ -317,10 +317,6 @@ func (s *LocalObserverServer) GetFlows(
 	}
 
 	fm := req.GetFieldMask()
-	if len(fm.GetPaths()) == 0 {
-		// TODO: Remove req.Experimental.GetFieldMask after v1.17
-		fm = req.Experimental.GetFieldMask()
-	}
 	mask, err := fieldmask.New(fm)
 	if err != nil {
 		return err

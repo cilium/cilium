@@ -291,9 +291,6 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	req = &observerpb.GetFlowsRequest{
 		Number:    uint64(10),
 		FieldMask: &fieldmaskpb.FieldMask{Paths: fmPaths},
-		Experimental: &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: &fieldmaskpb.FieldMask{Paths: fmPaths},
-		},
 	}
 	err = s.GetFlows(req, fakeServer)
 	assert.NoError(t, err)
@@ -316,9 +313,6 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	req = &observerpb.GetFlowsRequest{
 		Number:    uint64(10),
 		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{""}},
-		Experimental: &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{""}},
-		},
 	}
 	err = s.GetFlows(req, fakeServer)
 	assert.EqualError(t, err, "invalid fieldmask")

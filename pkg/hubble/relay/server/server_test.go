@@ -255,9 +255,6 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 		)
 		require.NoError(b, err)
 		getFlowsReq.FieldMask = fieldmask
-		getFlowsReq.Experimental = &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: fieldmask,
-		}
 	}
 	found := make([]*observerpb.Flow, 0, numFlows)
 	b.StartTimer()
