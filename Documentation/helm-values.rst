@@ -3087,7 +3087,7 @@
    * - :spelling:ignore:`operator.tolerations`
      - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
-     - ``[{"operator":"Exists"}]``
+     - ``[]``
    * - :spelling:ignore:`operator.topologySpreadConstraints`
      - Pod topology spread constraints for cilium-operator
      - list
