@@ -839,9 +839,7 @@ func getFlowsRequest(ofilter *flowFilter, allowlist []string, denylist []string)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct field mask: %w", err)
 		}
-		req.Experimental = &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: fm,
-		}
+		req.FieldMask = fm
 	}
 
 	return req, nil
