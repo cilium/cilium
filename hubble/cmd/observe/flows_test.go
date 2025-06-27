@@ -136,10 +136,8 @@ func Test_getFlowsRequest_ExperimentalFieldMask_valid(t *testing.T) {
 	req, err := getFlowsRequest(filter, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, &observerpb.GetFlowsRequest{
-		Number: 20,
-		Experimental: &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"time", "verdict"}},
-		},
+		Number:    20,
+		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"time", "verdict"}},
 	}, req)
 }
 
@@ -160,10 +158,8 @@ func Test_getFlowsRequest_ExperimentalUseDefaultFieldMask(t *testing.T) {
 	req, err := getFlowsRequest(filter, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, &observerpb.GetFlowsRequest{
-		Number: 20,
-		Experimental: &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: &fieldmaskpb.FieldMask{Paths: defaults.FieldMask},
-		},
+		Number:    20,
+		FieldMask: &fieldmaskpb.FieldMask{Paths: defaults.FieldMask},
 	}, req)
 }
 
