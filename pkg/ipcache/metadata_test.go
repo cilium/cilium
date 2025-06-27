@@ -478,7 +478,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{worldPrefix})
 	assert.NoError(t, err)
 	assert.Empty(t, remaining)
-	assert.Empty(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels())
+	assert.Nil(t, IPIdentityCache.metadata.m[worldPrefix])
 	nid, exists = IPIdentityCache.LookupByPrefix(worldPrefix.String())
 	assert.False(t, exists)
 	id = IPIdentityCache.IdentityAllocator.LookupIdentityByID(
@@ -633,7 +633,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Generated, "generated-uid",
 		types.TunnelPeer{Addr: netip.MustParseAddr("192.168.1.101")},
 		types.EncryptKey(6))
-	assert.True(t, IPIdentityCache.metadata.m[inClusterPrefix]["generated-uid"].shouldLogConflicts())
+	assert.True(t, IPIdentityCache.metadata.m[inClusterPrefix].byResource["generated-uid"].shouldLogConflicts())
 	_, err = IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{inClusterPrefix})
 	assert.NoError(t, err)
 
@@ -1304,11 +1304,7 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 			m := newMetadata(logger)
 			for prefix, lbls := range tt.existing {
 				pfx := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix(prefix))
-				m.m[pfx] = prefixInfo{
-					"resource": {
-						labels: lbls,
-					},
-				}
+				m.upsertLocked(pfx, source.Generated, "resource", lbls)
 			}
 
 			pfx := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix(tt.prefix))
