@@ -35,7 +35,9 @@ func NewDeletePolicy(ctx *middleware.Context, handler DeletePolicyHandler) *Dele
 /*
 	DeletePolicy swagger:route DELETE /policy policy deletePolicy
 
-Delete a policy (sub)tree
+# Delete a policy (sub)tree
+
+Deprecated: will be removed in v1.19
 */
 type DeletePolicy struct {
 	Context *middleware.Context

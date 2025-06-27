@@ -2,7 +2,7 @@
 
 ## cilium-dbg policy delete
 
-Delete policy rules
+Delete policy rules (deprecated)
 
 ```
 cilium-dbg policy delete [<labels>] [flags]

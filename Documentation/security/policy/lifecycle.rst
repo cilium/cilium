@@ -72,38 +72,14 @@ For instance, writing a rule that allows all initializing endpoints to
 receive connections from the host and to perform DNS queries may be
 done as follows:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/init.yaml
-           :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/init.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/init.json
+.. literalinclude:: ../../../examples/policies/l4/init.yaml
+    :language: yaml
 
 Likewise, writing a rule that allows an endpoint to receive DNS
 queries from initializing endpoints may be done as follows:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/from_init.yaml
-           :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/from_init.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/from_init.json
+.. literalinclude:: ../../../examples/policies/l4/from_init.yaml
+  :language: yaml
 
 If any ingress (resp. egress) policy rules selects the
 ``reserved:init`` label, all ingress (resp. egress) traffic to

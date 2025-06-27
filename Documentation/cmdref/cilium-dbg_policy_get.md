@@ -2,7 +2,7 @@
 
 ## cilium-dbg policy get
 
-Display policy node information
+Display policy node information (deprecated)
 
 ```
 cilium-dbg policy get [<labels>] [flags]

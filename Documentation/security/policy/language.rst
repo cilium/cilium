@@ -73,20 +73,8 @@ The following example illustrates how to use a simple ingress rule to allow
 communication from endpoints with the label ``role=frontend`` to endpoints with
 the label ``role=backend``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/simple/l3.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/simple/l3.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/simple/l3.json
+.. literalinclude:: ../../../examples/policies/l3/simple/l3.yaml
+  :language: yaml
 
 
 Ingress Allow All Endpoints
@@ -95,20 +83,8 @@ Ingress Allow All Endpoints
 An empty `EndpointSelector` will select all endpoints, thus writing a rule that will allow
 all ingress traffic to an endpoint may be done as follows:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
+.. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.yaml
+  :language: yaml
 
 Note that while the above examples allow all ingress traffic to an endpoint, this does not
 mean that all endpoints are allowed to send traffic to this endpoint per their policies.
@@ -130,21 +106,8 @@ The following example illustrates how to use a simple egress rule to allow
 communication to endpoints with the label ``role=backend`` from endpoints with
 the label ``role=frontend``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.json
-
+.. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.yaml
+  :language: yaml
 
 Egress Allow All Endpoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -154,21 +117,8 @@ based on the `CiliumNetworkPolicy` namespace (``default`` by default). The
 following rule allows all egress traffic from endpoints with the label
 ``role=frontend`` to all other endpoints in the same namespace:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.json
-
+.. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
+  :language: yaml
 
 Note that while the above examples allow all egress traffic from an endpoint, the receivers
 of the egress traffic may have ingress rules that deny the traffic. In other words,
@@ -185,20 +135,8 @@ egress.
           illustrates how to put an endpoint into default deny mode without
           whitelisting other peers at the same time.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.json
+.. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.yaml
+  :language: yaml
 
 Additional Label Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -242,20 +180,8 @@ the label ``env=prod``.
 This example shows how to require every endpoint with the label ``env=prod`` to
 be only accessible if the source endpoint also has the label ``env=prod``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/requires/requires.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/requires/requires.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/requires/requires.json
+.. literalinclude:: ../../../examples/policies/l3/requires/requires.yaml
+  :language: yaml
 
 This ``fromRequires`` rule doesn't allow anything on its own and needs to be
 combined with other rules to allow traffic. For example, when combined with the
@@ -263,20 +189,8 @@ example policy below, the endpoint with label ``env=prod`` will become
 accessible from endpoints that have both labels ``env=prod`` and
 ``role=frontend``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.json
+.. literalinclude:: ../../../examples/policies/l3/requires/endpoints.yaml
+  :language: yaml
 
 .. _Services based:
 
@@ -309,21 +223,8 @@ to talk to all endpoints of Kubernetes Service ``myservice`` in kubernetes
 namespace ``default`` as well as all services with label ``env=staging`` in
 namespace ``another-namespace``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service.json
-
+.. literalinclude:: ../../../examples/policies/l3/service/service.yaml
+  :language: yaml
 
 .. _Entities based:
 
@@ -393,20 +294,8 @@ Access to/from kube-apiserver
 
 Allow all endpoints with the label ``env=dev`` to access the kube-apiserver.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/apiserver.json
+.. literalinclude:: ../../../examples/policies/l3/entities/apiserver.yaml
+  :language: yaml
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -419,20 +308,8 @@ serving the particular endpoint.
 	  option ``--allow-localhost=policy`` to disable this behavior which
 	  will give you control over this via policy.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/host.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/host.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/host.json
+.. literalinclude:: ../../../examples/policies/l3/entities/host.yaml
+  :language: yaml
 
 .. _policy-remote-node:
 
@@ -442,20 +319,8 @@ Access to/from all nodes in the cluster (or clustermesh)
 Allow all endpoints with the label ``env=dev`` to receive traffic from any host
 in the cluster that Cilium is running on.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/nodes.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
+.. literalinclude:: ../../../examples/policies/l3/entities/nodes.yaml
+  :language: yaml
 
 Access to/from outside cluster
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -463,20 +328,8 @@ Access to/from outside cluster
 This example shows how to enable access from outside of the cluster to all
 endpoints that have the label ``role=public``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/world.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/world.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/world.json
+.. literalinclude:: ../../../examples/policies/l3/entities/world.yaml
+  :language: yaml
 
 .. _policy_node_based:
 .. _Node based:
@@ -508,20 +361,8 @@ selection to the local cluster by default you can enable the option
 ``--policy-default-local-cluster`` via the ConfigMap option ``policy-default-local-cluster``
 or the Helm value ``clustermesh.policyDefaultLocalCluster``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/customnodes.json
+.. literalinclude:: ../../../examples/policies/l3/entities/customnodes.yaml
+  :language: yaml
 
 .. _policy_cidr:
 .. _CIDR based:
@@ -589,20 +430,8 @@ This example shows how to allow all endpoints with the label ``app=myService``
 to talk to the external IP ``20.1.1.1``, as well as the CIDR prefix ``10.0.0.0/8``,
 but not CIDR prefix ``10.96.0.0/12``
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
+.. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
+  :language: yaml
 
 .. _cidr_select_nodes:
 
@@ -698,21 +527,8 @@ the ``toFQDNs.matchName`` rule.
 Example
 ~~~~~~~
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
-
+.. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.yaml
+  :language: yaml
 
 Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -781,20 +597,8 @@ Example (L4)
 The following rule limits all endpoints with the label ``app=myService`` to
 only be able to emit packets using TCP on port 80, to any layer 3 destination:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/l4.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/l4.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/l4.json
+.. literalinclude:: ../../../examples/policies/l4/l4.yaml
+  :language: yaml
 
 Example Port Ranges
 ~~~~~~~~~~~~~~~~~~~
@@ -802,22 +606,8 @@ Example Port Ranges
 The following rule limits all endpoints with the label ``app=myService`` to
 only be able to emit packets using TCP on ports 80-444, to any layer 3 destination:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/l4_port_range.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
-
-
+.. literalinclude:: ../../../examples/policies/l4/l4_port_range.yaml
+  :language: yaml
 
 .. note:: Layer 7 rules support port ranges, except for DNS rules.
 
@@ -831,20 +621,8 @@ able to communicate with the endpoints with the label ``role=backend``, and
 endpoints with the label ``role=frontend`` will not be able to communicate with
 ``role=backend`` on ports other than 80.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.json
+.. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.yaml
+  :language: yaml
 
 CIDR-dependent Layer 4 Rule
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -857,20 +635,8 @@ without the label ``role=crawler`` to communicate with destinations in the CIDR
 not be able to communicate with destinations in the CIDR ``192.0.2.0/24`` on
 ports other than port 80.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.json
+.. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.yaml
+  :language: yaml
 
 Limit ICMP/ICMPv6 types
 -----------------------
@@ -929,24 +695,8 @@ The following rule limits all endpoints with the label ``app=myService`` to
 only be able to emit packets using ICMP with type 8 and ICMPv6 with message EchoRequest,
 to any layer 3 destination:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/icmp.yaml
-           :language: yaml
-
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/icmp.json
-           :language: json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/icmp.json
-           :language: json
-
+.. literalinclude:: ../../../examples/policies/l4/icmp.yaml
+  :language: yaml
 
 Limit TLS Server Name Indication (SNI)
 --------------------------------------
@@ -971,23 +721,8 @@ The following rule limits all endpoints with the label ``app=myService`` to
 only be able to establish TLS connections with ``one.one.one.one`` SNI. Any
 other attempt to another SNI (for example, with ``cilium.io``) will be rejected.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l4/l4_sni.yaml
-           :language: yaml
-
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l4/l4_sni.json
-           :language: json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l4/l4_sni.json
-           :language: json
+.. literalinclude:: ../../../examples/policies/l4/l4_sni.yaml
+  :language: yaml
 
 Below is the same SSL error while trying to connect to ``cilium.io`` from curl.
 
@@ -1116,20 +851,8 @@ endpoints with the labels ``env=prod`` to endpoints with the labels
 ``app=service``, but requests to any other URL, or using another method, will
 be rejected. Requests on ports other than port 80 will be dropped.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.json
+.. literalinclude:: ../../../examples/policies/l7/http/simple/l7.yaml
+  :language: yaml
 
 All GET /path1 and PUT /path2 when header set
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1140,20 +863,8 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 /path1``, and ``PUT /path2`` with the HTTP header ``X-My-Header`` set to
 ``true``:
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l7/http/http.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l7/http/http.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l7/http/http.json
+.. literalinclude:: ../../../examples/policies/l7/http/http.yaml
+  :language: yaml
 
 .. _kafka_policy:
 
@@ -1225,39 +936,14 @@ Topic
 Allow producing to topic empire-announce using Role
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.json
+.. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.yaml
+  :language: yaml
 
 Allow producing to topic empire-announce using apiKeys
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.json
-
+.. literalinclude:: ../../../examples/policies/l7/kafka/kafka.yaml
+  :language: yaml
 
 .. _dns_discovery:
 
@@ -1307,21 +993,8 @@ allowed but connections to the returned IPs are not, as there is no L3
 ``toFQDNs`` rule selecting them. L4 and L7 policy may also be applied (see
 `DNS based`_), restricting connections to TCP port 80 in this case.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l7/dns/dns.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l7/dns/dns.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l7/dns/dns.json
-
+.. literalinclude:: ../../../examples/policies/l7/dns/dns.yaml
+  :language: yaml
 
 .. note:: When applying DNS policy in kubernetes, queries for
           service.namespace.svc.cluster.local. must be explicitly allowed
@@ -1365,20 +1038,8 @@ DNS Proxy
   DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
   and any subdomains of ``sub.cilium.io``.
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.yaml
-          :language: yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
+.. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.yaml
+  :language: yaml
 
 .. note:: DNS policies do not support port ranges.
 
@@ -1460,18 +1121,8 @@ The following policy will deny ingress from "world" on all namespaces on all
 Pods managed by Cilium. Existing inter-cluster policies will still be allowed
 as this policy is allowing traffic from everywhere except from "world".
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
-          :language: yaml
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
-          :language: yaml
+.. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
+  :language: yaml
 
 Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
@@ -1546,18 +1197,8 @@ As an example, the following policy allows ingress traffic for any node with
 the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
 (etcd), and 4240 (health checks), as well as UDP port 8472 (VXLAN).
 
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
-          :language: yaml
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
-          :language: yaml
+.. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
+  :language: yaml
 
 To reuse this policy, replace the ``port:`` values with ports used in your
 environment.

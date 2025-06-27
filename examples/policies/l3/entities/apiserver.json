@@ -1,7 +1,0 @@
-[{
-    "labels": [{"key": "name", "value": "dev-to-kube-apiserver"}],
-    "endpointSelector": {"matchLabels": {"env":"dev"}},
-    "egress": [{
-        "toEntities": ["kube-apiserver"]
-    }]
-}]
