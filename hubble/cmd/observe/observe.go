@@ -162,7 +162,7 @@ func init() {
 	otherFlags.StringSliceVar(&maskOpts.fieldMask, "field-mask", nil,
 		"Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.")
 
-	otherFlags.BoolVar(&maskOpts.useDefaultMasks, "use-default-field-masks", false,
+	otherFlags.BoolVar(&maskOpts.useDefaultMasks, "use-default-field-masks", true,
 		"Request only visible fields when the output format is compact, tab, or dict.")
 }
 
