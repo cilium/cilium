@@ -78,7 +78,7 @@ type metadata struct {
 	lock.RWMutex
 
 	// m is the actual map containing the mappings.
-	m map[cmtypes.PrefixCluster]prefixInfo
+	m map[cmtypes.PrefixCluster]*prefixInfo
 
 	// prefixes is a map of tries. Each trie holds the prefixes for the same
 	// clusterID, in order to find descendants efficiently.
@@ -123,7 +123,7 @@ type metadata struct {
 func newMetadata(logger *slog.Logger) *metadata {
 	return &metadata{
 		logger:           logger,
-		m:                make(map[cmtypes.PrefixCluster]prefixInfo),
+		m:                make(map[cmtypes.PrefixCluster]*prefixInfo),
 		prefixes:         bitlpm.NewCIDRTrieMap[clusterID, struct{}](),
 		prefixRefCounter: make(counter.Counter[cmtypes.PrefixCluster]),
 		queuedPrefixes:   make(map[cmtypes.PrefixCluster]struct{}),
@@ -227,22 +227,22 @@ func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source,
 	changed := false
 	if _, ok := m.m[prefix]; !ok {
 		changed = true
-		m.m[prefix] = make(prefixInfo)
+		m.m[prefix] = newPrefixInfo()
 		m.prefixes.Upsert(clusterID(prefix.ClusterID()), prefix.AsPrefix(), struct{}{})
 	}
-	if _, ok := m.m[prefix][resource]; !ok {
+	if _, ok := m.m[prefix].byResource[resource]; !ok {
 		changed = true
-		m.m[prefix][resource] = &resourceInfo{
+		m.m[prefix].byResource[resource] = &resourceInfo{
 			source: src,
 		}
 	}
 
 	for _, i := range info {
-		c := m.m[prefix][resource].merge(m.logger, i, src)
+		c := m.m[prefix].byResource[resource].merge(m.logger, i, src)
 		changed = changed || c
 	}
 
-	if m.m[prefix][resource].shouldLogConflicts() {
+	if m.m[prefix].byResource[resource].shouldLogConflicts() {
 		m.m[prefix].logConflicts(m.logger.With(
 			logfields.CIDR, prefix,
 			logfields.ClusterID, prefix.ClusterID(),
@@ -264,13 +264,13 @@ func (ipc *IPCache) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) sour
 	return ipc.metadata.getLocked(prefix).Source()
 }
 
-func (m *metadata) get(prefix cmtypes.PrefixCluster) prefixInfo {
+func (m *metadata) get(prefix cmtypes.PrefixCluster) *prefixInfo {
 	m.RLock()
 	defer m.RUnlock()
 	return m.getLocked(prefix)
 }
 
-func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) prefixInfo {
+func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) *prefixInfo {
 	return m.m[canonicalPrefix(prefix)]
 }
 
@@ -665,7 +665,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 //   - If the entry is not inserted (for instance, because the bpf IPCache map
 //     already has the same IP -> identity entry in the map), immediately release
 //     the reference.
-func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Override identities always take precedence
 	if identityOverrideLabels, ok := info.identityOverride(); ok {
 		id, isNew, err := ipc.IdentityAllocator.AllocateLocalIdentity(identityOverrideLabels, false, identity.InvalidIdentity)
@@ -882,7 +882,7 @@ func (m *metadata) filterByLabels(filter labels.Labels) []cmtypes.PrefixCluster 
 func (m *metadata) remove(prefix cmtypes.PrefixCluster, resource types.ResourceID, aux ...IPMetadata) []cmtypes.PrefixCluster {
 	prefix = canonicalPrefix(prefix)
 	info, ok := m.m[prefix]
-	if !ok || info[resource] == nil {
+	if !ok || info.byResource[resource] == nil {
 		return nil
 	}
 
@@ -891,10 +891,10 @@ func (m *metadata) remove(prefix cmtypes.PrefixCluster, resource types.ResourceI
 	affected := m.findAffectedChildPrefixes(prefix)
 
 	for _, a := range aux {
-		info[resource].unmerge(m.logger, a)
+		info.byResource[resource].unmerge(m.logger, a)
 	}
-	if !info[resource].isValid() {
-		delete(info, resource)
+	if !info.byResource[resource].isValid() {
+		delete(info.byResource, resource)
 	}
 	if !info.isValid() { // Labels empty, delete
 		delete(m.m, prefix)

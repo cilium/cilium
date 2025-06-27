@@ -13,35 +13,36 @@ import (
 )
 
 func Test_sortedByResourceIDsAndSource(t *testing.T) {
-	pi := make(prefixInfo, 1)
-	pi["a-restored-uid"] = &resourceInfo{
+	pi := newPrefixInfo()
+	pim := pi.byResource
+	pim["a-restored-uid"] = &resourceInfo{
 		source: source.Restored,
 	}
-	pi["b-restored-uid"] = &resourceInfo{
+	pim["b-restored-uid"] = &resourceInfo{
 		source: source.Restored,
 	}
-	pi["node-uid"] = &resourceInfo{
+	pim["node-uid"] = &resourceInfo{
 		source: source.CustomResource,
 	}
-	pi["node2-uid"] = &resourceInfo{
+	pim["node2-uid"] = &resourceInfo{
 		source: source.Local,
 	}
-	pi["daemon-uid"] = &resourceInfo{
+	pim["daemon-uid"] = &resourceInfo{
 		source: source.Local,
 	}
-	pi["endpoints-uid"] = &resourceInfo{
+	pim["endpoints-uid"] = &resourceInfo{
 		source: source.KubeAPIServer,
 	}
-	pi["2-identity-uid"] = &resourceInfo{
+	pim["2-identity-uid"] = &resourceInfo{
 		source: source.Kubernetes,
 	}
-	pi["1-identity-uid"] = &resourceInfo{
+	pim["1-identity-uid"] = &resourceInfo{
 		source: source.Kubernetes,
 	}
-	pi["generated-uid"] = &resourceInfo{
+	pim["generated-uid"] = &resourceInfo{
 		source: source.Generated,
 	}
-	pi["kvstore-uid"] = &resourceInfo{
+	pim["kvstore-uid"] = &resourceInfo{
 		source: source.KVStore,
 	}
 
