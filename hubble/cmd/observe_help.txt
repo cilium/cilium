@@ -173,7 +173,7 @@ Other Flags:
       --input-file string         Query flows from this file instead of the server. Use '-' to read from stdin.
       --print-raw-filters         Print allowlist/denylist filters and exit without sending the request to Hubble server
   -s, --silent-errors             Silently ignores errors and warnings
-      --use-default-field-masks   Request only visible fields when the output format is compact, tab, or dict.
+      --use-default-field-masks   Request only visible fields when the output format is compact, tab, or dict. (default true)
 
 Global Flags:
       --config string   Optional config file (default "%s")
