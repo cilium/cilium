@@ -8,6 +8,7 @@ export RELEASE_REGISTRY ?= quay.io
 export RELEASE_ORG ?= cilium
 export CI_REGISTRY ?= quay.io
 export CI_ORG ?= cilium
+export RELEASE := yes
 
 ifeq ($(RELEASE),yes)
     export PULL_POLICY:=IfNotPresent

@@ -20,9 +20,9 @@ on:
 
   push:
     branches:
-      - main
-      - ft/main/**
-      - 'renovate/main-**'
+      - v1.18
+      - ft/v1.18/**
+      - 'renovate/v1.18-**'
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'

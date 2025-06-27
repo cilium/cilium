@@ -19,7 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
+      - 'renovate/v1.18-**'
   # Run every 8 hours
   schedule:
     - cron:  '30 0/8 * * *'

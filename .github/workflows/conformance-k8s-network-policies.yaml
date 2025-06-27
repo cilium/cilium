@@ -3,8 +3,8 @@ name: Cyclonus Network Policy Test
 on:
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.18
+      - ft/v1.18/**
     paths-ignore:
       - 'Documentation/**'
 
@@ -138,7 +138,7 @@ jobs:
           kubectl rollout -n kube-system status deploy/coredns --timeout=5m
 
           # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/main/operator/crd.go#L34
+          # https://github.com/cilium/cilium/blob/v1.18/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
       - name: Run cyclonus network policy test

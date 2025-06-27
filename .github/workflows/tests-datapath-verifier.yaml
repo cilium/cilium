@@ -19,7 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
+      - 'renovate/v1.18-**'
   # Run every 8 hours
   schedule:
     - cron:  '0 5/8 * * *'
@@ -104,9 +104,6 @@ jobs:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.12-20250616.013250'
             ci-kernel: '61'
-          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20250616.013250'
-            ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
       - name: Collect Workflow Telemetry

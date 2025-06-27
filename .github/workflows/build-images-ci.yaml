@@ -9,8 +9,8 @@ on:
       - reopened
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.18
+      - ft/v1.18/**
   merge_group:
     types: [checks_requested]
 
