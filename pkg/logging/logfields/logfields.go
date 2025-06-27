@@ -80,6 +80,10 @@ const (
 	// Label is a singular label, where relevant
 	Label = "label"
 
+	// ConflictingLabels is the set of labels that conflict
+	// with an existing label set.
+	ConflictingLabels = "conflictingLabels"
+
 	// SourceFilter is the label or node information source
 	SourceFilter = "sourceFilter"
 
