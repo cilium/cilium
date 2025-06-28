@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
@@ -67,9 +66,32 @@ type DropNotify struct {
 	// data
 }
 
+// Dump prints the message according to the verbosity level specified
+func (dn *DropNotify) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		dn.DumpInfo(args.Buf, args.Data, args.Format)
+	case api.JSON:
+		dn.DumpJSON(args.Buf, args.Data, args.CpuPrefix)
+	default:
+		fmt.Fprintln(args.Buf, msgSeparator)
+		dn.DumpVerbose(args.Buf, !args.Dissect, args.Data, args.CpuPrefix, args.Format)
+	}
+}
+
+// GetSrc retrieves the source endpoint for the message.
+func (n *DropNotify) GetSrc() uint16 {
+	return n.Source
+}
+
+// GetDst retrieves the destination endpoint for the message.
+func (n *DropNotify) GetDst() uint16 {
+	return uint16(n.DstID)
+}
+
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
-func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {
 	if numeric {
 		fmt.Fprintf(buf, ", identity %d->%d", n.SrcLabel, n.DstLabel)
 	} else {
@@ -77,12 +99,8 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 	}
 }
 
-// DecodeDropNotify will decode 'data' into the provided DropNotify structure
-func DecodeDropNotify(data []byte, dn *DropNotify) error {
-	return dn.decodeDropNotify(data)
-}
-
-func (n *DropNotify) decodeDropNotify(data []byte) error {
+// Decode decodes the message in 'data' into the struct.
+func (n *DropNotify) Decode(data []byte) error {
 	if l := len(data); l < dropNotifyV1Len {
 		return fmt.Errorf("unexpected DropNotify data length, expected at least %d but got %d", dropNotifyV1Len, l)
 	}
@@ -150,18 +168,15 @@ func (n *DropNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the drop messages.
-func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *DropNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat) {
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
 	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
-	buf.Flush()
 }
 
 // DumpVerbose prints the drop notification in human readable form
-func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *DropNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string, numeric api.DisplayFormat) {
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d DROP: %d bytes, reason %s",
 		prefix, n.Hash, n.Source, n.OrigLen, api.DropReasonExt(n.SubType, n.ExtError))
 
@@ -176,9 +191,8 @@ func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numer
 	}
 
 	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
-		Dissect(dissect, data[offset:])
+		Dissect(buf, dissect, data[offset:])
 	}
-	buf.Flush()
 }
 
 func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
@@ -194,10 +208,10 @@ func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 }
 
 // DumpJSON prints notification in json format
-func (n *DropNotify) DumpJSON(data []byte, cpuPrefix string) {
+func (n *DropNotify) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string) {
 	resp, err := n.getJSON(data, cpuPrefix)
 	if err == nil {
-		fmt.Println(resp)
+		fmt.Fprintln(buf, resp)
 	}
 }
 

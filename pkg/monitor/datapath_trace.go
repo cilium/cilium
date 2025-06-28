@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -63,8 +62,31 @@ type TraceNotify struct {
 	// data
 }
 
-// decodeTraceNotify decodes the trace notify message in 'data' into the struct.
-func (tn *TraceNotify) decodeTraceNotify(data []byte) error {
+// Dump prints the message according to the verbosity level specified
+func (tn *TraceNotify) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		tn.DumpInfo(args.Buf, args.Data, args.Format, args.LinkMonitor)
+	case api.JSON:
+		tn.DumpJSON(args.Buf, args.Data, args.CpuPrefix, args.LinkMonitor)
+	default:
+		fmt.Fprintln(args.Buf, msgSeparator)
+		tn.DumpVerbose(args.Buf, args.Dissect, args.Data, args.CpuPrefix, args.Format, args.LinkMonitor)
+	}
+}
+
+// GetSrc retrieves the source endpoint for the message.
+func (tn *TraceNotify) GetSrc() uint16 {
+	return tn.Source
+}
+
+// GetDst retrieves the destination endpoint or proxy destination port according to the message subtype.
+func (tn *TraceNotify) GetDst() uint16 {
+	return tn.DstID
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (tn *TraceNotify) Decode(data []byte) error {
 	if l := len(data); l < traceNotifyV0Len {
 		return fmt.Errorf("unexpected TraceNotify data length, expected at least %d but got %d", traceNotifyV0Len, l)
 	}
@@ -181,14 +203,9 @@ var traceReasons = map[uint8]string{
 	TraceReasonEncryptOverlay:       "encrypt-overlay",
 }
 
-// DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
-func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
-	return tn.decodeTraceNotify(data)
-}
-
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
-func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {
 	if numeric {
 		fmt.Fprintf(buf, ", identity %d->%d", n.SrcLabel, n.DstLabel)
 	} else {
@@ -289,8 +306,7 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	hdrLen := n.DataOffset()
 	if enc := n.encryptReasonString(); enc != "" {
 		fmt.Fprintf(buf, "%s %s flow %#x ",
@@ -302,12 +318,10 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
 		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
-	buf.Flush()
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
 		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
 
@@ -335,9 +349,8 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, nume
 
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
-		Dissect(dissect, data[hdrLen:])
+		Dissect(buf, dissect, data[hdrLen:])
 	}
-	buf.Flush()
 }
 
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
@@ -353,10 +366,10 @@ func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters
 }
 
 // DumpJSON prints notification in json format
-func (n *TraceNotify) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err == nil {
-		fmt.Println(resp)
+		fmt.Fprintln(buf, resp)
 	}
 }
 
