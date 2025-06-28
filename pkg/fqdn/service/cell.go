@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -29,24 +30,29 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Provide(newDefaultListener),
+	cell.ProvidePrivate(newPolicyRulesTable),
+	cell.ProvidePrivate(newIdentityToIPsTable),
 	cell.Provide(newServer),
 )
 
 type serverParams struct {
 	cell.In
 
-	Logger            *slog.Logger
-	EndpointManager   endpointmanager.EndpointManager
-	DNSRequestHandler messagehandler.DNSMessageHandler
-	IPCache           *ipcache.IPCache
-	JobGroup          job.Group
-	Config            FQDNConfig
-	DaemonConfig      *option.DaemonConfig
-	DefaultListener   listenConfig
+	Logger             *slog.Logger
+	EndpointManager    endpointmanager.EndpointManager
+	DNSRequestHandler  messagehandler.DNSMessageHandler
+	IPCache            *ipcache.IPCache
+	JobGroup           job.Group
+	Config             FQDNConfig
+	DaemonConfig       *option.DaemonConfig
+	DefaultListener    listenConfig
+	DB                 *statedb.DB
+	PolicyRulesTable   statedb.RWTable[policyRules]
+	IdentityToIPsTable statedb.RWTable[identityToIPs]
 }
 
 func newServer(params serverParams) *FQDNDataServer {
-	srv := NewServer(params.EndpointManager, params.DNSRequestHandler, params.Config.StandaloneDNSProxyServerPort, params.Logger, params.DefaultListener)
+	srv := NewServer(params)
 
 	if !params.Config.EnableStandaloneDNSProxy {
 		return srv
