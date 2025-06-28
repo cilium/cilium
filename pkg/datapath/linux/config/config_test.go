@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	testnetns "github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 var (
@@ -117,11 +118,33 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 	}
 }
 
+func setupCiliumDummyDevices(t *testing.T) func() {
+	ciliumNet := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "cilium_net"}}
+	require.NoError(t, netlink.LinkAdd(ciliumNet))
+	require.NoError(t, netlink.LinkSetUp(ciliumNet))
+
+	ciliumHost := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "cilium_host"}}
+	require.NoError(t, netlink.LinkAdd(ciliumHost))
+	require.NoError(t, netlink.LinkSetUp(ciliumHost))
+
+	return func() {
+		netlink.LinkDel(ciliumNet)
+		netlink.LinkDel(ciliumHost)
+	}
+}
+
 func TestWriteNodeConfig(t *testing.T) {
-	setupConfigSuite(t)
-	writeConfig(t, "node", func(w io.Writer, dp datapath.ConfigWriter) error {
-		return dp.WriteNodeConfig(w, &dummyNodeCfg)
+	ns := testnetns.NewNetNS(t)
+	err := ns.Do(func() error {
+		cleanup := setupCiliumDummyDevices(t)
+		defer cleanup()
+		setupConfigSuite(t)
+		writeConfig(t, "node", func(w io.Writer, dp datapath.ConfigWriter) error {
+			return dp.WriteNodeConfig(w, &dummyNodeCfg)
+		})
+		return nil
 	})
+	require.NoError(t, err)
 }
 
 func TestWriteNetdevConfig(t *testing.T) {
@@ -234,81 +257,75 @@ return false;`, main1.Index, main2.Index), m)
 }
 
 func TestWriteNodeConfigExtraDefines(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	setupConfigSuite(t)
-
-	var (
-		na datapath.NodeAddressing
-	)
-	h := hive.New(
-		cell.Provide(
-			fakeTypes.NewNodeAddressing,
-		),
-		maglev.Cell,
-		cell.Invoke(func(
-			nodeaddressing datapath.NodeAddressing,
-		) {
-			na = nodeaddressing
-		}),
-	)
-
-	tlog := hivetest.Logger(t)
-	require.NoError(t, h.Start(tlog, context.TODO()))
-	t.Cleanup(func() { h.Stop(tlog, context.TODO()) })
-
-	var buffer bytes.Buffer
-
-	// Assert that configurations are propagated when all generated extra defines are valid
-	cfg, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   na,
-		NodeExtraDefines: nil,
-		NodeExtraDefineFns: []dpdef.Fn{
-			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
-			func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
-		},
-		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap: fake.NewFakeNodeMapV2(),
+	ns := testnetns.NewNetNS(t)
+	err := ns.Do(func() error {
+		cleanup := setupCiliumDummyDevices(t)
+		defer cleanup()
+		testutils.PrivilegedTest(t)
+		setupConfigSuite(t)
+		var (
+			na datapath.NodeAddressing
+		)
+		h := hive.New(
+			cell.Provide(
+				fakeTypes.NewNodeAddressing,
+			),
+			maglev.Cell,
+			cell.Invoke(func(
+				nodeaddressing datapath.NodeAddressing,
+			) {
+				na = nodeaddressing
+			}),
+		)
+		tlog := hivetest.Logger(t)
+		require.NoError(t, h.Start(tlog, context.TODO()))
+		t.Cleanup(func() { h.Stop(tlog, context.TODO()) })
+		var buffer bytes.Buffer
+		cfg, err := NewHeaderfileWriter(WriterParams{
+			NodeAddressing:   na,
+			NodeExtraDefines: nil,
+			NodeExtraDefineFns: []dpdef.Fn{
+				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
+				func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
+			},
+			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap: fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+		buffer.Reset()
+		require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+		output := buffer.String()
+		require.Contains(t, output, "define FOO 0x1\n")
+		require.Contains(t, output, "define BAR 0x2\n")
+		require.Contains(t, output, "define BAZ 0x3\n")
+		cfg, err = NewHeaderfileWriter(WriterParams{
+			NodeAddressing:   fakeTypes.NewNodeAddressing(),
+			NodeExtraDefines: nil,
+			NodeExtraDefineFns: []dpdef.Fn{
+				func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
+			},
+			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap: fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+		buffer.Reset()
+		require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+		cfg, err = NewHeaderfileWriter(WriterParams{
+			NodeAddressing:   fakeTypes.NewNodeAddressing(),
+			NodeExtraDefines: nil,
+			NodeExtraDefineFns: []dpdef.Fn{
+				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
+				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
+			},
+			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap: fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+		buffer.Reset()
+		require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+		return nil
 	})
 	require.NoError(t, err)
-
-	buffer.Reset()
-	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
-
-	output := buffer.String()
-	require.Contains(t, output, "define FOO 0x1\n")
-	require.Contains(t, output, "define BAR 0x2\n")
-	require.Contains(t, output, "define BAZ 0x3\n")
-
-	// Assert that an error is returned when one extra define function returns an error
-	cfg, err = NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fakeTypes.NewNodeAddressing(),
-		NodeExtraDefines: nil,
-		NodeExtraDefineFns: []dpdef.Fn{
-			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
-		},
-		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap: fake.NewFakeNodeMapV2(),
-	})
-	require.NoError(t, err)
-
-	buffer.Reset()
-	require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
-
-	// Assert that an error is returned when one extra define would overwrite an already existing entry
-	cfg, err = NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fakeTypes.NewNodeAddressing(),
-		NodeExtraDefines: nil,
-		NodeExtraDefineFns: []dpdef.Fn{
-			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
-			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
-		},
-		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap: fake.NewFakeNodeMapV2(),
-	})
-	require.NoError(t, err)
-
-	buffer.Reset()
-	require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
 }
 
 func TestPreferredIPv6Address(t *testing.T) {
@@ -382,32 +399,35 @@ func TestPreferredIPv6Address(t *testing.T) {
 }
 
 func TestNewHeaderfileWriter(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	setupConfigSuite(t)
-
-	a := dpdef.Map{"A": "1"}
-	var buffer bytes.Buffer
-
-	_, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:     fakeTypes.NewNodeAddressing(),
-		NodeExtraDefines:   []dpdef.Map{a, a},
-		NodeExtraDefineFns: nil,
-		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:            fake.NewFakeNodeMapV2(),
-	})
-
-	require.Error(t, err, "duplicate keys should be rejected")
-
-	cfg, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:     fakeTypes.NewNodeAddressing(),
-		NodeExtraDefines:   []dpdef.Map{a},
-		NodeExtraDefineFns: nil,
-		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:            fake.NewFakeNodeMapV2(),
+	ns := testnetns.NewNetNS(t)
+	err := ns.Do(func() error {
+		cleanup := setupCiliumDummyDevices(t)
+		defer cleanup()
+		testutils.PrivilegedTest(t)
+		setupConfigSuite(t)
+		a := dpdef.Map{"A": "1"}
+		var buffer bytes.Buffer
+		_, err := NewHeaderfileWriter(WriterParams{
+			NodeAddressing:     fakeTypes.NewNodeAddressing(),
+			NodeExtraDefines:   []dpdef.Map{a, a},
+			NodeExtraDefineFns: nil,
+			Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap:            fake.NewFakeNodeMapV2(),
+		})
+		require.Error(t, err, "duplicate keys should be rejected")
+		cfg, err := NewHeaderfileWriter(WriterParams{
+			NodeAddressing:     fakeTypes.NewNodeAddressing(),
+			NodeExtraDefines:   []dpdef.Map{a},
+			NodeExtraDefineFns: nil,
+			Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap:            fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+		require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+		require.Contains(t, buffer.String(), "define A 1\n")
+		return nil
 	})
 	require.NoError(t, err)
-	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
-	require.Contains(t, buffer.String(), "define A 1\n")
 }
 
 var provideNodemap = cell.Provide(func() nodemap.MapV2 {
