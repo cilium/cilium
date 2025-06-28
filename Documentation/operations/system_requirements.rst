@@ -498,6 +498,20 @@ The index of those per-ENI routing tables is computed as
 ``10 + <eni-interface-index>``. The base offset of 10 is chosen as it is highly
 unlikely to collide with the main routing table which is between 253-255.
 
+Cilium uses the following routing table IDs:
+
+================= =========================================================
+Route table ID    Purpose
+================= =========================================================
+200               the default table ID to use for IPSec routing rules
+202               the default table ID to use for VTEP routing rules
+2004              the default table ID to use routing rules to the proxy
+2005              the default table ID to use routing rules from the proxy.
+================= =========================================================
+
+These routing table IDs are going to be managed by Cilium even if you're not using
+any of those features.
+
 Privileges
 ==========
 
