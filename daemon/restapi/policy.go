@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	policyrest "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -116,7 +117,7 @@ func (h *putPolicyHandler) Handle(params policyrest.PutPolicyParams) middleware.
 
 	dc := make(chan uint64, 1)
 	h.Importer.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               rules,
+		Rules:               k8sCiliumUtils.RulesToPolicyEntries(rules),
 		ReplaceByLabels:     replace,
 		ReplaceWithLabels:   replaceWithLabels,
 		Source:              source.LocalAPI,
@@ -129,7 +130,7 @@ func (h *putPolicyHandler) Handle(params policyrest.PutPolicyParams) middleware.
 
 	policy := &models.Policy{
 		Revision: int64(rev),
-		Policy:   policy.JSONMarshalRules(rules),
+		Policy:   policy.JSONMarshalRules(k8sCiliumUtils.RulesToPolicyEntries(rules)),
 	}
 	return policyrest.NewPutPolicyOK().WithPayload(policy)
 }

@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -414,10 +415,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				return nil
 			}
 
-			d.policy.Iterate(func(rule *policyAPI.Rule) {
-				for _, er := range rule.Egress {
-					_ = er.ToPorts.Iterate(removeL7DNSRules)
-				}
+			d.policy.Iterate(func(rule *policytypes.PolicyEntry) {
+				_ = rule.L4.Iterate(removeL7DNSRules)
 			})
 
 			if !needsPolicyRegen {
