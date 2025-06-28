@@ -436,7 +436,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	}, rt, nil
 }
 
-func setupLogging(n *types.NetConf) error {
+func (cmd *Cmd) setupLogging(n *types.NetConf) error {
 	f := n.LogFormat
 	if f == "" {
 		f = string(logging.DefaultLogFormatTimestamp)
@@ -460,6 +460,8 @@ func setupLogging(n *types.NetConf) error {
 		))
 	}
 
+	// slogloggercheck: The logger has been initialized with options from cilium CNI config.
+	cmd.logger = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	return nil
 }
 
@@ -506,7 +508,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
 	}
 
-	if err = setupLogging(n); err != nil {
+	if err = cmd.setupLogging(n); err != nil {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
@@ -841,7 +843,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
 	}
 
-	if err := setupLogging(n); err != nil {
+	if err := cmd.setupLogging(n); err != nil {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
@@ -944,7 +946,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
 	}
 
-	if err := setupLogging(n); err != nil {
+	if err := cmd.setupLogging(n); err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidLoggingConfig",
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}
@@ -1064,7 +1066,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
 	}
 
-	if err := setupLogging(n); err != nil {
+	if err := cmd.setupLogging(n); err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidLoggingConfig",
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}
