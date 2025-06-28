@@ -83,7 +83,7 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 		}
 
 		runningPolicies[p.Name] = p
-		resetPeers.Insert(peerAddressFromPolicy(p))
+		resetPeers.Insert(peerAddressesFromPolicy(p)...)
 	}
 
 	// update modified policies
@@ -111,7 +111,7 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 		}
 
 		runningPolicies[p.Name] = p
-		resetPeers.Insert(peerAddressFromPolicy(p))
+		resetPeers.Insert(peerAddressesFromPolicy(p)...)
 	}
 
 	// remove old policies
@@ -126,7 +126,7 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 			return runningPolicies, err
 		}
 		delete(runningPolicies, p.Name)
-		resetPeers.Insert(peerAddressFromPolicy(p))
+		resetPeers.Insert(peerAddressesFromPolicy(p)...)
 	}
 
 	// soft-reset affected BGP peers to apply the changes on already advertised routes
@@ -412,15 +412,14 @@ func policyStatement(neighborAddr netip.Addr, prefixes []*types.RoutePolicyPrefi
 	}
 }
 
-// peerAddressFromPolicy returns the first neighbor address found in a routing policy.
-func peerAddressFromPolicy(p *types.RoutePolicy) netip.Addr {
+// peerAddressesFromPolicy returns neighbor addresses found in a routing policy.
+func peerAddressesFromPolicy(p *types.RoutePolicy) []netip.Addr {
 	if p == nil {
-		return netip.Addr{}
+		return []netip.Addr{}
 	}
+	addrs := []netip.Addr{}
 	for _, s := range p.Statements {
-		for _, m := range s.Conditions.MatchNeighbors {
-			return m
-		}
+		addrs = append(addrs, s.Conditions.MatchNeighbors...)
 	}
-	return netip.Addr{}
+	return addrs
 }
