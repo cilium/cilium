@@ -63,6 +63,7 @@ Cilium's Gateway API features:
 
    http
    https
+   grpc
    splitting
    header
    parameterized-gatewayclass
