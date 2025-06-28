@@ -801,6 +801,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			if err != nil {
 				return fmt.Errorf("policymap synchronization failed: %w", err)
 			}
+		} else {
+			// Ensure that e.realizedPolicy actually represents the
+			// current policy map state in case rollback is
+			// necessary, so we don't try to "roll back" to an empty
+			// map and delete all the entries, even momentarily.
+			// This may be the case if the agent just restarted,
+			// for example. See GH-38998.
+			e.realizedPolicy.CopyMapStateFrom(datapathRegenCtxt.policyMapDump)
 		}
 		datapathRegenCtxt.policyMapSyncDone = true
 	}
