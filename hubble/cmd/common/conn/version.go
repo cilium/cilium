@@ -41,15 +41,15 @@ func logVersionMismatch() onReceiveHeader {
 
 		if cliVersionComparator.IsLowerThan(relayVersion) {
 			log.Warn("Hubble CLI version is lower than Hubble Relay, API compatibility is not guaranteed, updating to a matching or higher version is recommended",
-				logfields.HubbleCLIVersion, pkg.SemverVersion.String(),
-				logfields.HubbleRelayVersion, relayVersion.String(),
+				logfields.HubbleCLIVersion, pkg.SemverVersion,
+				logfields.HubbleRelayVersion, relayVersion,
 			)
 		}
 
 		if cliVersionComparator.IsLowerThan(serverVersion) {
 			log.Warn("Hubble CLI version is lower than Hubble Server, API compatibility is not guaranteed, updating to a matching or higher version is recommended",
-				logfields.HubbleCLIVersion, pkg.SemverVersion.String(),
-				logfields.HubbleServerVersion, serverVersion.String(),
+				logfields.HubbleCLIVersion, pkg.SemverVersion,
+				logfields.HubbleServerVersion, serverVersion,
 			)
 		}
 	}

@@ -110,7 +110,7 @@ func (lbls Labels) AddWorldLabel(addr netip.Addr) {
 }
 
 func LabelToPrefix(key string) (netip.Prefix, error) {
-	prefixStr := strings.Replace(key, "-", ":", -1)
+	prefixStr := strings.ReplaceAll(key, "-", ":")
 	pfx, err := netip.ParsePrefix(prefixStr)
 	if err != nil {
 		return netip.Prefix{}, fmt.Errorf("failed to parse label prefix %s: %w", key, err)

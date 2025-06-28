@@ -169,6 +169,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 		if flowdebug.Enabled() {
 			s.logger.Debug("Envoy: Received access log message",
 				logfields.PolicyID, pblog.PolicyName,
+				// slogloggercheck-to-string: using the struct directly results in linter errors: "s.logger.Debug copies lock value: ... contains lock.Mutex"
 				logfields.Value, pblog.String(),
 			)
 		}

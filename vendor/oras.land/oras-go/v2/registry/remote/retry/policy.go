@@ -18,7 +18,7 @@ package retry
 import (
 	"hash/maphash"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"strconv"
@@ -88,7 +88,7 @@ type Backoff func(attempt int, resp *http.Response) time.Duration
 // jitter. The backoff is calculated as:
 //
 //	temp = backoff * factor ^ attempt
-//	interval = temp * (1 - jitter) + rand.Int63n(2 * jitter * temp)
+//	interval = temp * (1 - jitter) + rand.Int64N(2 * jitter * temp)
 //
 // The HTTP response is checked for a Retry-After header. If it is present, the
 // value is used as the backoff duration.
@@ -96,7 +96,7 @@ func ExponentialBackoff(backoff time.Duration, factor, jitter float64) Backoff {
 	return func(attempt int, resp *http.Response) time.Duration {
 		var h maphash.Hash
 		h.SetSeed(maphash.MakeSeed())
-		rand := rand.New(rand.NewSource(int64(h.Sum64())))
+		rand := rand.New(rand.NewPCG(0, h.Sum64()))
 
 		// check Retry-After
 		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
@@ -109,7 +109,7 @@ func ExponentialBackoff(backoff time.Duration, factor, jitter float64) Backoff {
 
 		// do exponential backoff with jitter
 		temp := float64(backoff) * math.Pow(factor, float64(attempt))
-		return time.Duration(temp*(1-jitter)) + time.Duration(rand.Int63n(int64(2*jitter*temp)))
+		return time.Duration(temp*(1-jitter)) + time.Duration(rand.Int64N(int64(2*jitter*temp)))
 	}
 }
 

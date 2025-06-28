@@ -51,7 +51,7 @@ func (l lcs) fix() lcs {
 	// from the set of diagonals in l, find a maximal non-conflicting set
 	// this problem may be NP-complete, but we use a greedy heuristic,
 	// which is quadratic, but with a better data structure, could be D log D.
-	// indepedent is not enough: {0,3,1} and {3,0,2} can't both occur in an lcs
+	// independent is not enough: {0,3,1} and {3,0,2} can't both occur in an lcs
 	// which has to have monotone x and y
 	if len(l) == 0 {
 		return nil

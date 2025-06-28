@@ -1,0 +1,53 @@
+#! --metrics=+cilium_neighbor_entry_refresh_count
+
+netns/create otherns
+link/set lo up --netns otherns
+
+link/add veth0 veth --peername veth1 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+addr/add 192.168.1.2/24 veth1 --netns otherns
+
+link/set veth0 up
+link/set veth1 --netns otherns up
+
+route/add 0.0.0.0/0 --gateway 192.168.1.2 --dev veth0
+
+# Tell the kernel to mark neighbor entries as stale in 1000ms and disable the first probe delay.
+sysctl/set net ipv4 neigh veth0 base_reachable_time_ms 1000
+sysctl/set net ipv4 neigh veth0 delay_first_probe_time 0
+
+hive start
+db/initialized
+
+db/show devices
+
+db/insert forwardable-ip node1-ipv4.yaml
+
+# Assert neighbor entry exists and is reachable
+db/cmp neighbors neighbors.reachable.table
+
+# Assert neighbor entry becomes stale
+db/cmp neighbors neighbors.stale.table
+
+# Wait for the refresh to happen, which will trigger the neighbor table to change
+db/cmp neighbors neighbors.reachable.table
+
+# Assert the agent actively refreshes the neighbor entry
+metrics cilium_neighbor_entry_refresh_count -o refresh-count.actual
+!* cmp refresh-count.not-expected refresh-count.actual
+
+-- node1-ipv4.yaml --
+ip: 200.0.0.123
+owners:
+  - type: node
+    id: node1
+-- neighbors.reachable.table --
+LinkIndex   IPAddr        Type   State       Flags         FlagsExt
+2           192.168.1.2   DST    REACHABLE   EXT_LEARNED   NONE
+-- neighbors.stale.table --
+LinkIndex   IPAddr        Type   State   Flags         FlagsExt
+2           192.168.1.2   DST    STALE   EXT_LEARNED   NONE
+-- refresh-count.not-expected --
+Metric                                Labels   Value
+cilium_neighbor_entry_refresh_count            0.000000

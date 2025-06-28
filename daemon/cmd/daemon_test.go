@@ -22,11 +22,14 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/dial"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -93,8 +96,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func setupDaemonSuite(tb testing.TB) *DaemonSuite {
+func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	testutils.IntegrationTest(tb)
+
+	client := kvstore.SetupDummy(tb, kvstore.EtcdBackendName)
 
 	ds := &DaemonSuite{
 		log: hivetest.Logger(tb),
@@ -108,10 +113,12 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.hive = hive.New(
 		cell.Provide(
 			func(log *slog.Logger) k8sClient.Clientset {
-				cs, _ := k8sClient.NewFakeClientset(log)
+				cs, _ := k8sFakeClient.NewFakeClientset(log)
 				cs.Disable()
 				return cs
 			},
+			func() kvstore.Config { return kvstore.Config{KVStore: kvstore.EtcdBackendName} },
+			func() kvstore.Client { return client },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
@@ -123,8 +130,11 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() *server.Server { return nil },
 		),
 		fakeDatapath.Cell,
+		neighbor.ForwardableIPCell,
+		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
 		prefilter.Cell,
 		monitorAgent.Cell,
+		dial.ServiceResolverCell,
 		ControlPlane,
 		metrics.Cell,
 		store.Cell,
@@ -206,25 +216,6 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
-
-	// Disable the replacement, as its initialization function execs bpftool
-	// which requires root privileges. This would require marking the test suite
-	// as privileged.
-	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
-}
-
-type DaemonEtcdSuite struct {
-	DaemonSuite
-}
-
-func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
-	testutils.IntegrationTest(tb)
-	kvstore.SetupDummy(tb, "etcd")
-
-	ds := setupDaemonSuite(tb)
-	return &DaemonEtcdSuite{
-		DaemonSuite: *ds,
-	}
 }
 
 // convenience wrapper that adds a single policy

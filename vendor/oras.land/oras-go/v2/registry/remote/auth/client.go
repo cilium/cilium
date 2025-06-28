@@ -51,7 +51,7 @@ var DefaultClient = &Client{
 // limit, which is usually 16 KiB. As specified by the distribution, the
 // response may contain 2 identical tokens, that is, 16 x 2 = 32 KiB.
 // Hence, 128 KiB should be sufficient.
-// References: https://docs.docker.com/registry/spec/auth/token/
+// References: https://distribution.github.io/distribution/spec/auth/token/
 var maxResponseBytes int64 = 128 * 1024 // 128 KiB
 
 // defaultClientID specifies the default client ID used in OAuth2.
@@ -110,15 +110,15 @@ type Client struct {
 
 	// ClientID used in fetching OAuth2 token as a required field.
 	// If empty, a default client ID is used.
-	// Reference: https://docs.docker.com/registry/spec/auth/oauth/#getting-a-token
+	// Reference: https://distribution.github.io/distribution/spec/auth/oauth/#getting-a-token
 	ClientID string
 
 	// ForceAttemptOAuth2 controls whether to follow OAuth2 with password grant
 	// instead the distribution spec when authenticating using username and
 	// password.
 	// References:
-	// - https://docs.docker.com/registry/spec/auth/jwt/
-	// - https://docs.docker.com/registry/spec/auth/oauth/
+	// - https://distribution.github.io/distribution/spec/auth/jwt/
+	// - https://distribution.github.io/distribution/spec/auth/oauth/
 	ForceAttemptOAuth2 bool
 }
 
@@ -312,8 +312,8 @@ func (c *Client) fetchBearerToken(ctx context.Context, registry, realm, service 
 // specification.
 // It fetches anonymous tokens if no credential is provided.
 // References:
-// - https://docs.docker.com/registry/spec/auth/jwt/
-// - https://docs.docker.com/registry/spec/auth/token/
+// - https://distribution.github.io/distribution/spec/auth/jwt/
+// - https://distribution.github.io/distribution/spec/auth/token/
 func (c *Client) fetchDistributionToken(ctx context.Context, realm, service string, scopes []string, username, password string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realm, nil)
 	if err != nil {
@@ -340,7 +340,7 @@ func (c *Client) fetchDistributionToken(ctx context.Context, realm, service stri
 		return "", errutil.ParseErrorResponse(resp)
 	}
 
-	// As specified in https://docs.docker.com/registry/spec/auth/token/ section
+	// As specified in https://distribution.github.io/distribution/spec/auth/token/ section
 	// "Token Response Fields", the token is either in `token` or
 	// `access_token`. If both present, they are identical.
 	var result struct {
@@ -361,7 +361,7 @@ func (c *Client) fetchDistributionToken(ctx context.Context, realm, service stri
 }
 
 // fetchOAuth2Token fetches an OAuth2 access token.
-// Reference: https://docs.docker.com/registry/spec/auth/oauth/
+// Reference: https://distribution.github.io/distribution/spec/auth/oauth/
 func (c *Client) fetchOAuth2Token(ctx context.Context, realm, service string, scopes []string, cred Credential) (string, error) {
 	form := url.Values{}
 	if cred.RefreshToken != "" {

@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/cilium/ebpf/asm"
@@ -724,6 +725,22 @@ func (ec *elfCode) loadMaps() error {
 			return fmt.Errorf("section %v: map descriptors are not of equal size", sec.Name)
 		}
 
+		// If the ELF has BTF, pull out the btf.Var for each map definition to
+		// extract decl tags from.
+		varsByName := make(map[string]*btf.Var)
+		if ec.btf != nil {
+			var ds *btf.Datasec
+			if err := ec.btf.TypeByName(sec.Name, &ds); err == nil {
+				for _, vsi := range ds.Vars {
+					v, ok := btf.As[*btf.Var](vsi.Type)
+					if !ok {
+						return fmt.Errorf("section %v: btf.VarSecInfo doesn't point to a *btf.Var: %T", sec.Name, vsi.Type)
+					}
+					varsByName[string(v.Name)] = v
+				}
+			}
+		}
+
 		var (
 			r    = bufio.NewReader(sec.Open())
 			size = sec.Size / uint64(nSym)
@@ -763,6 +780,10 @@ func (ec *elfCode) loadMaps() error {
 			}
 			if len(extra) > 0 {
 				spec.Extra = bytes.NewReader(extra)
+			}
+
+			if v, ok := varsByName[mapName]; ok {
+				spec.Tags = slices.Clone(v.Tags)
 			}
 
 			ec.maps[mapName] = &spec
@@ -1028,6 +1049,11 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		valueSize = 0
 	}
 
+	v, ok := btf.As[*btf.Var](vs.Type)
+	if !ok {
+		return nil, fmt.Errorf("BTF map definition: btf.VarSecInfo doesn't point to a *btf.Var: %T", vs.Type)
+	}
+
 	return &MapSpec{
 		Name:       sanitizeName(name, -1),
 		Type:       MapType(mapType),
@@ -1040,6 +1066,7 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		Pinning:    pinType,
 		InnerMap:   innerMapSpec,
 		Contents:   contents,
+		Tags:       slices.Clone(v.Tags),
 	}, nil
 }
 

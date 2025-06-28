@@ -1,0 +1,4 @@
+tests:
+- conformance-aks.yaml
+- conformance-gateway-api.yaml
+- conformance-gke.yaml

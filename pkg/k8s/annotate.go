@@ -123,5 +123,5 @@ func RemoveNodeAnnotations(c kubernetes.Interface, nodeName string, annotation n
 }
 
 func encodeJsonElement(element string) string {
-	return strings.Replace(element, "/", "~1", -1)
+	return strings.ReplaceAll(element, "/", "~1")
 }

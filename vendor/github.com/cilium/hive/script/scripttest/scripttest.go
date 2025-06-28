@@ -174,7 +174,21 @@ func CachedExec() script.Cond {
 		})
 }
 
-func Test(t *testing.T, ctx context.Context, newEngine func(tb testing.TB, args []string) *script.Engine, env []string, pattern string) {
+type testOptions struct {
+	noParallel bool
+}
+
+type testOpt = func(*testOptions)
+
+// NoParallel runs the test sequentially instead of in parallel (e.g. does not call [testing.T.Parallel]).
+func NoParallel(o *testOptions) { o.noParallel = true }
+
+func Test(t *testing.T, ctx context.Context, newEngine func(tb testing.TB, args []string) *script.Engine, env []string, pattern string, opts ...testOpt) {
+	var o testOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	gracePeriod := 100 * time.Millisecond
 	if deadline, ok := t.Deadline(); ok {
 		timeout := time.Until(deadline)
@@ -212,7 +226,7 @@ func Test(t *testing.T, ctx context.Context, newEngine func(tb testing.TB, args 
 		env = append(env, fmt.Sprintf("DATADIR=%s", dataDir))
 		name := strings.TrimSuffix(filepath.Base(file), ".txt")
 		t.Run(name, func(t *testing.T) {
-			if !*breakFlag {
+			if !*breakFlag && !o.noParallel {
 				// The break-on-error flag is set. This will open /dev/tty and set it to raw mode
 				// which will mess up logs from other parallel tests. To avoid that, run the tests
 				// sequentially when -scripttest.break is set.

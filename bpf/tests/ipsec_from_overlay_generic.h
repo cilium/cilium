@@ -92,23 +92,16 @@ PKTGEN("tc", "ipv4_not_decrypted_ipsec_from_overlay")
 int ipv4_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct ip_esp_hdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_iphdr(&builder);
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      v4_pod_one, v4_pod_two);
 	if (!l3)
 		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_pod_two;
 
 	l4 = pktgen__push_default_esphdr(&builder);
 	if (!l4)
@@ -130,7 +123,7 @@ int ipv4_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_v4_add_entry(v4_pod_one, NODE_ID, 0);
+	node_v4_add_entry(v4_pod_one, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
@@ -212,22 +205,16 @@ PKTGEN("tc", "ipv6_not_decrypted_ipsec_from_overlay")
 int ipv6_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct ip_esp_hdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
 	if (!l3)
 		return TEST_ERROR;
-	ipv6hdr__set_addrs(l3, (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
 
 	l4 = pktgen__push_default_esphdr(&builder);
 	if (!l4)
@@ -249,7 +236,7 @@ int ipv6_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_v6_add_entry((union v6addr *)v6_pod_one, NODE_ID, 0);
+	node_v6_add_entry((union v6addr *)v6_pod_one, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;

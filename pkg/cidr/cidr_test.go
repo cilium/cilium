@@ -10,6 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNilString(t *testing.T) {
+	var c *CIDR
+	var n *net.IPNet
+	require.Equal(t, n.String(), c.String())
+}
+
 func TestNilDeepCopy(t *testing.T) {
 	var c1 *CIDR
 	require.Nil(t, c1.DeepCopy())

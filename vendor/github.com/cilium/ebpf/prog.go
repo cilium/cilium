@@ -8,12 +8,12 @@ import (
 	"math"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
-	"github.com/cilium/ebpf/internal/kallsyms"
 	"github.com/cilium/ebpf/internal/linux"
 	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/sys"
@@ -171,17 +171,6 @@ func (ps *ProgramSpec) Tag() (string, error) {
 	return ps.Instructions.Tag(internal.NativeEndian)
 }
 
-// kernelModule returns the kernel module providing the symbol in
-// ProgramSpec.AttachTo, if any. Returns an empty string if the symbol is not
-// present or not part of a kernel module.
-func (ps *ProgramSpec) kernelModule() (string, error) {
-	if ps.targetsKernelModule() {
-		return kallsyms.Module(ps.AttachTo)
-	}
-
-	return "", nil
-}
-
 // targetsKernelModule returns true if the program supports being attached to a
 // symbol provided by a kernel module.
 func (ps *ProgramSpec) targetsKernelModule() bool {
@@ -303,13 +292,8 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 	insns := make(asm.Instructions, len(spec.Instructions))
 	copy(insns, spec.Instructions)
 
-	kmodName, err := spec.kernelModule()
-	if err != nil {
-		return nil, fmt.Errorf("kernel module search: %w", err)
-	}
-
 	var b btf.Builder
-	if err := applyRelocations(insns, kmodName, spec.ByteOrder, &b, c); err != nil {
+	if err := applyRelocations(insns, spec.ByteOrder, &b, c); err != nil {
 		return nil, fmt.Errorf("apply CO-RE relocations: %w", err)
 	}
 
@@ -1212,7 +1196,14 @@ func newBTFCache(opts *ProgramOptions) *btf.Cache {
 	c := btf.NewCache()
 	if opts.KernelTypes != nil {
 		c.KernelTypes = opts.KernelTypes
-		c.KernelModules = opts.KernelModuleTypes
+		c.ModuleTypes = opts.KernelModuleTypes
+		if opts.KernelModuleTypes != nil {
+			c.LoadedModules = []string{}
+			for name := range opts.KernelModuleTypes {
+				c.LoadedModules = append(c.LoadedModules, name)
+			}
+			sort.Strings(c.LoadedModules)
+		}
 	}
 	return c
 }

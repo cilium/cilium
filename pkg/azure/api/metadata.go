@@ -6,10 +6,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 )
@@ -21,25 +21,25 @@ const (
 )
 
 // GetSubscriptionID retrieves the Azure subscriptionID from the Azure Instance Metadata Service
-func GetSubscriptionID(ctx context.Context, logger logging.FieldLogger) (string, error) {
+func GetSubscriptionID(ctx context.Context, logger *slog.Logger) (string, error) {
 	return getMetadataString(ctx, logger, "instance/compute/subscriptionId")
 }
 
 // GetResourceGroupName retrieves the current resource group name in which the host running the Cilium Operator is located
 // This is retrieved via the Azure Instance Metadata Service
-func GetResourceGroupName(ctx context.Context, logger logging.FieldLogger) (string, error) {
+func GetResourceGroupName(ctx context.Context, logger *slog.Logger) (string, error) {
 	return getMetadataString(ctx, logger, "instance/compute/resourceGroupName")
 }
 
 // GetAzureCloudName retrieves the current Azure cloud name in which the host running the Cilium Operator is located
 // This is retrieved via the Azure Instance Metadata Service
-func GetAzureCloudName(ctx context.Context, logger logging.FieldLogger) (string, error) {
+func GetAzureCloudName(ctx context.Context, logger *slog.Logger) (string, error) {
 	return getMetadataString(ctx, logger, "instance/compute/azEnvironment")
 }
 
 // getMetadataString returns the text representation of a field from the Azure IMS (instance metadata service)
 // more can be found at https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service#instance-api
-func getMetadataString(ctx context.Context, logger logging.FieldLogger, path string) (string, error) {
+func getMetadataString(ctx context.Context, logger *slog.Logger, path string) (string, error) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
 	}
@@ -62,8 +62,8 @@ func getMetadataString(ctx context.Context, logger logging.FieldLogger, path str
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			subsysLog := logger.With(subsysLogAttr)
-			subsysLog.Error("Failed to close body for request",
+			logger.Error("Failed to close body for request",
+				logfields.LogSubsys, "azure-api",
 				logfields.Error, err,
 				logfields.URL, url,
 			)

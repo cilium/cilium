@@ -12,16 +12,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/cmdref"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const targetName = "cilium-health"
 
 var (
-	client  *clientPkg.Client
-	logOpts = make(map[string]string)
+	client *clientPkg.Client
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -53,9 +49,6 @@ func init() {
 	flags := rootCmd.PersistentFlags()
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
-	flags.StringSlice("log-driver", []string{}, "Logging endpoints to use for example syslog")
-	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
-		"log-opt", "Log driver options for cilium-health e.g. syslog.level=info,syslog.facility=local5,syslog.tag=cilium-agent")
 	viper.BindPFlags(flags)
 
 	rootCmd.AddCommand(cmdref.NewCmd(rootCmd))
@@ -75,10 +68,5 @@ func initConfig() {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(viper.GetStringSlice("log-driver"), logging.LogOptions(logOpts), "cilium-health", viper.GetBool("debug")); err != nil {
-		logging.Fatal(logging.DefaultSlogLogger, "Failed to set up logging", logfields.Error, err)
-	}
-
 	cmd.Help()
 }

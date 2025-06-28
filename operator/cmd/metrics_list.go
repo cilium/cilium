@@ -30,6 +30,7 @@ var MetricsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all metrics for the operator",
 	Run: func(cmd *cobra.Command, args []string) {
+		// slogloggercheck: use the logger with the default settings since this ist only used for CLI output
 		logger := logging.DefaultSlogLogger
 
 		c := client.NewHTTPClientWithConfig(

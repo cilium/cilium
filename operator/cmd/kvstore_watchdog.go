@@ -10,9 +10,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -62,12 +59,12 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 	return oldestLeases
 }
 
-func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig) {
+func startKvstoreWatchdog(logger *slog.Logger, client kvstore.Client) {
 	logger.Info("Starting kvstore watchdog", logfields.Interval, defaults.LockLeaseTTL)
 
 	backend, err := kvstoreallocator.NewKVStoreBackend(logger, kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
-		Backend:  kvstore.Client(),
+		Backend:  client,
 	})
 	if err != nil {
 		logging.Fatal(logger, "Unable to initialize kvstore backend for identity garbage collection", logfields.Error, err)
@@ -91,34 +88,6 @@ func startKvstoreWatchdog(logger *slog.Logger, cfgMCSAPI cmoperator.MCSAPIConfig
 			cancel()
 
 			<-time.After(defaults.LockLeaseTTL)
-		}
-	}()
-
-	go func() {
-		for {
-			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
-
-			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
-			if err != nil {
-				logger.Warn("Unable to update heartbeat key", logfields.Error, err)
-			}
-
-			if option.Config.ClusterName != defaults.ClusterName && option.Config.ClusterID != 0 {
-				// The cluster config continues to be enforced also after the initial successful
-				// insertion to prevent issues in case of, e.g., unexpected lease expiration.
-				cfg := cmtypes.CiliumClusterConfig{
-					ID: option.Config.ClusterID,
-					Capabilities: cmtypes.CiliumClusterConfigCapabilities{
-						MaxConnectedClusters:  option.Config.MaxConnectedClusters,
-						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
-					}}
-				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
-					logger.Warn("Unable to set local cluster config", logfields.Error, err)
-				}
-			}
-
-			cancel()
-			<-time.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safeio"
@@ -45,7 +44,7 @@ func init() {
 	//
 	// It's not necessary to pass a useful size here because it's not
 	// necessary to cache regexes in a short-lived binary (CLI).
-	re.InitRegexCompileLRU(logging.DefaultSlogLogger, 1)
+	re.InitRegexCompileLRU(log, 1)
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {

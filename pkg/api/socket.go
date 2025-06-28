@@ -5,7 +5,6 @@ package api
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"os/user"
 	"strconv"
@@ -26,10 +25,10 @@ func getGroupIDByName(grpName string) (int, error) {
 
 // SetDefaultPermissions sets the given socket's group to `CiliumGroupName` and
 // mode to `SocketFileMode`.
-func SetDefaultPermissions(scopedLog *slog.Logger, socketPath string) error {
+func SetDefaultPermissions(debugLogger func(msg string, args ...any), socketPath string) error {
 	gid, err := getGroupIDByName(CiliumGroupName)
 	if err != nil {
-		scopedLog.Debug("Group not found",
+		debugLogger("Group not found",
 			logfields.Error, err,
 			logfields.Path, socketPath,
 			logfields.Group, CiliumGroupName,

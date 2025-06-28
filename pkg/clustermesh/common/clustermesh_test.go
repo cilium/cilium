@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -56,7 +56,7 @@ func TestClusterMesh(t *testing.T) {
 	capabilities := types.CiliumClusterConfigCapabilities{Cached: true, MaxConnectedClusters: 511}
 	for i, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
 		cfg := types.CiliumClusterConfig{ID: uint32(i + 1), Capabilities: capabilities}
-		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, client))
+		require.NoError(t, clustercfg.Set(context.Background(), cluster, cfg, client))
 	}
 
 	var ready, stopped, removed lock.Map[string, bool]
@@ -88,9 +88,10 @@ func TestClusterMesh(t *testing.T) {
 	var clusters []*fakeRemoteCluster
 
 	cm := NewClusterMesh(Configuration{
-		Logger:      hivetest.Logger(t),
-		Config:      Config{ClusterMeshConfig: baseDir},
-		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		Logger:              hivetest.Logger(t),
+		Config:              Config{ClusterMeshConfig: baseDir},
+		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			statuses.Store(name, sf)
 			rc := &fakeRemoteCluster{
@@ -199,7 +200,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	for i, cluster := range []string{"cluster1", "cluster2", "cluster3", "cluster4"} {
 		writeFile(t, path(cluster), fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 		cfg := types.CiliumClusterConfig{ID: uint32(i + 1)}
-		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, client))
+		require.NoError(t, clustercfg.Set(context.Background(), cluster, cfg, client))
 	}
 
 	var ready lock.Map[string, bool]
@@ -215,9 +216,10 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	blockRemoval.Store("cluster4", make(chan struct{}))
 
 	gcm := NewClusterMesh(Configuration{
-		Logger:      hivetest.Logger(t),
-		Config:      Config{ClusterMeshConfig: baseDir},
-		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		Logger:              hivetest.Logger(t),
+		Config:              Config{ClusterMeshConfig: baseDir},
+		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) { ready.Store(name, true) },

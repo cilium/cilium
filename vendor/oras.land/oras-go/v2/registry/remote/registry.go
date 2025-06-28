@@ -43,7 +43,7 @@ type Registry struct {
 	// RepositoryListPageSize specifies the page size when invoking the catalog
 	// API.
 	// If zero, the page size is determined by the remote registry.
-	// Reference: https://docs.docker.com/registry/spec/api/#catalog
+	// Reference: https://distribution.github.io/distribution/spec/api/#catalog
 	RepositoryListPageSize int
 }
 
@@ -93,8 +93,8 @@ func (r *Registry) do(req *http.Request) (*http.Response, error) {
 // Ping can be used to check authentication when an auth client is configured.
 //
 // References:
-//   - https://docs.docker.com/registry/spec/api/#base
-//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#api
+//   - https://distribution.github.io/distribution/spec/api/#base
+//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#api
 func (r *Registry) Ping(ctx context.Context) error {
 	url := buildRegistryBaseURL(r.PlainHTTP, r.Reference)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -125,7 +125,7 @@ func (r *Registry) Ping(ctx context.Context) error {
 // repo specified by `last`. Otherwise, the response starts from the top
 // of the Repositories list.
 //
-// Reference: https://docs.docker.com/registry/spec/api/#catalog
+// Reference: https://distribution.github.io/distribution/spec/api/#catalog
 func (r *Registry) Repositories(ctx context.Context, last string, fn func(repos []string) error) error {
 	ctx = auth.AppendScopesForHost(ctx, r.Reference.Host(), auth.ScopeRegistryCatalog)
 	url := buildRegistryCatalogURL(r.PlainHTTP, r.Reference)

@@ -54,6 +54,11 @@ func cecListerWatchers(cs client.Clientset) (out struct {
 	return
 }
 
+const (
+	k8sAPIGroupCiliumEnvoyConfigV2            = "cilium/v2::CiliumEnvoyConfig"
+	k8sAPIGroupCiliumClusterwideEnvoyConfigV2 = "cilium/v2::CiliumClusterwideEnvoyConfig"
+)
+
 // registerCECK8sReflector registers reflectors to Table[CEC] from CiliumEnvoyConfig and
 // CiliumClusterwideEnvoyConfig.
 func registerCECK8sReflector(
@@ -61,6 +66,7 @@ func registerCECK8sReflector(
 	ecfg loadbalancer.Config,
 	p *CECResourceParser,
 	crdSync promise.Promise[synced.CRDSync],
+	apiGroups *synced.APIGroups,
 	nodeLabels *nodeLabels,
 	log *slog.Logger,
 	lws listerWatchers,
@@ -71,9 +77,13 @@ func registerCECK8sReflector(
 	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
 		return nil
 	}
-	if lws.cec == nil || !ecfg.EnableExperimentalLB {
+	if lws.cec == nil {
 		return nil
 	}
+
+	apiGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
+	apiGroups.AddAPI(k8sAPIGroupCiliumClusterwideEnvoyConfigV2)
+
 	transform := func(txn statedb.ReadTxn, obj any) (*CEC, bool) {
 		var (
 			objMeta *metav1.ObjectMeta
@@ -159,6 +169,7 @@ func registerCECK8sReflector(
 				Name:      objMeta.GetName(),
 				Namespace: objMeta.GetNamespace(),
 			},
+			Labels:           objMeta.Labels,
 			Selector:         selector,
 			SelectsLocalNode: selectsLocalNode,
 			ServicePorts:     servicePorts,
@@ -178,6 +189,7 @@ func registerCECK8sReflector(
 			Table:         tbl,
 			ListerWatcher: lws.cec,
 			Transform:     transform,
+			MetricScope:   "CiliumEnvoyConfig",
 			QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[*CEC]) iter.Seq2[*CEC, statedb.Revision] {
 				return statedb.Filter(
 					tbl.All(txn),
@@ -200,6 +212,7 @@ func registerCECK8sReflector(
 			Table:         tbl,
 			ListerWatcher: lws.ccec,
 			Transform:     transform,
+			MetricScope:   "CiliumClusterwideEnvoyConfig",
 			QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[*CEC]) iter.Seq2[*CEC, statedb.Revision] {
 				return statedb.Filter(
 					tbl.All(txn),

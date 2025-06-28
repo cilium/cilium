@@ -27,7 +27,7 @@ import (
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -36,7 +36,7 @@ import (
 
 type peerConfigTestFixture struct {
 	hive               *hive.Hive
-	fakeClientSet      *k8s_client.FakeClientset
+	fakeClientSet      *k8sClient.FakeClientset
 	peerConfigResource resource.Resource[*v2.CiliumBGPPeerConfig]
 
 	db          *statedb.DB
@@ -91,7 +91,7 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 	hive := hive.New(
 		cell.Module("test", "test",
 			cell.Provide(
-				k8s_client.NewFakeClientset,
+				k8sClient.NewFakeClientset,
 				newSecretResource,
 				k8s.CiliumBGPPeerConfigResource,
 				func() *option.DaemonConfig {
@@ -105,7 +105,7 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 			cell.Invoke(
 				registerPeerConfigStatusReconciler,
 				func(
-					fcs *k8s_client.FakeClientset,
+					fcs *k8sClient.FakeClientset,
 					p resource.Resource[*v2.CiliumBGPPeerConfig],
 					db *statedb.DB,
 					h statedb.Table[healthTypes.Status],

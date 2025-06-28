@@ -17,6 +17,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"sync"
 
@@ -48,7 +49,7 @@ func (m *Memory) Resolve(_ context.Context, reference string) (ocispec.Descripto
 
 	desc, ok := m.index[reference]
 	if !ok {
-		return ocispec.Descriptor{}, errdef.ErrNotFound
+		return ocispec.Descriptor{}, fmt.Errorf("%s: %w", reference, errdef.ErrNotFound)
 	}
 	return desc, nil
 }

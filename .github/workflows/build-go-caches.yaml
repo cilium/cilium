@@ -53,7 +53,7 @@ jobs:
             make-target: build-container-hubble-relay
 
           - name: clustermesh-apiserver
-            make-target: -C clustermesh-apiserver
+            make-target: build-container-clustermesh-apiserver
 
           - name: docker-plugin
             make-target: -C plugins/cilium-docker

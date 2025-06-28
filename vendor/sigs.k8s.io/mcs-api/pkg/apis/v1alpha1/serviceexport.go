@@ -22,6 +22,7 @@ import (
 
 // +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName={svcex,svcexport}
 
 // ServiceExport declares that the Service with the same name and namespace
 // as this export should be consumable from other clusters.

@@ -44,8 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -72,7 +70,6 @@ type hubbleIntegration struct {
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
 	ipcache           *ipcache.IPCache
-	serviceManager    service.ServiceManager
 	cgroupManager     manager.CGroupManager
 	clientset         k8sClient.Clientset
 	k8sWatcher        *watchers.K8sWatcher
@@ -101,7 +98,6 @@ func new(
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
-	serviceManager service.ServiceManager,
 	cgroupManager manager.CGroupManager,
 	clientset k8sClient.Clientset,
 	k8sWatcher *watchers.K8sWatcher,
@@ -134,7 +130,6 @@ func new(
 		identityAllocator:    identityAllocator,
 		endpointManager:      endpointManager,
 		ipcache:              ipcache,
-		serviceManager:       serviceManager,
 		cgroupManager:        cgroupManager,
 		clientset:            clientset,
 		k8sWatcher:           k8sWatcher,
@@ -339,7 +334,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	}
 	peerSvc := peer.NewService(h.nodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
-		serveroption.WithUnixSocketListener(logging.DefaultSlogLogger, sockPath),
+		serveroption.WithUnixSocketListener(h.log, sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(hubbleObserver),
 		serveroption.WithPeerService(peerSvc),

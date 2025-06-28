@@ -169,6 +169,18 @@ func (t *Test) Failed() bool {
 	return t.failed
 }
 
+func (t *Test) FailureMessages() []string {
+	failureMessages := []string{}
+	for _, s := range t.scenarios {
+		for _, m := range s {
+			if m.failureMessage != "" {
+				failureMessages = append(failureMessages, m.failureMessage)
+			}
+		}
+	}
+	return failureMessages
+}
+
 // ScenarioName returns the Test name and Scenario name concatenated in
 // a standard way. Scenario names are not unique, as they can occur multiple
 // times in the same Test.

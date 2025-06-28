@@ -88,7 +88,7 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 	// Perform an SPI refresh opportunistically.
 	// This avoids the scenario where the agent may have been down and didn't
 	// catch a NodeDelete event, leaving a stale IP address in the map.
-	var SPIChanged bool = true
+	var SPIChanged = true
 	if oldNode != nil {
 		SPIChanged = (oldNode.EncryptionKey != node.EncryptionKey)
 	}

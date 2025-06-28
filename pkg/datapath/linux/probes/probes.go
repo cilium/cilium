@@ -53,6 +53,7 @@ func init() {
 	var err error
 	tpl, err = tpl.Parse(content)
 	if err != nil {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.Fatal(logging.DefaultSlogLogger, "could not parse headerfile template", logfields.Error, err)
 	}
 }

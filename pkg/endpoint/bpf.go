@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/loadinfo"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -878,14 +877,14 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the endpoint from cilium_lxc. After this point, ip->epID lookups
 	// will fail, causing packets to/from the Pod to be dropped in many cases,
 	// stopping packet evaluation.
-	if err := lxcmap.DeleteElement(logging.DefaultSlogLogger, e); err != nil {
+	if err := lxcmap.DeleteElement(e.getLogger(), e); err != nil {
 		errors = append(errors, err...)
 	}
 
 	// Remove the policy tail call entry for the endpoint. This will disable
 	// policy evaluation for the endpoint and will result in missing tail calls if
 	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
-	if err := policymap.RemoveGlobalMapping(logging.DefaultSlogLogger, uint32(e.ID)); err != nil {
+	if err := policymap.RemoveGlobalMapping(e.getLogger(), uint32(e.ID)); err != nil {
 		errors = append(errors, fmt.Errorf("removing endpoint program from global policy map: %w", err))
 	}
 
@@ -1315,7 +1314,7 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 	}
 
 	defer func() {
-		e.realizedPolicy = policy.NewEndpointPolicy(logging.DefaultSlogLogger, e.policyRepo)
+		e.realizedPolicy = policy.NewEndpointPolicy(e.getLogger(), e.policyRepo)
 	}()
 
 	i := 0
@@ -1535,7 +1534,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	e.PolicyDebug("syncPolicyMapWithDump", logfields.DumpedPolicyMap, currentMap)
 	// Diffs between the maps indicate an error in the policy map update logic.
 	// Collect and log diffs if policy logging is enabled.
-	diffCount, diffs, err := e.syncPolicyMapWith(currentMap, e.getPolicyLogger() != nil)
+	diffCount, diffs, err := e.syncPolicyMapWith(currentMap, e.getLogger() != nil)
 
 	if diffCount > 0 {
 		e.getLogger().Warn("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps", logfields.Count, diffCount)

@@ -30,17 +30,24 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+const lrpControllerInitName = "lrp-controller"
+
 func registerLRPController(g job.Group, p lrpControllerParams) {
 	if !p.Enabled {
 		return
 	}
+
+	// Register load-balancing initializer. This will also delay initial
+	// endpoint regeneration until we're done.
+	lbInit := p.Writer.RegisterInitializer(lrpControllerInitName)
+
 	// Register table initializer for Table[desiredSkipLB] to delay pruning
 	// until we've processed the initial data sets.
-	wtxn := p.Writer.WriteTxn(p.DesiredSkipLB)
-	desiredSkipLBInit := p.DesiredSkipLB.RegisterInitializer(wtxn, "lrp-controller")
+	wtxn := p.DB.WriteTxn(p.DesiredSkipLB)
+	desiredSkipLBInit := p.DesiredSkipLB.RegisterInitializer(wtxn, lrpControllerInitName)
 	wtxn.Commit()
 
-	h := &lrpController{p: p, desiredSkipLBInit: desiredSkipLBInit}
+	h := &lrpController{p: p, desiredSkipLBInit: desiredSkipLBInit, lbInit: lbInit}
 	g.Add(job.OneShot("controller", h.run))
 }
 
@@ -56,11 +63,13 @@ type lrpControllerParams struct {
 	Writer             *writer.Writer
 	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	Metrics            controllerMetrics
+	LRPMetrics         LRPMetrics `optional:"true"`
 }
 
 type lrpController struct {
 	p                 lrpControllerParams
 	desiredSkipLBInit func(statedb.WriteTxn)
+	lbInit            func(writer.WriteTxn)
 
 	skipLBWarningLogged bool
 }
@@ -115,6 +124,10 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 
 		existing := sets.New[k8s.ServiceID]()
 		for lrp := range lrps {
+			if c.p.LRPMetrics != nil && !existing.Has(lrp.ID) {
+				c.p.LRPMetrics.AddLRPConfig(lrp.ID)
+			}
+
 			existing.Insert(lrp.ID)
 			orphans.Delete(lrp.ID)
 
@@ -140,15 +153,24 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				cleanup(wtxn)
 			}
 			delete(cleanupFuncs, lrpID)
+			if c.p.LRPMetrics != nil {
+				c.p.LRPMetrics.DelLRPConfig(lrpID)
+			}
 		}
 
-		// Mark Table[desiredSkipLB] initialized once we've processed all
-		// input tables and they're initialized.
 		if initWatches != nil {
 			if chanIsClosed(podsInitWatch) &&
-				chanIsClosed(lrpsInitWatch) &&
-				chanIsClosed(fesInitWatch) {
-				c.desiredSkipLBInit(wtxn)
+				chanIsClosed(lrpsInitWatch) {
+
+				// Mark load-balancing state initialized now that pods and LRPs have been
+				// processed. We can't wait for frontends to initialize since we're one
+				// of the initializers.
+				c.lbInit(wtxn)
+
+				if chanIsClosed(fesInitWatch) {
+					// Mark desired SkipLBs as initialized to allow pruning
+					c.desiredSkipLBInit(wtxn)
+				}
 				initWatches = nil
 			}
 		}
@@ -288,6 +310,9 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 					logfields.Error, err)
 			}
 		}
+	case lrpConfigTypeNone:
+		cleanup(wtxn)
+		return ws, func(writer.WriteTxn) {}
 	}
 
 	// For each matching pod create a backend and associate it with the LocalRedirect

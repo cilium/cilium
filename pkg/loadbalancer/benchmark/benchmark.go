@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -38,7 +38,6 @@ import (
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -64,9 +63,9 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = true
 
-	svcs, epSlices := ServicesAndSlices(testSize)
-
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: loglevel}))
+
+	svcs, epSlices := ServicesAndSlices(log, testSize)
 
 	var maps lbmaps.LBMaps
 	if testutils.IsPrivileged() {
@@ -75,7 +74,6 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 			Pinned: false,
 			Cfg: loadbalancer.Config{
 				UserConfig: loadbalancer.UserConfig{
-					EnableExperimentalLB:    true,
 					RetryBackoffMin:         time.Second,
 					RetryBackoffMax:         time.Second,
 					LBMapEntries:            3 * testSize,
@@ -317,7 +315,7 @@ func mapFunc[A, B any](xs []A, fn func(A) B) []B {
 	return out
 }
 
-func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) {
+func ServicesAndSlices(logger *slog.Logger, testSize int) (svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) {
 	svcs = make([]*slim_corev1.Service, 0, testSize)
 	epSlices = make([]*k8s.Endpoints, 0, testSize)
 
@@ -375,7 +373,7 @@ func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k
 
 		tmpSlice.Name = fmt.Sprintf("%s-%06d", slice.Name, j)
 
-		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logging.DefaultSlogLogger, &tmpSlice))
+		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logger, &tmpSlice))
 	}
 	return
 }
@@ -537,7 +535,7 @@ func testHive(maps lbmaps.LBMaps,
 			"loadbalancer-test",
 			"Test module",
 
-			client.FakeClientCell,
+			k8sClient.FakeClientCell(),
 			node.LocalNodeStoreCell,
 
 			cell.Provide(

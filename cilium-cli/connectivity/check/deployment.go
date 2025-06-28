@@ -858,6 +858,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				},
 				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
+			Tolerations:    ct.params.GetTolerations(),
 			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 		}, ct.params.DNSTestServerImage)
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoSameNodeDeploymentName), metav1.CreateOptions{})
@@ -881,6 +882,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
 			Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
 			NodeSelector: ct.params.NodeSelector,
+			Tolerations:  ct.params.GetTolerations(),
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientDeploymentName), metav1.CreateOptions{})
 		if err != nil {
@@ -919,6 +921,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
 			NodeSelector: ct.params.NodeSelector,
+			Tolerations:  ct.params.GetTolerations(),
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(client2DeploymentName), metav1.CreateOptions{})
 		if err != nil {
@@ -958,6 +961,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
 				NodeSelector: ct.params.NodeSelector,
+				Tolerations:  ct.params.GetTolerations(),
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(client3DeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -984,9 +988,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				"node-role.kubernetes.io/control-plane": "",
 			},
 			Replicas: len(ct.ControlPlaneNodes()),
-			Tolerations: []corev1.Toleration{
-				{Key: "node-role.kubernetes.io/control-plane"},
-			},
+			Tolerations: append(
+				[]corev1.Toleration{
+					{Key: "node-role.kubernetes.io/control-plane"},
+				},
+				ct.params.GetTolerations()...,
+			),
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientCPDeployment), metav1.CreateOptions{})
 		if err != nil && !k8sErrors.IsAlreadyExists(err) {
@@ -1063,6 +1070,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				},
 				NodeSelector:   ct.params.NodeSelector,
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+				Tolerations:    ct.params.GetTolerations(),
 			}, ct.params.DNSTestServerImage)
 			_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoOtherNodeDeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -1135,9 +1143,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
 					ReadinessProbe: newLocalReadinessProbe(port, "/"),
 					HostNetwork:    true,
-					Tolerations: []corev1.Toleration{
-						{Operator: corev1.TolerationOpExists},
-					},
+					Tolerations: append(
+						[]corev1.Toleration{
+							{Operator: corev1.TolerationOpExists},
+						},
+						ct.params.GetTolerations()...,
+					),
 				})
 				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
 				if err != nil {
@@ -1186,6 +1197,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Labels:       map[string]string{"lrp": "client"},
 			Annotations:  ct.params.DeploymentAnnotations.Match(lrpClientDeploymentName),
 			NodeSelector: ct.params.NodeSelector,
+			Tolerations:  ct.params.GetTolerations(),
 		})
 
 		_, err = ct.clients.src.GetServiceAccount(ctx, ct.params.TestNamespace, lrpClientDeploymentName, metav1.GetOptions{})
@@ -1230,6 +1242,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				},
 			},
 			NodeSelector: ct.params.NodeSelector,
+			Tolerations:  ct.params.GetTolerations(),
 		})
 
 		_, err = ct.clients.src.GetServiceAccount(ctx, ct.params.TestNamespace, lrpBackendDeploymentName, metav1.GetOptions{})
@@ -1328,6 +1341,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+				Tolerations:    ct.params.GetTolerations(),
 			}, ct.params.DNSTestServerImage)
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(loadbalancerL7DeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -1420,13 +1434,14 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
 			},
+			Tolerations: ct.params.GetTolerations(),
 		}
 		if isExternal {
 			param.NodeSelector = map[string]string{defaults.CiliumNoScheduleLabel: "true"}
 			param.HostNetwork = true
-			param.Tolerations = []corev1.Toleration{
-				{Operator: corev1.TolerationOpExists},
-			}
+			param.Tolerations = append(param.Tolerations, corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+			})
 		}
 		testConnDisruptServerDeployment := newDeployment(param)
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(deployName), metav1.CreateOptions{})
@@ -1507,13 +1522,14 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Co
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
 			},
+			Tolerations: ct.params.GetTolerations(),
 		}
 		if isExternal {
 			param.NodeSelector = map[string]string{defaults.CiliumNoScheduleLabel: "true"}
 			param.HostNetwork = true
-			param.Tolerations = []corev1.Toleration{
-				{Operator: corev1.TolerationOpExists},
-			}
+			param.Tolerations = append(param.Tolerations, corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+			})
 		}
 		if nodeSelector != nil {
 			param.NodeSelector = nodeSelector
@@ -1761,7 +1777,7 @@ func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name
 		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
 		HostNetwork:                   hostNetwork,
 		TerminationGracePeriodSeconds: &gracePeriod,
-		Tolerations:                   ct.params.PerfParameters.GetTolerations(),
+		Tolerations:                   ct.params.GetTolerations(),
 	})
 	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
 	if err != nil {
@@ -1791,7 +1807,7 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
 		HostNetwork:                   hostNetwork,
 		TerminationGracePeriodSeconds: &gracePeriod,
-		Tolerations:                   ct.params.PerfParameters.GetTolerations(),
+		Tolerations:                   ct.params.GetTolerations(),
 	})
 	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
 	if err != nil {
@@ -1854,7 +1870,7 @@ func (ct *ConnectivityTest) createProfilingPerfDeployment(ctx context.Context, n
 					HostNetwork: true,
 					HostPID:     true,
 					NodeName:    nodeName,
-					Tolerations: ct.params.PerfParameters.GetTolerations(),
+					Tolerations: ct.params.GetTolerations(),
 				},
 			},
 			Replicas: ptr.To[int32](1),
@@ -1917,15 +1933,15 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 			    "` + perClientHighPriorityDeploymentName + `": ` + highPrioDeployAnnotations.String() + `
 			}`)
 		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 		// Create low priority client on other node
 		if err = ct.createClientPerfDeployment(ctx, perClientLowPriorityDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 		// Create high priority client on other node
 		if err = ct.createClientPerfDeployment(ctx, perClientHighPriorityDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 
 		return nil
@@ -1944,69 +1960,69 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 			    "` + perServerIngressDeploymentName + `": ` + ingressBandwidthAnnotations.String() + `
 			}`)
 		if err = ct.createServerPerfDeployment(ctx, perServerEgressDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create server deployment %s (egress): %w", perServerEgressDeploymentName, err)
+			ct.Warnf("unable to create server deployment %s (egress): %s", perServerEgressDeploymentName, err)
 		}
 		if err = ct.createServerPerfDeployment(ctx, perServerIngressDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create server deployment %s (ingress): %w", perServerIngressDeploymentName, err)
+			ct.Warnf("unable to create server deployment %s (ingress): %s", perServerIngressDeploymentName, err)
 		}
 		if err = ct.createClientPerfDeployment(ctx, perClientEgressDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create client deployment %s (egress): %w", perClientEgressDeploymentName, err)
+			ct.Warnf("unable to create client deployment %s (egress): %s", perClientEgressDeploymentName, err)
 		}
 		if err = ct.createClientPerfDeployment(ctx, perClientIngressDeploymentName, clientNode.Name, false); err != nil {
-			ct.Warnf("unable to create client deployment %s (ingress): %w", perClientIngressDeploymentName, err)
+			ct.Warnf("unable to create client deployment %s (ingress): %s", perClientIngressDeploymentName, err)
 		}
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
 		if ct.params.PerfParameters.SameNode {
 			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, serverNode.Name, false); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			// Create second client on other node
 			if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, clientNode.Name, false); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.HostToPod {
 		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, serverNode.Name, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 	}
 
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.HostToPod {
 		if ct.params.PerfParameters.SameNode {
 			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, serverNode.Name, true); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			// Create second client on other node
 			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, clientNode.Name, true); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 	}
 
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.PodToHost {
 		if err = ct.createServerPerfDeployment(ctx, perfServerHostNetDeploymentName, serverNode.Name, true); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 	}
 
 	if ct.params.PerfParameters.KernelProfiles {
 		if err = ct.createProfilingPerfDeployment(ctx, PerfServerProfilingDeploymentName, serverNode.Name); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+			ct.Warnf("unable to create deployment: %s", err)
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			if err = ct.createProfilingPerfDeployment(ctx, PerfClientProfilingAcrossDeploymentName, clientNode.Name); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+				ct.Warnf("unable to create deployment: %s", err)
 			}
 		}
 	}

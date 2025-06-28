@@ -63,8 +63,6 @@ type ClientService interface {
 
 	GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error)
 
-	GetServiceID(params *GetServiceIDParams, opts ...ClientOption) (*GetServiceIDOK, error)
-
 	SetTransport(transport runtime.ClientTransport)
 }
 
@@ -141,44 +139,6 @@ func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*Ge
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetService: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-GetServiceID retrieves configuration of a service
-*/
-func (a *Client) GetServiceID(params *GetServiceIDParams, opts ...ClientOption) (*GetServiceIDOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetServiceIDParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "GetServiceID",
-		Method:             "GET",
-		PathPattern:        "/service/{id}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetServiceIDReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*GetServiceIDOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for GetServiceID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

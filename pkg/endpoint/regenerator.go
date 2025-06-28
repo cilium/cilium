@@ -12,7 +12,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
-	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -21,20 +22,21 @@ var (
 		"endpoint-regeneration",
 		"Endpoints regeneration",
 
-		cell.Provide(newRegenerator),
+		cell.Provide(
+			newRegenerator,
+
+			// Provide [regeneration.Fence] to allow sub-systems to delay the initial
+			// endpoint regeneration.
+			regeneration.NewFence,
+		),
 	)
 )
 
-// KVStoreNodesWaitFn is the type of the function used to wait for synchronization
-// of all nodes from the kvstore.
-type KVStoreNodesWaitFn wait.Fn
-
 // Regenerator wraps additional functionalities for endpoint regeneration.
 type Regenerator struct {
-	nodesWaitFn   KVStoreNodesWaitFn
-	ipcacheWaitFn wait.Fn
 	cmWaitFn      wait.Fn
 	cmWaitTimeout time.Duration
+	fence         regeneration.Fence
 
 	logger        *slog.Logger
 	cmSyncLogOnce sync.Once
@@ -45,34 +47,45 @@ func newRegenerator(in struct {
 
 	Logger *slog.Logger
 
-	Config      wait.TimeoutConfig
-	NodesWaitFn KVStoreNodesWaitFn
-	IPCacheSync *ipcache.IPIdentityWatcher
-	ClusterMesh *clustermesh.ClusterMesh
+	Config         wait.TimeoutConfig
+	ClusterMesh    *clustermesh.ClusterMesh
+	Fence          regeneration.Fence
+	LBInitWaitFunc loadbalancer.InitWaitFunc
 }) *Regenerator {
 	waitFn := func(context.Context) error { return nil }
 	if in.ClusterMesh != nil {
 		waitFn = in.ClusterMesh.IPIdentitiesSynced
 	}
-
-	return &Regenerator{
+	r := &Regenerator{
 		logger:        in.Logger,
-		nodesWaitFn:   in.NodesWaitFn,
-		ipcacheWaitFn: in.IPCacheSync.WaitForSync,
 		cmWaitFn:      waitFn,
 		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
-	}
-}
-
-func (r *Regenerator) WaitForKVStoreSync(ctx context.Context) error {
-	if err := r.nodesWaitFn(ctx); err != nil {
-		return err
+		fence:         in.Fence,
 	}
 
-	return r.ipcacheWaitFn(ctx)
+	// !!! Do not add more waits here. These will eventually move out from here
+	// to their proper places !!!
+
+	// Wait for ipcache and identities synchronization from all remote clusters,
+	// to prevent disrupting cross-cluster connections on endpoint regeneration.
+	in.Fence.Add(
+		"clustermesh",
+		r.waitForClusterMeshIPIdentitiesSync,
+	)
+
+	// Wait for the initial load-balancing state to be reconciled to BPF maps.
+	in.Fence.Add(
+		"loadbalancer",
+		in.LBInitWaitFunc,
+	)
+	return r
 }
 
-func (r *Regenerator) WaitForClusterMeshIPIdentitiesSync(ctx context.Context) error {
+func (r *Regenerator) WaitForFence(ctx context.Context) error {
+	return r.fence.Wait(ctx)
+}
+
+func (r *Regenerator) waitForClusterMeshIPIdentitiesSync(ctx context.Context) error {
 	wctx, cancel := context.WithTimeout(ctx, r.cmWaitTimeout)
 	defer cancel()
 	err := r.cmWaitFn(wctx)

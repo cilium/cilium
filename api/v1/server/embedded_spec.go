@@ -1627,30 +1627,6 @@ func init() {
           }
         }
       }
-    },
-    "/service/{id}": {
-      "get": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Retrieve configuration of a service",
-        "parameters": [
-          {
-            "$ref": "#/parameters/service-id"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Service"
-            }
-          },
-          "404": {
-            "description": "Service not found"
-          }
-        }
-      }
     }
   },
   "definitions": {
@@ -7253,34 +7229,6 @@ func init() {
                 "$ref": "#/definitions/Service"
               }
             }
-          }
-        }
-      }
-    },
-    "/service/{id}": {
-      "get": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Retrieve configuration of a service",
-        "parameters": [
-          {
-            "type": "integer",
-            "description": "ID of service",
-            "name": "id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Service"
-            }
-          },
-          "404": {
-            "description": "Service not found"
           }
         }
       }

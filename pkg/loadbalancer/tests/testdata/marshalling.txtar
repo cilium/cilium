@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 #
 # Test JSON and YAML marshalling of load-balancer tables.
 #

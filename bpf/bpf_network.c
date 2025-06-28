@@ -27,6 +27,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
+#ifdef ENABLE_IPSEC
 	/* This program should be attached to the tc-ingress of
 	 * the network-facing device. Thus, as far as Cilium
 	 * knows, no one touches to the ctx->mark before this
@@ -39,7 +40,6 @@ int cil_from_network(struct __ctx_buff *ctx)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 		obs_point_from = TRACE_FROM_STACK;
 
-#ifdef ENABLE_IPSEC
 	/* Pass unknown protocols to the stack */
 	if (!validate_ethertype(ctx, &proto))
 		goto out;

@@ -52,6 +52,7 @@ func (s *SpanStat) End(success bool) *SpanStat {
 // must be called with Lock() held
 func (s *SpanStat) end(success bool) *SpanStat {
 	if !s.spanStart.IsZero() {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		d, _ := safetime.TimeSinceSafe(s.spanStart, logging.DefaultSlogLogger)
 		if success {
 			s.successDuration += d

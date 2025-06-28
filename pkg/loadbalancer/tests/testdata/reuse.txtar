@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 #
 # Test the reuse of a ClusterIP. Validates that we process the changes
 # in services in the right order even though the reflector is batching

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"sync"
 
 	"github.com/cilium/ebpf/internal"
@@ -189,7 +191,8 @@ func findVMLinux() (*os.File, error) {
 // It is not safe for concurrent use.
 type Cache struct {
 	KernelTypes   *Spec
-	KernelModules map[string]*Spec
+	ModuleTypes   map[string]*Spec
+	LoadedModules []string
 }
 
 // NewCache creates a new Cache.
@@ -214,7 +217,11 @@ func NewCache() *Cache {
 		modules[name] = &Spec{decoder: decoder}
 	}
 
-	return &Cache{kernel, modules}
+	if len(modules) == 0 {
+		return &Cache{kernel, nil, nil}
+	}
+
+	return &Cache{kernel, modules, nil}
 }
 
 // Kernel is equivalent to [LoadKernelSpec], except that repeated calls do
@@ -234,12 +241,12 @@ func (c *Cache) Kernel() (*Spec, error) {
 //
 // All modules also share the return value of [Kernel] as their base.
 func (c *Cache) Module(name string) (*Spec, error) {
-	if spec := c.KernelModules[name]; spec != nil {
+	if spec := c.ModuleTypes[name]; spec != nil {
 		return spec, nil
 	}
 
-	if c.KernelModules == nil {
-		c.KernelModules = make(map[string]*Spec)
+	if c.ModuleTypes == nil {
+		c.ModuleTypes = make(map[string]*Spec)
 	}
 
 	base, err := c.Kernel()
@@ -260,6 +267,32 @@ func (c *Cache) Module(name string) (*Spec, error) {
 	}
 
 	spec = &Spec{decoder: decoder}
-	c.KernelModules[name] = spec
+	c.ModuleTypes[name] = spec
 	return spec, err
+}
+
+// Modules returns a sorted list of all loaded modules.
+func (c *Cache) Modules() ([]string, error) {
+	if c.LoadedModules != nil {
+		return c.LoadedModules, nil
+	}
+
+	btfDir, err := os.Open("/sys/kernel/btf")
+	if err != nil {
+		return nil, err
+	}
+	defer btfDir.Close()
+
+	entries, err := btfDir.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+
+	entries = slices.DeleteFunc(entries, func(s string) bool {
+		return s == "vmlinux"
+	})
+
+	sort.Strings(entries)
+	c.LoadedModules = entries
+	return entries, nil
 }

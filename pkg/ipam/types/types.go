@@ -390,7 +390,6 @@ func (in *Subnet) DeepCopyInto(out *Subnet) {
 			(*out)[key] = val
 		}
 	}
-	return
 }
 
 // DeepCopy is a deepcopy function, copying the receiver, creating a new Subnet.

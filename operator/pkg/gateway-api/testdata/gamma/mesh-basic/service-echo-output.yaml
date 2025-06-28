@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: echo
+  namespace: gateway-conformance-mesh
+  resourceVersion: "1000"
+spec:
+  ports:
+  - appProtocol: http
+    name: http
+    port: 80
+    targetPort: 80
+  - appProtocol: http
+    name: http-alt
+    port: 8080
+    targetPort: 8080
+  - name: https
+    port: 443
+    targetPort: 443
+  - name: tcp
+    port: 9090
+    targetPort: 0
+  - appProtocol: grpc
+    name: grpc
+    port: 7070
+    targetPort: 0
+  selector:
+    app: echo
+status:
+  conditions:
+  - lastTransitionTime: "2025-06-19T03:48:45Z"
+    message: Gamma Service has HTTPRoutes attached
+    reason: Accepted
+    status: "True"
+    type: gamma.cilium.io/GammaRoutesAttached
+  - lastTransitionTime: "2025-06-19T03:48:45Z"
+    message: Gamma Service has been programmed
+    reason: Programmed
+    status: "True"
+    type: gamma.cilium.io/GammaRoutesProgrammed
+  loadBalancer: {}

@@ -37,6 +37,7 @@ import (
 //  kubectl run -it --rm --image=nginx  --port=80 --expose nginx
 
 var (
+	// slogloggercheck: it's just an example, so we can use the default logger
 	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "example")
 )
 

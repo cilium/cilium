@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -68,6 +69,7 @@ type configModifyApiHandlerParams struct {
 	DB              *statedb.DB
 	Devices         statedb.Table[*datapathTables.Device]
 	Clientset       k8sClient.Clientset
+	KVStoreConfig   kvstore.Config
 	MonitorAgent    monitorAgent.Agent
 	MTUConfig       mtu.MTU
 	BigTCPConfig    *bigtcp.Configuration
@@ -91,6 +93,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			db:              params.DB,
 			devices:         params.Devices,
 			clientset:       params.Clientset,
+			kvstoreConfig:   params.KVStoreConfig,
 			monitorAgent:    params.MonitorAgent,
 			mtuConfig:       params.MTUConfig,
 			bigTCPConfig:    params.BigTCPConfig,
@@ -140,7 +143,7 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 			}
 			eventHandler.datapathRegenTrigger = rt
 
-			eventHandler.configModifyQueue = eventqueue.NewEventQueueBuffered(logging.DefaultSlogLogger, "config-modify-queue", ConfigModifyQueueSize)
+			eventHandler.configModifyQueue = eventqueue.NewEventQueueBuffered(params.Logger, "config-modify-queue", ConfigModifyQueueSize)
 			eventHandler.configModifyQueue.Run()
 
 			return nil
@@ -334,6 +337,7 @@ type getConfigHandler struct {
 	db              *statedb.DB
 	devices         statedb.Table[*datapathTables.Device]
 	clientset       k8sClient.Clientset
+	kvstoreConfig   kvstore.Config
 	monitorAgent    monitorAgent.Agent
 	mtuConfig       mtu.MTU
 	bigTCPConfig    *bigtcp.Configuration
@@ -371,13 +375,13 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 	}
 
 	status := &models.DaemonConfigurationStatus{
-		Addressing:       node.GetNodeAddressing(logging.DefaultSlogLogger),
+		Addressing:       node.GetNodeAddressing(h.logger),
 		K8sConfiguration: h.clientset.Config().K8sKubeConfigPath,
 		K8sEndpoint:      h.clientset.Config().K8sAPIServer,
 		NodeMonitor:      h.monitorAgent.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
-			Type:    option.Config.KVStore,
-			Options: option.Config.KVStoreOpt,
+			Type:    h.kvstoreConfig.KVStore,
+			Options: h.kvstoreConfig.KVStoreOpt,
 		},
 		Realized:                     spec,
 		DaemonConfigurationMap:       m,

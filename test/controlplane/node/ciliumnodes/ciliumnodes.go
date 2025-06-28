@@ -77,9 +77,7 @@ func init() {
 			t.Fatal(err)
 		}
 
-		modConfig := func(cfg *option.DaemonConfig) {
-			cfg.EnableNodePort = true
-		}
+		modConfig := func(cfg *option.DaemonConfig) {}
 		for _, version := range controlplane.K8sVersions() {
 			abs := func(f string) string { return path.Join(cwd, "node", "ciliumnodes", "v"+version, f) }
 

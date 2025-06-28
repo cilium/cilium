@@ -107,6 +107,7 @@ type reflectorParams struct {
 	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
 	LocalNodeStore         *node.LocalNodeStore
+	SVCMetrics             SVCMetrics `optional:"true"`
 }
 
 func (p reflectorParams) waitTime() time.Duration {
@@ -121,6 +122,10 @@ func RegisterK8sReflector(p reflectorParams) {
 	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
 		return
 	}
+	if p.SVCMetrics == nil {
+		p.SVCMetrics = NewSVCMetricsNoop()
+	}
+
 	podsComplete := p.Writer.RegisterInitializer("k8s-pods")
 	epsComplete := p.Writer.RegisterInitializer("k8s-endpoints")
 	svcComplete := p.Writer.RegisterInitializer("k8s-services")
@@ -157,9 +162,11 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
-				if err := deleteHostPort(p, txn, obj); err != nil {
-					p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-						logfields.Error, err)
+				if p.ExtConfig.EnableHostPort {
+					if err := deleteHostPort(p, txn, obj); err != nil {
+						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+							logfields.Error, err)
+					}
 				}
 			} else {
 				switch obj.Status.Phase {
@@ -167,18 +174,24 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// Pod has been terminated. Clean up the HostPort already even before the Pod object
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
-					if err := deleteHostPort(p, txn, obj); err != nil {
-						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-							logfields.Error, err)
+					if p.ExtConfig.EnableHostPort {
+						if err := deleteHostPort(p, txn, obj); err != nil {
+							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+								logfields.Error, err)
+						}
 					}
 				case slim_corev1.PodRunning:
+					var err error
+
 					if obj.ObjectMeta.DeletionTimestamp != nil {
 						// The pod has been marked for deletion. Stop processing HostPort changes
 						// for it.
 						continue
 					}
 
-					err := upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					if p.ExtConfig.EnableHostPort {
+						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					}
 					rh.update(podName, err)
 				}
 			}
@@ -228,13 +241,17 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 				rh.update("svc:"+name.String(), nil)
 
-				err := p.Writer.DeleteServiceAndFrontends(txn, name)
+				oldSvc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
 				if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
 					p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
 						logfields.Error, err)
 				}
+				if oldSvc != nil {
+					p.SVCMetrics.DelService(oldSvc)
+				}
 				return
 			}
+			p.SVCMetrics.AddService(svc)
 
 			// Sort the frontends by address
 			slices.SortStableFunc(fes, func(a, b loadbalancer.FrontendParams) int {
@@ -248,10 +265,13 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 			rh.update("svc:"+name.String(), nil)
 
-			err := p.Writer.DeleteServiceAndFrontends(txn, name)
+			svc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
 			if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
 				p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
 					logfields.Error, err)
+			}
+			if svc != nil {
+				p.SVCMetrics.DelService(svc)
 			}
 		}
 	}
@@ -562,7 +582,7 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
 		}
 
-		err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		_, err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}
@@ -578,7 +598,7 @@ func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_core
 		if err != nil {
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
 		}
-		err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		_, err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}

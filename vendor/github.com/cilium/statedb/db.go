@@ -98,7 +98,7 @@ type dbState struct {
 	metrics             Metrics
 }
 
-type dbRoot []tableEntry
+type dbRoot = readTxn
 
 type Option func(*opts)
 
@@ -184,10 +184,7 @@ func (db *DB) registerTable(table TableMeta, root *dbRoot) error {
 //
 // The returned ReadTxn is not thread-safe.
 func (db *DB) ReadTxn() ReadTxn {
-	return &txn{
-		db:   db,
-		root: *db.root.Load(),
-	}
+	return (*readTxn)(db.root.Load())
 }
 
 // WriteTxn constructs a new write transaction against the given set of tables.
@@ -211,15 +208,13 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	root := *db.root.Load()
 	tableEntries := make([]*tableEntry, len(root))
 
-	txn := &txn{
-		db:         db,
-		root:       root,
-		handle:     db.handleName,
-		acquiredAt: time.Now(),
-		writeTxn: writeTxn{
-			modifiedTables: tableEntries,
-			smus:           smus,
-		},
+	txn := &writeTxn{
+		db:             db,
+		dbRoot:         root,
+		handle:         db.handleName,
+		acquiredAt:     time.Now(),
+		modifiedTables: tableEntries,
+		smus:           smus,
 	}
 
 	var tableNames []string
@@ -252,7 +247,7 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 }
 
 func (db *DB) GetTables(txn ReadTxn) (tbls []TableMeta) {
-	root := txn.getTxn().root
+	root := txn.root()
 	tbls = make([]TableMeta, 0, len(root))
 	for _, table := range root {
 		tbls = append(tbls, table.meta)
@@ -261,7 +256,7 @@ func (db *DB) GetTables(txn ReadTxn) (tbls []TableMeta) {
 }
 
 func (db *DB) GetTable(txn ReadTxn, name string) TableMeta {
-	root := txn.getTxn().root
+	root := txn.root()
 	for _, table := range root {
 		if table.meta.Name() == name {
 			return table.meta

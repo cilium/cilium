@@ -40,11 +40,18 @@ func NewCmd() *cobra.Command {
 		Use:   "etcdinit",
 		Short: "Initialize an etcd data directory for use by the etcd sidecar of clustermesh-apiserver",
 		PreRun: func(cmd *cobra.Command, args []string) {
+			if err := logging.SetupLogging(nil, map[string]string{}, "etcdinit", vp.GetBool(option.DebugArg)); err != nil {
+				// slogloggercheck: log fatal errors using the default logger before it's initialized.
+				logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
+			}
+
+			// slogloggercheck: the logger has been initialized in the logging.SetupLogging call above
 			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcdinit")
 			option.LogRegisteredSlogOptions(vp, log)
 			log.Info("Cilium ClusterMesh etcd init", logfields.Version, version.Version)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			// slogloggercheck: it has been initialized in the PreRun function.
 			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcdinit")
 			err := InitEtcdLocal(log)
 			// The error has already been handled and logged by InitEtcdLocal. We just use it to determine the exit code
@@ -58,7 +65,7 @@ func NewCmd() *cobra.Command {
 	rootCmd.Flags().String("etcd-cluster-name", "clustermesh-apiserver", "Name of the etcd cluster. Must match what etcd is later started with.")
 	rootCmd.Flags().String("cluster-name", defaults.ClusterName, "Name of the Cilium cluster, used to set the username of the admin user in etcd. This is distinct from the etcd cluster's name.")
 	rootCmd.Flags().Duration("timeout", time.Minute*2, "How long to wait for operations before exiting.")
-	rootCmd.Flags().Bool("debug", false, "Debug log output.")
+	rootCmd.Flags().Bool(option.DebugArg, false, "Debug log output.")
 	// Use Viper for configuration so that we can parse both command line flags and environment variables
 	vp.BindPFlags(rootCmd.Flags())
 	vp.SetEnvPrefix("cilium")
@@ -73,7 +80,7 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 	etcdInitialClusterToken := vp.GetString("etcd-initial-cluster-token")
 	etcdClusterName := vp.GetString("etcd-cluster-name")
 	ciliumClusterName := vp.GetString("cluster-name")
-	debug := vp.GetBool("debug")
+	debug := vp.GetBool(option.DebugArg)
 	timeout := vp.GetDuration("timeout")
 	// We have returnErr has a named variable, so we can set it in the deferred cleanup function if needed
 	log.Info(

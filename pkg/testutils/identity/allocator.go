@@ -14,7 +14,11 @@ import (
 
 type IdentityAllocatorOwnerMock struct{}
 
-func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMap) {}
+func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
+}
 
 func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"
@@ -128,6 +132,32 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	f.idToIdentity[int(id)] = realID
 
 	return realID, true, nil
+}
+
+func (f *MockIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	scope := identity.ScopeForLabels(lbls)
+	if scope == identity.IdentityScopeGlobal {
+		return nil, false, cache.ErrNonLocalIdentity
+	}
+	return f.AllocateIdentity(context.TODO(), lbls, notifyOwner, oldNID)
+}
+
+func (f *MockIdentityAllocator) ReleaseLocalIdentities(nids ...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
+	var dealloc []identity.NumericIdentity
+	for _, nid := range nids {
+		if nid.Scope() == identity.IdentityScopeGlobal {
+			continue
+		}
+		id := f.LookupIdentityByID(context.TODO(), nid)
+		if id == nil {
+			continue
+		}
+
+		if r, _ := f.Release(context.TODO(), id, true); r {
+			dealloc = append(dealloc, nid)
+		}
+	}
+	return dealloc, nil
 }
 
 // Release releases a fake identity. It is meant to generally mock the

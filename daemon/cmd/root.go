@@ -32,20 +32,25 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 				os.Exit(0)
 			}
 
-			daemonLogger := logging.DefaultSlogLogger.With(logfields.LogSubsys, daemonSubsys)
 			// Initialize working directories and validate the configuration.
-			initEnv(daemonLogger, h.Viper())
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
+			initEnv(logging.DefaultSlogLogger, h.Viper())
+
+			// Create a new logger for the daemon after we have initialized the
+			// configuration in initEnv().
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
+			daemonLogger := logging.DefaultSlogLogger.With(logfields.LogSubsys, daemonSubsys)
 
 			// Validate the daemon-specific global options.
 			if err := option.Config.Validate(h.Viper()); err != nil {
 				logging.Fatal(daemonLogger, fmt.Sprintf("invalid daemon configuration: %s", err))
 			}
 
-			// Pass the DefaultSlogLogger to the hive after being initialized
-			// with the initEnv which sets up the logging.DefaultSlogLogger with
-			// the user-options.
+			// Initialize the daemon configuration and logging with the
+			// DefaultSlogLogger without any logfields.
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
-				logging.Fatal(logging.DefaultSlogLogger, fmt.Sprintf("unable to run agent: %s", err))
+				logging.Fatal(daemonLogger, fmt.Sprintf("unable to run agent: %s", err))
 			} else {
 				// If h.Run() exits with no errors, it means the agent gracefully shut down.
 				// (There is a CI job that ensures this is the case)
@@ -64,9 +69,11 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 		h.Command(),
 	)
 
+	// slogloggercheck: using default logger for initializing global flags
 	InitGlobalFlags(logging.DefaultSlogLogger, rootCmd, h.Viper())
 
 	cobra.OnInitialize(
+		// slogloggercheck: using default logger for configuration initialization
 		option.InitConfig(logging.DefaultSlogLogger, rootCmd, "cilium-agent", "cilium", h.Viper()),
 
 		// Populate the config and initialize the logger early as these

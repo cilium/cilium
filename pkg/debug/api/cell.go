@@ -5,11 +5,12 @@ package api
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/spf13/cast"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/status"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -30,9 +31,10 @@ var Cell = cell.Module(
 type debugAPIHandlerParams struct {
 	cell.In
 
+	DB              *statedb.DB
+	Frontends       statedb.Table[*loadbalancer.Frontend]
 	EndpointManager endpointmanager.EndpointManager
 	PolicyRepo      policy.PolicyRepository
-	ServiceManager  service.ServiceManager
 	WireguardAgent  *wireguard.Agent
 
 	StatusCollector status.StatusCollector
@@ -50,7 +52,8 @@ func newDebugAPIHandler(params debugAPIHandlerParams) debugAPIHandlerOut {
 		GetDebuginfoHandler: &GetDebuginfoHandler{
 			endpointManager: params.EndpointManager,
 			policyRepo:      params.PolicyRepo,
-			serviceManager:  params.ServiceManager,
+			db:              params.DB,
+			frontends:       params.Frontends,
 			wireguardAgent:  params.WireguardAgent,
 			statusCollector: params.StatusCollector,
 			settings:        params.CellSettings,

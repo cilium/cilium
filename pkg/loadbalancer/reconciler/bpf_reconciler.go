@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -42,7 +43,7 @@ const (
 	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
 	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
 	// while agent was down).
-	initGracePeriod = 10 * time.Second
+	initGracePeriod = 1 * time.Minute
 )
 
 func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
@@ -118,10 +119,12 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 
 type BPFOps struct {
 	LBMaps maps.LBMaps
-	log    *slog.Logger
-	cfg    loadbalancer.Config
-	extCfg loadbalancer.ExternalConfig
-	maglev *maglev.Maglev
+	log    rateLimitingLogger
+
+	cfg           loadbalancer.Config
+	extCfg        loadbalancer.ExternalConfig
+	maglev        *maglev.Maglev
+	lastUpdatedAt atomic.Pointer[time.Time]
 
 	serviceIDAlloc     idAllocator
 	restoredServiceIDs sets.Set[loadbalancer.ID]
@@ -181,20 +184,28 @@ type bpfOpsParams struct {
 }
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
-	if !p.Config.EnableExperimentalLB {
-		return nil
-	}
 	ops := &BPFOps{
 		cfg:       p.Config,
 		extCfg:    p.ExternalConfig,
 		maglev:    p.Maglev,
-		log:       p.Log,
+		log:       newRateLimitingLogger(p.Log),
 		LBMaps:    p.LBMaps,
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
 	}
+	ops.setLastUpdatedAt()
+
 	p.Lifecycle.Append(cell.Hook{OnStart: ops.start})
 	return ops
+}
+
+func (ops *BPFOps) GetLastUpdatedAt() time.Time {
+	return *ops.lastUpdatedAt.Load()
+}
+
+func (ops *BPFOps) setLastUpdatedAt() {
+	now := time.Now()
+	ops.lastUpdatedAt.Store(&now)
 }
 
 func (ops *BPFOps) start(cell.HookContext) (err error) {
@@ -285,6 +296,8 @@ func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+	defer ops.setLastUpdatedAt()
+
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -298,20 +311,16 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 
 		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port}
-		addrs, ok := ops.nodePortAddrByPort[key]
-		if ok {
-			for _, addr := range addrs {
-				fe = fe.Clone()
-				fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
-				if err := ops.deleteFrontend(fe); err != nil {
-					ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
-					return err
-				}
+		addrs := ops.nodePortAddrByPort[key]
+		for _, addr := range addrs {
+			fe = fe.Clone()
+			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
+			if err := ops.deleteFrontend(fe); err != nil {
+				ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
+				return err
 			}
-			delete(ops.nodePortAddrByPort, key)
-		} else {
-			ops.log.Warn("no nodePortAddrs", logfields.Port, fe.Address.Port)
 		}
+		delete(ops.nodePortAddrByPort, key)
 	}
 
 	return nil
@@ -338,7 +347,6 @@ func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, b
 }
 
 func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
-
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
 		ops.log.Debug("Delete frontend: no ID found", logfields.Address, fe.Address)
@@ -361,13 +369,15 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	// Clean up any potential affinity match entries. We do this regardless of
-	// whether or not SessionAffinity is enabled as it might've been toggled by
-	// the user. Could optimize this by holding some more state if needed.
-	for addr := range ops.backendReferences[fe.Address] {
-		err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
-		if err != nil {
-			return fmt.Errorf("delete affinity match %d: %w", feID, err)
+	if ops.extCfg.EnableSessionAffinity {
+		// Clean up any potential affinity match entries. We do this regardless of
+		// whether or not SessionAffinity is enabled as it might've been toggled by
+		// the user. Could optimize this by holding some more state if needed.
+		for addr := range ops.backendReferences[fe.Address] {
+			err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
+			if err != nil {
+				return fmt.Errorf("delete affinity match %d: %w", feID, err)
+			}
 		}
 	}
 
@@ -415,18 +425,20 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
 	}
 
-	for cidr := range ops.prevSourceRanges[fe.Address] {
-		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
-			continue
+	if ops.extCfg.EnableSVCSourceRangeCheck {
+		for cidr := range ops.prevSourceRanges[fe.Address] {
+			if cidr.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
+			err := ops.LBMaps.DeleteSourceRange(
+				srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
+			)
+			if err != nil {
+				return fmt.Errorf("update source range: %w", err)
+			}
 		}
-		err := ops.LBMaps.DeleteSourceRange(
-			srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
-		)
-		if err != nil {
-			return fmt.Errorf("update source range: %w", err)
-		}
+		delete(ops.prevSourceRanges, fe.Address)
 	}
-	delete(ops.prevSourceRanges, fe.Address)
 
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
@@ -457,7 +469,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			expectedSlots = 1 + len(bes)
 		}
 		if svcKey.GetBackendSlot()+1 > expectedSlots {
-			ops.log.Info("pruneServiceMaps: deleting",
+			ops.log.Debug("pruneServiceMaps: deleting",
 				logfields.ID, svcValue.GetRevNat(),
 				logfields.Address, addr)
 			toDelete = append(toDelete, svcKey.ToNetwork())
@@ -471,7 +483,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		}
 	}
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
-		ops.log.Warn("Failed to prune service maps", logfields.Error, err)
+		ops.log.Warn("Failed to dump service maps", logfields.Error, err)
 	}
 
 	for _, key := range toDelete {
@@ -488,7 +500,7 @@ func (ops *BPFOps) pruneBackendMaps() error {
 		beValue = beValue.ToHost()
 		addr := beValueToAddr(beValue)
 		if _, ok := ops.backendStates[addr]; !ok {
-			ops.log.Info("pruneBackendMaps: deleting",
+			ops.log.Debug("pruneBackendMaps: deleting",
 				logfields.ID, beKey.GetID(),
 				logfields.Address, addr,
 			)
@@ -496,7 +508,7 @@ func (ops *BPFOps) pruneBackendMaps() error {
 		}
 	}
 	if err := ops.LBMaps.DumpBackend(beCB); err != nil {
-		ops.log.Warn("Failed to prune backend maps", logfields.Error, err)
+		ops.log.Warn("Failed to dump backend maps", logfields.Error, err)
 	}
 
 	for _, key := range toDelete {
@@ -554,6 +566,10 @@ func (ops *BPFOps) pruneRevNat() error {
 }
 
 func (ops *BPFOps) pruneSourceRanges() error {
+	if !ops.extCfg.EnableSVCSourceRangeCheck {
+		return nil
+	}
+
 	toDelete := []maps.SourceRangeKey{}
 	cb := func(key maps.SourceRangeKey, value *maps.SourceRangeValue) {
 		key = key.ToHost()
@@ -634,12 +650,14 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+	defer ops.setLastUpdatedAt()
+
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
 
 	if err := ops.updateFrontend(fe); err != nil {
-		ops.log.Warn("Updating frontend failed, retrying", logfields.Error, err)
+		ops.log.Warn("Updating frontend failed", logfields.Error, err)
 		return err
 	}
 
@@ -668,7 +686,10 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.updateFrontend(fe); err != nil {
-				ops.log.Warn("Updating frontend failed, retrying", logfields.Error, err)
+				ops.log.Warn("Updating frontend failed",
+					logfields.Error, err,
+					logfields.Address, fe.Address,
+				)
 				return err
 			}
 			old.Delete(addr)
@@ -679,7 +700,10 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.deleteFrontend(fe); err != nil {
-				ops.log.Warn("Deleting orphan frontend failed, retrying", logfields.Error, err)
+				ops.log.Warn("Deleting orphan frontend failed",
+					logfields.Error, err,
+					logfields.Address, fe.Address,
+				)
 				return err
 			}
 		}
@@ -776,8 +800,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
-		if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
-			return fmt.Errorf("delete affinity match: %w", err)
+		if ops.extCfg.EnableSessionAffinity {
+			if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
+				return fmt.Errorf("delete affinity match: %w", err)
+			}
 		}
 		ops.releaseBackend(orphanState.id, orphanState.addr)
 	}
@@ -828,22 +854,24 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			return fmt.Errorf("upsert service: %w", err)
 		}
 
-		// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
-		// state to avoid the extra syscalls when session affinity is not enabled.
-		// For now we update these regardless so that we handle properly the SessionAffinity being
-		// flipped on and then off.
-		if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
-			ops.log.Debug("Update affinity",
-				logfields.ID, feID,
-				logfields.BackendID, beID)
-			if err := ops.upsertAffinityMatch(feID, beID); err != nil {
-				return fmt.Errorf("upsert affinity match: %w", err)
-			}
-		} else {
-			// SessionAffinity either disabled or backend not active, no matter which
-			// clean up any affinity match that might exist.
-			if err := ops.deleteAffinityMatch(feID, beID); err != nil {
-				return fmt.Errorf("delete affinity match: %w", err)
+		if ops.extCfg.EnableSessionAffinity {
+			// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
+			// state to avoid the extra syscalls when session affinity is not enabled.
+			// For now we update these regardless so that we handle properly the SessionAffinity being
+			// flipped on and then off.
+			if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
+				ops.log.Debug("Update affinity",
+					logfields.ID, feID,
+					logfields.BackendID, beID)
+				if err := ops.upsertAffinityMatch(feID, beID); err != nil {
+					return fmt.Errorf("upsert affinity match: %w", err)
+				}
+			} else {
+				// SessionAffinity either disabled or backend not active, no matter which
+				// clean up any affinity match that might exist.
+				if err := ops.deleteAffinityMatch(feID, beID); err != nil {
+					return fmt.Errorf("delete affinity match: %w", err)
+				}
 			}
 		}
 
@@ -885,45 +913,47 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
-	// always reflects what was successfully added to the BPF maps in order
-	// not to leak a source range on failed operation.
-	prevSourceRanges := ops.prevSourceRanges[fe.Address]
-	if prevSourceRanges == nil {
-		prevSourceRanges = sets.New[netip.Prefix]()
-		ops.prevSourceRanges[fe.Address] = prevSourceRanges
-	}
-	orphanSourceRanges := prevSourceRanges.Clone()
-	srcRangeValue := &maps.SourceRangeValue{}
-	for _, prefix := range fe.Service.SourceRanges {
-		if prefix.Addr().Is6() != fe.Address.IsIPv6() {
-			continue
+	if ops.extCfg.EnableSVCSourceRangeCheck {
+		// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
+		// always reflects what was successfully added to the BPF maps in order
+		// not to leak a source range on failed operation.
+		prevSourceRanges := ops.prevSourceRanges[fe.Address]
+		if prevSourceRanges == nil {
+			prevSourceRanges = sets.New[netip.Prefix]()
+			ops.prevSourceRanges[fe.Address] = prevSourceRanges
 		}
+		orphanSourceRanges := prevSourceRanges.Clone()
+		srcRangeValue := &maps.SourceRangeValue{}
+		for _, prefix := range fe.Service.SourceRanges {
+			if prefix.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
 
-		err := ops.LBMaps.UpdateSourceRange(
-			srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
-			srcRangeValue,
-		)
-		if err != nil {
-			return fmt.Errorf("update source range: %w", err)
-		}
+			err := ops.LBMaps.UpdateSourceRange(
+				srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
+				srcRangeValue,
+			)
+			if err != nil {
+				return fmt.Errorf("update source range: %w", err)
+			}
 
-		orphanSourceRanges.Delete(prefix)
-		prevSourceRanges.Insert(prefix)
-	}
-	// Remove orphan source ranges.
-	for cidr := range orphanSourceRanges {
-		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
-			continue
+			orphanSourceRanges.Delete(prefix)
+			prevSourceRanges.Insert(prefix)
 		}
-		err := ops.LBMaps.DeleteSourceRange(
-			srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
-		)
-		if err != nil {
-			return fmt.Errorf("update source range: %w", err)
-		}
+		// Remove orphan source ranges.
+		for cidr := range orphanSourceRanges {
+			if cidr.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
+			err := ops.LBMaps.DeleteSourceRange(
+				srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
+			)
+			if err != nil {
+				return fmt.Errorf("update source range: %w", err)
+			}
 
-		prevSourceRanges.Delete(cidr)
+			prevSourceRanges.Delete(cidr)
+		}
 	}
 
 	// Update RevNat
@@ -1033,7 +1063,7 @@ func (ops *BPFOps) upsertMaster(svcKey maps.ServiceKey, svcVal maps.ServiceValue
 	svc := fe.Service
 
 	// Set the SessionAffinity/L7ProxyPort. These re-use the "backend ID".
-	if svc.SessionAffinity {
+	if svc.SessionAffinity && ops.extCfg.EnableSessionAffinity {
 		if err := svcVal.SetSessionAffinityTimeoutSec(uint32(svc.SessionAffinityTimeout.Seconds())); err != nil {
 			return err
 		}

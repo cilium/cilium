@@ -23,6 +23,5 @@ List services & loadbalancers
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg service get](cilium-dbg_service_get.md)	 - Display service information
 * [cilium-dbg service list](cilium-dbg_service_list.md)	 - List services
 

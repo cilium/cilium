@@ -99,6 +99,11 @@ func (vr *VerifyReader) Verify() error {
 
 // NewVerifyReader wraps r for reading content with verification against desc.
 func NewVerifyReader(r io.Reader, desc ocispec.Descriptor) *VerifyReader {
+	if err := desc.Digest.Validate(); err != nil {
+		return &VerifyReader{
+			err: fmt.Errorf("failed to validate %s: %w", desc.Digest, err),
+		}
+	}
 	verifier := desc.Digest.Verifier()
 	lr := &io.LimitedReader{
 		R: io.TeeReader(r, verifier),

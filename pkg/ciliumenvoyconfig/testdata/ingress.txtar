@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 # Test the CiliumEnvoyConfig handling for the ingress service created by the operator.
 # This validates that we process the service even though it has no endpoints associated
 # to it.

@@ -43,7 +43,7 @@ var errUnexpectedWarningFormat = errors.New("unexpected warning format")
 // WarningValue represents the value of the Warning header.
 //
 // References:
-//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#warnings
+//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#warnings
 //   - https://www.rfc-editor.org/rfc/rfc7234#section-5.5
 type WarningValue struct {
 	// Code is the warn-code.
@@ -58,7 +58,7 @@ type WarningValue struct {
 // other information related to the warning.
 //
 // References:
-//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#warnings
+//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#warnings
 //   - https://www.rfc-editor.org/rfc/rfc7234#section-5.5
 type Warning struct {
 	// WarningValue is the value of the warning header.

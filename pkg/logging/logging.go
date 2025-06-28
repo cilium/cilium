@@ -47,6 +47,10 @@ var (
 	LevelPanic = slog.LevelError + 8
 	LevelFatal = LevelPanic + 2
 )
+var (
+	levelPanicValue = slog.AnyValue(LevelPanic)
+	levelFatalValue = slog.AnyValue(LevelFatal)
+)
 
 // LogOptions maps configuration key-value pairs related to logging.
 type LogOptions map[string]string

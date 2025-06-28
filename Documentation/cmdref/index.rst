@@ -11,14 +11,13 @@ Command Reference
 
    .. toctree::
       :maxdepth: 0
-      :glob:
+      :titlesonly:
 
-      cilium-agent
-      cli_index
-      cilium-health
-      cilium-operator
-      cilium-operator-aws
-      cilium-operator-azure
-      cilium-operator-generic
+      index_cilium_cli
+      index_cilium-agent
+      index_cilium-bugtool
+      index_cilium-dbg
+      index_cilium-health
+      index_cilium-operator
+      index_clustermesh-apiserver
       kvstore
-      clustermesh-apiserver

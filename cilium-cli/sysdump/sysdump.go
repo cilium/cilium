@@ -403,7 +403,7 @@ func (c *Collector) teardownLogging() {
 
 // replaceTimestamp can be used to replace the special timestamp placeholder in file and directory names.
 func (c *Collector) replaceTimestamp(f string) string {
-	return strings.Replace(f, timestampPlaceholderFileName, c.startTime.Format(timeFormat), -1)
+	return strings.ReplaceAll(f, timestampPlaceholderFileName, c.startTime.Format(timeFormat))
 }
 
 // AbsoluteTempPath returns the absolute path where to store the specified filename temporarily.
@@ -2236,7 +2236,7 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 			if err != nil {
 				return fmt.Errorf("failed to collect 'tetragon-bugtool' output for %q: %w", p.Name, err)
 			}
-			if err := untar(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+			if err := untar(f, strings.ReplaceAll(f, ".tar.gz", "")); err != nil {
 				c.logWarn("Failed to unarchive 'tetragon-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}
@@ -2412,7 +2412,7 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
 			// Untar the resulting file.
-			if err := untar(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+			if err := untar(f, strings.ReplaceAll(f, ".tar.gz", "")); err != nil {
 				c.logWarn("Failed to unarchive 'cilium-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}

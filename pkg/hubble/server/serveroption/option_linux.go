@@ -32,7 +32,7 @@ func WithUnixSocketListener(scopedLog *slog.Logger, path string) Option {
 			return err
 		}
 		if os.Getuid() == 0 {
-			if err := api.SetDefaultPermissions(scopedLog, socketPath); err != nil {
+			if err := api.SetDefaultPermissions(scopedLog.Debug, socketPath); err != nil {
 				socket.Close()
 				return err
 			}

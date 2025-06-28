@@ -10,7 +10,7 @@ import (
 	"iter"
 	"slices"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Set is a persistent (immutable) set of values. A Set can be
@@ -27,23 +27,29 @@ type Set[T any] struct {
 // NewSet creates a new set of T.
 // The value type T must be registered with RegisterKeyType.
 func NewSet[T any](values ...T) Set[T] {
-	s := Set[T]{tree: New[T](RootOnlyWatch)}
-	s.toBytes = lookupKeyType[T]()
-	if len(values) > 0 {
-		txn := s.tree.Txn()
-		for _, v := range values {
-			txn.Insert(s.toBytes(v), v)
-		}
-		s.tree = txn.CommitOnly()
+	if len(values) == 0 {
+		return Set[T]{}
 	}
+	s := Set[T]{}
+	s.ensureTree()
+	txn := s.tree.Txn()
+	for _, v := range values {
+		txn.Insert(s.toBytes(v), v)
+	}
+	s.tree = txn.CommitOnly()
 	return s
+}
+
+func (s *Set[T]) ensureTree() {
+	if s.tree == nil {
+		s.tree = New[T](RootOnlyWatch, NoCache)
+	}
+	s.toBytes = lookupKeyType[T]()
 }
 
 // Set a value. Returns a new set. Original is unchanged.
 func (s Set[T]) Set(v T) Set[T] {
-	if s.tree == nil {
-		return NewSet(v)
-	}
+	s.ensureTree()
 	txn := s.tree.Txn()
 	txn.Insert(s.toBytes(v), v)
 	s.tree = txn.CommitOnly() // As Set is passed by value we can just modify it.
@@ -59,6 +65,9 @@ func (s Set[T]) Delete(v T) Set[T] {
 	txn := s.tree.Txn()
 	txn.Delete(s.toBytes(v))
 	s.tree = txn.CommitOnly()
+	if s.tree.Len() == 0 {
+		s.tree = nil
+	}
 	return s
 }
 
@@ -186,9 +195,8 @@ func (s *Set[T]) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("%T.UnmarshalJSON: expected '[' got %v", s, t)
 	}
 
-	if s.tree == nil {
-		*s = NewSet[T]()
-	}
+	*s = Set[T]{}
+	s.ensureTree()
 	txn := s.tree.Txn()
 
 	for dec.More() {
@@ -200,6 +208,9 @@ func (s *Set[T]) UnmarshalJSON(data []byte) error {
 		txn.Insert(s.toBytes(x), x)
 	}
 	s.tree = txn.CommitOnly()
+	if s.tree.Len() == 0 {
+		s.tree = nil
+	}
 
 	t, err = dec.Token()
 	if err != nil {
@@ -221,9 +232,8 @@ func (s *Set[T]) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("%T.UnmarshalYAML: expected sequence", s)
 	}
 
-	if s.tree == nil {
-		*s = NewSet[T]()
-	}
+	*s = Set[T]{}
+	s.ensureTree()
 	txn := s.tree.Txn()
 
 	for _, e := range value.Content {

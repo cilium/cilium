@@ -40,14 +40,14 @@ Prerequisites
 
 .. include:: ../../installation/k8s-install-download-release.rst
 
-Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
+Enable the feature by setting the ``localRedirectPolicies.enabled`` value to ``true``.
 
 .. parsed-literal::
 
    helm upgrade cilium |CHART_RELEASE| \\
      --namespace kube-system \\
      --reuse-values \\
-     --set localRedirectPolicy=true
+     --set localRedirectPolicies.enabled=true
 
 
 Rollout the operator and agent pods to make the changes effective:
@@ -83,7 +83,7 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
 
     Local Redirect Policy supports either the socket-level loadbalancer or the tc loadbalancer.
     The configuration depends on your specific use case and the type of service handling required.
-    Below are the Helm setups to work with ``localRedirectPolicy=true``:
+    Below are the Helm setups to work with ``localRedirectPolicies.enabled=true``:
 
     1. Enable full kube-proxy replacement:
 
@@ -93,7 +93,8 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
       .. code-block:: yaml
 
         kubeProxyReplacement: true
-        localRedirectPolicy: true
+        localRedirectPolicies:
+          enabled: true
 
     2. Bypass the socket-level loadbalancer in pod namespaces:
 
@@ -106,7 +107,8 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
         kubeProxyReplacement: true
         socketLB:
           hostNamespaceOnly: true
-        localRedirectPolicy: true
+        localRedirectPolicies:
+          enabled: true
 
     3. Enable the socket-level loadbalancer only:
 
@@ -118,7 +120,8 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
         kubeProxyReplacement: false
         socketLB:
           enabled: true
-        localRedirectPolicy: true
+        localRedirectPolicies:
+          enabled: true
 
     4. Disable any service handling except for ClusterIP services accessed from pods:
 
@@ -130,7 +133,8 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
       .. code-block:: yaml
 
         kubeProxyReplacement: false
-        localRedirectPolicy: true
+        localRedirectPolicies:
+          enabled: true
 
 Create backend and client pods
 ==============================
@@ -255,6 +259,20 @@ Verify that the traffic was redirected to the ``lrp-pod`` that was deployed.
     01:36:24.608876 IP 10.16.70.187.80 > 10.16.215.55.60876: Flags [.], ack 96, win 219, options [nop,nop,TS val 2962246962 ecr 2541637677], length 0
     01:36:24.609007 IP 10.16.70.187.80 > 10.16.215.55.60876: Flags [P.], seq 1:239, ack 96, win 219, options [nop,nop,TS val 2962246962 ecr 2541637677], length 238: HTTP: HTTP/1.1 200 OK
     01:36:24.609052 IP 10.16.215.55.60876 > 10.16.70.187.80: Flags [.], ack 239, win 229, options [nop,nop,TS val 2541637677 ecr 2962246962], length 0
+
+The allowed addresses can be constrained clusterwide using the
+``localRedirectPolicies.addressMatcherCIDRs`` helm option:
+
+.. code-block:: yaml
+
+  localRedirectPolicies:
+    enabled: true
+    addressMatchCIDRs:
+	- 169.254.169.254/32
+
+The above would only allow traffic going to ``169.254.169.254`` to be redirected
+with an AddressMatcher rule. A policy with a disallowed address will be rejected
+and a warning log message is emitted by cilium-agent.
 
 .. _ServiceMatcher:
 

@@ -4,37 +4,18 @@
 package types
 
 import (
-	"context"
 	"net"
 	"net/netip"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/identity"
 )
 
-// PolicyHandler is responsible for handling identity updates into the core
+// IdentityUpdater is responsible for handling identity updates into the core
 // policy engine. See SelectorCache.UpdateIdentities() for more details.
-type PolicyHandler interface {
-	UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool)
-}
-
-// PolicyUpdater is responsible for triggering regeneration of all endpoints.
-// See pkg/policy/trigger.go for more details.
-type PolicyUpdater interface {
-	TriggerPolicyUpdates(reason string)
-}
-
-// DatapathHandler is responsible for ensuring that policy updates in the
-// core policy engine are pushed into the underlying BPF policy maps, to ensure
-// that the policies are actively being enforced in the datapath for any new
-// identities that have been updated using 'PolicyHandler'.
-//
-// Wait on the returned sync.WaitGroup to ensure that the operation is complete
-// before updating the datapath's IPCache maps.
-type DatapathHandler interface {
-	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
+type IdentityUpdater interface {
+	UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{}
 }
 
 // ResourceID identifies a unique copy of a resource that provides a source for

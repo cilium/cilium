@@ -31,7 +31,7 @@ func FilterCIDRLabels(log *slog.Logger, labels []string) []string {
 		// labels for IPv6 addresses are represented with - instead of : as
 		// : cannot be used in labels; make sure to convert it to a valid
 		// IPv6 representation
-		currLabel = strings.Replace(currLabel, "-", ":", -1)
+		currLabel = strings.ReplaceAll(currLabel, "-", ":")
 		_, curr, err := net.ParseCIDR(currLabel)
 		if err != nil {
 			log.Warn(

@@ -90,25 +90,16 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct ipv6_authhdr *authhdr;
 	struct ipv6_opt_hdr *l3_next;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)v6_node_one, (__u8 *)v6_node_two);
 	if (!l3)
 		return TEST_ERROR;
-
-	memcpy(&l3->saddr, (__u8 *)v6_node_one, sizeof(l3->saddr));
-	memcpy(&l3->daddr, (__u8 *)v6_node_two, sizeof(l3->daddr));
 
 	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_AUTH, 0);
 	if (!l3_next)

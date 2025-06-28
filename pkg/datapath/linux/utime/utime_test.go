@@ -38,7 +38,7 @@ func TestGetBoottime(t *testing.T) {
 	require.NoError(t, err)
 	logger := hivetest.Logger(t)
 	logger.Info("Adjusted boot time",
-		logfields.BootTime, boottime.String(),
+		logfields.BootTime, boottime,
 	)
 
 	runtime.LockOSThread()

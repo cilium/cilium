@@ -22,9 +22,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/hive"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -35,6 +38,7 @@ type cecControllerParams struct {
 	DB             *statedb.DB
 	JobGroup       job.Group
 	ExpConfig      loadbalancer.Config
+	DaemonConfig   *option.DaemonConfig
 	Metrics        Metrics
 	CECs           statedb.Table[*CEC]
 	EnvoyResources statedb.RWTable[*EnvoyResource]
@@ -63,10 +67,9 @@ type cecController struct {
 }
 
 func registerCECController(params cecControllerParams) {
-	if !params.ExpConfig.EnableExperimentalLB {
+	if !params.DaemonConfig.EnableL7Proxy || !params.DaemonConfig.EnableEnvoyConfig {
 		return
 	}
-
 	c := &cecController{
 		cecControllerParams: params,
 	}
@@ -219,8 +222,6 @@ func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan str
 	}
 
 	c.orphans = existing
-
-	return
 }
 
 func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *statedb.WatchSet {
@@ -518,4 +519,59 @@ func computeLoadAssignments(
 		}
 	}
 	return
+}
+
+// maxSyncWaitTime is the amount of time to wait for CECs to be synced to Envoy before
+// allowing endpoint regeneration to proceed. This is the maximum delay introduced by the
+// CEC processing to the initial endpoint generation.
+const maxSyncWaitTime = time.Minute
+
+// registerRegenerationWait registers initializer to block the endpoint regeneration
+// before we've reconciled to Envoy.
+func registerRegenerationWait(p cecControllerParams, fence regeneration.Fence) {
+	if !p.DaemonConfig.EnableL7Proxy || !p.DaemonConfig.EnableEnvoyConfig {
+		return
+	}
+	fence.Add("ciliumenvoyconfig", initWaitFunc(p))
+}
+
+func initWaitFunc(p cecControllerParams) hive.WaitFunc {
+	return func(ctx context.Context) error {
+		ctx, cancel := context.WithTimeout(ctx, maxSyncWaitTime)
+		defer cancel()
+
+		// Wait until the table has been populated.
+		_, initWatch := p.EnvoyResources.Initialized(p.DB.ReadTxn())
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-initWatch:
+		}
+
+		// Wait for all initial resources to have been synced to Envoy.
+		seen := sets.New[EnvoyResourceName]()
+		for {
+			ers, watch := p.EnvoyResources.AllWatch(p.DB.ReadTxn())
+			done := true
+			for er := range ers {
+				if seen.Has(er.Name) {
+					continue
+				}
+				if er.Status.Kind == reconciler.StatusKindPending {
+					done = false
+					break
+				}
+				seen.Insert(er.Name)
+			}
+			if done {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-watch:
+			}
+		}
+		return nil
+	}
 }

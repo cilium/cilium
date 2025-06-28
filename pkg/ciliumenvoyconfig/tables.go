@@ -5,6 +5,7 @@ package ciliumenvoyconfig
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,7 @@ type CEC struct {
 	Name k8sTypes.NamespacedName
 	Spec *ciliumv2.CiliumEnvoyConfigSpec
 
+	Labels           map[string]string
 	Selector         labels.Selector `json:"-" yaml:"-"`
 	SelectsLocalNode bool
 	Listeners        part.Map[string, uint16]
@@ -49,6 +51,7 @@ func (*CEC) TableHeader() []string {
 	return []string{
 		"Name",
 		"Selected",
+		"Labels",
 		"NodeSelector",
 		"Services",
 		"BackendServices",
@@ -57,7 +60,7 @@ func (*CEC) TableHeader() []string {
 }
 
 func (cec *CEC) TableRow() []string {
-	var services, beServices, listeners []string
+	var services, beServices, listeners, labels []string
 	for _, svcl := range cec.Spec.Services {
 		services = append(services, svcl.Namespace+"/"+svcl.Name)
 	}
@@ -67,9 +70,14 @@ func (cec *CEC) TableRow() []string {
 	for name, port := range cec.Listeners.All() {
 		listeners = append(listeners, fmt.Sprintf("%s:%d", name, port))
 	}
+	for k, v := range cec.Labels {
+		labels = append(labels, k+"="+v)
+	}
+	slices.Sort(labels)
 	return []string{
 		cec.Name.String(),
 		strconv.FormatBool(cec.SelectsLocalNode),
+		strings.Join(labels, ", "),
 		cec.Selector.String(),
 		strings.Join(services, ", "),
 		strings.Join(beServices, ", "),

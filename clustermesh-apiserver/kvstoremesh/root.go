@@ -19,7 +19,9 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		Use:   "kvstoremesh",
 		Short: "Run KVStoreMesh",
 		Run: func(cmd *cobra.Command, args []string) {
+			// slogloggercheck: it has been initialized in the PreRun function.
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+				// slogloggercheck: log fatal errors using the default logger before it's initialized.
 				logging.Fatal(logging.DefaultSlogLogger, err.Error())
 			}
 		},
@@ -28,6 +30,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			metrics.Namespace = metrics.CiliumKVStoreMeshNamespace
 			option.Config.SetupLogging(h.Viper(), "kvstoremesh")
 
+			// slogloggercheck: the logger has been initialized in the SetupLogging call above
 			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "kvstoremesh")
 
 			option.Config.Populate(log, h.Viper())

@@ -4,157 +4,98 @@
 package kvstore
 
 import (
-	"context"
-	"errors"
+	"cmp"
 	"fmt"
 	"log/slog"
-	"sync"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// Cell returns a cell which provides a promise for the global kvstore client.
-var Cell = cell.Module(
-	"kvstore-client",
-	"KVStore Client",
+// DisabledBackendName disables the kvstore client.
+const DisabledBackendName = ""
 
-	cell.Config(defaultConfig),
+// BootstrapStat is the type of the object that, if provided, gets updated with
+// the measurement of the bootstrap time of the kvstore client.
+type BootstrapStat *spanstat.SpanStat
 
-	cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, shutdowner hive.Shutdowner, cfg config, opts *ExtraOptions) promise.Promise[BackendOperations] {
-		resolver, promise := promise.New[BackendOperations]()
-		if cfg.KVStore == "" {
-			logger.Info("Skipping connection to kvstore, as not configured")
-			resolver.Reject(errors.New("kvstore not configured"))
-			return promise
-		}
+// Cell returns a cell which provides the global kvstore client.
+func Cell(defaultBackend string) cell.Cell {
+	return cell.Module(
+		"kvstore-client",
+		"KVStore Client",
 
-		// Propagate the options to the global variables for backward compatibility
-		option.Config.KVStore = cfg.KVStore
-		option.Config.KVStoreOpt = cfg.KVStoreOpt
-		option.Config.KVstoreConnectivityTimeout = cfg.KVStoreConnectivityTimeout
-		option.Config.KVstoreLeaseTTL = cfg.KVStoreLeaseTTL
-		option.Config.KVstorePeriodicSync = cfg.KVStorePeriodicSync
-		option.Config.KVstoreMaxConsecutiveQuorumErrors = cfg.KVstoreMaxConsecutiveQuorumErrors
+		cell.Config(Config{
+			KVStore:                           defaultBackend,
+			KVStoreOpt:                        make(map[string]string),
+			KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
+			KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
+		}),
 
-		ctx, cancel := context.WithCancel(context.Background())
-		var wg sync.WaitGroup
+		cell.Provide(func(in struct {
+			cell.In
 
-		lc.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			Logger    *slog.Logger
+			Lifecycle cell.Lifecycle
+			Config    Config
+			Opts      ExtraOptions `optional:"true"`
 
-					scopedLogger := logger.With(logfields.BackendName, cfg.KVStore)
+			Stats BootstrapStat `optional:"true"`
+		}) (Client, hive.ScriptCmdsOut) {
+			if in.Config.KVStore == DisabledBackendName {
+				return &clientImpl{enabled: false}, hive.ScriptCmdsOut{}
+			}
 
-					scopedLogger.Info("Establishing connection to kvstore")
-					backend, errCh := NewClient(ctx, scopedLogger, cfg.KVStore, cfg.KVStoreOpt, opts)
+			in.Opts.LeaseTTL = cmp.Or(in.Opts.LeaseTTL, in.Config.KVStoreLeaseTTL)
+			in.Opts.MaxConsecutiveQuorumErrors = cmp.Or(in.Opts.MaxConsecutiveQuorumErrors,
+				in.Config.KVstoreMaxConsecutiveQuorumErrors)
 
-					if err, isErr := <-errCh; isErr {
-						scopedLogger.Error("Failed to establish connection to kvstore", logfields.Error, err)
-						resolver.Reject(fmt.Errorf("failed connecting to kvstore: %w", err))
-						shutdowner.Shutdown(hive.ShutdownWithError(err))
-						return
-					}
+			cl := &clientImpl{
+				enabled: true, cfg: in.Config, opts: in.Opts,
+				stats:  cmp.Or((*spanstat.SpanStat)(in.Stats), &spanstat.SpanStat{}),
+				logger: in.Logger.With(logfields.BackendName, in.Config.KVStore),
+			}
 
-					scopedLogger.Info("Connection to kvstore successfully established")
-					resolver.Resolve(backend)
-				}()
-				return nil
-			},
-			OnStop: func(cell.HookContext) error {
-				cancel()
-				wg.Wait()
+			in.Lifecycle.Append(cl)
+			return cl, hive.NewScriptCmds(cl.commands())
+		}),
 
-				// We don't explicitly close the backend here, because that would
-				// attempt to revoke the lease, causing all entries associated
-				// with that lease to be deleted. This would not be the
-				// behavior expected by the consumers of this cell.
-				return nil
-			},
-		})
+		cell.Invoke(Config.Validate),
+	)
+}
 
-		return promise
-	}),
-)
-
-type config struct {
+type Config struct {
 	KVStore                           string
 	KVStoreOpt                        map[string]string
-	KVStoreConnectivityTimeout        time.Duration
 	KVStoreLeaseTTL                   time.Duration
-	KVStorePeriodicSync               time.Duration
 	KVstoreMaxConsecutiveQuorumErrors uint
 }
 
-func (def config) Flags(flags *pflag.FlagSet) {
+func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.KVStore, def.KVStore, "Key-value store type")
 
 	flags.StringToString(option.KVStoreOpt, def.KVStoreOpt,
 		"Key-value store options e.g. etcd.address=127.0.0.1:4001")
 
-	flags.Duration(option.KVstoreConnectivityTimeout, def.KVStoreConnectivityTimeout,
-		"Time after which an incomplete kvstore operation is considered failed")
-
 	flags.Duration(option.KVstoreLeaseTTL, def.KVStoreLeaseTTL,
 		"Time-to-live for the KVstore lease.")
-
-	flags.Duration(option.KVstorePeriodicSync, def.KVStorePeriodicSync,
-		"Periodic KVstore synchronization interval")
 
 	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, def.KVstoreMaxConsecutiveQuorumErrors,
 		"Max acceptable kvstore consecutive quorum errors before recreating the etcd connection")
 }
 
-var defaultConfig = config{
-	KVStore:                           EtcdBackendName,
-	KVStoreOpt:                        make(map[string]string),
-	KVStoreConnectivityTimeout:        defaults.KVstoreConnectivityTimeout,
-	KVStoreLeaseTTL:                   defaults.KVstoreLeaseTTL,
-	KVStorePeriodicSync:               defaults.KVstorePeriodicSync,
-	KVstoreMaxConsecutiveQuorumErrors: defaults.KVstoreMaxConsecutiveQuorumErrors,
+func (cfg Config) Validate() error {
+	if cfg.KVStoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || cfg.KVStoreLeaseTTL < defaults.LockLeaseTTL {
+		return fmt.Errorf("%s does not lie in required range (%v - %v)",
+			option.KVstoreLeaseTTL, defaults.LockLeaseTTL, defaults.KVstoreLeaseMaxTTL)
+	}
+
+	return nil
 }
-
-// GlobalUserMgmtClientPromiseCell provides a promise returning the global kvstore client to perform users
-// management operations, once it has been initialized.
-var GlobalUserMgmtClientPromiseCell = cell.Module(
-	"global-kvstore-users-client",
-	"Global KVStore Users Management Client Promise",
-
-	cell.Provide(func(lc cell.Lifecycle, backendPromise promise.Promise[BackendOperations]) promise.Promise[BackendOperationsUserMgmt] {
-		resolver, promise := promise.New[BackendOperationsUserMgmt]()
-		ctx, cancel := context.WithCancel(context.Background())
-		var wg sync.WaitGroup
-
-		lc.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				wg.Add(1)
-				go func() {
-					backend, err := backendPromise.Await(ctx)
-					if err != nil {
-						resolver.Reject(err)
-					} else {
-						resolver.Resolve(backend)
-					}
-					wg.Done()
-				}()
-				return nil
-			},
-			OnStop: func(cell.HookContext) error {
-				cancel()
-				wg.Wait()
-				return nil
-			},
-		})
-
-		return promise
-	}),
-)

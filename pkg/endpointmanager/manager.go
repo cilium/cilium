@@ -34,7 +34,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -626,18 +625,6 @@ func (mgr *endpointManager) GetEndpoints() []*endpoint.Endpoint {
 	return eps
 }
 
-// GetPolicyEndpoints returns a map of all endpoints present in endpoint
-// manager as policy.Endpoint interface set for the map key.
-func (mgr *endpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {
-	mgr.mutex.RLock()
-	eps := make(map[policy.Endpoint]struct{}, len(mgr.endpoints))
-	for _, ep := range mgr.endpoints {
-		eps[ep] = struct{}{}
-	}
-	mgr.mutex.RUnlock()
-	return eps
-}
-
 func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	newID, err := mgr.allocateID(ep.ID)
 	if err != nil {
@@ -827,31 +814,9 @@ func (mgr *endpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev
 	return nil
 }
 
-// CallbackForEndpointsAtPolicyRev registers a callback on all endpoints that
-// exist when invoked. It is similar to WaitForEndpointsAtPolicyRevision but
-// each endpoint that reaches the desired revision calls 'done' independently.
-// The provided callback should not block and generally be lightweight.
-func (mgr *endpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context, rev uint64, done func(time.Time)) error {
-	eps := mgr.GetEndpoints()
-	for i := range eps {
-		eps[i].WaitForPolicyRevision(ctx, rev, done)
-	}
-	return nil
-}
-
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *endpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
-}
-
-// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
-func (mgr *endpointManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error) {
-	ep := mgr.LookupIP(ip)
-	if ep == nil {
-		return 0, fmt.Errorf("endpoint not found by ip %v", ip)
-	}
-
-	return ep.NetNsCookie, nil
 }
 
 // UpdatePolicy triggers policy updates for all live endpoints.

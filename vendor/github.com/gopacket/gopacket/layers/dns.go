@@ -1264,7 +1264,9 @@ func (rrsig *DNSRRSIG) decode(data []byte, offset int) error {
 	rrsig.Inception = binary.BigEndian.Uint32(data[offset+12:])
 	rrsig.KeyTag = binary.BigEndian.Uint16(data[offset+16:])
 	_, offset, err = decodeName(data, offset+18, &rrsig.SignerName, 1)
-	rrsig.SignerName = rrsig.SignerName[1:] // remove the first '.'
+	if len(rrsig.SignerName) > 1 {
+		rrsig.SignerName = rrsig.SignerName[1:] // Remove leading '.'
+	}
 	if err != nil {
 		return err
 	}

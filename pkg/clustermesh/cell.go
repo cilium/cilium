@@ -25,10 +25,12 @@ var Cell = cell.Module(
 	"clustermesh",
 	"ClusterMesh is the Cilium multicluster implementation",
 
-	cell.Provide(NewClusterMesh),
+	cell.Provide(
+		common.DefaultRemoteClientFactory,
+		NewClusterMesh,
+	),
 
 	// Convert concrete objects into more restricted interfaces used by clustermesh.
-	cell.ProvidePrivate(newServiceMerger),
 	cell.ProvidePrivate(func(ipcache *ipcache.IPCache) ipcache.IPCacher { return ipcache }),
 	cell.ProvidePrivate(func(mgr nodemanager.NodeManager) (nodeStore.NodeManager, kvstore.ClusterSizeDependantIntervalFunc) {
 		return mgr, mgr.ClusterSizeDependantInterval
@@ -40,6 +42,9 @@ var Cell = cell.Module(
 
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(subsystem)),
+
+	cell.ProvidePrivate(newServiceMerger),
+	cell.Invoke(registerServicesInitialized),
 
 	cell.Config(types.DefaultQuirks),
 	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, log *slog.Logger, quirks types.QuirksConfig) error {

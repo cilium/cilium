@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -81,6 +82,9 @@ const (
 
 	// EnableHealthCheckNodePort is the name of the EnableHealthCheckNodePort option
 	EnableHealthCheckNodePortName = "enable-health-check-nodeport"
+
+	// EnableServiceTopologyName is the flag name of for the EnableServiceTopology option
+	EnableServiceTopologyName = "enable-service-topology"
 )
 
 // Configuration option defaults
@@ -124,9 +128,8 @@ const (
 // UserConfig is the configuration provided by the user that has not been processed.
 // +deepequal-gen=true
 type UserConfig struct {
-	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
-	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
-	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
+	RetryBackoffMin time.Duration `mapstructure:"lb-retry-backoff-min"`
+	RetryBackoffMax time.Duration `mapstructure:"lb-retry-backoff-max"`
 
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int `mapstructure:"bpf-lb-map-max"`
@@ -192,6 +195,9 @@ type UserConfig struct {
 	// pressure metrics. A batch lookup is performed for all maps periodically to count
 	// the number of elements that are then reported in the `bpf-map-pressure` metric.
 	LBPressureMetricsInterval time.Duration `mapstructure:"lb-pressure-metrics-interval"`
+
+	// Enable processing of service topology aware hints
+	EnableServiceTopology bool
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -249,9 +255,6 @@ func (DeprecatedConfig) Flags(flags *pflag.FlagSet) {
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-experimental-lb", def.EnableExperimentalLB, "Enable experimental load-balancing control-plane")
-	flags.MarkHidden("enable-experimental-lb")
-
 	flags.Duration("lb-retry-backoff-min", def.RetryBackoffMin, "Minimum amount of time to wait before retrying LB operation")
 	flags.MarkHidden("lb-retry-backoff-min")
 
@@ -300,6 +303,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
 	flags.MarkHidden("lb-pressure-metrics-interval")
+
+	flags.Bool(EnableServiceTopologyName, def.EnableServiceTopology, "Enable support for service topology aware hints")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -437,7 +442,6 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 }
 
 var DefaultUserConfig = UserConfig{
-	EnableExperimentalLB:      true,
 	RetryBackoffMin:           50 * time.Millisecond,
 	RetryBackoffMax:           time.Minute,
 	LBMapEntries:              DefaultLBMapMaxEntries,
@@ -468,6 +472,8 @@ var DefaultUserConfig = UserConfig{
 	AlgorithmAnnotation: false,
 
 	EnableHealthCheckNodePort: true,
+
+	EnableServiceTopology: false,
 }
 
 var DefaultConfig = Config{
@@ -482,7 +488,7 @@ type TestConfig struct {
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
-	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
+	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps (0..1)")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
@@ -498,18 +504,30 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+	EnableHealthCheckLoadBalancerIP        bool
+
+	// The following options will be removed in v1.19
+	EnableHostPort              bool
+	EnableSessionAffinity       bool
+	EnableSVCSourceRangeCheck   bool
+	EnableInternalTrafficPolicy bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
-func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
+func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalConfig {
 	return ExternalConfig{
 		ZoneMapper:                             cfg,
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || kprCfg.EnableNodePort,
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
-		EnableSocketLB:                         cfg.EnableSocketLB,
+		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
+		EnableHostPort:                         kprCfg.EnableHostPort,
+		EnableSessionAffinity:                  kprCfg.EnableSessionAffinity,
+		EnableSVCSourceRangeCheck:              kprCfg.EnableSVCSourceRangeCheck,
+		EnableInternalTrafficPolicy:            cfg.EnableInternalTrafficPolicy,
 	}
 }
 

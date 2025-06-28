@@ -27,13 +27,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	legacy_lbmap "github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -95,9 +95,6 @@ var Cell = cell.Module(
 	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
 	garp.Cell,
 
-	// The legacy  abstraction for load-balancing BPF maps
-	legacy_lbmap.Cell,
-
 	// This cell provides the object used to write the headers for datapath program types.
 	dpcfg.Cell,
 
@@ -147,6 +144,11 @@ var Cell = cell.Module(
 
 	// Provides a cache of link names to ifindex mappings
 	link.Cell,
+
+	// Neighbor cell provides the ability for other components to request an IP be
+	// "forwardable". The neighbor subsystem converts these IPs into neighbor entries
+	// in the kernel and ensures they are kept up to date.
+	neighbor.Cell,
 )
 
 func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {

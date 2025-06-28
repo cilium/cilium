@@ -18,7 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/hive"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -177,7 +177,7 @@ func fixture(t *testing.T, cellAllSettings map[string]any) (*hive.Hive, *statedb
 	)
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		metrics.Metric(MetricsProvider),
 		cell.Provide(
 			dynamicconfig.NewConfigTable,

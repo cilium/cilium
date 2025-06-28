@@ -41,7 +41,7 @@ type getIdentityHandler struct {
 }
 
 func (h *getIdentityHandler) Handle(params policyapi.GetIdentityParams) middleware.Responder {
-	h.logger.Debug("GET /identity request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("GET /identity request", logfields.Params, params)
 
 	identities := []*models.Identity{}
 	if params.Labels == nil {
@@ -66,7 +66,7 @@ type getIdentityIDHandler struct {
 }
 
 func (h *getIdentityIDHandler) Handle(params policyapi.GetIdentityIDParams) middleware.Responder {
-	h.logger.Debug("GET /identity/<ID> request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("GET /identity/<ID> request", logfields.Params, params)
 
 	nid, err := identity.ParseNumericIdentity(params.ID)
 	if err != nil {
@@ -87,7 +87,7 @@ type getIdentityEndpointsHandler struct {
 }
 
 func (h *getIdentityEndpointsHandler) Handle(params policyapi.GetIdentityEndpointsParams) middleware.Responder {
-	h.logger.Debug("GET /identity/endpoints request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("GET /identity/endpoints request", logfields.Params, params)
 
 	identities := h.identityManager.GetIdentityModels()
 

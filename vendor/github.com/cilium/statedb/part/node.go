@@ -24,9 +24,25 @@ const (
 
 // header is the common header shared by all node kinds.
 type header[T any] struct {
-	flags  uint16        // kind(4b) | unused(3b) | size(9b)
-	prefix []byte        // the compressed prefix, [0] is the key
-	watch  chan struct{} // watch channel that is closed when this node mutates
+	flags     uint16 // kind(4b) | unused(3b) | size(9b)
+	prefixLen uint16
+	prefixP   *byte         // the compressed prefix, [0] is the key
+	watch     chan struct{} // watch channel that is closed when this node mutates
+}
+
+func (n *header[T]) key() byte {
+	return *n.prefixP
+}
+
+func (n *header[T]) prefix() []byte {
+	return unsafe.Slice(n.prefixP, n.prefixLen)
+}
+
+func (n *header[T]) setPrefix(p []byte) {
+	if len(p) > 0 {
+		n.prefixP = &p[0]
+	}
+	n.prefixLen = uint16(len(p))
 }
 
 const kindMask = uint16(0b1111_000_00000000_0)
@@ -160,7 +176,8 @@ func (n *header[T]) promote(watch bool) *header[T] {
 	switch n.kind() {
 	case nodeKindLeaf:
 		node4 := &node4[T]{}
-		node4.prefix = n.prefix
+		node4.prefixLen = n.prefixLen
+		node4.prefixP = n.prefixP
 		node4.leaf = n.getLeaf()
 		node4.setKind(nodeKind4)
 		if watch {
@@ -201,7 +218,7 @@ func (n *header[T]) promote(watch bool) *header[T] {
 		// Since Node256 has children indexed directly, iterate over the children
 		// to assign them to the right index.
 		for _, child := range node48.children[:node48.size()] {
-			node256.children[child.prefix[0]] = child
+			node256.children[child.prefix()[0]] = child
 		}
 		if watch {
 			node256.watch = make(chan struct{})
@@ -220,18 +237,18 @@ func (n *header[T]) printTree(level int) {
 	var children []*header[T]
 	switch n.kind() {
 	case nodeKindLeaf:
-		fmt.Printf("leaf[%x]:", n.prefix)
+		fmt.Printf("leaf[%x]:", n.prefix())
 	case nodeKind4:
-		fmt.Printf("node4[%x]:", n.prefix)
+		fmt.Printf("node4[%x]:", n.prefix())
 		children = n.node4().children[:n.size()]
 	case nodeKind16:
-		fmt.Printf("node16[%x]:", n.prefix)
+		fmt.Printf("node16[%x]:", n.prefix())
 		children = n.node16().children[:n.size()]
 	case nodeKind48:
-		fmt.Printf("node48[%x]:", n.prefix)
+		fmt.Printf("node48[%x]:", n.prefix())
 		children = n.node48().children[:n.size()]
 	case nodeKind256:
-		fmt.Printf("node256[%x]:", n.prefix)
+		fmt.Printf("node256[%x]:", n.prefix())
 		children = n.node256().children[:]
 	default:
 		panic("unknown node kind")
@@ -294,9 +311,9 @@ func (n *header[T]) findIndex(key byte) (*header[T], int) {
 	case nodeKind48:
 		children := n.children()
 		idx := sort.Search(len(children), func(i int) bool {
-			return children[i].prefix[0] >= key
+			return children[i].prefix()[0] >= key
 		})
-		if idx >= n.size() || children[idx].prefix[0] != key {
+		if idx >= n.size() || children[idx].prefix()[0] != key {
 			// No node found, return nil and the index into
 			// which it should go.
 			return nil, idx
@@ -359,26 +376,26 @@ func (n *header[T]) insert(idx int, child *header[T]) {
 		copy(n4.children[idx+1:newSize], n4.children[idx:newSize])
 		copy(n4.keys[idx+1:newSize], n4.keys[idx:newSize])
 		n4.children[idx] = child
-		n4.keys[idx] = child.prefix[0]
+		n4.keys[idx] = child.key()
 	case nodeKind16:
 		n16 := n.node16()
 		// Shift to make room
 		copy(n16.children[idx+1:newSize], n16.children[idx:newSize])
 		copy(n16.keys[idx+1:newSize], n16.keys[idx:newSize])
 		n16.children[idx] = child
-		n16.keys[idx] = child.prefix[0]
+		n16.keys[idx] = child.key()
 	case nodeKind48:
 		// Shift to make room
 		n48 := n.node48()
 		for i := size - 1; i >= idx; i-- {
 			c := n48.children[i]
-			n48.index[c.prefix[0]] = int8(i + 1)
+			n48.index[c.key()] = int8(i + 1)
 			n48.children[i+1] = c
 		}
 		n48.children[idx] = child
-		n48.index[child.prefix[0]] = int8(idx)
+		n48.index[child.key()] = int8(idx)
 	case nodeKind256:
-		n.node256().children[child.prefix[0]] = child
+		n.node256().children[child.key()] = child
 	default:
 		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
 	}
@@ -404,12 +421,12 @@ func (n *header[T]) remove(idx int) {
 		n16.keys[newSize] = 255
 	case nodeKind48:
 		children := n.children()
-		key := children[idx].prefix[0]
+		key := children[idx].key()
 		n48 := n.node48()
 		for i := idx; i < newSize; i++ {
 			child := children[i+1]
 			children[i] = child
-			n48.index[child.prefix[0]] = int8(i)
+			n48.index[child.key()] = int8(i)
 		}
 		n48.index[key] = -1
 		children[newSize] = nil
@@ -423,16 +440,16 @@ func (n *header[T]) remove(idx int) {
 
 type leaf[T any] struct {
 	header[T]
-	key   []byte
 	value T
+	key   []byte
 }
 
-func newLeaf[T any](o *options, prefix, key []byte, value T) *leaf[T] {
+func newLeaf[T any](o options, prefix, key []byte, value T) *leaf[T] {
 	leaf := &leaf[T]{key: key, value: value}
-	leaf.prefix = prefix
+	leaf.setPrefix(prefix)
 	leaf.setKind(nodeKindLeaf)
 
-	if !o.rootOnlyWatch {
+	if !o.rootOnlyWatch() {
 		leaf.watch = make(chan struct{})
 	}
 
@@ -441,29 +458,29 @@ func newLeaf[T any](o *options, prefix, key []byte, value T) *leaf[T] {
 
 type node4[T any] struct {
 	header[T]
-	keys     [4]byte
-	children [4]*header[T]
 	leaf     *leaf[T] // non-nil if this node contains a value
+	children [4]*header[T]
+	keys     [4]byte
 }
 
 type node16[T any] struct {
 	header[T]
-	keys     [16]byte
-	children [16]*header[T]
 	leaf     *leaf[T] // non-nil if this node contains a value
+	children [16]*header[T]
+	keys     [16]byte
 }
 
 type node48[T any] struct {
 	header[T]
-	index    [256]int8
 	children [48]*header[T]
 	leaf     *leaf[T] // non-nil if this node contains a value
+	index    [256]int8
 }
 
 type node256[T any] struct {
 	header[T]
-	children [256]*header[T]
 	leaf     *leaf[T] // non-nil if this node contains a value
+	children [256]*header[T]
 }
 
 func newNode4[T any]() *header[T] {
@@ -474,14 +491,14 @@ func newNode4[T any]() *header[T] {
 
 func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{}, ok bool) {
 	this := root
+	watch = root.watch
 	for {
-		watch = this.watch
-
-		// Consume the prefix
-		if !bytes.HasPrefix(key, this.prefix) {
+		if !bytes.HasPrefix(key, this.prefix()) {
 			return
 		}
-		key = key[len(this.prefix):]
+
+		// Consume the prefix
+		key = key[this.prefixLen:]
 
 		if len(key) == 0 {
 			if leaf := this.getLeaf(); leaf != nil {
@@ -490,6 +507,12 @@ func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{},
 				ok = true
 			}
 			return
+		}
+
+		// Prefix matched. Remember this as the closest watch channel as we traverse
+		// further.
+		if !this.isLeaf() && this.watch != nil {
+			watch = this.watch
 		}
 
 		this = this.find(key[0])
@@ -501,7 +524,7 @@ func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{},
 
 func commonPrefix(a, b []byte) []byte {
 	n := min(len(a), len(b))
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if a[i] != b[i] {
 			return a[:i]
 		}

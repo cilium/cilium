@@ -60,8 +60,8 @@ ifeq ($(DOCKER_IMAGE_TAG),)
 endif
 
 # renovate: datasource=docker depName=gcr.io/etcd-development/etcd
-ETCD_IMAGE_VERSION = v3.6.0
-ETCD_IMAGE_SHA = sha256:2ebe4d4c6ad0458592d16806eb1711c4d30804e0f22b20cc5fbc24c19a8592e0
+ETCD_IMAGE_VERSION = v3.6.1
+ETCD_IMAGE_SHA = sha256:56bc6ef112a4e2702142d365baecae44cba85c6efc6146b4a41a4c655dd7d231
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
 CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
@@ -69,12 +69,9 @@ CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "AR
 export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
-# Till the self-hosted renovate PR #30185 is merged, we might need to run the below
-# command locally for any version update.
-# make generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api
 # renovate: datasource=docker depName=quay.io/goswagger/swagger
-SWAGGER_VERSION = 0.31.0
-SWAGGER_IMAGE_SHA = sha256:5f36c14131ea569ad687ac546d6cdd2ccf0feff662eae5f5bf37d9d8a0b51cbc
+SWAGGER_VERSION = 0.32.3
+SWAGGER_IMAGE_SHA = sha256:9cfa5ae0f8e68753bf3f987c4d656d3ff0908d5f3324ffacba286271c9cc8a2d
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)@$(SWAGGER_IMAGE_SHA)
 
 # go build/test/clean flags

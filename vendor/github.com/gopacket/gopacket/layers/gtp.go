@@ -176,6 +176,9 @@ func (g *GTPv1U) NextLayerType() gopacket.LayerType {
 	if len(g.LayerPayload()) == 0 {
 		return gopacket.LayerTypeZero
 	}
+	if g.MessageType != 255 {
+		return gopacket.LayerTypePayload
+	}
 	version := uint8(g.LayerPayload()[0]) >> 4
 	if version == 4 {
 		return LayerTypeIPv4

@@ -106,9 +106,7 @@ type Configuration struct {
 	Logger *slog.Logger
 	// Accessors to other subsystems, provided by the daemon
 	cache.IdentityAllocator
-	ipcacheTypes.PolicyHandler
-	ipcacheTypes.PolicyUpdater
-	ipcacheTypes.DatapathHandler
+	ipcacheTypes.IdentityUpdater
 	synced.CacheStatus
 }
 

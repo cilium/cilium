@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -59,6 +58,9 @@ type PolicyContext interface {
 	// DefaultDenyEgress returns true if default deny is enabled for egress
 	DefaultDenyEgress() bool
 
+	SetOrigin(ruleOrigin)
+	Origin() ruleOrigin
+
 	GetLogger() *slog.Logger
 
 	PolicyTrace(format string, a ...any)
@@ -72,6 +74,8 @@ type policyContext struct {
 	isDeny             bool
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
+
+	origin ruleOrigin
 
 	logger       *slog.Logger
 	traceEnabled bool
@@ -124,6 +128,14 @@ func (p *policyContext) DefaultDenyIngress() bool {
 // DefaultDenyEgress returns true if default deny is enabled for egress
 func (p *policyContext) DefaultDenyEgress() bool {
 	return p.defaultDenyEgress
+}
+
+func (p *policyContext) SetOrigin(ro ruleOrigin) {
+	p.origin = ro
+}
+
+func (p *policyContext) Origin() ruleOrigin {
+	return p.origin
 }
 
 func (p *policyContext) GetLogger() *slog.Logger {
@@ -232,10 +244,9 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 // that verdict, and 'true' if found.
 // Returns a deny entry when a match is not found, mirroring the datapath default deny behavior.
 // 'key' must not have a wildcard identity or port.
-func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
+func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, RuleMeta, bool) {
 	entry, found := p.policyMapState.lookup(key)
-	lbls := labels.LabelArrayListFromString(entry.derivedFromRules.Value())
-	return entry.MapStateEntry, lbls, found
+	return entry.MapStateEntry, entry.derivedFromRules.Value(), found
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
@@ -374,13 +385,13 @@ func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
 
 var errMissingKey = errors.New("Key not found")
 
-// GetRuleLabels returns the list of labels of the rules that contributed
+// GetRuleMeta returns the list of labels of the rules that contributed
 // to the entry at this key.
 // The returned string is the string representation of a LabelArrayList.
-func (p *EndpointPolicy) GetRuleLabels(k Key) (string, error) {
+func (p *EndpointPolicy) GetRuleMeta(k Key) (RuleMeta, error) {
 	entry, ok := p.policyMapState.get(k)
 	if !ok {
-		return "", errMissingKey
+		return RuleMeta{}, errMissingKey
 	}
 	return entry.derivedFromRules.Value(), nil
 }

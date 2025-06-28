@@ -12,13 +12,15 @@ import (
 	"time"
 )
 
-// Attaches an EBS volume to a running or stopped instance and exposes it to the
-// instance with the specified device name.
+// Attaches an Amazon EBS volume to a running or stopped instance, and exposes it
+// to the instance with the specified device name.
 //
-// Encrypted EBS volumes must be attached to instances that support Amazon EBS
-// encryption. For more information, see [Amazon EBS encryption]in the Amazon EBS User Guide.
+// The maximum number of Amazon EBS volumes that you can attach to an instance
+// depends on the instance type. If you exceed the volume attachment limit for an
+// instance type, the attachment request fails with the AttachmentLimitExceeded
+// error. For more information, see [Instance volume limits].
 //
-// After you attach an EBS volume, you must make it available. For more
+// After you attach an EBS volume, you must make it available for use. For more
 // information, see [Make an EBS volume available for use].
 //
 // If a volume has an Amazon Web Services Marketplace product code:
@@ -36,9 +38,9 @@ import (
 //
 // For more information, see [Attach an Amazon EBS volume to an instance] in the Amazon EBS User Guide.
 //
-// [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
 // [Make an EBS volume available for use]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-using-volumes.html
 // [Attach an Amazon EBS volume to an instance]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-attaching-volume.html
+// [Instance volume limits]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/volume_limits.html
 func (c *Client) AttachVolume(ctx context.Context, params *AttachVolumeInput, optFns ...func(*Options)) (*AttachVolumeOutput, error) {
 	if params == nil {
 		params = &AttachVolumeInput{}

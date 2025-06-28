@@ -69,7 +69,6 @@ func NewEventQueue(defaultLogger *slog.Logger) *EventQueue {
 // numBufferedEvents at a time, and all other needed fields initialized.
 func NewEventQueueBuffered(defaultLogger *slog.Logger, name string, numBufferedEvents int) *EventQueue {
 	logger := defaultLogger.With(
-		logfields.LogSubsys, "eventqueue",
 		logfields.Name, name,
 	)
 	logger.Debug("creating new EventQueue",

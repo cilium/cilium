@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 )
 
 type mockEntryClient struct {
@@ -413,7 +414,7 @@ func TestClient_Delete(t *testing.T) {
 }
 
 func Test_resolvedK8sService(t *testing.T) {
-	_, c := client.NewFakeClientset(hivetest.Logger(t))
+	_, c := k8sClient.NewFakeClientset(hivetest.Logger(t))
 	_, _ = c.CoreV1().Services("dummy-namespace").Create(t.Context(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "valid-service",

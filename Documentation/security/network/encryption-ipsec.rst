@@ -12,10 +12,9 @@ IPsec Transparent Encryption
 
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
-configuration is complete all traffic between Cilium-managed endpoints, as well
-as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
-Kubernetes secrets to distribute keys. Alternatively, keys may be manually
-distributed, but that is not shown here.
+configuration is complete, all traffic between Cilium-managed endpoints will be
+encrypted using IPsec. This guide uses Kubernetes secrets to distribute keys.
+Alternatively, keys may be manually distributed, but that is not shown here.
 
 Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
@@ -37,6 +36,17 @@ newer v1.17 releases to support a disruption-less upgrade to v1.18.
 
 Once patched to the newest v1.17 stable release, a normal upgrade to v1.18 can
 be performed.
+
+.. note::
+
+   Because VXLAN is encrypted before being sent, operators see ESP
+   traffic between Kubernetes nodes.
+
+   This may result in the need to update firewall rules to allow ESP traffic
+   between nodes.
+   This is especially important in Google Cloud GKE environments.
+   The default firewall rules for the cluster's subnet may not allow ESP.
+
 
 Generate & Import the PSK
 =========================
@@ -386,6 +396,42 @@ errors.
    object yet. In both cases, the IPsec configuration in the kernel isn't ready
    yet, so Cilium drops the packets at the source. These drops will stop once
    the CiliumNode information is propagated across the cluster.
+
+.. _xfrm_state_staling_in_cilium:
+
+XFRM State Staling in Cilium
+============================
+
+Control plane disruptions can lead to connectivity issues due to stale XFRM
+states with out-of-sync IPsec anti-replay counters. This typically results in
+permanent connectivity disruptions between pods managed by Cilium. This section
+explains how these issues occur and what you can do about them.
+
+Identified Causes
+-----------------
+
+In KVStore Mode (e.g., etcd), you might encounter stale XFRM states:
+
+  * If a Cilium agent is down for prolonged time, the corresponding node entry
+    in the kvstore will be deleted due to lease expiration (see
+    :ref:`kvstore_leases`), resulting in stale XFRM states.
+
+  * If you manually recreate your key-value store, a Cilium agent might connect
+    too late to the new instance. This delay can cause the agent to miss crucial
+    node delete and create events, leading Cilium to retain outdated XFRM states
+    for those nodes.
+
+In CRD Mode, stale XFRM states can occur if you delete a CiliumNode resource and
+restart the Cilium agent DaemonSet. While other agents create fresh XFRM states
+for the new CiliumNode, the agent on that new node may retain obsolete XFRM
+states for all the other peer nodes.
+
+Mitigation
+----------
+
+To restore connectivity in those cases, perform a key rotation (see
+:ref:`ipsec_key_rotation`). This action ensures new consistent and valid XFRM
+states across all your nodes.
 
 Disabling Encryption
 ====================

@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -244,10 +243,6 @@ func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) erro
 		}
 	}
 	return n.NodeValidateImplementationEventError
-}
-
-func (n *signalNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
-	return nil
 }
 
 func setup(tb testing.TB) {
@@ -1071,201 +1066,6 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	}
 }
 
-// TestCarrierDownReconciler tests that we can detect carrier down events for physical devices
-// but ignore loopback devices.
-func TestCarrierDownReconciler(t *testing.T) {
-	// Declare values to use outside of hive later.
-	var (
-		m           *manager
-		deviceTable statedb.RWTable[*tables.Device]
-		db          *statedb.DB
-	)
-
-	// Use hive to create the manager and tables, mock the rest.
-	h := hive.New(
-		cell.Provide(tables.NewDeviceTable),                   // Provide statedb.RWTable[*tables.Device]
-		cell.Provide(statedb.RWTable[*tables.Device].ToTable), // Provide statedb.Table[*tables.Device] from RW table
-		cell.Invoke(statedb.RegisterTable[*tables.Device]),
-		cell.Provide(func() testParams {
-			return testParams{
-				Config:        &option.DaemonConfig{},
-				TunnelConf:    tunnel.Config{},
-				IPCache:       newIPcacheMock(),
-				IPSet:         newIPSetMock(),
-				NodeMetrics:   NewNodeMetrics(),
-				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
-			}
-		}),
-		cell.Module("node_manager", "Node Manager",
-			cell.Provide(New),
-		),
-		cell.Invoke(func(manager *manager, dt statedb.RWTable[*tables.Device], database *statedb.DB) {
-			m = manager
-			deviceTable = dt
-			db = database
-		}),
-	)
-
-	// Just populate the hive, no need to start it.
-	h.Populate(hivetest.Logger(t))
-
-	// Add a node to the manager. When we decide to revalidate neighbors, we do so for all nodes
-	// so we need at least one to be present otherwise we will never enqueue anything.
-	m.nodes[nodeTypes.Identity{
-		Name: "node1",
-	}] = &nodeEntry{
-		node: nodeTypes.Node{
-			Name: "node1",
-		},
-	}
-
-	// Stop the reconciler if things take to long.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Create two devices, eth0 and lo. We will modify these devices to simulate carrier changes.
-	tx := db.WriteTxn(deviceTable)
-	_, _, err := deviceTable.Insert(tx, &tables.Device{
-		Index:    1,
-		Name:     "eth0",
-		RawFlags: unix.IFF_UP | unix.IFF_RUNNING,
-		Type:     "device",
-	})
-	if err != nil {
-		tx.Abort()
-		t.Fatal(err)
-	}
-
-	_, _, err = deviceTable.Insert(tx, &tables.Device{
-		Index:    2,
-		Name:     "lo",
-		RawFlags: unix.IFF_UP | unix.IFF_RUNNING | unix.IFF_LOOPBACK,
-		Type:     "device",
-	})
-	if err != nil {
-		tx.Abort()
-		t.Fatal(err)
-	}
-
-	tx.Commit()
-
-	// Create a mock health reporter. We will the health reporting as a signal for when reconciliation
-	// happened.
-	mh := &mockHealth{ok: make(chan struct{}, 10)}
-	// Wait for at least one OK signal, but consume more if there are any.
-	wait := func() {
-		<-mh.ok
-	loop:
-		for {
-			select {
-			case <-mh.ok:
-			default:
-				break loop
-			}
-		}
-	}
-
-	// Start the reconciler in the background.
-	go m.carrierDownReconciler(ctx, mh)
-
-	// Wait for the initial OK we get after initialization
-	wait()
-
-	// Modify eth0 so it is carrier down
-	tx = db.WriteTxn(deviceTable)
-	_, _, err = deviceTable.Insert(tx, &tables.Device{
-		Index:    1,
-		Name:     "eth0",
-		RawFlags: unix.IFF_UP,
-		Type:     "device",
-	})
-	if err != nil {
-		tx.Abort()
-		t.Fatal(err)
-	}
-	tx.Commit()
-
-	// Wait for reconciliation
-	wait()
-
-	if !m.nodeNeighborQueue.isEmpty() {
-		t.Fatal("Expected nodeNeighborQueue to be empty")
-	}
-
-	// Modify eth0 so its carrier is up again.
-	tx = db.WriteTxn(deviceTable)
-	_, _, err = deviceTable.Insert(tx, &tables.Device{
-		Index:    1,
-		Name:     "eth0",
-		RawFlags: unix.IFF_UP | unix.IFF_RUNNING,
-		Type:     "device",
-	})
-	if err != nil {
-		tx.Abort()
-		t.Fatal(err)
-	}
-	tx.Commit()
-
-	// Wait for reconciliation
-	wait()
-
-	if m.nodeNeighborQueue.isEmpty() {
-		t.Fatal("Expected nodeNeighborQueue to not be empty")
-	}
-	// Drain the queue
-	for _, more := m.nodeNeighborQueue.pop(); more; _, more = m.nodeNeighborQueue.pop() {
-	}
-
-	// Modify lo so its down
-	tx = db.WriteTxn(deviceTable)
-	_, _, err = deviceTable.Insert(tx, &tables.Device{
-		Index:    2,
-		Name:     "lo",
-		RawFlags: unix.IFF_LOOPBACK,
-		Type:     "device",
-	})
-	if err != nil {
-		tx.Abort()
-		t.Fatal(err)
-	}
-
-	tx.Commit()
-
-	// Wait for reconciliation
-	wait()
-
-	if !m.nodeNeighborQueue.isEmpty() {
-		t.Fatal("Expected nodeNeighborQueue to be empty")
-	}
-
-	// Modify lo so its carrier is up again.
-	tx = db.WriteTxn(deviceTable)
-	_, _, err = deviceTable.Insert(tx, &tables.Device{
-		Index:    2,
-		Name:     "lo",
-		RawFlags: unix.IFF_UP | unix.IFF_RUNNING | unix.IFF_LOOPBACK,
-		Type:     "device",
-	})
-
-	if err != nil {
-		tx.Abort()
-		t.Fatal(err)
-	}
-
-	tx.Commit()
-
-	// Wait for reconciliation
-	wait()
-
-	// We expect the queue to still be empty since we should be ignoring changes
-	// to loopback devices.
-	if !m.nodeNeighborQueue.isEmpty() {
-		t.Fatal("Expected nodeNeighborQueue to be empty")
-	}
-
-	cancel()
-}
-
 var _ cell.Health = (*mockHealth)(nil)
 
 type mockHealth struct {
@@ -1300,14 +1100,10 @@ type testParams struct {
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap, _ *sync.WaitGroup) (mutated bool) {
-	return false
-}
-
-type mockTriggerer struct{}
-
-func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
-	return wg
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
 }
 
 func TestNodeWithSameInternalIP(t *testing.T) {
@@ -1318,8 +1114,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		Context:           ctx,
 		Logger:            hivetest.Logger(t),
 		IdentityAllocator: allocator,
-		PolicyHandler:     &mockUpdater{},
-		DatapathHandler:   &mockTriggerer{},
+		IdentityUpdater:   &mockUpdater{},
 	})
 	defer cancel()
 	dp := newSignalNodeHandler()

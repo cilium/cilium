@@ -96,6 +96,7 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 	uuid := uuid.New().String()
 	ctrl := &managedController{
 		controller: controller{
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logger: logging.DefaultSlogLogger.With(
 				logfields.LogSubsys, "controller",
 				fieldControllerName, name,

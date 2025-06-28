@@ -29,6 +29,8 @@ import (
 
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
+	config loadbalancer.Config
+
 	nodeName string
 	nodeZone atomic.Pointer[string]
 
@@ -43,6 +45,8 @@ type Writer struct {
 	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
 
 	selectBackendsFunc SelectBackendsFunc
+
+	extCfg *loadbalancer.ExternalConfig
 }
 
 type SelectBackendsFunc = func(iter.Seq2[loadbalancer.BackendParams, statedb.Revision], *loadbalancer.Service, *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision]
@@ -64,6 +68,8 @@ type writerParams struct {
 	ServiceHooks []ServiceHook `group:"service-hooks"`
 
 	SourcePriorities source.Sources
+
+	ExtCfg loadbalancer.ExternalConfig
 }
 
 func init() {
@@ -71,10 +77,8 @@ func init() {
 }
 
 func NewWriter(p writerParams) (*Writer, error) {
-	if !p.Config.EnableExperimentalLB {
-		return nil, nil
-	}
 	w := &Writer{
+		config:           p.Config,
 		nodeName:         nodeTypes.GetName(),
 		db:               p.DB,
 		bes:              p.Backends,
@@ -84,6 +88,7 @@ func NewWriter(p writerParams) (*Writer, error) {
 		nodeAddrs:        p.NodeAddresses,
 		svcHooks:         p.ServiceHooks,
 		sourcePriorities: priorityMapFromSlice(p.SourcePriorities),
+		extCfg:           &p.ExtCfg,
 	}
 	w.selectBackendsFunc = w.DefaultSelectBackends
 	return w, nil
@@ -370,7 +375,7 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 	ipv4, ipv6 := true, true
 	isLocalProxyDelegation := func(loadbalancer.L3n4Addr) bool { return true }
 	if fe != nil {
-		onlyLocal = shouldUseLocalBackends(fe)
+		onlyLocal = shouldUseLocalBackends(w.extCfg, fe)
 		if fe.Address.IsIPv6() {
 			ipv4, ipv6 = false, true
 		} else {
@@ -412,7 +417,9 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 				}
 			}
 			if fe != nil {
-				if fe.RedirectTo == nil && fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
+				if w.config.EnableServiceTopology &&
+					fe.RedirectTo == nil &&
+					fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
 					thisZone := w.nodeZone.Load()
 					if len(be.ForZones) > 0 && thisZone != nil {
 						// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.
@@ -436,12 +443,12 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 	}
 }
 
-func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {
+func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.ServiceName) (*loadbalancer.Service, error) {
 	svc, _, found := w.svcs.Get(txn, loadbalancer.ServiceByName(name))
 	if !found {
-		return statedb.ErrObjectNotFound
+		return nil, statedb.ErrObjectNotFound
 	}
-	return w.deleteService(txn, svc)
+	return svc, w.deleteService(txn, svc)
 }
 
 func (w *Writer) deleteService(txn WriteTxn, svc *loadbalancer.Service) error {
@@ -694,10 +701,11 @@ func isExtLocal(fe *loadbalancer.Frontend) bool {
 	}
 }
 
-func isIntLocal(fe *loadbalancer.Frontend) bool {
-	/* FIXME if !option.Config.EnableInternalTrafficPolicy {
+func isIntLocal(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) bool {
+	if !extCfg.EnableInternalTrafficPolicy {
 		return false
-	}*/
+	}
+
 	switch fe.Type {
 	case loadbalancer.SVCTypeClusterIP, loadbalancer.SVCTypeNodePort, loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeExternalIPs:
 		return fe.Service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal
@@ -706,7 +714,7 @@ func isIntLocal(fe *loadbalancer.Frontend) bool {
 	}
 }
 
-func shouldUseLocalBackends(fe *loadbalancer.Frontend) bool {
+func shouldUseLocalBackends(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) bool {
 	// When both traffic policies are Local, there is only the external scope, which
 	// should contain node-local backends only. Checking isExtLocal is still enough.
 	switch fe.Address.Scope {
@@ -715,11 +723,11 @@ func shouldUseLocalBackends(fe *loadbalancer.Frontend) bool {
 			// ClusterIP doesn't support externalTrafficPolicy and has only the
 			// external scope, which contains only node-local backends when
 			// internalTrafficPolicy=Local.
-			return isIntLocal(fe)
+			return isIntLocal(extCfg, fe)
 		}
 		return isExtLocal(fe)
 	case loadbalancer.ScopeInternal:
-		return isIntLocal(fe)
+		return isIntLocal(extCfg, fe)
 	default:
 		return false
 	}

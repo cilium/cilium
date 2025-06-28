@@ -20,7 +20,12 @@ import (
 
 type dummyOwner struct{}
 
-func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {}
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
+}
+
 func (d *dummyOwner) GetNodeSuffix() string {
 	return "foo"
 }
@@ -28,7 +33,7 @@ func (d *dummyOwner) GetNodeSuffix() string {
 func BenchmarkInjectLabels(b *testing.B) {
 	logger := hivetest.Logger(b)
 	ctx, cancel := context.WithCancel(context.Background())
-	alloc := cache.NewCachingIdentityAllocator(logger, &dummyOwner{}, cache.AllocatorConfig{})
+	alloc := cache.NewCachingIdentityAllocator(logger, &dummyOwner{}, cache.NewTestAllocatorConfig())
 	// <-alloc.InitIdentityAllocator(nil)
 	PolicyHandler = &mockUpdater{
 		identities: make(map[identity.NumericIdentity]labels.LabelArray),
@@ -37,8 +42,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 		Context:           ctx,
 		Logger:            logger,
 		IdentityAllocator: alloc,
-		PolicyHandler:     PolicyHandler,
-		DatapathHandler:   &mockTriggerer{},
+		IdentityUpdater:   PolicyHandler,
 	})
 
 	addr := netip.MustParseAddr("1.0.0.0")
@@ -61,7 +65,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 	}
 	b.Logf("%d", len(prefixes))
 	b.Log(addr.String())
-	_, _, err := ipc.doInjectLabels(ctx, prefixes)
+	_, err := ipc.doInjectLabels(ctx, prefixes)
 	if err != nil {
 		b.Fatal(err)
 	}

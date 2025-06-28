@@ -369,7 +369,7 @@ func (r *NeighborReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway
 		}
 		if route.Gw.IsLinkLocalUnicast() {
 			r.logger.Warn("link local address is not supported for default gateway mode of bgp auto-discovery",
-				logfields.Gateway, route.Gw.String(),
+				logfields.Gateway, route.Gw,
 			)
 			continue
 		}

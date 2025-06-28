@@ -28,10 +28,10 @@ func (c *Controller) processCiliumEndpointSliceEvents(ctx context.Context, wg *s
 		case resource.Sync:
 			wg.Done()
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert CES event", logfields.CESName, event.Key.String())
+			c.logger.Debug("Got Upsert CES event", logfields.CESName, event.Key)
 			idsWithNoCESUsage = c.reconciler.cidUsageInCES.ProcessCESUpsert(event.Object.Name, event.Object.Endpoints)
 		case resource.Delete:
-			c.logger.Debug("Got Delete CES event", logfields.CESName, event.Key.String())
+			c.logger.Debug("Got Delete CES event", logfields.CESName, event.Key)
 			idsWithNoCESUsage = c.reconciler.cidUsageInCES.ProcessCESDelete(event.Object.Name, event.Object.Endpoints)
 		}
 

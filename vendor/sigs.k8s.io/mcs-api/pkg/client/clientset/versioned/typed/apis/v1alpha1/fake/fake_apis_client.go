@@ -29,11 +29,11 @@ type FakeMulticlusterV1alpha1 struct {
 }
 
 func (c *FakeMulticlusterV1alpha1) ServiceExports(namespace string) v1alpha1.ServiceExportInterface {
-	return &FakeServiceExports{c, namespace}
+	return newFakeServiceExports(c, namespace)
 }
 
 func (c *FakeMulticlusterV1alpha1) ServiceImports(namespace string) v1alpha1.ServiceImportInterface {
-	return &FakeServiceImports{c, namespace}
+	return newFakeServiceImports(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

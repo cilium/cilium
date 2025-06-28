@@ -62,7 +62,7 @@ func (s Scheme) String() string {
 // parseChallenge parses the "WWW-Authenticate" header returned by the remote
 // registry, and extracts parameters if scheme is Bearer.
 // References:
-// - https://docs.docker.com/registry/spec/auth/token/#how-to-authenticate
+// - https://distribution.github.io/distribution/spec/auth/token/#how-to-authenticate
 // - https://tools.ietf.org/html/rfc7235#section-2.1
 func parseChallenge(header string) (scheme Scheme, params map[string]string) {
 	// as defined in RFC 7235 section 2.1, we have

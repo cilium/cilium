@@ -271,11 +271,10 @@ func (it *changeIterator[Obj]) refresh(txn ReadTxn) {
 	// refresh from mutated indexes in case [txn] is a WriteTxn. This
 	// is important as the WriteTxn may be aborted and thus revisions will
 	// reset back and watermarks bumped from here would be invalid.
-	itxn := txn.getTxn()
-	indexEntry := itxn.root[it.table.tablePos()].indexes[RevisionIndexPos]
+	indexEntry := txn.root()[it.table.tablePos()].indexes[RevisionIndexPos]
 	indexTxn := indexReadTxn{indexEntry.tree, indexEntry.unique}
 	updateIter := &iterator[Obj]{indexTxn.LowerBound(index.Uint64(it.revision + 1))}
-	deleteIter := it.dt.deleted(itxn, it.deleteRevision+1)
+	deleteIter := it.dt.deleted(txn, it.deleteRevision+1)
 	it.iter = NewDualIterator(deleteIter, updateIter)
 
 	// It is enough to watch the revision index and not the graveyard since

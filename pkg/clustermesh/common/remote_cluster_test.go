@@ -15,8 +15,8 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -37,7 +37,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	const name = "remote"
 	path := filepath.Join(t.TempDir(), name)
 	writeFile(t, path, fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
-	require.NoError(t, utils.SetClusterConfig(context.Background(), name, types.CiliumClusterConfig{ID: 2}, client))
+	require.NoError(t, clustercfg.Set(context.Background(), name, types.CiliumClusterConfig{ID: 2}, client))
 
 	wait := func(t *testing.T, ch <-chan struct{}, msg string) {
 		t.Helper()
@@ -65,9 +65,10 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
 
 	statusErrors := make(chan error, 1)
-	rc.backendFactory = func(ctx context.Context, logger *slog.Logger, backendName string, opts map[string]string,
-		options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-		backend, errch := kvstore.NewClient(ctx, logger, backendName, opts, options)
+	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
+		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+		opts := map[string]string{kvstore.EtcdOptionConfig: cfgpath}
+		backend, errch := kvstore.NewClient(ctx, logger, kvstore.EtcdBackendName, opts, options)
 		return &fakeBackend{backend, statusErrors}, errch
 	}
 

@@ -24,6 +24,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -80,10 +81,16 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
 					BPFSocketLBHostnsOnly:                  hostOnly,
-					EnableSocketLB:                         true,
 					EnableSocketLBPodConnectionTermination: true,
 					EnableIPv4:                             true,
 					EnableIPv6:                             true,
+				}
+			},
+			func() kpr.KPRConfig {
+				return kpr.KPRConfig{
+					KubeProxyReplacement: "true",
+					EnableNodePort:       true,
+					EnableSocketLB:       true,
 				}
 			},
 			func() netnsOps {
@@ -285,6 +292,12 @@ func TestSocketTermination_Datapath(t *testing.T) {
 		goleak.VerifyNone(t)
 	})
 
+	namespaces := map[string]*netns.NetNS{
+		"cni-0000": ns1,
+		"cni-0001": ns2,
+		"cni-0002": ns3,
+	}
+
 	// Set up the parameters that [terminateUDPConnectionsToBackend] needs.
 	params := socketTerminationParams{
 		JobGroup:        nil,
@@ -300,12 +313,14 @@ func TestSocketTermination_Datapath(t *testing.T) {
 			do:      (*netns.NetNS).Do,
 			all: func() (iter.Seq2[string, *netns.NetNS], <-chan error) {
 				errs := make(chan error)
-				close(errs)
-				return maps.All(map[string]*netns.NetNS{
-					"cni-0000": ns1,
-					"cni-0001": ns2,
-					"cni-0002": ns3,
-				}), errs
+				return func(yield func(string, *netns.NetNS) bool) {
+					defer close(errs)
+					for n, ns := range namespaces {
+						if !yield(n, ns) {
+							return
+						}
+					}
+				}, errs
 			},
 		},
 	}

@@ -5,6 +5,7 @@ package creator
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 
@@ -42,6 +43,7 @@ type EndpointCreator interface {
 }
 
 type endpointCreator struct {
+	logger           *slog.Logger
 	endpointManager  endpointmanager.EndpointManager
 	dnsRulesAPI      fqdnrules.DNSRulesService
 	epBuildQueue     endpoint.EndpointBuildQueue
@@ -68,6 +70,7 @@ var _ EndpointCreator = &endpointCreator{}
 type endpointManagerParams struct {
 	cell.In
 
+	Logger              *slog.Logger
 	EndpointManager     endpointmanager.EndpointManager
 	DNSRulesService     fqdnrules.DNSRulesService
 	EPBuildQueue        endpoint.EndpointBuildQueue
@@ -89,6 +92,7 @@ type endpointManagerParams struct {
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 	return &endpointCreator{
+		logger:           p.Logger,
 		endpointManager:  p.EndpointManager,
 		dnsRulesAPI:      p.DNSRulesService,
 		epBuildQueue:     p.EPBuildQueue,
@@ -112,6 +116,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
 	return endpoint.NewEndpointFromChangeModel(
 		ctx,
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,
@@ -134,6 +139,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 
 func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, error) {
 	return endpoint.ParseEndpoint(
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,
@@ -156,6 +162,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 
 func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 	ep, err := endpoint.CreateIngressEndpoint(
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,
@@ -188,6 +195,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 
 func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 	ep, err := endpoint.CreateHostEndpoint(
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,

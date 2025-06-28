@@ -1,0 +1,36 @@
+#! --cluster-id=3 --cluster-name=cluster3
+
+hive/start
+
+# Assert that the ClusterConfig has been correctly created
+kvstore/list -o json cilium/cluster-config config.actual
+* cmp config.actual config.expected
+
+# Modify the ClusterConfig...
+kvstore/list -o plain --values-only cilium/cluster-config/cluster3 config.modified
+sed '"id":3' '"id":5' config.modified
+kvstore/update cilium/cluster-config/cluster3 config.modified
+
+# ... and assert that it gets reconciled
+kvstore/list -o json cilium/cluster-config config.actual
+* cmp config.actual config.expected
+
+# Delete the ClusterConfig...
+kvstore/delete cilium/cluster-config/cluster3
+
+# ... and assert that it gets recreated
+kvstore/list -o json cilium/cluster-config config.actual
+* cmp config.actual config.expected
+
+# ---
+
+-- config.expected --
+# cilium/cluster-config/cluster3
+{
+  "id": 3,
+  "capabilities": {
+    "syncedCanaries": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": false
+  }
+}

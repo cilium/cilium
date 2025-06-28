@@ -15,6 +15,7 @@ var Cell = cell.Module(
 	"KVStoreMesh caches remote cluster information in a local kvstore",
 
 	cell.Provide(
+		common.DefaultRemoteClientFactory,
 		newKVStoreMesh,
 		newAPIClustersHandler,
 	),

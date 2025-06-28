@@ -327,6 +327,7 @@ func NewLabel(key string, value string, source string) Label {
 	if l.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key)
 		if err != nil {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
 				logfields.Error, err,
 				logfields.Key, l.Key,
@@ -483,6 +484,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		if err == nil {
 			l.cidr = &c
 		} else {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
 				logfields.Error, err,
 				logfields.Key, l.Key,
@@ -524,6 +526,19 @@ func GetExtendedKeyFrom(str string) string {
 		return src + PathDelimiter + next[:i]
 	}
 	return src + PathDelimiter + next
+}
+
+type KeyExtender func(string) string
+
+// Extender to convert label keys from Cilium representation to kubernetes representation.
+// Key passed to this extender is converted to format `<source>.<key>`.
+// The extender is not idempotent, caller needs to make sure its only called once for a key.
+var DefaultKeyExtender KeyExtender = GetExtendedKeyFrom
+
+func GetSourcePrefixKeyExtender(srcPrefix string) KeyExtender {
+	return func(str string) string {
+		return srcPrefix + str
+	}
 }
 
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
@@ -815,12 +830,14 @@ func parseLabel(str string, delim byte) (lbl Label) {
 
 	if lbl.Source == LabelSourceCIDR {
 		if lbl.Value != "" {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Invalid CIDR label: labels with source cidr cannot have values.",
 				logfields.Label, lbl,
 			)
 		}
 		c, err := LabelToPrefix(lbl.Key)
 		if err != nil {
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
 				logfields.Label, lbl,
 			)

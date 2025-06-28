@@ -1,5 +1,13 @@
 {{/* validate deprecated options are not being used */}}
 
+{{/* Options removed in v1.18 */}}
+{{- if (dig "enableCiliumEndpointSlice" "" .Values.AsMap) }}
+  {{ fail "enableCiliumEndpointSlice was deprecated in v1.16 and has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if (dig "ciliumEndpointSlice" "sliceMode" "" .Values.AsMap) }}
+  {{ fail "ciliumEndpointSlice.sliceMode has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}
+{{- end }}
+
 {{/* Options deprecated in v1.15 and removed in v1.16 */}}
 {{- if or
   (dig "encryption" "keyFile" "" .Values.AsMap)
@@ -134,7 +142,7 @@
 {{- end }}
 
 {{/* validate Cilium operator */}}
-{{- if or .Values.ciliumEndpointSlice.enabled .Values.enableCiliumEndpointSlice }}
+{{- if .Values.ciliumEndpointSlice.enabled }}
   {{- if eq .Values.disableEndpointCRD true }}
     {{ fail "if Cilium Endpoint Slice is enabled (.Values.ciliumEndpointSlice.enabled=true), it requires .Values.disableEndpointCRD=false" }}
   {{- end }}
@@ -211,9 +219,4 @@
       {{ fail "k8sClientExponentialBackoff cannot be enabled when extraEnv contains KUBE_CLIENT_BACKOFF_BASE or KUBE_CLIENT_BACKOFF_DURATION" }}
     {{- end }}
   {{- end }}
-{{- end }}
-
-{{/* validate multi-pool requirements */}}
-{{- if and (eq .Values.ipam.mode "multi-pool") (not .Values.endpointRoutes.enabled) }}
-  {{- fail "Multi-pool mode requires enable-endpoint-routes" }}
 {{- end }}

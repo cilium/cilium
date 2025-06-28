@@ -286,13 +286,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						{
 							IngressCommonRule: api.IngressCommonRule{
 								FromEndpoints: []api.EndpointSelector{
-									{
-										LabelSelector: &slim_metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												podAnyPrefixLbl: "ns-2",
-											},
+									api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											podAnyPrefixLbl: "ns-2",
 										},
-									},
+									}),
 								},
 							},
 						},
@@ -370,13 +368,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 											MatchLabels: map[string]string{},
 										},
 									},
-									{
-										LabelSelector: &slim_metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												clusterPrefixLbl: "cluster2",
-											},
+									api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											clusterPrefixLbl: "cluster2",
 										},
-									},
+									}),
 								},
 							},
 						},
@@ -459,13 +455,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						{
 							IngressCommonRule: api.IngressCommonRule{
 								FromEndpoints: []api.EndpointSelector{
-									{
-										LabelSelector: &slim_metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												podAnyNamespaceLabelsPrefix + "team": "team-a",
-											},
+									api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											podAnyNamespaceLabelsPrefix + "team": "team-a",
 										},
-									},
+									}),
 								},
 							},
 						},

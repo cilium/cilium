@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -23,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -238,9 +241,13 @@ type multiPoolManager struct {
 
 	node *ciliumv2.CiliumNode
 
-	controller  *controller.Manager
-	k8sUpdater  *trigger.Trigger
-	nodeUpdater nodeUpdater
+	controller     *controller.Manager
+	k8sUpdater     *trigger.Trigger
+	localNodeStore *node.LocalNodeStore
+	nodeUpdater    nodeUpdater
+
+	localNodeSynced   chan struct{}
+	localNodeSyncedFn func()
 
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
@@ -248,7 +255,7 @@ type multiPoolManager struct {
 
 var _ Allocator = (*multiPoolAllocator)(nil)
 
-func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, clientset nodeUpdater) *multiPoolManager {
+func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, localNodeStore *node.LocalNodeStore, clientset nodeUpdater) *multiPoolManager {
 	preallocMap, err := parseMultiPoolPreAllocMap(conf.IPAMMultiPoolPreAllocation)
 	if err != nil {
 		logging.Fatal(logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
@@ -266,6 +273,7 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		logging.Fatal(logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
 	}
 
+	localNodeSynced := make(chan struct{})
 	c := &multiPoolManager{
 		logger:                 logger,
 		mutex:                  &lock.Mutex{},
@@ -278,8 +286,13 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		node:                   nil,
 		controller:             k8sController,
 		k8sUpdater:             k8sUpdater,
+		localNodeStore:         localNodeStore,
 		nodeUpdater:            clientset,
 		finishedRestore:        map[Family]bool{},
+		localNodeSynced:        localNodeSynced,
+		localNodeSyncedFn: sync.OnceFunc(func() {
+			close(localNodeSynced)
+		}),
 	}
 
 	// We don't have a context to use here (as a lot of IPAM doesn't really
@@ -295,7 +308,15 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 
 	c.waitForAllPools()
 
-	return c
+	// wait for local node to be synced to avoid propagating spurious updates.
+	for {
+		select {
+		case <-c.localNodeSynced:
+			return c
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
+		}
+	}
 }
 
 func (m *multiPoolManager) ciliumNodeEventLoop(evs <-chan resource.Event[*ciliumv2.CiliumNode]) {
@@ -382,7 +403,7 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		m.controller.UpdateController(multiPoolControllerName,
 			controller.ControllerParams{
 				Group:       multiPoolControllerGroup,
-				DoFunc:      m.updateCiliumNode,
+				DoFunc:      m.updateLocalNode,
 				RunInterval: refreshPoolInterval,
 			})
 	}
@@ -489,7 +510,23 @@ func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 	return m.finishedRestore[family]
 }
 
-func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
+func (m *multiPoolManager) updateLocalNodeStore(newNode *ciliumv2.CiliumNode) {
+	no := nodeTypes.ParseCiliumNode(newNode)
+	if option.Config.EnableIPv4 {
+		m.localNodeStore.Update(func(n *node.LocalNode) {
+			n.IPv4AllocCIDR = no.IPv4AllocCIDR
+			n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
+		})
+	}
+	if option.Config.EnableIPv6 {
+		m.localNodeStore.Update(func(n *node.LocalNode) {
+			n.IPv6AllocCIDR = no.IPv6AllocCIDR
+			n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
+		})
+	}
+}
+
+func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	m.mutex.Lock()
 	newNode := m.node.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
@@ -555,12 +592,16 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 
 	m.mutex.Unlock()
 
+	m.updateLocalNodeStore(newNode)
+
 	if !newNode.Spec.IPAM.DeepEqual(&m.node.Spec.IPAM) {
 		_, err := m.nodeUpdater.Update(ctx, newNode, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update node spec: %w", err)
 		}
 	}
+
+	m.localNodeSyncedFn()
 
 	return nil
 }

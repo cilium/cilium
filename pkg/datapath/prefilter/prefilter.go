@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -222,7 +221,7 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_fix")
 	}
 
-	p.maps[which], err = cidrmap.OpenMapElems(logging.DefaultSlogLogger, path, prefixlen, prefixdyn, maxelems)
+	p.maps[which], err = cidrmap.OpenMapElems(p.logger, path, prefixlen, prefixdyn, maxelems)
 	if err != nil {
 		return err
 	}

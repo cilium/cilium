@@ -67,7 +67,9 @@ const (
 
 type ServiceConfig struct {
 	// Sets the Service.Spec.Type in generated Service objects to the given value.
+	// Only LoadBalancer and NodePort are supported.
 	//
+	// +kubebuilder:validation:Enum=LoadBalancer;NodePort
 	// +kubebuilder:default="LoadBalancer"
 	Type corev1.ServiceType `json:"type,omitempty"`
 

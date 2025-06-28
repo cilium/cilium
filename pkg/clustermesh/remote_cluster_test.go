@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -137,8 +136,8 @@ func TestRemoteClusterRun(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			// The nils are only used by k8s CRD identities. We default to kvstore.
-			allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
-			<-allocator.InitIdentityAllocator(nil)
+			allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
+			<-allocator.InitIdentityAllocator(nil, client)
 
 			t.Cleanup(func() {
 				cancel()
@@ -160,6 +159,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
+					ServiceMerger:         &fakeObserver{},
 					Metrics:               NewMetrics(),
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
@@ -226,11 +226,11 @@ func (o *fakeObserver) reset() {
 func (o *fakeObserver) NodeUpdated(_ nodeTypes.Node) { o.updates.Add(1) }
 func (o *fakeObserver) NodeDeleted(_ nodeTypes.Node) { o.deletes.Add(1) }
 
-func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService) {
 	o.updates.Add(1)
 }
 
-func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService) {
 	o.deletes.Add(1)
 }
 
@@ -277,8 +277,8 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	ctx := context.Background()
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
-	<-allocator.InitIdentityAllocator(nil)
+	allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
+	<-allocator.InitIdentityAllocator(nil, client)
 
 	t.Cleanup(allocator.Close)
 

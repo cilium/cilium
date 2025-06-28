@@ -735,22 +735,12 @@ pktgen__push_ipv4_icmp_packet(struct pktgen *builder,
 			      __be32 saddr, __be32 daddr,
 			      __u8 icmp_type)
 {
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct icmphdr *l4;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_iphdr(builder);
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	l3->saddr = saddr;
-	l3->daddr = daddr;
 
 	l4 = pktgen__push_icmphdr(builder);
 	if (!l4)
@@ -771,19 +761,10 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 {
 	struct ipv6hdr *l3;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_ipv6hdr(builder);
+	l3 = pktgen__push_ipv6_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	ipv6hdr__set_addrs(l3, saddr, daddr);
 
 	l4 = pktgen__push_default_tcphdr(builder);
 	if (!l4)
@@ -803,19 +784,10 @@ pktgen__push_ipv6_udp_packet(struct pktgen *builder,
 {
 	struct ipv6hdr *l3;
 	struct udphdr *l4;
-	struct ethhdr *l2;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_ipv6hdr(builder);
+	l3 = pktgen__push_ipv6_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	ipv6hdr__set_addrs(l3, saddr, daddr);
 
 	l4 = pktgen__push_default_udphdr(builder);
 	if (!l4)
@@ -849,21 +821,12 @@ pktgen__push_ipv6_icmp6_packet(struct pktgen *builder,
 			       __u8 *saddr, __u8 *daddr,
 			       __u8 icmp6_type)
 {
-	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct icmp6hdr *l4;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_ipv6hdr(builder);
+	l3 = pktgen__push_ipv6_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	ipv6hdr__set_addrs(l3, saddr, daddr);
 
 	l4 = pktgen__push_icmp6hdr(builder);
 	if (!l4)

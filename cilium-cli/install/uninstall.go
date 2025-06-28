@@ -117,6 +117,9 @@ func (k *K8sUninstaller) cleanupNodeAnnotations(ctx context.Context) error {
 }
 
 func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *action.Configuration) error {
+	// First, delete test namespace and wait for it to terminate (if Wait is set)
+	k.DeleteTestNamespace(ctx)
+
 	helmClient := action.NewUninstall(actionConfig)
 	helmClient.Wait = k.params.Wait
 	if k.params.Wait {
@@ -126,7 +129,8 @@ func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *ac
 	if _, err := helmClient.Run(k.params.HelmReleaseName); err != nil {
 		return err
 	}
-	// Clean up node annotations
+	// Clean up node annotations only after all test pods/namespaces are deleted.
+	// This order is intentional to avoid CNI issues with pods still using Cilium.
 	if err := k.cleanupNodeAnnotations(ctx); err != nil {
 		k.Log("Failed to clean up node annotations: %v", err)
 	}

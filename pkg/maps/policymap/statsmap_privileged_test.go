@@ -16,7 +16,7 @@ func TestStatMap(t *testing.T) {
 	testMap := policyMap.stats
 	require.NotNil(t, testMap)
 
-	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
+	fooKey := newKey(1, 1, 1, 1, SinglePortPrefixLen)
 
 	err := testMap.ClearStat(0, fooKey)
 	require.NoError(t, err)

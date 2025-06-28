@@ -34,13 +34,13 @@ var (
 	//
 	// References:
 	//   - https://github.com/distribution/distribution/blob/v2.7.1/reference/regexp.go#L53
-	//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#pulling-manifests
+	//   - https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#pulling-manifests
 	repositoryRegexp = regexp.MustCompile(`^[a-z0-9]+(?:(?:[._]|__|[-]*)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]*)[a-z0-9]+)*)*$`)
 
 	// tagRegexp checks the tag name.
 	// The docker and OCI spec have the same regular expression.
 	//
-	// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#pulling-manifests
+	// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#pulling-manifests
 	tagRegexp = regexp.MustCompile(`^[\w][\w.-]{0,127}$`)
 )
 

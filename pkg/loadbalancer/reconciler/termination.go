@@ -92,10 +92,6 @@ func (sd socketDestroyer) Destroy(filter sockets.SocketFilter) error {
 }
 
 func registerSocketTermination(p socketTerminationParams) error {
-	if !p.Config.EnableExperimentalLB {
-		return nil
-	}
-
 	if p.SocketDestroyer == nil {
 		// To make the load-balancer cell easier to use in tests we don't require that
 		// SocketDestroyer is always provided.
@@ -243,8 +239,10 @@ func terminateUDPConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n
 	// Iterate over all pod network namespaces, and terminate any stale connections.
 	if p.ExtConfig.EnableSocketLBPodConnectionTermination && !p.ExtConfig.BPFSocketLBHostnsOnly {
 		iter, errs := p.NetNSOps.all()
-		for name, ns := range iter {
-			destroy(name, ns)
+		if iter != nil {
+			for name, ns := range iter {
+				destroy(name, ns)
+			}
 		}
 		for err := range errs {
 			p.Log.Debug("Error opening netns, skipping",

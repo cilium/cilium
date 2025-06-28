@@ -43,9 +43,11 @@ const (
 	InvalidParameterValueStr = "InvalidParameterValue"
 
 	AssignPrivateIpAddresses        = "AssignPrivateIpAddresses"
+	AssociateAddress                = "AssociateAddress"
 	AttachNetworkInterface          = "AttachNetworkInterface"
 	CreateNetworkInterface          = "CreateNetworkInterface"
 	DeleteNetworkInterface          = "DeleteNetworkInterface"
+	DescribeAddresses               = "DescribeAddresses"
 	DescribeInstances               = "DescribeInstances"
 	DescribeInstanceTypes           = "DescribeInstanceTypes"
 	DescribeNetworkInterfaces       = "DescribeNetworkInterfaces"
@@ -840,7 +842,7 @@ func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes
 }
 
 // AssociateEIP tries to find an Elastic IP Address with the given tags and associates it with the given instance
-func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ipamTypes.Tags) (string, error) {
+func (c *Client) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error) {
 	if len(eipTags) == 0 {
 		return "", fmt.Errorf("no EIP tags were provided")
 	}
@@ -856,10 +858,10 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 	describeAddressesInput := &ec2.DescribeAddressesInput{
 		Filters: filters,
 	}
-	c.limiter.Limit(ctx, "DescribeAddresses")
+	c.limiter.Limit(ctx, DescribeAddresses)
 	sinceStart := spanstat.Start()
 	addresses, err := c.ec2Client.DescribeAddresses(ctx, describeAddressesInput)
-	c.metricsAPI.ObserveAPICall("DescribeAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(DescribeAddresses, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return "", err
 	}
@@ -870,28 +872,29 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 	)
 
 	for _, address := range addresses.Addresses {
-		// Only pick unassociated EIPs
-		if address.AssociationId == nil {
-			associateAddressInput := &ec2.AssociateAddressInput{
-				AllocationId:       address.AllocationId,
-				AllowReassociation: aws.Bool(false),
-				InstanceId:         aws.String(instanceID),
-			}
-			c.limiter.Limit(ctx, "AssociateAddress")
-			sinceStart = spanstat.Start()
-			association, err := c.ec2Client.AssociateAddress(ctx, associateAddressInput)
-			c.metricsAPI.ObserveAPICall("AssociateAddress", deriveStatus(err), sinceStart.Seconds())
-			if err != nil {
-				return "", err
-			}
-			c.logger.Info(
-				"Associated EIP successfully",
-				logfields.EIP, *address.PublicIp,
-				logfields.InstanceID, instanceID,
-				logfields.AssociationID, *association.AssociationId,
-			)
-			return *address.PublicIp, nil
+		// ignore EIPs that are already associated
+		if address.AssociationId != nil {
+			continue
 		}
+		associateAddressInput := &ec2.AssociateAddressInput{
+			AllocationId:       address.AllocationId,
+			AllowReassociation: aws.Bool(false),
+			NetworkInterfaceId: aws.String(eniID),
+		}
+		c.limiter.Limit(ctx, AssociateAddress)
+		sinceStart = spanstat.Start()
+		association, err := c.ec2Client.AssociateAddress(ctx, associateAddressInput)
+		c.metricsAPI.ObserveAPICall(AssociateAddress, deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return "", err
+		}
+		c.logger.Info(
+			"Associated EIP successfully",
+			logfields.EIP, aws.ToString(address.PublicIp),
+			logfields.Interface, eniID,
+			logfields.AssociationID, aws.ToString(association.AssociationId),
+		)
+		return aws.ToString(address.PublicIp), nil
 	}
 
 	return "", fmt.Errorf("no unassociated EIPs found for tags %v", eipTags)

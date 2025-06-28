@@ -90,6 +90,18 @@ func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 		// force slog to quote the value like logrus does...
 		return slog.String(slog.TimeKey, a.Value.Time().Format(time.RFC3339Nano))
 	case slog.LevelKey:
+		switch level := a.Value; {
+		case level.Equal(levelFatalValue):
+			return slog.Attr{
+				Key:   a.Key,
+				Value: slog.StringValue("fatal"),
+			}
+		case level.Equal(levelPanicValue):
+			return slog.Attr{
+				Key:   a.Key,
+				Value: slog.StringValue("panic"),
+			}
+		}
 		// Lower-case the log level
 		return slog.Attr{
 			Key:   a.Key,
@@ -143,14 +155,14 @@ var (
 )
 
 func Fatal(logger FieldLogger, msg string, args ...any) {
-	logger.Error(msg, args...)
 	(*exitHandler.Load())()
+	logger.Log(context.Background(), LevelFatal, msg, args...)
 	os.Exit(-1)
 }
 
 func Panic(logger FieldLogger, msg string, args ...any) {
-	logger.Error(msg, args...)
 	(*exitHandler.Load())()
+	logger.Log(context.Background(), LevelPanic, msg, args...)
 	panic(msg)
 }
 

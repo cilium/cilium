@@ -11,7 +11,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
@@ -31,8 +31,6 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
-	"github.com/cilium/hive/cell"
-
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
@@ -262,7 +260,16 @@ func (s *Server) Logf(f string, args ...interface{}) {
 	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(fmt.Sprintf(f, args...))
 	} else {
-		log.Printf(f, args...)
+		slog.Info(fmt.Sprintf(f, args...))
+	}
+}
+
+// Debugf logs debug messages either via defined user logger or via system one if no user logger is defined.
+func (s *Server) Debugf(f string, args ...interface{}) {
+	if s.logger != nil {
+		s.logger.Debug(fmt.Sprintf(f, args...))
+	} else {
+		slog.Debug(fmt.Sprintf(f, args...))
 	}
 }
 
@@ -275,7 +282,7 @@ func (s *Server) Fatalf(f string, args ...interface{}) {
 		s.api.Logger(f, args...)
 		os.Exit(1)
 	} else {
-		log.Fatalf(f, args...)
+		logging.Fatal(slog.Default(), fmt.Sprintf(f, args...))
 	}
 }
 
@@ -348,7 +355,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(logging.DefaultSlogLogger, s.SocketPath)
+			err := api.SetDefaultPermissions(s.Debugf, s.SocketPath)
 			if err != nil {
 				return err
 			}

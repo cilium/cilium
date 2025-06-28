@@ -65,16 +65,21 @@ type ExtendedCopyGraphOptions struct {
 
 // ExtendedCopy copies the directed acyclic graph (DAG) that are reachable from
 // the given tagged node from the source GraphTarget to the destination Target.
+// In other words, it copies a tagged artifact along with its referrers or
+// other predecessor manifests referencing it.
+//
+// The tagged node (e.g. a tagged manifest of the artifact) is identified by the
+// source reference.
 // The destination reference will be the same as the source reference if the
 // destination reference is left blank.
 //
 // Returns the descriptor of the tagged node on successful copy.
 func ExtendedCopy(ctx context.Context, src ReadOnlyGraphTarget, srcRef string, dst Target, dstRef string, opts ExtendedCopyOptions) (ocispec.Descriptor, error) {
 	if src == nil {
-		return ocispec.Descriptor{}, errors.New("nil source graph target")
+		return ocispec.Descriptor{}, newCopyError("ExtendedCopy", CopyErrorOriginSource, errors.New("nil source target"))
 	}
 	if dst == nil {
-		return ocispec.Descriptor{}, errors.New("nil destination target")
+		return ocispec.Descriptor{}, newCopyError("ExtendedCopy", CopyErrorOriginDestination, errors.New("nil destination target"))
 	}
 	if dstRef == "" {
 		dstRef = srcRef
@@ -82,7 +87,7 @@ func ExtendedCopy(ctx context.Context, src ReadOnlyGraphTarget, srcRef string, d
 
 	node, err := src.Resolve(ctx, srcRef)
 	if err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, newCopyError("Resolve", CopyErrorOriginSource, err)
 	}
 
 	if err := ExtendedCopyGraph(ctx, src, dst, node, opts.ExtendedCopyGraphOptions); err != nil {
@@ -90,7 +95,7 @@ func ExtendedCopy(ctx context.Context, src ReadOnlyGraphTarget, srcRef string, d
 	}
 
 	if err := dst.Tag(ctx, node, dstRef); err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, newCopyError("Tag", CopyErrorOriginDestination, err)
 	}
 
 	return node, nil
@@ -98,7 +103,17 @@ func ExtendedCopy(ctx context.Context, src ReadOnlyGraphTarget, srcRef string, d
 
 // ExtendedCopyGraph copies the directed acyclic graph (DAG) that are reachable
 // from the given node from the source GraphStorage to the destination Storage.
+// In other words, it copies an artifact along with its referrers or other
+// predecessor manifests referencing it.
+// The node (e.g. a manifest of the artifact) is identified by a descriptor.
 func ExtendedCopyGraph(ctx context.Context, src content.ReadOnlyGraphStorage, dst content.Storage, node ocispec.Descriptor, opts ExtendedCopyGraphOptions) error {
+	if src == nil {
+		return newCopyError("ExtendedCopyGraph", CopyErrorOriginSource, errors.New("nil source target"))
+	}
+	if dst == nil {
+		return newCopyError("ExtendedCopyGraph", CopyErrorOriginDestination, errors.New("nil destination target"))
+	}
+
 	roots, err := findRoots(ctx, src, node, opts)
 	if err != nil {
 		return err
@@ -174,7 +189,7 @@ func findRoots(ctx context.Context, storage content.ReadOnlyGraphStorage, node o
 
 		predecessors, err := opts.FindPredecessors(ctx, storage, currentNode)
 		if err != nil {
-			return nil, err
+			return nil, newCopyError("FindPredecessors", CopyErrorOriginSource, err)
 		}
 
 		// The current node has no predecessor node,

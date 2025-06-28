@@ -19,10 +19,8 @@ See each sub-command's help for details on how to use the generated script.
 ### Options inherited from parent commands
 
 ```
-  -D, --debug                Enable debug messages
-  -H, --host string          URI to cilium-health server API
-      --log-driver strings   Logging endpoints to use for example syslog
-      --log-opt map          Log driver options for cilium-health e.g. syslog.level=info,syslog.facility=local5,syslog.tag=cilium-agent
+  -D, --debug         Enable debug messages
+  -H, --host string   URI to cilium-health server API
 ```
 
 ### SEE ALSO
