@@ -281,8 +281,12 @@ func ToAPIRoutePolicyStatement(s *types.RoutePolicyStatement) *models.BgpRoutePo
 	if s.Actions.SetLocalPreference != nil {
 		localPref = *s.Actions.SetLocalPreference
 	}
+	neighbors := []string{}
+	for _, neighbor := range s.Conditions.MatchNeighbors {
+		neighbors = append(neighbors, neighbor.String())
+	}
 	ret := &models.BgpRoutePolicyStatement{
-		MatchNeighbors:      s.Conditions.MatchNeighbors,
+		MatchNeighbors:      neighbors,
 		MatchFamilies:       ToAPIFamilies(s.Conditions.MatchFamilies),
 		MatchPrefixes:       ToApiMatchPrefixes(s.Conditions.MatchPrefixes),
 		RouteAction:         ToApiRoutePolicyAction(s.Actions.RouteAction),

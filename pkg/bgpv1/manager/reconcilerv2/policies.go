@@ -65,7 +65,7 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 	}
 
 	// tracks which peers have to be reset because of policy change
-	resetPeers := sets.New[string]()
+	resetPeers := sets.New[netip.Addr]()
 
 	// add missing policies
 	for _, p := range toAdd {
@@ -131,11 +131,6 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 	// soft-reset affected BGP peers to apply the changes on already advertised routes
 	for peer := range resetPeers {
-		_, err := netip.ParsePrefix(peer)
-		if err != nil {
-			continue
-		}
-
 		rp.Logger.Debug(
 			"Resetting peer due to a routing policy change",
 			types.PeerLogField, peer,
@@ -147,8 +142,7 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 			SoftResetDirection: types.SoftResetDirectionOut, // we are using only export policies
 		}
 
-		err = rp.Router.ResetNeighbor(rp.Ctx, req)
-		if err != nil {
+		if err := rp.Router.ResetNeighbor(rp.Ctx, req); err != nil {
 			// non-fatal error (may happen if the neighbor is not up), just log it
 			rp.Logger.Debug(
 				"resetting peer failed after a routing policy change",
@@ -404,12 +398,9 @@ func dedupLargeCommunities(advert v2.BGPAdvertisement) []string {
 }
 
 func policyStatement(neighborAddr netip.Addr, prefixes []*types.RoutePolicyPrefixMatch, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
-	// create /32 or /128 neighbor prefix match
-	neighborPrefix := netip.PrefixFrom(neighborAddr, neighborAddr.BitLen())
-
 	return &types.RoutePolicyStatement{
 		Conditions: types.RoutePolicyConditions{
-			MatchNeighbors: []string{neighborPrefix.String()},
+			MatchNeighbors: []netip.Addr{neighborAddr},
 			MatchPrefixes:  prefixes,
 		},
 		Actions: types.RoutePolicyActions{
@@ -422,14 +413,14 @@ func policyStatement(neighborAddr netip.Addr, prefixes []*types.RoutePolicyPrefi
 }
 
 // peerAddressFromPolicy returns the first neighbor address found in a routing policy.
-func peerAddressFromPolicy(p *types.RoutePolicy) string {
+func peerAddressFromPolicy(p *types.RoutePolicy) netip.Addr {
 	if p == nil {
-		return ""
+		return netip.Addr{}
 	}
 	for _, s := range p.Statements {
 		for _, m := range s.Conditions.MatchNeighbors {
 			return m
 		}
 	}
-	return ""
+	return netip.Addr{}
 }
