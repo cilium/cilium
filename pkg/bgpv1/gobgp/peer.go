@@ -115,14 +115,8 @@ func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n *types.Neighbor) err
 
 // ResetNeighbor resets BGP peering with the provided neighbor address.
 func (g *GoBGPServer) ResetNeighbor(ctx context.Context, r types.ResetNeighborRequest) error {
-	// for this request we need a peer address without prefix
-	peerAddr := r.PeerAddress
-	if p, err := netip.ParsePrefix(r.PeerAddress); err == nil {
-		peerAddr = p.Addr().String()
-	}
-
 	resetReq := &gobgp.ResetPeerRequest{
-		Address:       peerAddr,
+		Address:       r.PeerAddress.String(),
 		Communication: r.AdminCommunication,
 	}
 	if r.Soft {

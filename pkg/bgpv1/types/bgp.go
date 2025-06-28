@@ -113,7 +113,7 @@ const (
 
 // ResetNeighborRequest contains parameters used when resetting a BGP peer
 type ResetNeighborRequest struct {
-	PeerAddress        string
+	PeerAddress        netip.Addr
 	Soft               bool
 	SoftResetDirection SoftResetDirection
 	AdminCommunication string
@@ -149,9 +149,11 @@ type RoutePolicyPrefixMatch struct {
 // RoutePolicyConditions represent conditions of a policy statement.
 //
 // +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type RoutePolicyConditions struct {
 	// MatchNeighbors matches ANY of the provided BGP neighbor IP addresses. If empty matches all neighbors.
-	MatchNeighbors []string
+	// +deepequal-gen=false
+	MatchNeighbors []netip.Addr
 	// MatchPrefixes matches ANY of the provided prefixes. If empty matches all prefixes.
 	MatchPrefixes []*RoutePolicyPrefixMatch
 	// MatchFamilies matches ANY of the provided address families. If empty matches all address families.
@@ -161,7 +163,9 @@ type RoutePolicyConditions struct {
 // String() constructs a string identifier
 func (r RoutePolicyConditions) String() string {
 	values := []string{}
-	values = append(values, r.MatchNeighbors...)
+	for _, neighbor := range r.MatchNeighbors {
+		values = append(values, neighbor.String())
+	}
 	for _, family := range r.MatchFamilies {
 		values = append(values, family.String())
 	}
@@ -169,6 +173,28 @@ func (r RoutePolicyConditions) String() string {
 		values = append(values, prefix.CIDR.String())
 	}
 	return strings.Join(values, "-")
+}
+
+// DeepEqual is a manually created deepequal function, deeply comparing the receiver with another.
+// It compares fields with types that do not implement the `DeepEqual` method
+// and calls the generated private `deepEqual` method which compares the rest of the fields.
+func (r *RoutePolicyConditions) DeepEqual(other *RoutePolicyConditions) bool {
+	if other == nil {
+		return false
+	}
+
+	if len(r.MatchNeighbors) != len(other.MatchNeighbors) {
+		return false
+	}
+
+	for i, neighbor := range r.MatchNeighbors {
+		if neighbor != other.MatchNeighbors[i] {
+			return false
+		}
+	}
+
+	// Call generated `deepEqual` method which compares all fields except 'MatchNeighbors'
+	return r.deepEqual(other)
 }
 
 // RoutePolicyAction defines the action taken on a route matched by a routing policy.

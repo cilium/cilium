@@ -208,10 +208,14 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 
 	// defined set to match neighbor
 	if len(apiStatement.Conditions.MatchNeighbors) > 0 {
+		neighbors := []string{}
+		for _, addr := range apiStatement.Conditions.MatchNeighbors {
+			neighbors = append(neighbors, netip.PrefixFrom(addr, addr.BitLen()).String())
+		}
 		ds := &gobgp.DefinedSet{
 			DefinedType: gobgp.DefinedType_NEIGHBOR,
 			Name:        policyNeighborDefinedSetName(name),
-			List:        apiStatement.Conditions.MatchNeighbors,
+			List:        neighbors,
 		}
 		s.Conditions.NeighborSet = &gobgp.MatchSet{
 			Type: gobgp.MatchSet_ANY, // any of the configured neighbors
@@ -286,7 +290,15 @@ func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.De
 
 	if s.Conditions != nil {
 		if s.Conditions.NeighborSet != nil && definedSets[s.Conditions.NeighborSet.Name] != nil {
-			stmt.Conditions.MatchNeighbors = definedSets[s.Conditions.NeighborSet.Name].List
+			neighbors := []netip.Addr{}
+			for _, addr := range definedSets[s.Conditions.NeighborSet.Name].List {
+				neighbor, err := netip.ParsePrefix(addr)
+				if err != nil {
+					continue
+				}
+				neighbors = append(neighbors, neighbor.Addr())
+			}
+			stmt.Conditions.MatchNeighbors = neighbors
 		}
 		if s.Conditions.PrefixSet != nil && definedSets[s.Conditions.PrefixSet.Name] != nil {
 			for _, pfx := range definedSets[s.Conditions.PrefixSet.Name].Prefixes {
