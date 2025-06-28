@@ -13,21 +13,25 @@ import (
 // values defined for pkg/pollicy/api/L4Proto
 
 const (
-	// ANY represents all protocols.
+	// ANY represents protocols with transport-layer ports (TCP, UDP, SCTP).
 	ANY    U8proto = 0
 	ICMP   U8proto = 1
+	IGMP   U8proto = 2
 	TCP    U8proto = 6
 	UDP    U8proto = 17
 	ICMPv6 U8proto = 58
+	VRRP   U8proto = 112
 	SCTP   U8proto = 132
 )
 
 var protoNames = map[U8proto]string{
 	0:   "ANY",
 	1:   "ICMP",
+	2:   "IGMP",
 	6:   "TCP",
 	17:  "UDP",
 	58:  "ICMPv6",
+	112: "VRRP",
 	132: "SCTP",
 }
 
@@ -36,9 +40,11 @@ var ProtoIDs = map[string]U8proto{
 	"any":    0,
 	"none":   0,
 	"icmp":   1,
+	"igmp":   2,
 	"tcp":    6,
 	"udp":    17,
 	"icmpv6": 58,
+	"vrrp":   112,
 	"sctp":   132,
 }
 
