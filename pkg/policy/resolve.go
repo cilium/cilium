@@ -104,6 +104,15 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
 }
 
+// CopyMapStateFrom copies the policy map entries from m.
+func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
+	for key, entry := range m {
+		p.policyMapState.entries[key] = mapStateEntry{
+			MapStateEntry: entry,
+		}
+	}
+}
+
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
