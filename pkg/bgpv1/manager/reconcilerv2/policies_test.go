@@ -5,6 +5,7 @@ package reconcilerv2
 
 import (
 	"cmp"
+	"net/netip"
 	"slices"
 	"testing"
 
@@ -22,12 +23,12 @@ func Test_MergeRoutePolicies(t *testing.T) {
 	var nilPointerInt64 *int64
 
 	conditionsNeighborOne := types.RoutePolicyConditions{
-		MatchNeighbors: []string{"fd00::1"},
+		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::1")},
 		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
 	}
 
 	conditionsNeighborThree := types.RoutePolicyConditions{
-		MatchNeighbors: []string{"fd00::3"},
+		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::3")},
 		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
 	}
 

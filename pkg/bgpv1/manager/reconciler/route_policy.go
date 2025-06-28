@@ -100,7 +100,11 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	desiredPolicies := make(map[string]*types.RoutePolicy)
 	for _, n := range params.DesiredConfig.Neighbors {
 		for _, routeAttrs := range n.AdvertisedPathAttributes {
-			exportPolicy, err := r.pathAttributesToPolicy(routeAttrs, n.PeerAddress, params)
+			prefix, err := netip.ParsePrefix(n.PeerAddress)
+			if err != nil {
+				return fmt.Errorf("failed to parse neighbor address: %w", err)
+			}
+			exportPolicy, err := r.pathAttributesToPolicy(routeAttrs, prefix.Addr(), params)
 			if err != nil {
 				return fmt.Errorf("failed to convert BGP PathAttributes to a RoutePolicy: %w", err)
 			}
@@ -127,7 +131,7 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		}
 	}
 
-	resetPeers := make(map[string]bool)
+	resetPeers := make(map[netip.Addr]bool)
 
 	// add missing policies
 	for _, p := range toAdd {
@@ -222,7 +226,7 @@ func (r *RoutePolicyReconciler) storeMetadata(sc *instance.ServerWithConfig, met
 }
 
 // pathAttributesToPolicy prepares an export policy configured by CRD using the Advertised Path Attributes feature
-func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumBGPPathAttributes, neighborAddress string, params ReconcileParams) (*types.RoutePolicy, error) {
+func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumBGPPathAttributes, neighborAddress netip.Addr, params ReconcileParams) (*types.RoutePolicy, error) {
 	var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
 
 	policy := &types.RoutePolicy{
@@ -363,8 +367,8 @@ func (r *RoutePolicyReconciler) populateLocalPools(localNode *v2api.CiliumNode) 
 
 // pathAttributesPolicyName returns a policy name derived from the provided CiliumBGPPathAttributes
 // (SelectorType and Selector) and NeighborAddress
-func pathAttributesPolicyName(attrs v2alpha1api.CiliumBGPPathAttributes, neighborAddress string) string {
-	res := neighborAddress + "-" + attrs.SelectorType
+func pathAttributesPolicyName(attrs v2alpha1api.CiliumBGPPathAttributes, neighborAddress netip.Addr) string {
+	res := neighborAddress.String() + "-" + attrs.SelectorType
 	if attrs.Selector != nil {
 		h := sha256.New()
 		selectorBytes, err := attrs.Selector.Marshal()
@@ -376,10 +380,10 @@ func pathAttributesPolicyName(attrs v2alpha1api.CiliumBGPPathAttributes, neighbo
 	return res
 }
 
-func policyStatement(neighborAddr string, prefixes []*types.RoutePolicyPrefixMatch, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
+func policyStatement(neighborAddr netip.Addr, prefixes []*types.RoutePolicyPrefixMatch, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
 	return &types.RoutePolicyStatement{
 		Conditions: types.RoutePolicyConditions{
-			MatchNeighbors: []string{neighborAddr},
+			MatchNeighbors: []netip.Addr{neighborAddr},
 			MatchPrefixes:  prefixes,
 		},
 		Actions: types.RoutePolicyActions{
@@ -392,16 +396,16 @@ func policyStatement(neighborAddr string, prefixes []*types.RoutePolicyPrefixMat
 }
 
 // peerAddressFromPolicy returns the first neighbor address found in a routing policy.
-func peerAddressFromPolicy(p *types.RoutePolicy) string {
+func peerAddressFromPolicy(p *types.RoutePolicy) netip.Addr {
 	if p == nil {
-		return ""
+		return netip.Addr{}
 	}
 	for _, s := range p.Statements {
 		for _, m := range s.Conditions.MatchNeighbors {
 			return m
 		}
 	}
-	return ""
+	return netip.Addr{}
 }
 
 // mergeAndDedupCommunities merges numeric standard community and well-known community strings,
