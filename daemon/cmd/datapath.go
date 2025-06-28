@@ -170,10 +170,6 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	for _, ep := range d.endpointManager.GetEndpoints() {
-		ep.InitMap()
-	}
-
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {
