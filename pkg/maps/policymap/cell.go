@@ -50,7 +50,6 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 
 type Factory interface {
 	OpenEndpoint(id uint16) (*PolicyMap, error)
-	CreateEndpoint(id uint16) error
 	RemoveEndpoint(id uint16) error
 
 	PolicyMaxEntries() int
@@ -90,16 +89,7 @@ func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
 	return m, nil
 }
 
-// CreateEndpoint creates a policy map for the specified endpoint.
-func (f *factory) CreateEndpoint(id uint16) error {
-	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
-	if err != nil {
-		return err
-	}
-	return m.Create()
-}
-
-// CreateEndpoint removes the policy map if the specified endpoint.
+// RemoveEndpoint removes the policy map of the specified endpoint.
 func (f *factory) RemoveEndpoint(id uint16) error {
 	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id))
 }
