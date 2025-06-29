@@ -1060,6 +1060,9 @@ const (
 
 	// ConnectivityProbeFrequencyRatio is the name of the option to specify the connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = "connectivity-probe-frequency-ratio"
+
+	// BPFPolicyMapPressureMetricsThreshold is the name of the option to specify the policy map pressure threshold
+	BPFPolicyMapPressureMetricsThreshold = "bpf-policy-map-pressure-metrics-threshold"
 )
 
 // Default string arguments
@@ -2021,6 +2024,9 @@ type DaemonConfig struct {
 
 	// ConnectivityProbeFrequencyRatio is the ratio of the connectivity probe frequency vs resource consumption
 	ConnectivityProbeFrequencyRatio float64
+
+	// BPFPolicyMapPressureMetricsThreshold is the threshold for triggering policy map pressure metrics
+	BPFPolicyMapPressureMetricsThreshold float64
 }
 
 var (
@@ -2731,6 +2737,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 	c.BootIDFile = vp.GetString(BootIDFilename)
+	c.BPFPolicyMapPressureMetricsThreshold = vp.GetFloat64(BPFPolicyMapPressureMetricsThreshold)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
