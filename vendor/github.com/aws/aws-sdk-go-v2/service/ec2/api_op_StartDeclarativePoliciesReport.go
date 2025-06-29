@@ -33,7 +33,7 @@ import (
 //   - An S3 bucket must be available before generating the report (you can create
 //     a new one or use an existing one), it must be in the same Region where the
 //     report generation request is made, and it must have an appropriate bucket
-//     policy. For a sample S3 policy, see Sample Amazon S3 policy under .
+//     policy. For a sample S3 policy, see Sample Amazon S3 policy under [Examples].
 //
 //   - Trusted access must be enabled for the service for which the declarative
 //     policy will enforce a baseline configuration. If you use the Amazon Web Services
@@ -51,6 +51,7 @@ import (
 //
 // [Generating the account status report for declarative policies]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_declarative_status-report.html
 // [Using Organizations with other Amazon Web Services services]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html
+// [Examples]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StartDeclarativePoliciesReport.html#API_StartDeclarativePoliciesReport_Examples
 func (c *Client) StartDeclarativePoliciesReport(ctx context.Context, params *StartDeclarativePoliciesReportInput, optFns ...func(*Options)) (*StartDeclarativePoliciesReportOutput, error) {
 	if params == nil {
 		params = &StartDeclarativePoliciesReportInput{}

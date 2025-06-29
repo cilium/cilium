@@ -81996,6 +81996,32 @@ func awsEc2query_deserializeDocumentEbsBlockDevice(v **types.EbsBlockDevice, dec
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("availabilityZone", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZone = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("AvailabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("deleteOnTermination", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -128679,6 +128705,19 @@ func awsEc2query_deserializeDocumentRoute(v **types.Route, decoder smithyxml.Nod
 			{
 				xtv := string(val)
 				sv.NetworkInterfaceId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("odbNetworkArn", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.OdbNetworkArn = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("origin", t.Name.Local):

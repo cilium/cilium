@@ -19,6 +19,15 @@ import (
 // mapping information for those volumes. When you launch an instance from this new
 // AMI, the instance automatically launches with those additional volumes.
 //
+// The location of the source instance determines where you can create the
+// snapshots of the AMI:
+//
+//   - If the source instance is in a Region, you must create the snapshots in the
+//     same Region as the instance.
+//
+//   - If the source instance is in a Local Zone, you can create the snapshots in
+//     the same Local Zone or in its parent Region.
+//
 // For more information, see [Create an Amazon EBS-backed AMI] in the Amazon Elastic Compute Cloud User Guide.
 //
 // [Create an Amazon EBS-backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
@@ -94,6 +103,20 @@ type CreateImageInput struct {
 	//
 	// Default: false
 	NoReboot *bool
+
+	// Only supported for instances in Local Zones. If the source instance is not in a
+	// Local Zone, omit this parameter.
+	//
+	// The Amazon S3 location where the snapshots will be stored.
+	//
+	//   - To create local snapshots in the same Local Zone as the source instance,
+	//   specify local .
+	//
+	//   - To create regional snapshots in the parent Region of the Local Zone,
+	//   specify regional or omit this parameter.
+	//
+	// Default: regional
+	SnapshotLocation types.SnapshotLocationEnum
 
 	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI,
 	// the snapshots, or both.

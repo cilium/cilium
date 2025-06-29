@@ -1,3 +1,11 @@
+# v1.227.0 (2025-06-26)
+
+* **Feature**: This release adds support for OdbNetworkArn as a target in VPC Route Tables
+
+# v1.226.0 (2025-06-24)
+
+* **Feature**: This release allows you to create and register AMIs while maintaining their underlying EBS snapshots within Local Zones.
+
 # v1.225.2 (2025-06-17)
 
 * **Dependency Update**: Update to smithy-go v1.22.4.

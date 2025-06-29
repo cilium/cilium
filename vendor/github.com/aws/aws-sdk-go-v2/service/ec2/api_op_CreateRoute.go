@@ -99,6 +99,9 @@ type CreateRouteInput struct {
 	// The ID of a network interface.
 	NetworkInterfaceId *string
 
+	// The Amazon Resource Name (ARN) of the ODB network.
+	OdbNetworkArn *string
+
 	// The ID of a transit gateway.
 	TransitGatewayId *string
 

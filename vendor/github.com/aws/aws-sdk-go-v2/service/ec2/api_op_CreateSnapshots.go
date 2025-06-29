@@ -69,7 +69,7 @@ type CreateSnapshotsInput struct {
 	//   - To create local snapshots in the same Local Zone as the source instance,
 	//   specify local .
 	//
-	//   - To create a regional snapshots in the parent Region of the Local Zone,
+	//   - To create regional snapshots in the parent Region of the Local Zone,
 	//   specify regional or omit this parameter.
 	//
 	// Default value: regional

@@ -49832,6 +49832,16 @@ func awsEc2query_serializeDocumentEbsBlockDevice(v *types.EbsBlockDevice, value 
 	object := value.Object()
 	_ = object
 
+	if v.AvailabilityZone != nil {
+		objectKey := object.Key("AvailabilityZone")
+		objectKey.String(*v.AvailabilityZone)
+	}
+
+	if v.AvailabilityZoneId != nil {
+		objectKey := object.Key("AvailabilityZoneId")
+		objectKey.String(*v.AvailabilityZoneId)
+	}
+
 	if v.DeleteOnTermination != nil {
 		objectKey := object.Key("DeleteOnTermination")
 		objectKey.Boolean(*v.DeleteOnTermination)
@@ -61439,6 +61449,11 @@ func awsEc2query_serializeOpDocumentCreateImageInput(v *CreateImageInput, value 
 		objectKey.Boolean(*v.NoReboot)
 	}
 
+	if len(v.SnapshotLocation) > 0 {
+		objectKey := object.Key("SnapshotLocation")
+		objectKey.String(string(v.SnapshotLocation))
+	}
+
 	if v.TagSpecifications != nil {
 		objectKey := object.FlatKey("TagSpecification")
 		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
@@ -62910,6 +62925,11 @@ func awsEc2query_serializeOpDocumentCreateRouteInput(v *CreateRouteInput, value 
 	if v.NetworkInterfaceId != nil {
 		objectKey := object.Key("NetworkInterfaceId")
 		objectKey.String(*v.NetworkInterfaceId)
+	}
+
+	if v.OdbNetworkArn != nil {
+		objectKey := object.Key("OdbNetworkArn")
+		objectKey.String(*v.OdbNetworkArn)
 	}
 
 	if v.RouteTableId != nil {
@@ -79293,6 +79313,11 @@ func awsEc2query_serializeOpDocumentReplaceRouteInput(v *ReplaceRouteInput, valu
 	if v.NetworkInterfaceId != nil {
 		objectKey := object.Key("NetworkInterfaceId")
 		objectKey.String(*v.NetworkInterfaceId)
+	}
+
+	if v.OdbNetworkArn != nil {
+		objectKey := object.Key("OdbNetworkArn")
+		objectKey.String(*v.OdbNetworkArn)
 	}
 
 	if v.RouteTableId != nil {
