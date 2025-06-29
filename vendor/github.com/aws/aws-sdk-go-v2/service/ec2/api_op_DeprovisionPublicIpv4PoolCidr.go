@@ -28,10 +28,7 @@ func (c *Client) DeprovisionPublicIpv4PoolCidr(ctx context.Context, params *Depr
 
 type DeprovisionPublicIpv4PoolCidrInput struct {
 
-	// The CIDR you want to deprovision from the pool. Enter the CIDR you want to
-	// deprovision with a netmask of /32 . You must rerun this command for each IP
-	// address in the CIDR range. If your CIDR is a /24 , you will have to run this
-	// command to deprovision each of the 256 IP addresses in the /24 CIDR.
+	// The CIDR you want to deprovision from the pool.
 	//
 	// This member is required.
 	Cidr *string
