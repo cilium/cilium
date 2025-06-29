@@ -9,7 +9,7 @@ hive start
 k8s/add service-lb.yaml
 
 # Configure GoBGP server
-gobgp/add-server 65010 10.99.0.121 1790
+gobgp/add-server test 65010 10.99.0.121 1790
 gobgp/add-peer 10.99.0.130 65001
 
 # Configure BGP on Cilium
@@ -28,8 +28,8 @@ gobgp/routes -o routes.actual
 * cmp gobgp-routes.expected routes.actual
 
 # Re-configure GoBGP server with the new IP
-gobgp/delete-server 65010
-gobgp/add-server 65010 10.99.0.122 1790
+gobgp/delete-server test
+gobgp/add-server test 65010 10.99.0.122 1790
 gobgp/add-peer 10.99.0.130 65001
 
 # Update peer IP
