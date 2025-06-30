@@ -65,8 +65,8 @@ func (lrp *LocalRedirectPolicy) getModel() *models.LRPSpec {
 
 	return &models.LRPSpec{
 		UID:              string(lrp.UID),
-		Name:             lrp.ID.Name,
-		Namespace:        lrp.ID.Namespace,
+		Name:             lrp.ID.Name(),
+		Namespace:        lrp.ID.Namespace(),
 		FrontendType:     feType,
 		LrpType:          lrpType,
 		ServiceID:        lrp.ServiceID.String(),

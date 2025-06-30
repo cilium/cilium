@@ -263,7 +263,7 @@ func Test_parseK8sEPv1(t *testing.T) {
 		Namespace: "bar",
 	}
 	sliceID := EndpointSliceID{
-		ServiceID:         ServiceID{Name: "foo", Namespace: "bar"},
+		ServiceName:       loadbalancer.NewServiceName("bar", "foo"),
 		EndpointSliceName: "foo",
 	}
 	newEmptyEndpoints := func() *Endpoints {
@@ -578,7 +578,7 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 		Labels:    map[string]string{slim_discovery_v1beta1.LabelServiceName: "quux"},
 	}
 	sliceID := EndpointSliceID{
-		ServiceID:         ServiceID{Name: "quux", Namespace: "bar"},
+		ServiceName:       loadbalancer.NewServiceName("bar", "quux"),
 		EndpointSliceName: "foo",
 	}
 
@@ -1141,7 +1141,7 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 		Labels:    map[string]string{slim_discovery_v1.LabelServiceName: "quux"},
 	}
 	sliceID := EndpointSliceID{
-		ServiceID:         ServiceID{Name: "quux", Namespace: "bar"},
+		ServiceName:       loadbalancer.NewServiceName("bar", "quux"),
 		EndpointSliceName: "foo",
 	}
 

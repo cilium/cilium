@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type Aggregation struct {
@@ -626,10 +627,9 @@ var (
 			Namespace: "non-default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName: loadbalancer.NewServiceName(
+				redSvcKey.Namespace, redSvcKey.Name,
+			),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -648,10 +648,10 @@ var (
 			Namespace: "non-default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName: loadbalancer.NewServiceName(
+				redSvcKey.Namespace,
+				redSvcKey.Name,
+			),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -672,10 +672,10 @@ var (
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName: loadbalancer.NewServiceName(
+				redSvcKey.Namespace,
+				redSvcKey.Name,
+			),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -694,10 +694,10 @@ var (
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName: loadbalancer.NewServiceName(
+				redSvcKey.Namespace,
+				redSvcKey.Name,
+			),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{

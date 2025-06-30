@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
@@ -116,10 +117,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -135,10 +133,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -155,10 +150,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -174,10 +166,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -196,10 +185,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -215,10 +201,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -234,10 +217,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -840,10 +820,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -859,10 +836,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -878,10 +852,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -900,10 +871,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -919,10 +887,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -938,10 +903,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1501,10 +1463,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1520,10 +1479,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1539,10 +1495,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1561,10 +1514,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1580,10 +1530,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1599,10 +1546,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -2114,10 +2058,7 @@ func TestEPUpdateOnly(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{

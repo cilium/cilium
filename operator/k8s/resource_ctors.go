@@ -147,7 +147,7 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.Config, c
 				if !ok {
 					return nil, fmt.Errorf("unexpected object type: %T", obj)
 				}
-				return []string{eps.ServiceID.String()}, nil
+				return []string{eps.ServiceName.String()}, nil
 			},
 		},
 	)

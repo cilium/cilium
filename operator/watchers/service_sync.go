@@ -176,7 +176,7 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 
 			ep := ev.Object
 
-			svc, exists, _ := services.GetByKey(resource.Key{Namespace: ep.ServiceID.Namespace, Name: ep.ServiceID.Name})
+			svc, exists, _ := services.GetByKey(resource.Key{Namespace: ep.ServiceName.Namespace(), Name: ep.ServiceName.Name()})
 			if !exists {
 				// Service does not exist yet.
 				continue
