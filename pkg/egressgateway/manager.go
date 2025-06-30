@@ -62,6 +62,12 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
 	cell.Provide(newPolicyResource),
+	cell.Provide(func(dcfg *option.DaemonConfig) tunnel.EnablerOut {
+		if !dcfg.EnableEgressGateway {
+			return tunnel.EnablerOut{}
+		}
+		return tunnel.NewEnabler(true)
+	}),
 )
 
 type eventType int
@@ -177,7 +183,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	*Manager
 	defines.NodeOut
-	tunnel.EnablerOut
 }, err error) {
 	dcfg := p.DaemonConfig
 
@@ -211,8 +216,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 	out.NodeDefines = map[string]string{
 		"ENABLE_EGRESS_GATEWAY": "1",
 	}
-
-	out.EnablerOut = tunnel.NewEnabler(true)
 
 	return out, nil
 }
