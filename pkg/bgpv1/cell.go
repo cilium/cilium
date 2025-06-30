@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
+	"github.com/cilium/cilium/pkg/bgpv1/healthcheck"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
@@ -77,7 +78,7 @@ var Cell = cell.Module(
 		api.NewGetRoutesHandler,
 		api.NewGetRoutePoliciesHandler,
 	),
-
+	healthcheck.Cell,
 	// statedb tables
 	cell.Provide(
 		tables.NewBGPReconcileErrorTable,

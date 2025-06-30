@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/healthcheck"
 )
 
 // Cell provides the Cilium status collector that is responsible for
@@ -101,6 +102,7 @@ type statusParams struct {
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
 	WireguardAgent   *wireguard.Agent
+	BGPStatusGetter  healthcheck.BgpStatusGetter
 }
 
 // Config is the collector configuration
