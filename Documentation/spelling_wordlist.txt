@@ -285,6 +285,7 @@ debuginfo
 decapsulate
 decapsulated
 decapsulation
+declaratively
 decrypt
 decrypted
 deduplicate
@@ -798,6 +799,7 @@ toGroups
 tofqdns
 tolerations
 toolchain
+topologies
 toto
 traceparent
 tracepoint
