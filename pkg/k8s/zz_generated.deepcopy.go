@@ -9,7 +9,6 @@
 package k8s
 
 import (
-	store "github.com/cilium/cilium/pkg/clustermesh/store"
 	loadbalancer "github.com/cilium/cilium/pkg/loadbalancer"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -19,15 +18,15 @@ func (in *Backend) DeepCopyInto(out *Backend) {
 	*out = *in
 	if in.Ports != nil {
 		in, out := &in.Ports, &out.Ports
-		*out = make(store.PortConfiguration, len(*in))
+		*out = make(map[loadbalancer.L4Addr][]string, len(*in))
 		for key, val := range *in {
-			var outVal *loadbalancer.L4Addr
+			var outVal []string
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = new(loadbalancer.L4Addr)
-				**out = **in
+				*out = make([]string, len(*in))
+				copy(*out, *in)
 			}
 			(*out)[key] = outVal
 		}

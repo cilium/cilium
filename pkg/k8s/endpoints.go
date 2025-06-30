@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
@@ -100,15 +101,35 @@ func (in *Endpoints) DeepCopy() *Endpoints {
 // Backend contains all ports, terminating state, and the node name of a given backend
 //
 // +k8s:deepcopy-gen=true
-// +deepequal-gen=true
+// +deepequal-gen=false
 type Backend struct {
-	Ports         serviceStore.PortConfiguration
+	Ports         map[loadbalancer.L4Addr][]string
 	NodeName      string
 	Hostname      string
 	Terminating   bool
 	HintsForZones []string
 	Preferred     bool
 	Zone          string
+}
+
+func (b *Backend) DeepEqual(other *Backend) bool {
+	return maps.EqualFunc(b.Ports, other.Ports, slices.Equal) &&
+		b.NodeName == other.NodeName &&
+		b.Hostname == other.Hostname &&
+		b.Terminating == other.Terminating &&
+		slices.Equal(b.HintsForZones, other.HintsForZones) &&
+		b.Preferred == other.Preferred &&
+		b.Zone == other.Zone
+}
+
+func (b *Backend) ToPortConfiguration() serviceStore.PortConfiguration {
+	pc := serviceStore.PortConfiguration{}
+	for addr, names := range b.Ports {
+		for _, name := range names {
+			pc[name] = &addr
+		}
+	}
+	return pc
 }
 
 // String returns the string representation of an endpoints resource, with
@@ -120,7 +141,7 @@ func (e *Endpoints) String() string {
 
 	backends := []string{}
 	for addrCluster, be := range e.Backends {
-		for _, port := range be.Ports {
+		for port := range be.Ports {
 			if be.Zone != "" {
 				backends = append(backends, fmt.Sprintf("%s/%s[%s]", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol, be.Zone))
 			} else {
@@ -176,7 +197,7 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 			}
 
@@ -186,8 +207,12 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 			backend.Hostname = addr.Hostname
 
 			for _, port := range sub.Ports {
-				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				backend.Ports[port.Name] = lbPort
+				lbPort := *loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				if port.Name != "" {
+					backend.Ports[lbPort] = append(backend.Ports[lbPort], port.Name)
+				} else {
+					backend.Ports[lbPort] = nil
+				}
 			}
 		}
 	}
@@ -257,7 +282,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
 					backend.NodeName = nodeName
@@ -277,7 +302,11 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 			for _, port := range ep.Ports {
 				name, lbPort := parseEndpointPortV1Beta1(port)
 				if lbPort != nil {
-					backend.Ports[name] = lbPort
+					if name != "" {
+						backend.Ports[*lbPort] = append(backend.Ports[*lbPort], name)
+					} else {
+						backend.Ports[*lbPort] = nil
+					}
 				}
 			}
 		}
@@ -377,7 +406,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
@@ -410,7 +439,11 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			for _, port := range ep.Ports {
 				name, lbPort := parseEndpointPortV1(port)
 				if lbPort != nil {
-					backend.Ports[name] = lbPort
+					if name != "" {
+						backend.Ports[*lbPort] = append(backend.Ports[*lbPort], name)
+					} else {
+						backend.Ports[*lbPort] = nil
+					}
 				}
 			}
 			if sub.Hints != nil && (*sub.Hints).ForZones != nil {
@@ -494,7 +527,7 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 				allEps.Backends[backend] = ep.DeepCopy()
 			} else {
 				for k, v := range ep.Ports {
-					b.Ports[k] = v.DeepCopy()
+					b.Ports[k] = slices.Clone(v)
 				}
 			}
 		}

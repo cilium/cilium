@@ -276,7 +276,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		}
 	}
 
-	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
+	currentEndpoints := map[string]endpointsEvent{}
 	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, kind resource.EventKind, allEps allEndpoints) {
 		switch kind {
 		case resource.Sync:
@@ -289,47 +289,45 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			)
 			var err error
 
-			// Release orphaned backends and update the current set of addresses
-			// associated with each endpoint slice. This is done before processing
-			// new/updated backends to not delete a backend that migrated from one
-			// endpoint slice to another.
-			for ep := range allEps.All() {
-				var newAddrs sets.Set[loadbalancer.L3n4Addr]
-				old, foundOld := currentBackends[ep.name]
-				if len(ep.backends) > 0 {
-					newAddrs = sets.New[loadbalancer.L3n4Addr]()
-					for addr, be := range ep.backends {
-						for _, l4Addr := range be.Ports {
-							l3n4Addr := loadbalancer.L3n4Addr{
-								AddrCluster: addr,
-								L4Addr:      *l4Addr,
+			// Convert [k8s.Endpoints] to [loadbalancer.BackendParams]
+			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
+
+			// Find orphaned backends. We are using iter.Seq to avoid unnecessary allocations.
+			var orphans iter.Seq[loadbalancer.L3n4Addr] = func(yield func(loadbalancer.L3n4Addr) bool) {
+				for ep := range allEps.All() {
+					previous, found := currentEndpoints[ep.name]
+					if !found {
+						continue
+					}
+					for addr, prevBe := range previous.backends {
+						be, foundBe := ep.backends[addr]
+						for l4Addr := range prevBe.Ports {
+							foundPort := false
+							if foundBe {
+								_, foundPort = be.Ports[l4Addr]
 							}
-							newAddrs.Insert(l3n4Addr)
-							old.Delete(l3n4Addr)
+							if !foundPort {
+								if !yield(
+									loadbalancer.L3n4Addr{
+										AddrCluster: addr,
+										L4Addr:      l4Addr,
+									}) {
+									return
+								}
+							}
 						}
 					}
 				}
-				if len(old) > 0 {
-					err = errors.Join(
-						err,
-						p.Writer.ReleaseBackends(txn, name, old.UnsortedList()...),
-					)
-				}
-				if newAddrs.Len() == 0 && foundOld {
-					delete(currentBackends, ep.name)
-				} else {
-					currentBackends[ep.name] = newAddrs
-				}
 			}
 
-			// Upsert new or changed backends
-			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
-			if len(backends) > 0 {
-				err = p.Writer.UpsertBackends(
-					txn,
-					name,
-					source.Kubernetes,
-					backends...)
+			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, orphans)
+
+			for ep := range allEps.All() {
+				if len(ep.backends) == 0 {
+					delete(currentEndpoints, ep.name)
+				} else {
+					currentEndpoints[ep.name] = ep
+				}
 			}
 
 			rh.update("eps:"+name.String(), err)
@@ -434,7 +432,7 @@ func (ae allEndpoints) insert(deleted bool, ep *k8s.Endpoints) allEndpoints {
 	return ae
 }
 
-func (ae allEndpoints) All() iter.Seq[endpointsEvent] {
+func (ae *allEndpoints) All() iter.Seq[endpointsEvent] {
 	return func(yield func(endpointsEvent) bool) {
 		if ae.head.name != "" {
 			if !yield(ae.head) {
@@ -449,7 +447,7 @@ func (ae allEndpoints) All() iter.Seq[endpointsEvent] {
 	}
 }
 
-func (ae allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] {
+func (ae *allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] {
 	return func(yield func(cmtypes.AddrCluster, *k8s.Backend) bool) {
 		for ep := range ae.All() {
 			for addr, be := range ep.backends {
