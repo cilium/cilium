@@ -470,7 +470,7 @@ func bufferInsert(buf buffer, ev resource.Event[runtime.Object]) buffer {
 			return buf
 		}
 		key := bufferKey{
-			resource.Key{Name: obj.ServiceID.Name, Namespace: obj.ServiceID.Namespace},
+			resource.Key{Name: obj.ServiceName.Name(), Namespace: obj.ServiceName.Namespace()},
 			false,
 		}
 		var allEps allEndpoints

@@ -384,8 +384,8 @@ endpointsLoop:
 		}
 
 		svcKey := resource.Key{
-			Name:      eps.ServiceID.Name,
-			Namespace: eps.ServiceID.Namespace,
+			Name:      eps.ServiceName.Name(),
+			Namespace: eps.ServiceName.Namespace(),
 		}
 
 		for _, be := range eps.Backends {
@@ -407,8 +407,8 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls sets.Set[resource.Key]) bool
 
 func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
 	k := resource.Key{
-		Name:      eps.ServiceID.Name,
-		Namespace: eps.ServiceID.Namespace,
+		Name:      eps.ServiceName.Name(),
+		Namespace: eps.ServiceName.Namespace(),
 	}
 	return r.svcDiffStore.GetByKey(k)
 }
