@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -25,7 +24,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/cache"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // InitWaitFunc is provided by the load-balancing cell to wait until the
@@ -668,47 +666,6 @@ type ID uint32
 // BackendState is the state of a backend for load-balancing service traffic.
 type BackendState uint8
 
-func IsValidStateTransition(old, new BackendState) bool {
-	if old == new {
-		return true
-	}
-	if new == BackendStateInvalid {
-		return false
-	}
-
-	switch old {
-	case BackendStateActive:
-	case BackendStateTerminating:
-		return false
-	case BackendStateQuarantined:
-		if new == BackendStateMaintenance {
-			return false
-		}
-	case BackendStateMaintenance:
-		if new != BackendStateActive {
-			return false
-		}
-	default:
-		return false
-	}
-	return true
-}
-
-func GetBackendState(state string) (BackendState, error) {
-	switch strings.ToLower(state) {
-	case models.BackendAddressStateActive, "":
-		return BackendStateActive, nil
-	case models.BackendAddressStateTerminating:
-		return BackendStateTerminating, nil
-	case models.BackendAddressStateQuarantined:
-		return BackendStateQuarantined, nil
-	case models.BackendAddressStateMaintenance:
-		return BackendStateMaintenance, nil
-	default:
-		return BackendStateInvalid, fmt.Errorf("invalid backend state %s", state)
-	}
-}
-
 func (state BackendState) String() (string, error) {
 	switch state {
 	case BackendStateActive:
@@ -722,12 +679,6 @@ func (state BackendState) String() (string, error) {
 	default:
 		return "", fmt.Errorf("invalid backend state %d", state)
 	}
-}
-
-func IsValidBackendState(state string) bool {
-	_, err := GetBackendState(state)
-
-	return err == nil
 }
 
 func NewL4Type(name string) (L4Type, error) {
@@ -782,17 +733,6 @@ func (l *L4Addr) DeepEqual(o *L4Addr) bool {
 // NewL4Addr creates a new L4Addr.
 func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 	return &L4Addr{Protocol: protocol, Port: number}
-}
-
-// Equals returns true if both L4Addr are considered equal.
-func (l *L4Addr) Equals(o *L4Addr) bool {
-	switch {
-	case (l == nil) != (o == nil):
-		return false
-	case (l == nil) && (o == nil):
-		return true
-	}
-	return l.Port == o.Port && l.Protocol == o.Protocol
 }
 
 // String returns a string representation of an L4Addr
@@ -1053,37 +993,9 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
-// Note: the resulting string is meant to be used as a key for maps and is not
-// readable by a human eye when printed out.
-func (a L3n4Addr) Hash() string {
-	const lenProto = 1 // proto is uint8
-	const lenScope = 1 // scope is uint8 which is an alias for byte
-	const lenPort = 2  // port is uint16 which is 2 bytes
-
-	b := make([]byte, cmtypes.AddrClusterLen+lenProto+lenScope+lenPort)
-	ac20 := a.AddrCluster.As20()
-	copy(b, ac20[:])
-	u8p, _ := u8proto.ParseProtocol(a.Protocol)
-	b[net.IPv6len] = byte(u8p)
-	// scope is a uint8 which is an alias for byte so a cast is safe
-	b[net.IPv6len+lenProto] = byte(a.Scope)
-	// port is a uint16, so 2 bytes
-	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
-	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
-	return string(b)
-}
-
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
 func (a *L3n4Addr) IsIPv6() bool {
 	return a.AddrCluster.Is6()
-}
-
-// ProtocolsEqual returns true if protocols match for both L3 and L4.
-func (l *L3n4Addr) ProtocolsEqual(o *L3n4Addr) bool {
-	return l.Protocol == o.Protocol &&
-		(l.AddrCluster.Is4() && o.AddrCluster.Is4() ||
-			l.AddrCluster.Is6() && o.AddrCluster.Is6())
 }
 
 func (l *L3n4Addr) AddrString() string {
@@ -1169,11 +1081,6 @@ func (l *L3n4AddrID) DeepEqual(o *L3n4AddrID) bool {
 		return o == nil
 	}
 	return l.deepEqual(o)
-}
-
-// IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
-func (l *L3n4AddrID) IsIPv6() bool {
-	return l.L3n4Addr.IsIPv6()
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
