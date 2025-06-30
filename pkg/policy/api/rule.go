@@ -44,7 +44,7 @@ type DefaultDenyConfig struct {
 	Egress *bool `json:"egress,omitempty"`
 }
 
-// LogConfig specifies custom policy-specific Hubble logging configration.
+// LogConfig specifies custom policy-specific Hubble logging configuration.
 type LogConfig struct {
 	// Value is a free-form string that is included in Hubble flows
 	// that match this policy. The string is limited to 32 printable characters.
