@@ -412,13 +412,22 @@ func computeLoadAssignments(
 		}
 	}
 
+	// Keep track of number of active and terminating backends and only use
+	// terminating backends if active are not available.
+	numActive, numTerminating := 0, 0
+
 	for be := range backends {
-		if be.State != loadbalancer.BackendStateActive || be.Unhealthy {
-			// Skip non-active or unhealthy backends.
+		bePortNames := []string{anyPort}
+
+		switch be.State {
+		case loadbalancer.BackendStateActive:
+			numActive++
+		case loadbalancer.BackendStateTerminating:
+			numTerminating++
+		default:
+			// Skip backends in quarantine or maintenance.
 			continue
 		}
-
-		bePortNames := []string{anyPort}
 
 		// If ports are specified only pick the backends that match the service port name or number.
 		if len(ports) > 0 {
@@ -472,9 +481,14 @@ func computeLoadAssignments(
 
 	for _, port := range slices.Sorted(maps.Keys(backendMap)) {
 		bes := backendMap[port]
+
 		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 		for _, addr := range slices.Sorted(maps.Keys(bes)) {
 			be := bes[addr]
+			if numActive != 0 && be.State == loadbalancer.BackendStateTerminating {
+				// We can skip terminating backends since active backends exist.
+				continue
+			}
 
 			// The below is to make sure that UDP and SCTP are not allowed instead of comparing with lb.TCP
 			// The reason is to avoid extra dependencies with ongoing work to differentiate protocols in datapath,
