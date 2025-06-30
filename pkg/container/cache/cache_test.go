@@ -9,6 +9,7 @@ import (
 	"testing"
 	"unique"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,6 +22,37 @@ func TestStringsCache(t *testing.T) {
 	for _, test := range tests {
 		x := Strings.Get(test)
 		assert.Equal(t, x, test)
+	}
+}
+func TestGetOrPutWith(t *testing.T) {
+	type o struct {
+		s string
+		x int
+	}
+	tests := []string{
+		"",
+		"foo",
+		"foobar",
+	}
+
+	cache := New(
+		func(o o) uint64 { return xxhash.Sum64String(o.s) },
+		nil,
+		func(a, b o) bool {
+			return b.x != 0 && // don't confuse with zero value cache entries
+				a.s == b.s
+		},
+	)
+
+	for _, test := range tests {
+		x := GetOrPutWith(
+			cache,
+			xxhash.Sum64String(test),
+			func(o o) bool { return o.x != 0 && o.s == test },
+			func() o { return o{test, 1} },
+		)
+		assert.Equal(t, test, x.s)
+		assert.Equal(t, 1, x.x)
 	}
 }
 

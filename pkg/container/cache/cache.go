@@ -59,3 +59,17 @@ func (c *Cache[T]) get(x T) (T, uint64) {
 	c.pool.Put(arr)
 	return v, hash
 }
+
+// GetOrPutWith tries to find the object from the cache with the given hash and equality
+// function. . If not found, [get] is called to construct the object.
+func GetOrPutWith[T any](c *Cache[T], hash uint64, eq func(T) bool, get func() T) T {
+	arr := c.pool.Get().(*[cacheSize]T)
+	idx := hash & cacheMask
+	v := (*arr)[idx]
+	if !eq(v) {
+		v = get()
+		(*arr)[idx] = v
+	}
+	c.pool.Put(arr)
+	return v
+}
