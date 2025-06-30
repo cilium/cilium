@@ -1,0 +1,62 @@
+http:
+- hostname: example.com
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /request-redirect
+    timeout: {}
+  - direct_response:
+      status_code: 500
+    path_match:
+      prefix: /
+    request_redirect:
+      hostname: example.com
+      path:
+        prefix: /request-redirect
+      port: 80
+      status_code: 302
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1
+- hostname: example.com
+  name: https
+  port: 443
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /request-redirect
+    timeout: {}
+  - direct_response:
+      status_code: 500
+    path_match:
+      prefix: /
+    request_redirect:
+      hostname: example.com
+      path:
+        prefix: /request-redirect
+      port: 443
+      status_code: 302
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1
+  tls:
+  - name: tls-secure
+    namespace: gateway-conformance-infra

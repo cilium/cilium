@@ -1,0 +1,27 @@
+- metadata:
+    creationTimestamp: null
+    name: mesh-multipleParentRefs
+    namespace: gateway-conformance-mesh
+  spec:
+    parentRefs:
+    - group: ""
+      kind: Service
+      name: echo
+    - name: someGateway
+    rules:
+    - backendRefs:
+      - name: echo-v1
+        port: 80
+      matches:
+      - path:
+          type: Exact
+          value: /v1
+    - backendRefs:
+      - name: echo-v2
+        port: 80
+      matches:
+      - path:
+          type: Exact
+          value: /v2
+  status:
+    parents: null

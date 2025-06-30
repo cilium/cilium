@@ -1,0 +1,341 @@
+name: Network performance GKE (net-perf-gke)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  schedule:
+    - cron: '39 0 * * 1-5'
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+# For testing uncomment following lines:
+#  push:
+#    branches:
+#      - your_branch_name
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  test_name: gke-perf
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
+  gcp_zone: us-east5-a
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 528.0.0
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+
+  installation-and-perf:
+    name: Installation and Perf Test
+    needs: wait-for-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      job_name: "Installation and Perf Test"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - index: 0
+            name: "baseline"
+            mode: "baseline"
+            encryption: "baseline"
+
+          - index: 1
+            name: "native"
+            mode: "gke"
+            encryption: "none"
+
+          - index: 2
+            name: "tunnel"
+            mode: "tunnel"
+            encryption: "none"
+
+          - index: 3
+            name: "native-ipsec"
+            mode: "gke"
+            encryption: "ipsec"
+
+          - index: 4
+            name: "tunnel-ipsec"
+            mode: "tunnel"
+            encryption: "ipsec"
+
+          - index: 5
+            name: "native-wireguard"
+            mode: "gke"
+            encryption: "wireguard"
+
+          - index: 6
+            name: "tunnel-wireguard"
+            mode: "tunnel"
+            encryption: "wireguard"
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./install/kubernetes/cilium
+          debug: false
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          # shellcheck disable=SC2078
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ ${{ github.event.pull_request }} ] ; then
+            OWNER="${{ inputs.PR-number }}"
+          else
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
+            --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
+            --wait=false \
+            --datapath-mode=${{ matrix.mode }}"
+
+          if [ "${{ matrix.encryption }}" = "ipsec" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
+          fi
+
+          if [ "${{ matrix.encryption }}" = "wireguard" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS+=" ${{ env.CILIUM_INSTALL_NET_PERF_EXTRA_ARGS }}"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PERF_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
+        with:
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+
+      - name: Display gcloud CLI info
+        run: |
+          gcloud info
+
+      - name: Create GKE cluster
+        id: create-cluster
+        run: |
+          if [ "${{ matrix.mode }}" = "baseline" ] ; then
+            TAINTS=""
+          else
+            TAINTS="--node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
+          fi
+          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.gcp_zone }} \
+            --release-channel=stable \
+            --enable-ip-alias \
+            --create-subnetwork="range=/26" \
+            --cluster-ipv4-cidr="/21" \
+            --services-ipv4-cidr="/24" \
+            --image-type COS_CONTAINERD \
+            --num-nodes 2 \
+            --machine-type n2-standard-2 \
+            --disk-type pd-standard \
+            --disk-size 20GB \
+            ${TAINTS}
+
+          native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
+          echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
+
+      - name: Get cluster credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@6e65fa094c051aee03959dc9a75e66213e9050c7 # v0.18.4
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.default_vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      - name: Create custom IPsec secret
+        if: ${{ matrix.encryption == 'ipsec' }}
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
+      - name: Install Cilium
+        if: ${{ matrix.mode != 'baseline' }}
+        id: install-cilium
+        run: |
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+
+      - name: Wait for Cilium to be ready
+        if: ${{ matrix.mode != 'baseline' }}
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl get pods -n kube-system
+          kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
+
+      - name: Run perf test (${{ matrix.name }})
+        id: run-perf
+        run: |
+          mkdir output
+          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --crr=true --report-dir=./output --unsafe-capture-kernel-profiles
+          sudo chmod -R +r ./output
+
+      - name: Run common post steps
+        if: ${{ always() && matrix.mode != 'baseline' }}
+        uses: ./.github/actions/post-logic
+        with:
+          always_capture_sysdump: true
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
+          job_status: "${{ job.status }}"
+
+      - name: Clean up GKE
+        if: ${{ always() }}
+        run: |
+          while [ "$(gcloud container operations list --zone ${{ env.gcp_zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.index }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
+          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --quiet --async
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
+
+      # We needed to configure a unique suffix to ensure that the artifacts can
+      # be correctly uploaded, but we want the sysdump to have a fixed name when
+      # uploading it to the GS bucket.
+      - name: Rename sysdump before uploading it to the GS bucket
+        if : ${{ always() && matrix.mode != 'baseline' }}
+        run: |
+          mv "cilium-sysdump-${{ env.job_name }} (${{ join(matrix.*, ', ') }}).zip" cilium-sysdump-final.zip
+
+      - name: Export results and sysdump to GS bucket
+        if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@5ce1cf99e1b7d184627d87afa96f00cfb0a6a407 # main
+        with:
+          test_name: ${{ env.test_name }}-${{ matrix.name }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./output/*
+          other_files: ${{ matrix.mode != 'baseline' && 'cilium-sysdump-final.zip' || '' }}
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: installation-and-perf
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-perf.result }}

@@ -1,0 +1,312 @@
+# Test the handling of 'SkipRedirectFromBackend'. If this field is set in the
+# LocalRedirectPolicy then the SkipLBMap should be populated accordingly to skip
+# the load-balancing in datapath for packets originating from the backend.
+
+hive start
+
+### Case 1: 1) cookie, 2) pod,service,eps, 3) LRP
+
+# Add the netns cookie info to the skiplb table
+# This simulates the EndpointCreated() callback
+# coming from the EndpointManager.
+db/insert desired-skiplbmap pod-cookie.yaml
+
+# Add services and endpoints.
+k8s/add service.yaml endpointslice.yaml
+db/cmp backends backends.table
+
+# Compare LB maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-case1-pre.expected
+
+# Add the override
+k8s/add pod.yaml lrp-svc.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp desired-skiplbmap skiplbmap.table
+
+# Compare LB maps. The original backends become orphans and
+# are removed a new backend is created for the pod.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-case1.expected
+
+# Compare SkipLB map
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.expected
+
+# Turn off the redirect. The SkipLB map entry should be removed.
+cp lrp-svc.yaml lrp-svc-noredirect.yaml
+replace 'skipRedirectFromBackend: true' 'skipRedirectFromBackend: false' lrp-svc-noredirect.yaml
+k8s/update lrp-svc-noredirect.yaml
+
+# Compare SkipLB map (should be empty now)
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+
+# Cleanup
+k8s/delete pod.yaml service.yaml endpointslice.yaml lrp-svc.yaml
+db/delete desired-skiplbmap pod-cookie.yaml
+
+# Wait until empty
+* db/empty frontends localredirectpolicies services desired-skiplbmap
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+* lb/maps-empty
+
+### Case 2: 1) pod,service,eps, 2) LRP, 3) cookie
+
+# Add pod, service, endpoints and LRP, but no cookie.
+k8s/add pod.yaml service.yaml endpointslice.yaml lrp-svc.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# The desired-skiplbmap now has the pod&lrp info, but there is no cookie
+# and it has not been reconciled or marked pending.
+db/cmp desired-skiplbmap skiplbmap-nocookie.table
+
+# Compare LB maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-case2.expected
+
+# Compare SkipLB map (should be empty since no cookie yet)
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+
+# Add the cookie. Here we rely on the [desiredSkipLBMap] struct being
+# trivially serializable, allowing us to manipulate it.
+db/get desired-skiplbmap test/lrp-pod -f yaml -o skiplbmap.yaml
+cat skiplbmap.yaml
+replace 'netnscookie: null' 'netnscookie: 12345' skiplbmap.yaml
+replace 'kind: \"\"' 'kind: Pending' skiplbmap.yaml
+db/insert desired-skiplbmap skiplbmap.yaml
+
+# Should have the SkipLBMap entry again
+db/cmp desired-skiplbmap skiplbmap.table
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.expected
+
+# Change the pod labels and check that SkipLB entries are cleaned up.
+sed 'app: proxy' 'app: foo' pod.yaml
+k8s/update pod.yaml
+db/cmp desired-skiplbmap skiplbmap-noredirect.table
+
+# Check the map
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+
+# Revert the change
+sed 'app: foo' 'app: proxy' pod.yaml
+k8s/update pod.yaml
+db/cmp desired-skiplbmap skiplbmap.table
+
+# Check the map again
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.expected
+
+# Cleanup
+k8s/delete lrp-svc.yaml
+db/cmp frontends frontends-noredirect.table
+db/cmp desired-skiplbmap skiplbmap-noredirect.table
+k8s/delete pod.yaml service.yaml endpointslice.yaml
+db/delete desired-skiplbmap pod-cookie.yaml
+
+# Wait until empty
+* db/empty frontends localredirectpolicies services desired-skiplbmap
+* lb/maps-empty
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+
+-- pod-cookie.yaml --
+podnamespacedname: test/lrp-pod
+netnscookie: 12345
+
+-- backends.table --
+Address
+10.244.1.1:8080/TCP
+[2001::1]:8080/TCP
+
+-- lrp.table --
+Name           Type     FrontendType                Frontends
+test/lrp-svc   service  all
+
+-- skiplbmap.table --
+Pod            SkipRedirects                                 NetnsCookie  Status
+test/lrp-pod   169.254.169.254:8080/TCP, [1001::1]:8080/TCP  12345        Done
+
+-- skiplbmap-nocookie.table --
+Pod            SkipRedirects                                 NetnsCookie  Status
+test/lrp-pod   169.254.169.254:8080/TCP, [1001::1]:8080/TCP  <unset>
+
+-- skiplbmap-noredirect.table --
+Pod            SkipRedirects                                 NetnsCookie  Status
+test/lrp-pod                                                 12345        Done
+
+-- skiplbmap.expected --
+COOKIE=12345 IP=1001::1 PORT=8080
+COOKIE=12345 IP=169.254.169.254 PORT=8080
+-- skiplbmap.empty --
+-- services-before.table --
+Name                          Source
+test/echo                     k8s   
+
+-- services.table --
+Name                          Source
+test/echo                     k8s   
+test/lrp-svc:local-redirect   k8s   
+
+-- frontends.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc:local-redirect   Done
+
+-- frontends-noredirect.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo        Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                     Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                      Done
+
+-- maps-case1-pre.expected --
+BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
+BE: ID=2 ADDR=[2001::1]:8080/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[1001::1]:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- maps-case1.expected --
+BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=4 ADDR=[2002::2]:80/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[1001::1]:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- maps-case2.expected --
+BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=8 ADDR=[2002::2]:80/TCP STATE=active
+REV: ID=3 ADDR=169.254.169.254:8080
+REV: ID=4 ADDR=[1001::1]:8080
+SVC: ID=3 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- lrp-svc.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+  namespace: "test"
+spec:
+  skipRedirectFromBackend: true
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: echo
+      namespace: test
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "8080"
+        name: "tcp"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: tcp
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  - ip: 2002::2
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2019-07-08T09:41:59Z'
+    status: 'True'
+    type: Ready
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 169.254.169.254
+  clusterIPs:
+  - 169.254.169.254
+  - 1001::1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 2001::1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP
+
+

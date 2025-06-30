@@ -1,0 +1,23 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l7-policy-default-allow"
+spec:
+  description: "L7 policy for getting started using Kubernetes guide"
+  endpointSelector:
+    matchLabels:
+      id: app1
+  enableDefaultDeny:
+    ingress: false
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/public"

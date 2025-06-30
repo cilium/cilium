@@ -1,0 +1,242 @@
+name: Integration Tests (ci-integration)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+    - main
+    - ft/main/**
+    - 'renovate/main-**'
+    paths-ignore:
+    - 'Documentation/**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 3/8 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  integration-test:
+    name: Integration Test
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job, so we have
+      # to repeated it here.
+      job_name: "Integration Test (${{matrix.arch}})"
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ["${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}", ubuntu-24.04-arm64]
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 45
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Setup additional repositories
+        if: ${{ startsWith(matrix.arch, 'ubuntu-latest') || startsWith(matrix.arch, 'ubuntu-24.04') }}
+        shell: bash
+        run: |
+          # This is required for libtinfo5
+          uri="http://security.ubuntu.com/ubuntu"
+          arch="amd64"
+          if [ ${{ runner.arch }} == "ARM64" ]; then
+            uri="http://ports.ubuntu.com/ubuntu-ports"
+            arch="arm64"
+          fi
+
+          sudo tee -a /etc/apt/sources.list.d/jammy-security.sources <<EOF
+          Types: deb
+          URIs: $uri
+          Suites: jammy-updates
+          Components: main universe restricted multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          Architectures: $arch
+          EOF
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          sudo apt update && sudo apt install -y --no-install-recommends build-essential make libtinfo5
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.24.4
+
+      - name: Set clang directory
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
+        with:
+          version: "19.1.7"
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+
+      - name: Prepare environment
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
+          go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
+
+      - name: Run integration tests
+        id: run-tests
+        timeout-minutes: 60
+        run: |
+          export V=0
+          export DOCKER_BUILD_FLAGS=--quiet
+          export CFLAGS="-Werror"
+          make integration-tests LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml"
+
+      - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-junits-${{ env.job_name }}
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-24.04
+    needs: integration-test
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Merge JUnits
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: integration-test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.integration-test.result }}

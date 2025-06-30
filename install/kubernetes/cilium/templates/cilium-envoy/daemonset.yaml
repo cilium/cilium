@@ -1,0 +1,283 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+{{- if (and $envoyDS (not .Values.preflight.enabled)) }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cilium-envoy
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.envoy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: cilium-envoy
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-envoy
+    name: cilium-envoy
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-envoy
+  {{- with .Values.envoy.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- if and (.Values.envoy.rollOutPods) (not .Values.envoy.bootstrapConfigMap) }}
+        # ensure pods roll when configmap updates
+        cilium.io/cilium-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-envoy/configmap.yaml") . | sha256sum | quote }}
+        {{- end }}
+        {{- if not .Values.envoy.securityContext.privileged }}
+        {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+        # Set app AppArmor's profile to "unconfined". The value of this annotation
+        # can be modified as long users know which profiles they have available
+        # in AppArmor.
+        container.apparmor.security.beta.kubernetes.io/cilium-envoy: "unconfined"
+        {{- end }}
+        {{- end }}
+        {{- with .Values.envoy.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        k8s-app: cilium-envoy
+        name: cilium-envoy
+        app.kubernetes.io/name: cilium-envoy
+        app.kubernetes.io/part-of: cilium
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.envoy.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /* K8s version lower than 1.30.0 don't support the "appArmorProfile" field, */}}
+      {{- /* thus we have to remove it. */}}
+      {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+        {{- $_ := unset .Values.envoy.podSecurityContext "appArmorProfile" }}
+      {{- end }}
+      {{- with .Values.envoy.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cilium-envoy
+        image: {{ include "cilium.image" .Values.envoy.image | quote }}
+        imagePullPolicy: {{ .Values.envoy.image.pullPolicy }}
+        command:
+        - /usr/bin/cilium-envoy-starter
+        args:
+        {{- if .Values.envoy.securityContext.capabilities.keepCapNetBindService }}
+        - '--keep-cap-net-bind-service'
+        {{- end }}
+        - '--'
+        - '-c /var/run/cilium/envoy/bootstrap-config.json'
+        - '--base-id {{ int .Values.envoy.baseID }}'
+        {{- if and (.Values.debug.enabled) (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "envoy" ( splitList " " .Values.debug.verbose )) }}
+        - '--log-level trace'
+        {{- else if and (.Values.debug.enabled) (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "flow" ( splitList " " .Values.debug.verbose )) }}
+        - '--log-level debug'
+        {{- else if .Values.envoy.log.defaultLevel }}
+        - '--log-level {{ .Values.envoy.log.defaultLevel }}'
+        {{- else }}
+        - '--log-level info'
+        {{- end }}
+        {{- if .Values.envoy.log.path }}
+        - '--log-path {{ .Values.envoy.log.path }}'
+        {{- end }}
+        {{- with .Values.envoy.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- if .Values.envoy.startupProbe.enabled }}
+        startupProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: {{ .Values.envoy.healthPort }}
+            scheme: HTTP
+          failureThreshold: {{ .Values.envoy.startupProbe.failureThreshold }}
+          periodSeconds: {{ .Values.envoy.startupProbe.periodSeconds }}
+          successThreshold: 1
+          initialDelaySeconds: 5
+        {{- end }}
+        {{- if .Values.envoy.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: {{ .Values.envoy.healthPort }}
+            scheme: HTTP
+          periodSeconds: {{ .Values.envoy.livenessProbe.periodSeconds }}
+          successThreshold: 1
+          failureThreshold: {{ .Values.envoy.livenessProbe.failureThreshold }}
+          timeoutSeconds: 5
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: {{ .Values.envoy.healthPort }}
+            scheme: HTTP
+          periodSeconds: {{ .Values.envoy.readinessProbe.periodSeconds }}
+          successThreshold: 1
+          failureThreshold: {{ .Values.envoy.readinessProbe.failureThreshold }}
+          timeoutSeconds: 5
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: CILIUM_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+        - name: KUBERNETES_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.k8sServiceHostRef.name }}
+              key: {{ .Values.k8sServiceHostRef.key }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ include "k8sServicePort" . }}
+        {{- end }}
+        {{- if .Values.k8sServiceHost }}
+        - name: KUBERNETES_SERVICE_HOST
+          value: {{ include "k8sServiceHost" . }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ include "k8sServicePort" . }}
+        {{- end }}
+        {{- with .Values.envoy.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- with .Values.envoy.resources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
+        {{- if .Values.envoy.prometheus.enabled }}
+        ports:
+        - name: envoy-metrics
+          containerPort: {{ .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.envoy.prometheus.port }}
+          protocol: TCP
+        {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port }}
+        - name: envoy-admin
+          containerPort: {{ .Values.envoy.debug.admin.port }}
+          hostPort: {{ .Values.envoy.debug.admin.port }}
+          protocol: TCP
+        {{- end }}
+        {{- end }}
+        securityContext:
+          {{- if .Values.envoy.securityContext.privileged }}
+          privileged: true
+          {{- else }}
+          seLinuxOptions:
+            {{- with .Values.envoy.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          capabilities:
+            add:
+            {{- with .Values.envoy.securityContext.capabilities.envoy }}
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+            drop:
+              - ALL
+          {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: envoy-sockets
+          mountPath: /var/run/cilium/envoy/sockets
+          readOnly: false
+        - name: envoy-artifacts
+          mountPath: /var/run/cilium/envoy/artifacts
+          readOnly: true
+        - name: envoy-config
+          mountPath: /var/run/cilium/envoy/
+          readOnly: true
+        {{- if .Values.bpf.autoMount.enabled }}
+        - name: bpf-maps
+          mountPath: /sys/fs/bpf
+          mountPropagation: HostToContainer
+        {{- end }}
+        {{- range .Values.envoy.extraHostPathMounts }}
+        - name: {{ .name }}
+          mountPath: {{ .mountPath }}
+          readOnly: {{ .readOnly }}
+          {{- if .mountPropagation }}
+          mountPropagation: {{ .mountPropagation }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.envoy.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if .Values.envoy.extraContainers }}
+      {{- toYaml .Values.envoy.extraContainers | nindent 6 }}
+      {{- end }}
+      restartPolicy: Always
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.envoy.priorityClassName "system-node-critical") }}
+      serviceAccountName: {{ .Values.serviceAccounts.envoy.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.envoy.automount }}
+      terminationGracePeriodSeconds: {{ .Values.envoy.terminationGracePeriodSeconds }}
+      hostNetwork: true
+      {{- if .Values.envoy.dnsPolicy }}
+      dnsPolicy: {{ .Values.envoy.dnsPolicy }}
+      {{- end }}
+      {{- with .Values.envoy.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.envoy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.envoy.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: envoy-sockets
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/sockets"
+          type: DirectoryOrCreate
+      - name: envoy-artifacts
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/artifacts"
+          type: DirectoryOrCreate
+      - name: envoy-config
+        configMap:
+          name: {{ .Values.envoy.bootstrapConfigMap | default "cilium-envoy-config" | quote }}
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          items:
+            - key: bootstrap-config.json
+              path: bootstrap-config.json
+        # To keep state between restarts / upgrades
+      {{- if and .Values.bpf.autoMount.enabled }}
+        # To keep state between restarts / upgrades for bpf maps
+      - name: bpf-maps
+        hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+      {{- end }}
+      {{- range .Values.envoy.extraHostPathMounts }}
+      - name: {{ .name }}
+        hostPath:
+          path: {{ .hostPath }}
+          {{- if .hostPathType }}
+          type: {{ .hostPathType }}
+          {{- end }}
+      {{- end }}
+      {{- with .Values.envoy.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

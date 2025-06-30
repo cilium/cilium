@@ -1,0 +1,38 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-relay
+  namespace: {{ include "cilium.namespace" . }}
+  annotations:
+    {{- with .Values.hubble.relay.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if and .Values.hubble.relay.prometheus.enabled (not .Values.hubble.relay.prometheus.serviceMonitor.enabled) }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.hubble.relay.prometheus.port | quote }}
+    {{- end }}
+  labels:
+    k8s-app: hubble-relay
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+spec:
+  type: {{ .Values.hubble.relay.service.type | quote }}
+  selector:
+    k8s-app: hubble-relay
+  ports:
+  - protocol: TCP
+  {{- if .Values.hubble.relay.servicePort }}
+    port: {{ .Values.hubble.relay.servicePort }}
+  {{- else }}
+    port: {{ .Values.hubble.relay.tls.server.enabled | ternary 443 80 }}
+  {{- end }}
+    targetPort: {{ include "hubble-relay.service.targetPort" . }}
+    {{- if and (eq "NodePort" .Values.hubble.relay.service.type) .Values.hubble.relay.service.nodePort }}
+    nodePort: {{ .Values.hubble.relay.service.nodePort }}
+    {{- end }}
+{{- end }}

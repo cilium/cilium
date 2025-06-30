@@ -1,0 +1,63 @@
+name: K8s on LVH
+description: Creates K8s cluster inside LVH VM, and then exposes K8s cluster to GHA runner.
+
+inputs:
+  kernel:
+    required: true
+    description: 'Linux kernel version'
+  kind-params:
+    required: true
+    description: 'Kind parameters'
+  kind-image:
+    required: true
+    description: 'Kind image'
+  kind-config:
+    required: false
+    description: 'Optional Kind configuration'
+  port-forward:
+    required: false
+    description: 'Optional list of ports to forward'
+    default: '6443:6443'
+  test-name:
+    required: true
+    description: 'Test name'
+
+runs:
+  using: composite
+  steps:
+    - name: Provision LVH VMs
+      uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+      with:
+        test-name: ${{ inputs.test-name }}
+        image-version: ${{ inputs.kernel }}
+        images-folder-parent: "/tmp"
+        host-mount: ./
+        cpu: 4
+        mem: 12G
+        # renovate: datasource=github-tags depName=cilium/little-vm-helper
+        lvh-version: "v0.0.23"
+        install-dependencies: 'true'
+        port-forward: ${{ inputs.port-forward }}
+        ssh-connect-wait-retries: 600
+        cmd: |
+          git config --global --add safe.directory /host
+
+    - name: Create K8s cluster
+      uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+      with:
+        provision: 'false'
+        cmd: |
+          cd /host
+          export IMAGE=${{ inputs.kind-image }}
+
+          if [ "${{ inputs.kind-config }}" != "" ]; then
+            kind create cluster --config ${{ inputs.kind-config }}
+          else
+            ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
+          fi
+
+    - name: Copy kubeconfig
+      shell: bash
+      run: |
+        mkdir ~/.kube
+        scp -o StrictHostKeyChecking=no -P 2222 root@localhost:/root/.kube/config ~/.kube/config

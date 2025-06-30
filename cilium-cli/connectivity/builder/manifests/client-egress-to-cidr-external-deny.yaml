@@ -1,0 +1,21 @@
+# This policy denies packets towards {{.ExternalOtherIPv4}} and {{.ExternalOtherIPv6}}, but 
+# not {{.ExternalIPv4}} and {{.ExternalIPv6}}
+# Please note that if there is no other allowed rule, the policy
+# will be automatically denied {{.ExternalIPv4}} and {{.ExternalIPv6}} as well.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-cidr-deny
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egressDeny:
+  - toCIDRSet:
+    - cidr: "{{.ExternalCIDRv4}}"
+      except:
+        - "{{.ExternalIPv4 | ipToCIDR }}"
+  - toCIDRSet:
+    - cidr: "{{.ExternalCIDRv6}}"
+      except:
+        - "{{.ExternalIPv6 | ipToCIDR }}"

@@ -1,0 +1,40 @@
+[{
+  "labels": [{"key": "name", "value": "fancyrule"}],
+  "endpointSelector": {"matchLabels": {"app": "service"}},
+  "ingress": [{
+    "fromEndpoints": [
+      {"matchLabels": {"env": "prod"}}
+    ],
+    "toPorts": [{
+      "ports": [
+        {"port": "80", "protocol": "TCP"}
+      ],
+      "rules": {
+        "http": [
+          {
+            "method": "GET",
+            "path": "/public"
+          }
+        ]
+      }
+    }]
+  }]
+},{
+  "labels": [{"key": "name", "value": "fancyrule"}],
+  "endpointSelector": {"matchLabels": {"env": "prod"}},
+  "egress":[{
+    "toPorts": [{
+      "ports": [
+        { "port": "80", "protocol": "TCP"}
+      ],
+      "rules": {
+        "http": [
+          {
+            "method": "POST",
+            "host": "^external-service.org$"
+          }
+        ]
+      }
+    }]
+  }]
+}]

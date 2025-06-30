@@ -1,0 +1,51 @@
+{{- $kvstoreMetricsEnabled := and .Values.clustermesh.apiserver.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled -}}
+{{- if and
+  .Values.clustermesh.useAPIServer
+  (or .Values.clustermesh.apiserver.metrics.enabled $kvstoreMetricsEnabled .Values.clustermesh.apiserver.metrics.etcd.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: clustermesh-apiserver-metrics
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
+    app.kubernetes.io/component: metrics
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  {{- if and (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (eq "true" (include "identityAllocationCRD" .)) }}
+    {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+  - name: apiserv-metrics
+    port: {{ .Values.clustermesh.apiserver.metrics.port }}
+    protocol: TCP
+    targetPort: apiserv-metrics
+    {{- end }}
+  {{- end }}
+  {{- if $kvstoreMetricsEnabled }}
+  - name: kvmesh-metrics
+    port: {{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
+    protocol: TCP
+    targetPort: kvmesh-metrics
+  {{- end }}
+  {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+    {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+  - name: etcd-metrics
+    port: {{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+    protocol: TCP
+    targetPort: etcd-metrics
+    {{- end }}
+  {{- end }}
+  selector:
+    k8s-app: clustermesh-apiserver
+{{- end }}

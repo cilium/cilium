@@ -1,0 +1,33 @@
+name: Set environment variables
+description: Set environment variables
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        echo "QUAY_ORGANIZATION=cilium" >> $GITHUB_ENV
+        echo "QUAY_ORGANIZATION_DEV=cilium" >> $GITHUB_ENV
+        # no prod yet
+        echo "QUAY_CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
+        echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true" >> $GITHUB_ENV
+        echo "BGP_CONTROL_PLANE_HELM_VALUES=--helm-set=bgpControlPlane.enabled=true" >> $GITHUB_ENV
+        echo "CILIUM_CLI_RELEASE_REPO=cilium/cilium-cli" >> $GITHUB_ENV
+        CILIUM_CLI_VERSION=""
+        echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> $GITHUB_ENV
+        echo "CILIUM_CLI_IMAGE_REPO=quay.io/cilium/cilium-cli-ci" >> $GITHUB_ENV
+        echo "CILIUM_CLI_SKIP_BUILD=true" >> $GITHUB_ENV
+        echo "CILIUM_CLI_CODE_OWNERS_PATHS=CODEOWNERS" >> $GITHUB_ENV
+        echo "CILIUM_CLI_EXCLUDE_OWNERS=@cilium/github-sec" >> $GITHUB_ENV
+        echo "PUSH_TO_DOCKER_HUB=true" >> $GITHUB_ENV
+        echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
+        echo "CILIUM_RUNTIME_IMAGE_PREFIX=quay.io/cilium/" >> $GITHUB_ENV
+
+        # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+        KIND_VERSION="v0.29.0"
+        # renovate: datasource=docker
+        KIND_K8S_IMAGE="quay.io/cilium/kindest-node:v1.33.0@sha256:03032c2e474eef9d706416a077f2eeb14600653eecbdfada9fc2d81a4e0461f9"
+        KIND_K8S_VERSION=$(echo "$KIND_K8S_IMAGE" | sed -r 's|.+:(v[0-9a-z.-]+)(@.+)?|\1|')
+
+        echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
+        echo "KIND_K8S_IMAGE=$KIND_K8S_IMAGE" >> $GITHUB_ENV
+        echo "KIND_K8S_VERSION=$KIND_K8S_VERSION" >> $GITHUB_ENV

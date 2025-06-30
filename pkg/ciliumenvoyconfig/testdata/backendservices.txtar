@@ -1,0 +1,374 @@
+# Test handling of CiliumEnvoyConfig with backend services.
+
+hive start
+
+# Set up the services and endpoints. Add the test/frontend first and wait for it
+# to reconcile.
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends1.table
+
+# Add the first backend service with named ports. The 'http' one
+# will be matched and the backend with port 9080 chosen. The
+# existence of the alternative port name (http-alt) should not
+# affect the matching. Wait for frontends to be reconciled for
+# deterministic ID allocation.
+k8s/add be_service.yaml be_endpointslice.yaml
+db/cmp frontends frontends2.table
+
+# Then add a second one with unnamed ports.
+k8s/add be_service_unnamed_port.yaml be_endpointslice_unnamed_port.yaml
+db/cmp services services.table
+
+# Add the CiliumEnvoyConfig and wait for it to be ingested.
+k8s/add cec.yaml
+db/cmp ciliumenvoyconfigs cec.table
+
+# Check that service is now redirected to proxy.
+db/cmp services services_redirected.table
+db/cmp frontends frontends3.table
+db/cmp envoy-resources envoy-resources.table
+
+# Check BPF maps. The service should have L7 redirect set.
+lb/maps-dump lbmaps.out
+* cmp lbmaps.out lbmaps.expected
+
+# Check that right updates towards Envoy happened.
+* envoy/cmp envoy1.expected
+
+# Cleanup
+k8s/delete cec.yaml
+
+# Proxy redirect should be gone and CEC table should be empty
+db/cmp services services.table
+* db/empty ciliumenvoyconfigs envoy-resources
+
+# The listener should now be deleted.
+* envoy/cmp envoy2.expected
+
+# ---------------------------------------------
+
+-- services.table --
+Name                       Flags
+test/backend
+test/backend_unnamed_port
+test/frontend   
+
+-- services_redirected.table --
+Name                      Flags
+test/backend
+test/backend_unnamed_port
+test/frontend             ProxyRedirect=1000 (ports: [80])
+
+-- frontends1.table --
+Address            Type        ServiceName     PortName   Backends           Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend   http       1.1.0.1:8080/TCP   Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend   http2      1.1.0.1:9090/TCP   Done
+
+-- frontends2.table --
+Address            Type        ServiceName                PortName   Backends                             Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP                     Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP                     Done
+2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP   Done
+2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP   Done
+
+-- frontends3.table --
+Address            Type        ServiceName                PortName   Backends                            Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP                    Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP                    Done
+2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP  Done
+2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP  Done
+3.0.0.1:9080/TCP   ClusterIP   test/backend_unnamed_port             3.1.0.1:9080/TCP                    Done
+
+-- envoy-resources.table --
+Name                                         Listeners                   Endpoints                                    References    Status   Error
+backendsync:test/backend                                                 test/backend:9080: 2.1.0.1, 2.1.0.2          test/ingress  Done
+backendsync:test/backend_unnamed_port                                    test/backend_unnamed_port:9080: 3.1.0.1      test/ingress  Done
+backendsync:test/frontend                                                test/frontend:80: 1.1.0.1                    test/ingress  Done
+cec:test/ingress                             test/ingress/listener                                                                  Done
+
+-- cec.table --
+Name           Services        BackendServices
+test/ingress   test/frontend   test/backend, test/backend_unnamed_port
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: ingress
+  namespace: test
+spec:
+  services:
+    - name: frontend
+      namespace: test
+      listener: ""
+      ports:
+      - 80
+  backendServices:
+    - name: backend
+      namespace: test
+      number:
+      - "9080"
+    - name: backend_unnamed_port
+      namespace: test
+      number:
+      - "9080"
+
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: listener
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: test
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 1.0.0.1
+  clusterIPs:
+  - 1.0.0.1
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: http2
+    port: 82
+    protocol: TCP
+    targetPort: 82
+  selector:
+    name: frontend
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: frontend
+  name: frontend-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 1.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: http2
+  port: 9090
+  protocol: TCP
+  
+-- be_service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: test
+  uid: b49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 2.0.0.1
+  clusterIPs:
+  - 2.0.0.1
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  - name: http-alt
+    port: 9081
+    protocol: TCP
+    targetPort: 9081
+  selector:
+    name: backend
+  type: ClusterIP
+
+-- be_endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: backend
+  name: backend-eps1
+  namespace: test
+  uid: e1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 2.1.0.1
+  - 2.1.0.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+- name: http-alt
+  port: 9080
+  protocol: TCP
+
+-- be_service_unnamed_port.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend_unnamed_port
+  namespace: test
+  uid: f49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 3.0.0.1
+  clusterIPs:
+  - 3.0.0.1
+  ports:
+  - port: 9080
+    protocol: TCP
+    targetPort: 9080
+  selector:
+    name: unnamed_port
+  type: ClusterIP
+
+-- be_endpointslice_unnamed_port.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: backend_unnamed_port
+  name: backend-eps-unnamed-port
+  namespace: test
+  uid: e1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 3.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- port: 9080
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=1.1.0.1:8080/TCP STATE=active
+BE: ID=2 ADDR=1.1.0.1:9090/TCP STATE=active
+BE: ID=3 ADDR=2.1.0.1:9080/TCP STATE=active
+BE: ID=4 ADDR=2.1.0.2:9080/TCP STATE=active
+BE: ID=5 ADDR=3.1.0.1:9080/TCP STATE=active
+REV: ID=1 ADDR=1.0.0.1:80
+REV: ID=2 ADDR=1.0.0.1:82
+REV: ID=3 ADDR=2.0.0.1:9080
+REV: ID=4 ADDR=2.0.0.1:9081
+REV: ID=5 ADDR=3.0.0.1:9080
+SVC: ID=1 ADDR=1.0.0.1:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=1 ADDR=1.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=2 ADDR=1.0.0.1:82/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=1.0.0.1:82/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=2.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=2.0.0.1:9080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=2.0.0.1:9080/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- envoy1.expected --
+policy-trigger-count:
+  1
+endpoints:test/backend:9080:
+  cluster_name: "test/backend:9080"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "2.1.0.1"
+            port_value: 9080
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "2.1.0.2"
+            port_value: 9080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/backend_unnamed_port:9080:
+  cluster_name: "test/backend_unnamed_port:9080"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "3.1.0.1"
+            port_value: 9080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/frontend:80:
+  cluster_name: "test/frontend:80"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "1.1.0.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/ingress/listener:
+  name: "test/ingress/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+-- envoy2.expected --
+policy-trigger-count:
+  2

@@ -1,0 +1,344 @@
+#! --test-peering-ips=10.99.4.211,10.99.4.212
+
+# Tests service advertisements with aggregated/non-aggregated prefixes.
+# When aggregation is enabled, non-aggregated prefixes are still advertised for services with local traffic policy.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server 65010 10.99.4.211 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.4.212 65001
+
+# Add k8s services
+k8s/add service-1.yaml service-2.yaml service-3.yaml endpoints.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement-1.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.4.212 ESTABLISHED
+
+# Validate that IPv4 aggregated routes are advertised
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-aggregated-ipv4-1.expected routes.actual
+
+# Validate that IPv6 aggregated routes are advertised
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-aggregated-ipv6-1.expected routes.actual
+
+# Change aggregation prefix
+k8s/update bgp-advertisement-2.yaml
+
+# Validate that IPv4 aggregated routes are advertised
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-aggregated-ipv4-2.expected routes.actual
+
+# Validate that IPv6 aggregated routes are advertised
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-aggregated-ipv6-2.expected routes.actual
+
+# Disable aggregation
+k8s/update bgp-advertisement-3.yaml
+
+# Validate that IPv4 non-aggregated routes are advertised
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-non-aggregated-ipv4.expected routes.actual
+
+# Validate that IPv6 non-aggregated routes are advertised
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-non-aggregated-ipv6.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.4.212
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.4.211
+      localAddress: 10.99.4.212
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - ExternalIP
+      - LoadBalancerIP
+      aggregationLengthIPv4: 24
+      aggregationLengthIPv6: 120
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- bgp-advertisement-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - ExternalIP
+      - LoadBalancerIP
+      aggregationLengthIPv4: 16
+      aggregationLengthIPv6: 64
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- bgp-advertisement-3.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - ExternalIP
+      - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service-1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc1
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.101
+  clusterIPs:
+  - 10.96.50.101
+  - 2001:db8:fd00::101
+  externalIPs:
+  - 10.10.10.1
+  - fd00:aa:bb::1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+    - ip: fd00:cc:dd::1
+
+-- service-2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc2
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.102
+  clusterIPs:
+  - 10.96.50.102
+  - 2001:db8:fd00::102
+  externalIPs:
+  - 10.10.10.2
+  - fd00:aa:bb::2
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.2
+    - ip: fd00:cc:dd::2
+
+-- service-3.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc3
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.103
+  clusterIPs:
+  - 10.96.50.103
+  - 2001:db8:fd00::103
+  externalIPs:
+  - 10.10.10.3
+  - fd00:aa:bb::3
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Local
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.3
+    - ip: fd00:cc:dd::3
+
+-- endpoints.yaml --
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: svc3
+subsets:
+- addresses:
+  - ip: 10.244.1.20
+    nodeName: test-node
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+
+-- gobgp-routes-aggregated-ipv4-1.expected --
+Prefix            NextHop       Attrs
+10.10.10.0/24     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.10.10.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.50.0/24     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.50.103/32   10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.1.0/24     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.1.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+-- gobgp-routes-aggregated-ipv4-2.expected --
+Prefix            NextHop       Attrs
+10.10.0.0/16      10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.10.10.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.0.0/16      10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.50.103/32   10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.0.0/16     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.1.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+-- gobgp-routes-non-aggregated-ipv4.expected --
+Prefix            NextHop       Attrs
+10.10.10.1/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.10.10.2/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.10.10.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.50.101/32   10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.50.102/32   10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+10.96.50.103/32   10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.1.1/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.1.2/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+172.16.1.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
+-- gobgp-routes-aggregated-ipv6-1.expected --
+Prefix                   NextHop       Attrs
+2001:db8:fd00::100/120   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::100/120]}}]
+2001:db8:fd00::103/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::103/128]}}]
+fd00:aa:bb::/120         10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::/120]}}]
+fd00:aa:bb::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::3/128]}}]
+fd00:cc:dd::/120         10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::/120]}}]
+fd00:cc:dd::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::3/128]}}]
+-- gobgp-routes-aggregated-ipv6-2.expected --
+Prefix                   NextHop       Attrs
+2001:db8:fd00::/64       10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::/64]}}]
+2001:db8:fd00::103/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::103/128]}}]
+fd00:aa:bb::/64          10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::/64]}}]
+fd00:aa:bb::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::3/128]}}]
+fd00:cc:dd::/64          10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::/64]}}]
+fd00:cc:dd::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::3/128]}}]
+-- gobgp-routes-non-aggregated-ipv6.expected --
+Prefix                   NextHop       Attrs
+2001:db8:fd00::101/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::101/128]}}]
+2001:db8:fd00::102/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::102/128]}}]
+2001:db8:fd00::103/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::103/128]}}]
+fd00:aa:bb::1/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::1/128]}}]
+fd00:aa:bb::2/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::2/128]}}]
+fd00:aa:bb::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::3/128]}}]
+fd00:cc:dd::1/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::1/128]}}]
+fd00:cc:dd::2/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::2/128]}}]
+fd00:cc:dd::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::3/128]}}]

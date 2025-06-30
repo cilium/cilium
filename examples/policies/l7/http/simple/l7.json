@@ -1,0 +1,22 @@
+[{
+  "labels": [{"key": "name", "value": "rule1"}],
+  "endpointSelector": {"matchLabels": {"app": "service"}},
+  "ingress": [{
+    "fromEndpoints": [
+      {"matchLabels": {"env": "prod"}}
+    ]},{
+    "toPorts": [{
+      "ports": [
+        {"port": "80", "protocol": "TCP"}
+      ],
+      "rules": {
+        "http": [
+          {
+            "method": "GET",
+            "path": "/public"
+          }
+        ]
+      }
+    }]
+  }]
+}]

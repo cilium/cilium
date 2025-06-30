@@ -1,0 +1,14 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-ingress-from-client2
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        other: client
+      matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }

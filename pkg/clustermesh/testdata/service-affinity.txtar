@@ -1,0 +1,124 @@
+#! --cluster-id=1 --cluster-name=cluster1
+
+hive/start
+
+# Create a service with affinity set to local.
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends-local.table
+
+# Add the cluster service from "cluster2"
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# As there are healthy local backends the remote backends are ignored
+db/cmp backends backends.table
+db/cmp frontends frontends-local.table
+
+# Removing the local backend make us include the remote
+# backends.
+k8s/delete endpointslice.yaml
+db/cmp frontends frontends-remote.table
+
+# Revert
+k8s/add endpointslice.yaml
+db/cmp frontends frontends-local.table
+
+# Flip affinity to remote. Now remote backend is preferred.
+sed 'affinity: "local"' 'affinity: "remote"' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-remote.table
+
+# Removing the remote backend will make us use the local one.
+kvstore/delete cilium/state/services/v1/cluster2/test/echo
+db/cmp frontends frontends-local.table
+
+# Adding it back gets us back to using the remote one.
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+db/cmp frontends frontends-remote.table
+
+# Remove affinity. Now both local and remote are used.
+sed 'affinity:' 'affinity-nope:' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-all.table
+
+### Th-th-th-th-That's all Folks!
+
+-- backends.table --
+Address              Instances         NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
+20.0.0.2:9090/TCP    test/echo (tcp)
+
+-- frontends-local.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP
+
+-- frontends-remote.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:9090/TCP
+
+-- frontends-all.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 20.0.0.2:9090/TCP
+
+-- clusterservice2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "includeExternal": true,
+  "shared": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "backends": {
+    "20.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+    service.cilium.io/affinity: "local"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP

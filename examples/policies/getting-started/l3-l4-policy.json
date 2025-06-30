@@ -1,0 +1,12 @@
+[{
+    "labels": [{"key": "name", "value": "l3-l4-rule"}],
+    "endpointSelector": {"matchLabels":{"id":"web-server"}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"id":"goodclient"}}
+        ],
+        "toPorts": [{
+                "ports": [{"port": "8181", "protocol": "TCP"}]
+        }]
+    }]
+}]

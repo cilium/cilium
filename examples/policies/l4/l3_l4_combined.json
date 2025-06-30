@@ -1,0 +1,12 @@
+[{
+    "labels": [{"key": "name", "value": "l4-rule"}],
+    "endpointSelector": {"matchLabels":{"role":"backend"}},
+    "ingress": [{
+        "fromEndpoints": [
+          {"matchLabels":{"role":"frontend"}}
+        ],
+        "toPorts": [
+            {"ports":[ {"port": "80", "protocol": "TCP"}]}
+        ]
+    }]
+}]

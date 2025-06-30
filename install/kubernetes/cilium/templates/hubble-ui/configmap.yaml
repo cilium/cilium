@@ -1,0 +1,19 @@
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-ui-nginx
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- with .Values.hubble.ui.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  nginx.conf: {{ include "hubble-ui.nginx.conf" . | trim | quote }}
+{{- end }}

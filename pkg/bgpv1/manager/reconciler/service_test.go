@@ -1,0 +1,2499 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package reconciler
+
+import (
+	"context"
+	"net/netip"
+	"testing"
+
+	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/require"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
+
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/k8s"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+)
+
+func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	redSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "red"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	svc1NonDefaultName := resource.Key{Name: "svc-1", Namespace: "non-default"}
+	svc2NonDefaultName := resource.Key{Name: "svc-2", Namespace: "non-default"}
+	ingressV4 := "192.168.0.1"
+	ingressV4_2 := "192.168.0.2"
+	ingressV4Prefix := ingressV4 + "/32"
+	ingressV4Prefix_2 := ingressV4_2 + "/32"
+	ingressV6 := "fd00:192:168::1"
+	ingressV6Prefix := ingressV6 + "/128"
+
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type: slim_corev1.ServiceTypeLoadBalancer,
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: ingressV4,
+					},
+				},
+			},
+		},
+	}
+
+	svc1TwoIngress := svc1.DeepCopy()
+	svc1TwoIngress.Status.LoadBalancer.Ingress =
+		append(svc1TwoIngress.Status.LoadBalancer.Ingress,
+			slim_corev1.LoadBalancerIngress{IP: ingressV6})
+
+	svc1RedLabel := svc1.DeepCopy()
+	svc1RedLabel.ObjectMeta.Labels = redSelector.MatchLabels
+
+	svc1NonDefault := svc1.DeepCopy()
+	svc1NonDefault.Namespace = svc1NonDefaultName.Namespace
+	svc1NonDefault.Status.LoadBalancer.Ingress[0] = slim_corev1.LoadBalancerIngress{IP: ingressV4_2}
+
+	svc1NonLB := svc1.DeepCopy()
+	svc1NonLB.Spec.Type = slim_corev1.ServiceTypeClusterIP
+
+	svc1ETPLocal := svc1.DeepCopy()
+	svc1ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
+
+	svc1ETPLocalTwoIngress := svc1TwoIngress.DeepCopy()
+	svc1ETPLocalTwoIngress.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
+
+	svc1IPv6ETPLocal := svc1.DeepCopy()
+	svc1IPv6ETPLocal.Status.LoadBalancer.Ingress[0] = slim_corev1.LoadBalancerIngress{IP: ingressV6}
+	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
+
+	svc1LbClass := svc1.DeepCopy()
+	svc1LbClass.Spec.LoadBalancerClass = ptr.To[string](v2alpha1api.BGPLoadBalancerClass)
+
+	svc1UnsupportedClass := svc1LbClass.DeepCopy()
+	svc1UnsupportedClass.Spec.LoadBalancerClass = ptr.To[string]("io.vendor/unsupported-class")
+
+	svc2NonDefault := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc2NonDefaultName.Name,
+			Namespace: svc2NonDefaultName.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type: slim_corev1.ServiceTypeLoadBalancer,
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: ingressV4_2,
+					},
+				},
+			},
+		},
+	}
+
+	eps1IPv4Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv4LocalTerminating := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName:    "node1",
+				Terminating: true,
+			},
+		},
+	}
+
+	eps1IPv4Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv4Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv6Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	var table = []struct {
+		// name of the test case
+		name string
+		// The service selector of the vRouter
+		oldServiceSelector *slim_metav1.LabelSelector
+		// The service selector of the vRouter
+		newServiceSelector *slim_metav1.LabelSelector
+		// the advertised PodCIDR blocks the test begins with
+		advertised map[resource.Key][]string
+		// the services which will be "upserted" in the diffstore
+		upsertedServices []*slim_corev1.Service
+		// the services which will be "deleted" in the diffstore
+		deletedServices []*slim_corev1.Service
+		// the endpoints which will be "upserted" in the diffstore
+		upsertedEndpoints []*k8s.Endpoints
+		// the updated PodCIDR blocks to reconcile, these are string encoded
+		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
+		// field.
+		updated map[resource.Key][]string
+		// error nil or not
+		err error
+	}{
+		// Add 1 ingress
+		{
+			name:               "lb-svc-1-ingress",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         make(map[resource.Key][]string),
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// Add 2 ingress
+		{
+			name:               "lb-svc-2-ingress",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         make(map[resource.Key][]string),
+			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
+				},
+			},
+		},
+		// Delete service
+		{
+			name:               "delete-svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated:         map[resource.Key][]string{},
+		},
+		// Update service to no longer match
+		{
+			name:               "update-service-no-match",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1RedLabel},
+			updated:          map[resource.Key][]string{},
+		},
+		// Update vRouter to no longer match
+		{
+			name:               "update-vrouter-selector",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &redSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1},
+			updated:          map[resource.Key][]string{},
+		},
+		// 1 -> 2 ingress
+		{
+			name:               "update-1-to-2-ingress",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
+				},
+			},
+		},
+		// No selector
+		{
+			name:               "no-selector",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated:            map[resource.Key][]string{},
+		},
+		// Namespace selector
+		{
+			name:               "svc-namespace-selector",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{
+				svc1,
+				svc2NonDefault,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// Service name selector
+		{
+			name:               "svc-name-selector",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{
+				svc1,
+				svc1NonDefault,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+				svc1NonDefaultName: {
+					ingressV4Prefix_2,
+				},
+			},
+		},
+		// BGP load balancer class with matching selectors for service.
+		{
+			name:               "lb-class-and-selectors",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// BGP load balancer class with no selectors for service.
+		{
+			name:               "lb-class-no-selectors",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// BGP load balancer class with selectors for a different service.
+		{
+			name:               "lb-class-with-diff-selectors",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-2"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-2"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// Unsupported load balancer class with matching selectors for service.
+		{
+			name:               "unsupported-lb-class-with-selectors",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1UnsupportedClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// Unsupported load balancer class with no matching selectors for service.
+		{
+			name:               "unsupported-lb-class-with-no-selectors",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1UnsupportedClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// No-LB service
+		{
+			name:               "non-lb svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1NonLB},
+			updated:            map[resource.Key][]string{},
+		},
+		// Service without endpoints
+		{
+			name:               "etp-local-no-endpoints",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{},
+			updated:            map[resource.Key][]string{},
+		},
+		// Service with terminating endpoint
+		{
+			name:               "etp-local-terminating-endpoint",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4LocalTerminating},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && local endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && remote endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && mixed endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && local endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && remote endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && mixed endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && local endpoint
+		{
+			name:               "etp-local-dual-two-slices-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Local,
+				eps1IPv6Local,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && remote endpoint
+		{
+			name:               "etp-local-dual-two-slices-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Remote,
+				eps1IPv6Remote,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && mixed endpoint
+		{
+			name:               "etp-local-dual-two-slices-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Mixed,
+				eps1IPv6Mixed,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
+				},
+			},
+		},
+		// service VIP sharing, delete one of the services
+		{
+			name:               "svc-vip-sharing",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+				svc2NonDefaultName: {
+					ingressV4Prefix,
+				},
+			},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated: map[resource.Key][]string{
+				svc2NonDefaultName: {
+					ingressV4Prefix,
+				},
+			},
+		},
+	}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			l := hivetest.Logger(t)
+			// setup our test server, create a BgpServer, advertise the tt.advertised
+			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
+					ListenPort: -1,
+				},
+			}
+			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:        64125,
+				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector: tt.oldServiceSelector,
+			}
+			testSC, err := instance.NewServerWithConfig(context.Background(), l, srvParams)
+			if err != nil {
+				t.Fatalf("failed to create test bgp server: %v", err)
+			}
+			testSC.Config = oldc
+
+			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
+			for _, obj := range tt.upsertedServices {
+				diffstore.Upsert(obj)
+			}
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
+			}
+			for _, obj := range tt.upsertedEndpoints {
+				epDiffStore.Upsert(obj)
+			}
+
+			serviceAnnouncements := reconciler.getMetadata(testSC)
+
+			for svcKey, cidrs := range tt.advertised {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+						Path: types.NewPathForPrefix(prefix),
+					})
+					if err != nil {
+						t.Fatalf("failed to advertise initial svc lb cidr routes: %v", err)
+					}
+
+					serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], advrtResp.Path)
+				}
+			}
+
+			newc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:              64125,
+				Neighbors:             []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector:       tt.newServiceSelector,
+				ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPLoadBalancerIPAddr},
+			}
+
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for range 2 {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconcile(context.Background(), ReconcileParams{
+						CurrentServer: testSC,
+						DesiredConfig: newc,
+						CiliumNode: &v2api.CiliumNode{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: "node1",
+							},
+						},
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
+					}
+				})
+			}
+
+			// if we disable exports of pod cidr ensure no advertisements are
+			// still present.
+			if tt.newServiceSelector == nil && !containsLbClass(tt.upsertedServices) {
+				if len(serviceAnnouncements) > 0 {
+					t.Fatal("disabled export but advertisements still present")
+				}
+			}
+
+			l.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
+
+			// ensure we see tt.updated in testSC.ServiceAnnouncements
+			for svcKey, cidrs := range tt.updated {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					var seen bool
+					for _, advrt := range serviceAnnouncements[svcKey] {
+						if advrt.NLRI.String() == prefix.String() {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("failed to advertise %v", cidr)
+					}
+				}
+			}
+
+			// ensure testSC.PodCIDRAnnouncements does not contain advertisements
+			// not in tt.updated
+			for svcKey, advrts := range serviceAnnouncements {
+				for _, advrt := range advrts {
+					var seen bool
+					for _, cidr := range tt.updated[svcKey] {
+						if advrt.NLRI.String() == cidr {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("unwanted advert %+v", advrt)
+					}
+				}
+			}
+
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
+		})
+	}
+}
+
+func TestServiceReconcilerWithClusterIP(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	redSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "red"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	svc1NonDefaultName := resource.Key{Name: "svc-1", Namespace: "non-default"}
+	svc2NonDefaultName := resource.Key{Name: "svc-2", Namespace: "non-default"}
+	clusterIPV4 := "192.168.0.1"
+	clusterIPV4Prefix := clusterIPV4 + "/32"
+	clusterIPV6 := "fd00:192:168::1"
+	clusterIPV6Prefix := clusterIPV6 + "/128"
+
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIPV4,
+			ClusterIPs: []string{
+				clusterIPV4,
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{},
+		},
+	}
+
+	svc1TwoIngress := svc1.DeepCopy()
+	svc1TwoIngress.Spec.ClusterIPs = append(svc1TwoIngress.Spec.ClusterIPs, clusterIPV6)
+	svc1RedLabel := svc1.DeepCopy()
+	svc1RedLabel.ObjectMeta.Labels = redSelector.MatchLabels
+
+	svc1NonDefault := svc1.DeepCopy()
+	svc1NonDefault.Namespace = svc1NonDefaultName.Namespace
+
+	svc1NonClusterIP := svc1.DeepCopy()
+	svc1NonClusterIP.Spec.ClusterIP = "None"
+	svc1NonClusterIP.Spec.ClusterIPs = append(svc1NonClusterIP.Spec.ClusterIPs, "None")
+	svc1ITPLocal := svc1.DeepCopy()
+	internalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
+	svc1ITPLocal.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+
+	svc1ITPLocalTwoIngress := svc1TwoIngress.DeepCopy()
+	svc1ITPLocalTwoIngress.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+
+	svc1IPv6ITPLocal := svc1.DeepCopy()
+	svc1IPv6ITPLocal.Spec.ClusterIPs = append(svc1IPv6ITPLocal.Spec.ClusterIPs, clusterIPV6)
+	svc1IPv6ITPLocal.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+
+	svc1LbClass := svc1.DeepCopy()
+	svc1LbClass.Spec.LoadBalancerClass = ptr.To[string](v2alpha1api.BGPLoadBalancerClass)
+
+	svc1UnsupportedClass := svc1LbClass.DeepCopy()
+	svc1UnsupportedClass.Spec.LoadBalancerClass = ptr.To[string]("io.vendor/unsupported-class")
+
+	svc2NonDefault := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc2NonDefaultName.Name,
+			Namespace: svc2NonDefaultName.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIPV4,
+			ClusterIPs: []string{
+				clusterIPV4,
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{},
+		},
+	}
+
+	eps1IPv4Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv4Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv4Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv6Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	var table = []struct {
+		// name of the test case
+		name string
+		// The service selector of the vRouter
+		oldServiceSelector *slim_metav1.LabelSelector
+		// The service selector of the vRouter
+		newServiceSelector *slim_metav1.LabelSelector
+		// the advertised PodCIDR blocks the test begins with
+		advertised map[resource.Key][]string
+		// the services which will be "upserted" in the diffstore
+		upsertedServices []*slim_corev1.Service
+		// the services which will be "deleted" in the diffstore
+		deletedServices []*slim_corev1.Service
+		// the endpoints which will be "upserted" in the diffstore
+		upsertedEndpoints []*k8s.Endpoints
+		// the updated PodCIDR blocks to reconcile, these are string encoded
+		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
+		// field.
+		updated map[resource.Key][]string
+		// error nil or not
+		err error
+	}{
+		// Add 1 clusterIP
+		{
+			name:               "svc-1-clusterIP",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         make(map[resource.Key][]string),
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+		},
+		// Add 2 clusterIP
+		{
+			name:               "svc-2-clusterIP",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         make(map[resource.Key][]string),
+			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					clusterIPV6Prefix,
+				},
+			},
+		},
+		// Delete service
+		{
+			name:               "delete-svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated:         map[resource.Key][]string{},
+		},
+		// Update service to no longer match
+		{
+			name:               "update-service-no-match",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1RedLabel},
+			updated:          map[resource.Key][]string{},
+		},
+		// Update vRouter to no longer match
+		{
+			name:               "update-vrouter-selector",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &redSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1},
+			updated:          map[resource.Key][]string{},
+		},
+		// 1 -> 2 clusterIP
+		{
+			name:               "update-1-to-2-clusterIP",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					clusterIPV6Prefix,
+				},
+			},
+		},
+		// No selector
+		{
+			name:               "no-selector",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated:            map[resource.Key][]string{},
+		},
+		// Namespace selector
+		{
+			name:               "svc-namespace-selector",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{
+				svc1,
+				svc2NonDefault,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+		},
+		// Service name selector
+		{
+			name:               "svc-name-selector",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{
+				svc1,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+		},
+		// BGP load balancer class with matching selectors for service.
+		{
+			name:               "lb-class-and-selectors",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+		},
+		// BGP load balancer class with no selectors for service.
+		{
+			name:               "lb-class-no-selectors",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// BGP load balancer class with selectors for a different service.
+		{
+			name:               "lb-class-with-diff-selectors",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-2"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-2"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// Unsupported load balancer class with no matching selectors for service.
+		{
+			name:               "unsupported-lb-class-with-no-selectors",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1UnsupportedClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// No-clusterIP service
+		{
+			name:               "non-clusterIP svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1NonClusterIP},
+			updated:            map[resource.Key][]string{},
+		},
+		// Service without endpoints
+		{
+			name:               "etp-local-no-endpoints",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{},
+			updated:            map[resource.Key][]string{},
+		},
+		// internalTrafficPolicyLocal=Local && IPv4 && single slice && local endpoint
+		{
+			name:               "itp-local-ipv4-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+		},
+		// internalTrafficPolicyLocal=Local && IPv4 && single slice && remote endpoint
+		{
+			name:               "itp-local-ipv4-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// internalTrafficPolicyLocal=Local && IPv4 && single slice && mixed endpoint
+		{
+			name:               "itp-local-ipv4-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+				},
+			},
+		},
+		// internalTrafficPolicyLocal=Local && IPv6 && single slice && local endpoint
+		{
+			name:               "itp-local-ipv6-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					clusterIPV6Prefix,
+				},
+			},
+		},
+		// internalTrafficPolicyLocal=Local && IPv6 && single slice && remote endpoint
+		{
+			name:               "itp-local-ipv6-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// internalTrafficPolicyLocal=Local && IPv6 && single slice && mixed endpoint
+		{
+			name:               "itp-local-ipv6-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ITPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					clusterIPV6Prefix,
+				},
+			},
+		},
+		// internalTrafficPolicyLocal=Local && Dual && two slices && local endpoint
+		{
+			name:               "itp-local-dual-two-slices-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Local,
+				eps1IPv6Local,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					clusterIPV6Prefix,
+				},
+			},
+		},
+		// internalTrafficPolicyLocal=Local && Dual && two slices && remote endpoint
+		{
+			name:               "itp-local-dual-two-slices-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Remote,
+				eps1IPv6Remote,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {},
+			},
+		},
+		// internalTrafficPolicyLocal=Local && Dual && two slices && mixed endpoint
+		{
+			name:               "itp-local-dual-two-slices-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ITPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Mixed,
+				eps1IPv6Mixed,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					clusterIPV6Prefix,
+				},
+			},
+		},
+	}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
+			// setup our test server, create a BgpServer, advertise the tt.advertised
+			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
+					ListenPort: -1,
+				},
+			}
+			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:        64125,
+				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector: tt.oldServiceSelector,
+			}
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			if err != nil {
+				t.Fatalf("failed to create test bgp server: %v", err)
+			}
+			testSC.Config = oldc
+
+			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
+			for _, obj := range tt.upsertedServices {
+				diffstore.Upsert(obj)
+			}
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
+			}
+			for _, obj := range tt.upsertedEndpoints {
+				epDiffStore.Upsert(obj)
+			}
+
+			serviceAnnouncements := reconciler.getMetadata(testSC)
+
+			for svcKey, cidrs := range tt.advertised {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+						Path: types.NewPathForPrefix(prefix),
+					})
+					if err != nil {
+						t.Fatalf("failed to advertise initial svc lb cidr routes: %v", err)
+					}
+
+					serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], advrtResp.Path)
+				}
+			}
+
+			newc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:              64125,
+				Neighbors:             []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector:       tt.newServiceSelector,
+				ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPClusterIPAddr},
+			}
+
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for range 2 {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconcile(context.Background(), ReconcileParams{
+						CurrentServer: testSC,
+						DesiredConfig: newc,
+						CiliumNode: &v2api.CiliumNode{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: "node1",
+							},
+						},
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
+					}
+				})
+			}
+
+			// if we disable exports of pod cidr ensure no advertisements are
+			// still present.
+			if tt.newServiceSelector == nil && !containsLbClass(tt.upsertedServices) {
+				if len(serviceAnnouncements) > 0 {
+					t.Fatal("disabled export but advertisements still present")
+				}
+			}
+
+			log.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
+
+			// ensure we see tt.updated in testSC.ServiceAnnouncements
+			for svcKey, cidrs := range tt.updated {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					var seen bool
+					for _, advrt := range serviceAnnouncements[svcKey] {
+						if advrt.NLRI.String() == prefix.String() {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("failed to advertise %v", cidr)
+					}
+				}
+			}
+
+			// ensure testSC.PodCIDRAnnouncements does not contain advertisements
+			// not in tt.updated
+			for svcKey, advrts := range serviceAnnouncements {
+				for _, advrt := range advrts {
+					var seen bool
+					for _, cidr := range tt.updated[svcKey] {
+						if advrt.NLRI.String() == cidr {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("unwanted advert %+v", advrt)
+					}
+				}
+			}
+
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
+		})
+	}
+}
+
+func TestServiceReconcilerWithExternalIP(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	redSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "red"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	svc1NonDefaultName := resource.Key{Name: "svc-1", Namespace: "non-default"}
+	svc2NonDefaultName := resource.Key{Name: "svc-2", Namespace: "non-default"}
+	externalIPV4 := "192.168.0.1"
+	externalIPV4Prefix := externalIPV4 + "/32"
+	externalIPV6 := "fd00:192:168::1"
+	externalIPV6Prefix := externalIPV6 + "/128"
+
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type: slim_corev1.ServiceTypeClusterIP,
+			ExternalIPs: []string{
+				externalIPV4,
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{},
+		},
+	}
+
+	svc1TwoIngress := svc1.DeepCopy()
+	svc1TwoIngress.Spec.ExternalIPs = append(svc1TwoIngress.Spec.ExternalIPs, externalIPV6)
+	svc1RedLabel := svc1.DeepCopy()
+	svc1RedLabel.ObjectMeta.Labels = redSelector.MatchLabels
+
+	svc1NonDefault := svc1.DeepCopy()
+	svc1NonDefault.Namespace = svc1NonDefaultName.Namespace
+
+	svc1NonExternalIP := svc1.DeepCopy()
+	svc1NonExternalIP.Spec.ClusterIP = externalIPV4
+	svc1NonExternalIP.Spec.ExternalIPs = []string{}
+
+	svc1ETPLocal := svc1.DeepCopy()
+	svc1ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
+
+	svc1ETPLocalTwoIngress := svc1TwoIngress.DeepCopy()
+	svc1ETPLocalTwoIngress.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
+
+	svc1IPv6ETPLocal := svc1.DeepCopy()
+	svc1IPv6ETPLocal.Spec.ExternalIPs = append(svc1IPv6ETPLocal.Spec.ExternalIPs, externalIPV6)
+	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
+
+	svc1LbClass := svc1.DeepCopy()
+	svc1LbClass.Spec.LoadBalancerClass = ptr.To[string](v2alpha1api.BGPLoadBalancerClass)
+
+	svc1UnsupportedClass := svc1LbClass.DeepCopy()
+	svc1UnsupportedClass.Spec.LoadBalancerClass = ptr.To[string]("io.vendor/unsupported-class")
+
+	svc2NonDefault := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc2NonDefaultName.Name,
+			Namespace: svc2NonDefaultName.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type: slim_corev1.ServiceTypeClusterIP,
+			ExternalIPs: []string{
+				externalIPV4,
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{},
+		},
+	}
+
+	eps1IPv4Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv4Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv4Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv6Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	var table = []struct {
+		// name of the test case
+		name string
+		// The service selector of the vRouter
+		oldServiceSelector *slim_metav1.LabelSelector
+		// The service selector of the vRouter
+		newServiceSelector *slim_metav1.LabelSelector
+		// the advertised PodCIDR blocks the test begins with
+		advertised map[resource.Key][]string
+		// the services which will be "upserted" in the diffstore
+		upsertedServices []*slim_corev1.Service
+		// the services which will be "deleted" in the diffstore
+		deletedServices []*slim_corev1.Service
+		// the endpoints which will be "upserted" in the diffstore
+		upsertedEndpoints []*k8s.Endpoints
+		// the updated PodCIDR blocks to reconcile, these are string encoded
+		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
+		// field.
+		updated map[resource.Key][]string
+		// error nil or not
+		err error
+	}{
+		// Add 1 externalIP
+		{
+			name:               "svc-1-externalIP",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         make(map[resource.Key][]string),
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+		},
+		// Add 2 externalIP
+		{
+			name:               "svc-2-externalIP",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         make(map[resource.Key][]string),
+			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+					externalIPV6Prefix,
+				},
+			},
+		},
+		// Delete service
+		{
+			name:               "delete-svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated:         map[resource.Key][]string{},
+		},
+		// Update service to no longer match
+		{
+			name:               "update-service-no-match",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1RedLabel},
+			updated:          map[resource.Key][]string{},
+		},
+		// Update vRouter to no longer match
+		{
+			name:               "update-vrouter-selector",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &redSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1},
+			updated:          map[resource.Key][]string{},
+		},
+		// 1 -> 2 externalIP
+		{
+			name:               "update-1-to-2-externalIP",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+					externalIPV6Prefix,
+				},
+			},
+		},
+		// No selector
+		{
+			name:               "no-selector",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated:            map[resource.Key][]string{},
+		},
+		// Namespace selector
+		{
+			name:               "svc-namespace-selector",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{
+				svc1,
+				svc2NonDefault,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+		},
+		// Service name selector
+		{
+			name:               "svc-name-selector",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{
+				svc1,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+		},
+		// BGP load balancer class with matching selectors for service.
+		{
+			name:               "lb-class-and-selectors",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+		},
+		// BGP load balancer class with no selectors for service.
+		{
+			name:               "lb-class-no-selectors",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// BGP load balancer class with selectors for a different service.
+		{
+			name:               "lb-class-with-diff-selectors",
+			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-2"}},
+			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-2"}},
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// Unsupported load balancer class with no matching selectors for service.
+		{
+			name:               "unsupported-lb-class-with-no-selectors",
+			oldServiceSelector: nil,
+			newServiceSelector: nil,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1UnsupportedClass},
+			updated:            map[resource.Key][]string{},
+		},
+		// No-externalIP service
+		{
+			name:               "non-externalIP svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1NonExternalIP},
+			updated:            map[resource.Key][]string{},
+		},
+		// Service without endpoints
+		{
+			name:               "etp-local-no-endpoints",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && local endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && remote endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && mixed endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && local endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+					externalIPV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && remote endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && mixed endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+					externalIPV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && local endpoint
+		{
+			name:               "etp-local-dual-two-slices-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Local,
+				eps1IPv6Local,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+					externalIPV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && remote endpoint
+		{
+			name:               "etp-local-dual-two-slices-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Remote,
+				eps1IPv6Remote,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && mixed endpoint
+		{
+			name:               "etp-local-dual-two-slices-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Mixed,
+				eps1IPv6Mixed,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					externalIPV4Prefix,
+					externalIPV6Prefix,
+				},
+			},
+		},
+	}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
+			// setup our test server, create a BgpServer, advertise the tt.advertised
+			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
+					ListenPort: -1,
+				},
+			}
+			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:        64125,
+				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector: tt.oldServiceSelector,
+			}
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			if err != nil {
+				t.Fatalf("failed to create test bgp server: %v", err)
+			}
+			testSC.Config = oldc
+
+			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
+			for _, obj := range tt.upsertedServices {
+				diffstore.Upsert(obj)
+			}
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
+			}
+			for _, obj := range tt.upsertedEndpoints {
+				epDiffStore.Upsert(obj)
+			}
+
+			serviceAnnouncements := reconciler.getMetadata(testSC)
+
+			for svcKey, cidrs := range tt.advertised {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+						Path: types.NewPathForPrefix(prefix),
+					})
+					if err != nil {
+						t.Fatalf("failed to advertise initial svc externalIP cidr routes: %v", err)
+					}
+
+					serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], advrtResp.Path)
+				}
+			}
+
+			newc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:              64125,
+				Neighbors:             []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector:       tt.newServiceSelector,
+				ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPExternalIPAddr},
+			}
+
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for range 2 {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconcile(context.Background(), ReconcileParams{
+						CurrentServer: testSC,
+						DesiredConfig: newc,
+						CiliumNode: &v2api.CiliumNode{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: "node1",
+							},
+						},
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile new externalIP svc advertisements: %v", err)
+					}
+				})
+			}
+
+			// if we disable exports of pod cidr ensure no advertisements are
+			// still present.
+			if tt.newServiceSelector == nil && !containsLbClass(tt.upsertedServices) {
+				if len(serviceAnnouncements) > 0 {
+					t.Fatal("disabled export but advertisements still present")
+				}
+			}
+
+			log.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
+
+			// ensure we see tt.updated in testSC.ServiceAnnouncements
+			for svcKey, cidrs := range tt.updated {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					var seen bool
+					for _, advrt := range serviceAnnouncements[svcKey] {
+						if advrt.NLRI.String() == prefix.String() {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("failed to advertise %v", cidr)
+					}
+				}
+			}
+
+			// ensure testSC.PodCIDRAnnouncements does not contain advertisements
+			// not in tt.updated
+			for svcKey, advrts := range serviceAnnouncements {
+				for _, advrt := range advrts {
+					var seen bool
+					for _, cidr := range tt.updated[svcKey] {
+						if advrt.NLRI.String() == cidr {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("unwanted advert %+v", advrt)
+					}
+				}
+			}
+
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
+		})
+	}
+}
+
+func TestEPUpdateOnly(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	clusterIPV4 := "192.168.0.1"
+	clusterIPV4Prefix := clusterIPV4 + "/32"
+
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIPV4,
+			ClusterIPs: []string{
+				clusterIPV4,
+			},
+		},
+	}
+
+	svc1WithITP := svc1.DeepCopy()
+	internalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
+	svc1WithITP.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
+
+	eps1IPv4Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+	eps1IPv4LocalUpdated := eps1IPv4Local.DeepCopy()
+	eps1IPv4LocalUpdated.Backends = map[cmtypes.AddrCluster]*k8s.Backend{
+		cmtypes.MustParseAddrCluster("10.0.0.1"): {
+			NodeName: "node2",
+		},
+	}
+
+	steps := []struct {
+		name             string
+		vr               *v2alpha1api.CiliumBGPVirtualRouter
+		upsertServices   []*slim_corev1.Service
+		upsertEPs        []*k8s.Endpoints
+		deleteEPs        []*k8s.Endpoints
+		expectedMetadata map[resource.Key][]string
+	}{
+		{
+			name:           "initial setup, cluster wide service",
+			upsertServices: []*slim_corev1.Service{svc1},
+			expectedMetadata: map[resource.Key][]string{
+				svc1Name: {clusterIPV4Prefix},
+			},
+		},
+		{
+			name:             "set service to internalTrafficPolicy=Local",
+			upsertServices:   []*slim_corev1.Service{svc1WithITP},
+			expectedMetadata: map[resource.Key][]string{}, // since there is no local endpoint, no metadata should be added
+		},
+		{
+			name:           "add local endpoint",
+			upsertServices: []*slim_corev1.Service{},        // no update to service
+			upsertEPs:      []*k8s.Endpoints{eps1IPv4Local}, // update endpoints
+			expectedMetadata: map[resource.Key][]string{ // metadata should be added
+				svc1Name: {clusterIPV4Prefix},
+			},
+		},
+		{
+			name:             "update endpoint - move backend to another node",
+			upsertServices:   []*slim_corev1.Service{},               // no update to service
+			upsertEPs:        []*k8s.Endpoints{eps1IPv4LocalUpdated}, // update endpoint to have backend as node2
+			expectedMetadata: map[resource.Key][]string{},            // metadata should be removed
+		},
+		{
+			name:           "update endpoint - move backend back to local node",
+			upsertServices: []*slim_corev1.Service{},        // no update to service
+			upsertEPs:      []*k8s.Endpoints{eps1IPv4Local}, // update endpoints
+			expectedMetadata: map[resource.Key][]string{ // metadata should be added
+				svc1Name: {clusterIPV4Prefix},
+			},
+		},
+		{
+			name:             "remove endpoint completely",
+			upsertServices:   []*slim_corev1.Service{},        // no update to service
+			deleteEPs:        []*k8s.Endpoints{eps1IPv4Local}, // delete endpoints
+			expectedMetadata: map[resource.Key][]string{},     // metadata should be removed
+		},
+	}
+
+	srvParams := types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        64125,
+			RouterID:   "127.0.0.1",
+			ListenPort: -1,
+		},
+	}
+
+	req := require.New(t)
+
+	vr := &v2alpha1api.CiliumBGPVirtualRouter{
+		LocalASN:              64125,
+		Neighbors:             []v2alpha1api.CiliumBGPNeighbor{},
+		ServiceSelector:       &blueSelector,
+		ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPClusterIPAddr},
+	}
+
+	testSC, err := instance.NewServerWithConfig(context.Background(), hivetest.Logger(t), srvParams)
+	req.NoError(err)
+
+	testSC.Config = vr
+
+	diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+	epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+	reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+	reconciler.Init(testSC)
+	defer reconciler.Cleanup(testSC)
+
+	for _, step := range steps {
+		t.Logf("running step: %s", step.name)
+
+		for _, svc := range step.upsertServices {
+			diffstore.Upsert(svc)
+		}
+
+		for _, ep := range step.upsertEPs {
+			epDiffStore.Upsert(ep)
+		}
+
+		for _, ep := range step.deleteEPs {
+			epDiffStore.Delete(ep)
+		}
+
+		err := reconciler.Reconcile(context.Background(), ReconcileParams{
+			CurrentServer: testSC,
+			DesiredConfig: vr,
+			CiliumNode: &v2api.CiliumNode{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "node1",
+				},
+			},
+		})
+		req.NoError(err)
+
+		// running paths
+		running := make(map[resource.Key][]string)
+		for key, paths := range reconciler.getMetadata(testSC) {
+			for _, path := range paths {
+				running[key] = append(running[key], path.NLRI.String())
+			}
+		}
+
+		req.Equal(step.expectedMetadata, running)
+	}
+}
+
+func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	svc1NonDefaultName := resource.Key{Name: "svc-1", Namespace: "non-default"}
+	externalIPV4 := "192.168.0.1"
+	externalIPV4Prefix := externalIPV4 + "/32"
+	clusterIPV4 := "10.0.100.1"
+	clusterIPV4Prefix := clusterIPV4 + "/32"
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIPV4,
+			ClusterIPs: []string{
+				clusterIPV4,
+			},
+			ExternalIPs: []string{
+				externalIPV4,
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{},
+		},
+	}
+
+	svc1NonDefault := svc1.DeepCopy()
+	svc1NonDefault.Namespace = svc1NonDefaultName.Namespace
+
+	svc1ExternalIPAndClusterIP := svc1.DeepCopy()
+	svc1ExternalIPAndClusterIP.Spec.ClusterIP = clusterIPV4
+	svc1ExternalIPAndClusterIP.Spec.ExternalIPs = []string{externalIPV4}
+
+	var table = []struct {
+		// name of the test case
+		name string
+		// The service selector of the vRouter
+		oldServiceSelector *slim_metav1.LabelSelector
+		// The service selector of the vRouter
+		newServiceSelector *slim_metav1.LabelSelector
+		// the advertised PodCIDR blocks the test begins with
+		advertised map[resource.Key][]string
+		// the services which will be "upserted" in the diffstore
+		upsertedServices []*slim_corev1.Service
+		// the services which will be "deleted" in the diffstore
+		deletedServices []*slim_corev1.Service
+		// the endpoints which will be "upserted" in the diffstore
+		upsertedEndpoints []*k8s.Endpoints
+		// the updated PodCIDR blocks to reconcile, these are string encoded
+		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
+		// field.
+		updated map[resource.Key][]string
+		// error nil or not
+		err error
+	}{
+		// externalIP and clusterIP service
+		{
+			name:               "externalIP and clusterIP svc",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ExternalIPAndClusterIP},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					clusterIPV4Prefix,
+					externalIPV4Prefix,
+				},
+			},
+		},
+	}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
+			// setup our test server, create a BgpServer, advertise the tt.advertised
+			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
+					ListenPort: -1,
+				},
+			}
+			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:        64125,
+				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector: tt.oldServiceSelector,
+			}
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			if err != nil {
+				t.Fatalf("failed to create test bgp server: %v", err)
+			}
+			testSC.Config = oldc
+
+			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
+			for _, obj := range tt.upsertedServices {
+				diffstore.Upsert(obj)
+			}
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
+			}
+			for _, obj := range tt.upsertedEndpoints {
+				epDiffStore.Upsert(obj)
+			}
+
+			serviceAnnouncements := reconciler.getMetadata(testSC)
+
+			for svcKey, cidrs := range tt.advertised {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+						Path: types.NewPathForPrefix(prefix),
+					})
+					if err != nil {
+						t.Fatalf("failed to advertise initial svc externalIP cidr routes: %v", err)
+					}
+
+					serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], advrtResp.Path)
+				}
+			}
+
+			newc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:              64125,
+				Neighbors:             []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector:       tt.newServiceSelector,
+				ServiceAdvertisements: []v2alpha1api.BGPServiceAddressType{v2alpha1api.BGPExternalIPAddr, v2alpha1api.BGPClusterIPAddr},
+			}
+
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for range 2 {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconcile(context.Background(), ReconcileParams{
+						CurrentServer: testSC,
+						DesiredConfig: newc,
+						CiliumNode: &v2api.CiliumNode{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: "node1",
+							},
+						},
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile new externalIP svc advertisements: %v", err)
+					}
+				})
+			}
+
+			// if we disable exports of pod cidr ensure no advertisements are
+			// still present.
+			if tt.newServiceSelector == nil && !containsLbClass(tt.upsertedServices) {
+				if len(serviceAnnouncements) > 0 {
+					t.Fatal("disabled export but advertisements still present")
+				}
+			}
+
+			log.Debug("debug message",
+				types.ServicesAnnouncementsLogField, serviceAnnouncements,
+				types.ServicesUpdatedLogField, tt.updated,
+			)
+
+			// ensure we see tt.updated in testSC.ServiceAnnouncements
+			for svcKey, cidrs := range tt.updated {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					var seen bool
+					for _, advrt := range serviceAnnouncements[svcKey] {
+						if advrt.NLRI.String() == prefix.String() {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("failed to advertise %v", cidr)
+					}
+				}
+			}
+
+			// ensure testSC.PodCIDRAnnouncements does not contain advertisements
+			// not in tt.updated
+			for svcKey, advrts := range serviceAnnouncements {
+				for _, advrt := range advrts {
+					var seen bool
+					for _, cidr := range tt.updated[svcKey] {
+						if advrt.NLRI.String() == cidr {
+							seen = true
+						}
+					}
+					if !seen {
+						t.Fatalf("unwanted advert %+v", advrt)
+					}
+				}
+			}
+
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
+		})
+	}
+}
+func containsLbClass(svcs []*slim_corev1.Service) bool {
+	for _, svc := range svcs {
+		if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass == v2alpha1api.BGPLoadBalancerClass {
+			return true
+		}
+	}
+	return false
+}
+
+func validateAdvertisedPrefixesMatch(t *testing.T, testSC *instance.ServerWithConfig, expectedAdverts map[resource.Key][]string) {
+	expected := sets.New[string]()
+	for _, resourcePaths := range expectedAdverts {
+		for _, path := range resourcePaths {
+			expected.Insert(path)
+		}
+	}
+
+	advertised := sets.New[string]()
+	routes, err := testSC.Server.GetRoutes(context.Background(), &types.GetRoutesRequest{TableType: types.TableTypeLocRIB, Family: types.Family{
+		Afi:  types.AfiIPv4,
+		Safi: types.SafiUnicast,
+	}})
+	require.NoError(t, err)
+	for _, route := range routes.Routes {
+		for _, path := range route.Paths {
+			advertised.Insert(path.NLRI.String())
+		}
+	}
+	routes, _ = testSC.Server.GetRoutes(context.Background(), &types.GetRoutesRequest{TableType: types.TableTypeLocRIB, Family: types.Family{
+		Afi:  types.AfiIPv6,
+		Safi: types.SafiUnicast,
+	}})
+	require.NoError(t, err)
+	for _, route := range routes.Routes {
+		for _, path := range route.Paths {
+			advertised.Insert(path.NLRI.String())
+		}
+	}
+
+	if !advertised.Equal(expected) {
+		t.Fatalf("advertised prefixes do not match expected metadata, expected: %v, got: %v", expected, advertised)
+	}
+}

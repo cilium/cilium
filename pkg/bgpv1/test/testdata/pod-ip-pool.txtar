@@ -1,0 +1,248 @@
+#! --ipam=multi-pool --test-peering-ips=10.99.2.1,10.99.2.2
+
+# Tests CiliumPodIPPool advertisements across multiple pools including partial allocation from the pool.
+
+# Start the hive
+hive start
+
+# Configure GoBGP server
+gobgp/add-server 65010 10.99.2.1 1790
+gobgp/add-peer 10.99.2.2 65001
+
+# Configure BGP on Cilium
+k8s/add bgp-node-config.yaml bgp-peer-config.yaml
+
+# Configure red pool advertisement and cilium node with partial allocation
+k8s/add bgp-advertisement-red.yaml
+k8s/add cilium-node-partial.yaml
+
+# Add pools
+k8s/add pod-pool-red.yaml pod-pool-green.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.2.2 ESTABLISHED
+
+# Validate red pool IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-red-ipv4.expected routes.actual
+
+# Validate red pool IPv6 routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-red-ipv6.expected routes.actual
+
+# Configure green pool advertisement
+k8s/update bgp-advertisement-green.yaml
+
+# Validate partial green pool IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-green-partial-ipv4.expected routes.actual
+
+# Validate green pool IPv6 routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-green-ipv6.expected routes.actual
+
+# Configure cilium node with full allocation
+k8s/update cilium-node-full.yaml
+
+# Validate full green pool IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-green-full-ipv4.expected routes.actual
+
+# Configure cilium node with partial allocation
+k8s/update cilium-node-partial.yaml
+
+# Validate partial green pool IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-green-partial-ipv4.expected routes.actual
+
+# Remove green pool completely
+k8s/delete pod-pool-green.yaml
+
+# Validate empty IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate empty IPv6 routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+#####
+
+-- cilium-node-partial.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.2.2
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+    pools:
+      allocated:
+      - pool: red-pool
+        cidrs:
+        - 10.20.0.0/24
+        - 10.30.0.0/24
+        - fd00::/120
+      - pool: green-pool
+        cidrs:
+        # NOTE: one cidr missing here
+        - 11.20.0.0/24
+        - fd11::/120
+
+-- cilium-node-full.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.2.2
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+    pools:
+      allocated:
+      - pool: red-pool
+        cidrs:
+        - 10.20.0.0/24
+        - 10.30.0.0/24
+        - fd00::/120
+      - pool: green-pool
+        cidrs:
+        - 11.20.0.0/24
+        - 11.30.0.0/24
+        - fd11::/120
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.2.1
+      localAddress: 10.99.2.2
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement-red.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: CiliumPodIPPool
+    selector:
+      matchExpressions:
+        - { key: color, operator: In, values: [ red ] }
+    attributes:
+      communities:
+        standard: [ "65001:100" ]
+
+-- bgp-advertisement-green.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: CiliumPodIPPool
+    selector:
+      matchExpressions:
+        - { key: color, operator: In, values: [ green ] }
+    attributes:
+      communities:
+        wellKnown: [ "no-export" ]
+
+-- pod-pool-red.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: red-pool
+  labels:
+    color: red
+spec:
+  ipv4:
+    cidrs:
+      - 10.20.0.0/16
+      - 10.30.0.0/16
+    maskSize: 24
+  ipv6:
+    cidrs:
+      - fd00::/104
+    maskSize: 120
+
+-- pod-pool-green.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: green-pool
+  labels:
+    color: green
+spec:
+  ipv4:
+    cidrs:
+      - 11.20.0.0/16
+      - 11.30.0.0/16
+    maskSize: 24
+  ipv6:
+    cidrs:
+      - fd11::/104
+    maskSize: 120
+
+-- gobgp-routes-red-ipv4.expected --
+Prefix         NextHop     Attrs
+10.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: 65001:100}]
+10.30.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: 65001:100}]
+-- gobgp-routes-red-ipv6.expected --
+Prefix       NextHop     Attrs
+fd00::/120   10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: 10.99.2.2, NLRIs: [fd00::/120]}}]
+-- gobgp-routes-green-partial-ipv4.expected --
+Prefix         NextHop     Attrs
+11.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
+-- gobgp-routes-green-full-ipv4.expected --
+Prefix         NextHop     Attrs
+11.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
+11.30.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
+-- gobgp-routes-green-ipv6.expected --
+Prefix       NextHop     Attrs
+fd11::/120   10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv6-unicast): {Nexthop: 10.99.2.2, NLRIs: [fd11::/120]}}]
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs

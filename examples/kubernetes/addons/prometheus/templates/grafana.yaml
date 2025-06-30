@@ -1,0 +1,106 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: grafana
+  name: grafana-config
+  namespace: cilium-monitoring
+data:
+{{ (.Files.Glob "files/grafana-config/*").AsConfig | indent 2 }}
+---
+# `kubectl apply` is unable to apply configmaps larger than 256KB,
+# therefore we create one configmap per dashboard here
+{{- range $path, $bytes := .Files.Glob "files/grafana-dashboards/*" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: grafana
+  name: grafana-{{ $path | base | trimSuffix (ext $path) }}
+  namespace: cilium-monitoring
+data:
+  {{ $path | base }}: |
+{{ $bytes | toString | indent 4}}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: grafana
+  name: grafana
+  namespace: cilium-monitoring
+spec:
+  ports:
+    - port: 3000
+      protocol: TCP
+      targetPort: 3000
+  selector:
+    app: grafana
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: grafana
+    component: core
+  name: grafana
+  namespace: cilium-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - env:
+            - name: GF_PATHS_CONFIG
+              value: /configmap/grafana/grafana-config.ini
+            - name: GF_PATHS_PROVISIONING
+              value: /configmap/grafana/provisioning
+          image: "docker.io/grafana/grafana:{{ .Values.image.grafana.version }}"
+          imagePullPolicy: IfNotPresent
+          name: grafana-core
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /login
+              port: 3000
+              scheme: HTTP
+          volumeMounts:
+            - mountPath: /configmap/grafana
+              name: grafana-config
+              readOnly: true
+{{- range $path, $_ := .Files.Glob "files/grafana-dashboards/*" }}
+{{- $name := $path | base | trimSuffix (ext $path) }}
+            - mountPath: /configmap/dashboards/{{ $name }}
+              name: {{ $name }}
+              readOnly: true
+{{- end }}
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: grafana.ini
+                path: grafana-config.ini
+              - key: prometheus-datasource.yaml
+                path: provisioning/datasources/prometheus.yaml
+              - key: config.yaml
+                path: provisioning/dashboards/config.yaml
+            name: grafana-config
+          name: grafana-config
+{{- range $path, $_ := .Files.Glob "files/grafana-dashboards/*" }}
+{{- $name := $path | base | trimSuffix (ext $path) }}
+        - configMap:
+            defaultMode: 420
+            name: grafana-{{ $name }}
+          name: {{ $name }}
+{{- end }}

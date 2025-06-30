@@ -1,0 +1,5 @@
+[{
+    "labels": [{"key": "name", "value": "deny-all-egress"}],
+    "endpointSelector": {"matchLabels": {"role":"restricted"}},
+    "egress": [{}]
+}]

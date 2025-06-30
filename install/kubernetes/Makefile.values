@@ -1,0 +1,66 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+DIGESTS_PATH:=Makefile.digests
+include $(DIGESTS_PATH)
+export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
+export RELEASE_REGISTRY ?= quay.io
+export RELEASE_ORG ?= cilium
+export CI_REGISTRY ?= quay.io
+export CI_ORG ?= cilium
+
+ifeq ($(RELEASE),yes)
+    export PULL_POLICY:=IfNotPresent
+    export CILIUM_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/cilium
+    export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
+    export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
+    export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
+else
+    export PULL_POLICY:=Always
+    export CILIUM_REPO:=${CI_REGISTRY}/${CI_ORG}/cilium-ci
+    export CILIUM_OPERATOR_BASE_REPO:=${CI_REGISTRY}/${CI_ORG}/operator
+    export CILIUM_OPERATOR_SUFFIX=-ci
+    export CILIUM_VERSION:=latest
+    export CLUSTERMESH_APISERVER_REPO:=${CI_REGISTRY}/${CI_ORG}/clustermesh-apiserver-ci
+    export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
+endif
+
+# renovate: datasource=docker
+export CERTGEN_REPO:=quay.io/cilium/certgen
+export CERTGEN_VERSION:=v0.2.4
+export CERTGEN_DIGEST:=sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff
+
+# renovate: datasource=docker
+export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
+export CILIUM_NODEINIT_VERSION:=c54c7edeab7fde4da68e59acd319ab24af242c3f
+export CILIUM_NODEINIT_DIGEST:=sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c
+
+# renovate: datasource=docker
+export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
+export CILIUM_ENVOY_VERSION:=v1.34.1-1750869463-42c7e8cf0f93ea19c9cb7e4d0ad2a339b3f81ad2
+export CILIUM_ENVOY_DIGEST:=sha256:892cab92ffaf8499be90bd227bf07181e4b460ecd97750032ea7e91710a8acce
+
+# renovate: datasource=docker
+export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
+export HUBBLE_UI_BACKEND_VERSION:=v0.13.2
+export HUBBLE_UI_BACKEND_DIGEST:=sha256:a034b7e98e6ea796ed26df8f4e71f83fc16465a19d166eff67a03b822c0bfa15
+
+# renovate: datasource=docker
+export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
+export HUBBLE_UI_FRONTEND_VERSION:=v0.13.2
+export HUBBLE_UI_FRONTEND_DIGEST:=sha256:9e37c1296b802830834cc87342a9182ccbb71ffebb711971e849221bd9d59392
+
+# renovate: datasource=docker
+export SPIRE_INIT_REPO:=docker.io/library/busybox
+export SPIRE_INIT_VERSION:=1.37.0
+export SPIRE_INIT_DIGEST:=sha256:f85340bf132ae937d2c2a763b8335c9bab35d6e8293f70f606b9c6178d84f42b
+
+# renovate: datasource=docker
+export SPIRE_SERVER_REPO:=ghcr.io/spiffe/spire-server
+export SPIRE_SERVER_VERSION:=1.9.6
+export SPIRE_SERVER_DIGEST:=sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4
+
+# renovate: datasource=docker
+export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
+export SPIRE_AGENT_VERSION:=1.9.6
+export SPIRE_AGENT_DIGEST:=sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c

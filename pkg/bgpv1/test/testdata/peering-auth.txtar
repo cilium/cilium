@@ -1,0 +1,116 @@
+#! --probe-tcp-md5 --test-peering-ips=fd00::aa:bb:cc:101,fd00::aa:bb:cc:102
+
+# Tests IPv6 peering with authentication.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server --router-id=1.2.3.4 65001 fd00::aa:bb:cc:101 1790
+gobgp/add-peer --password=Cilium123 fd00::aa:bb:cc:102 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml auth-secret.yaml
+
+# Wait for peering to be established
+gobgp/wait-state fd00::aa:bb:cc:102 ESTABLISHED
+
+# Validate peering state
+gobgp/peers -o peers.actual
+* cmp gobgp-peers.expected peers.actual
+
+# Validate IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Validate IPv6 routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-ipv6.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: fd00::aa:bb:cc:102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+    - fd00:11:22::/64
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 5.6.7.8
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65001
+      peerAddress: fd00::aa:bb:cc:101
+      localAddress: fd00::aa:bb:cc:102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  authSecretRef: bgp-auth-secret
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+
+-- auth-secret.yaml --
+apiVersion: v1
+kind: Secret
+type: string
+metadata:
+  name: bgp-auth-secret
+  namespace: kube-system
+data:
+  password: Q2lsaXVtMTIz
+
+-- gobgp-peers.expected --
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+fd00::aa:bb:cc:102   5.6.7.8    65001     ESTABLISHED    30          90         0
+-- gobgp-routes-ipv4.expected --
+Prefix          NextHop              Attrs
+10.244.0.0/24   fd00::aa:bb:cc:102   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:102, NLRIs: [10.244.0.0/24]}}]
+-- gobgp-routes-ipv6.expected --
+Prefix            NextHop              Attrs
+fd00:11:22::/64   fd00::aa:bb:cc:102   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:cc:102, NLRIs: [fd00:11:22::/64]}}]

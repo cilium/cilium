@@ -1,0 +1,33 @@
+{
+    "kind":"ReplicationController",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"guestbook",
+        "labels":{
+            "k8s-app.guestbook":"web"
+        }
+    },
+    "spec":{
+        "replicas":1,
+        "selector":{
+            "k8s-app.guestbook":"web"
+        },
+        "template":{
+            "metadata":{
+                "labels":{
+                    "k8s-app.guestbook":"web"
+                }
+            },
+            "spec":{
+                "containers":[{
+                    "name":"guestbook",
+                    "image":"us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5",
+                    "ports":[{
+                        "name":"http-server",
+                        "containerPort": 80
+                    }]
+                }]
+            }
+        }
+    }
+}

@@ -1,0 +1,30 @@
+Cluster health:	4/4 reachable	(2023-04-01T12:00:00Z)	(Probe interval: 1m14s)
+Name	IP	Node	Endpoints
+  node0:
+    Host connectivity to 192.168.1.0:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:35:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:30:00Z)
+    Endpoint connectivity to 192.168.1.0:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:45:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:40:00Z)
+  node1:
+    Host connectivity to 192.168.1.1:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:35:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:30:00Z)
+    Endpoint connectivity to 192.168.1.1:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:45:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:40:00Z)
+  node2:
+    Host connectivity to 192.168.1.2:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:35:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:30:00Z)
+    Endpoint connectivity to 192.168.1.2:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:45:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:40:00Z)
+  node3:
+    Host connectivity to 192.168.1.3:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:35:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:30:00Z)
+    Endpoint connectivity to 192.168.1.3:
+      ICMP to stack:	OK, RTT=10ms	(Last probed: 2023-04-01T12:45:00Z)
+      HTTP to agent:	OK, RTT=10ms	(Last probed: 2023-04-01T12:40:00Z)

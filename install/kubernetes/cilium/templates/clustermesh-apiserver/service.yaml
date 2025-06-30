@@ -1,0 +1,54 @@
+{{- if and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: clustermesh-apiserver
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.clustermesh.apiserver.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.clustermesh.apiserver.service.annotations .Values.clustermesh.annotations }}
+  annotations:
+    {{- with .Values.clustermesh.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.clustermesh.apiserver.service.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.clustermesh.apiserver.service.type }}
+  selector:
+    k8s-app: clustermesh-apiserver
+  ports:
+  - port: 2379
+    {{- if and (eq "NodePort" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.nodePort }}
+    nodePort: {{ .Values.clustermesh.apiserver.service.nodePort }}
+    {{- end }}
+  {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.clustermesh.apiserver.service.loadBalancerClass }}
+  {{- end }}
+  {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.clustermesh.apiserver.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.clustermesh.apiserver.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
+  internalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
+  {{- end }}
+  {{- if or (eq .Values.clustermesh.apiserver.service.enableSessionAffinity "Always") (and (eq .Values.clustermesh.apiserver.service.enableSessionAffinity "HAOnly") (gt (int .Values.clustermesh.apiserver.replicas) 1)) }}
+  sessionAffinity: ClientIP
+  {{- end }}
+{{- end }}

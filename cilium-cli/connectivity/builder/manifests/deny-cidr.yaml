@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: cidr-deny
+spec:
+  endpointSelector: {}
+  ingressDeny:
+  - fromCIDR:
+{{ range $i := .NodesWithoutCiliumIPs }}
+    - {{$i.IP}}/{{$i.Mask}}
+{{ end }}

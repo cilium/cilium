@@ -1,0 +1,337 @@
+#! --test-peering-ips=fd00::bb:cc:dd:1,fd00::bb:cc:dd:2,fd00::bb:cc:dd:10
+
+# Tests all types of service advertisements across 2 peers: one with LoadBalancerIP svc advertisement only,
+# the other one with all types of svc advertisements.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server --router-id=1.2.3.4 65010 fd00::bb:cc:dd:1 1790
+gobgp/add-server --router-id=5.6.7.8 65011 fd00::bb:cc:dd:2 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer --server-asn=65010 fd00::bb:cc:dd:10 65001
+gobgp/add-peer --server-asn=65011 fd00::bb:cc:dd:10 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml
+k8s/add bgp-peer-config-1.yaml bgp-advertisement-1.yaml
+k8s/add bgp-peer-config-2.yaml bgp-advertisement-2.yaml
+
+# Wait for peerings to be established
+gobgp/wait-state --server-asn=65010 fd00::bb:cc:dd:10 ESTABLISHED
+gobgp/wait-state --server-asn=65011 fd00::bb:cc:dd:10 ESTABLISHED
+
+
+# Add a LoadBalancer service
+k8s/add service-lb.yaml
+
+# Validate the IPv4 LoadBalancer service route (65010)
+gobgp/routes --server-asn=65010 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-svc1-lb-ipv4.expected routes.actual
+
+# Validate the IPv6 LoadBalancer service route (65010)
+gobgp/routes --server-asn=65010 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-svc1-lb-ipv6.expected routes.actual
+
+# Validate the IPv4 ClusterIP + LoadBalancer service route (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-svc1-cluster-lb-ipv4.expected routes.actual
+
+# Validate the IPv6 ClusterIP + LoadBalancer service route (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-svc1-cluster-lb-ipv6.expected routes.actual
+
+
+# Add a ClusterIP service with ExternalIP
+k8s/add service-cluster-external.yaml
+
+# Validate the IPv4 LoadBalancer service route (65010)
+gobgp/routes --server-asn=65010 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-svc1-lb-ipv4.expected routes.actual
+
+# Validate the IPv6 LoadBalancer service route (65010)
+gobgp/routes --server-asn=65010 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-svc1-lb-ipv6.expected routes.actual
+
+# Validate all IPv4 ClusterIP + ExternalIP service routes (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-all-ipv4.expected routes.actual
+
+# Validate all IPv6 ClusterIP + ExternalIP service routes (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-all-ipv6.expected routes.actual
+
+
+# Remove the LoadBalancer service
+k8s/delete service-lb.yaml
+
+# Validate empty LoadBalancerIP service routes (65010)
+gobgp/routes --server-asn=65010 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate empty LoadBalancerIP service routes (65010)
+gobgp/routes --server-asn=65010 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate IPv4 svc2 ClusterIP + ExternalIP service routes (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-svc2-cluster-external-ipv4.expected routes.actual
+
+# Validate IPv6 svc2 ClusterIP + ExternalIP service routes (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-svc2-cluster-external-ipv6.expected routes.actual
+
+
+# Update ExternalIP
+k8s/update service-cluster-external-updated.yaml
+
+# Validate updated IPv4 svc2 ClusterIP + ExternalIP service routes (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv4 unicast
+* cmp gobgp-routes-svc2-cluster-external-updated-ipv4.expected routes.actual
+
+# Validate updated IPv6 svc2 ClusterIP + ExternalIP service routes (65011)
+gobgp/routes --server-asn=65011 -o routes.actual ipv6 unicast
+* cmp gobgp-routes-svc2-cluster-external-updated-ipv6.expected routes.actual
+
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: fd00::bb:cc:dd:10
+    type: InternalIP
+  - ip: 1.1.9.9
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: fd00::bb:cc:dd:1
+      localAddress: fd00::bb:cc:dd:10
+      peerConfigRef:
+        name: gobgp-peer-config-1
+    - name: gobgp-peer-2
+      peerASN: 65011
+      peerAddress: fd00::bb:cc:dd:2
+      localAddress: fd00::bb:cc:dd:10
+      peerConfigRef:
+        name: gobgp-peer-config-2
+
+-- bgp-peer-config-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config-1
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: lb-only
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: lb-only
+
+-- bgp-advertisement-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: lb-only
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- bgp-peer-config-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config-2
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: all-svc-types
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: all-svc-types
+
+-- bgp-advertisement-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: all-svc-types
+  labels:
+    advertise: all-svc-types
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+        - ClusterIP
+        - ExternalIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- service-lb.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc1
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  - 2001:db8:fd00::7ebc
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+    - ip: fd00:aa:bb::1
+
+-- service-cluster-external.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc2
+spec:
+  type: ClusterIP
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  - 2001:db8:fd00::7eff
+  externalIPs:
+  - 1.2.3.4
+  - fd00:1:2::3
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+
+-- service-cluster-external-updated.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc2
+spec:
+  type: ClusterIP
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  - 2001:db8:fd00::7eff
+  externalIPs:
+  - 9.9.9.9
+  - fd00:9:9::9
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+
+-- gobgp-routes-svc1-lb-ipv4.expected --
+Prefix          NextHop             Attrs
+172.16.1.1/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32]}}]
+-- gobgp-routes-svc1-lb-ipv6.expected --
+Prefix              NextHop             Attrs
+fd00:aa:bb::1/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128]}}]
+-- gobgp-routes-svc1-cluster-lb-ipv4.expected --
+Prefix            NextHop             Attrs
+10.96.50.104/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.104/32]}}]
+172.16.1.1/32     fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32]}}]
+-- gobgp-routes-svc1-cluster-lb-ipv6.expected --
+Prefix                    NextHop             Attrs
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7ebc/128]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128]}}]
+-- gobgp-routes-all-ipv4.expected --
+Prefix            NextHop             Attrs
+1.2.3.4/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [1.2.3.4/32]}}]
+10.96.50.104/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.104/32]}}]
+10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32]}}]
+172.16.1.1/32     fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32]}}]
+-- gobgp-routes-all-ipv6.expected --
+Prefix                    NextHop             Attrs
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7ebc/128]}}]
+2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128]}}]
+fd00:1:2::3/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:1:2::3/128]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128]}}]
+-- gobgp-routes-svc2-cluster-external-ipv4.expected --
+Prefix            NextHop             Attrs
+1.2.3.4/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [1.2.3.4/32]}}]
+10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32]}}]
+-- gobgp-routes-svc2-cluster-external-ipv6.expected --
+Prefix                    NextHop             Attrs
+2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128]}}]
+fd00:1:2::3/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:1:2::3/128]}}]
+-- gobgp-routes-svc2-cluster-external-updated-ipv4.expected --
+Prefix            NextHop             Attrs
+10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32]}}]
+9.9.9.9/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [9.9.9.9/32]}}]
+-- gobgp-routes-svc2-cluster-external-updated-ipv6.expected --
+Prefix                    NextHop             Attrs
+2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128]}}]
+fd00:9:9::9/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:9:9::9/128]}}]
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs

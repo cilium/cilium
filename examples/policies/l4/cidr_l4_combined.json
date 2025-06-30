@@ -1,0 +1,12 @@
+[{
+    "labels": [{"key": "name", "value": "cidr-l4-rule"}],
+    "endpointSelector": {"matchLabels":{"role":"crawler"}},
+    "egress": [{
+        "toCIDR": [
+            "192.0.2.0/24"
+        ],
+        "toPorts": [
+            {"ports":[ {"port": "80", "protocol": "TCP"}]}
+        ]
+    }]
+}]

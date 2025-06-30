@@ -1,0 +1,217 @@
+#! --test-peering-ips=10.99.4.101,10.99.4.102
+
+# Tests advertisements with external / internal service traffic policy.
+# Service routes should be withdrawn for a service with local traffic policy in case of no local endpoints.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server 65010 10.99.4.101 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.4.102 65001
+
+# Add k8s services
+k8s/add service-lb.yaml service-cluster.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.4.102 ESTABLISHED
+
+# Validate that only ClusterIP with iTP=Cluster is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-tp-cluster.expected routes.actual
+
+# Add endpoints for the LB service (local endpoint exists)
+k8s/add endpoints-local.yaml
+
+# Validate that all svc IPs are advertised now
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Update endpoints for the LB service (local endpoint does not exist)
+k8s/update endpoints-non-local.yaml
+
+# Validate that only ClusterIP with iTP=Cluster is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-tp-cluster.expected routes.actual
+
+# Update endpoints for the LB service (local endpoint exists)
+k8s/update endpoints-local.yaml
+
+# Validate that all svc IPs are advertised again
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Delete endpoints of the LB service
+k8s/delete endpoints-local.yaml
+
+# Validate that only ClusterIP with iTP=Cluster is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-tp-cluster.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.4.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.4.101
+      localAddress: 10.99.4.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+        - ClusterIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service-lb.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Local
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-cluster.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo2
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: ClusterIP
+  internalTrafficPolicy: Cluster
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+
+-- endpoints-local.yaml --
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: echo
+  namespace: test
+subsets:
+- addresses:
+  - ip: 10.244.1.20
+    nodeName: test-node
+  - ip: 10.244.2.30
+    nodeName: other-node
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+
+-- endpoints-non-local.yaml --
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: echo
+  namespace: test
+subsets:
+- addresses:
+  - ip: 10.244.2.20
+    nodeName: other-node
+  - ip: 10.244.2.30
+    nodeName: other-node
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+
+-- gobgp-routes-tp-cluster.expected --
+Prefix            NextHop       Attrs
+10.96.50.105/32   10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
+-- gobgp-routes-all.expected --
+Prefix            NextHop       Attrs
+10.96.50.104/32   10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
+10.96.50.105/32   10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
+172.16.1.1/32     10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]

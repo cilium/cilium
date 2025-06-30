@@ -1,0 +1,42 @@
+[
+  {
+    "endpointSelector": {
+      "matchLabels": {
+        "app": "test-app"
+      }
+    },
+    "egress": [
+      {
+        "toEndpoints": [
+          {
+            "matchLabels": {
+              "app-type": "dns"
+            }
+          }
+        ],
+        "toPorts": [
+          {
+            "ports": [
+              {
+                "port": "53",
+                "protocol": "ANY"
+              }
+            ],
+            "rules": {
+              "dns": [
+                { "matchPattern": "*" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "toFQDNs": [
+          {
+            "matchName": "my-remote-service.com"
+          }
+        ]
+      }
+    ]
+  }
+]

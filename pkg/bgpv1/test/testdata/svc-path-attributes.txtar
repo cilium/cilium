@@ -1,0 +1,253 @@
+#! --test-peering-ips=fd00::bb:cc:dd:101,fd00::bb:cc:dd:102
+
+# Tests service advertisements with various path attributes.
+# Also tests overlapping advertisements - 2 advertisements matching the same service,
+# where the configured communities should be concatenated and the largest localPreference should be applied.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server --router-id=1.2.3.4 65001 fd00::bb:cc:dd:101 1790
+gobgp/add-peer fd00::bb:cc:dd:102 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml
+
+# Configure a service
+k8s/add service.yaml
+
+# Configure advertisement with communities ending with 99
+k8s/add bgp-advertisement-99.yaml
+
+# Wait for peering to be established
+gobgp/wait-state fd00::bb:cc:dd:102 ESTABLISHED
+
+# Validate peering state
+gobgp/peers -o peers.actual
+* cmp gobgp-peers.expected peers.actual
+
+# Validate IPv4 service routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-99-ipv4.expected routes.actual
+
+# Validate IPv6 service routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-99-ipv6.expected routes.actual
+
+# Configure advertisement with communities ending with 101
+k8s/update bgp-advertisement-101.yaml
+
+# Validate IPv4 service routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-101-ipv4.expected routes.actual
+
+# Validate IPv6 service routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-101-ipv6.expected routes.actual
+
+# Configure advertisement with overlapping advertisements
+k8s/update bgp-advertisement-overlapping.yaml
+
+# Validate IPv4 service routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-overlapping-ipv4.expected routes.actual
+
+# Validate IPv6 service routes
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-overlapping-ipv6.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: fd00::bb:cc:dd:102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+    - fd00:11:22::/64
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 5.6.7.8
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65001
+      peerAddress: fd00::bb:cc:dd:101
+      localAddress: fd00::bb:cc:dd:102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement-99.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+    attributes:
+      communities:
+        standard: [ "65000:99" ]
+      localPreference: 99
+
+-- bgp-advertisement-101.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+    attributes:
+      communities:
+        standard: [ "65000:101" ]
+      localPreference: 101
+
+-- bgp-advertisement-overlapping.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+    attributes:
+      communities:
+        standard: [ "65000:98" ]
+      localPreference: 98
+  - advertisementType: Service
+    service:
+      addresses:
+      - ClusterIP
+      - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+    attributes:
+      communities:
+        standard: [ "65000:102" ]
+      localPreference: 102
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc1
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  - 2001:db8:fd00::7ebc
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+    - ip: fd00:aa:bb::1
+
+-- gobgp-peers.expected --
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+fd00::bb:cc:dd:102   5.6.7.8    65001     ESTABLISHED    30          90         0
+-- gobgp-routes-99-ipv4.expected --
+Prefix            NextHop              Attrs
+10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32]}}]
+172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32]}}]
+-- gobgp-routes-99-ipv6.expected --
+Prefix                    NextHop              Attrs
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128]}}]
+-- gobgp-routes-101-ipv4.expected --
+Prefix            NextHop              Attrs
+10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32]}}]
+172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32]}}]
+-- gobgp-routes-101-ipv6.expected --
+Prefix                    NextHop              Attrs
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128]}}]
+-- gobgp-routes-overlapping-ipv4.expected --
+Prefix            NextHop              Attrs
+10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32]}}]
+172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32]}}]
+-- gobgp-routes-overlapping-ipv6.expected --
+Prefix                    NextHop              Attrs
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128]}}]

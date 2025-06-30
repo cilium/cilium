@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-to-app1-default-allow
+spec:
+  enableDefaultDeny:
+    egress: false
+  endpointSelector:
+    matchLabels:
+      id: app2
+  egressDeny:
+    - toEndpoints:
+        - matchLabels:
+            id: app1

@@ -1,0 +1,17 @@
+upstreamRefs:
+  - k8s.io/api
+  - k8s.io/apiextensions-apiserver
+  - k8s.io/apimachinery
+  - k8s.io/apiserver
+  - k8s.io/client-go
+  - k8s.io/component-base
+  # k8s.io/klog/v2 -> conflicts with k/k deps
+  # k8s.io/utils -> conflicts with k/k deps
+
+excludedModules:
+  # --- test dependencies:
+  - github.com/onsi/ginkgo/v2
+  - github.com/onsi/gomega
+
+  # --- We want a newer version with generics support for this
+  - github.com/google/btree

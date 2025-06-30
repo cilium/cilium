@@ -1,0 +1,587 @@
+.. _cilium-feature-adv-connect-and-lb:
+
+``adv_connect_and_lb``
+~~~~~~~~~~~~~~~~~~~~~~
+.. list-table::
+  :header-rows: 1
+
+  * - Name
+    - Labels
+    - Possible Label Values
+    - Description
+    - Type
+  * - ``bandwidth_manager_enabled``
+    - *None*
+    - *None*
+    - Bandwidth Manager enabled on the agent
+    - gauge
+  * - ``bgp_enabled``
+    - *None*
+    - *None*
+    - BGP enabled on the agent
+    - gauge
+  * - ``big_tcp_enabled``
+    - ``address_family``
+    - ``"ipv4-ipv6-dual-stack"``
+    - Big TCP enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"ipv4-only"``
+    -
+    -
+  * -
+    -
+    - ``"ipv6-only"``
+    -
+    -
+  * - ``cilium_envoy_config_enabled``
+    - *None*
+    - *None*
+    - Cilium Envoy Config enabled on the agent
+    - gauge
+  * - ``cilium_node_config_enabled``
+    - *None*
+    - *None*
+    - Cilium Node Config enabled on the agent
+    - gauge
+  * - ``clustermesh_enabled``
+    - ``max_connected_clusters``
+    - ``"255"``
+    - Mode of the active Cluster Mesh connections/peers
+    - gauge
+  * -
+    -
+    - ``"511"``
+    -
+    -
+  * - ``clustermesh_enabled``
+    - ``mode``
+    - ``"clustermesh-apiserver"``
+    -
+    -
+  * -
+    -
+    - ``"clustermesh-apiserver_or_etcd"``
+    -
+    -
+  * -
+    -
+    - ``"etcd"``
+    -
+    -
+  * -
+    -
+    - ``"kvstoremesh"``
+    -
+    -
+  * - ``egress_gateway_enabled``
+    - *None*
+    - *None*
+    - Egress Gateway enabled on the agent
+    - gauge
+  * - ``envoy_proxy_enabled``
+    - ``mode``
+    - ``"embedded"``
+    - Envoy Proxy mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"standalone"``
+    -
+    -
+  * - ``k8s_internal_traffic_policy_enabled``
+    - *None*
+    - *None*
+    - K8s Internal Traffic Policy enabled on the agent
+    - gauge
+  * - ``kube_proxy_replacement_enabled``
+    - *None*
+    - *None*
+    - KubeProxyReplacement enabled on the agent
+    - gauge
+  * - ``l2_lb_enabled``
+    - *None*
+    - *None*
+    - L2 LB announcement enabled on the agent
+    - gauge
+  * - ``l2_pod_announcement_enabled``
+    - *None*
+    - *None*
+    - L2 pod announcement enabled on the agent
+    - gauge
+  * - ``node_port_configuration``
+    - ``acceleration``
+    - ``"best-effort"``
+    - Node Port configuration enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"disabled"``
+    -
+    -
+  * -
+    -
+    - ``"native"``
+    -
+    -
+  * -
+    -
+    - ``"testing-only"``
+    -
+    -
+  * - ``node_port_configuration``
+    - ``algorithm``
+    - ``"maglev"``
+    -
+    -
+  * -
+    -
+    - ``"random"``
+    -
+    -
+  * - ``node_port_configuration``
+    - ``mode``
+    - ``"dsr"``
+    -
+    -
+  * -
+    -
+    - ``"hybrid"``
+    -
+    -
+  * -
+    -
+    - ``"snat"``
+    -
+    -
+  * - ``sctp_enabled``
+    - *None*
+    - *None*
+    - SCTP enabled on the agent
+    - gauge
+  * - ``transparent_encryption``
+    - ``mode``
+    - ``"ipsec"``
+    - Encryption mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"wireguard"``
+    -
+    -
+  * - ``transparent_encryption``
+    - ``node2node_enabled``
+    - ``"false"``
+    -
+    -
+  * -
+    -
+    - ``"true"``
+    -
+    -
+  * - ``vtep_enabled``
+    - *None*
+    - *None*
+    - VTEP enabled on the agent
+    - gauge
+
+.. _cilium-feature-controlplane:
+
+``controlplane``
+~~~~~~~~~~~~~~~~
+.. list-table::
+  :header-rows: 1
+
+  * - Name
+    - Labels
+    - Possible Label Values
+    - Description
+    - Type
+  * - ``cilium_endpoint_slices_enabled``
+    - *None*
+    - *None*
+    - Cilium Endpoint Slices enabled on the agent
+    - gauge
+  * - ``identity_allocation``
+    - ``mode``
+    - ``"crd"``
+    - Identity Allocation mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"doublewrite-readcrd"``
+    -
+    -
+  * -
+    -
+    - ``"doublewrite-readkvstore"``
+    -
+    -
+  * -
+    -
+    - ``"kvstore"``
+    -
+    -
+  * - ``ipam``
+    - ``mode``
+    - ``"alibabacloud"``
+    - IPAM mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"azure"``
+    -
+    -
+  * -
+    -
+    - ``"cluster-pool"``
+    -
+    -
+  * -
+    -
+    - ``"crd"``
+    -
+    -
+  * -
+    -
+    - ``"delegated-plugin"``
+    -
+    -
+  * -
+    -
+    - ``"eni"``
+    -
+    -
+  * -
+    -
+    - ``"kubernetes"``
+    -
+    -
+  * -
+    -
+    - ``"multi-pool"``
+    -
+    -
+
+.. _cilium-feature-datapath:
+
+``datapath``
+~~~~~~~~~~~~
+.. list-table::
+  :header-rows: 1
+
+  * - Name
+    - Labels
+    - Possible Label Values
+    - Description
+    - Type
+  * - ``chaining_enabled``
+    - ``mode``
+    - ``"aws-cni"``
+    - Chaining mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"aws-vpc-cni"``
+    -
+    -
+  * -
+    -
+    - ``"calico"``
+    -
+    -
+  * -
+    -
+    - ``"flannel"``
+    -
+    -
+  * -
+    -
+    - ``"generic-veth"``
+    -
+    -
+  * -
+    -
+    - ``"none"``
+    -
+    -
+  * - ``config``
+    - ``mode``
+    - ``"netkit"``
+    - Datapath config mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"netkit-l2"``
+    -
+    -
+  * -
+    -
+    - ``"veth"``
+    -
+    -
+  * - ``internet_protocol``
+    - ``address_family``
+    - ``"ipv4-ipv6-dual-stack"``
+    - IP mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"ipv4-only"``
+    -
+    -
+  * -
+    -
+    - ``"ipv6-only"``
+    -
+    -
+  * - ``network``
+    - ``mode``
+    - ``"direct-routing"``
+    - Network mode enabled on the agent
+    - gauge
+  * -
+    -
+    - ``"overlay-geneve"``
+    -
+    -
+  * -
+    -
+    - ``"overlay-vxlan"``
+    -
+    -
+
+.. _cilium-feature-network-policies:
+
+``network_policies``
+~~~~~~~~~~~~~~~~~~~~
+.. list-table::
+  :header-rows: 1
+
+  * - Name
+    - Labels
+    - Possible Label Values
+    - Description
+    - Type
+  * - ``cidr_policies``
+    - ``mode``
+    - ``"remote-node"``
+    - Mode to apply CIDR Policies to Nodes
+    - gauge
+  * -
+    -
+    - ``"world"``
+    -
+    -
+  * - ``cilium_clusterwide_envoy_config_total``
+    - ``action``
+    - ``"add"``
+    - Cilium Clusterwide Envoy Config have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``cilium_clusterwide_network_policies_total``
+    - ``action``
+    - ``"add"``
+    - Cilium Clusterwide Network Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``cilium_envoy_config_total``
+    - ``action``
+    - ``"add"``
+    - Cilium Envoy Config have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``cilium_network_policies_total``
+    - ``action``
+    - ``"add"``
+    - Cilium Network Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``deny_policies_total``
+    - ``action``
+    - ``"add"``
+    - Deny Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``dns_policies_total``
+    - ``action``
+    - ``"add"``
+    - DNS Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``fqdn_policies_total``
+    - ``action``
+    - ``"add"``
+    - ToFQDNs Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``host_firewall_enabled``
+    - *None*
+    - *None*
+    - Host firewall enabled on the agent
+    - gauge
+  * - ``host_network_policies_total``
+    - ``action``
+    - ``"add"``
+    - Host Network Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``http_header_matches_policies_total``
+    - ``action``
+    - ``"add"``
+    - HTTP HeaderMatches Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``http_policies_total``
+    - ``action``
+    - ``"add"``
+    - HTTP/GRPC Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``ingress_cidr_group_policies_total``
+    - ``action``
+    - ``"add"``
+    - Ingress CIDR Group Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``internal_traffic_policy_services_total``
+    - ``action``
+    - ``"add"``
+    - K8s Services with Internal Traffic Policy have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``l3_policies_total``
+    - ``action``
+    - ``"add"``
+    - Layer 3 and Layer 4 policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``local_redirect_policies_total``
+    - ``action``
+    - ``"add"``
+    - Local Redirect Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``local_redirect_policy_enabled``
+    - *None*
+    - *None*
+    - Local Redirect Policy enabled on the agent
+    - gauge
+  * - ``mutual_auth_enabled``
+    - *None*
+    - *None*
+    - Mutual Auth enabled on the agent
+    - gauge
+  * - ``mutual_auth_policies_total``
+    - ``action``
+    - ``"add"``
+    - Mutual Auth Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``non_defaultdeny_policies_enabled``
+    - *None*
+    - *None*
+    - Non DefaultDeny Policies is enabled in the agent
+    - gauge
+  * - ``non_defaultdeny_policies_total``
+    - ``action``
+    - ``"add"``
+    - Non DefaultDeny Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``other_l7_policies_total``
+    - ``action``
+    - ``"add"``
+    - Other L7 Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``sni_allow_list_policies_total``
+    - ``action``
+    - ``"add"``
+    - SNI Allow List Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+  * - ``tls_inspection_policies_total``
+    - ``action``
+    - ``"add"``
+    - TLS Inspection Policies have been ingested since the agent started
+    - counter
+  * -
+    -
+    - ``"delete"``
+    -
+    -
+

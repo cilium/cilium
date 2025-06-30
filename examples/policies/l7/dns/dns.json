@@ -1,0 +1,45 @@
+[
+  {
+    "endpointSelector": {
+      "matchLabels": {
+        "app": "test-app"
+      }
+    },
+    "egress": [
+      {
+        "toEndpoints": [
+          {
+            "matchLabels": {
+              "app-type": "dns"
+            }
+          }
+        ],
+        "toPorts": [
+          {
+            "ports": [
+              {
+                "port": "53",
+                "protocol": "ANY"
+              }
+            ],
+            "rules": {
+              "dns": [
+                { "matchName": "cilium.io" },
+                { "matchPattern": "*.cilium.io" }, 
+                { "matchPattern": "*.api.cilium.io" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "toFQDNs": [
+          { "matchName": "cilium.io" },
+          { "matchName": "sub.cilium.io" },
+          { "matchName": "service1.api.cilium.io" },
+          { "matchPattern": "special*service.api.cilium.io" }
+       ]
+      }
+    ]
+  }
+]

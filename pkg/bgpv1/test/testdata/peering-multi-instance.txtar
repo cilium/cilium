@@ -1,0 +1,261 @@
+#! --test-peering-ips=10.99.0.101,10.99.0.102,10.99.0.103,10.99.0.110
+
+# Tests peering with 3 BGP peers across 2 BGP instances.
+
+# Start the hive
+hive start
+
+# Configure gobgp servers
+gobgp/add-server 65010 10.99.0.101 1790
+gobgp/add-server 65011 10.99.0.102 1790
+gobgp/add-server 65012 10.99.0.103 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer --server-asn=65010 10.99.0.110 65001
+gobgp/add-peer --server-asn=65011 10.99.0.110 65001
+gobgp/add-peer --server-asn=65012 10.99.0.110 65002
+
+# Configure BGP on Cilium - only first peer
+k8s/add cilium-node.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+k8s/add bgp-node-config-1.yaml
+
+# Wait for first peering to be established
+gobgp/wait-state --server-asn=65010 10.99.0.110 ESTABLISHED
+
+# Validate peering state (server 65010)
+gobgp/peers --server-asn=65010 -o peers.actual
+* cmp gobgp-peers-65001.expected peers.actual
+
+# Validate PodCIDR routes (server 65010)
+gobgp/routes --server-asn=65010 -o routes.actual
+* cmp gobgp-routes-podcidr-65001.expected routes.actual
+
+# Configure BGP on Cilium - add second and third peer
+k8s/update bgp-node-config-2.yaml
+
+# Wait for second peering to be established
+gobgp/wait-state --server-asn=65011 10.99.0.110 ESTABLISHED
+
+# Wait for third peering to be established
+gobgp/wait-state --server-asn=65012 10.99.0.110 ESTABLISHED
+
+# Validate peering state (server 65011)
+gobgp/peers --server-asn=65011 -o peers.actual
+* cmp gobgp-peers-65001.expected peers.actual
+
+# Validate PodCIDR routes (server 65011)
+gobgp/routes --server-asn=65011 -o routes.actual
+* cmp gobgp-routes-podcidr-65001.expected routes.actual
+
+# Validate peering state (server 65012)
+gobgp/peers --server-asn=65012 -o peers.actual
+* cmp gobgp-peers-65002.expected peers.actual
+
+# Validate PodCIDR routes (server 65012)
+gobgp/routes --server-asn=65012 -o routes.actual
+* cmp gobgp-routes-podcidr-65002.expected routes.actual
+
+# Add a k8s service
+k8s/add service.yaml
+
+# Validate PodCIDR + Service routes (server 65010)
+gobgp/routes --server-asn=65010 -o routes.actual
+* cmp gobgp-routes-all-65001.expected routes.actual
+
+# Validate PodCIDR + Service routes (server 65011)
+gobgp/routes --server-asn=65011 -o routes.actual
+* cmp gobgp-routes-all-65001.expected routes.actual
+
+# Validate PodCIDR + Service routes (server 65012)
+gobgp/routes --server-asn=65012 -o routes.actual
+* cmp gobgp-routes-all-65002.expected routes.actual
+
+# Validate peers on Cilium
+bgp/peers -o peers.actual
+* cmp cilium-peers.expected peers.actual
+
+# Validate advertised routes on Cilium
+bgp/routes -o routes.actual advertised
+* cmp cilium-routes.expected routes.actual
+
+# Validate route-policies on Cilium
+bgp/route-policies -o policies.actual
+* cmp cilium-route-policies.expected policies.actual
+
+# Configure BGP on Cilium - remove second and third peer
+k8s/update bgp-node-config-1.yaml
+
+# Validate peering state (server 65010)
+gobgp/peers --server-asn=65010 -o peers.actual
+* cmp gobgp-peers-65001.expected peers.actual
+
+# Validate PodCIDR + Service routes (server 65010)
+gobgp/routes --server-asn=65010 -o routes.actual
+* cmp gobgp-routes-all-65001.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.0.110
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.0.101
+      localAddress: 10.99.0.110
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-node-config-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.0.101
+      localAddress: 10.99.0.110
+      peerConfigRef:
+        name: gobgp-peer-config
+    - name: gobgp-peer-2
+      peerASN: 65011
+      peerAddress: 10.99.0.102
+      localAddress: 10.99.0.110
+      peerConfigRef:
+        name: gobgp-peer-config
+  - localASN: 65002
+    name: tor-65002
+    peers:
+    - name: gobgp-peer-3
+      peerASN: 65012
+      peerAddress: 10.99.0.103
+      localAddress: 10.99.0.110
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    keepAliveTimeSeconds: 3
+    holdTimeSeconds: 9
+    connectRetryTimeSeconds: 1
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 30
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+  - advertisementType: Service
+    service:
+      addresses:
+        - ClusterIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- gobgp-peers-65001.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+10.99.0.110   10.99.0.110   65001     ESTABLISHED    3           9          30
+-- gobgp-routes-podcidr-65001.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+-- gobgp-routes-all-65001.expected --
+Prefix            NextHop       Attrs
+10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+-- gobgp-peers-65002.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+10.99.0.110   10.99.0.110   65002     ESTABLISHED    3           9          30
+-- gobgp-routes-podcidr-65002.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+-- gobgp-routes-all-65002.expected --
+Prefix            NextHop       Attrs
+10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+-- cilium-peers.expected --
+Local AS   Peer AS   Peer Address       Session       Family         Received   Advertised
+65001      65010     10.99.0.101:1790   established   ipv4/unicast   0          3
+65001      65011     10.99.0.102:1790   established   ipv4/unicast   0          3
+65002      65012     10.99.0.103:1790   established   ipv4/unicast   0          3
+-- cilium-routes.expected --
+VRouter   Peer          Prefix            NextHop       Attrs
+65001     10.99.0.101   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+65001     10.99.0.101   10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+65001     10.99.0.102   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+65001     10.99.0.102   10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+65002     10.99.0.103   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+65002     10.99.0.103   10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+-- cilium-route-policies.expected --
+VRouter   Policy Name                                     Type     Match Peers      Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+65001     allow-local                                     import                                                                     accept       
+65001     gobgp-peer-1-ipv4-PodCIDR                       export   10.99.0.101/32                    10.244.0.0/24 (24..24)          accept       
+65001     gobgp-peer-1-ipv4-Service-echo-test-ClusterIP   export   10.99.0.101/32                    10.96.50.104/32 (32..32)        accept       
+65001     gobgp-peer-2-ipv4-PodCIDR                       export   10.99.0.102/32                    10.244.0.0/24 (24..24)          accept       
+65001     gobgp-peer-2-ipv4-Service-echo-test-ClusterIP   export   10.99.0.102/32                    10.96.50.104/32 (32..32)        accept       
+65002     allow-local                                     import                                                                     accept       
+65002     gobgp-peer-3-ipv4-PodCIDR                       export   10.99.0.103/32                    10.244.0.0/24 (24..24)          accept       
+65002     gobgp-peer-3-ipv4-Service-echo-test-ClusterIP   export   10.99.0.103/32                    10.96.50.104/32 (32..32)        accept       

@@ -1,0 +1,215 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  issues-exit-code: 1
+  tests: true
+  timeout: 20m
+linters:
+  default: none
+  enable:
+    - depguard
+    - err113
+    - errorlint
+    - exhaustruct
+    - goheader
+    - gomodguard
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - sloglint
+    - staticcheck
+    - testifylint
+    - unused
+  settings:
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: math/rand$
+              desc: Use math/rand/v2 instead
+    exhaustruct:
+      include:
+        - .+\.[Cc]onfig
+        - .+[Cc]fg
+      exclude:
+        - .+cache\.Config
+        - .+fqdn\.Config
+        - .+tls\.Config
+        - .+v3\.Config
+        - .+translation\.Config
+    goheader:
+      values:
+        regexp:
+          PROJECT: Cilium|Hubble
+      template: |-
+        SPDX-License-Identifier: Apache-2.0
+        Copyright Authors of {{ PROJECT }}
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/miekg/dns:
+              recommendations:
+                - github.com/cilium/dns
+              reason: use the cilium fork directly to avoid replace directives in go.mod, see https://github.com/cilium/cilium/pull/27582
+          - gopkg.in/check.v1:
+              recommendations:
+                - testing
+                - github.com/stretchr/testify/assert
+              reason: gocheck has been deprecated, see https://github.com/cilium/cilium/issues/28596
+          - gopkg.in/yaml.v2:
+              recommendations:
+                - go.yaml.in/yaml/v2
+              reason: gopkg.in/yaml.v2 is deprecated, see https://github.com/yaml/go-yaml/discussions/11
+          - gopkg.in/yaml.v3:
+              recommendations:
+                - go.yaml.in/yaml/v3
+              reason: gopkg.in/yaml.v3 is deprecated, see https://github.com/yaml/go-yaml/discussions/11
+          - github.com/cilium/checkmate:
+              recommendations:
+                - github.com/stretchr/testify/assert
+                - github.com/stretchr/testify/require
+              reason: cilium/checkmate has been deprecated, see https://github.com/cilium/cilium/issues/28596
+          - github.com/sirupsen/logrus:
+              recommendations:
+                - log/slog
+              reason: Use the Go 1.21+ log/slog package for structured logging.
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: Go 1.20+ has support for combining multiple errors, see https://go.dev/doc/go1.20#errors
+          - golang.org/x/exp/maps:
+              recommendations:
+                - maps
+                - slices
+              reason: Go 1.23+ has support for maps and slices, see https://go.dev/doc/go1.23#iterators
+          - golang.org/x/exp/constraints:
+              recommendations:
+                - cmp
+              reason: Go 1.21+ has support for Ordered constraint, see https://go.dev/doc/go1.21#cmp
+          - golang.org/x/exp/slices:
+              recommendations:
+                - slices
+              reason: Go 1.21+ provides many common operations for slices using generic functions, see https://go.dev/doc/go1.21#slices
+          - k8s.io/utils/pointer:
+              recommendations:
+                - k8s.io/utils/ptr
+              reason: k8s.io/utils/pointer is deprecated, see https://pkg.go.dev/k8s.io/utils/pointer
+    gosec:
+      includes:
+        - G402
+    govet:
+      enable:
+        - nilness
+    sloglint:
+      no-mixed-args: true
+      kv-only: true
+      attr-only: false
+      no-global: default
+      context: ""
+      static-msg: false
+      no-raw-keys: true
+      key-naming-case: camel
+      forbidden-keys:
+        - time
+        - level
+        - msg
+        - source
+      args-on-sep-lines: true
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/cilium/cilium/api/v1/health/server/restapi
+        - github.com/cilium/cilium/api/v1/health/server/restapi/connectivity
+        - github.com/cilium/cilium/api/v1/server/restapi/policy
+        - github.com/cilium/cilium/api/v1/server/restapi/endpoint
+        - github.com/cilium/cilium/test/ginkgo-ext
+        - github.com/onsi/gomega
+      checks:
+        # Default checks https://golangci-lint.run/usage/linters/#staticcheck
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1006
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # Disable additional checks that are not applicable to Cilium. Enable them if needed in the future.
+        - -ST1005
+        - -ST1008
+        - -ST1019
+        - -QF1001
+        - -QF1002
+        - -QF1003
+        - -QF1006
+        - -QF1007
+        - -QF1008
+        - -QF1012
+    testifylint:
+      enable-all: true
+      disable: # TODO: remove each disabled rule and fix it
+        - float-compare
+        - go-require
+        - require-error
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - staticcheck
+        text: SA1019
+      - linters:
+          - staticcheck
+        text: "SA9003: empty branch"
+      - linters:
+          - staticcheck
+        text: "SA2001: empty critical section"
+      - linters:
+          - err113
+        text: do not define dynamic errors, use wrapped static errors instead
+      # Skip goheader check in the example files as these are included in the documentation
+      - linters:
+          - goheader
+          - goimports
+          - sloglint
+        path: contrib/examples/.+\.go
+      # Skip goheader check on files imported and modified from upstream k8s
+      - linters:
+          - goheader
+        path: pkg/ipam/(cidrset|service)/.+\.go
+      - linters:
+          - goheader
+        path: pkg/hubble/dropeventemitter/fake_recorder.go
+      - linters:
+          - sloglint
+        path: tools/.*.go
+      - linters:
+          - exhaustruct
+        path: .*_test\.go
+      - linters:
+          - gomodguard
+        path: test/
+        text: "logrus"
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/cilium/cilium/
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - \\.(generated\\.deepcopy|pb)\\.go$

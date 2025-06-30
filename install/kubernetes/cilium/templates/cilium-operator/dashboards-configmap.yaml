@@ -1,0 +1,33 @@
+{{- if .Values.operator.dashboards.enabled }}
+{{- $files := .Files.Glob "files/cilium-operator/dashboards/*.json" }}
+{{- range $path, $fileContents := $files }}
+{{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $dashboardName | trunc 63 | trimSuffix "-" }}
+  namespace: {{ $.Values.operator.dashboards.namespace | default (include "cilium.namespace" $) }}
+  labels:
+    k8s-app: cilium
+    app.kubernetes.io/name: cilium-operator
+    app.kubernetes.io/part-of: cilium
+    {{- with $.Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.operator.dashboards.label }}
+    {{ $.Values.operator.dashboards.label }}: {{ ternary $.Values.operator.dashboards.labelValue "1" (not (empty $.Values.operator.dashboards.labelValue)) | quote }}
+    {{- end }}
+  {{- if or $.Values.operator.dashboards.annotations $.Values.operator.annotations }}
+  annotations:
+    {{- with $.Values.operator.dashboards.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with $.Values.operator.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+data:
+  {{ $dashboardName }}.json: {{ $.Files.Get $path | toJson }}
+{{- end }}
+{{- end }}

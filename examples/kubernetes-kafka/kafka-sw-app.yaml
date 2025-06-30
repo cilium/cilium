@@ -1,0 +1,160 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-broker
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: docker.io/wurstmeister/kafka:1.1.0
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_ADVERTISED_HOST_NAME
+          value: kafka-service
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: zook:2181
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: KAFKA_CREATE_TOPICS
+          value: "empire-announce:1:1,deathstar-plans:1:1"
+        - name: KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS
+          value: "60000"
+        - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
+          value: "60000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+spec:
+  selector:
+    matchLabels:
+      app: zook
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: zook
+    spec:
+      containers:
+      - name: zookeeper
+        image: docker.io/cilium/zookeeper:1.0
+        ports:
+        - containerPort: 2181
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zook
+  labels:
+    app: zook
+spec:
+  ports:
+  - port: 2181
+    name: zookeeper-port
+    targetPort: 2181
+    protocol: TCP
+  selector:
+    app: zook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  labels:
+    app: kafka
+spec:
+  ports:
+  - port: 9092
+    name: kafka-port
+    targetPort: 9092
+    protocol: TCP
+  selector:
+    app: kafka
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-hq
+spec:
+  selector:
+    matchLabels:
+      app: empire-hq
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-hq
+    spec:
+      containers:
+      - name: empire-hq
+        image: docker.io/cilium/kafkaclient
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-outpost-8888
+spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "8888"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+        outpostid: "8888"
+    spec:
+      containers:
+      - name: empire-outpost-8888
+        image: docker.io/cilium/kafkaclient
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-outpost-9999
+spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "9999"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+        outpostid: "9999"
+    spec:
+      containers:
+      - name: empire-outpost-9999
+        image: docker.io/cilium/kafkaclient
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-backup
+spec:
+  selector:
+    matchLabels:
+      app: empire-backup
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-backup
+    spec:
+      containers:
+      - name: empire-backup
+        image: docker.io/cilium/kafkaclient

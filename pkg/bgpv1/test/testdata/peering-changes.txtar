@@ -1,0 +1,206 @@
+#! --test-peering-ips=10.99.0.121,10.99.0.122,10.99.0.130
+
+# Tests changes in BGP peering config: peer IP change, KeepAlive, HoldTime & Graceful Restart time changes.
+
+# Start the hive
+hive start
+
+# Add a LoadBalancer service
+k8s/add service-lb.yaml
+
+# Configure GoBGP server
+gobgp/add-server 65010 10.99.0.121 1790
+gobgp/add-peer 10.99.0.130 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-advertisement.yaml
+k8s/add bgp-node-config-1.yaml bgp-peer-config-1.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.0.130 ESTABLISHED
+
+# Validate peering state
+gobgp/peers -o peers.actual
+* cmp gobgp-peers-1.expected peers.actual
+
+# Validate routes
+gobgp/routes -o routes.actual
+* cmp gobgp-routes.expected routes.actual
+
+# Re-configure GoBGP server with the new IP
+gobgp/delete-server 65010
+gobgp/add-server 65010 10.99.0.122 1790
+gobgp/add-peer 10.99.0.130 65001
+
+# Update peer IP
+k8s/update bgp-node-config-2.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.0.130 ESTABLISHED
+
+# Validate peering state
+gobgp/peers -o peers.actual
+* cmp gobgp-peers-1.expected peers.actual
+
+# Validate routes
+gobgp/routes -o routes.actual
+* cmp gobgp-routes.expected routes.actual
+
+# Update peering parameters
+k8s/update bgp-peer-config-2.yaml
+
+# Wait for peering to go down. There is 5s IdleHoldTime applied on the GoBGP side, so it will take about 5s to reconnect.
+gobgp/wait-state 10.99.0.130 IDLE
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.0.130 ESTABLISHED
+
+# Validate peering state
+gobgp/peers -o peers.actual
+* cmp gobgp-peers-2.expected peers.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.0.130
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.0.121
+      localAddress: 10.99.0.130
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-node-config-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.0.122
+      localAddress: 10.99.0.130
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-peer-config-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    keepAliveTimeSeconds: 5
+    holdTimeSeconds: 15
+    connectRetryTimeSeconds: 1
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 60
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- service-lb.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- gobgp-peers-1.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+10.99.0.130   10.99.0.130   65001     ESTABLISHED    30          90         0
+-- gobgp-peers-2.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+10.99.0.130   10.99.0.130   65001     ESTABLISHED    5           15         60
+-- gobgp-routes.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.0.130   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.130}]
+172.16.1.1/32   10.99.0.130   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.130}]

@@ -1,0 +1,179 @@
+#! --test-peering-ips=10.99.4.201,10.99.4.202
+
+# Tests sharing of the same LB VIP across multiple services.
+# VIP should be advertised if one of the shared services disappears but the other one remains.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server 65010 10.99.4.201 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.4.202 65001
+
+# Add k8s services
+k8s/add service-1.yaml service-2.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.4.202 ESTABLISHED
+
+# Validate that LB IP is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes.expected routes.actual
+
+# Delete one service
+k8s/delete service-1.yaml
+sleep 0.1s # give some time for the change to propagate to avoid false positive
+
+# Validate that LB IP is still advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes.expected routes.actual
+
+# Delete the second service
+k8s/delete service-2.yaml
+
+# Validate that LB IP is withdrawn
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.4.202
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.4.201
+      localAddress: 10.99.4.202
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service-1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+  labels:
+    bgp: advertise
+  annotations:
+    "lbipam.cilium.io/sharing-key": "1234"
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo2
+  namespace: test
+  labels:
+    bgp: advertise
+  annotations:
+    "lbipam.cilium.io/sharing-key": "1234"
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- gobgp-routes.expected --
+Prefix          NextHop       Attrs
+172.16.1.1/32   10.99.4.202   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.202}]
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs

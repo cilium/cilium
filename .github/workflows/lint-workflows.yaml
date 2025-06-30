@@ -1,0 +1,295 @@
+name: GitHub Workflow Related Checks
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  ginkgo-workflow-comments:
+    name: Lint Ginkgo Workflows Comments
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      # Load Ginkgo build from GitHub
+      - name: Load ginkgo linter from GH cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-linter-${{ hashFiles('src/github.com/cilium/cilium/**/*.go') }}
+
+      - name: Install Go
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          cache-dependency-path: "src/github.com/cilium/cilium/*.sum"
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.24.4
+
+      - name: Build Ginkgo
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium
+          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+          mkdir -p /tmp/.ginkgo-build
+
+      - name: Building Ginkgo Linter Test
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium
+          git apply contrib/testing/ginkgo-get-all-test-names.patch
+
+          cd test
+          /home/runner/go/bin/ginkgo build
+          strip test.test
+          tar -cz test.test -f test.tgz
+
+      - name: Store Ginkgo Linter Test in GitHub cache path
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium
+          mkdir -p /tmp/.ginkgo-build/
+          if [ -f test/test.tgz ]; then
+            cp test/test.tgz /tmp/.ginkgo-build/
+            echo "file copied"
+          fi
+
+      - name: Copy Ginkgo binary
+        if: ${{ steps.cache.outputs.cache-hit == 'true' }}
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium/test/
+          tar -xf /tmp/.ginkgo-build/test.tgz
+
+      - name: Reading Comments From Workflows
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium
+
+          grep '# K8s' .github/actions/ginkgo/main-focus.yaml | \
+          sed -e 's/^[[:space:]]\+# //g' | \
+          sort -u > /tmp/ginkgo-workflow-comments.txt
+
+          grep '# Runtime' .github/workflows/conformance-runtime.yaml | \
+          sed -e 's/^[[:space:]]\+# //g' | \
+          sort -u > /tmp/runtime-workflow-comments.txt
+
+      - name: Getting test runs output
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium/test
+
+          ./test.test -ginkgo.failFast -ginkgo.dryRun -- --cilium.testScope=K8s | \
+          grep TestRun | \
+          grep -v 'TestRun\[Top Level\] Runtime' | \
+          sed 's/TestRun\[Top Level\]\ //g' | \
+          sort -u > /tmp/ginkgo-tests.txt
+
+          ./test.test -ginkgo.failFast -ginkgo.dryRun -- --cilium.testScope=Runtime | \
+          grep TestRun | \
+          grep -v 'TestRun\[Top Level\] K8s' | \
+          sed 's/TestRun\[Top Level\]\ //g' | \
+          sort -u > /tmp/runtime-tests.txt
+
+      - name: Checking diff Ginkgo Workflow
+        shell: bash
+        run: |
+          if ! diff /tmp/ginkgo-workflow-comments.txt /tmp/ginkgo-tests.txt --suppress-common-lines; then
+            echo ""
+            echo "Ginkgo tests out of sync with comments from GH workflow:"
+            echo "$diff"
+            echo "Please fix the comments from .github/actions/ginkgo/main-focus.yaml accordingly"
+            echo ""
+            exit 1
+          fi
+
+      - name: Checking diff Runtime Workflow
+        shell: bash
+        run: |
+          if ! diff /tmp/runtime-workflow-comments.txt /tmp/runtime-tests.txt --suppress-common-lines; then
+            echo ""
+            echo "Ginkgo tests out of sync with comments from GH workflow:"
+            echo "$diff"
+            echo ""
+            echo "Please fix the comments from .github/workflows/conformance-runtime.yaml accordingly"
+            exit 1
+          fi
+
+  ginkgo-schema-validation:
+    name: Validate Ginkgo Schema
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.10'
+      - name: Install yamela
+        run: pip install yamale
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      - name: Validate schema of ginkgo action files
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium/.github/actions/ginkgo/
+          for type in focus k8s-versions prs scheduled; do
+            yamale -s ${type}-schema.yaml ./*-${type}.yaml;
+          done
+
+  conformance-schema-validation:
+    name: Validate k8s Versions Schema
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.10'
+      - name: Install yamela
+        run: pip install yamale
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      - name: Validate schema of aws, azure and gke action files
+        shell: bash
+        run: |
+          for dir in aws azure gke;do
+            dir_base=".github/actions/${dir}"
+            file_base="${dir_base}/k8s-versions"
+            if [ -f ${file_base}.yaml ];then
+              yamale -s ${file_base}-schema.yaml ${file_base}.yaml;
+            fi
+            if [ -f ${dir_base}/test-config-schema.yaml ];then
+              yamale -s ${dir_base}/test-config-schema.yaml ${dir_base}/test-config-classic.yaml
+              yamale -s ${dir_base}/test-config-schema.yaml ${dir_base}/test-config-helm.yaml
+            fi
+          done
+
+  name-validation:
+    name: Validate Workflow Names
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      - name: Validate Job and Step names
+        shell: bash
+        run: |
+          EXIT=0
+          cd src/github.com/cilium/cilium/.github/workflows
+          for FILE in *.yaml;do
+            JOBS=$(yq '.jobs | to_entries | .[] | select(.value.name == null) | "  " + .key' $FILE)
+            # shellcheck disable=SC2016
+            STEPS=$(yq '.jobs | to_entries | .[] as $job | $job.value.steps[] | {"key": $job.key, "name": .name} | select(.name == null) | "  "+.key' $FILE)
+            if [[ ${JOBS} =~ [^[:space:]] ]];then
+              echo Jobs are missing name field, in file $FILE
+              echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
+              EXIT=1
+            fi
+            if [[ ${STEPS} =~ [^[:space:]] ]];then
+              echo Steps are missing name field, under these Jobs in file $FILE
+              echo "${STEPS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
+              EXIT=1
+            fi
+          done
+          exit ${EXIT}
+
+      - name: Validate Commit Status Start Job
+        shell: bash
+        run: |
+          EXIT=0
+          cd src/github.com/cilium/cilium/.github/workflows
+          for FILE in *.yaml; do
+            # we only care about workflows that has ariane workflow_dispatch events
+            IS_ARIANE_DISPATCH=$(yq '.on.workflow_dispatch.inputs.PR-number' $FILE)
+            if [ "$IS_ARIANE_DISPATCH" == "null" ]; then
+                continue
+            fi
+            JOB=$(yq '.jobs | to_entries | .[] | select(.key == "commit-status-start")' $FILE)
+            if [ "$JOB" == "" ]; then
+                echo "commit-status-start job is missing in file $FILE"
+                EXIT=1
+            fi
+            JOB_NAME=$(echo "${JOB}" | yq '.value.name')
+            if [ "$JOB_NAME" != "Commit Status Start" ]; then
+                echo "commit-status-start job name must be set as 'Commit Status Start' in file $FILE"
+                EXIT=1
+            fi
+          done
+          exit ${EXIT}
+
+      - name: Validate Absence of Trailing Spaces
+        shell: bash
+        working-directory: src/github.com/cilium/cilium/
+        run: |
+          if grep --quiet --recursive '[[:blank:]]$' .github; then
+            echo "Found trailing spaces in the following workflow files"
+            grep --files-with-matches --recursive '[[:blank:]]$' .github
+            echo
+            echo "Please run:"
+            echo "  find .github -type f -exec sed -ri 's/[[:blank:]]+$//' {} \;"
+            echo "If FreeBSD sed,(MacOS Default) run:"
+            echo "  find .github -type f -exec sed -i '' -E 's/[[:blank:]]+$//' {} \;"
+            echo "and submit your changes"
+            exit 1
+          fi
+
+      - name: Validate the runner
+        shell: bash
+        run: |
+          EXIT=0
+          cd src/github.com/cilium/cilium/.github/workflows
+          for FILE in *.yaml;do
+            JOBS=$(yq '.jobs | to_entries | .[] | select(.value.runs-on == "ubuntu-latest") | "  " + .key' $FILE)
+            if [[ ${JOBS} =~ [^[:space:]] ]];then
+              echo Jobs are using floating runner tag 'ubuntu-latest', in file $FILE
+              echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
+              EXIT=1
+            fi
+          done
+          exit ${EXIT}
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        name: checkout
+      - name: Setup actionlint matcher
+        run: echo "::add-matcher::.github/actionlint-matcher.json"
+      - name: Check workflow files
+        uses: docker://rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+        env:
+          SHELLCHECK_OPTS: --exclude=SC2086,SC2129,SC2185,SC2162,SC2090,SC2089,SC2001,SC2002
+        with:
+          args: -color

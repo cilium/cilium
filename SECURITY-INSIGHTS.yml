@@ -1,0 +1,69 @@
+header:
+  schema-version: '1.0.0'
+  expiration-date: '2025-01-26T01:00:00.000Z'
+  last-updated: '2024-01-26'
+  last-reviewed: '2024-01-26'
+  project-url: https://github.com/cilium/cilium
+  license: https://github.com/cilium/cilium/blob/main/LICENSE
+project-lifecycle:
+  status: active
+  bug-fixes-only: false
+  core-maintainers:
+    - https://github.com/cilium/cilium/blob/main/MAINTAINERS.md
+  roadmap: https://docs.cilium.io/en/stable/community/roadmap
+contribution-policy:
+  accepts-pull-requests: true
+  accepts-automated-pull-requests: true
+dependencies:
+  third-party-packages: true
+  dependencies-lists:
+    - https://github.com/cilium/cilium/blob/main/go.mod
+  sbom:
+    - sbom-format: SPDX
+      sbom-url: https://docs.cilium.io/en/stable/configuration/sbom
+distribution-points:
+  - https://github.com/cilium/cilium
+  - https://hub.docker.com/u/cilium
+  - https://quay.io/organization/cilium
+documentation:
+  - https://docs.cilium.io/en/stable/
+security-assessments:
+  - auditor-name: ADA Logics
+    auditor-url: https://adalogics.com
+    auditor-report: https://github.com/cilium/cilium.io/blob/main/Security-Reports/CiliumSecurityAudit2022.pdf
+    report-year: 2022
+  - auditor-name: ADA Logics
+    auditor-url: https://adalogics.com
+    auditor-report: https://github.com/cilium/cilium.io/blob/main/Security-Reports/CiliumFuzzingAudit2022.pdf
+    report-year: 2022
+security-contacts:
+  - type: email
+    value: security@cilium.io
+security-testing:
+- tool-type: sca
+  tool-name: Mend Renovate
+  tool-url: https://www.mend.io/renovate
+  tool-version: latest
+  integration:
+    ad-hoc: false
+    ci: true
+    before-release: true
+- tool-type: fuzzer
+  tool-name: OSS-Fuzz
+  tool-url: https://github.com/google/oss-fuzz
+  tool-version: latest
+  integration:
+    ad-hoc: false
+    ci: true
+    before-release: true
+- tool-type: sast
+  tool-name: Grype
+  tool-url: https://github.com/anchore/grype
+  tool-version: latest
+  integration:
+    ad-hoc: false
+    ci: true
+    before-release: true
+vulnerability-reporting:
+  accepts-vulnerability-reports: true
+  security-policy: https://github.com/cilium/cilium/security

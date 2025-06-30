@@ -1,0 +1,13 @@
+[{
+  "labels": [{"key": "name", "value": "init"}],
+  "endpointSelector": {"matchLabels":{"reserved:init":""}},
+  "ingress": [{
+    "fromEntities": ["host"]
+  }],
+  "egress": [{
+    "toEntities": ["all"],
+    "toPorts": [
+      {"ports":[ {"port": "53", "protocol": "UDP"}]}
+    ]
+  }]
+}]

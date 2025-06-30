@@ -1,0 +1,79 @@
+http:
+- hostname: '*'
+  name: gateway-conformance-mesh-echo-80
+  port: 80
+  routes:
+  - backends:
+    - app_protocol: http
+      name: echo-v1
+      namespace: gateway-conformance-mesh
+      port:
+        port: 80
+    hostnames:
+    - '*'
+    path_match:
+      exact: /v1
+    timeout: {}
+  - backends:
+    - app_protocol: http
+      name: echo-v2
+      namespace: gateway-conformance-mesh
+      port:
+        port: 80
+    hostnames:
+    - '*'
+    path_match:
+      exact: /v2
+    timeout: {}
+  service:
+    type: ClusterIP
+  sources:
+  - kind: Service
+    name: echo
+    namespace: gateway-conformance-mesh
+    version: v1
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mesh-split
+    namespace: gateway-conformance-mesh
+    version: v1
+  gamma: true
+- hostname: '*'
+  name: gateway-conformance-mesh-echo-8080
+  port: 8080
+  routes:
+  - backends:
+    - app_protocol: http
+      name: echo-v1
+      namespace: gateway-conformance-mesh
+      port:
+        port: 80
+    hostnames:
+    - '*'
+    path_match:
+      exact: /v1
+    timeout: {}
+  - backends:
+    - app_protocol: http
+      name: echo-v2
+      namespace: gateway-conformance-mesh
+      port:
+        port: 80
+    hostnames:
+    - '*'
+    path_match:
+      exact: /v2
+    timeout: {}
+  service:
+    type: ClusterIP
+  sources:
+  - kind: Service
+    name: echo
+    namespace: gateway-conformance-mesh
+    version: v1
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mesh-split
+    namespace: gateway-conformance-mesh
+    version: v1
+  gamma: true
