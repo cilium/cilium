@@ -124,6 +124,17 @@ Note that while the above examples allow all egress traffic from an endpoint, th
 of the egress traffic may have ingress rules that deny the traffic. In other words,
 policy must be configured on both sides (sender and receiver).
 
+Simple Egress Deny
+~~~~~~~~~~~~~~~~~~
+
+The following example illustrates how to deny communication to endpoints with
+the label ``role=backend`` from endpoints with the label ``role=frontend``.
+If an ``egressDeny`` rule matches, egress traffic is denied even if the policy
+contains ``egress`` rules that would otherwise allow it.
+
+.. literalinclude:: ../../../examples/policies/l3/egress-deny/egress-deny.yaml
+   :language: yaml
+
 Ingress/Egress Default Deny
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -666,7 +677,7 @@ which is defined as follows:
             // +kubebuilder:validation:Optional
             // +kubebuilder:validation:Enum=IPv4;IPv6
             Family string `json:"family,omitempty"`
-        
+
 	        // Type is a ICMP-type.
 	        // It should be an 8bit code (0-255), or it's CamelCase name (for example, "EchoReply").
 	        // Allowed ICMP types are:
@@ -809,6 +820,10 @@ latter rule will have no effect.
 .. note:: L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) require a kernel with the `fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__ applied.
           The stable kernel versions with the fix are 6.14.1, 6.12.22, 6.6.86, 6.1.133, 5.15.180, 5.10.236. See :gh-issue:`37932` for the reference.
 
+.. note:: :ref:`EnableDefaultDeny <policy_mode_default>` does not apply to layer-7 rules.
+   If using a layer 7 rule in concert with ``EnableDefaultDeny``, the rule should
+   allow all layer-7 traffic. See :gh-issue:`38676`.
+
 HTTP
 ----
 
@@ -843,7 +858,7 @@ Allow GET /public
 ~~~~~~~~~~~~~~~~~
 
 The following example allows ``GET`` requests to the URL ``/public`` from the
-endpoints with the labels ``env=prod`` to endpoints with the labels 
+endpoints with the labels ``env=prod`` to endpoints with the labels
 ``app=service``, but requests to any other URL, or using another method, will
 be rejected. Requests on ports other than port 80 will be dropped.
 
@@ -1014,7 +1029,7 @@ respecting TTL.
 
 .. _DNS Proxy:
 
-DNS Proxy 
+DNS Proxy
 """""""""
   A DNS Proxy intercepts egress DNS traffic and records IPs seen in the
   responses. This interception is, itself, a separate policy rule governing the
@@ -1129,33 +1144,33 @@ domain name.
 Disk based Cilium Network Policies
 ==================================
 This functionality enables users to place network policy YAML files directly into
-the node's filesystem, bypassing the need for definition via k8s CRD. 
-By setting the config field ``static-cnp-path``, users specify the directory from 
-which policies will be loaded. The Cilium agent then processes all policy YAML files 
-present in this directory, transforming them into rules that are incorporated into 
-the policy engine. Additionally, the Cilium agent monitors this directory for any 
-new policy YAML files as well as any updates or deletions, making corresponding 
-updates to the policy engine's rules. It is important to note that this feature 
+the node's filesystem, bypassing the need for definition via k8s CRD.
+By setting the config field ``static-cnp-path``, users specify the directory from
+which policies will be loaded. The Cilium agent then processes all policy YAML files
+present in this directory, transforming them into rules that are incorporated into
+the policy engine. Additionally, the Cilium agent monitors this directory for any
+new policy YAML files as well as any updates or deletions, making corresponding
+updates to the policy engine's rules. It is important to note that this feature
 only supports CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy.
 
-The directory that the Cilium agent needs to monitor should be mounted from the host 
+The directory that the Cilium agent needs to monitor should be mounted from the host
 using volume mounts. For users deploying via Helm, this can be enabled via ``extraArgs``
 and ``extraHostPathMounts`` as follows:
 
 .. code-block:: yaml
 
-   extraArgs:                                                                                                                                        
-   - --static-cnp-path=/policies                                                                                                                   
-   extraHostPathMounts:                                                                                                                              
-   - name: static-policies                                                                                                                         
-      mountPath: /policies                                                                                                                          
-      hostPath: /policies                                                                                                                           
-      hostPathType: Directory  
+   extraArgs:
+   - --static-cnp-path=/policies
+   extraHostPathMounts:
+   - name: static-policies
+      mountPath: /policies
+      hostPath: /policies
+      hostPathType: Directory
 
-To determine whether a policy was established via Kubernetes CRD or directly from a directory, 
-execute the command ``cilium policy get`` and examine the source attribute within the policy. 
-In output, you could notice policies that have been sourced from a directory will have the 
-``source`` field set as ``directory``. Additionally, ``cilium endpoint get <endpoint_id>`` also have 
+To determine whether a policy was established via Kubernetes CRD or directly from a directory,
+execute the command ``cilium policy get`` and examine the source attribute within the policy.
+In output, you could notice policies that have been sourced from a directory will have the
+``source`` field set as ``directory``. Additionally, ``cilium endpoint get <endpoint_id>`` also have
 fields to show the source of policy associated with that endpoint.
 
 Previous limitations and known issues
