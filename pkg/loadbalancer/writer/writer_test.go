@@ -254,14 +254,15 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			wtxn,
 			name1,
 			source.Kubernetes,
-			loadbalancer.BackendParams{
-				Address: beAddr1,
-				State:   loadbalancer.BackendStateActive,
-			},
-			loadbalancer.BackendParams{
-				Address: beAddr2,
-				State:   loadbalancer.BackendStateActive,
-			},
+			slices.Values([]loadbalancer.BackendParams{
+				{
+					Address: beAddr1,
+					State:   loadbalancer.BackendStateActive,
+				},
+				{
+					Address: beAddr2,
+					State:   loadbalancer.BackendStateActive,
+				}}),
 		)
 
 		// Add a backend for the non-existing [name2].
@@ -269,10 +270,11 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			wtxn,
 			name2,
 			source.Kubernetes,
-			loadbalancer.BackendParams{
-				Address: beAddr3,
-				State:   loadbalancer.BackendStateActive,
-			},
+			slices.Values([]loadbalancer.BackendParams{
+				{
+					Address: beAddr3,
+					State:   loadbalancer.BackendStateActive,
+				}}),
 		)
 
 		wtxn.Commit()
@@ -308,7 +310,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 		// Release the [name1] reference to [beAddr1].
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.ReleaseBackends(wtxn, name1, beAddr1)
+		err := p.Writer.ReleaseBackends(wtxn, name1, slices.Values([]loadbalancer.L3n4Addr{beAddr1}))
 		require.NoError(t, err, "ReleaseBackend failed")
 
 		wtxn.Abort()
@@ -596,22 +598,26 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 		{
 			desc: "add backends for two services",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes, backend10))
-				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer, backend20))
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes,
+					slices.Values([]loadbalancer.BackendParams{backend10})))
+				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer,
+					slices.Values([]loadbalancer.BackendParams{backend20})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](10), name2: ptr.To[weight](20)},
 		},
 		{
 			desc: "update backend from higher priority source",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer, backend11))
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer,
+					slices.Values([]loadbalancer.BackendParams{backend11})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
 		},
 		{
 			desc: "update backend from lower priority source",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes, backend12))
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes,
+					slices.Values([]loadbalancer.BackendParams{backend12})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)}, // no change here
 		},
@@ -626,8 +632,10 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 		{
 			desc: "add deleted backends back",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer, backend11))
-				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer, backend20))
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer,
+					slices.Values([]loadbalancer.BackendParams{backend11})))
+				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer,
+					slices.Values([]loadbalancer.BackendParams{backend20})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
 		},
