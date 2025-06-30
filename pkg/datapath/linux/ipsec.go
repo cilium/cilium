@@ -9,10 +9,12 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"slices"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -273,9 +275,13 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
 	localIP := localCiliumInternalIP
 
-	remoteCIDR := newNode.IPv4AllocCIDR.IPNet
-	if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
-		errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
+	remoteCIDRs := cidr.CIDRsToIPNets(newNode.GetIPv4AllocCIDRs())
+	remoteCIDRs = slices.DeleteFunc(remoteCIDRs, func(cidr *net.IPNet) bool { return cidr == nil })
+
+	for _, remoteCIDR := range remoteCIDRs {
+		if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
+		}
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
@@ -288,20 +294,22 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 		ZeroOutputMark: false,
 	}
 
-	params := ipsec.NewIPSecParamaters(template)
-	params.Dir = ipsec.IPSecDirOut
-	params.SourceSubnet = wildcardCIDR
-	params.DestSubnet = remoteCIDR
-	params.SourceTunnelIP = &localIP
-	params.DestTunnelIP = &remoteIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-	if err != nil {
-		statesUpdated = false
+	for _, remoteCIDR := range remoteCIDRs {
+		params := ipsec.NewIPSecParamaters(template)
+		params.Dir = ipsec.IPSecDirOut
+		params.SourceSubnet = wildcardCIDR
+		params.DestSubnet = remoteCIDR
+		params.SourceTunnelIP = &localIP
+		params.DestTunnelIP = &remoteIP
+		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+		if err != nil {
+			statesUpdated = false
+		}
 	}
 
 	// insert fwd rule
-	params = ipsec.NewIPSecParamaters(template)
+	params := ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -505,9 +513,13 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
 	localIP := localCiliumInternalIP
 
-	remoteCIDR := newNode.IPv6AllocCIDR.IPNet
-	if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
-		errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
+	remoteCIDRs := cidr.CIDRsToIPNets(newNode.GetIPv6AllocCIDRs())
+	remoteCIDRs = slices.DeleteFunc(remoteCIDRs, func(cidr *net.IPNet) bool { return cidr == nil })
+
+	for _, remoteCIDR := range remoteCIDRs {
+		if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
+		}
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
@@ -520,20 +532,22 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 		ZeroOutputMark: false,
 	}
 
-	params := ipsec.NewIPSecParamaters(template)
-	params.Dir = ipsec.IPSecDirOut
-	params.SourceSubnet = wildcardCIDR6
-	params.DestSubnet = remoteCIDR
-	params.SourceTunnelIP = &localIP
-	params.DestTunnelIP = &remoteIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-	if err != nil {
-		statesUpdated = false
+	for _, remoteCIDR := range remoteCIDRs {
+		params := ipsec.NewIPSecParamaters(template)
+		params.Dir = ipsec.IPSecDirOut
+		params.SourceSubnet = wildcardCIDR6
+		params.DestSubnet = remoteCIDR
+		params.SourceTunnelIP = &localIP
+		params.DestTunnelIP = &remoteIP
+		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+		if err != nil {
+			statesUpdated = false
+		}
 	}
 
 	// insert forward policy
-	params = ipsec.NewIPSecParamaters(template)
+	params := ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
@@ -785,20 +799,24 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) error {
 		errs = errors.Join(errs, ipsec.DeleteIPsecEndpoint(n.log, nodeID))
 	}
 
-	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
-		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
-		// This is only needed in IPAM modes where we install one route per
-		// remote pod CIDR.
-		if !n.subnetEncryption() {
-			errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(old4RouteNet))
-		}
-	}
+	// This is only needed in IPAM modes where we install one route per
+	// remote pod CIDR.
+	if !n.subnetEncryption() {
+		if n.nodeConfig.EnableIPv4 {
+			remoteCIDRs := cidr.CIDRsToIPNets(oldNode.GetIPv4AllocCIDRs())
+			remoteCIDRs = slices.DeleteFunc(remoteCIDRs, func(cidr *net.IPNet) bool { return cidr == nil })
 
-	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
-		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
-		// See IPv4 case above.
-		if !n.subnetEncryption() {
-			errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(old6RouteNet))
+			for _, remoteCIDR := range remoteCIDRs {
+				errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(remoteCIDR))
+			}
+		}
+
+		if n.nodeConfig.EnableIPv6 {
+			remoteCIDRs := cidr.CIDRsToIPNets(oldNode.GetIPv6AllocCIDRs())
+			remoteCIDRs = slices.DeleteFunc(remoteCIDRs, func(cidr *net.IPNet) bool { return cidr == nil })
+			for _, remoteCIDR := range remoteCIDRs {
+				errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(remoteCIDR))
+			}
 		}
 	}
 
