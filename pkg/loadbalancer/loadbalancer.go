@@ -4,6 +4,7 @@
 package loadbalancer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -1091,21 +1092,56 @@ func (l *L3n4Addr) AddrString() string {
 	return str
 }
 
+type l3n4AddrCacheEntry struct {
+	addr  L3n4Addr
+	bytes []byte
+}
+
+var l3n4AddrCache = cache.New(
+	func(e l3n4AddrCacheEntry) uint64 {
+		return e.addr.l3n4AddrCacheHash()
+	},
+	nil,
+	func(a, b l3n4AddrCacheEntry) bool {
+		return bytes.Equal(a.bytes, b.bytes)
+	},
+)
+
+func (l L3n4Addr) l3n4AddrCacheHash() uint64 {
+	var d xxhash.Digest
+	buf := l.AddrCluster.Addr().As16()
+	d.Write(buf[:])
+	binary.BigEndian.PutUint16(buf[:], l.Port)
+	d.Write(buf[:2])
+	return d.Sum64()
+}
+
 // Bytes returns the address as a byte slice for indexing purposes.
 // Similar to Hash() but includes the L4 protocol.
 func (l L3n4Addr) Bytes() []byte {
-	const keySize = cmtypes.AddrClusterLen +
-		2 /* Port */ +
-		1 /* Protocol */ +
-		1 /* Scope */
+	return cache.GetOrPutWith(
+		l3n4AddrCache,
+		l.l3n4AddrCacheHash(),
+		func(e l3n4AddrCacheEntry) bool {
+			return e.addr.DeepEqual(&l)
+		},
+		func() l3n4AddrCacheEntry {
+			const keySize = cmtypes.AddrClusterLen +
+				2 /* Port */ +
+				1 /* Protocol */ +
+				1 /* Scope */
 
-	key := make([]byte, 0, keySize)
-	addr20 := l.AddrCluster.As20()
-	key = append(key, addr20[:]...)
-	key = binary.BigEndian.AppendUint16(key, l.Port)
-	key = append(key, L4TypeAsByte(l.Protocol))
-	key = append(key, l.Scope)
-	return key
+			key := make([]byte, 0, keySize)
+			addr20 := l.AddrCluster.As20()
+			key = append(key, addr20[:]...)
+			key = binary.BigEndian.AppendUint16(key, l.Port)
+			key = append(key, L4TypeAsByte(l.Protocol))
+			key = append(key, l.Scope)
+			return l3n4AddrCacheEntry{
+				addr:  l,
+				bytes: key,
+			}
+		}).bytes
 }
 
 func (l L3n4Addr) MarshalYAML() (any, error) {
