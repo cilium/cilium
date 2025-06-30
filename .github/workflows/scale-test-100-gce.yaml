@@ -368,6 +368,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 12.0 || 24.0 }}
+          CL2_PPROF_INTERVAL_SECONDS: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 60 || 300 }}
         run: |
           ./clusterloader \
             -v=2 \
