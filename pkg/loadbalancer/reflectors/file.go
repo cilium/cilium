@@ -228,7 +228,7 @@ func (s *fileReflector) synchronize(txn writer.WriteTxn, state *StateFile) (numS
 	for i := range state.Endpoints {
 		eps := k8s.ParseEndpointSliceV1(s.log, &state.Endpoints[i])
 		bes := convertEndpoints(s.log, s.extConfig, eps.ServiceName, maps.All(eps.Backends))
-		if err := s.w.UpsertBackends(txn, eps.ServiceName, source.LocalAPI, bes...); err != nil {
+		if err := s.w.UpsertBackends(txn, eps.ServiceName, source.LocalAPI, bes); err != nil {
 			return 0, 0, 0, fmt.Errorf("failed to upsert backends: %w", err)
 		}
 		numBackends++
