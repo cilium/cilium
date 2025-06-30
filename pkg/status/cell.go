@@ -17,6 +17,7 @@ import (
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/bgpv1/healthcheck"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
@@ -101,6 +102,7 @@ type statusParams struct {
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
 	WireguardAgent   *wireguard.Agent
+	BGPStatusGetter  healthcheck.BgpStatusGetter
 }
 
 // Config is the collector configuration

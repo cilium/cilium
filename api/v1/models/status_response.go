@@ -33,6 +33,9 @@ type StatusResponse struct {
 	// Status of bandwidth manager
 	BandwidthManager *BandwidthManager `json:"bandwidth-manager,omitempty"`
 
+	// Status of BGP
+	BgpStatus *BGPStatus `json:"bgp-status,omitempty"`
+
 	// Status of BPF maps
 	BpfMaps *BPFMapStatus `json:"bpf-maps,omitempty"`
 
@@ -134,6 +137,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateBandwidthManager(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateBgpStatus(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -298,6 +305,25 @@ func (m *StatusResponse) validateBandwidthManager(formats strfmt.Registry) error
 				return ve.ValidateName("bandwidth-manager")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("bandwidth-manager")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateBgpStatus(formats strfmt.Registry) error {
+	if swag.IsZero(m.BgpStatus) { // not required
+		return nil
+	}
+
+	if m.BgpStatus != nil {
+		if err := m.BgpStatus.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("bgp-status")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("bgp-status")
 			}
 			return err
 		}
@@ -828,6 +854,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateBgpStatus(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateBpfMaps(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -990,6 +1020,27 @@ func (m *StatusResponse) contextValidateBandwidthManager(ctx context.Context, fo
 				return ve.ValidateName("bandwidth-manager")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("bandwidth-manager")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateBgpStatus(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.BgpStatus != nil {
+
+		if swag.IsZero(m.BgpStatus) { // not required
+			return nil
+		}
+
+		if err := m.BgpStatus.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("bgp-status")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("bgp-status")
 			}
 			return err
 		}

@@ -460,6 +460,14 @@
     },
     "bgpControlPlane": {
       "properties": {
+        "bgpReadiness": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "enabled": {
           "type": "boolean"
         },

@@ -2068,6 +2068,9 @@ definitions:
       auth-certificate-provider:
         description: Status of Mutual Authentication certificate provider
         "$ref": "#/definitions/Status"
+      bgp-status:
+        description: Status of BGP
+        "$ref": "#/definitions/BGPStatus"
   Status:
     description: Status of an individual component
     type: object
@@ -3717,6 +3720,24 @@ definitions:
           - flannel
           - generic-veth
           - portmap
+  BGPStatus:
+    description: Status of an individual component
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+        - Ok
+        - Warning
+        - Failure
+        - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+      mode:
+        type: string
+        description: Internal state of the BGP component
   IPsecStatus:
     description: |-
       Status of the IPsec agent
