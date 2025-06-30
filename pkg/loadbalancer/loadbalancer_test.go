@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.yaml.in/yaml/v3"
 
+	"github.com/cilium/statedb/index"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
@@ -719,6 +721,16 @@ func TestServiceNameYAML(t *testing.T) {
 			if assert.NoError(t, err, "Unmarshal") {
 				assert.True(t, test.name.Equal(name), "Equal")
 			}
+		}
+	}
+}
+
+func BenchmarkServiceNameKey(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		if len(index.Stringer(ServiceName{"foo", "bar", "baz"})) == 0 {
+			// Do something so this won't be optimized out.
+			b.Fatalf("empty length")
 		}
 	}
 }
