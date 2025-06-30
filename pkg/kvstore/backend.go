@@ -194,6 +194,11 @@ type BackendOperations interface {
 	// If the function is nil, the previous observer (if any) is unregistered.
 	RegisterLeaseExpiredObserver(prefix string, fn func(key string))
 
+	// RegisterLockLeaseExpiredObserver registers a function which is executed when
+	// the lease associated with a locked key having the given prefix is detected as expired.
+	// If the function is nil, the previous observer (if any) is unregistered.
+	RegisterLockLeaseExpiredObserver(prefix string, fn func(key string))
+
 	BackendOperationsUserMgmt
 }
 
