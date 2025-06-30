@@ -335,7 +335,8 @@ type etcdClient struct {
 
 	lastHeartbeat time.Time
 
-	leaseExpiredObservers lock.Map[string, func(string)]
+	leaseExpiredObservers     lock.Map[string, func(string)]
+	lockLeaseExpiredObservers lock.Map[string, func(string)]
 
 	// logger is the scoped logger associated with this client
 	logger *slog.Logger
@@ -502,7 +503,7 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, errChan chan er
 
 	leaseTTL := cmp.Or(opts.LeaseTTL, defaults.KVstoreLeaseTTL)
 	ec.leaseManager = newEtcdLeaseManager(ec.logger, c, leaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver)
-	ec.lockLeaseManager = newEtcdLeaseManager(ec.logger, c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, nil)
+	ec.lockLeaseManager = newEtcdLeaseManager(ec.logger, c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, ec.expiredLockLeaseObserver)
 
 	go ec.asyncConnectEtcdClient(errChan)
 
@@ -1605,6 +1606,26 @@ func (e *etcdClient) RegisterLeaseExpiredObserver(prefix string, fn func(key str
 
 func (e *etcdClient) expiredLeaseObserver(key string) {
 	e.leaseExpiredObservers.Range(func(prefix string, fn func(string)) bool {
+		if strings.HasPrefix(key, prefix) {
+			fn(key)
+		}
+		return true
+	})
+}
+
+// RegisterLockLeaseExpiredObserver registers a function which is executed when
+// the lease associated with a key having the given prefix is detected as expired.
+// If the function is nil, the previous observer (if any) is unregistered.
+func (e *etcdClient) RegisterLockLeaseExpiredObserver(prefix string, fn func(key string)) {
+	if fn == nil {
+		e.lockLeaseExpiredObservers.Delete(prefix)
+	} else {
+		e.lockLeaseExpiredObservers.Store(prefix, fn)
+	}
+}
+
+func (e *etcdClient) expiredLockLeaseObserver(key string) {
+	e.lockLeaseExpiredObservers.Range(func(prefix string, fn func(string)) bool {
 		if strings.HasPrefix(key, prefix) {
 			fn(key)
 		}
