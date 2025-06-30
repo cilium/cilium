@@ -49,8 +49,8 @@ void hexdump_len_off(const char *msg, const char *first_layer,
 	 * Further clamp dump len to either max of pkt or HD_MAX_BYTES
 	 * and make sure it doesn't get out of the pkt boundaries
 	 */
-	__u32 pkt_len = (data_end - data);
-	__u32 max_dump_len = len > HD_MAX_BYTES ? HD_MAX_BYTES : len;
+	__u16 pkt_len = (__u16)(data_end - data);
+	__u16 max_dump_len = len > HD_MAX_BYTES ? HD_MAX_BYTES : len;
 
 	max_dump_len = max_dump_len > pkt_len ? pkt_len : max_dump_len;
 
