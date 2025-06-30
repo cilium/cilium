@@ -1271,10 +1271,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, fmt.Sprintf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM))
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMMultiPool && option.Config.EnableIPSec && !option.Config.TunnelingEnabled() {
-		logging.Fatal(logger, fmt.Sprintf("IPAM mode %s with %s is supported only in tunnel mode.", option.Config.IPAM, option.EnableIPSecName))
-	}
-
 	if option.Config.InstallNoConntrackIptRules {
 		// InstallNoConntrackIptRules can only be enabled in direct
 		// routing mode as in tunneling mode the encapsulated traffic is
