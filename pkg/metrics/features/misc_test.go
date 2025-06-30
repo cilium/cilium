@@ -10,14 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 func TestLRPConfig(t *testing.T) {
 	type args struct {
-		lrpID k8s.ServiceID
+		lrpID loadbalancer.ServiceName
 	}
 	type metrics struct {
 		npLRPConfigIngested float64
@@ -33,7 +32,7 @@ func TestLRPConfig(t *testing.T) {
 		{
 			name: "LRP Config",
 			args: args{
-				lrpID: k8s.ServiceID{},
+				lrpID: loadbalancer.ServiceName{},
 			},
 			want: wanted{
 				wantMetrics: metrics{

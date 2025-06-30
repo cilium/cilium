@@ -26,25 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-// ServiceID identifies the Kubernetes service
-type ServiceID struct {
-	Cluster   string `json:"cluster,omitempty"`
-	Name      string `json:"serviceName,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-}
-
-// String returns the string representation of a service ID
-func (s ServiceID) String() string {
-	if s.Cluster != "" {
-		return fmt.Sprintf("%s/%s/%s", s.Cluster, s.Namespace, s.Name)
-	}
-	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
-}
-
 // EndpointSliceID identifies a Kubernetes EndpointSlice as well as the legacy
 // v1.Endpoints.
 type EndpointSliceID struct {
-	ServiceID
+	ServiceName       loadbalancer.ServiceName
 	EndpointSliceName string
 }
 
@@ -169,10 +154,10 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 // ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
 func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
 	return EndpointSliceID{
-		ServiceID: ServiceID{
-			Name:      ep.ObjectMeta.Name,
-			Namespace: ep.ObjectMeta.Namespace,
-		},
+		ServiceName: loadbalancer.NewServiceName(
+			ep.ObjectMeta.Namespace,
+			ep.ObjectMeta.Name,
+		),
 		EndpointSliceName: ep.ObjectMeta.Name,
 	}
 }
@@ -221,10 +206,10 @@ type endpointSlice interface {
 // EndpointSliceID
 func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	return EndpointSliceID{
-		ServiceID: ServiceID{
-			Name:      es.GetLabels()[slim_discovery_v1.LabelServiceName],
-			Namespace: es.GetNamespace(),
-		},
+		ServiceName: loadbalancer.NewServiceName(
+			es.GetNamespace(),
+			es.GetLabels()[slim_discovery_v1.LabelServiceName],
+		),
 		EndpointSliceName: es.GetName(),
 	}
 }

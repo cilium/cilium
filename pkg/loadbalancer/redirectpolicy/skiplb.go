@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/time"
@@ -111,14 +110,14 @@ func skipRedirectsEqual(a, b map[loadbalancer.ServiceName][]loadbalancer.L3n4Add
 
 type desiredSkipLB struct {
 	PodNamespacedName        string
-	LRPID                    k8s.ServiceID
+	LRPID                    loadbalancer.ServiceName
 	SkipRedirectForFrontends map[loadbalancer.ServiceName][]loadbalancer.L3n4Addr
 	ReconciledAddrs          sets.Set[loadbalancer.L3n4Addr]
 	NetnsCookie              *uint64
 	Status                   reconciler.Status
 }
 
-func newDesiredSkipLB(lrpID k8s.ServiceID, pod string) *desiredSkipLB {
+func newDesiredSkipLB(lrpID loadbalancer.ServiceName, pod string) *desiredSkipLB {
 	return &desiredSkipLB{
 		PodNamespacedName:        pod,
 		LRPID:                    lrpID,
@@ -175,12 +174,12 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
-	desiredSkipLBLRPIndex = statedb.Index[*desiredSkipLB, k8s.ServiceID]{
+	desiredSkipLBLRPIndex = statedb.Index[*desiredSkipLB, loadbalancer.ServiceName]{
 		Name: "lrp-id",
 		FromObject: func(obj *desiredSkipLB) index.KeySet {
 			return index.NewKeySet(index.String(obj.LRPID.String()))
 		},
-		FromKey:    index.Stringer[k8s.ServiceID],
+		FromKey:    index.Stringer[loadbalancer.ServiceName],
 		FromString: index.FromString,
 		Unique:     false,
 	}
@@ -332,7 +331,7 @@ func (sub *skiplbEndpointSubscriber) EndpointCreated(ep *endpoint.Endpoint) {
 	if old, _, found := sub.desiredSkipLB.Get(wtxn, desiredSkipLBPodIndex.Query(ep.GetK8sNamespaceAndPodName())); found {
 		dsl = old.clone()
 	} else {
-		dsl = newDesiredSkipLB(k8s.ServiceID{}, ep.GetK8sNamespaceAndPodName())
+		dsl = newDesiredSkipLB(loadbalancer.ServiceName{}, ep.GetK8sNamespaceAndPodName())
 	}
 	dsl.NetnsCookie = &cookie
 	sub.desiredSkipLB.Insert(wtxn, dsl)
@@ -348,7 +347,7 @@ func (sub *skiplbEndpointSubscriber) EndpointDeleted(ep *endpoint.Endpoint, conf
 	defer wtxn.Commit()
 	sub.desiredSkipLB.Delete(
 		wtxn,
-		newDesiredSkipLB(k8s.ServiceID{}, ep.GetK8sNamespaceAndPodName()),
+		newDesiredSkipLB(loadbalancer.ServiceName{}, ep.GetK8sNamespaceAndPodName()),
 	)
 }
 
