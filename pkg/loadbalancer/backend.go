@@ -4,7 +4,6 @@
 package loadbalancer
 
 import (
-	"bytes"
 	"fmt"
 	"iter"
 	"strings"
@@ -87,11 +86,10 @@ func (k BackendInstanceKey) Key() []byte {
 	if k.SourcePriority == 0 {
 		return k.ServiceName.Key()
 	}
-	var buf bytes.Buffer
-	buf.WriteString(k.ServiceName.String())
-	buf.WriteByte(' ')
-	buf.WriteByte(k.SourcePriority)
-	return buf.Bytes()
+	sk := k.ServiceName.Key()
+	buf := make([]byte, 0, 2+len(sk))
+	buf = append(buf, sk...)
+	return append(buf, ' ', k.SourcePriority)
 }
 
 func (be *Backend) GetInstance(name ServiceName) *BackendParams {
