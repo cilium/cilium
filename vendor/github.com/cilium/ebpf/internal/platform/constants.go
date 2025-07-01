@@ -11,7 +11,7 @@ const (
 )
 
 const (
-	platformMax   = 0xf
+	platformMax   = 1<<3 - 1 // most not exceed 3 bits to avoid setting the high bit
 	platformShift = 28
 	platformMask  = platformMax << platformShift
 )
