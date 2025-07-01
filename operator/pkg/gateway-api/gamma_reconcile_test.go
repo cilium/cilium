@@ -81,7 +81,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 				t.Run(serviceKey.String(), func(t *testing.T) {
 					base := readInputDir(t, "testdata/gamma/base")
 					hr := &gatewayv1.HTTPRoute{}
-					readInput(t, fmt.Sprintf("testdata/gamma/%s/httproute-%s-input.yaml", tt.name, serviceKey.Name), hr)
+					fromYamlFile(t, fmt.Sprintf("testdata/gamma/%s/httproute-%s-input.yaml", tt.name, serviceKey.Name), hr)
 
 					c := fake.NewClientBuilder().
 						WithScheme(testScheme()).
