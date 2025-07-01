@@ -42,6 +42,7 @@ lvh_wrapper docker network create \
     --driver bridge \
     -o com.docker.network.bridge.enable_ip_masquerade=true \
     -o com.docker.network.driver.mtu=$MTU \
+    -o com.docker.network.bridge.name=br-$KINDNETWORK \
     --subnet $IP4RANGE --subnet $IP6RANGE $KINDNETWORK
 
 # Write name of network to action output, for use in other steps
