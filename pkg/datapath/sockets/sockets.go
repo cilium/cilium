@@ -74,7 +74,7 @@ type DestroySocketCB func(id netlink.SocketID) bool
 // sock_diag netlink framework.
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
-// Supported protocols in the filter: unix.IPPROTO_UDP
+// Supported protocols in the filter: unix.IPPROTO_UDP, unix.IPPROTO_TCP
 func Destroy(logger *slog.Logger, filter SocketFilter) error {
 	family := filter.Family
 	protocol := filter.Protocol
@@ -88,18 +88,18 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 	// Query sockets matching the passed filter, and then destroy the filtered
 	// sockets.
 	switch protocol {
-	case unix.IPPROTO_UDP:
+	case unix.IPPROTO_UDP, unix.IPPROTO_TCP:
 	redo:
-		err := filterAndDestroyUDPSockets(family, func(sock netlink.SocketID, err error) {
+		err := filterAndDestroySockets(family, protocol, func(sock netlink.SocketID, err error) {
 			if err != nil {
-				errs = errors.Join(errs, fmt.Errorf("UDP socket with filter [%v]: %w", filter, err))
+				errs = errors.Join(errs, fmt.Errorf("socket with filter [%v]: %w", filter, err))
 				failed++
 				return
 			}
 			if filter.MatchSocket(sock) {
 				logger.Info("", logfields.Socket, sock)
-				if err := destroySocket(logger, sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
+				if err := destroySocket(logger, sock, family, protocol, 0xffff, true); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("destroying socket with filter [%v]: %w", filter, err))
 					failed++
 					return
 				}
@@ -150,8 +150,8 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 	return false
 }
 
-func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.SocketID, err error)) error {
-	return iterateNetlinkSockets(unix.IPPROTO_UDP, family, 0xffff, func(sockInfo *Socket, err error) error {
+func filterAndDestroySockets(family, protocol uint8, socketCB func(socket netlink.SocketID, err error)) error {
+	return iterateNetlinkSockets(protocol, family, 0xffff, func(sockInfo *Socket, err error) error {
 		socketCB(sockInfo.ID, err)
 		return nil
 	})
