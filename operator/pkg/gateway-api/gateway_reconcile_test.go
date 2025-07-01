@@ -361,6 +361,12 @@ func Test_Conformance(t *testing.T) {
 				{Name: "gateway-remove-listener", Namespace: "gateway-conformance-infra"},
 			},
 		},
+		{
+			name: "gateway-observed-generation-bump",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-observed-generation-bump", Namespace: "gateway-conformance-infra"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
