@@ -95,6 +95,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &gatewayv1.Gateway{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "GatewayClass":
+			obj := &gatewayv1.GatewayClass{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		}
 	}
 
