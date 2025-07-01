@@ -772,13 +772,6 @@ func (m MaglevInnerMap) TableSize() uint32 {
 	return m.Map.ValueSize() / uint32(MaglevBackendLen)
 }
 
-// UpdateBackends updates the maglev inner map's list of backends.
-func (m MaglevInnerMap) UpdateBackends(backends []loadbalancer.BackendID) error {
-	// Backends are stored at inner map key zero.
-	var key MaglevInnerKey
-	return m.Map.Update(key, backends, 0)
-}
-
 // MaglevInnerMapFromID returns a new object representing the maglev inner map
 // identified by an ID.
 func MaglevInnerMapFromID(id uint32) (MaglevInnerMap, error) {
