@@ -126,9 +126,9 @@ type BPFOps struct {
 	maglev        *maglev.Maglev
 	lastUpdatedAt atomic.Pointer[time.Time]
 
-	serviceIDAlloc     idAllocator
-	restoredServiceIDs sets.Set[loadbalancer.ID]
-	backendIDAlloc     idAllocator
+	serviceIDAlloc     idAllocator[loadbalancer.ServiceID]
+	restoredServiceIDs sets.Set[loadbalancer.ServiceID]
+	backendIDAlloc     idAllocator[loadbalancer.BackendID]
 	restoredBackendIDs sets.Set[loadbalancer.BackendID]
 
 	// restoredQuarantinedBackends are backends that were quarantined for
@@ -214,7 +214,7 @@ func (ops *BPFOps) start(cell.HookContext) (err error) {
 
 func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
-	ops.restoredServiceIDs = sets.New[loadbalancer.ID]()
+	ops.restoredServiceIDs = sets.New[loadbalancer.ServiceID]()
 	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
 	ops.restoredBackendIDs = sets.New[loadbalancer.BackendID]()
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
@@ -225,7 +225,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	// Restore backend IDs
 	err = ops.LBMaps.DumpBackend(func(key maps.BackendKey, value maps.BackendValue) {
 		value = value.ToHost()
-		ops.backendIDAlloc.addID(beValueToAddr(value), loadbalancer.ID(key.GetID()))
+		ops.backendIDAlloc.addID(beValueToAddr(value), key.GetID())
 		ops.restoredBackendIDs.Insert(key.GetID())
 	})
 	if err != nil {
@@ -255,9 +255,9 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 			continue
 		}
 
-		id := loadbalancer.ID(master.GetRevNat())
-		ops.serviceIDAlloc.addID(addr, id)
-		ops.restoredServiceIDs.Insert(id)
+		id := master.GetRevNat()
+		ops.serviceIDAlloc.addID(addr, loadbalancer.ServiceID(id))
+		ops.restoredServiceIDs.Insert(loadbalancer.ServiceID(id))
 
 		if master.GetQCount() > 0 && len(slots) == 1+master.GetCount()+master.GetQCount() {
 			if ops.restoredQuarantinedBackends == nil {
@@ -269,7 +269,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 				ops.restoredQuarantinedBackends[addr] = backends
 			}
 			for _, slot := range slots[1+master.GetCount():] {
-				if addr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(slot.GetBackendID())]; found {
+				if addr, found := ops.backendIDAlloc.idToAddr[slot.GetBackendID()]; found {
 					backends.Insert(addr)
 				}
 			}
@@ -402,7 +402,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		revNatKey = maps.NewRevNat6Key(uint16(feID))
 	} else {
 		svcKey = maps.NewService4Key(ip, fe.Address.Port, proto, fe.Address.Scope, 0)
-		revNatKey = maps.NewRevNat4Key(uint16(feID))
+		revNatKey = maps.NewRevNat4Key(feID)
 	}
 
 	// Delete all slots including master.
@@ -476,7 +476,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 
 			// Drop restored quarantined state
 			if svcKey.GetBackendSlot() > 0 {
-				if beAddr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(svcValue.GetBackendID())]; found {
+				if beAddr, found := ops.backendIDAlloc.idToAddr[svcValue.GetBackendID()]; found {
 					ops.deleteRestoredQuarantinedBackends(addr, beAddr)
 				}
 			}
@@ -521,7 +521,7 @@ func (ops *BPFOps) pruneBackendMaps() error {
 
 func (ops *BPFOps) pruneRestoredIDs() error {
 	for id := range ops.restoredServiceIDs {
-		if addr, found := ops.serviceIDAlloc.entitiesID[id]; found {
+		if addr, found := ops.serviceIDAlloc.idToAddr[id]; found {
 			if _, found := ops.backendReferences[addr]; !found {
 				// This ID was restored but no frontend appeared to claim it. Free it.
 				ops.serviceIDAlloc.deleteLocalID(id)
@@ -529,10 +529,10 @@ func (ops *BPFOps) pruneRestoredIDs() error {
 		}
 	}
 	for id := range ops.restoredBackendIDs {
-		if addr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(id)]; found {
+		if addr, found := ops.backendIDAlloc.idToAddr[id]; found {
 			if _, found := ops.backendStates[addr]; !found {
 				// This ID was restored but no frontend appeared to claim it. Free it.
-				ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
+				ops.backendIDAlloc.deleteLocalID(id)
 			}
 		}
 	}
@@ -547,7 +547,7 @@ func (ops *BPFOps) pruneRevNat() error {
 	toDelete := []maps.RevNatKey{}
 	cb := func(key maps.RevNatKey, value maps.RevNatValue) {
 		key = key.ToHost()
-		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetKey())]; !ok {
+		if _, ok := ops.serviceIDAlloc.idToAddr[key.GetKey()]; !ok {
 			ops.log.Debug("pruneRevNat: enqueing for deletion", logfields.ID, key.GetKey())
 			toDelete = append(toDelete, key)
 		}
@@ -576,7 +576,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 
 		// A SourceRange is OK if there's a service with this ID and the
 		// CIDR is part of the current set.
-		addr, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetRevNATID())]
+		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
 		if ok {
 			cidr := key.GetCIDR()
 			cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
@@ -613,7 +613,7 @@ func (ops *BPFOps) pruneMaglev() error {
 	}
 	toDelete := []outerKeyWithIPVersion{}
 	cb := func(key maps.MaglevOuterKey, _ maps.MaglevOuterVal, _ maps.MaglevInnerKey, _ *maps.MaglevInnerVal, ipv6 bool) {
-		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.RevNatID)]; !ok {
+		if _, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(key.RevNatID)]; !ok {
 			ops.log.Debug("pruneMaglev: enqueing for deletion", logfields.ID, key.RevNatID)
 			toDelete = append(toDelete, outerKeyWithIPVersion{key, ipv6})
 		}
@@ -1125,7 +1125,7 @@ func (ops *BPFOps) deleteBackend(ipv6 bool, id loadbalancer.BackendID) error {
 	return nil
 }
 
-func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.BackendID) error {
+func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ServiceID, beID loadbalancer.BackendID) error {
 	key := &maps.AffinityMatchKey{
 		BackendID: beID,
 		RevNATID:  uint16(id),
@@ -1134,7 +1134,7 @@ func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 	return ops.LBMaps.UpdateAffinityMatch(key.ToNetwork(), &value)
 }
 
-func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ID, beID loadbalancer.BackendID) error {
+func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ServiceID, beID loadbalancer.BackendID) error {
 	key := &maps.AffinityMatchKey{
 		BackendID: beID,
 		RevNATID:  uint16(id),
@@ -1142,7 +1142,7 @@ func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 	return ops.LBMaps.DeleteAffinityMatch(key.ToNetwork())
 }
 
-func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey maps.ServiceKey, svcVal maps.ServiceValue) error {
+func (ops *BPFOps) upsertRevNat(id loadbalancer.ServiceID, svcKey maps.ServiceKey, svcVal maps.ServiceValue) error {
 	zeroValue := svcVal.New().(maps.ServiceValue)
 	zeroValue.SetRevNat(int(id))
 	revNATKey := zeroValue.RevNatKey()
@@ -1164,7 +1164,7 @@ type backendWithRevision struct {
 	Revision statedb.Revision
 }
 
-func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.ID, activeBackends []backendWithRevision) error {
+func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.ServiceID, activeBackends []backendWithRevision) error {
 	if len(activeBackends) == 0 {
 		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
@@ -1249,7 +1249,7 @@ func (ops *BPFOps) updateBackendRevision(id loadbalancer.BackendID, addr loadbal
 // successfully.
 func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr) {
 	delete(ops.backendStates, addr)
-	ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
+	ops.backendIDAlloc.deleteLocalID(id)
 }
 
 func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
@@ -1319,8 +1319,8 @@ func (ops *BPFOps) StateIsEmpty() bool {
 	return len(ops.backendReferences) == 0 &&
 		len(ops.backendStates) == 0 &&
 		len(ops.nodePortAddrByPort) == 0 &&
-		len(ops.serviceIDAlloc.entities) == 0 &&
-		len(ops.backendIDAlloc.entities) == 0
+		len(ops.serviceIDAlloc.addrToId) == 0 &&
+		len(ops.backendIDAlloc.addrToId) == 0
 }
 
 // StateSummary returns a multi-line summary of the internal state.
@@ -1328,9 +1328,9 @@ func (ops *BPFOps) StateIsEmpty() bool {
 func (ops *BPFOps) StateSummary() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.entities))
+	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.idToAddr))
 	fmt.Fprintf(&b, "restoredServiceIDs: %d\n", len(ops.restoredServiceIDs))
-	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.entities))
+	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.idToAddr))
 	fmt.Fprintf(&b, "restoredBackendIDs: %d\n", len(ops.restoredBackendIDs))
 	fmt.Fprintf(&b, "backendStates: %d\n", len(ops.backendStates))
 	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))

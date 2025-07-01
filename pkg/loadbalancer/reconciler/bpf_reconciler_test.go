@@ -1165,8 +1165,8 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, maps, "BPF maps not empty")
 
 		// Verify that all internal state has been cleaned up.
-		require.Empty(t, ops.backendIDAlloc.entities, "Backend ID allocations remain")
-		require.Empty(t, ops.serviceIDAlloc.entities, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")
