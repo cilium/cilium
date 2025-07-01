@@ -354,6 +354,13 @@ func Test_Conformance(t *testing.T) {
 				{Name: "gateway-certificate-malformed-secret", Namespace: "gateway-conformance-infra"},
 			},
 		},
+		{
+			name: "gateway-modify-listeners",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-add-listener", Namespace: "gateway-conformance-infra"},
+				{Name: "gateway-remove-listener", Namespace: "gateway-conformance-infra"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
