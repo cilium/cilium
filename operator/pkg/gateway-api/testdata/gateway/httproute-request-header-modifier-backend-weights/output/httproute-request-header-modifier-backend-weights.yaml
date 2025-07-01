@@ -1,0 +1,46 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: request-header-modifier-backend-weights
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - filters:
+      - requestHeaderModifier:
+          set:
+          - name: Backend
+            value: infra-backend-v1
+        type: RequestHeaderModifier
+      name: infra-backend-v1
+      port: 8080
+      weight: 10
+    - filters:
+      - requestHeaderModifier:
+          set:
+          - name: Backend
+            value: infra-backend-v2
+        type: RequestHeaderModifier
+      name: infra-backend-v2
+      port: 8080
+      weight: 10
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace
