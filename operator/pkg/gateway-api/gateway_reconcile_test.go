@@ -405,6 +405,14 @@ func Test_Conformance(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "gateway-with-attached-routes",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-with-one-attached-route", Namespace: "gateway-conformance-infra"},
+				{Name: "gateway-with-two-attached-routes", Namespace: "gateway-conformance-infra"},
+				{Name: "unresolved-gateway-with-one-attached-unresolved-route", Namespace: "gateway-conformance-infra"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
