@@ -289,18 +289,10 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			}
 			var err error
 
-			// Upsert new or changed backends
-			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
-			if len(backends) > 0 {
-				err = p.Writer.UpsertBackends(
-					txn,
-					name,
-					source.Kubernetes,
-					backends...)
-
-			}
-
-			// Release orphaned backends
+			// Release orphaned backends and update the current set of addresses
+			// associated with each endpoint slice. This is done before processing
+			// new/updated backends to not delete a backend that migrated from one
+			// endpoint slice to another.
 			for ep := range allEps.All() {
 				var newAddrs sets.Set[loadbalancer.L3n4Addr]
 				old, foundOld := currentBackends[ep.name]
@@ -328,6 +320,16 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				} else {
 					currentBackends[ep.name] = newAddrs
 				}
+			}
+
+			// Upsert new or changed backends
+			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
+			if len(backends) > 0 {
+				err = p.Writer.UpsertBackends(
+					txn,
+					name,
+					source.Kubernetes,
+					backends...)
 			}
 
 			rh.update("eps:"+name.String(), err)
