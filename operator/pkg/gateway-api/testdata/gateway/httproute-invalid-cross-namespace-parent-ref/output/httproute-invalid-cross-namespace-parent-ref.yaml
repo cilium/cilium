@@ -1,0 +1,33 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-cross-namespace-parent-ref
+  namespace: gateway-conformance-web-backend
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+    namespace: gateway-conformance-infra
+  rules:
+  - backendRefs:
+    - name: web-backend
+      port: 8080
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: HTTPRoute is not allowed to attach to this Gateway due to namespace
+        restrictions
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace
+      namespace: gateway-conformance-infra

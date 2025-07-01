@@ -1,0 +1,91 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: redirect-path
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - requestRedirect:
+        path:
+          replacePrefixMatch: /replacement-prefix
+          type: ReplacePrefixMatch
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /original-prefix
+  - filters:
+    - requestRedirect:
+        path:
+          replaceFullPath: /full-path-replacement
+          type: ReplaceFullPath
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /full
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        path:
+          replacePrefixMatch: /replacement-prefix
+          type: ReplacePrefixMatch
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /path-and-host
+  - filters:
+    - requestRedirect:
+        path:
+          replacePrefixMatch: /replacement-prefix
+          type: ReplacePrefixMatch
+        statusCode: 301
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /path-and-status
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        path:
+          replaceFullPath: /replacement-full
+          type: ReplaceFullPath
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /full-path-and-host
+  - filters:
+    - requestRedirect:
+        path:
+          replaceFullPath: /replacement-full
+          type: ReplaceFullPath
+        statusCode: 301
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /full-path-and-status
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace
