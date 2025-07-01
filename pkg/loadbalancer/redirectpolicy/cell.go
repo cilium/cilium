@@ -96,16 +96,3 @@ type LRPMetrics interface {
 	AddLRPConfig(loadbalancer.ServiceName)
 	DelLRPConfig(loadbalancer.ServiceName)
 }
-
-type lrpMetricsNoop struct {
-}
-
-func (p *lrpMetricsNoop) AddLRPConfig(loadbalancer.ServiceName) {
-}
-
-func (p *lrpMetricsNoop) DelLRPConfig(loadbalancer.ServiceName) {
-}
-
-func NewLRPMetricsNoop() LRPMetrics {
-	return &lrpMetricsNoop{}
-}

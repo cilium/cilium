@@ -41,7 +41,6 @@ type Writer struct {
 	bes       statedb.RWTable[*loadbalancer.Backend]
 	lns       *node.LocalNodeStore
 
-	svcHooks         []ServiceHook
 	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
 
 	selectBackendsFunc SelectBackendsFunc
@@ -65,8 +64,6 @@ type writerParams struct {
 	Backends       statedb.RWTable[*loadbalancer.Backend]
 	LocalNodeStore *node.LocalNodeStore
 
-	ServiceHooks []ServiceHook `group:"service-hooks"`
-
 	SourcePriorities source.Sources
 
 	ExtCfg loadbalancer.ExternalConfig
@@ -86,7 +83,6 @@ func NewWriter(p writerParams) (*Writer, error) {
 		svcs:             p.Services,
 		lns:              p.LocalNodeStore,
 		nodeAddrs:        p.NodeAddresses,
-		svcHooks:         p.ServiceHooks,
 		sourcePriorities: priorityMapFromSlice(p.SourcePriorities),
 		extCfg:           &p.ExtCfg,
 	}
@@ -213,9 +209,6 @@ func (w *Writer) updateZone(zone string) {
 }
 
 func (w *Writer) UpsertService(txn WriteTxn, svc *loadbalancer.Service) (old *loadbalancer.Service, err error) {
-	for _, hook := range w.svcHooks {
-		hook(txn, svc)
-	}
 	old, _, err = w.svcs.Insert(txn, svc)
 	if err == nil {
 		err = w.updateServiceReferences(txn, svc)
@@ -302,9 +295,6 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *loadbalancer.Servi
 		return err
 	}
 
-	for _, hook := range w.svcHooks {
-		hook(txn, svc)
-	}
 	_, _, err := w.svcs.Insert(txn, svc)
 	if err != nil {
 		return err

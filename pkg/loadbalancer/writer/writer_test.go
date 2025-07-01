@@ -42,13 +42,9 @@ type testParams struct {
 	BackendTable  statedb.Table[*loadbalancer.Backend]
 }
 
-func fixture(t testing.TB, hooks ...ServiceHook) (p testParams) {
+func fixture(t testing.TB) (p testParams) {
 	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
 
-	type hooksOut struct {
-		cell.Out
-		Hooks []ServiceHook `group:"service-hooks,flatten"`
-	}
 	h := hive.New(
 		loadbalancer.ConfigCell,
 		node.LocalNodeStoreCell,
@@ -62,10 +58,6 @@ func fixture(t testing.TB, hooks ...ServiceHook) (p testParams) {
 		),
 		cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 		cell.Invoke(func(p_ testParams) { p = p_ }),
-
-		cell.Provide(
-			func() hooksOut { return hooksOut{Hooks: hooks} },
-		),
 	)
 
 	require.NoError(t, h.Start(log, context.TODO()))
@@ -83,14 +75,7 @@ func intToAddr(i int) types.AddrCluster {
 }
 
 func TestWriter_Service_UpsertDelete(t *testing.T) {
-	serviceUpserts := []*loadbalancer.Service{}
-	hookSentinel := uint16(123)
-
-	p := fixture(t, func(txn statedb.ReadTxn, svc *loadbalancer.Service) {
-		// Use the "HealthCheckNodePort" field as an indicator that the hook was called.
-		svc.HealthCheckNodePort = hookSentinel
-		serviceUpserts = append(serviceUpserts, svc)
-	})
+	p := fixture(t)
 	name := loadbalancer.NewServiceName("test", "test1")
 	addrCluster := intToAddr(1)
 	frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
@@ -123,11 +108,6 @@ func TestWriter_Service_UpsertDelete(t *testing.T) {
 		)
 		require.NoError(t, err, "UpsertServiceAndFrontends")
 
-		// Check that the hook gets called.
-		require.Len(t, serviceUpserts, 1, "service hook not called")
-		require.Equal(t, svc, serviceUpserts[0], "service hook called with wrong object")
-
-		// Updating the service object with UpsertService also results in another hook call.
 		origSVC := svc
 		svc = &loadbalancer.Service{
 			Name:            name,
@@ -137,10 +117,6 @@ func TestWriter_Service_UpsertDelete(t *testing.T) {
 		old, err := p.Writer.UpsertService(wtxn, svc)
 		require.NoError(t, err, "UpsertService")
 		require.Equal(t, origSVC, old)
-		require.Equal(t, hookSentinel, old.HealthCheckNodePort)
-
-		require.Len(t, serviceUpserts, 2, "service hook not called")
-		require.Equal(t, hookSentinel, svc.HealthCheckNodePort)
 
 		wtxn.Commit()
 	}
