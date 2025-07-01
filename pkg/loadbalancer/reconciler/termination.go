@@ -28,8 +28,8 @@ import (
 )
 
 // SocketTerminationCell runs a background job that monitors the backends table for
-// unhealthy and deleted backends and terminates UDP sockets connected to these backends
-// to signal to the application that the destination has become unreachable.
+// unhealthy and deleted backends and terminates UDP & TCP sockets connected to these
+// backends to signal to the application that the destination has become unreachable.
 var SocketTerminationCell = cell.Module(
 	"socket-termination",
 	"Terminates sockets connected to deleted backends",
@@ -138,14 +138,15 @@ func socketTerminationLoop(p socketTerminationParams, ctx context.Context, healt
 				p.TestSyncChan = nil
 			}
 
-			if backend.Address.L4Addr.Protocol != lb.UDP {
+			if backend.Address.L4Addr.Protocol != lb.UDP &&
+				backend.Address.L4Addr.Protocol != lb.TCP {
 				continue
 			}
 
 			// Terminate the sockets connected to backends that have been either
 			// deleted or which are no longer considered viable.
 			if change.Deleted || !backend.IsAlive() {
-				opSupported := terminateUDPConnectionsToBackend(p, backend.Address)
+				opSupported := terminateConnectionsToBackend(p, backend.Address)
 				if !opSupported {
 					// The kernel doesn't support socket termination. We can stop processing.
 					p.Log.Error("Forcefully terminating sockets connected to deleted service backends " +
@@ -167,9 +168,10 @@ func socketTerminationLoop(p socketTerminationParams, ctx context.Context, healt
 	}
 }
 
-// terminateUDPConnectionsToBackend closes UDP connection sockets that match the destination
-// l3/l4 tuple addr that also are tracked in the sock rev nat map (including socket cookie).
-func terminateUDPConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Addr) (opSupported bool) {
+// terminateConnectionsToBackend closes UDP & TCP connection sockets that match
+// the destination l3/l4 tuple addr that also are tracked in the sock rev nat map
+// (including socket cookie).
+func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Addr) (opSupported bool) {
 	opSupported = true
 
 	var (
@@ -180,17 +182,22 @@ func terminateUDPConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n
 	l4Addr := l3n4Addr.L4Addr
 
 	switch l3n4Addr.Protocol {
-	case lb.UDP, lb.ANY:
+	case lb.UDP:
 		protocol = unix.IPPROTO_UDP
+	case lb.TCP:
+		protocol = unix.IPPROTO_TCP
 	default:
 		return
 	}
+
 	p.Log.Debug("Terminating sockets connected to deleted backend", logfields.Deleted, l3n4Addr)
+
 	if l3n4Addr.IsIPv6() {
 		family = syscall.AF_INET6
 	} else {
 		family = syscall.AF_INET
 	}
+
 	// Filter pod connections load-balanced to the passed service backend.
 	//
 	// When pod traffic is load-balanced to service backends, the cilium datapath
