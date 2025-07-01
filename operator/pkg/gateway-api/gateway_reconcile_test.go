@@ -392,6 +392,19 @@ func Test_Conformance(t *testing.T) {
 				{Name: "gateway-secret-reference-grant-specific", Namespace: "gateway-conformance-infra"},
 			},
 		},
+		{
+			name: "gateway-static-addresses",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-static-addresses", Namespace: "gateway-conformance-infra"},
+			},
+		},
+		{
+			name: "gateway-static-addresses",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-static-addresses-invalid", Namespace: "gateway-conformance-infra"},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
