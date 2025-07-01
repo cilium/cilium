@@ -441,9 +441,6 @@ Bugtool Options
 * The deprecated flag ``k8s-mode`` (and related flags ``cilium-agent-container-name``, ``k8s-namespace`` & ``k8s-label``)
   have been removed. Cilium CLI should be used to gather a sysdump from a K8s cluster.
 
-Added Metrics
-~~~~~~~~~~~~~
-
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
@@ -463,10 +460,6 @@ Changed Metrics
 * ``cilium_agent_bgp_control_plane_reconcile_error_count`` has been renamed to ``cilium_agent_bgp_control_plane_reconcile_errors_total``.
 * ``cilium_operator_bgp_control_plane_cluster_config_error_count`` has been renamed to ``cilium_operator_bgp_control_plane_reconcile_errors_total``
   and its label ``bgp_cluster_config`` has been replaced with labels ``resource_kind`` and ``resource_name``.
-
-Deprecated Metrics
-~~~~~~~~~~~~~~~~~~
-
 
 Advanced
 ========
