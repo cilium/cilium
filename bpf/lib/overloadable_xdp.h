@@ -286,3 +286,12 @@ ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 	return 0;
 }
 #endif /* HAVE_ENCAP */
+
+static __always_inline __maybe_unused int
+bpf_exit(struct __ctx_buff *ctx, const int verdict)
+{
+	if (verdict == CTX_ACT_OK)
+		ctx_move_xfer(ctx);
+
+	return verdict;
+}

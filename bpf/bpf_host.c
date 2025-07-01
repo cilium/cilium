@@ -1225,6 +1225,15 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (flags & XFER_PKT_SNAT_DONE)
 		ctx_snat_done_set(ctx);
 #endif
+
+# if (defined(HAVE_ENCAP) && defined(ENABLE_WIREGUARD)) || \
+	(!defined(HAVE_ENCAP) && defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION))
+	if (flags & XFER_PKT_TC_EGRESS) {
+		set_identity_mark(ctx, HOST_ID, is_defined(HAVE_ENCAP) && (flags & XFER_PKT_ENCAP) ?
+				  MARK_MAGIC_OVERLAY : MARK_MAGIC_HOST);
+		return ctx_redirect(ctx, THIS_INTERFACE_IFINDEX, 0);
+	}
+# endif
 #endif
 
 	if (!validate_ethertype(ctx, &proto)) {
