@@ -940,7 +940,7 @@ type RevNatKey interface {
 	ToNetwork() RevNatKey
 
 	// Returns the key value
-	GetKey() uint16
+	GetKey() loadbalancer.ServiceID
 
 	// ToHost converts fields to host byte order.
 	ToHost() RevNatKey
@@ -960,13 +960,13 @@ type RevNat4Key struct {
 	Key uint16
 }
 
-func NewRevNat4Key(value uint16) *RevNat4Key {
-	return &RevNat4Key{value}
+func NewRevNat4Key(id loadbalancer.ServiceID) *RevNat4Key {
+	return &RevNat4Key{uint16(id)}
 }
 
-func (k *RevNat4Key) String() string  { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
-func (k *RevNat4Key) New() bpf.MapKey { return &RevNat4Key{} }
-func (k *RevNat4Key) GetKey() uint16  { return k.Key }
+func (k *RevNat4Key) String() string                 { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
+func (k *RevNat4Key) New() bpf.MapKey                { return &RevNat4Key{} }
+func (v *RevNat4Key) GetKey() loadbalancer.ServiceID { return loadbalancer.ServiceID(v.Key) }
 
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
@@ -1016,9 +1016,9 @@ func NewRevNat6Key(value uint16) *RevNat6Key {
 	return &RevNat6Key{value}
 }
 
-func (v *RevNat6Key) String() string  { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
-func (v *RevNat6Key) New() bpf.MapKey { return &RevNat6Key{} }
-func (v *RevNat6Key) GetKey() uint16  { return v.Key }
+func (v *RevNat6Key) String() string                 { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
+func (v *RevNat6Key) New() bpf.MapKey                { return &RevNat6Key{} }
+func (v *RevNat6Key) GetKey() loadbalancer.ServiceID { return loadbalancer.ServiceID(v.Key) }
 
 // ToNetwork converts RevNat6Key to network byte order.
 func (v *RevNat6Key) ToNetwork() RevNatKey {
@@ -1356,7 +1356,7 @@ type SourceRangeKey interface {
 	bpf.MapKey
 
 	GetCIDR() *cidr.CIDR
-	GetRevNATID() uint16
+	GetRevNATID() loadbalancer.ServiceID
 
 	// Convert fields to network byte order.
 	ToNetwork() SourceRangeKey
@@ -1408,8 +1408,8 @@ func (k *SourceRangeKey4) GetCIDR() *cidr.CIDR {
 	c.IP = ip.IP()
 	return cidr.NewCIDR(&c)
 }
-func (k *SourceRangeKey4) GetRevNATID() uint16 {
-	return k.RevNATID
+func (k *SourceRangeKey4) GetRevNATID() loadbalancer.ServiceID {
+	return loadbalancer.ServiceID(k.RevNATID)
 }
 
 type SourceRangeKey6 struct {
@@ -1451,8 +1451,8 @@ func (k *SourceRangeKey6) GetCIDR() *cidr.CIDR {
 	c.IP = ip.IP()
 	return cidr.NewCIDR(&c)
 }
-func (k *SourceRangeKey6) GetRevNATID() uint16 {
-	return k.RevNATID
+func (k *SourceRangeKey6) GetRevNATID() loadbalancer.ServiceID {
+	return loadbalancer.ServiceID(k.RevNATID)
 }
 
 type SourceRangeValue struct {
