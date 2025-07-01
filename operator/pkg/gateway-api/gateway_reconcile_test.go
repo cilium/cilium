@@ -303,6 +303,12 @@ var tlsRouteFixtures = []client.Object{
 	},
 }
 
+var (
+	gatewaySameNamespace          = types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	gatewaySameNamespaceWithHTTPS = types.NamespacedName{Name: "same-namespace-with-https-listener", Namespace: "gateway-conformance-infra"}
+	gatewayBackendNamespace       = types.NamespacedName{Name: "backend-namespaces", Namespace: "gateway-conformance-infra"}
+)
+
 func Test_Conformance(t *testing.T) {
 	logger := hivetest.Logger(t)
 	cecTranslator := translation.NewCECTranslator(translation.Config{
@@ -413,6 +419,54 @@ func Test_Conformance(t *testing.T) {
 				{Name: "unresolved-gateway-with-one-attached-unresolved-route", Namespace: "gateway-conformance-infra"},
 			},
 		},
+		{name: "grpcroute-exact-method-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "grpcroute-header-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "grpcroute-listener-hostname-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-backend-protocol-h2c", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-backend-protocol-websocket", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-cross-namespace", gateway: []types.NamespacedName{gatewayBackendNamespace}},
+		{
+			name:    "httproute-disallowed-kind",
+			gateway: []types.NamespacedName{{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}},
+		},
+		{name: "httproute-exact-path-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-header-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-hostname-intersection", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-https-listener", gateway: []types.NamespacedName{gatewaySameNamespaceWithHTTPS}},
+		{name: "httproute-invalid-backendref-unknown-kind", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-cross-namespace-backend-ref", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-cross-namespace-parent-ref", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-nonexistent-backendref", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-not-matching-listener-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-not-matching-section-name", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-section-name-not-matching-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-invalid-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-listener-hostname-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-listener-port-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-matching-across-routes", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-method-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-observed-generation-bump", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-partially-invalid-via-invalid-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-path-match-order", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-query-param-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-redirect-host-and-status", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-redirect-path", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-redirect-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-redirect-port-and-scheme", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-redirect-scheme", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-request-header-modifier", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-request-header-modifier-backend-weights", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-request-mirror", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-request-multiple-mirrors", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-request-percentage-mirror", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-response-header-modifier", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-timeout-backend-request", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-timeout-request", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-weight", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "tlsroute-invalid-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "tlsroute-simple-same-namespace", gateway: []types.NamespacedName{gatewaySameNamespace}},
 	}
 
 	for _, tt := range tests {
@@ -471,7 +525,6 @@ func Test_Conformance(t *testing.T) {
 						actualHR := &gatewayv1.HTTPRoute{}
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
 						require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
-
 						expectedHR := &gatewayv1.HTTPRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
 						require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
