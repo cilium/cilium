@@ -90,7 +90,8 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	group := p.JobRegistry.NewGroup(p.Health, lc)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			tunnelOverIPv6 := !option.Config.EnableIPv4 && option.Config.RoutingMode == option.RoutingModeTunnel
+			tunnelOverIPv6 := option.Config.RoutingMode == option.RoutingModeTunnel &&
+				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
 				option.Config.EnableIPSec,
