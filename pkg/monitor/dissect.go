@@ -108,7 +108,12 @@ func initParser() {
 	}
 }
 
-func getTCPInfo() string {
+func getTCPInfo(isOverlay bool) string {
+	target := cache.tcp
+	if isOverlay {
+		target = cache.overlay.tcp
+	}
+
 	info := ""
 	addTCPFlag := func(flag, new string) string {
 		if flag == "" {
@@ -117,19 +122,19 @@ func getTCPInfo() string {
 		return flag + ", " + new
 	}
 
-	if cache.tcp.SYN {
+	if target.SYN {
 		info = addTCPFlag(info, "SYN")
 	}
 
-	if cache.tcp.ACK {
+	if target.ACK {
 		info = addTCPFlag(info, "ACK")
 	}
 
-	if cache.tcp.RST {
+	if target.RST {
 		info = addTCPFlag(info, "RST")
 	}
 
-	if cache.tcp.FIN {
+	if target.FIN {
 		info = addTCPFlag(info, "FIN")
 	}
 
@@ -145,6 +150,10 @@ type ConnectionInfo struct {
 	Proto    string
 	IcmpCode string
 	Tunnel   *ConnectionInfo
+}
+
+func (c *ConnectionInfo) isOverlay() bool {
+	return c.Tunnel != nil
 }
 
 // getConnectionInfoFromCache assume dissectLock is obtained at the caller and data is already
@@ -301,7 +310,7 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 			c.Proto)
 
 		if c.Proto == "tcp" {
-			str += " " + getTCPInfo()
+			str += " " + getTCPInfo(c.isOverlay())
 		}
 	case hasIP:
 		str += fmt.Sprintf("%s -> %s", c.SrcIP, c.DstIP)
@@ -312,7 +321,7 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	}
 
 	// In case of an overlay packet, dump also the tunnel.
-	if c.Tunnel != nil {
+	if c.isOverlay() {
 		str += fmt.Sprintf(" [tunnel %s -> %s %s]",
 			net.JoinHostPort(c.Tunnel.SrcIP.String(), strconv.Itoa(int(c.Tunnel.SrcPort))),
 			net.JoinHostPort(c.Tunnel.DstIP.String(), strconv.Itoa(int(c.Tunnel.DstPort))),
