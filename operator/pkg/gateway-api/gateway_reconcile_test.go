@@ -334,6 +334,10 @@ func Test_Conformance(t *testing.T) {
 				{Name: "http-listener-isolation-with-hostname-intersection", Namespace: "gateway-conformance-infra"},
 			},
 		},
+		{
+			name:    "gateway-infrastructure",
+			gateway: []types.NamespacedName{{Name: "gateway-with-infrastructure-metadata", Namespace: "gateway-conformance-infra"}},
+		},
 	}
 
 	for _, tt := range tests {
