@@ -322,11 +322,13 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@5ce1cf99e1b7d184627d87afa96f00cfb0a6a407 # main
+        uses: cilium/scale-tests-action/export-results@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
+          tested_sha: ${{ inputs.SHA || github.sha }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./output/*
+          artifacts: ./output/
+          results_regex: 'NetworkPerformance*'
           other_files: ${{ matrix.mode != 'baseline' && 'cilium-sysdump-final.zip' || '' }}
 
   merge-upload-and-status:
