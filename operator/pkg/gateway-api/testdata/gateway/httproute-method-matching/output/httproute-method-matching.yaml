@@ -1,0 +1,98 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: method-matching
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - method: POST
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - method: GET
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - method: GET
+      path:
+        type: PathPrefix
+        value: /path1
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - headers:
+      - name: version
+        value: one
+      method: PUT
+  - backendRefs:
+    - name: infra-backend-v3
+      port: 8080
+    matches:
+    - headers:
+      - name: version
+        value: two
+      method: POST
+      path:
+        type: PathPrefix
+        value: /path2
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - method: PATCH
+      path:
+        type: PathPrefix
+        value: /path3
+    - headers:
+      - name: version
+        value: three
+      method: DELETE
+      path:
+        type: PathPrefix
+        value: /path4
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /path5
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - method: PATCH
+  - backendRefs:
+    - name: infra-backend-v3
+      port: 8080
+    matches:
+    - headers:
+      - name: version
+        value: four
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace
