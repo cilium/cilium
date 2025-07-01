@@ -87,6 +87,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &corev1.Service{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "Secret":
+			obj := &corev1.Secret{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		case "HTTPRoute":
 			obj := &gatewayv1.HTTPRoute{}
 			fromYaml(t, o, obj)

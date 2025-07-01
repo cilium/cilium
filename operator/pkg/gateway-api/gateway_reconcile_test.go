@@ -346,8 +346,13 @@ func Test_Conformance(t *testing.T) {
 			},
 		},
 		{
-			name:    "gateway-invalid-route-kind",
-			gateway: types.NamespacedName{Name: "gateway-supported-and-invalid-route-kind", Namespace: "gateway-conformance-infra"},
+			name: "gateway-invalid-tls-configuration",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-certificate-nonexistent-secret", Namespace: "gateway-conformance-infra"},
+				{Name: "gateway-certificate-unsupported-group", Namespace: "gateway-conformance-infra"},
+				{Name: "gateway-certificate-unsupported-kind", Namespace: "gateway-conformance-infra"},
+				{Name: "gateway-certificate-malformed-secret", Namespace: "gateway-conformance-infra"},
+			},
 		},
 	}
 
