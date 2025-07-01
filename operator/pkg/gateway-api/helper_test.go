@@ -11,10 +11,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8syaml "sigs.k8s.io/yaml"
 )
+
+func fromYamlFile(t *testing.T, file string, obj any) {
+	t.Helper()
+
+	yamlText, err := os.ReadFile(file)
+	require.NoError(t, err)
+
+	fromYaml(t, string(yamlText), obj)
+}
+
+func fromYaml(t *testing.T, yamlText string, obj any) {
+	t.Helper()
+
+	require.NoError(t, k8syaml.Unmarshal([]byte(yamlText), obj))
+}
 
 func toYaml(t *testing.T, obj any) string {
 	t.Helper()
@@ -23,6 +39,15 @@ func toYaml(t *testing.T, obj any) string {
 	require.NoError(t, err)
 
 	return strings.TrimSpace(string(yamlText))
+}
+
+func getResourceKind(yamlStr string) (string, string, error) {
+	var meta metav1.TypeMeta
+	err := k8syaml.Unmarshal([]byte(yamlStr), &meta)
+	if err != nil {
+		return "", "", err
+	}
+	return meta.APIVersion, meta.Kind, nil
 }
 
 func readInputDir(t *testing.T, dir string) []client.Object {
@@ -35,32 +60,45 @@ func readInputDir(t *testing.T, dir string) []client.Object {
 	for _, file := range files {
 		if !file.IsDir() {
 			filePath := fmt.Sprintf("%s/%s", dir, file.Name())
-			if strings.HasPrefix(file.Name(), "httproute") {
-				obj := &gatewayv1.HTTPRoute{}
-				readInput(t, filePath, obj)
-				res = append(res, obj)
-				continue
-			}
-
-			if strings.HasPrefix(file.Name(), "service") {
-				obj := &corev1.Service{}
-				readInput(t, filePath, obj)
-				res = append(res, obj)
-				continue
-			}
+			res = append(res, readInput(t, filePath)...)
 		}
 	}
 
 	return res
 }
 
-func readInput(t *testing.T, file string, obj any) {
+func readInput(t *testing.T, file string) []client.Object {
 	t.Helper()
 
 	inputYaml, err := os.ReadFile(file)
 	require.NoError(t, err)
 
-	require.NoError(t, k8syaml.Unmarshal(inputYaml, obj))
+	var res []client.Object
+	objects := strings.Split(string(inputYaml), "---")
+	for _, o := range objects {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			continue
+		}
+		_, kind, err := getResourceKind(o)
+		require.NoError(t, err, "failed to get resource kind from input YAML")
+		switch kind {
+		case "Service":
+			obj := &corev1.Service{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "HTTPRoute":
+			obj := &gatewayv1.HTTPRoute{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "Gateway":
+			obj := &gatewayv1.Gateway{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		}
+	}
+
+	return res
 }
 
 func readOutput(t *testing.T, file string, obj any) string {
