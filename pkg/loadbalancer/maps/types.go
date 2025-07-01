@@ -534,69 +534,6 @@ func (k *Backend4KeyV3) New() bpf.MapKey                 { return &Backend4KeyV3
 func (k *Backend4KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
 
-type Backend4Key struct {
-	ID uint16
-}
-
-func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4Key) New() bpf.MapKey                 { return &Backend4Key{} }
-func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
-func (k *Backend4Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
-
-// Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
-type Backend4Value struct {
-	Address types.IPv4      `align:"address"`
-	Port    uint16          `align:"port"`
-	Proto   u8proto.U8proto `align:"proto"`
-	Flags   uint8           `align:"flags"`
-}
-
-func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4Value, error) {
-	ip4 := ip.To4()
-	if ip4 == nil {
-		return nil, fmt.Errorf("Not an IPv4 address")
-	}
-	flags := loadbalancer.NewBackendFlags(state)
-
-	val := Backend4Value{
-		Port:  port,
-		Proto: proto,
-		Flags: flags,
-	}
-	copy(val.Address[:], ip.To4())
-
-	return &val, nil
-}
-
-func (v *Backend4Value) String() string {
-	vHost := v.ToHost().(*Backend4Value)
-	return fmt.Sprintf("%s://%s:%d", vHost.Proto, vHost.Address, vHost.Port)
-}
-
-func (b *Backend4Value) New() bpf.MapValue { return &Backend4Value{} }
-
-func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend4Value) GetIPCluster() cmtypes.AddrCluster {
-	return cmtypes.AddrClusterFrom(b.Address.Addr(), 0)
-}
-func (b *Backend4Value) GetPort() uint16    { return b.Port }
-func (b *Backend4Value) GetProtocol() uint8 { return uint8(b.Proto) }
-func (b *Backend4Value) GetFlags() uint8    { return b.Flags }
-func (b *Backend4Value) GetZone() uint8     { return 0 }
-
-func (v *Backend4Value) ToNetwork() BackendValue {
-	n := *v
-	n.Port = byteorder.HostToNetwork16(n.Port)
-	return &n
-}
-
-// ToHost converts Backend4Value to host byte order.
-func (v *Backend4Value) ToHost() BackendValue {
-	h := *v
-	h.Port = byteorder.NetworkToHost16(h.Port)
-	return &h
-}
-
 type Backend4ValueV3 struct {
 	Address   types.IPv4      `align:"address"`
 	Port      uint16          `align:"port"`
@@ -687,35 +624,6 @@ func NewBackend4V3(id loadbalancer.BackendID, addrCluster cmtypes.AddrCluster, p
 func (b *Backend4V3) GetKey() BackendKey     { return b.Key }
 func (b *Backend4V3) GetValue() BackendValue { return b.Value }
 
-type Backend4V2 struct {
-	Key   *Backend4KeyV3
-	Value *Backend4Value
-}
-
-func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto,
-	state loadbalancer.BackendState) (*Backend4V2, error) {
-	val, err := NewBackend4Value(ip, port, proto, state)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Backend4V2{
-		Key:   NewBackend4KeyV3(id),
-		Value: val,
-	}, nil
-}
-
-func (b *Backend4V2) GetKey() BackendKey     { return b.Key }
-func (b *Backend4V2) GetValue() BackendValue { return b.Value }
-
-type Backend4 struct {
-	Key   *Backend4Key
-	Value *Backend4Value
-}
-
-func (b *Backend4) GetKey() BackendKey     { return b.Key }
-func (b *Backend4) GetValue() BackendValue { return b.Value }
-
 type Backend6KeyV3 struct {
 	ID loadbalancer.BackendID
 }
@@ -728,68 +636,6 @@ func (k *Backend6KeyV3) String() string                  { return fmt.Sprintf("%
 func (k *Backend6KeyV3) New() bpf.MapKey                 { return &Backend6KeyV3{} }
 func (k *Backend6KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend6KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
-
-type Backend6Key struct {
-	ID uint16
-}
-
-func (k *Backend6Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend6Key) New() bpf.MapKey                 { return &Backend6Key{} }
-func (k *Backend6Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
-func (k *Backend6Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
-
-// Backend6Value must match 'struct lb6_backend' in "bpf/lib/common.h".
-type Backend6Value struct {
-	Address types.IPv6      `align:"address"`
-	Port    uint16          `align:"port"`
-	Proto   u8proto.U8proto `align:"proto"`
-	Flags   uint8           `align:"flags"`
-}
-
-func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6Value, error) {
-	ip6 := ip.To16()
-	if ip6 == nil {
-		return nil, fmt.Errorf("Not an IPv6 address")
-	}
-	flags := loadbalancer.NewBackendFlags(state)
-
-	val := Backend6Value{
-		Port:  port,
-		Proto: proto,
-		Flags: flags,
-	}
-	copy(val.Address[:], ip.To16())
-
-	return &val, nil
-}
-
-func (v *Backend6Value) String() string {
-	vHost := v.ToHost().(*Backend6Value)
-	return fmt.Sprintf("%s://[%s]:%d", vHost.Proto, vHost.Address, vHost.Port)
-}
-func (v *Backend6Value) New() bpf.MapValue { return &Backend6Value{} }
-
-func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend6Value) GetIPCluster() cmtypes.AddrCluster {
-	return cmtypes.AddrClusterFrom(b.Address.Addr(), 0)
-}
-func (b *Backend6Value) GetPort() uint16    { return b.Port }
-func (b *Backend6Value) GetProtocol() uint8 { return uint8(b.Proto) }
-func (b *Backend6Value) GetFlags() uint8    { return b.Flags }
-func (b *Backend6Value) GetZone() uint8     { return 0 }
-
-func (v *Backend6Value) ToNetwork() BackendValue {
-	n := *v
-	n.Port = byteorder.HostToNetwork16(n.Port)
-	return &n
-}
-
-// ToHost converts Backend6Value to host byte order.
-func (v *Backend6Value) ToHost() BackendValue {
-	h := *v
-	h.Port = byteorder.NetworkToHost16(h.Port)
-	return &h
-}
 
 type Backend6ValueV3 struct {
 	Address   types.IPv6      `align:"address"`
@@ -881,45 +727,9 @@ func NewBackend6V3(id loadbalancer.BackendID, addrCluster cmtypes.AddrCluster, p
 func (b *Backend6V3) GetKey() BackendKey     { return b.Key }
 func (b *Backend6V3) GetValue() BackendValue { return b.Value }
 
-type Backend6V2 struct {
-	Key   *Backend6KeyV3
-	Value *Backend6Value
-}
-
-func NewBackend6V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto,
-	state loadbalancer.BackendState) (*Backend6V2, error) {
-	val, err := NewBackend6Value(ip, port, proto, state)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Backend6V2{
-		Key:   NewBackend6KeyV3(id),
-		Value: val,
-	}, nil
-}
-
-func (b *Backend6V2) GetKey() BackendKey     { return b.Key }
-func (b *Backend6V2) GetValue() BackendValue { return b.Value }
-
-type Backend6 struct {
-	Key   *Backend6Key
-	Value *Backend6Value
-}
-
-func (b *Backend6) GetKey() BackendKey     { return b.Key }
-func (b *Backend6) GetValue() BackendValue { return b.Value }
-
-var _ BackendKey = (*Backend4Key)(nil)
 var _ BackendKey = (*Backend4KeyV3)(nil)
-var _ BackendValue = (*Backend4Value)(nil)
 var _ BackendValue = (*Backend4ValueV3)(nil)
-var _ Backend = (*Backend4)(nil)
-var _ Backend = (*Backend4V2)(nil)
 var _ Backend = (*Backend4V3)(nil)
-var _ BackendKey = (*Backend6Key)(nil)
-var _ BackendValue = (*Backend6Value)(nil)
-var _ Backend = (*Backend6)(nil)
 
 //
 // RevNat (reverse nat)
@@ -1083,14 +893,6 @@ type AffinityMatchKey struct {
 
 type AffinityMatchValue struct {
 	Pad uint8 `align:"pad"`
-}
-
-// NewAffinityMatchKey creates the AffinityMatch key
-func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
-	return &AffinityMatchKey{
-		BackendID: backendID,
-		RevNATID:  revNATID,
-	}
 }
 
 // String converts the key into a human readable string format
