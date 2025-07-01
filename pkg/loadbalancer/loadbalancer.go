@@ -660,9 +660,6 @@ func (n ServiceName) AppendSuffix(suffix string) ServiceName {
 // BackendID is the backend's ID.
 type BackendID uint32
 
-// ID is the ID of L3n4Addr endpoint (either service or backend).
-type ID uint32
-
 // BackendState is the state of a backend for load-balancing service traffic.
 type BackendState uint8
 
@@ -1064,25 +1061,6 @@ func (l L3n4Addr) MarshalYAML() (any, error) {
 }
 func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
 	return l.ParseFromString(value.Value)
-}
-
-// L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
-// KVStore.
-//
-// +k8s:deepcopy-gen=true
-// +deepequal-gen=true
-// +deepequal-gen:private-method=true
-type L3n4AddrID struct {
-	L3n4Addr
-	ID ID
-}
-
-// DeepEqual returns true if both the receiver and 'o' are deeply equal.
-func (l *L3n4AddrID) DeepEqual(o *L3n4AddrID) bool {
-	if l == nil {
-		return o == nil
-	}
-	return l.deepEqual(o)
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
