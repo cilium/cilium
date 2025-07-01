@@ -338,6 +338,17 @@ func Test_Conformance(t *testing.T) {
 			name:    "gateway-infrastructure",
 			gateway: []types.NamespacedName{{Name: "gateway-with-infrastructure-metadata", Namespace: "gateway-conformance-infra"}},
 		},
+		{
+			name: "gateway-invalid-route-kind",
+			gateway: []types.NamespacedName{
+				{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"},
+				{Name: "gateway-supported-and-invalid-route-kind", Namespace: "gateway-conformance-infra"},
+			},
+		},
+		{
+			name:    "gateway-invalid-route-kind",
+			gateway: types.NamespacedName{Name: "gateway-supported-and-invalid-route-kind", Namespace: "gateway-conformance-infra"},
+		},
 	}
 
 	for _, tt := range tests {
