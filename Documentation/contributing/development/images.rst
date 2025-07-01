@@ -48,142 +48,79 @@ Anyone can build official release images using the make target below.
 
     DOCKER_IMAGE_TAG=v1.4.0 make docker-images-all
 
-Experimental Docker BuildKit and Buildx support
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Docker BuildKit allows build artifact caching between builds and
-generally results in faster builds for the developer. Support can be
-enabled by:
-
-.. code-block:: shell-session
-
-    export DOCKER_BUILDKIT=1
-
-Multi-arch image build support for arm64 (aka aarch64) and amd64 (aka
-x86-64) can be enabled by defining:
-
-.. code-block:: shell-session
-
-    export DOCKER_BUILDX=1
-
-Multi-arch images are built using a cross-compilation builder by
-default, which uses Go cross compilation for Go targets, and QEMU
-based emulation for other build steps. You can also define your own
-Buildx builder if you have access to both arm64 and amd64 machines.
-The "cross" builder will be defined and used if your current builder
-is "default".
-
-Buildx targets push images automatically, so you must also have
-DOCKER_REGISTRY and DOCKER_DEV_ACCOUNT defined, e.g.:
-
-.. code-block:: shell-session
-
-    export DOCKER_REGISTRY=docker.io
-    export DOCKER_DEV_ACCOUNT=your-account
-
-Currently the cilium-runtime and cilium-builder images are released
-for amd64 only (see the table below). This means that you have to
-build your own cilium-runtime and cilium-builder images:
-
-.. code-block:: shell-session
-
-    make -C images runtime-image
-
-After the build finishes update the runtime image references in other
-Dockerfiles (``docker buildx imagetools inspect`` is useful for finding
-image information). Then proceed to build the cilium-builder:
-
-.. code-block:: shell-session
-
-    make -C images builder-image
-
-After the build finishes update the main Cilium Dockerfile with the
-new builder reference, then proceed to build Hubble from
-github.com/cilium/hubble. Hubble builds via buildx QEMU based
-emulation, unless you have an ARM machine added to your buildx
-builder:
-
-.. code-block:: shell-session
-
-    export IMAGE_REPOSITORY=${DOCKER_REGISTRY}/${DOCKER_DEV_ACCOUNT}/hubble
-    CONTAINER_ENGINE="docker buildx" DOCKER_FLAGS="--push --platform=linux/arm64,linux/amd64" make image
-
-Update the main Cilium Dockerfile with the new Hubble reference and
-build the multi-arch versions of the Cilium images:
-
-.. code-block:: shell-session
-
-    make docker-images-all
-
 Official Cilium repositories
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following table contains the main container image repositories managed by
-Cilium team. It is planned to convert the build process for all images based
-on GH actions.
+The following table contains the main container image repositories managed by the Cilium team. All images are built via Github
+Actions from their corresponding Github repositories. All images are `multi-platform <https://docs.docker.com/build/building/multi-platform/>`_
+with support for both ``linux/amd64`` and ``linux/arm64`` platforms.
 
-+-------------------------------+---------------------------------------------+-----------------------------------------------+-------------------------+-------------------+
-|     **Github Repository**     |                **Dockerfile**               |      **container image repository**           |   **Architectures**     | **Build process** |
-|                               |                                             |                                               +-----------+-------------+                   |
-|                               |                                             |                                               | **amd64** | **aarch64** |                   |
-+-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-| github.com/cilium/cilium      | images/runtime/Dockerfile                   | quay.io/cilium/cilium-runtime                 |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/builder/Dockerfile                   | quay.io/cilium/cilium-builder                 |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/cilium/Dockerfile                    | [docker|quay].io/cilium/cilium                |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/cilium-docker-plugin/Dockerfile      | [docker|quay].io/cilium/docker-plugin         |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/hubble-relay/Dockerfile              | [docker|quay].io/cilium/hubble-relay          |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/operator/Dockerfile                  | [docker|quay].io/cilium/operator              |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/operator-aws/Dockerfile              | [docker|quay].io/cilium/operator-aws          |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/operator-azure/Dockerfile            | [docker|quay].io/cilium/operator-azure        |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/operator-generic/Dockerfile          | [docker|quay].io/cilium/operator-generic      |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/clustermesh-apiserver/Dockerfile     | [docker|quay].io/cilium/clustermesh-apiserver |     Y     |      Y      |     GH Action     |
-+-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-| github.com/cilium/proxy       | Dockerfile.builder                          | quay.io/cilium/cilium-envoy-builder           |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | Dockerfile                                  | quay.io/cilium/cilium-envoy                   |     Y     |      Y      |     GH Action     |
-+-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/bpftool/Dockerfile                   | docker.io/cilium/cilium-bpftool               |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/llvm/Dockerfile                      | docker.io/cilium/cilium-llvm                  |     Y     |      Y      |     GH Action     |
-| github.com/cilium/image-tools +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/compilers/Dockerfile                 | docker.io/cilium/image-compilers              |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/maker/Dockerfile                     | docker.io/cilium/image-maker                  |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/startup-script/Dockerfile            | docker.io/cilium/startup-script               |     Y     |      Y      |     GH Action     |
-+-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
++-------------------------------+---------------------------------------------+-----------------------------------------------+
+|     **Github Repository**     |                **Dockerfile**               |      **Container image repository**           |
+|                               |                                             |                                               +
+|                               |                                             |                                               |
++-------------------------------+---------------------------------------------+-----------------------------------------------+
+| github.com/cilium/cilium      | images/builder/Dockerfile                   | quay.io/cilium/cilium-builder                 |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/cilium-docker-plugin/Dockerfile      | [quay|docker].io/cilium/docker-plugin         |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/cilium/Dockerfile                    | [quay|docker].io/cilium/cilium                |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/clustermesh-apiserver/Dockerfile     | [quay|docker].io/cilium/clustermesh-apiserver |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/hubble-relay/Dockerfile              | [quay|docker].io/cilium/hubble-relay          |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/operator/Dockerfile                  | [quay|docker].io/cilium/operator              |
+|                               +                                             +-----------------------------------------------+
+|                               |                                             | [quay|docker].io/cilium/operator-alibabacloud |
+|                               +                                             +-----------------------------------------------+
+|                               |                                             | [quay|docker].io/cilium/operator-aws          |
+|                               +                                             +-----------------------------------------------+
+|                               |                                             | [quay|docker].io/cilium/operator-azure        |
+|                               +                                             +-----------------------------------------------+
+|                               |                                             | [quay|docker].io/cilium/operator-generic      |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/runtime/Dockerfile                   | quay.io/cilium/cilium-runtime                 |
++-------------------------------+---------------------------------------------+-----------------------------------------------+
+| github.com/cilium/cilium-cli  | Dockerfile                                  | quay.io/cilium/cilium-cli                     |
++-------------------------------+---------------------------------------------+-----------------------------------------------+
+| github.com/cilium/image-tools | images/bpftool/Dockerfile                   | quay.io/cilium/cilium-bpftool                 |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/compilers/Dockerfile                 | quay.io/cilium/image-compilers                |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/llvm/Dockerfile                      | quay.io/cilium/cilium-llvm                    |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/maker/Dockerfile                     | quay.io/cilium/image-maker                    |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | images/startup-script/Dockerfile            | quay.io/cilium/startup-script                 |
++-------------------------------+---------------------------------------------+-----------------------------------------------+
+| github.com/cilium/proxy       | Dockerfile.builder                          | quay.io/cilium/cilium-envoy-builder           |
+|                               +---------------------------------------------+-----------------------------------------------+
+|                               | Dockerfile                                  | quay.io/cilium/cilium-envoy                   |
++-------------------------------+---------------------------------------------+-----------------------------------------------+
 
-Image dependency:
+Images dependency:
 
 ::
 
-    [docker|quay].io/cilium/cilium
-     depends on:
-      quay.io/cilium/cilium-builder
-       depends on:
-        quay.io/cilium/cilium-runtime
-         depends on:
-          docker.io/cilium/cilium-bpftool
-          docker.io/cilium/cilium-llvm
-      quay.io/cilium/cilium-envoy
-       depends on:
-        quay.io/cilium/cilium-envoy-builder
-         depends on:
-          quay.io/cilium/cilium-builder
-           depends on:
-            quay.io/cilium/cilium-runtime
-             depends on:
-              docker.io/cilium/cilium-bpftool
-              docker.io/cilium/cilium-llvm
+    cilium/cilium
+    └── cilium/cilium-builder
+        └── cilium/cilium-runtime
+            ├── cilium/cilium-bpftool
+            └── cilium/cilium-llvm
+
+    cilium/cilium-envoy
+    └── cilium/cilium-envoy-builder
+        └── cilium/cilium-builder
+            └── cilium/cilium-runtime
+                ├── cilium/cilium-bpftool
+                └── cilium/cilium-llvm
+
+    cilium/operator
+    └── cilium/cilium-builder
+        └── cilium/cilium-runtime
+            ├── cilium/cilium-bpftool
+            └── cilium/cilium-llvm
 
 
 
