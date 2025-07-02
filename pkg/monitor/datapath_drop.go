@@ -176,7 +176,7 @@ func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numer
 	}
 
 	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
-		Dissect(dissect, data[offset:])
+		Dissect(dissect, data[offset:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
 	buf.Flush()
 }

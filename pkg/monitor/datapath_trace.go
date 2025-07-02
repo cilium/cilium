@@ -335,7 +335,7 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, nume
 
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
-		Dissect(dissect, data[hdrLen:])
+		Dissect(dissect, data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
 	buf.Flush()
 }
