@@ -103,6 +103,10 @@ linters:
               recommendations:
                 - k8s.io/utils/ptr
               reason: k8s.io/utils/pointer is deprecated, see https://pkg.go.dev/k8s.io/utils/pointer
+          - github.com/google/gopacket:
+              recommendations:
+                - github.com/gopacket/gopacket
+              reason: This package is better supported and gets regular updates, see https://github.com/cilium/cilium/issues/34536
     gosec:
       includes:
         - G402
