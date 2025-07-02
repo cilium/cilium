@@ -16,17 +16,17 @@ type BgpStatusGetter interface {
 func NewBGPStatusGetter(routerManager agent.BGPRouterManager, cfg Config) BgpStatusGetter {
 	return &healthchecker{
 		RouterManager: routerManager,
-		conFig:        cfg,
+		config:        cfg,
 	}
 }
 
 type healthchecker struct {
 	RouterManager agent.BGPRouterManager
-	conFig        Config
+	config        Config
 }
 
 func (h *healthchecker) GetBGPPeerStatus(ctx context.Context) (bool, string) {
-	if !h.conFig.BGPReadinessEnabled {
+	if !h.config.BGPReadinessEnabled {
 		return true, "BGP health check is not enabled"
 	}
 	peers, err := h.RouterManager.GetPeers(ctx)
