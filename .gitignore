@@ -114,3 +114,5 @@ bpf/.cache
 # Files used for direnv
 .direnv
 .envrc
+vendor/
+vendor/
