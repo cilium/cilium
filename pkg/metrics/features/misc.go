@@ -4,16 +4,15 @@
 package features
 
 import (
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
-func (m Metrics) AddLRPConfig(_ k8s.ServiceID) {
+func (m Metrics) AddLRPConfig(_ loadbalancer.ServiceName) {
 	m.NPLRPIngested.WithLabelValues(actionAdd).Inc()
 }
 
-func (m Metrics) DelLRPConfig(_ k8s.ServiceID) {
+func (m Metrics) DelLRPConfig(_ loadbalancer.ServiceName) {
 	m.NPLRPIngested.WithLabelValues(actionDel).Inc()
 }
 

@@ -176,7 +176,7 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 
 			ep := ev.Object
 
-			svc, exists, _ := services.GetByKey(resource.Key{Namespace: ep.ServiceID.Namespace, Name: ep.ServiceID.Name})
+			svc, exists, _ := services.GetByKey(resource.Key{Namespace: ep.ServiceName.Namespace(), Name: ep.ServiceName.Name()})
 			if !exists {
 				// Service does not exist yet.
 				continue
@@ -221,7 +221,7 @@ func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service,
 		portConfig := serviceStore.PortConfiguration{}
 		for _, port := range k8sService.Spec.Ports {
 			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			portConfig[string(port.Name)] = p
+			portConfig[string(port.Name)] = &p
 		}
 		svc.Frontends = map[string]serviceStore.PortConfiguration{}
 		clusterIPs := k8sService.Spec.ClusterIPs
@@ -237,7 +237,7 @@ func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service,
 	for _, ep := range getEndpoints(svc.Namespace, svc.Name) {
 		for addrCluster, backend := range ep.Backends {
 			addrString := addrCluster.Addr().String()
-			svc.Backends[addrString] = backend.Ports
+			svc.Backends[addrString] = backend.ToPortConfiguration()
 			if backend.Hostname != "" {
 				svc.Hostnames[addrString] = backend.Hostname
 			}

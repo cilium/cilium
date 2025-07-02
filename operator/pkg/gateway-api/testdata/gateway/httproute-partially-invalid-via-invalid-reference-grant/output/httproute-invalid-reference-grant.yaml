@@ -1,0 +1,39 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-reference-grant
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: app-backend-v2
+      namespace: gateway-conformance-app-backend
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /v2
+  - backendRefs:
+    - name: app-backend-v1
+      namespace: gateway-conformance-app-backend
+      port: 8080
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Cross namespace references are not allowed
+      reason: RefNotPermitted
+      status: "False"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

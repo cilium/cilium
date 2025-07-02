@@ -70,6 +70,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.18",
     "v1.17",
     "v1.16",
     "v1.15",
@@ -364,6 +365,16 @@
         "v1.16",
         "v1.15",
       ]
+    },
+    {
+      // Disable major updates for go-github as those require updating import paths
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/google/go-github",
+      ],
+      "matchUpdateTypes": [
+        "major",
+      ],
     },
     {
       // Avoid updating patch version for statedb as it might contain breaking changes

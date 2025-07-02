@@ -23,6 +23,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -40,7 +41,7 @@ type ServiceReconciler struct {
 // LBServiceReconcilerMetadata keeps a map of services to the respective advertised Paths
 type LBServiceReconcilerMetadata map[resource.Key][]*types.Path
 
-type localServices map[k8s.ServiceID]struct{}
+type localServices map[loadbalancer.ServiceName]struct{}
 
 // pathReference holds reference information about an advertised path
 type pathReference struct {
@@ -111,8 +112,8 @@ func (r *ServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBService
 
 func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
 	k := resource.Key{
-		Name:      eps.ServiceID.Name,
-		Namespace: eps.ServiceID.Namespace,
+		Name:      eps.ServiceName.Name(),
+		Namespace: eps.ServiceName.Namespace(),
 	}
 	return r.diffStore.GetByKey(k)
 }
@@ -154,7 +155,7 @@ endpointsLoop:
 			continue
 		}
 
-		svcID := eps.ServiceID
+		svcID := eps.ServiceName
 
 		for _, be := range eps.Backends {
 			if !be.Terminating && be.NodeName == localNodeName {
@@ -172,7 +173,7 @@ endpointsLoop:
 }
 
 func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
-	_, found := ls[k8s.ServiceID{Name: svc.GetName(), Namespace: svc.GetNamespace()}]
+	_, found := ls[loadbalancer.NewServiceName(svc.GetNamespace(), svc.GetName())]
 	return found
 }
 

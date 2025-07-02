@@ -66,7 +66,7 @@ func mkAddr(i int32) loadbalancer.L3n4Addr {
 		addrCluster, _ := cmtypes.AddrClusterFromIP(addr[:])
 		return addrCluster
 	}
-	a := *loadbalancer.NewL3n4Addr(
+	a := loadbalancer.NewL3n4Addr(
 		loadbalancer.TCP,
 		intToAddr(i),
 		uint16(i%65535),

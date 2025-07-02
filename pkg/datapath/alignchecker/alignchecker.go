@@ -134,8 +134,6 @@ func init() {
 
 	registerToCheckSizes(map[string][]any{
 		"__u16": {
-			lbmap.Backend4Key{},
-			lbmap.Backend6Key{},
 			lbmap.RevNat4Key{},
 			lbmap.RevNat6Key{},
 		},

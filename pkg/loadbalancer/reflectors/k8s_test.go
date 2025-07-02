@@ -5,6 +5,7 @@ package reflectors
 
 import (
 	"log/slog"
+	"maps"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -60,9 +61,10 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 	epSlice := obj.(*slim_discovery_v1.EndpointSlice)
 	logger := hivetest.Logger(b)
 	eps := k8s.ParseEndpointSliceV1(logger, epSlice)
+	backends := maps.All(eps.Backends)
 
 	for b.Loop() {
-		convertEndpoints(logger, benchmarkExternalConfig, eps)
+		convertEndpoints(logger, benchmarkExternalConfig, eps.ServiceName, backends)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "endpoints/sec")
 }

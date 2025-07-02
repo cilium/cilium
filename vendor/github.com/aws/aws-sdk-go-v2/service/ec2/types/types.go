@@ -3963,6 +3963,30 @@ type DnsServersOptionsModifyStructure struct {
 // Describes a block device for an EBS volume.
 type EbsBlockDevice struct {
 
+	// The Availability Zone where the EBS volume will be created (for example,
+	// us-east-1a ).
+	//
+	// Either AvailabilityZone or AvailabilityZoneId can be specified, but not both.
+	// If neither is specified, Amazon EC2 automatically selects an Availability Zone
+	// within the Region.
+	//
+	// This parameter is not supported when using [CreateImage].
+	//
+	// [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
+	AvailabilityZone *string
+
+	// The ID of the Availability Zone where the EBS volume will be created (for
+	// example, use1-az1 ).
+	//
+	// Either AvailabilityZone or AvailabilityZoneId can be specified, but not both.
+	// If neither is specified, Amazon EC2 automatically selects an Availability Zone
+	// within the Region.
+	//
+	// This parameter is not supported when using [CreateImage].
+	//
+	// [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
+	AvailabilityZoneId *string
+
 	// Indicates whether the EBS volume is deleted on instance termination. For more
 	// information, see [Preserving Amazon EBS volumes on instance termination]in the Amazon EC2 User Guide.
 	//
@@ -7382,9 +7406,11 @@ type Instance struct {
 	// The product codes attached to this instance, if applicable.
 	ProductCodes []ProductCode
 
-	// [IPv4 only] The public DNS name assigned to the instance. This name is not
-	// available until the instance enters the running state. This name is only
-	// available if you've enabled DNS hostnames for your VPC.
+	// The public DNS name assigned to the instance. This name is not available until
+	// the instance enters the running state. This name is only available if you've
+	// enabled DNS hostnames for your VPC. The format of this name depends on the [public hostname type].
+	//
+	// [public hostname type]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hostname-types.html#public-hostnames
 	PublicDnsName *string
 
 	// The public IPv4 address, or the Carrier IP address assigned to the instance, if
@@ -16556,6 +16582,9 @@ type Route struct {
 
 	// The ID of the network interface.
 	NetworkInterfaceId *string
+
+	// The Amazon Resource Name (ARN) of the ODB network.
+	OdbNetworkArn *string
 
 	// Describes how the route was created.
 	//

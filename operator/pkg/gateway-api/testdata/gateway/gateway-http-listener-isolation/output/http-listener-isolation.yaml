@@ -1,0 +1,134 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: http-listener-isolation
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: empty-hostname
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: '*.example.com'
+    name: wildcard-example-com
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: '*.foo.example.com'
+    name: wildcard-foo-example-com
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: abc.foo.example.com
+    name: abc-foo-example-com
+    port: 80
+    protocol: HTTP
+status:
+  conditions:
+  - lastTransitionTime: "2025-07-01T05:06:15Z"
+    message: Gateway successfully scheduled
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2025-07-01T05:06:15Z"
+    message: Gateway successfully reconciled
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: empty-hostname
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: wildcard-example-com
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: wildcard-foo-example-com
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: abc-foo-example-com
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute

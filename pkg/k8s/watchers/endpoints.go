@@ -111,8 +111,8 @@ func (k *K8sEndpointsWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.St
 
 func (k *K8sEndpointsWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoints) {
 	if eps == nil ||
-		eps.EndpointSliceID.ServiceID.Name != "kubernetes" ||
-		eps.EndpointSliceID.ServiceID.Namespace != "default" {
+		eps.EndpointSliceID.ServiceName.Name() != "kubernetes" ||
+		eps.EndpointSliceID.ServiceName.Namespace() != "default" {
 		return
 	}
 	resource := ipcacheTypes.NewResourceID(

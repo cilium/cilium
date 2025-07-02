@@ -25,21 +25,21 @@ const (
 )
 
 var (
-	lrpIDIndex = statedb.Index[*LocalRedirectPolicy, k8s.ServiceID]{
+	lrpIDIndex = statedb.Index[*LocalRedirectPolicy, lb.ServiceName]{
 		Name: "id",
 		FromObject: func(obj *LocalRedirectPolicy) index.KeySet {
 			return index.NewKeySet(index.String(obj.ID.String()))
 		},
-		FromKey: index.Stringer[k8s.ServiceID],
+		FromKey: index.Stringer[lb.ServiceName],
 		Unique:  true,
 	}
 
-	lrpServiceIndex = statedb.Index[*LocalRedirectPolicy, k8s.ServiceID]{
+	lrpServiceIndex = statedb.Index[*LocalRedirectPolicy, lb.ServiceName]{
 		Name: "service",
 		FromObject: func(lrp *LocalRedirectPolicy) index.KeySet {
 			return index.NewKeySet(index.String(lrp.ServiceID.String()))
 		},
-		FromKey: index.Stringer[k8s.ServiceID],
+		FromKey: index.Stringer[lb.ServiceName],
 		Unique:  false,
 	}
 
@@ -104,11 +104,7 @@ func registerLRPReflector(enabled lrpIsEnabled, cfg Config, db *statedb.DB, log 
 						logfields.Error, err)
 					toDelete = func(yield func(*LocalRedirectPolicy) bool) {
 						yield(&LocalRedirectPolicy{
-							ID: k8s.ServiceID{
-								Cluster:   "",
-								Name:      clrp.Name,
-								Namespace: clrp.Namespace,
-							},
+							ID:  lb.NewServiceName(clrp.Namespace, clrp.Name),
 							UID: clrp.UID,
 						})
 					}

@@ -582,7 +582,7 @@ Makefile* @cilium/build
 /pkg/loadbalancer @cilium/sig-lb
 /pkg/loadinfo/ @cilium/sig-agent
 /pkg/lock @cilium/sig-agent
-/pkg/logging/ @cilium/cli
+/pkg/logging/ @cilium/sig-agent
 /pkg/mac @cilium/sig-datapath
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath

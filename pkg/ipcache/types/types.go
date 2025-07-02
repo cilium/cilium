@@ -116,6 +116,9 @@ type EndpointFlags struct {
 	// packets destined for said endpoint shall not be forwarded through
 	// an overlay tunnel, regardless of Cilium's configuration.
 	flagSkipTunnel bool
+
+	// Note: if you add any more flags here, be sure to update (*prefixInfo).flatten()
+	// to merge them across different resources.
 }
 
 func (e *EndpointFlags) SetSkipTunnel(skip bool) {

@@ -1,0 +1,55 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gateway-certificate-unsupported-group
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: wrong.group.company.io
+        kind: Secret
+        name: tls-validity-checks-certificate
+status:
+  conditions:
+  - lastTransitionTime: "2025-07-01T05:30:03Z"
+    message: Gateway successfully scheduled
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2025-07-01T05:30:03Z"
+    message: Gateway successfully reconciled
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: "2025-07-01T05:30:03Z"
+      message: Invalid CertificateRef
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: "2025-07-01T05:30:03Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:30:03Z"
+      message: Invalid CertificateRef
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: https
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute

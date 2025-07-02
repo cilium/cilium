@@ -1,7 +1,0 @@
-[{
-    "labels": [{"key": "name", "value": "dev-to-host"}],
-    "endpointSelector": {"matchLabels": {"env":"dev"}},
-    "egress": [{
-        "toEntities": ["host"]
-    }]
-}]

@@ -353,7 +353,7 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 				return err
 			}
 		} else {
-			a.logger.Info("Removing obsolete peer", logfields.PubKey, pc.pubKey)
+			a.logger.Info("Removing obsolete peer", logfields.PubKey, p.PublicKey)
 			if err := a.deletePeerByPubKey(p.PublicKey); err != nil {
 				return err
 			}

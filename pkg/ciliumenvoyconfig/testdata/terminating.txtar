@@ -1,0 +1,208 @@
+# Terminating backends should be synced towards Envoy only when no active backends
+# are available.
+
+# Start the hive and wait for tables to be synchronized before adding k8s objects.
+hive start
+
+# Set up the services and endpoints. We start with two backends
+# 10.244.1.1 and 10.244.1.2 and both are in active state.
+k8s/add service.yaml
+db/cmp services services.table
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+
+# Add the CiliumEnvoyConfig and wait for it to be ingested. Both
+# backends are synced.
+k8s/add cec.yaml
+db/cmp ciliumenvoyconfigs cec.table
+db/cmp envoy-resources envoy-resources.table
+
+# Check that both services are now redirected to L7 proxy.
+db/cmp services services_redirected.table
+db/cmp frontends frontends.table
+
+# Mark one backend as terminating. Only 10.244.1.2 should now be
+# pushed to Envoy.
+k8s/update endpointslice-1-terminating.yaml
+db/cmp backends backends-1-terminating.table
+db/cmp envoy-resources envoy-resources-1-terminating.table
+
+# Mark both as terminating. Now both backends should be synced again since they're
+# used as fallbacks.
+k8s/update endpointslice-both-terminating.yaml
+db/cmp backends backends-both-terminating.table
+db/cmp envoy-resources envoy-resources.table
+
+# ---------------------------------------------
+
+-- services.table --
+Name        Flags
+test/echo   
+
+-- services_redirected.table --
+Name        Flags
+test/echo   ProxyRedirect=1000 (ports: [80])
+
+-- backends.table --
+Address              Instances
+10.244.1.1:8080/TCP  test/echo (http)
+10.244.1.2:8080/TCP  test/echo (http)
+
+-- backends-1-terminating.table --
+Address              Instances
+10.244.1.1:8080/TCP  test/echo [terminating] (http)
+10.244.1.2:8080/TCP  test/echo (http)
+
+-- backends-both-terminating.table --
+Address              Instances
+10.244.1.1:8080/TCP  test/echo [terminating] (http)
+10.244.1.2:8080/TCP  test/echo [terminating] (http)
+
+-- frontends.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:8080/TCP, 10.244.1.2:8080/TCP
+
+-- cec.table --
+Name                    Labels   Services
+test/envoy-lb-listener  foo=bar  test/echo
+
+-- envoy-resources.table --
+Name                            Listeners                                  Endpoints                            References             Status   Error
+backendsync:test/echo                                                      test/echo:80: 10.244.1.1, 10.244.1.2 test/envoy-lb-listener Done
+cec:test/envoy-lb-listener      test/envoy-lb-listener/envoy-lb-listener                                                               Done
+
+
+-- envoy-resources-1-terminating.table --
+Name                            Listeners                                  Endpoints                    References             Status   Error
+backendsync:test/echo                                                      test/echo:80: 10.244.1.2     test/envoy-lb-listener Done     
+cec:test/envoy-lb-listener      test/envoy-lb-listener/envoy-lb-listener                                                       Done     
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-lb-listener
+  namespace: test
+  labels:
+    foo: bar
+spec:
+  services:
+    - name: echo
+      namespace: test
+      listener: envoy-lb-listener
+      ports:
+      - 80
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- endpointslice-1-terminating.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: false
+    serving: true
+    terminating: true
+  nodeName: nodeport-worker
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- endpointslice-both-terminating.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: false
+    serving: true
+    terminating: true
+  nodeName: nodeport-worker
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: false
+    serving: true
+    terminating: true
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+

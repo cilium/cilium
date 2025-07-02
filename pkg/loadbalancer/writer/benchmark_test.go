@@ -6,6 +6,7 @@ package writer
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -36,7 +37,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	// inserts slightly more costly.
 	wtxn := p.Writer.WriteTxn()
 	for i := range 1000 {
-		name := loadbalancer.ServiceName{Namespace: "test-existing", Name: fmt.Sprintf("svc-%d", i)}
+		name := loadbalancer.NewServiceName("test-existing", fmt.Sprintf("svc-%d", i))
 		var addr1 [4]byte
 		binary.BigEndian.PutUint32(addr1[:], 0x02000000+uint32(i))
 		addrCluster, _ := types.AddrClusterFromIP(addr1[:])
@@ -47,7 +48,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 				Source: source.Kubernetes,
 			},
 			loadbalancer.FrontendParams{
-				Address:     *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
+				Address:     loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "foo",
 				ServicePort: 12345,
@@ -61,7 +62,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	for b.Loop() {
 		wtxn := p.Writer.WriteTxn()
 		for i := range numObjects {
-			name := loadbalancer.ServiceName{Namespace: "test-new", Name: fmt.Sprintf("svc-%d", i)}
+			name := loadbalancer.NewServiceName("test-new", fmt.Sprintf("svc-%d", i))
 			var addr1 [4]byte
 			binary.BigEndian.PutUint32(addr1[:], 0x01000000+uint32(i))
 			addrCluster, _ := types.AddrClusterFromIP(addr1[:])
@@ -72,7 +73,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 					Source: source.Kubernetes,
 				},
 				loadbalancer.FrontendParams{
-					Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
+					Address:  loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 					Type:     loadbalancer.SVCTypeClusterIP,
 					PortName: "",
 				},
@@ -91,7 +92,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 	addrCluster1 := types.MustParseAddrCluster("1.0.0.1")
 	addrCluster2 := types.MustParseAddrCluster("2.0.0.2")
 
-	name := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()
 
 	p.Writer.UpsertServiceAndFrontends(
@@ -101,7 +102,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 			Source: source.Kubernetes,
 		},
 		loadbalancer.FrontendParams{
-			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
+			Address:  loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
 		},
@@ -115,15 +116,16 @@ func BenchmarkInsertBackend(b *testing.B) {
 	for b.Loop() {
 		wtxn = p.Writer.WriteTxn()
 		for i := range numObjects {
-			beAddr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(i), loadbalancer.ScopeExternal)
+			beAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(i), loadbalancer.ScopeExternal)
 			p.Writer.UpsertBackends(
 				wtxn,
 				name,
 				source.Kubernetes,
-				loadbalancer.BackendParams{
-					Address: beAddr,
-					State:   loadbalancer.BackendStateActive,
-				},
+				slices.Values([]loadbalancer.BackendParams{
+					{
+						Address: beAddr,
+						State:   loadbalancer.BackendStateActive,
+					}}),
 			)
 		}
 		// Don't commit the changes so we actually test the cost of Insert() of new object.
@@ -140,7 +142,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 	addrCluster1 := types.MustParseAddrCluster("1.0.0.1")
 	addrCluster2 := types.MustParseAddrCluster("2.0.0.2")
 
-	name := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()
 
 	p.Writer.UpsertServiceAndFrontends(
@@ -150,21 +152,22 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			Source: source.Kubernetes,
 		},
 		loadbalancer.FrontendParams{
-			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
+			Address:  loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
 		},
 	)
 
-	beAddr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(1234), loadbalancer.ScopeExternal)
+	beAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(1234), loadbalancer.ScopeExternal)
 	p.Writer.UpsertBackends(
 		wtxn,
 		name,
 		source.Kubernetes,
-		loadbalancer.BackendParams{
-			Address: beAddr,
-			State:   loadbalancer.BackendStateActive,
-		},
+		slices.Values([]loadbalancer.BackendParams{
+			{
+				Address: beAddr,
+				State:   loadbalancer.BackendStateActive,
+			}}),
 	)
 	wtxn.Commit()
 
@@ -174,10 +177,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			source.Kubernetes,
-			loadbalancer.BackendParams{
-				Address: beAddr,
-				State:   loadbalancer.BackendStateActive,
-			},
+			slices.Values([]loadbalancer.BackendParams{
+				{
+					Address: beAddr,
+					State:   loadbalancer.BackendStateActive,
+				}}),
 		)
 	}
 	wtxn.Abort()
@@ -190,9 +194,9 @@ func BenchmarkReplaceService(b *testing.B) {
 	p := fixture(b)
 
 	addrCluster := types.MustParseAddrCluster("1.0.0.1")
-	l3n4Addr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
+	l3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
 
-	name := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+	name := loadbalancer.NewServiceName("test", "svc")
 	wtxn := p.Writer.WriteTxn()
 
 	p.Writer.UpsertServiceAndFrontends(

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -226,8 +227,8 @@ func (s *fileReflector) synchronize(txn writer.WriteTxn, state *StateFile) (numS
 	}
 	for i := range state.Endpoints {
 		eps := k8s.ParseEndpointSliceV1(s.log, &state.Endpoints[i])
-		svcName, bes := convertEndpoints(s.log, s.extConfig, eps)
-		if err := s.w.UpsertBackends(txn, svcName, source.LocalAPI, bes...); err != nil {
+		bes := convertEndpoints(s.log, s.extConfig, eps.ServiceName, maps.All(eps.Backends))
+		if err := s.w.UpsertBackends(txn, eps.ServiceName, source.LocalAPI, bes); err != nil {
 			return 0, 0, 0, fmt.Errorf("failed to upsert backends: %w", err)
 		}
 		numBackends++

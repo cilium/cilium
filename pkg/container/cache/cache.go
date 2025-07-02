@@ -4,11 +4,13 @@
 package cache
 
 import (
-	"sync"
+	"weak"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
-	cacheSize = 512
+	cacheSize = 1024
 	cacheMask = cacheSize - 1
 )
 
@@ -17,19 +19,15 @@ func New[T any](hashfn func(T) uint64, skipfn func(x T) bool, eqfn func(a, b T) 
 		hashfn: hashfn,
 		eqfn:   eqfn,
 		skipfn: skipfn,
-		pool: sync.Pool{New: func() any {
-			var arr [cacheSize]T
-			return &arr
-		}},
 	}
 }
 
 // Cache is a simple fixed size cache for efficient deduplication of objects.
+// The underlying array is held onto with a weak pointer to allow GC to collect
+// it when under memory pressure.
 type Cache[T any] struct {
-	// pool of cache arrays. Pool is used here as it provides a very efficient
-	// shared access to a set of "cache arrays", and under low memory scenarios
-	// allows the Go runtime to drop the caches.
-	pool sync.Pool
+	mu  lock.Mutex
+	arr weak.Pointer[[cacheSize]T]
 
 	skipfn func(T) bool
 	hashfn func(T) uint64
@@ -43,19 +41,48 @@ func (c *Cache[T]) Get(x T) T {
 	if c.skipfn != nil && c.skipfn(x) {
 		return x
 	}
-	x, _ = c.get(x)
+	x, _ = c.getWithHash(x)
 	return x
 }
 
-func (c *Cache[T]) get(x T) (T, uint64) {
+func (c *Cache[T]) getArray() *[cacheSize]T {
+	if v := c.arr.Value(); v != nil {
+		return v
+	}
+	arr := [cacheSize]T{}
+	c.arr = weak.Make(&arr)
+	return &arr
+}
+
+func (c *Cache[T]) getWithHash(x T) (T, uint64) {
 	hash := c.hashfn(x)
-	arr := c.pool.Get().(*[cacheSize]T)
 	idx := hash & cacheMask
-	v := (*arr)[idx]
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	arr := c.getArray()
+	v := arr[idx]
 	if !c.eqfn(x, v) {
-		(*arr)[idx] = x
+		arr[idx] = x
 		v = x
 	}
-	c.pool.Put(arr)
 	return v, hash
+}
+
+// GetOrPutWith tries to find the object from the cache with the given hash and equality
+// function. . If not found, [get] is called to construct the object.
+func GetOrPutWith[T any](c *Cache[T], hash uint64, eq func(T) bool, get func() T) T {
+	idx := hash & cacheMask
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	arr := c.getArray()
+	v := arr[idx]
+	if !eq(v) {
+		v = get()
+		arr[idx] = v
+	}
+	return v
 }

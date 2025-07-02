@@ -1,0 +1,60 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: unresolved-gateway-with-one-attached-unresolved-route
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: gateway-conformance-infra
+    name: tls
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: does-not-exist
+      mode: Terminate
+status:
+  conditions:
+  - lastTransitionTime: "2025-07-01T06:20:17Z"
+    message: Gateway successfully scheduled
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2025-07-01T06:20:17Z"
+    message: Gateway successfully reconciled
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: "2025-07-01T06:20:17Z"
+      message: Invalid CertificateRef
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: "2025-07-01T06:20:17Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T06:20:17Z"
+      message: Invalid CertificateRef
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: tls
+    supportedKinds:
+    - kind: HTTPRoute

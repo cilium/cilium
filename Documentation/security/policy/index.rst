@@ -21,7 +21,8 @@ mechanisms:
 
 * Directly imported into the agent via CLI or :ref:`api_ref` of the agent. This
   method does not automatically distribute policies to all agents. It is in the
-  responsibility of the user to import the policy in all required agents.
+  responsibility of the user to import the policy in all required agents. (This
+  method is deprecated as of v1.18 and will be removed in v1.19.)
 
 .. toctree::
    :maxdepth: 2

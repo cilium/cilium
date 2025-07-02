@@ -9,12 +9,13 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 func TestAddRemoveEndpoint(t *testing.T) {
 	logger := hivetest.Logger(t)
-	ifaces, err := netlink.LinkList()
+	ifaces, err := safenetlink.LinkList()
 	require.NoError(t, err)
 
 	if len(ifaces) == 0 {
@@ -52,7 +53,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 
 func TestAddRemoveNil(t *testing.T) {
 	logger := hivetest.Logger(t)
-	ifaces, err := netlink.LinkList()
+	ifaces, err := safenetlink.LinkList()
 	require.NoError(t, err)
 
 	if len(ifaces) == 0 {

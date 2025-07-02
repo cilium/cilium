@@ -4,7 +4,6 @@
 package loadbalancer
 
 import (
-	"bytes"
 	"fmt"
 	"iter"
 	"strings"
@@ -84,13 +83,13 @@ type BackendInstanceKey struct {
 }
 
 func (k BackendInstanceKey) Key() []byte {
-	var buf bytes.Buffer
-	buf.WriteString(k.ServiceName.String())
-	if k.SourcePriority != 0 {
-		buf.WriteByte(' ')
-		buf.WriteByte(k.SourcePriority)
+	if k.SourcePriority == 0 {
+		return k.ServiceName.Key()
 	}
-	return buf.Bytes()
+	sk := k.ServiceName.Key()
+	buf := make([]byte, 0, 2+len(sk))
+	buf = append(buf, sk...)
+	return append(buf, ' ', k.SourcePriority)
 }
 
 func (be *Backend) GetInstance(name ServiceName) *BackendParams {
@@ -236,12 +235,12 @@ func (be *Backend) serviceNameKeys() index.KeySet {
 	if be.Instances.Len() == 1 {
 		// Avoid allocating the slice.
 		for k := range be.PreferredInstances() {
-			return index.NewKeySet(index.String(k.ServiceName.String()))
+			return index.NewKeySet(k.ServiceName.Key())
 		}
 	}
 	keys := make([]index.Key, 0, be.Instances.Len()) // This may be more than enough if non-preferred instances exist.
 	for k := range be.PreferredInstances() {
-		keys = append(keys, index.String(k.ServiceName.String()))
+		keys = append(keys, k.ServiceName.Key())
 	}
 	return index.NewKeySet(keys...)
 }
@@ -283,7 +282,7 @@ var (
 	backendServiceIndex = statedb.Index[*Backend, ServiceName]{
 		Name:       "service",
 		FromObject: (*Backend).serviceNameKeys,
-		FromKey:    index.Stringer[ServiceName],
+		FromKey:    ServiceName.Key,
 		FromString: index.FromString,
 		Unique:     false,
 	}

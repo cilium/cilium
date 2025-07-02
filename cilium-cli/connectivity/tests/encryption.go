@@ -145,10 +145,18 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		// - Any pkt client <-> server with a given proto. This might be useful
 		//   to catch any regression in the DP which makes the pkt to bypass
 		//   the VXLAN tunnel.
-		filter := fmt.Sprintf("((%s and host %s and host %s) or (host %s and host %s and %s))",
-			tunnelFilter,
-			clientHost.Address(features.IPFamilyV4), serverHost.Address(features.IPFamilyV4),
+		filter := fmt.Sprintf("host %s and host %s and %s",
 			client.Address(ipFam), server.Address(ipFam), protoFilter)
+		if clientHostV4 := clientHost.Address(features.IPFamilyV4); clientHostV4 != "" {
+			filterUnderlayV4 := fmt.Sprintf("%s and host %s and host %s", tunnelFilter,
+				clientHost.Address(features.IPFamilyV4), serverHost.Address(features.IPFamilyV4))
+			filter = fmt.Sprintf("(%s) or (%s)", filter, filterUnderlayV4)
+		}
+		if clientHostV6 := clientHost.Address(features.IPFamilyV6); clientHostV6 != "" {
+			filterUnderlayV6 := fmt.Sprintf("%s and host %s and host %s", tunnelFilter,
+				clientHost.Address(features.IPFamilyV6), serverHost.Address(features.IPFamilyV6))
+			filter = fmt.Sprintf("(%s) or (%s)", filter, filterUnderlayV6)
+		}
 
 		// Exclude icmpv6 neighbor broadcast packets, as these are intentionally not encrypted:
 		// Ref[0]: https://github.com/cilium/cilium/blob/e8543eef/bpf/lib/wireguard.h#L95
