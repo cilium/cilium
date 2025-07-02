@@ -150,7 +150,7 @@ func (p *l2ResponderReconciler) cycle(
 			err = garpOnNewEntry(arMap, p.params.GNeighSender, e.IP, idx)
 		}
 		if err != nil {
-			return err
+			log.Warn("Unable to send gratuitous ARP/NDP. Continuing...", logfields.Error, err)
 		}
 
 		if e.IP.Is6() {
