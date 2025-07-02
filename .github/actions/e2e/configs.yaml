@@ -337,7 +337,6 @@
   tunnel: 'vxlan'
   underlay: 'ipv6'
   lb-mode: 'snat'
-  egress-gateway: 'true'
   ingress-controller: 'true'
   skip-upgrade: 'true'
 - name: '30'
