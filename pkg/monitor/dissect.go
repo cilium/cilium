@@ -135,6 +135,15 @@ func getTCPInfo(isOverlay bool) string {
 	return info
 }
 
+func getEthInfo(isOverlay bool) string {
+	target := cache.eth
+	if isOverlay {
+		target = cache.overlay.eth
+	}
+
+	return fmt.Sprintf("%s -> %s %s", target.SrcMAC, target.DstMAC, target.EthernetType.String())
+}
+
 // ConnectionInfo contains tuple information and icmp code for a connection
 type ConnectionInfo struct {
 	SrcIP    net.IP
@@ -309,7 +318,7 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	case hasIP:
 		str += fmt.Sprintf("%s -> %s", c.SrcIP, c.DstIP)
 	case hasEth:
-		str += fmt.Sprintf("%s -> %s %s", cache.eth.SrcMAC, cache.eth.DstMAC, cache.eth.EthernetType.String())
+		str += getEthInfo(c.isOverlay())
 	default:
 		str += "[unknown]"
 	}
