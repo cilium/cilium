@@ -559,12 +559,12 @@ func LoadLineInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec
 }
 
 func newLineInfo(li bpfLineInfo, strings *stringTable) (LineOffset, error) {
-	line, err := strings.Lookup(li.LineOff)
+	line, err := strings.LookupCached(li.LineOff)
 	if err != nil {
 		return LineOffset{}, fmt.Errorf("lookup of line: %w", err)
 	}
 
-	fileName, err := strings.Lookup(li.FileNameOff)
+	fileName, err := strings.LookupCached(li.FileNameOff)
 	if err != nil {
 		return LineOffset{}, fmt.Errorf("lookup of filename: %w", err)
 	}

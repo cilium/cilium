@@ -67,11 +67,17 @@ func (ins *Instruction) Unmarshal(r io.Reader, bo binary.ByteOrder, platform str
 	ins.Constant = int64(int32(bo.Uint32(data[4:8])))
 
 	if ins.IsBuiltinCall() {
-		fn, err := BuiltinFuncForPlatform(platform, uint32(ins.Constant))
-		if err != nil {
-			return err
+		if ins.Constant >= 0 {
+			// Leave negative constants from the instruction stream
+			// unchanged. These are sometimes used as placeholders for later
+			// patching.
+			// This relies on not having a valid platform tag with a high bit set.
+			fn, err := BuiltinFuncForPlatform(platform, uint32(ins.Constant))
+			if err != nil {
+				return err
+			}
+			ins.Constant = int64(fn)
 		}
-		ins.Constant = int64(fn)
 	} else if ins.OpCode.Class().IsALU() {
 		switch ins.OpCode.ALUOp() {
 		case Div:

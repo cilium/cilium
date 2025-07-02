@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"slices"
 	"strings"
@@ -148,7 +149,9 @@ func applyRelocations(insns asm.Instructions, bo binary.ByteOrder, b *btf.Builde
 	}
 
 	modules, err := c.Modules()
-	if err != nil {
+	// Ignore ErrNotExists to cater to kernels which have CONFIG_DEBUG_INFO_BTF_MODULES
+	// or CONFIG_DEBUG_INFO_BTF disabled.
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
