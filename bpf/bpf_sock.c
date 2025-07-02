@@ -139,6 +139,10 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	struct ipv4_revnat_tuple key = {};
 	int ret = 0;
 
+	/* Note that for the revnat map the protocol is not needed since the
+	 * cookie is already part of the key which is an unique identifier,
+	 * meaning across the TCP/UDP universe a socket cookie is unique.
+	 */
 	key.cookie = sock_local_cookie(ctx);
 	key.address = backend->address;
 	key.port = backend->port;
