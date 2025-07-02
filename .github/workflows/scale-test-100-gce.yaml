@@ -336,13 +336,25 @@ jobs:
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
-      - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+      - name: Wait for workloads nodes to be ready
         timeout-minutes: 20
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          interval: 10s
+        run: |
+          cnt=0
+
+          # Allow for a 2 per thousand toleration in the expected nodes count, to
+          # continue with the test even if a tiny fraction of the workers failed
+          # bootstrapping and joining the cluster.
+          desired=$(( ${{ steps.vars.outputs.WORKLOAD_NODES}} - ${{ steps.vars.outputs.WORKLOAD_NODES}} * 2 / 1000 ))
+
+          # A more idiomatic way would be using the kops.k8s.io/instancegroup=workloads
+          # label selector, but kops appears to be significantly slow at reconciling
+          # the labels to the node objects. Hence, let's just grep for the node names.
+          while [[ "$cnt" -lt "$desired" ]]; do
+            # shellcheck disable=SC2196
+            cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[-a-z0-9]+\s+Ready\s' || true)
+            echo "workloads nodes count: $cnt"
+            sleep 10
+          done
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
@@ -352,7 +364,8 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --interactive=false
+          kubectl rollout status -n kube-system ds/cilium
+          kubectl rollout status -n kube-system ds/cilium-envoy
 
       - name: Run CL2
         id: run-cl2
