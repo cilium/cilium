@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -15,6 +16,10 @@ import (
 
 	"github.com/cilium/stream"
 )
+
+// ErrSelectorPolicyNotCached cancels the policy computation retry because the
+// identity no longer exists.
+var ErrSelectorPolicyNotCached = errors.New("SelectorPolicy not found in cache")
 
 // policyCache represents a cache of resolved policies for identities.
 type policyCache struct {
@@ -142,7 +147,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, *selectorPolicy, bool, error) {
 	cip, ok := cache.lookup(identity)
 	if !ok {
-		return nil, nil, false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
+		return nil, nil, false, fmt.Errorf("%w for ID %d", ErrSelectorPolicyNotCached, identity.ID)
 	}
 
 	// As long as UpdatePolicy() is triggered from endpoint
