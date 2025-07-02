@@ -155,7 +155,10 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 	map_delete_elem(&cilium_metrics, &key);
@@ -209,7 +212,10 @@ int egressgw_drop_no_egress_ip_check(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 	endpoint_v4_del_entry(GATEWAY_NODE_IP);
@@ -359,7 +365,10 @@ int egressgw_skip_no_gateway_redirect_check_v6(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128);
 	map_delete_elem(&cilium_metrics, &key);
@@ -418,7 +427,10 @@ int egressgw_drop_no_egress_ip_check_v6(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128);
 	endpoint_v4_del_entry(GATEWAY_NODE_IP);
