@@ -249,6 +249,13 @@ jobs:
           native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
           echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
 
+      - name: Create ESP allow firewall rule
+        if: ${{ matrix.name == 'tunnel-ipsec' }}
+        uses: ./.github/actions/gke-create-esp-rule
+        with:
+          cluster_name: ${{ env.clusterName }}-${{ matrix.index }}
+          cluster_zone: ${{ env.gcp_zone }}
+
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }}
@@ -302,6 +309,13 @@ jobs:
           always_capture_sysdump: true
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+
+      - name: Clean up ESP allow firewall rule
+        if: ${{ always() && matrix.name == 'tunnel-ipsec' }}
+        uses: ./.github/actions/gke-clean-esp-rule
+        with:
+          cluster_name: ${{ env.clusterName }}-${{ matrix.index }}
+          cluster_zone: ${{ env.gcp_zone }}
 
       - name: Clean up GKE
         if: ${{ always() }}
