@@ -349,7 +349,7 @@ func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, 
 
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
-		Dissect(buf, dissect, data[hdrLen:])
+		Dissect(buf, dissect, data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
 }
 
