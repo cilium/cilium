@@ -648,6 +648,7 @@ that happened before the events were captured by Hubble.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
+| source_xlated_port | [uint32](#uint32) |  | source_xlated_port is the post-translation source Port when the flow was SNATed. When &#34;source_xlated_port&#34; is set, the &#34;source_port&#34; field is populated with the pre-translation source Port. |
 | destination_port | [uint32](#uint32) |  |  |
 
 
@@ -734,6 +735,7 @@ that happened before the events were captured by Hubble.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
+| source_xlated_port | [uint32](#uint32) |  | source_xlated_port is the post-translation source Port when the flow was SNATed. When &#34;source_xlated_port&#34; is set, the &#34;source_port&#34; field is populated with the pre-translation source Port. |
 | destination_port | [uint32](#uint32) |  |  |
 | flags | [TCPFlags](#flow-TCPFlags) |  |  |
 
@@ -838,6 +840,7 @@ TraceParent identifies the incoming request in a tracing system.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
+| source_xlated_port | [uint32](#uint32) |  | source_xlated_port is the post-translation source Port when the flow was SNATed. When &#34;source_xlated_port&#34; is set, the &#34;source_port&#34; field is populated with the pre-translation source Port. |
 | destination_port | [uint32](#uint32) |  |  |
 
 
