@@ -43,6 +43,6 @@ func (n *RecorderCapture) DumpInfo(buf *bufio.Writer, data []byte) {
 	}
 	fmt.Fprintf(buf, "Recorder capture: dir:%s rule:%d ts:%d caplen:%d len:%d\n",
 		dir, int(n.RuleID), int(n.TimeBoot), int(n.CapLen), int(n.Len))
-	Dissect(buf, true, data[RecorderCaptureLen:])
+	Dissect(buf, true, data[RecorderCaptureLen:], nil)
 	fmt.Fprintf(buf, "----\n")
 }

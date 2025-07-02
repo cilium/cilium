@@ -4,6 +4,9 @@
 package monitor
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"strings"
@@ -41,6 +44,60 @@ func TestDissectSummary(t *testing.T) {
 
 	require.Equal(t, sport, summary.L4.Src)
 	require.Equal(t, dport, summary.L4.Dst)
+}
+
+func TestDissect(t *testing.T) {
+	for _, c := range []struct {
+		Name string
+		opts decodeOpts
+		Data []byte
+	}{
+		// Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="1.2.3.4",dst="5.6.7.8")/TCP(sport=80,dport=443)
+		{"Native", decodeOpts{}, []byte{2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 2, 32, 0, 125, 196, 0, 0}},
+		// Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="1.1.1.1",dst="2.2.2.2")/UDP(sport=8472,dport=9999)/GENEVE(vni=2,proto=0x6558)/Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="1.2.3.4",dst="5.6.7.8")/TCP(sport=80,dport=443,flags="A")
+		{"Geneve", decodeOpts{IsGeneve: true}, []byte{17, 18, 19, 20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0, 0, 90, 0, 1, 0, 0, 64, 17, 116, 141, 1, 1, 1, 1, 2, 2, 2, 2, 33, 24, 39, 15, 0, 70, 176, 143, 0, 0, 101, 88, 0, 0, 2, 0, 2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 16, 32, 0, 125, 182, 0, 0}},
+		// IP(src="1.2.3.4",dst="5.6.7.8")/TCP(sport=80,dport=443,flags="A")
+		{"NativeL3", decodeOpts{IsL3Device: true}, []byte{69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 16, 32, 0, 125, 182, 0, 0}},
+	} {
+		t.Run(c.Name, func(t *testing.T) {
+			var buf bytes.Buffer
+			writer := bufio.NewWriter(&buf)
+
+			// Ensure dissect=false prints raw data.
+			Dissect(writer, false, c.Data, &c.opts)
+			writer.Flush()
+			require.Equal(t, hex.Dump(c.Data), buf.String())
+
+			// Ensure dissect=true prints each decoded layer.
+			buf = bytes.Buffer{}
+			writer = bufio.NewWriter(&buf)
+			Dissect(writer, true, c.Data, &c.opts)
+			writer.Flush()
+			lines := strings.Split(buf.String(), "\n")
+			require.NotZero(t, lines)
+
+			switch {
+			case c.opts.IsGeneve:
+				require.Len(t, lines, 8)
+				require.True(t, strings.HasPrefix(lines[0], "Ethernet"))
+				require.True(t, strings.HasPrefix(lines[1], "IPv4"))
+				require.True(t, strings.HasPrefix(lines[2], "UDP"))
+				require.True(t, strings.HasPrefix(lines[3], "Geneve"))
+				require.True(t, strings.HasPrefix(lines[4], "Ethernet"))
+				require.True(t, strings.HasPrefix(lines[5], "IPv4"))
+				require.True(t, strings.HasPrefix(lines[6], "TCP"))
+			case c.opts.IsL3Device:
+				require.Len(t, lines, 3)
+				require.True(t, strings.HasPrefix(lines[0], "IPv4"))
+				require.True(t, strings.HasPrefix(lines[1], "TCP"))
+			default:
+				require.Len(t, lines, 4)
+				require.True(t, strings.HasPrefix(lines[0], "Ethernet"))
+				require.True(t, strings.HasPrefix(lines[1], "IPv4"))
+				require.True(t, strings.HasPrefix(lines[2], "TCP"))
+			}
+		})
+	}
 }
 
 func TestConnectionSummaryTcp(t *testing.T) {
