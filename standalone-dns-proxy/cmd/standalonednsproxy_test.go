@@ -10,7 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestStandaloneDNSProxy(t *testing.T) {
@@ -18,6 +20,16 @@ func TestStandaloneDNSProxy(t *testing.T) {
 		goleak.IgnoreCurrent(),
 	)
 
-	err := hive.New(StandaloneDNSProxyCell).Populate(hivetest.Logger(t))
+	// Enable L7 proxy for the standalone DNS proxy
+	option.Config.EnableL7Proxy = true
+	h := hive.New(StandaloneDNSProxyCell)
+
+	hive.AddConfigOverride(
+		h,
+		func(cfg *service.FQDNConfig) {
+			cfg.EnableStandaloneDNSProxy = true
+		})
+
+	err := h.Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
 }

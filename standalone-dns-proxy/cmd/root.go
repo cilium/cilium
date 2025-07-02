@@ -31,9 +31,7 @@ var (
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
 		}),
-		cell.Provide(func() service.FQDNConfig {
-			return service.DefaultConfig
-		}),
+		cell.Config(service.DefaultConfig),
 		cell.Invoke(registerStandaloneDNSProxyHooks),
 	)
 
@@ -93,7 +91,7 @@ func registerStandaloneDNSProxyHooks(params standaloneDNSProxyParams) error {
 	if params.AgentConfig.EnableL7Proxy && params.FQDNConfig.EnableStandaloneDNSProxy {
 		sdp.logger.Info("Standalone DNS proxy is enabled")
 	} else {
-		return fmt.Errorf("Standalone DNS proxy requires L7 proxy and standalone DNS proxy to be enabled in the configuration")
+		return fmt.Errorf("standalone DNS proxy requires L7 proxy and standalone DNS proxy to be enabled in the configuration")
 	}
 
 	params.Lifecycle.Append(cell.Hook{
