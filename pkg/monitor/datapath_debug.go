@@ -514,7 +514,7 @@ func (n *DebugCapture) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte,
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d DEBUG: %d bytes, %s", prefix, n.Hash, n.Source, n.Len, n.subTypeString())
 
 	if n.Len > 0 && len(data) > DebugCaptureLen {
-		Dissect(buf, dissect, data[DebugCaptureLen:])
+		Dissect(buf, dissect, data[DebugCaptureLen:], nil)
 	}
 }
 
