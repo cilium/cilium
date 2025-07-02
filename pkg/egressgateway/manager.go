@@ -167,6 +167,7 @@ type Params struct {
 
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
+	TunnelConfig      tunnel.Config
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMap4        *egressmap.PolicyMap4
 	PolicyMap6        *egressmap.PolicyMap6
@@ -202,6 +203,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
 	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	}
+
+	if p.TunnelConfig.UnderlayProtocol() != tunnel.IPv4 {
+		return out, errors.New("egress gateway requires an IPv4 underlay")
 	}
 
 	if !dcfg.EnableIPv6Masquerade {
