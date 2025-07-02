@@ -938,7 +938,7 @@ Cells with script support
 
 These cells when included in the test hive will bring useful commands that can be used in tests.
 
-- `FakeClientCell <https://github.com/cilium/cilium/blob/main/pkg/k8s/client/fake.go>`_: Commands for interacting with the fake client to add or delete objects. See ``help k8s``.
+- `FakeClientCell <https://github.com/cilium/cilium/blob/main/pkg/k8s/client/testutils/fake.go>`_: Commands for interacting with the fake client to add or delete objects. See ``help k8s``.
 - `StateDB <https://github.com/cilium/statedb/blob/main/script.go>`_: Commands for inspecting and manipulating StateDB. Also available via ``cilium-dbg shell``. See ``help db``.
 - `metrics.Cell <https://github.com/cilium/cilium/blob/main/pkg/metrics/cmd.go>`_: Commands for dumping and plotting metrics. See ``help metrics`` and ``pkg/metrics/testdata``.
 
