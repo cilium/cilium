@@ -79,7 +79,6 @@ type Agent struct {
 	privKey     wgtypes.Key
 	privKeyPath string
 	sysctl      sysctl.Sysctl
-	jobGroup    job.Group
 	db          *statedb.DB
 	mtuTable    statedb.Table[mtu.RouteMTU]
 	config      *option.DaemonConfig
@@ -125,7 +124,6 @@ func newWireguardAgent(params params) *Agent {
 		logger:   params.Logger.With(subsysLogAttr...),
 		db:       params.DB,
 		mtuTable: params.MTUTable,
-		jobGroup: params.JobGroup,
 		sysctl:   params.Sysctl,
 
 		localNode:   params.LocalNode,
@@ -153,7 +151,20 @@ func newWireguardAgent(params params) *Agent {
 			}
 
 			// Initialize the agent: create the link and the wireguard client.
-			return agent.init(ctx)
+			if err = agent.init(); err != nil {
+				return
+			}
+
+			// Start needed jobs.
+			params.JobGroup.Add(
+				job.OneShot("mtu-reconciler", agent.mtuReconciler),
+				job.OneShot("peer-reconciler", agent.peerReconciler),
+				job.OneShot("ipcache-listener", agent.ipsecListener),
+				job.OneShot("localnode-updater", agent.localnodeUpdater),
+				job.OneShot("nodemanager-subscribe", agent.nodemanagerSubscriber),
+			)
+
+			return
 		},
 		OnStop: func(cell.HookContext) error {
 			if !agent.config.EnableWireguard {
@@ -217,43 +228,9 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 }
 
 // init creates and configures the local WireGuard tunnel device.
-func (a *Agent) init(ctx context.Context) error {
-	initDone := false
+func (a *Agent) init() error {
 	a.Lock()
-	defer func() {
-		// IPCache will call back into OnIPIdentityCacheChange which requires
-		// us to release a.mutex before we can add ourself as a listener.
-		a.Unlock()
-		if !initDone {
-			return
-		}
-		if a.needsIPCache() {
-			a.ipCache.AddListener(a)
-		}
-		a.localNode.Update(func(ln *node.LocalNode) {
-			a.initLocalNodeFromWireGuard(ln)
-		})
-		a.nodeManager.Subscribe(a)
-		go func() {
-			// Wait until the kvstore synchronization completed, to avoid
-			// causing connectivity blips due incorrectly removing
-			// WireGuard peers that have not yet been discovered.
-			// WaitForKVStoreSync returns immediately in CRD mode.
-			if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
-				return
-			}
-			// When running in KVStore mode, we need to additionally wait until
-			// we have discovered all remote IP addresses, to prevent triggering
-			// the collection of stale AllowedIPs entries too early, leading to
-			// the disruption of otherwise valid long running connections.
-			if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
-				return
-			}
-			if err := a.restoreFinished(); err != nil {
-				a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
-			}
-		}()
-	}()
+	defer a.Unlock()
 
 	var err error
 	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
@@ -332,12 +309,54 @@ func (a *Agent) init(ctx context.Context) error {
 		return fmt.Errorf("failed to set link up: %w", err)
 	}
 
-	a.jobGroup.Add(job.OneShot("mtu-reconciler", a.mtuReconciler))
-
-	// this is read by the defer statement above
-	initDone = true
-
 	return nil
+}
+
+// ipsecListener is a job to subscribe to IPSec events. Upon registering, the
+// agent will be notified of all identities through OnIPIdentityCacheChange.
+func (a *Agent) ipsecListener(context.Context, cell.Health) error {
+	if a.needsIPCache() {
+		a.ipCache.AddListener(a)
+	}
+	return nil
+}
+
+// localnodeUpdater is a job to update the local node with the info
+// stored in the agent. See [initLocalNodeFromWireGuard] for further info.
+func (a *Agent) localnodeUpdater(context.Context, cell.Health) error {
+	a.localNode.Update(func(ln *node.LocalNode) {
+		a.initLocalNodeFromWireGuard(ln)
+	})
+	return nil
+}
+
+// nodemanagerSubscriber is a job to subscribe to the node events. Upon registering,
+// the agent will be notified of all the events that are already in the cluster.
+func (a *Agent) nodemanagerSubscriber(context.Context, cell.Health) error {
+	a.nodeManager.Subscribe(a)
+	return nil
+}
+
+// peerReconciler is a job that reconciles obsolete peers.
+func (a *Agent) peerReconciler(ctx context.Context, _ cell.Health) (err error) {
+	// Wait until the kvstore synchronization completed, to avoid
+	// causing connectivity blips due incorrectly removing
+	// WireGuard peers that have not yet been discovered.
+	// WaitForKVStoreSync returns immediately in CRD mode.
+	if err = a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
+		return
+	}
+	// When running in KVStore mode, we need to additionally wait until
+	// we have discovered all remote IP addresses, to prevent triggering
+	// the collection of stale AllowedIPs entries too early, leading to
+	// the disruption of otherwise valid long running connections.
+	if err = a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
+		return err
+	}
+	if err = a.restoreFinished(); err != nil {
+		a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
+	}
+	return
 }
 
 // mtuReconciler is a job that reconciles changes to the MTU to the WireGuard interface.
