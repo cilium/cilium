@@ -2593,7 +2593,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.ClusterMeshHealthPort = vp.GetInt(ClusterMeshHealthPort)
 	c.AllowICMPFragNeeded = vp.GetBool(AllowICMPFragNeeded)
-	c.AllowLocalhost = vp.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = vp.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = vp.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = vp.GetString(BPFRoot)
@@ -2735,6 +2734,14 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 
+	c.AllowLocalhost = strings.ToLower(vp.GetString(AllowLocalhost))
+	switch c.AllowLocalhost {
+	case AllowLocalhostAlways, AllowLocalhostAuto, AllowLocalhostPolicy:
+	default:
+		logging.Fatal(logger, fmt.Sprintf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
+			AllowLocalhostAuto, AllowLocalhostAlways, AllowLocalhostPolicy))
+	}
+
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
@@ -2765,6 +2772,10 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, fmt.Sprintf("%s cannot be higher than %d", TCFilterPriority, math.MaxUint16))
 	}
 	c.TCFilterPriority = uint16(tcFilterPrio)
+
+	if c.MaxControllerInterval < 0 {
+		logging.Fatal(logger, fmt.Sprintf("Invalid %s value %d", MaxCtrlIntervalName, c.MaxControllerInterval))
+	}
 
 	c.RoutingMode = vp.GetString(RoutingMode)
 

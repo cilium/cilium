@@ -1073,10 +1073,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(scopedLog, "Could not create envoy sockets directory", logfields.Error, err)
 	}
 
-	if option.Config.MaxControllerInterval < 0 {
-		logging.Fatal(scopedLog, fmt.Sprintf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval))
-	}
-
 	// set rlimit Memlock to INFINITY before creating any bpf resources.
 	if err := rlimit.RemoveMemlock(); err != nil {
 		logging.Fatal(scopedLog, "unable to set memory resource limits", logfields.Error, err)
@@ -1108,14 +1104,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 			logfields.Error, err,
 			logfields.Path, defaults.PidFilePath,
 		)
-	}
-
-	option.Config.AllowLocalhost = strings.ToLower(option.Config.AllowLocalhost)
-	switch option.Config.AllowLocalhost {
-	case option.AllowLocalhostAlways, option.AllowLocalhostAuto, option.AllowLocalhostPolicy:
-	default:
-		logging.Fatal(scopedLog, fmt.Sprintf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
-			option.AllowLocalhostAuto, option.AllowLocalhostAlways, option.AllowLocalhostPolicy))
 	}
 
 	scopedLog = logger.With(logfields.Path, option.Config.SocketPath)
