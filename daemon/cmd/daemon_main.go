@@ -1362,6 +1362,7 @@ type daemonParams struct {
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
+	Wireguard           datapath.WireguardAgent
 	LocalNodeStore      *node.LocalNodeStore
 	Shutdowner          hive.Shutdowner
 	Resources           agentK8s.Resources

@@ -103,6 +103,7 @@ func newLocalNodeConfig(
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
+		EnableWireguard:              config.EnableWireguard,
 		EnableIPSec:                  config.EnableIPSec,
 		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
 		EncryptNode:                  config.EncryptNode,
