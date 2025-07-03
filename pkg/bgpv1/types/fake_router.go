@@ -35,6 +35,10 @@ func (f *FakeRouter) ResetNeighbor(ctx context.Context, r ResetNeighborRequest) 
 	return nil
 }
 
+func (f *FakeRouter) ResetAllNeighbors(ctx context.Context, r ResetAllNeighborsRequest) error {
+	return nil
+}
+
 func (f *FakeRouter) AdvertisePath(ctx context.Context, p PathRequest) (PathResponse, error) {
 	path := p.Path
 	f.paths[path.NLRI.String()] = path
