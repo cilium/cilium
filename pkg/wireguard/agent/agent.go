@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -118,7 +119,7 @@ type params struct {
 	IPCache           *ipcache.IPCache
 }
 
-func newWireguardAgent(params params) *Agent {
+func newWireguardAgent(params params) datapath.WireguardAgent {
 	agent := &Agent{
 		config:   params.Config,
 		logger:   params.Logger.With(subsysLogAttr...),
@@ -183,6 +184,10 @@ func newWireguardAgent(params params) *Agent {
 
 func (a *Agent) Name() string {
 	return "wireguard-agent"
+}
+
+func (a *Agent) Enabled() bool {
+	return a.config.EnableWireguard
 }
 
 // needsIPCache returns true if the agent should subscribe to IPCache events.

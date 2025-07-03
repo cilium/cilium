@@ -908,7 +908,7 @@ func (d *statusCollector) getProbes() []Probe {
 					}, nil
 				case d.statusParams.DaemonConfig.EnableWireguard:
 					var msg string
-					status, err := d.statusParams.WireguardAgent.Status(false)
+					status, err := d.statusParams.Wireguard.Status(false)
 					if err != nil {
 						msg = err.Error()
 					}

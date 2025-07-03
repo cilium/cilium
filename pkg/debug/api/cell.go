@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/cast"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/status"
-	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 // Cell provides the Debug-Info API handler
@@ -35,7 +35,7 @@ type debugAPIHandlerParams struct {
 	Frontends       statedb.Table[*loadbalancer.Frontend]
 	EndpointManager endpointmanager.EndpointManager
 	PolicyRepo      policy.PolicyRepository
-	WireguardAgent  *wireguard.Agent
+	Wireguard       datapath.WireguardAgent
 
 	StatusCollector status.StatusCollector
 	CellSettings    cellSettings
@@ -54,7 +54,7 @@ func newDebugAPIHandler(params debugAPIHandlerParams) debugAPIHandlerOut {
 			policyRepo:      params.PolicyRepo,
 			db:              params.DB,
 			frontends:       params.Frontends,
-			wireguardAgent:  params.WireguardAgent,
+			wireguard:       params.Wireguard,
 			statusCollector: params.StatusCollector,
 			settings:        params.CellSettings,
 		},

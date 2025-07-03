@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
-	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 // Cell provides the Cilium status collector that is responsible for
@@ -100,7 +99,7 @@ type statusParams struct {
 	NodeDiscovery    *nodediscovery.NodeDiscovery
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
-	WireguardAgent   *wireguard.Agent
+	Wireguard        datapath.WireguardAgent
 }
 
 // Config is the collector configuration
