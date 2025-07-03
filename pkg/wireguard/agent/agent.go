@@ -81,6 +81,7 @@ type Agent struct {
 	db          *statedb.DB
 	mtuTable    statedb.Table[mtu.RouteMTU]
 	config      *option.DaemonConfig
+	localNode   *node.LocalNodeStore
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -101,6 +102,8 @@ type params struct {
 	MTUTable statedb.Table[mtu.RouteMTU]
 	JobGroup job.Group
 	Sysctl   sysctl.Sysctl
+
+	LocalNode *node.LocalNodeStore
 }
 
 func newWireguardAgent(params params) *Agent {
@@ -111,6 +114,8 @@ func newWireguardAgent(params params) *Agent {
 		mtuTable: params.MTUTable,
 		jobGroup: params.JobGroup,
 		sysctl:   params.Sysctl,
+
+		localNode: params.LocalNode,
 
 		privKeyPath: filepath.Join(params.Config.StateDir, types.PrivKeyFilename),
 		listenPort:  types.ListenPort,
@@ -157,18 +162,19 @@ func (a *Agent) needsIPCache() bool {
 	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
 }
 
-// InitLocalNodeFromWireGuard configures the fields on the local node. Called from
-// the LocalNodeSynchronizer _before_ the local node is published in the K8s
+// initLocalNodeFromWireGuard configures the fields on the local node. Called from
+// the agent init _before_ the local node is published in the K8s
 // CiliumNode CRD or the kvstore.
 //
 // This method does the following:
-//   - It sets the local WireGuard public key (to be read by other nodes).
+//   - It sets the local WireGuard public key (to be read by other nodes). This is
+//     always set even opting out from node-to-node encryption.
 //   - It reads the local node's labels to determine if the local node wants to
 //     opt-out of node-to-node encryption.
 //   - If the local node opts out of node-to-node encryption, we set the
 //     localNode.EncryptKey to zero. This indicates to other nodes that they
 //     should not encrypt node-to-node traffic with us.
-func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
+func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -193,16 +199,22 @@ func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
 
 // Init creates and configures the local WireGuard tunnel device.
 func (a *Agent) Init(ipcache *ipcache.IPCache) error {
-	addIPCacheListener := false
+	initDone := false
 	a.Lock()
 	a.ipCache = ipcache
 	defer func() {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
 		a.Unlock()
-		if addIPCacheListener && a.needsIPCache() {
+		if !initDone {
+			return
+		}
+		if a.needsIPCache() {
 			a.ipCache.AddListener(a)
 		}
+		a.localNode.Update(func(ln *node.LocalNode) {
+			a.initLocalNodeFromWireGuard(ln)
+		})
 	}()
 
 	var mtuConfig mtu.RouteMTU
@@ -279,7 +291,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 	a.jobGroup.Add(job.OneShot("mtu-reconciler", a.mtuReconciler))
 
 	// this is read by the defer statement above
-	addIPCacheListener = true
+	initDone = true
 
 	return nil
 }
