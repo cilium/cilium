@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -82,6 +83,7 @@ type Agent struct {
 	mtuTable    statedb.Table[mtu.RouteMTU]
 	config      *option.DaemonConfig
 	localNode   *node.LocalNodeStore
+	nodeManager nodeManager.NodeManager
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -103,7 +105,8 @@ type params struct {
 	JobGroup job.Group
 	Sysctl   sysctl.Sysctl
 
-	LocalNode *node.LocalNodeStore
+	LocalNode   *node.LocalNodeStore
+	NodeManager nodeManager.NodeManager
 }
 
 func newWireguardAgent(params params) *Agent {
@@ -115,7 +118,8 @@ func newWireguardAgent(params params) *Agent {
 		jobGroup: params.JobGroup,
 		sysctl:   params.Sysctl,
 
-		localNode: params.LocalNode,
+		localNode:   params.LocalNode,
+		nodeManager: params.NodeManager,
 
 		privKeyPath: filepath.Join(params.Config.StateDir, types.PrivKeyFilename),
 		listenPort:  types.ListenPort,
@@ -215,6 +219,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 		a.localNode.Update(func(ln *node.LocalNode) {
 			a.initLocalNodeFromWireGuard(ln)
 		})
+		a.nodeManager.Subscribe(a)
 	}()
 
 	var mtuConfig mtu.RouteMTU
