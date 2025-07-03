@@ -940,6 +940,9 @@ const (
 	// K8sEnableAPIDiscovery enables Kubernetes API discovery
 	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
 
+	// K8sEnableHostFirewallBypass enables bypassing host firewall for Kubernetes API server access
+	K8sEnableHostFirewallBypass = "enable-k8s-host-firewall-bypass"
+
 	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
@@ -1759,6 +1762,9 @@ type DaemonConfig struct {
 
 	// EnableHostFirewall enables network policies for the host
 	EnableHostFirewall bool
+
+	// EnableK8sHostFirewallBypass enables bypassing host firewall for kubernetes api server access
+	EnableK8sHostFirewallBypass bool
 
 	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
 	EnableLocalRedirectPolicy bool
@@ -2651,6 +2657,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
+	c.EnableK8sHostFirewallBypass = vp.GetBool(K8sEnableHostFirewallBypass)
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)

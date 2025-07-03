@@ -9,10 +9,13 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -20,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -363,4 +368,38 @@ func setupRouteToVtepCidr(logger *slog.Logger) error {
 	}
 
 	return nil
+}
+
+type enableK8sHostFirewallBypass struct{}
+
+func newEnableK8sHostFirewallBypass(config *option.DaemonConfig) k8sClient.ConfigureK8sClientsetDialer {
+	if config.EnableK8sHostFirewallBypass {
+		return &enableK8sHostFirewallBypass{}
+	} else {
+		return nil
+	}
+}
+
+// Sets SO_MARK so that connections to kube-apiserver bypass host firewall and DNS proxy
+func (*enableK8sHostFirewallBypass) ConfigureK8sClientsetDialer(dialer *net.Dialer) {
+	dialer.Control = setProxyEgressMark
+	dialer.Resolver = &net.Resolver{
+		PreferGo: true,
+		Dial: (&net.Dialer{
+			Control: setProxyEgressMark,
+		}).DialContext,
+	}
+}
+
+func setProxyEgressMark(network, address string, c syscall.RawConn) error {
+	var soerr error
+	if err := c.Control(func(su uintptr) {
+		secId := identity.ReservedIdentityHost
+		mark := linux_defaults.MagicMarkEgress
+		mark |= uint32(secId&0xFFFF)<<16 | uint32((secId&0xFF0000)>>16)
+		soerr = unix.SetsockoptUint64(int(su), unix.SOL_SOCKET, unix.SO_MARK, uint64(mark))
+	}); err != nil {
+		return err
+	}
+	return soerr
 }
