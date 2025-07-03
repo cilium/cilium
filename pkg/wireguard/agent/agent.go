@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -85,6 +86,10 @@ type Agent struct {
 	localNode   *node.LocalNodeStore
 	nodeManager nodeManager.NodeManager
 
+	nodeDiscovery     *nodediscovery.NodeDiscovery
+	ipIdentityWatcher *ipcache.LocalIPIdentityWatcher
+	clustermesh       *clustermesh.ClusterMesh
+
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
@@ -107,6 +112,10 @@ type params struct {
 
 	LocalNode   *node.LocalNodeStore
 	NodeManager nodeManager.NodeManager
+
+	NodeDiscovery     *nodediscovery.NodeDiscovery
+	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
+	Clustermesh       *clustermesh.ClusterMesh
 }
 
 func newWireguardAgent(params params) *Agent {
@@ -120,6 +129,10 @@ func newWireguardAgent(params params) *Agent {
 
 		localNode:   params.LocalNode,
 		nodeManager: params.NodeManager,
+
+		nodeDiscovery:     params.NodeDiscovery,
+		ipIdentityWatcher: params.IPIdentityWatcher,
+		clustermesh:       params.Clustermesh,
 
 		privKeyPath: filepath.Join(params.Config.StateDir, types.PrivKeyFilename),
 		listenPort:  types.ListenPort,
@@ -202,7 +215,7 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 }
 
 // Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(ipcache *ipcache.IPCache) error {
+func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
 	initDone := false
 	a.Lock()
 	a.ipCache = ipcache
@@ -220,6 +233,25 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 			a.initLocalNodeFromWireGuard(ln)
 		})
 		a.nodeManager.Subscribe(a)
+		go func() {
+			// Wait until the kvstore synchronization completed, to avoid
+			// causing connectivity blips due incorrectly removing
+			// WireGuard peers that have not yet been discovered.
+			// WaitForKVStoreSync returns immediately in CRD mode.
+			if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
+				return
+			}
+			// When running in KVStore mode, we need to additionally wait until
+			// we have discovered all remote IP addresses, to prevent triggering
+			// the collection of stale AllowedIPs entries too early, leading to
+			// the disruption of otherwise valid long running connections.
+			if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
+				return
+			}
+			if err := a.restoreFinished(); err != nil {
+				a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
+			}
+		}()
 	}()
 
 	var mtuConfig mtu.RouteMTU
@@ -347,14 +379,14 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
-	if cm != nil {
+func (a *Agent) restoreFinished() error {
+	if a.clustermesh != nil {
 		// Wait until we received the initial list of nodes from all remote clusters,
 		// otherwise we might remove valid peers and disrupt existing connections.
-		cm.NodesSynced(context.Background())
+		a.clustermesh.NodesSynced(context.Background())
 		// Additionally wait for ipcache synchronization, so that we don't garbage
 		// collect non-stale AllowedIPs too early.
-		cm.IPIdentitiesSynced(context.Background())
+		a.clustermesh.IPIdentitiesSynced(context.Background())
 	}
 
 	a.Lock()
