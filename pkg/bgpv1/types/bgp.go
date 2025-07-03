@@ -106,14 +106,37 @@ type NeighborRouteReflector struct {
 type SoftResetDirection int
 
 const (
-	SoftResetDirectionIn SoftResetDirection = iota
+	SoftResetDirectionNone SoftResetDirection = iota
+	SoftResetDirectionIn
 	SoftResetDirectionOut
 	SoftResetDirectionBoth
 )
 
+func (d SoftResetDirection) String() string {
+	switch d {
+	case SoftResetDirectionNone:
+		return "none"
+	case SoftResetDirectionIn:
+		return "in"
+	case SoftResetDirectionOut:
+		return "out"
+	case SoftResetDirectionBoth:
+		return "both"
+	default:
+		return "unknown"
+	}
+}
+
 // ResetNeighborRequest contains parameters used when resetting a BGP peer
 type ResetNeighborRequest struct {
 	PeerAddress        netip.Addr
+	Soft               bool
+	SoftResetDirection SoftResetDirection
+	AdminCommunication string
+}
+
+// ResetAllNeighborsRequest contains parameters used when resetting all BGP peers
+type ResetAllNeighborsRequest struct {
 	Soft               bool
 	SoftResetDirection SoftResetDirection
 	AdminCommunication string
@@ -391,6 +414,9 @@ type Router interface {
 
 	// ResetNeighbor resets BGP peering with the provided neighbor address
 	ResetNeighbor(ctx context.Context, r ResetNeighborRequest) error
+
+	// ResetAllNeighbors resets BGP peering with all configured neighbors
+	ResetAllNeighbors(ctx context.Context, r ResetAllNeighborsRequest) error
 
 	// AdvertisePath advertises BGP Path to all configured peers
 	AdvertisePath(ctx context.Context, p PathRequest) (PathResponse, error)
