@@ -429,7 +429,7 @@ jobs:
           tested_sha: ${{ steps.vars.outputs.sha }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/
-          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+          other_files: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'cilium-sysdump-final.zip' || '' }} ./perf-tests/clusterloader2/cl2-output.txt
 
   commit-status-final:
     if: ${{ always() }}
