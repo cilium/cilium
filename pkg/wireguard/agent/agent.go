@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -111,12 +110,6 @@ func newWireguardAgent(params params) *Agent {
 		return nil
 	}
 
-	wgClient, err := wgctrl.New()
-	if err != nil {
-		logging.Fatal(params.Logger, fmt.Sprintf("failed to initialize WireGuard: %s", err))
-		return nil
-	}
-
 	agent := &Agent{
 		config:   params.Config,
 		logger:   params.Logger.With(subsysLogAttr...),
@@ -125,7 +118,6 @@ func newWireguardAgent(params params) *Agent {
 		jobGroup: params.JobGroup,
 		sysctl:   params.Sysctl,
 
-		wgClient:    wgClient,
 		privKeyPath: filepath.Join(params.Config.StateDir, types.PrivKeyFilename),
 		listenPort:  types.ListenPort,
 
@@ -252,6 +244,11 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 		if err := a.sysctl.Disable([]string{"net", "ipv4", "conf", types.IfaceName, "rp_filter"}); err != nil {
 			return fmt.Errorf("failed to disable rp_filter: %w", err)
 		}
+	}
+
+	a.wgClient, err = wgctrl.New()
+	if err != nil {
+		return fmt.Errorf("failed to create the wireguard client: %w", err)
 	}
 
 	fwMark := linux_defaults.MagicMarkWireGuardEncrypted
