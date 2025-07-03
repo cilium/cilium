@@ -596,7 +596,8 @@ func (m *manager) nodeAddressHasEncryptKey() bool {
 // With IPSec (or no encryption), the node's encryption key index and the
 // encryption key of the endpoint on that node are the same.
 func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
-	if m.conf.EnableWireguard {
+	// The public key is always set, even when opting-out from node-to-node encryption.
+	if n.WireguardPubKey != "" {
 		return ipcacheTypes.EncryptKey(types.StaticEncryptKey)
 	}
 
