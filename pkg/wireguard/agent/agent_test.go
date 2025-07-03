@@ -289,7 +289,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 			ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
-			err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+			err := wgAgent.updatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
 			require.NoError(t, err)
 
 			assertAllowedIPs := func(e expectation) {
@@ -320,7 +320,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			agentUpdatePending := make(chan struct{})
 			go func() {
 				close(agentUpdatePending)
-				err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+				err = wgAgent.updatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
 				require.NoError(t, err)
 				close(agentUpdated)
 			}()
@@ -380,12 +380,12 @@ func TestAgent_PeerConfig(t *testing.T) {
 			c.CheckExpectations(assertAllowedIPs) // checks entry 2
 
 			// Tests that duplicate public keys are rejected (k8s2 imitates k8s1)
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+			err = wgAgent.updatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
 			require.ErrorContains(t, err, "detected duplicate public key")
 
 			// Node Deletion
-			wgAgent.DeletePeer(k8s1NodeName)
-			wgAgent.DeletePeer(k8s2NodeName)
+			wgAgent.deletePeer(k8s1NodeName)
+			wgAgent.deletePeer(k8s2NodeName)
 			require.Empty(t, wgAgent.peerByNodeName)
 			require.Empty(t, wgAgent.nodeNameByNodeIP)
 			require.Empty(t, wgAgent.nodeNameByPubKey)
@@ -519,7 +519,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 			ipCache.Upsert(pod1IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 
-			err = wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+			err = wgAgent.updatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
 			require.NoError(t, err, "Failed to update peer")
 
 			// Assert that the AllowedIPs are updated correctly, preserving the restored ones
@@ -534,13 +534,13 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			// Associate previously restored allowed IPs with a different peer, and
 			// assert that the updates are propagated correctly, without flipping.
 			ipCache.Upsert(pod4IPv4Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+			err = wgAgent.updatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
 			require.NoError(t, err, "Failed to update peer")
 			ipCache.Upsert(pod4IPv6Str, k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 
 			// We explicitly trigger UpdatePeer here to cause the allowed IPs to be
 			// synchronized, so that we can test that the cache got correctly updated.
-			err = wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+			err = wgAgent.updatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
 			require.NoError(t, err, "Failed to update peer")
 
 			c.CheckExpectations(assertAllowedIPs) // checks entry 3
@@ -550,22 +550,22 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			c.CheckExpectations(assertAllowedIPs) // checks entry 4
 
 			// Ensure that a public key change results in deletion of the old peer entry.
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4, k8s2NodeIPv6)
+			err = wgAgent.updatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4, k8s2NodeIPv6)
 			require.NoError(t, err)
 			c.CheckExpectations(assertAllowedIPs) // checks entry 5
 
 			// Ensure that a node IP change gets reflected
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4_2, k8s2NodeIPv6_2)
+			err = wgAgent.updatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4_2, k8s2NodeIPv6_2)
 			require.NoError(t, err)
 			c.CheckExpectations(assertAllowedIPs) // checks entry 6
 
 			// Ensure that a public key change and node IP change gets reflected.
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+			err = wgAgent.updatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
 			require.NoError(t, err)
 			c.CheckExpectations(assertAllowedIPs) // checks entry 7
 
 			// Ensure that a node IP change gets reflected
-			err = wgAgent.UpdatePeer(k8s2NodeName, wgDummyPeerKey.String(), k8s2NodeIPv4_2, k8s2NodeIPv6_2)
+			err = wgAgent.updatePeer(k8s2NodeName, wgDummyPeerKey.String(), k8s2NodeIPv4_2, k8s2NodeIPv6_2)
 			require.Error(t, err, "node %q is not allowed to use the dummy peer key", k8s2NodeName)
 		})
 	}
