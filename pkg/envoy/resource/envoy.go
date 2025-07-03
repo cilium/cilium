@@ -43,6 +43,8 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/wasm/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/bootstrap/internal_listener/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/aggregate/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/common/dns/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dns/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/redis/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/common/async_files/v3"
