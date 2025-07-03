@@ -5,6 +5,7 @@ package healthcheck
 
 import (
 	"context"
+	
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
