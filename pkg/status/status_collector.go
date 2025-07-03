@@ -275,14 +275,14 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 }
 
 func (d *statusCollector) getBGPStatus(ctx context.Context) *models.BGPStatus {
-	healthy, msg := d.statusParams.BGPStatusGetter.GetBGPPeerStatus(ctx)
-	var mode string
 	if !d.statusParams.DaemonConfig.EnableBGPControlPlane {
 		return &models.BGPStatus{
 			Mode: models.BGPStatusStateDisabled,
 			Msg:  "BGP control plane is disabled",
 		}
 	}
+	healthy, msg := d.statusParams.BGPStatusGetter.GetBGPPeerStatus(ctx)
+	var mode string
 	if healthy {
 		mode = models.BGPStatusStateOk
 	} else {
