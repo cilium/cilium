@@ -272,7 +272,7 @@ jobs:
           persist-credentials: false
 
       - name: Install cilium-cli
-        uses: cilium/cilium-cli@6e65fa094c051aee03959dc9a75e66213e9050c7 # v0.18.4
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -296,7 +296,7 @@ jobs:
 
       - name: Provision LVH VMs
         id: provision-vh-vms
-        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           test-name: datapath-conformance
           install-dependencies: true
@@ -306,7 +306,7 @@ jobs:
           cpu: 4
           mem: 12G
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.24"
+          lvh-version: "v0.0.25"
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
@@ -314,7 +314,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           provision: 'false'
           cmd: |
@@ -380,7 +380,7 @@ jobs:
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           provision: 'false'
           cmd: |
@@ -434,7 +434,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           provision: 'false'
           cmd: |
@@ -461,7 +461,7 @@ jobs:
       - name: Fetch features tested
         if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
         continue-on-error: true
-        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           provision: 'false'
           cmd: |
