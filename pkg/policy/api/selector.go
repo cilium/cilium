@@ -49,6 +49,8 @@ type EndpointSelector struct {
 	sanitized bool `json:"-"`
 }
 
+func (n EndpointSelector) IsEndpointSelectorInterface() {}
+
 // Used for `omitzero` json tag.
 func (n *EndpointSelector) IsZero() bool {
 	return n.LabelSelector == nil
@@ -338,6 +340,11 @@ func (n *EndpointSelector) IsWildcard() bool {
 		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
 }
 
+// IsHost returns true if the endpoint selector selects a node.
+func (n *EndpointSelector) IsHost() bool {
+	return n.LabelSelector != nil && n.HasKey(labels.LabelSourceReserved+"."+labels.IDNameHost)
+}
+
 // ConvertToLabelSelectorRequirementSlice converts the MatchLabels and
 // MatchExpressions within the specified EndpointSelector into a list of
 // LabelSelectorRequirements.
@@ -384,16 +391,6 @@ func (n *EndpointSelector) Sanitize() error {
 
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
 type EndpointSelectorSlice []EndpointSelector
-
-func (s EndpointSelectorSlice) Len() int      { return len(s) }
-func (s EndpointSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-func (s EndpointSelectorSlice) Less(i, j int) bool {
-	strI := s[i].LabelSelectorString()
-	strJ := s[j].LabelSelectorString()
-
-	return strings.Compare(strI, strJ) < 0
-}
 
 // Matches returns true if any of the EndpointSelectors in the slice match the
 // provided labels

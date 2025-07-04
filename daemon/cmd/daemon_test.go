@@ -28,6 +28,7 @@ import (
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -221,7 +222,7 @@ func (ds *DaemonSuite) setupConfigOptions() {
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules: rules,
+		Rules: k8sCiliumUtils.RulesToPolicyEntries(rules),
 	})
 }
 
