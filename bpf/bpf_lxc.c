@@ -690,7 +690,7 @@ ct_recreate6:
 	 */
 	if (*dst_sec_identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, HOST_EP_ID);
+		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 
 		/* return fine-grained error: */
 		return DROP_HOST_NOT_READY;
@@ -1158,7 +1158,7 @@ ct_recreate4:
 	 */
 	if (*dst_sec_identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, HOST_EP_ID);
+		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 
 		/* report fine-grained error: */
 		return DROP_HOST_NOT_READY;
@@ -2397,7 +2397,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
 
-		ret = tail_call_policy(ctx, HOST_EP_ID);
+		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
 					DROP_HOST_NOT_READY, METRIC_INGRESS);
 	}

@@ -11,7 +11,7 @@
 
 #define IS_BPF_HOST 1
 
-#define EVENT_SOURCE HOST_EP_ID
+#define EVENT_SOURCE CONFIG(host_ep_id)
 
 /* These are configuration options which have a default value in their
  * respective header files and must thus be defined beforehand:

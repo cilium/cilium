@@ -18,3 +18,6 @@ DECLARE_CONFIG(__u32, security_label, "The endpoint's security label")
 /* All security labels are identical for workload endpoints. */
 #define SECLABEL_IPV4 SECLABEL
 #define SECLABEL_IPV6 SECLABEL
+
+DECLARE_CONFIG(__u16, host_ep_id, "The host endpoint's security ID")
+#define HOST_EP_ID CONFIG(host_ep_id) /* Backwards compatibility */
