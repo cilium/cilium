@@ -57,7 +57,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 5
+  test_concurrency: 20
 
 jobs:
   echo-inputs:
