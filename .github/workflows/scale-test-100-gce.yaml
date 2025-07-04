@@ -184,6 +184,7 @@ jobs:
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ steps.vars.outputs.SHA }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci
 
       - name: Install Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
