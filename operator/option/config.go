@@ -63,6 +63,18 @@ const (
 	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
 	IPAMAPIQPSLimit = "limit-ipam-api-qps"
 
+	// IPAMPreAllocate defines the number of IPs that must always be immediately available for allocation without operator intervention.
+	IPAMPreAllocate = "ipam-pre-allocate"
+
+	// IPAMMinAllocate defines the minimum number of IPs a node must have before PreAllocate and MaxAboveWatermark logic continues allocation.
+	IPAMMinAllocate = "ipam-min-allocate"
+
+	// IPAMMaxAllocate defines the upper limit on the total number of IPs that can be allocated to a node.
+	IPAMMaxAllocate = "ipam-max-allocate"
+
+	// IPAMMaxAboveWatermark defines the maximum number of IPs to allocate beyond the PreAllocate buffer to reduce API allocation calls.
+	IPAMMaxAboveWatermark = "ipam-max-above-watermark"
+
 	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
 	IPAMSubnetsIDs = "subnet-ids-filter"
 
@@ -261,6 +273,18 @@ type OperatorConfig struct {
 	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
 	IPAMAPIQPSLimit float64
 
+	// IPAMPreAllocate is the default value for CiliumNode.Spec.IPAM.PreAllocate for all IPAM modes
+	IPAMPreAllocate int
+
+	// IPAMMinAllocate is the default value for CiliumNode.Spec.IPAM.MinAllocate for all IPAM modes
+	IPAMMinAllocate int
+
+	// IPAMMaxAllocate is the default value for CiliumNode.Spec.IPAM.MaxAllocate for all IPAM modes
+	IPAMMaxAllocate int
+
+	// IPAMMaxAboveWatermark is the default value for CiliumNode.Spec.IPAM.MaxAboveWatermark for all IPAM modes
+	IPAMMaxAboveWatermark int
+
 	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
 	IPAMSubnetsIDs []string
 
@@ -323,17 +347,16 @@ type OperatorConfig struct {
 	// IP addresses. Allows for increased pod density on nodes.
 	AWSEnablePrefixDelegation bool
 
-	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
-	// node
+	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on node
 	AWSUsePrimaryAddress bool
-
-	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
-	// Defaults to 180 secs
-	ExcessIPReleaseDelay int
 
 	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
 	EC2APIEndpoint string
+
+	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
+	// Defaults to 180 secs
+	ExcessIPReleaseDelay int
 
 	// Azure options
 
@@ -446,6 +469,10 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
 	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
+	c.IPAMPreAllocate = vp.GetInt(IPAMPreAllocate)
+	c.IPAMMinAllocate = vp.GetInt(IPAMMinAllocate)
+	c.IPAMMaxAllocate = vp.GetInt(IPAMMaxAllocate)
+	c.IPAMMaxAboveWatermark = vp.GetInt(IPAMMaxAboveWatermark)
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
