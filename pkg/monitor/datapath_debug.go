@@ -499,7 +499,7 @@ func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Println(n.subTypeString())
 
 	if n.Len > 0 && len(data) > DebugCaptureLen {
-		Dissect(dissect, data[DebugCaptureLen:])
+		Dissect(dissect, data[DebugCaptureLen:], nil)
 	}
 }
 

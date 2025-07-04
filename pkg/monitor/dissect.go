@@ -342,19 +342,29 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 
 // Dissect parses and prints the provided data if dissect is set to true,
 // otherwise the data is printed as HEX output
-func Dissect(dissect bool, data []byte) {
+func Dissect(dissect bool, data []byte, opts *decodeOpts) {
 	if dissect {
 		dissectLock.Lock()
 		defer dissectLock.Unlock()
 
 		initParser()
 
+		// See comment in [GetConnectionSummary].
+		if len(data) == 0 {
+			cache.decoded = cache.decoded[:0]
+			cache.overlay.decoded = cache.overlay.decoded[:0]
+			return
+		}
+
 		var err error
 		// See comment in [GetConnectionSummary].
-		if len(data) > 0 {
+		switch {
+		case opts == nil || !opts.IsL3Device:
 			err = parserL2Dev.DecodeLayers(data, &cache.decoded)
-		} else {
-			cache.decoded = cache.decoded[:0]
+		case opts.IsIPv6:
+			err = parserL3Dev.IPv6.DecodeLayers(data, &cache.decoded)
+		default:
+			err = parserL3Dev.IPv4.DecodeLayers(data, &cache.decoded)
 		}
 
 		for _, typ := range cache.decoded {
@@ -386,6 +396,51 @@ func Dissect(dissect bool, data []byte) {
 			fmt.Println("  Failed to decode layer:", err)
 		}
 
+		// See comment in [GetConnectionSummary].
+		switch {
+		case opts != nil && opts.IsVXLAN:
+			err = parserOverlay.VXLAN.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+		case opts != nil && opts.IsGeneve:
+			err = parserOverlay.Geneve.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+		default:
+			// Truncate layers to avoid accidental re-use.
+			cache.overlay.decoded = cache.overlay.decoded[:0]
+			return
+		}
+
+		for _, typ := range cache.overlay.decoded {
+			switch typ {
+			case layers.LayerTypeVXLAN:
+				fmt.Println(gopacket.LayerString(&cache.overlay.vxlan))
+			case layers.LayerTypeGeneve:
+				fmt.Println(gopacket.LayerString(&cache.overlay.geneve))
+			case layers.LayerTypeEthernet:
+				fmt.Println(gopacket.LayerString(&cache.overlay.eth))
+			case layers.LayerTypeIPv4:
+				fmt.Println(gopacket.LayerString(&cache.overlay.ip4))
+			case layers.LayerTypeIPv6:
+				fmt.Println(gopacket.LayerString(&cache.overlay.ip6))
+			case layers.LayerTypeTCP:
+				fmt.Println(gopacket.LayerString(&cache.overlay.tcp))
+			case layers.LayerTypeUDP:
+				fmt.Println(gopacket.LayerString(&cache.overlay.udp))
+			case layers.LayerTypeSCTP:
+				fmt.Println(gopacket.LayerString(&cache.overlay.sctp))
+			case layers.LayerTypeICMPv4:
+				fmt.Println(gopacket.LayerString(&cache.overlay.icmp4))
+			case layers.LayerTypeICMPv6:
+				fmt.Println(gopacket.LayerString(&cache.overlay.icmp6))
+			default:
+				fmt.Println("Unknown layer")
+			}
+		}
+		if parserL2Dev.Truncated {
+			fmt.Println("  Packet has been truncated")
+		}
+		if err != nil {
+			fmt.Println("  Failed to decode layer:", err)
+		}
+
 	} else {
 		fmt.Print(hex.Dump(data))
 	}
@@ -395,6 +450,19 @@ func Dissect(dissect bool, data []byte) {
 type Flow struct {
 	Src string `json:"src"`
 	Dst string `json:"dst"`
+}
+
+// Used in DissectSummary to represent a VXLAN/GENEVE tunnel if needed.
+type Tunnel struct {
+	Ethernet string `json:"ethernet,omitempty"`
+	IPv4     string `json:"ipv4,omitempty"`
+	IPv6     string `json:"ipv6,omitempty"`
+	UDP      string `json:"udp,omitempty"`
+	VXLAN    string `json:"vxlan,omitempty"`
+	GENEVE   string `json:"geneve,omitempty"`
+	L2       *Flow  `json:"l2,omitempty"`
+	L3       *Flow  `json:"l3,omitempty"`
+	L4       *Flow  `json:"l4,omitempty"`
 }
 
 // DissectSummary bundles decoded layers into json-marshallable message
@@ -410,23 +478,37 @@ type DissectSummary struct {
 	L2       *Flow  `json:"l2,omitempty"`
 	L3       *Flow  `json:"l3,omitempty"`
 	L4       *Flow  `json:"l4,omitempty"`
+
+	Tunnel *Tunnel `json:"tunnel,omitempty"`
 }
 
 // GetDissectSummary returns DissectSummary created from data
-func GetDissectSummary(data []byte) *DissectSummary {
+func GetDissectSummary(data []byte, opts *decodeOpts) *DissectSummary {
 	dissectLock.Lock()
 	defer dissectLock.Unlock()
 
 	initParser()
 
 	// See comment in [GetConnectionSummary].
-	if len(data) > 0 {
-		err := parserL2Dev.DecodeLayers(data, &cache.decoded)
-		if err != nil {
-			return nil
-		}
-	} else {
+	if len(data) == 0 {
 		cache.decoded = cache.decoded[:0]
+		cache.overlay.decoded = cache.overlay.decoded[:0]
+		return nil
+	}
+
+	var err error
+	// See comment in [GetConnectionSummary].
+	switch {
+	case opts == nil || !opts.IsL3Device:
+		err = parserL2Dev.DecodeLayers(data, &cache.decoded)
+	case opts.IsIPv6:
+		err = parserL3Dev.IPv6.DecodeLayers(data, &cache.decoded)
+	default:
+		err = parserL3Dev.IPv4.DecodeLayers(data, &cache.decoded)
+	}
+
+	if err != nil {
+		return nil
 	}
 
 	ret := &DissectSummary{}
@@ -463,5 +545,82 @@ func GetDissectSummary(data []byte) *DissectSummary {
 			ret.ICMPv6 = gopacket.LayerString(&cache.icmp6)
 		}
 	}
+
+	// See comment in [GetConnectionSummary].
+	switch {
+	case opts != nil && opts.IsVXLAN:
+		err = parserOverlay.VXLAN.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+	case opts != nil && opts.IsGeneve:
+		err = parserOverlay.Geneve.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+	default:
+		// Truncate layers to avoid accidental re-use.
+		cache.overlay.decoded = cache.overlay.decoded[:0]
+		return ret
+	}
+
+	if err != nil {
+		return ret
+	}
+
+	if len(cache.overlay.decoded) == 0 {
+		return ret
+	}
+
+	// See comment in [GetConnectionSummary].
+	// In case of VXLAN/GENEVE, let's move decoded layers inside the Tunnel
+	// field, and keep decoding after overlay headers.
+	switch cache.overlay.decoded[0] {
+	case layers.LayerTypeVXLAN, layers.LayerTypeGeneve:
+		ret = &DissectSummary{Tunnel: &Tunnel{
+			Ethernet: ret.Ethernet,
+			IPv4:     ret.IPv4,
+			IPv6:     ret.IPv6,
+			UDP:      ret.UDP,
+			L2:       ret.L2,
+			L3:       ret.L3,
+			L4:       ret.L4,
+		}}
+		if cache.overlay.decoded[0] == layers.LayerTypeVXLAN {
+			ret.Tunnel.VXLAN = gopacket.LayerString(&cache.overlay.vxlan)
+		} else {
+			ret.Tunnel.GENEVE = gopacket.LayerString(&cache.overlay.geneve)
+		}
+	default:
+		return ret
+	}
+
+	for _, typ := range cache.overlay.decoded[1:] {
+		switch typ {
+		case layers.LayerTypeEthernet:
+			ret.Ethernet = gopacket.LayerString(&cache.overlay.eth)
+			src, dst := cache.overlay.eth.LinkFlow().Endpoints()
+			ret.L2 = &Flow{Src: src.String(), Dst: dst.String()}
+		case layers.LayerTypeIPv4:
+			ret.IPv4 = gopacket.LayerString(&cache.overlay.ip4)
+			src, dst := cache.overlay.ip4.NetworkFlow().Endpoints()
+			ret.L3 = &Flow{Src: src.String(), Dst: dst.String()}
+		case layers.LayerTypeIPv6:
+			ret.IPv6 = gopacket.LayerString(&cache.overlay.ip6)
+			src, dst := cache.overlay.ip6.NetworkFlow().Endpoints()
+			ret.L3 = &Flow{Src: src.String(), Dst: dst.String()}
+		case layers.LayerTypeTCP:
+			ret.TCP = gopacket.LayerString(&cache.overlay.tcp)
+			src, dst := cache.overlay.tcp.TransportFlow().Endpoints()
+			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
+		case layers.LayerTypeUDP:
+			ret.UDP = gopacket.LayerString(&cache.overlay.udp)
+			src, dst := cache.overlay.udp.TransportFlow().Endpoints()
+			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
+		case layers.LayerTypeSCTP:
+			ret.SCTP = gopacket.LayerString(&cache.overlay.sctp)
+			src, dst := cache.overlay.sctp.TransportFlow().Endpoints()
+			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
+		case layers.LayerTypeICMPv4:
+			ret.ICMPv4 = gopacket.LayerString(&cache.overlay.icmp4)
+		case layers.LayerTypeICMPv6:
+			ret.ICMPv6 = gopacket.LayerString(&cache.overlay.icmp6)
+		}
+	}
+
 	return ret
 }
