@@ -17,6 +17,9 @@ type EndpointManagerConfig struct {
 
 	// EndpointRegenInterval is interval between periodic endpoint regenerations.
 	EndpointRegenInterval time.Duration
+
+	// BPFPolicyMapPressureMetricsThreshold is minimum rate for triggering policy map pressure metrics
+	BPFPolicyMapPressureMetricsThreshold float64
 }
 
 func (def EndpointManagerConfig) Flags(flags *pflag.FlagSet) {
@@ -26,9 +29,13 @@ func (def EndpointManagerConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration(option.EndpointRegenInterval, def.EndpointRegenInterval,
 		"Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable")
+
+	flags.Float64("bpf-policy-map-pressure-metrics-threshold", def.BPFPolicyMapPressureMetricsThreshold,
+		"Sets minimal rate for triggering policy map pressure metrics")
 }
 
 var defaultEndpointManagerConfig = EndpointManagerConfig{
-	EndpointGCInterval:    5 * time.Minute,
-	EndpointRegenInterval: 2 * time.Minute,
+	EndpointGCInterval:                   5 * time.Minute,
+	EndpointRegenInterval:                2 * time.Minute,
+	BPFPolicyMapPressureMetricsThreshold: 0.1,
 }
