@@ -4786,17 +4786,7 @@
           "type": "boolean"
         },
         "tolerations": {
-          "items": {
-            "anyOf": [
-              {
-                "properties": {
-                  "operator": {
-                    "type": "string"
-                  }
-                }
-              }
-            ]
-          },
+          "items": {},
           "type": "array"
         },
         "topologySpreadConstraints": {
