@@ -125,7 +125,7 @@ jobs:
           SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    needs: [wait-for-images, generate-matrix]
+    needs: [ generate-matrix]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     name: 'Setup & Test'
     env:
@@ -134,6 +134,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
+        operation: ["upgrade", "downgrade"]
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
     timeout-minutes: 55
