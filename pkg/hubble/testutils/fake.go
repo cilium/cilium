@@ -412,6 +412,25 @@ var NoopIdentityGetter = FakeIdentityGetter{
 	},
 }
 
+// FakePolicyMetadataGetter is used for unit tests that need PolicyMetadataGetter.
+type FakePolicyMetadataGetter struct {
+	OnGetLog func(cookie uint32) (string, bool)
+}
+
+// GetLog implements PolicyMetadataGetter.GetLog.
+func (f *FakePolicyMetadataGetter) GetLog(cookie uint32) (string, bool) {
+	if f.OnGetLog != nil {
+		return f.OnGetLog(cookie)
+	}
+	panic("OnGetLog not set")
+}
+
+var NoopPolicyMetadataGetter = FakePolicyMetadataGetter{
+	OnGetLog: func(cookie uint32) (string, bool) {
+		return "", false
+	},
+}
+
 // FakeEndpointInfo implements getters.EndpointInfo for unit tests. All interface
 // methods return values exposed in the fields.
 type FakeEndpointInfo struct {
