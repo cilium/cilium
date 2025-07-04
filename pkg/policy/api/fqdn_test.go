@@ -12,8 +12,6 @@ import (
 // TestFQDNSelectorSanitize tests that the sanitizer correctly catches bad
 // cases, and allows good ones.
 func TestFQDNSelectorSanitize(t *testing.T) {
-	setUpSuite(t)
-
 	for _, accept := range []FQDNSelector{
 		{MatchName: "cilium.io."},
 		{MatchName: "get-cilium.io."},
@@ -42,8 +40,6 @@ func TestFQDNSelectorSanitize(t *testing.T) {
 // TestPortRuleDNSSanitize tests that the sanitizer correctly catches bad
 // cases, and allows good ones.
 func TestPortRuleDNSSanitize(t *testing.T) {
-	setUpSuite(t)
-
 	for _, accept := range []PortRuleDNS{
 		{MatchName: "cilium.io."},
 		{MatchName: "get-cilium.io."},
