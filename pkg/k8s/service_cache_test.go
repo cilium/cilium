@@ -851,6 +851,76 @@ func TestExternalServiceMerging(t *testing.T) {
 	}, 2*time.Second))
 }
 
+func TestExternalServiceMergingNoLocalEndpoints(t *testing.T) {
+	db, nodeAddrs := newDB(t)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	swg := lock.NewStoppableWaitGroup()
+
+	svcID := svcCache.UpdateService(&slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Namespace: "bar", Name: "foo",
+			Annotations: map[string]string{
+				"service.cilium.io/global": "true",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "foo",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     80,
+				},
+			},
+		},
+	}, swg)
+
+	clusterService := serviceStore.ClusterService{
+		Cluster: "cluster1", Namespace: "bar", Name: "foo",
+		Backends: map[string]serviceStore.PortConfiguration{
+			"10.0.0.1": map[string]*loadbalancer.L4Addr{
+				"http": {Protocol: loadbalancer.TCP, Port: 80},
+			},
+		},
+		IncludeExternal: true, Shared: true,
+	}
+
+	recv := func(t *testing.T, ch <-chan ServiceEvent) ServiceEvent {
+		t.Helper()
+		select {
+		case ev := <-ch:
+			return ev
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timeout out waiting to receive the expected event")
+			return ServiceEvent{}
+		}
+	}
+
+	// Merge the backends from a remote cluster
+	svcCache.MergeExternalServiceUpdate(&clusterService, swg)
+
+	event := recv(t, svcCache.Events)
+	require.Equal(t, UpdateService, event.Action)
+	require.Equal(t, svcID, event.ID)
+	require.Len(t, event.Endpoints.Backends, 1)
+
+	// Delete the backends from a remote cluster
+	svcCache.MergeExternalServiceDelete(&clusterService, swg)
+
+	event = recv(t, svcCache.Events)
+	require.Equal(t, DeleteService, event.Action)
+	require.Equal(t, svcID, event.ID)
+
+	// Merge again the backends from a remote cluster
+	svcCache.MergeExternalServiceUpdate(&clusterService, swg)
+
+	event = recv(t, svcCache.Events)
+	require.Equal(t, UpdateService, event.Action)
+	require.Equal(t, svcID, event.ID)
+	require.Len(t, event.Endpoints.Backends, 1)
+}
+
 func TestExternalServiceDeletion(t *testing.T) {
 	const cluster = "cluster"
 
@@ -880,7 +950,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	svcCache.MergeExternalServiceDelete(&clsvc, swg)
 	_, ok := svcCache.services[id1]
-	require.False(t, ok)
+	require.True(t, ok) // Must be deleted only upon service deletion.
 	_, ok = svcCache.externalEndpoints[id1]
 	require.False(t, ok)
 
@@ -918,7 +988,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	svcCache.MergeExternalServiceDelete(&clsvc, swg)
 	_, ok = svcCache.services[id2]
-	require.False(t, ok)
+	require.True(t, ok) // Must be deleted only upon service deletion.
 	_, ok = svcCache.externalEndpoints[id2]
 	require.False(t, ok)
 
