@@ -394,9 +394,7 @@ func (*enableK8sHostFirewallBypass) ConfigureK8sClientsetDialer(dialer *net.Dial
 func setProxyEgressMark(network, address string, c syscall.RawConn) error {
 	var soerr error
 	if err := c.Control(func(su uintptr) {
-		secId := identity.ReservedIdentityHost
-		mark := linux_defaults.MagicMarkEgress
-		mark |= uint32(secId&0xFFFF)<<16 | uint32((secId&0xFF0000)>>16)
+		mark := linux_defaults.MakeMagicMark(linux_defaults.MagicMarkEgress, identity.ReservedIdentityHost)
 		soerr = unix.SetsockoptUint64(int(su), unix.SOL_SOCKET, unix.SO_MARK, uint64(mark))
 	}); err != nil {
 		return err
