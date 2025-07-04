@@ -1,0 +1,111 @@
+#! --cluster-id=1 --cluster-name=cluster1
+
+hive/start
+
+# Create a service without selector (no epslices) to which to add the external backends.
+k8s/add service.yaml
+db/cmp frontends frontends.table
+
+# Add the cluster service from a remote cluster
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# The remote backends should be included
+db/cmp frontends frontends-with-clusterservice.table
+db/cmp backends backends.table
+
+# Removing the cluster service brings us back to the initial state
+kvstore/delete cilium/state/services/v1/cluster2/test/echo
+db/cmp frontends frontends.table
+db/empty backends
+
+# Adding the cluster service upserts the backends again
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2_v2.json
+db/cmp frontends frontends-with-clusterservice_v2.table
+db/cmp backends backends_v2.table
+
+###
+
+-- backends.table --
+Address              Instances         NodeName
+20.0.0.2:9090/TCP    test/echo (tcp)
+
+-- backends_v2.table --
+Address              Instances         NodeName
+20.0.0.2:9090/TCP    test/echo (tcp)
+20.0.0.3:9090/TCP    test/echo (tcp)
+
+-- frontends.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done
+
+-- frontends-with-clusterservice.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:9090/TCP
+
+-- frontends-with-clusterservice_v2.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:9090/TCP, 20.0.0.3:9090/TCP
+
+
+-- clusterservice2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "includeExternal": true,
+  "shared": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "backends": {
+    "20.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+-- clusterservice2_v2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "includeExternal": true,
+  "shared": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "backends": {
+    "20.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    },
+    "20.0.0.3": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  type: ClusterIP
