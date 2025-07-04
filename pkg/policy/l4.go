@@ -76,6 +76,11 @@ func (t *TLSContext) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&redacted)
 }
 
+func (t *TLSContext) String() string {
+	data, _ := t.MarshalJSON()
+	return string(data)
+}
+
 type StringSet map[string]struct{}
 
 func (a StringSet) Equal(b StringSet) bool {
