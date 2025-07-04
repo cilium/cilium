@@ -128,3 +128,36 @@ func (g *GoBGPServer) ResetNeighbor(ctx context.Context, r types.ResetNeighborRe
 	}
 	return nil
 }
+
+// ResetAllNeighbors resets BGP peering with all configured neighbors.
+func (g *GoBGPServer) ResetAllNeighbors(ctx context.Context, r types.ResetAllNeighborsRequest) error {
+	// Get all peers first
+	var peerAddresses []string
+	fn := func(peer *gobgp.Peer) {
+		if peer != nil && peer.Conf != nil {
+			peerAddresses = append(peerAddresses, peer.Conf.NeighborAddress)
+		}
+	}
+
+	err := g.server.ListPeer(ctx, &gobgp.ListPeerRequest{}, fn)
+	if err != nil {
+		return fmt.Errorf("failed to list peers: %w", err)
+	}
+
+	// Reset each peer
+	for _, peerAddr := range peerAddresses {
+		resetReq := &gobgp.ResetPeerRequest{
+			Address:       peerAddr,
+			Communication: r.AdminCommunication,
+		}
+		if r.Soft {
+			resetReq.Soft = true
+			resetReq.Direction = toGoBGPSoftResetDirection(r.SoftResetDirection)
+		}
+		if err := g.server.ResetPeer(ctx, resetReq); err != nil {
+			return fmt.Errorf("failed while resetting peer %s: %w", peerAddr, err)
+		}
+	}
+
+	return nil
+}

@@ -63,7 +63,7 @@ func (rd *resetDirections) SoftResetDirection() types.SoftResetDirection {
 	} else if rd.out {
 		return types.SoftResetDirectionOut
 	}
-	return types.SoftResetDirectionOut
+	return types.SoftResetDirectionNone
 }
 
 // ReconcileRoutePolicies reconciles routing policies between the desired and the current state.
@@ -76,8 +76,15 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 	// Tracks which peers have to be reset which direction because of policy change
 	resetPeers := map[netip.Addr]*resetDirections{}
+	allResetDirs := &resetDirections{}
+
 	upsertResetPeers := func(p *types.RoutePolicy) {
-		for _, peer := range peerAddressesFromPolicy(p) {
+		addrs, allPeers := peerAddressesFromPolicy(p)
+		if allPeers {
+			allResetDirs.Update(p.Type)
+			return
+		}
+		for _, peer := range addrs {
 			dirs, found := resetPeers[peer]
 			if !found {
 				dirs = &resetDirections{}
@@ -170,11 +177,43 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 		delete(runningPolicies, p.Name)
 	}
 
+	// If we have all reset, process it first
+	if allResetDirs.SoftResetDirection() != types.SoftResetDirectionNone {
+		rp.Logger.Debug(
+			"Resetting all peers due to a routing policy change",
+			types.DirectionLogField, allResetDirs.SoftResetDirection().String(),
+		)
+
+		req := types.ResetAllNeighborsRequest{
+			Soft:               true,
+			SoftResetDirection: allResetDirs.SoftResetDirection(),
+		}
+
+		if err := rp.Router.ResetAllNeighbors(rp.Ctx, req); err != nil {
+			// non-fatal error (may happen if the neighbor is not up), just log it
+			rp.Logger.Debug(
+				"resetting all peers failed after a routing policy change",
+				logfields.Error, err,
+				types.DirectionLogField, allResetDirs.SoftResetDirection().String(),
+			)
+		}
+	}
+
+	// Handle individual neighbor resets
 	// soft-reset affected BGP peers to apply the changes on already advertised routes
 	for peer, dirs := range resetPeers {
+		// Skip if we already did all reset for this exact direction
+		if allResetDirs.SoftResetDirection() == dirs.SoftResetDirection() {
+			continue
+		}
+		// Skip if we did all reset for both directions (covers this peer)
+		if allResetDirs.SoftResetDirection() == types.SoftResetDirectionBoth {
+			continue
+		}
 		rp.Logger.Debug(
 			"Resetting peer due to a routing policy change",
 			types.PeerLogField, peer,
+			types.DirectionLogField, dirs.SoftResetDirection().String(),
 		)
 
 		req := types.ResetNeighborRequest{
@@ -189,6 +228,7 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 				"resetting peer failed after a routing policy change",
 				logfields.Error, err,
 				types.PeerLogField, peer,
+				types.DirectionLogField, dirs.SoftResetDirection().String(),
 			)
 		}
 	}
@@ -454,13 +494,19 @@ func policyStatement(neighborAddr netip.Addr, prefixes []*types.RoutePolicyPrefi
 }
 
 // peerAddressesFromPolicy returns neighbor addresses found in a routing policy.
-func peerAddressesFromPolicy(p *types.RoutePolicy) []netip.Addr {
+// It returns true when the policy contains the empty MatchNeighbors which means
+// all neighbors.
+func peerAddressesFromPolicy(p *types.RoutePolicy) ([]netip.Addr, bool) {
 	if p == nil {
-		return []netip.Addr{}
+		return []netip.Addr{}, false
 	}
 	addrs := []netip.Addr{}
+	allPeers := false
 	for _, s := range p.Statements {
+		if len(s.Conditions.MatchNeighbors) == 0 {
+			allPeers = true
+		}
 		addrs = append(addrs, s.Conditions.MatchNeighbors...)
 	}
-	return addrs
+	return addrs, allPeers
 }
