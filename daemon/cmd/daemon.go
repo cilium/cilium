@@ -67,7 +67,7 @@ const (
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
-// monitoring when a LXC starts.
+// monitoring when an LXC starts.
 type Daemon struct {
 	ctx             context.Context
 	logger          *slog.Logger
