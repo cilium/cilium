@@ -160,10 +160,10 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 
 	if err := testMetric(
 		metrics,
-		"operator_api_metrics_test_metric_a",
+		"operator_api_metrics_test_metric_a outcome=success",
 		float64(1),
 		map[string]string{
-			"outcome": "success",
+			"formatted_value": "1.000",
 		},
 	); err != nil {
 		t.Fatalf("error while inspecting metric: %s", err)
@@ -183,6 +183,18 @@ func testMetric(metrics []models.Metric, name string, value float64, labels map[
 			}
 			if !reflect.DeepEqual(metric.Labels, labels) {
 				return fmt.Errorf("expected labels map %v for %q, got %v", labels, name, metric.Labels)
+			}
+			if len(metric.Buckets) > 0 {
+				return fmt.Errorf("expected no buckets for counter metric %q, got %v", name, metric.Buckets)
+			}
+			if len(metric.Quantiles) > 0 {
+				return fmt.Errorf("expected no quantiles for counter metric %q, got %v", name, metric.Quantiles)
+			}
+			if metric.Count != 0 {
+				return fmt.Errorf("expected count 0 for counter metric %q, got %v", name, metric.Count)
+			}
+			if metric.Sum != 0 {
+				return fmt.Errorf("expected sum 0 for counter metric %q, got %v", name, metric.Sum)
 			}
 			return nil
 		}

@@ -56,12 +56,22 @@ test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s   0
   }
 ]
 -- all.yaml --
-- labels: {}
+- additionalinfo: {}
+  buckets: {}
+  count: 0
+  labels: {}
   name: test_A
+  quantiles: {}
+  sum: 0
   value: 1
-- labels:
+- additionalinfo: {}
+  buckets: {}
+  count: 0
+  labels:
     lbl: a
   name: test_C_seconds
+  quantiles: {}
+  sum: 0
   value: 0.8
 -- sampled.json --
 {

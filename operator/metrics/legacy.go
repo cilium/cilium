@@ -57,6 +57,10 @@ func DumpMetrics() ([]*models.Metric, error) {
 			var value float64
 			var additionalInfo map[string]float64
 			var formattedValue string
+			var buckets map[string]float64
+			var quantiles map[string]float64
+			var count float64
+			var sum float64
 
 			switch metricType {
 			case dto.MetricType_COUNTER:
@@ -71,29 +75,37 @@ func DumpMetrics() ([]*models.Metric, error) {
 			case dto.MetricType_SUMMARY:
 				summary := metricLabel.GetSummary()
 				value = summary.GetSampleSum()
+				sum = summary.GetSampleSum()
+				count = float64(summary.GetSampleCount())
 				additionalInfo = make(map[string]float64)
 				additionalInfo["count"] = float64(summary.GetSampleCount())
 
 				// Get quantiles and format them
-				var quantiles []string
+				var quantilesStr []string
+				quantiles = make(map[string]float64)
 				for _, q := range summary.GetQuantile() {
 					additionalInfo[fmt.Sprintf("quantile_%g", q.GetQuantile())] = q.GetValue()
-					quantiles = append(quantiles, formatDuration(q.GetValue()))
+					quantiles[fmt.Sprintf("%g", q.GetQuantile())] = q.GetValue()
+					quantilesStr = append(quantilesStr, formatDuration(q.GetValue()))
 				}
-				formattedValue = strings.Join(quantiles, " / ")
+				formattedValue = strings.Join(quantilesStr, " / ")
 			case dto.MetricType_HISTOGRAM:
 				hist := metricLabel.GetHistogram()
 				value = hist.GetSampleSum()
+				sum = hist.GetSampleSum()
+				count = float64(hist.GetSampleCount())
 				additionalInfo = make(map[string]float64)
 				additionalInfo["count"] = float64(hist.GetSampleCount())
 
 				// Get buckets and format them
-				var buckets []string
+				var bucketsStr []string
+				buckets = make(map[string]float64)
 				for _, b := range hist.GetBucket() {
 					additionalInfo[fmt.Sprintf("bucket_%g", b.GetUpperBound())] = float64(b.GetCumulativeCount())
-					buckets = append(buckets, formatDuration(b.GetUpperBound()))
+					buckets[fmt.Sprintf("%g", b.GetUpperBound())] = float64(b.GetCumulativeCount())
+					bucketsStr = append(bucketsStr, formatDuration(b.GetUpperBound()))
 				}
-				formattedValue = strings.Join(buckets, " / ")
+				formattedValue = strings.Join(bucketsStr, " / ")
 			default:
 				continue
 			}
@@ -105,9 +117,13 @@ func DumpMetrics() ([]*models.Metric, error) {
 			labelStr := strings.Join(labelStrs, " ")
 
 			metric := &models.Metric{
-				Name:   fmt.Sprintf("%s %s", metricName, labelStr),
-				Value:  value,
-				Labels: map[string]string{"formatted_value": formattedValue},
+				Name:      fmt.Sprintf("%s %s", metricName, labelStr),
+				Value:     value,
+				Labels:    map[string]string{"formatted_value": formattedValue},
+				Buckets:   buckets,
+				Quantiles: quantiles,
+				Count:     count,
+				Sum:       sum,
 			}
 			if additionalInfo != nil {
 				metric.AdditionalInfo = additionalInfo

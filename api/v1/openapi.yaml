@@ -3583,6 +3583,22 @@ definitions:
         type: object
         additionalProperties:
           type: number
+      buckets:
+        description: Buckets for histogram metrics
+        type: object
+        additionalProperties:
+          type: number
+      quantiles:
+        description: Quantiles for summary metrics
+        type: object
+        additionalProperties:
+          type: number
+      count:
+        description: Count for histogram/summary metrics
+        type: number
+      sum:
+        description: Sum for histogram/summary metrics
+        type: number
   Error:
     type: string
   NameManager:

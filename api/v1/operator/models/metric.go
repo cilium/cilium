@@ -23,11 +23,23 @@ type Metric struct {
 	// Additional information of the metric
 	AdditionalInfo map[string]float64 `json:"additionalInfo,omitempty"`
 
+	// Buckets for histogram metrics
+	Buckets map[string]float64 `json:"buckets,omitempty"`
+
+	// Count for histogram/summary metrics
+	Count float64 `json:"count,omitempty"`
+
 	// Labels of the metric
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Name of the metric
 	Name string `json:"name,omitempty"`
+
+	// Quantiles for summary metrics
+	Quantiles map[string]float64 `json:"quantiles,omitempty"`
+
+	// Sum for histogram/summary metrics
+	Sum float64 `json:"sum,omitempty"`
 
 	// Value of the metric
 	Value float64 `json:"value,omitempty"`
