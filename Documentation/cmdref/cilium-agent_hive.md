@@ -68,7 +68,7 @@ cilium-agent hive [flags]
       --enable-k8s                                                Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                  Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
-      --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP
+      --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
@@ -156,7 +156,7 @@ cilium-agent hive [flags]
       --kvstore-lease-ttl duration                                Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint                Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                                Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
-      --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous arp messages
+      --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous ARP and NDP messages
       --lb-state-file string                                      Synchronize load-balancing state from the specified file
       --lrp-address-matcher-cidrs strings                         Limit address matches to specific CIDRs
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
