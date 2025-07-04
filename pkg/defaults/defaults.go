@@ -567,9 +567,6 @@ const (
 	// EnableSourceIPVerification is the default value for source ip validation
 	EnableSourceIPVerification = true
 
-	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
-	WireguardTrackAllIPsFallback = false
-
 	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = 0.5
 

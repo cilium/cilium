@@ -52,6 +52,7 @@ func newLocalNodeConfig(
 	kprCfg kpr.KPRConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
+	wireguard datapath.WireguardAgent,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -103,7 +104,7 @@ func newLocalNodeConfig(
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
-		EnableWireguard:              config.EnableWireguard,
+		EnableWireguard:              wireguard.Enabled(),
 		EnableIPSec:                  config.EnableIPSec,
 		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
 		EncryptNode:                  config.EncryptNode,

@@ -82,7 +82,7 @@ type Agent struct {
 	sysctl      sysctl.Sysctl
 	db          *statedb.DB
 	mtuTable    statedb.Table[mtu.RouteMTU]
-	config      *option.DaemonConfig
+	config      Config
 	localNode   *node.LocalNodeStore
 	nodeManager nodeManager.NodeManager
 
@@ -103,7 +103,7 @@ type params struct {
 
 	Lifecycle cell.Lifecycle
 
-	Config   *option.DaemonConfig
+	Config   Config
 	Logger   *slog.Logger
 	DB       *statedb.DB
 	MTUTable statedb.Table[mtu.RouteMTU]
@@ -194,7 +194,7 @@ func (a *Agent) Enabled() bool {
 // This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
 // In tunneling mode, only node IPs (always set via UpdatePeer) are needed.
 func (a *Agent) needsIPCache() bool {
-	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
+	return !a.config.TunnelingEnabled || a.config.WireguardTrackAllIPsFallback
 }
 
 // initLocalNodeFromWireGuard configures the fields on the local node. Called from

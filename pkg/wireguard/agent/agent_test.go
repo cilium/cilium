@@ -188,7 +188,7 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 	return false
 }
 
-func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config *option.DaemonConfig) (*Agent, *ipcache.IPCache) {
+func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config Config) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 		Logger:  logger,
@@ -267,20 +267,23 @@ func TestAgent_PeerConfig(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			dc := &option.DaemonConfig{
+			wc := Config{
+				UserConfig: UserConfig{
+					EnableWireguard:              true,
+					WireguardTrackAllIPsFallback: c.Fallback,
+					WireguardPersistentKeepalive: 0,
+				},
+
 				EnableIPv4: true,
 				EnableIPv6: true,
 
-				RoutingMode: c.RoutingMode,
+				TunnelingEnabled: c.RoutingMode != option.RoutingModeNative,
 
 				EncryptNode:                false,
 				NodeEncryptionOptOutLabels: nil,
-
-				WireguardTrackAllIPsFallback: c.Fallback,
-				WireguardPersistentKeepalive: 0,
 			}
 
-			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), newFakeWgClient(), dc)
+			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t, hivetest.LogLevel(slog.LevelError)), newFakeWgClient(), wc)
 			defer ipCache.Shutdown()
 
 			// Test that IPCache updates before UpdatePeer are handled correctly
@@ -478,17 +481,20 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			dc := &option.DaemonConfig{
+			wc := Config{
+				UserConfig: UserConfig{
+					EnableWireguard:              true,
+					WireguardTrackAllIPsFallback: c.Fallback,
+					WireguardPersistentKeepalive: 0,
+				},
+
 				EnableIPv4: true,
 				EnableIPv6: true,
 
-				RoutingMode: c.RoutingMode,
+				TunnelingEnabled: c.RoutingMode != option.RoutingModeNative,
 
 				EncryptNode:                false,
 				NodeEncryptionOptOutLabels: nil,
-
-				WireguardTrackAllIPsFallback: c.Fallback,
-				WireguardPersistentKeepalive: 0,
 			}
 
 			key1, err := wgtypes.ParseKey(k8s1PubKey)
@@ -502,7 +508,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				},
 			})
 
-			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), wgClient, dc)
+			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t, hivetest.LogLevel(slog.LevelError)), wgClient, wc)
 			defer ipCache.Shutdown()
 
 			assertAllowedIPs := func(e expectation) {

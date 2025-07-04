@@ -59,6 +59,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
+	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 const (
@@ -233,7 +234,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// WireGuard and IPSec are mutually exclusive.
 	if option.Config.EnableIPSec && params.Wireguard.Enabled() {
-		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", option.EnableWireguard, option.EnableIPSecName)
+		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wireguard.EnableWireguardFlag, option.EnableIPSecName)
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
