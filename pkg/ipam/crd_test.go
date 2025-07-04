@@ -98,10 +98,10 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	conf := testConfigurationCRD
-	initNodeStore.Do(func() {
-		sharedNodeStore = newFakeNodeStore(conf, t)
-		sharedNodeStore.ownNode = cn
-	})
+	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
+	sharedNodeStore = newFakeNodeStore(conf, t)
+	sharedNodeStore.ownNode = cn
+
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
 	ipam.ConfigureAllocator()
@@ -128,6 +128,68 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	cn.Status.IPAM.ReleaseIPs["1.1.1.3"] = ipamOption.IPAMMarkForRelease
 	sharedNodeStore.updateLocalNodeResource(cn)
 	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.3"]))
+}
+
+func TestIpMasq(t *testing.T) {
+	cn := newCiliumNode("node1", 4, 4, 0)
+	dummyResource := ipamTypes.AllocationIP{Resource: "eni-1"}
+	cn.Spec.IPAM.Pool[fmt.Sprintf("10.1.1.226")] = dummyResource
+	cn.Status.ENI.ENIs = map[string]eniTypes.ENI{
+		"eni-1": {
+			ID: "eni-1",
+			Addresses: []string{
+				"10.1.1.226",
+				"10.1.1.229",
+			},
+			VPC: eniTypes.AwsVPC{
+				ID:          "vpc-1",
+				PrimaryCIDR: "10.1.0.0/16",
+				CIDRs: []string{
+					"10.2.0.0/16",
+				},
+			},
+		},
+	}
+
+	fakeAddressing := fakeTypes.NewNodeAddressing()
+	conf := testConfigurationCRD
+	conf.IPAM = ipamOption.IPAMENI
+	conf.EnableIPMasqAgent = true
+
+	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
+	sharedNodeStore = newFakeNodeStore(conf, t)
+	sharedNodeStore.ownNode = cn
+
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
+	ipam.ConfigureAllocator()
+
+	epipv4 := netip.MustParseAddr("10.1.1.226")
+	result, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), "test1", PoolDefault())
+	require.NoError(t, err)
+	// The resulting CIDRs should contain the VPC CIDRs and the default ip-masq-agent CIDRs from pkg/ipmasq/ipmasq.go
+	require.ElementsMatch(
+		t,
+		[]string{
+			// VPC CIDRs
+			"10.1.0.0/16",
+			"10.2.0.0/16",
+			// Default ip-masq-agent CIDRs
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"100.64.0.0/10",
+			"192.0.0.0/24",
+			"192.0.2.0/24",
+			"192.88.99.0/24",
+			"198.18.0.0/15",
+			"198.51.100.0/24",
+			"203.0.113.0/24",
+			"240.0.0.0/4",
+			"169.254.0.0/16",
+		},
+		result.CIDRs,
+	)
 }
 
 func Test_validateENIConfig(t *testing.T) {
