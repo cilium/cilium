@@ -3,6 +3,7 @@
 {{$NETPOL_LATENCY_THRESHOLD := DefaultParam .CL2_NETPOL_LATENCY_THRESHOLD 0.1}}
 {{$MEDIAN_CPU_USAGE_THRESHOLD := DefaultParam .CL2_NETPOL_MEDIAN_CPU_USAGE_THRESHOLD 0.2}}
 {{$MEDIAN_MEM_USAGE_THRESHOLD := DefaultParam .CL2_NETPOL_MEDIAN_MEM_USAGE_THRESHOLD 450}}
+{{$ENABLE_VIOLATIONS := DefaultParam .CL2_ENABLE_VIOLATIONS true}}
 
 steps:
   - name: {{$action}} Cilium Agent Policy implementation delay
@@ -14,7 +15,7 @@ steps:
         metricName: NetPol Policy Implementation Delay
         metricVersion: v1
         unit: s
-        enableViolations: true
+        enableViolations: {{$ENABLE_VIOLATIONS}}
         queries:
         - name: Perc99
           query: histogram_quantile(0.99, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
@@ -31,7 +32,7 @@ steps:
         metricName: NetPol Average CPU Usage
         metricVersion: v1
         unit: cpu
-        enableViolations: true
+        enableViolations: {{$ENABLE_VIOLATIONS}}
         queries:
         - name: Perc99
           query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
@@ -48,7 +49,7 @@ steps:
         metricName: NetPol Max Memory Usage
         metricVersion: v1
         unit: MB
-        enableViolations: true
+        enableViolations: {{$ENABLE_VIOLATIONS}}
         queries:
         - name: Perc99
           query: quantile(0.99, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)

@@ -2,7 +2,7 @@
 {{$PODS_PER_DEPLOYMENT := 5}}
 {{$CNPS_PER_DEPLOYMENT := 5}}
 {{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
-{{$TimeToLoad := MultiplyInt $namespaces 6}}
+{{$TimeToLoad := MaxInt (MultiplyInt $namespaces 2) 6}}
 # number of deployments is 30 * #nodes / 5
 # for 1 node -> 6 deployments x 1 namespace
 # for 100 nodes -> 600 deployments x 1 namespace
