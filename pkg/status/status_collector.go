@@ -906,9 +906,9 @@ func (d *statusCollector) getProbes() []Probe {
 					return &models.EncryptionStatus{
 						Mode: models.EncryptionStatusModeIPsec,
 					}, nil
-				case d.statusParams.DaemonConfig.EnableWireguard:
+				case d.statusParams.Wireguard.Enabled():
 					var msg string
-					status, err := d.statusParams.WireguardAgent.Status(false)
+					status, err := d.statusParams.Wireguard.Status(false)
 					if err != nil {
 						msg = err.Error()
 					}
