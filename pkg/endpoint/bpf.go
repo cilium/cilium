@@ -858,14 +858,6 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 	}
 }
 
-// InitMap creates the policy map in the kernel.
-func (e *Endpoint) InitMap() error {
-	if e.policyMapFactory == nil {
-		return fmt.Errorf("endpoint has nil policyMapFactory")
-	}
-	return e.policyMapFactory.CreateEndpoint(e.ID)
-}
-
 // deleteMaps deletes the endpoint's entry from the global
 // cilium_(egress)call_policy maps and removes endpoint-specific cilium_calls_,
 // cilium_policy_v2_ and cilium_ct{4,6}_ map pins.
