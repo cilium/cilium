@@ -9,8 +9,6 @@
  */
 #include "lib/utils.h"
 
-#define HOST_EP_ID 0x1092
-
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif

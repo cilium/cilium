@@ -926,8 +926,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
 	}
 
-	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(hostEndpointID))
-
 	if e.IsHost() || option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
