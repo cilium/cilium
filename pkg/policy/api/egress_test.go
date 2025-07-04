@@ -107,8 +107,6 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 }
 
 func TestIsLabelBasedEgress(t *testing.T) {
-	setUpSuite(t)
-
 	type args struct {
 		eg *EgressRule
 	}

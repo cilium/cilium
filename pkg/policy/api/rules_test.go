@@ -19,8 +19,6 @@ import (
 // a collection of rules (via Rules.DeepEqual()) correctly validates the
 // equality of the rule or rules.
 func TestRulesDeepEqual(t *testing.T) {
-	setUpSuite(t)
-
 	var invalidRules *Rules
 
 	require.True(t, invalidRules.DeepEqual(nil))

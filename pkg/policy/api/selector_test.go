@@ -23,8 +23,6 @@ func selectorRequirementsConverter(t *testing.T, key string, sel selection.Opera
 }
 
 func TestSelectsAllEndpoints(t *testing.T) {
-	setUpSuite(t)
-
 	// Empty endpoint selector slice does NOT equate to a wildcard.
 	selectorSlice := EndpointSelectorSlice{}
 	require.False(t, selectorSlice.SelectsAllEndpoints())
@@ -45,8 +43,6 @@ func TestSelectsAllEndpoints(t *testing.T) {
 }
 
 func TestLabelSelectorToRequirements(t *testing.T) {
-	setUpSuite(t)
-
 	labelSelector := &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"any.foo": "bar",
