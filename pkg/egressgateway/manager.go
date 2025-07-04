@@ -737,17 +737,18 @@ func (manager *Manager) updateEgressRules6() {
 			gatewayIP = ExcludedCIDRIPv4
 		}
 
-		if policyPresent && policyVal.Match(gwc.egressIP6, gatewayIP) {
+		if policyPresent && policyVal.Match(gwc.egressIP6, gatewayIP, gwc.egressIfindex) {
 			return
 		}
 
-		if err := manager.policyMap6.Update(endpointIP, dstCIDR, gwc.egressIP6, gatewayIP); err != nil {
+		if err := manager.policyMap6.Update(endpointIP, dstCIDR, gwc.egressIP6, gatewayIP, gwc.egressIfindex); err != nil {
 			manager.logger.Error(
 				"Error applying IPv6 egress gateway policy",
 				logfields.Error, err,
 				logfields.SourceIP, endpointIP,
 				logfields.DestinationCIDR, dstCIDR,
 				logfields.EgressIP, gwc.egressIP6,
+				logfields.LinkIndex, gwc.egressIfindex,
 				logfields.GatewayIP, gatewayIP,
 			)
 		} else {
