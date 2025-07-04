@@ -103,25 +103,25 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	require.NoError(t, err)
 }
 
-// TestCompileOrLoadDefaultEndpoint checks that the datapath can be compiled
+// TestPrivilegedCompileOrLoadDefaultEndpoint checks that the datapath can be compiled
 // and loaded.
-func TestCompileOrLoadDefaultEndpoint(t *testing.T) {
+func TestPrivilegedCompileOrLoadDefaultEndpoint(t *testing.T) {
 	ep := testutils.NewTestEndpoint(t)
 	initEndpoint(t, &ep)
 	testReloadDatapath(t, &ep)
 }
 
-// TestCompileOrLoadHostEndpoint is the same as
+// TestPrivilegedCompileOrLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
-func TestCompileOrLoadHostEndpoint(t *testing.T) {
+func TestPrivilegedCompileOrLoadHostEndpoint(t *testing.T) {
 	hostEp := testutils.NewTestHostEndpoint(t)
 	initEndpoint(t, &hostEp)
 
 	testReloadDatapath(t, &hostEp)
 }
 
-// TestReload compiles and attaches the datapath.
-func TestReload(t *testing.T) {
+// TestPrivilegedReload compiles and attaches the datapath.
+func TestPrivilegedReload(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
@@ -184,17 +184,17 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	require.Error(t, err)
 }
 
-// TestCompileFailureDefaultEndpoint attempts to compile then cancels the
+// TestPrivilegedCompileFailureDefaultEndpoint attempts to compile then cancels the
 // context and ensures that the failure paths may be hit.
-func TestCompileFailureDefaultEndpoint(t *testing.T) {
+func TestPrivilegedCompileFailureDefaultEndpoint(t *testing.T) {
 	ep := testutils.NewTestEndpoint(t)
 	initEndpoint(t, &ep)
 	testCompileFailure(t, &ep)
 }
 
-// TestCompileFailureHostEndpoint is the same as
-// TestCompileFailureDefaultEndpoint, but for the host endpoint.
-func TestCompileFailureHostEndpoint(t *testing.T) {
+// TestPrivilegedCompileFailureHostEndpoint is the same as
+// TestPrivilegedCompileFailureDefaultEndpoint, but for the host endpoint.
+func TestPrivilegedCompileFailureHostEndpoint(t *testing.T) {
 	hostEp := testutils.NewTestHostEndpoint(t)
 	initEndpoint(t, &hostEp)
 	testCompileFailure(t, &hostEp)

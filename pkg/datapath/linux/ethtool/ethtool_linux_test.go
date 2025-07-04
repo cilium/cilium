@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestIsVirtualDriver(t *testing.T) {
+func TestPrivilegedIsVirtualDriver(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)

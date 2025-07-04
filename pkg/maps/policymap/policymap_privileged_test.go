@@ -59,7 +59,7 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	return testMap
 }
 
-func TestPolicyMapDumpToSlice(t *testing.T) {
+func TestPrivilegedPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooKey := newKey(1, 1, 1, 1, SinglePortPrefixLen)
@@ -89,7 +89,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	require.Len(t, dump, 2)
 }
 
-func TestDeleteNonexistentKey(t *testing.T) {
+func TestPrivilegedDeleteNonexistentKey(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 	key := newKey(trafficdirection.Ingress, 27, u8proto.TCP, 80, SinglePortPrefixLen)
 	err := testMap.Map.Delete(&key)
@@ -99,7 +99,7 @@ func TestDeleteNonexistentKey(t *testing.T) {
 	require.Equal(t, unix.ENOENT, errno)
 }
 
-func TestDenyPolicyMapDumpToSlice(t *testing.T) {
+func TestPrivilegedDenyPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooKey := newKey(1, 1, 1, 1, SinglePortPrefixLen)

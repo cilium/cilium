@@ -79,7 +79,7 @@ func TestSetBool(t *testing.T) {
 	require.Equal(t, OptionEnabled, o.GetValue(k3))
 }
 
-func TestDelete(t *testing.T) {
+func TestPrivilegedDelete(t *testing.T) {
 	k1, k2 := "foo", "bar"
 
 	o := IntOptions{

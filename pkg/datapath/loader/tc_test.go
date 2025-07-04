@@ -58,7 +58,7 @@ func mustTCProgramWithName(t *testing.T, name string) *ebpf.Program {
 	return p
 }
 
-func TestAttachDetachSKBProgramLegacy(t *testing.T) {
+func TestPrivilegedAttachDetachSKBProgramLegacy(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -81,7 +81,7 @@ func TestAttachDetachSKBProgramLegacy(t *testing.T) {
 	})
 }
 
-func TestAttachDetachTCProgram(t *testing.T) {
+func TestPrivilegedAttachDetachTCProgram(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -103,7 +103,7 @@ func TestAttachDetachTCProgram(t *testing.T) {
 	})
 }
 
-func TestHasCiliumTCFilters(t *testing.T) {
+func TestPrivilegedHasCiliumTCFilters(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -137,7 +137,7 @@ func TestHasCiliumTCFilters(t *testing.T) {
 }
 
 // Upgrade a legacy tc program to tcx.
-func TestAttachSKBUpgrade(t *testing.T) {
+func TestPrivilegedAttachSKBUpgrade(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -169,7 +169,7 @@ func TestAttachSKBUpgrade(t *testing.T) {
 }
 
 // Downgrade a tcx program to legacy tc.
-func TestAttachSKBDowngrade(t *testing.T) {
+func TestPrivilegedAttachSKBDowngrade(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -198,7 +198,7 @@ func TestAttachSKBDowngrade(t *testing.T) {
 	})
 }
 
-func TestCleanupStaleTCFilters(t *testing.T) {
+func TestPrivilegedCleanupStaleTCFilters(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 

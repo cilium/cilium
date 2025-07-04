@@ -30,7 +30,7 @@ var (
 )
 
 // Test_PodCIDRAdvert validates pod IPv4/v6 subnet is advertised, withdrawn and modified on node addresses change.
-func Test_PodCIDRAdvert(t *testing.T) {
+func TestPrivileged_PodCIDRAdvert(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// steps define order in which test is run. Note, this is different from table tests, in which each unit is
@@ -181,7 +181,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 }
 
 // Test_PodIPPoolAdvert validates pod ip pools are advertised to BGP peers.
-func Test_PodIPPoolAdvert(t *testing.T) {
+func TestPrivileged_PodIPPoolAdvert(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// Steps define the order that tests are run. Note, this is different from table tests,
@@ -506,7 +506,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 }
 
 // Test_LBEgressAdvertisementWithLoadBalancerIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
+func TestPrivileged_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -733,8 +733,8 @@ func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	}
 }
 
-// Test_LBEgressAdvertisementWithClusterIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
+// TestPrivileged_LBEgressAdvertisementWithClusterIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
+func TestPrivileged_LBEgressAdvertisementWithClusterIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -934,7 +934,7 @@ func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
 }
 
 // Test_LBEgressAdvertisementWithExternalIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
+func TestPrivileged_LBEgressAdvertisementWithExternalIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -1133,8 +1133,8 @@ func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
 	}
 }
 
-// Test_AdvertisedPathAttributes validates optional path attributes in advertised paths.
-func Test_AdvertisedPathAttributes(t *testing.T) {
+// TestPrivileged_AdvertisedPathAttributes validates optional path attributes in advertised paths.
+func TestPrivileged_AdvertisedPathAttributes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
