@@ -814,7 +814,6 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 			}
 
 			if !serviceReady {
-				delete(s.services, id)
 				event.Action = DeleteService
 			}
 
