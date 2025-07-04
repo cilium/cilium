@@ -26,8 +26,6 @@ func checkMarshalUnmarshal(t *testing.T, r *Rule) {
 // This test ensures that the NodeSelector and EndpointSelector fields are kept
 // empty when the rule is marshalled/unmarshalled.
 func TestJSONMarshalling(t *testing.T) {
-	setUpSuite(t)
-
 	validEndpointRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 	}
@@ -96,8 +94,6 @@ func getIngressDenyRuleWithFromGroups() *Rule {
 }
 
 func TestRequiresDerivative(t *testing.T) {
-	setUpSuite(t)
-
 	egressWithoutToGroups := Rule{}
 	require.False(t, egressWithoutToGroups.RequiresDerivative())
 
@@ -115,8 +111,6 @@ func TestRequiresDerivative(t *testing.T) {
 }
 
 func TestCreateDerivative(t *testing.T) {
-	setUpSuite(t)
-
 	egressWithoutToGroups := Rule{}
 	newRule, err := egressWithoutToGroups.CreateDerivative(context.TODO())
 	require.NoError(t, err)

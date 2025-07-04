@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -42,7 +41,6 @@ var (
 
 func TestMapIPsToSelectors(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	var (
 		ciliumIP1   = netip.MustParseAddr("1.2.3.4")
@@ -100,7 +98,6 @@ func TestMapIPsToSelectors(t *testing.T) {
 
 func TestNameManagerIPCacheUpdates(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	ipc := newMockIPCache()
 	nameManager := New(ManagerParams{
@@ -151,9 +148,6 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 }
 
 func Test_deriveLabelsForNames(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	ciliumIORe, err := ciliumIOSel.ToRegex()
 	require.NoError(t, err)
 	githubRe, err := githubSel.ToRegex()

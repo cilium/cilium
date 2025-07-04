@@ -18,9 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/defaults"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -65,7 +63,6 @@ type testData struct {
 }
 
 func newTestData(logger *slog.Logger) *testData {
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),

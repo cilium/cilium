@@ -45,10 +45,7 @@ type dnsProxyParams struct {
 
 // newDNSProxy initializes the DNS l7 proxy.
 func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
-	if err := re.InitRegexCompileLRU(params.Logger, option.Config.FQDNRegexCompileLRUSize); err != nil {
-		// can only happen if LRUSize is negative
-		return nil, err
-	}
+	re.Resize(params.Logger, option.Config.FQDNRegexCompileLRUSize)
 
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
