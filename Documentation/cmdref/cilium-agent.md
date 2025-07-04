@@ -154,6 +154,7 @@ cilium-agent [flags]
       --enable-ipv6-ndp                                           Enable IPv6 NDP support
       --enable-k8s                                                Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                  Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-k8s-host-firewall-bypass                           Enable bypassing host firewall for Kubernetes API server access
       --enable-l2-announcements                                   Enable L2 announcements
       --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP

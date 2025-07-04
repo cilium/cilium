@@ -857,8 +857,7 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortPro
 //     until a DNS response has been received.
 func setSoMarks(fd int, ipFamily ipfamily.IPFamily, secId identity.NumericIdentity) error {
 	// Set SO_MARK to allow datapath to know these upstream packets from an egress proxy
-	mark := linux_defaults.MagicMarkEgress
-	mark |= uint32(secId&0xFFFF)<<16 | uint32((secId&0xFF0000)>>16)
+	mark := linux_defaults.MakeMagicMark(linux_defaults.MagicMarkEgress, secId)
 	err := unix.SetsockoptUint64(fd, unix.SOL_SOCKET, unix.SO_MARK, uint64(mark))
 	if err != nil {
 		return fmt.Errorf("error setting SO_MARK: %w", err)
