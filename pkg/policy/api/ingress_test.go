@@ -66,8 +66,6 @@ func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
 }
 
 func TestIsLabelBasedIngress(t *testing.T) {
-	setUpSuite(t)
-
 	type args struct {
 		eg *IngressRule
 	}

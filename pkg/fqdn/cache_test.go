@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 )
 
@@ -26,9 +25,6 @@ import (
 // iterate through time, ensuring that data is expired as appropriate. We also
 // insert redundant DNS entries that should not change the output.
 func TestUpdateLookup(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	name := "test.com"
 	now := time.Now()
 	cache := NewDNSCache(0)
@@ -79,9 +75,6 @@ func TestUpdateLookup(t *testing.T) {
 
 // TestDelete tests that we can forcibly clear parts of the cache.
 func TestDelete(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),
 		"test2.com": netip.MustParseAddr("2.2.2.2"),
@@ -152,9 +145,6 @@ func TestDelete(t *testing.T) {
 }
 
 func Test_forceExpiredByNames(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	names := []string{"test1.com", "test2.com"}
 	cache := NewDNSCache(0)
 	for i := 1; i < 4; i++ {
@@ -171,9 +161,6 @@ func Test_forceExpiredByNames(t *testing.T) {
 }
 
 func TestReverseUpdateLookup(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),
 		"test2.com": netip.MustParseAddr("2.2.2.2"),
@@ -241,9 +228,6 @@ func TestReverseUpdateLookup(t *testing.T) {
 }
 
 func TestJSONMarshal(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),
 		"test2.com": netip.MustParseAddr("2.2.2.2"),
@@ -296,9 +280,6 @@ func TestJSONMarshal(t *testing.T) {
 }
 
 func TestCountIPs(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("1.1.1.1"),
 		"test2.com": netip.MustParseAddr("2.2.2.2"),
@@ -386,9 +367,6 @@ func makeEntries(now time.Time, live, redundant, expired uint32) (entries []*cac
 
 // Note: each "op" works on size things
 func BenchmarkGetIPs(b *testing.B) {
-	logger := hivetest.Logger(b)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	now := time.Now()
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 60)
@@ -404,9 +382,6 @@ func BenchmarkGetIPs(b *testing.B) {
 
 // Note: each "op" works on size things
 func BenchmarkUpdateIPs(b *testing.B) {
-	logger := hivetest.Logger(b)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	for b.Loop() {
 		b.StopTimer()
 		now := time.Now()
@@ -456,9 +431,6 @@ func BenchmarkMarshalJSON1000Repeat2(b *testing.B) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
-	logger := hivetest.Logger(b)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
@@ -478,9 +450,6 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
-	logger := hivetest.Logger(b)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
@@ -505,9 +474,6 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 }
 
 func TestTTLInsertWithMinValue(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	now := time.Now()
 	cache := NewDNSCache(60)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 3)
@@ -529,9 +495,6 @@ func TestTTLInsertWithMinValue(t *testing.T) {
 }
 
 func TestTTLInsertWithZeroValue(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	now := time.Now()
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 10)
@@ -553,9 +516,6 @@ func TestTTLInsertWithZeroValue(t *testing.T) {
 }
 
 func TestTTLCleanupEntries(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 3)
 	require.Len(t, cache.cleanup, 1)
@@ -566,9 +526,6 @@ func TestTTLCleanupEntries(t *testing.T) {
 }
 
 func TestTTLCleanupWithoutForward(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	cache := NewDNSCache(0)
 	now := time.Now()
 	cache.cleanup[now.Unix()] = []string{"test.com"}
@@ -580,9 +537,6 @@ func TestTTLCleanupWithoutForward(t *testing.T) {
 }
 
 func TestOverlimitEntriesWithValidLimit(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	limit := 5
 	cache := NewDNSCacheWithLimit(0, limit)
 
@@ -603,9 +557,6 @@ func TestOverlimitEntriesWithValidLimit(t *testing.T) {
 }
 
 func TestOverlimitEntriesWithoutLimit(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	limit := 0
 	cache := NewDNSCacheWithLimit(0, limit)
 	for i := range 5 {
@@ -617,9 +568,6 @@ func TestOverlimitEntriesWithoutLimit(t *testing.T) {
 }
 
 func TestGCOverlimitAfterTTLCleanup(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	limit := 5
 	cache := NewDNSCacheWithLimit(0, limit)
 
@@ -641,9 +589,6 @@ func TestGCOverlimitAfterTTLCleanup(t *testing.T) {
 }
 
 func TestOverlimitAfterDeleteForwardEntry(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	// Validate if something delete the forward entry no invalid key access on
 	// CG operation
 	dnsCache := NewDNSCache(0)
@@ -653,9 +598,6 @@ func TestOverlimitAfterDeleteForwardEntry(t *testing.T) {
 }
 
 func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected map[string][]string) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	t.Helper()
 	require.Lenf(t, zombies, len(expected), "Different number of zombies than expected: %+v", zombies)
 
@@ -675,7 +617,6 @@ func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected ma
 
 func TestZombiesSiblingsGC(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
@@ -706,7 +647,6 @@ func TestZombiesSiblingsGC(t *testing.T) {
 
 func TestZombiesGC(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
@@ -808,7 +748,6 @@ func TestZombiesGC(t *testing.T) {
 
 func TestZombiesGCOverLimit(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, 1)
@@ -835,7 +774,6 @@ func TestZombiesGCOverLimit(t *testing.T) {
 
 func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	afterNow := now.Add(1 * time.Nanosecond)
@@ -873,7 +811,6 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 
 func TestZombiesGCDeferredDeletes(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
@@ -935,7 +872,6 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 
 func TestZombiesForceExpire(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
@@ -1008,7 +944,6 @@ func TestZombiesForceExpire(t *testing.T) {
 
 func TestCacheToZombiesGCCascade(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	cache := NewDNSCache(0)
@@ -1056,7 +991,6 @@ func TestCacheToZombiesGCCascade(t *testing.T) {
 
 func TestZombiesDumpAlive(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	now := time.Now()
 	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
@@ -1134,7 +1068,6 @@ func TestZombiesDumpAlive(t *testing.T) {
 
 func TestOverlimitPreferNewerEntries(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	toFQDNsMinTTL := 100
 	toFQDNsMaxIPsPerHost := 5
@@ -1223,7 +1156,6 @@ func TestOverlimitPreferNewerEntries(t *testing.T) {
 // the front).
 func TestPerHostLimitBehaviourForS3(t *testing.T) {
 	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	someDomain := "s3.example.com"
 	maxIPs := 5
@@ -1376,9 +1308,6 @@ func validateZombieSort(t *testing.T, zombies []*DNSZombieMapping) {
 }
 
 func Test_sortZombieMappingSlice(t *testing.T) {
-	logger := hivetest.Logger(t)
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
-
 	// Create three moments in time, so we can have before, equal and after.
 	moments := []time.Time{
 		time.Date(2001, time.January, 1, 1, 1, 1, 0, time.Local),

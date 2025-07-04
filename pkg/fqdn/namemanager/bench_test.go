@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/time"
@@ -40,8 +39,6 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 	// with a random new IP
 
 	numSelectors := 1000
-
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	nameManager := New(ManagerParams{
 		Logger: logger,

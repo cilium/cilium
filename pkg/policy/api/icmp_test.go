@@ -13,8 +13,6 @@ import (
 )
 
 func TestICMPFieldUnmarshal(t *testing.T) {
-	setUpSuite(t)
-
 	var i ICMPField
 
 	value1 := []byte("{\"family\": \"IPv4\", \"type\": 8}")

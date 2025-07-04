@@ -80,8 +80,6 @@ func TestGetCIDRSetWithUniqueCIDRRule(t *testing.T) {
 }
 
 func TestGetCIDRSetWithError(t *testing.T) {
-	setUpSuite(t)
-
 	cb := func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
 		return []netip.Addr{}, fmt.Errorf("Invalid credentials")
 	}
@@ -93,8 +91,6 @@ func TestGetCIDRSetWithError(t *testing.T) {
 }
 
 func TestWithoutProviderRegister(t *testing.T) {
-	setUpSuite(t)
-
 	providers.Delete(AWSProvider)
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
