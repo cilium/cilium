@@ -4071,6 +4071,24 @@ func init() {
       "description": "Metric information",
       "type": "object",
       "properties": {
+        "additionalInfo": {
+          "description": "Additional information of the metric",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "buckets": {
+          "description": "Buckets for histogram metrics",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "count": {
+          "description": "Count for histogram/summary metrics",
+          "type": "number"
+        },
         "labels": {
           "description": "Labels of the metric",
           "type": "object",
@@ -4081,6 +4099,17 @@ func init() {
         "name": {
           "description": "Name of the metric",
           "type": "string"
+        },
+        "quantiles": {
+          "description": "Quantiles for summary metrics",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "sum": {
+          "description": "Sum for histogram/summary metrics",
+          "type": "number"
         },
         "value": {
           "description": "Value of the metric",
@@ -10125,6 +10154,24 @@ func init() {
       "description": "Metric information",
       "type": "object",
       "properties": {
+        "additionalInfo": {
+          "description": "Additional information of the metric",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "buckets": {
+          "description": "Buckets for histogram metrics",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "count": {
+          "description": "Count for histogram/summary metrics",
+          "type": "number"
+        },
         "labels": {
           "description": "Labels of the metric",
           "type": "object",
@@ -10135,6 +10182,17 @@ func init() {
         "name": {
           "description": "Name of the metric",
           "type": "string"
+        },
+        "quantiles": {
+          "description": "Quantiles for summary metrics",
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "sum": {
+          "description": "Sum for histogram/summary metrics",
+          "type": "number"
         },
         "value": {
           "description": "Value of the metric",
