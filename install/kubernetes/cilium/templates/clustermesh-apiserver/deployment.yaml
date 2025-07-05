@@ -210,7 +210,7 @@ spec:
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
         - --controller-group-metrics=all
         {{- end }}
-        {{- if .Values.clustermesh.enableMCSAPISupport }}
+        {{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
         - --clustermesh-enable-mcs-api
         {{- end }}
         {{- if .Values.ciliumEndpointSlice.enabled }}

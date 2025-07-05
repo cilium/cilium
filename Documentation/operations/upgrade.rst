@@ -303,6 +303,8 @@ Deprecated Options
 
 Helm Options
 ~~~~~~~~~~~~
+* The Helm option ``clustermesh.enableMCSAPISupport`` has been deprecated in favor of ``clustermesh.mcsapi.enabled``
+  and will be removed in Cilium 1.20.
 
 
 Agent Options

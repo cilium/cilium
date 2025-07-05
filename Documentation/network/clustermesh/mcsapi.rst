@@ -30,7 +30,7 @@ To install Cilium with MCS-API support, run:
 
       helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set clustermesh.enableMCSAPISupport=true
+      --set clustermesh.mcsapi.enabled=true
 
 To enable MCS-API support on an existing Cilium installation, run:
 
@@ -39,7 +39,7 @@ To enable MCS-API support on an existing Cilium installation, run:
       helm upgrade cilium |CHART_RELEASE| \\
       --namespace kube-system \\
       --reuse-values \\
-      --set clustermesh.enableMCSAPISupport=true
+      --set clustermesh.mcsapi.enabled=true
 
 Also checkout the :ref:`EndpointSlice synchronization <endpointslicesync>` feature if you need Headless Services support.
 

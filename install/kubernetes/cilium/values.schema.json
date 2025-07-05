@@ -1468,6 +1468,14 @@
         "maxConnectedClusters": {
           "type": "integer"
         },
+        "mcsapi": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "policyDefaultLocalCluster": {
           "type": "boolean"
         },
