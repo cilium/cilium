@@ -925,13 +925,17 @@
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.enableMCSAPISupport`
-     - Enable Multi-Cluster Services API support
+     - Enable Multi-Cluster Services API support (deprecated; use clustermesh.mcsapi.enabled)
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.maxConnectedClusters`
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int
      - ``255``
+   * - :spelling:ignore:`clustermesh.mcsapi.enabled`
+     - Enable Multi-Cluster Services API support
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
      - Control whether policy rules assume by default the local cluster if not explicitly selected
      - bool
