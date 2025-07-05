@@ -50,7 +50,7 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
