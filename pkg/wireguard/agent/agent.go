@@ -281,21 +281,6 @@ func (a *Agent) init(ctx context.Context) error {
 		return fmt.Errorf("failed to load or generate private key: %w", err)
 	}
 
-	var mtuConfig mtu.RouteMTU
-	for {
-		var (
-			found bool
-			watch <-chan struct{}
-		)
-		mtuConfig, _, watch, found = a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
-		if found {
-			break
-		}
-		<-watch
-	}
-
-	linkMTU := mtuConfig.DeviceMTU - mtu.WireguardOverhead
-
 	// try to remove any old tun devices created by userspace mode
 	link, _ := safenetlink.LinkByName(types.IfaceName)
 	if _, isTuntap := link.(*netlink.Tuntap); isTuntap {
@@ -305,7 +290,6 @@ func (a *Agent) init(ctx context.Context) error {
 	link = &netlink.Wireguard{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: types.IfaceName,
-			MTU:  linkMTU,
 		},
 	}
 
@@ -341,11 +325,6 @@ func (a *Agent) init(ctx context.Context) error {
 	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 		return fmt.Errorf("failed to configure WireGuard device: %w", err)
-	}
-
-	// set MTU again explicitly in case we are re-using an existing device
-	if err := netlink.LinkSetMTU(link, linkMTU); err != nil {
-		return fmt.Errorf("failed to set mtu: %w", err)
 	}
 
 	if err := netlink.LinkSetUp(link); err != nil {
