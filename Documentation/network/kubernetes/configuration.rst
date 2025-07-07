@@ -49,9 +49,9 @@ to your preferences:
 
   - ``none`` - Generate a tracing event on every receive and send packet.
   - ``low`` - Generate a tracing event on every send packet.
-  - ``medium`` - Generate a tracing event on every new connection, any time a
-    packet contains TCP flags that have not been previously seen for the packet
-    direction, and on average once per ``monitor-aggregation-interval``
+  - ``medium`` - Generate a tracing event for send packets only on every new
+    connection, any time a packet contains TCP flags that have not been previously
+    seen for the packet direction, and on average once per ``monitor-aggregation-interval``
     (assuming that a packet is seen during the interval). Each direction tracks
     TCP flags and report interval separately. If Cilium drops a packet, it will
     emit one event per packet dropped.
