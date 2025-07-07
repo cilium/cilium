@@ -495,13 +495,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	if option.Config.EnableWireguard {
-		if err := params.WGAgent.Init(d.ipcache, ctx); err != nil {
-			d.logger.Error("failed to initialize WireGuard agent", logfields.Error, err)
-			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
-		}
-	}
-
 	// The kube-proxy replacement and host-fw devices detection should happen after
 	// establishing a connection to kube-apiserver, but before starting a k8s watcher.
 	// This is because the device detection requires self (Cilium)Node object.
