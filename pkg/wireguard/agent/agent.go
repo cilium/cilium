@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -117,7 +118,7 @@ type params struct {
 	IPCache           *ipcache.IPCache
 }
 
-func newWireguardAgent(params params) *Agent {
+func newWireguardAgent(params params) datapath.WireguardAgent {
 	agent := &Agent{
 		logger:            params.Logger.With(subsysLogAttr...),
 		config:            params.Config,
@@ -144,7 +145,7 @@ func newWireguardAgent(params params) *Agent {
 
 // Start implements cell.HookInterface.
 func (a *Agent) Start(cell.HookContext) error {
-	if !a.config.EnableWireguard {
+	if !a.Enabled() {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(types.IfaceName)
 		return nil
@@ -207,7 +208,7 @@ func (a *Agent) Start(cell.HookContext) error {
 
 // Stop implements cell.HookInterface.
 func (a *Agent) Stop(cell.HookContext) error {
-	if !a.config.EnableWireguard {
+	if !a.Enabled() {
 		return nil
 	}
 
@@ -219,6 +220,10 @@ func (a *Agent) Stop(cell.HookContext) error {
 
 func (a *Agent) Name() string {
 	return "wireguard-agent"
+}
+
+func (a *Agent) Enabled() bool {
+	return a.config.EnableWireguard
 }
 
 // needsIPCache returns true if the agent should subscribe to IPCache events.
@@ -788,7 +793,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 // If withPeers is true, then the details about each connected peer are
 // are populated as well.
 func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
-	if !a.config.EnableWireguard {
+	if !a.Enabled() {
 		return nil, nil
 	}
 
