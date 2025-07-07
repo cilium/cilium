@@ -68,6 +68,7 @@ type Agent struct {
 	lock.RWMutex
 
 	logger   *slog.Logger
+	config   *option.DaemonConfig
 	ipCache  *ipcache.IPCache
 	sysctl   sysctl.Sysctl
 	jobGroup job.Group
@@ -93,6 +94,7 @@ type params struct {
 	Lifecycle cell.Lifecycle
 
 	Logger   *slog.Logger
+	Config   *option.DaemonConfig
 	DB       *statedb.DB
 	MTUTable statedb.Table[mtu.RouteMTU]
 	JobGroup job.Group
@@ -101,7 +103,7 @@ type params struct {
 
 // newAgent creates a new WireGuard Agent.
 func newAgent(p params) *Agent {
-	if !option.Config.EnableWireguard {
+	if !p.Config.EnableWireguard {
 		// Delete WireGuard device from previous run (if such exists).
 		link.DeleteByName(types.IfaceName)
 		return nil
@@ -115,6 +117,7 @@ func newAgent(p params) *Agent {
 
 	agent := &Agent{
 		logger:   p.Logger,
+		config:   p.Config,
 		db:       p.DB,
 		mtuTable: p.MTUTable,
 		jobGroup: p.JobGroup,
@@ -122,7 +125,7 @@ func newAgent(p params) *Agent {
 
 		wgClient:         wgClient,
 		listenPort:       types.ListenPort,
-		privKeyPath:      filepath.Join(option.Config.StateDir, types.PrivKeyFilename),
+		privKeyPath:      filepath.Join(p.Config.StateDir, types.PrivKeyFilename),
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
@@ -154,7 +157,7 @@ func (a *Agent) Name() string {
 // This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
 // In tunneling mode, only node IPs (always set via UpdatePeer) are needed.
 func (a *Agent) needsIPCache() bool {
-	return !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback
+	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
 }
 
 // InitLocalNodeFromWireGuard configures the fields on the local node. Called from
@@ -178,11 +181,11 @@ func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	localNode.WireguardPubKey = a.privKey.PublicKey().String()
 	localNode.Annotations[annotation.WireguardPubKey] = localNode.WireguardPubKey
 
-	if option.Config.EncryptNode && option.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(localNode.Labels)) {
+	if a.config.EncryptNode && a.config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(localNode.Labels)) {
 		a.logger.Info(
 			"Opting out from node-to-node encryption on this node as per "+
 				option.NodeEncryptionOptOutLabels+" label selector",
-			logfields.Selector, option.Config.NodeEncryptionOptOutLabels,
+			logfields.Selector, a.config.NodeEncryptionOptOutLabels,
 		)
 		localNode.OptOutNodeEncryption = true
 		localNode.EncryptionKey = 0
@@ -244,7 +247,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 			"(https://www.wireguard.com/install/)", err)
 	}
 
-	if option.Config.EnableIPv4 {
+	if a.config.EnableIPv4 {
 		if err := a.sysctl.Disable([]string{"net", "ipv4", "conf", types.IfaceName, "rp_filter"}); err != nil {
 			return fmt.Errorf("failed to disable rp_filter: %w", err)
 		}
@@ -448,7 +451,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		})
 	}
 
-	if option.Config.EnableIPv4 && nodeIPv4 != nil {
+	if a.config.EnableIPv4 && nodeIPv4 != nil {
 		ipn := net.IPNet{
 			IP:   nodeIPv4,
 			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
@@ -457,7 +460,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 			peer.queueAllowedIPsInsert(ipn)
 		}
 	}
-	if option.Config.EnableIPv6 && nodeIPv6 != nil {
+	if a.config.EnableIPv6 && nodeIPv6 != nil {
 		ipn := net.IPNet{
 			IP:   nodeIPv6,
 			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
@@ -468,9 +471,9 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	}
 
 	ep := ""
-	if option.Config.EnableIPv4 && nodeIPv4 != nil {
+	if a.config.EnableIPv4 && nodeIPv4 != nil {
 		ep = net.JoinHostPort(nodeIPv4.String(), strconv.Itoa(types.ListenPort))
-	} else if option.Config.EnableIPv6 && nodeIPv6 != nil {
+	} else if a.config.EnableIPv6 && nodeIPv6 != nil {
 		ep = net.JoinHostPort(nodeIPv6.String(), strconv.Itoa(types.ListenPort))
 	} else {
 		return fmt.Errorf("missing node IP for node %q", nodeName)
@@ -569,8 +572,8 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		Endpoint:   p.endpoint,
 		AllowedIPs: addedIPs,
 	}
-	if option.Config.WireguardPersistentKeepalive != 0 {
-		peer.PersistentKeepaliveInterval = &option.Config.WireguardPersistentKeepalive
+	if a.config.WireguardPersistentKeepalive != 0 {
+		peer.PersistentKeepaliveInterval = &a.config.WireguardPersistentKeepalive
 	}
 	cfg := wgtypes.Config{
 		PrivateKey:   nil,
@@ -770,7 +773,7 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 	}
 
 	var nodeEncryptionStatus = "Disabled"
-	if option.Config.EncryptNode {
+	if a.config.EncryptNode {
 		if a.optOut {
 			nodeEncryptionStatus = "OptedOut"
 		} else {
