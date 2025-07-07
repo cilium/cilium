@@ -4,46 +4,19 @@
 package ipcache
 
 import (
-	"context"
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 )
 
-type dummyOwner struct{}
-
-func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
-	out := make(chan struct{})
-	close(out)
-	return out
-}
-
-func (d *dummyOwner) GetNodeSuffix() string {
-	return "foo"
-}
-
 func BenchmarkInjectLabels(b *testing.B) {
-	logger := hivetest.Logger(b)
-	ctx, cancel := context.WithCancel(context.Background())
-	alloc := cache.NewCachingIdentityAllocator(logger, &dummyOwner{}, cache.NewTestAllocatorConfig())
-	// <-alloc.InitIdentityAllocator(nil)
-	PolicyHandler = &mockUpdater{
-		identities: make(map[identity.NumericIdentity]labels.LabelArray),
-	}
-	ipc := NewIPCache(&Configuration{
-		Context:           ctx,
-		Logger:            logger,
-		IdentityAllocator: alloc,
-		IdentityUpdater:   PolicyHandler,
-	})
+	s := setupIPCacheTestSuite(b)
+	ipc := s.IPIdentityCache
 
 	addr := netip.MustParseAddr("1.0.0.0")
 	lbls := labels.NewLabelsFromSortedList(labels.LabelSourceCIDRGroup + ":foo=bar")
@@ -65,7 +38,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 	}
 	b.Logf("%d", len(prefixes))
 	b.Log(addr.String())
-	_, err := ipc.doInjectLabels(ctx, prefixes)
+	_, err := ipc.doInjectLabels(b.Context(), prefixes)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -74,9 +47,4 @@ func BenchmarkInjectLabels(b *testing.B) {
 
 	// sanity checks
 	require.Len(b, ipc.ipToIdentityCache, b.N)
-
-	b.Cleanup(func() {
-		cancel()
-	})
-
 }
