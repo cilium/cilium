@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -70,14 +71,15 @@ type Agent struct {
 	lock.RWMutex
 
 	// These are provided in [newWireguardAgent].
-	logger    *slog.Logger
-	config    *option.DaemonConfig
-	ipCache   *ipcache.IPCache
-	sysctl    sysctl.Sysctl
-	jobGroup  job.Group
-	db        *statedb.DB
-	mtuTable  statedb.Table[mtu.RouteMTU]
-	localNode *node.LocalNodeStore
+	logger      *slog.Logger
+	config      *option.DaemonConfig
+	ipCache     *ipcache.IPCache
+	sysctl      sysctl.Sysctl
+	jobGroup    job.Group
+	db          *statedb.DB
+	mtuTable    statedb.Table[mtu.RouteMTU]
+	localNode   *node.LocalNodeStore
+	nodeManager nodeManager.NodeManager
 
 	// These are initialized in [newWireguardAgent].
 	listenPort       int
@@ -97,24 +99,26 @@ type params struct {
 
 	Lifecycle cell.Lifecycle
 
-	Logger    *slog.Logger
-	Config    *option.DaemonConfig
-	DB        *statedb.DB
-	MTUTable  statedb.Table[mtu.RouteMTU]
-	JobGroup  job.Group
-	Sysctl    sysctl.Sysctl
-	LocalNode *node.LocalNodeStore
+	Logger      *slog.Logger
+	Config      *option.DaemonConfig
+	DB          *statedb.DB
+	MTUTable    statedb.Table[mtu.RouteMTU]
+	JobGroup    job.Group
+	Sysctl      sysctl.Sysctl
+	LocalNode   *node.LocalNodeStore
+	NodeManager nodeManager.NodeManager
 }
 
 func newWireguardAgent(params params) *Agent {
 	agent := &Agent{
-		logger:    params.Logger.With(subsysLogAttr...),
-		config:    params.Config,
-		db:        params.DB,
-		mtuTable:  params.MTUTable,
-		jobGroup:  params.JobGroup,
-		sysctl:    params.Sysctl,
-		localNode: params.LocalNode,
+		logger:      params.Logger.With(subsysLogAttr...),
+		config:      params.Config,
+		db:          params.DB,
+		mtuTable:    params.MTUTable,
+		jobGroup:    params.JobGroup,
+		sysctl:      params.Sysctl,
+		localNode:   params.LocalNode,
+		nodeManager: params.NodeManager,
 
 		listenPort:       types.ListenPort,
 		privKeyPath:      filepath.Join(params.Config.StateDir, types.PrivKeyFilename),
@@ -214,6 +218,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 		a.localNode.Update(func(ln *node.LocalNode) {
 			a.initLocalNodeFromWireGuard(ln)
 		})
+		a.nodeManager.Subscribe(a)
 	}()
 
 	var mtuConfig mtu.RouteMTU
