@@ -536,7 +536,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			c.CheckExpectations(assertAllowedIPs) // checks entry 3
 
 			// Run the GC process, and assert the AllowedIPs correctness again
-			require.NoError(t, wgAgent.RestoreFinished(nil))
+			require.NoError(t, wgAgent.restoreFinished())
 			c.CheckExpectations(assertAllowedIPs) // checks entry 4
 
 			// Ensure that a public key change results in deletion of the old peer entry.
