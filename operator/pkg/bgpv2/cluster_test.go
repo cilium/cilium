@@ -1364,7 +1364,8 @@ func TestRouterIDAllocation(t *testing.T) {
 			},
 			InitClusterConfigs: []*v2.CiliumBGPClusterConfig{
 				{
-					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster1-config"},
+					// Fake client doesn't set UID. Assign it manually to deal with multiple cluster configs
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-1", UID: uuid.NewUUID()},
 					Spec: v2.CiliumBGPClusterConfigSpec{
 						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster1"}},
 						BGPInstances: []v2.CiliumBGPInstance{
@@ -1374,7 +1375,8 @@ func TestRouterIDAllocation(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster2-config"},
+					// Fake client doesn't set UID. Assign it manually to deal with multiple cluster configs
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-2", UID: uuid.NewUUID()},
 					Spec: v2.CiliumBGPClusterConfigSpec{
 						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster2"}},
 						BGPInstances: []v2.CiliumBGPInstance{
@@ -1392,7 +1394,14 @@ func TestRouterIDAllocation(t *testing.T) {
 			},
 			FinalClusterConfigs: []*v2.CiliumBGPClusterConfig{
 				{
-					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-multi-node"},
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-1"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "nomatch"}},
+						BGPInstances: []v2.CiliumBGPInstance{},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-2"},
 					Spec: v2.CiliumBGPClusterConfigSpec{
 						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster2"}},
 						BGPInstances: []v2.CiliumBGPInstance{
@@ -1442,6 +1451,9 @@ func TestRouterIDAllocation(t *testing.T) {
 					},
 				},
 			},
+			FinalExpectedNodeInstances: map[string][]string{
+				"test-node-1": {"test-instance-1"},
+			},
 		},
 	}
 
@@ -1477,19 +1489,24 @@ func TestRouterIDAllocation(t *testing.T) {
 				// collect all router IDs from all nodes and compare with the expected router IDs
 				// we can't guarantee the order of the router IDs so we use a map to compare
 				InitNodesRouterIDs := make(map[string]struct{})
-				for _, node := range tt.nodes {
-					nodeConfig, err := f.bgpnClient.Get(ctx, node.Name, meta_v1.GetOptions{})
-					// to make sure the node configs are created for all nodes
-					if err != nil {
-						return
-					}
+				nodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
+				if !assert.NoError(c, err) {
+					return
+				}
+				if !assert.NotNil(c, nodeConfigs) {
+					return
+				}
 
-					assert.NotNil(c, nodeConfig)
+				if !assert.Len(c, nodeConfigs.Items, len(tt.nodes)) {
+					return
+				}
+				for _, nodeConfig := range nodeConfigs.Items {
 					assert.NotEmpty(c, nodeConfig.Spec.BGPInstances)
-
 					for i := range nodeConfig.Spec.BGPInstances {
 						instance := &nodeConfig.Spec.BGPInstances[i]
-						InitNodesRouterIDs[*instance.RouterID] = struct{}{}
+						if assert.NotNil(c, instance.RouterID) {
+							InitNodesRouterIDs[*instance.RouterID] = struct{}{}
+						}
 					}
 				}
 				assert.Equal(c, tt.InitExpectedRouterIDs, InitNodesRouterIDs)
@@ -1502,19 +1519,18 @@ func TestRouterIDAllocation(t *testing.T) {
 				}
 			}
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
-
 				NodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
-				if err != nil {
+				if !assert.NoError(c, err) {
 					return
 				}
-				if len(NodeConfigs.Items) != len(tt.FinalExpectedNodeInstances) {
+				if !assert.Len(c, NodeConfigs.Items, len(tt.FinalExpectedNodeInstances)) {
 					return
 				}
 				// If the nodeConfig is empty, the assertion will not be executed. However, the length comparison
 				// between len(NodeConfigs.Items) and len(tt.FinalExpectedNodeInstances) will allow the test to
 				// pass, since both are of length 0.
 				for _, nodeConfig := range NodeConfigs.Items {
-					if len(nodeConfig.Spec.BGPInstances) != len(tt.FinalExpectedNodeInstances[nodeConfig.Name]) {
+					if !assert.Len(c, nodeConfig.Spec.BGPInstances, len(tt.FinalExpectedNodeInstances[nodeConfig.Name])) {
 						return
 					}
 					assert.Len(c, tt.FinalExpectedNodeInstances[nodeConfig.Name], len(nodeConfig.Spec.BGPInstances))
@@ -1548,12 +1564,13 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 		return
 	}
 
-	_, err := f.bgpcClient.Get(ctx, bgpcc.Name, meta_v1.GetOptions{})
+	existing, err := f.bgpcClient.Get(ctx, bgpcc.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpcClient.Create(ctx, bgpcc, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		bgpcc.SetUID(existing.GetUID())
 		_, err = f.bgpcClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
