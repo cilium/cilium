@@ -1510,30 +1510,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
 
-	if option.Config.EnableWireguard {
-		go func() {
-			// Wait until the kvstore synchronization completed, to avoid
-			// causing connectivity blips due incorrectly removing
-			// WireGuard peers that have not yet been discovered.
-			// WaitForKVStoreSync returns immediately in CRD mode.
-			if err := d.nodeDiscovery.WaitForKVStoreSync(d.ctx); err != nil {
-				return
-			}
-
-			// When running in KVStore mode, we need to additionally wait until
-			// we have discovered all remote IP addresses, to prevent triggering
-			// the collection of stale AllowedIPs entries too early, leading to
-			// the disruption of otherwise valid long running connections.
-			if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
-				return
-			}
-
-			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
-				d.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
-			}
-		}()
-	}
-
 	if d.endpointManager.HostEndpointExists() {
 		d.endpointManager.InitHostEndpointLabels(d.ctx)
 	} else {
