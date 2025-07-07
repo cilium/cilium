@@ -1512,7 +1512,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
 
-	if params.WGAgent != nil {
+	if option.Config.EnableWireguard {
 		go func() {
 			// Wait until the kvstore synchronization completed, to avoid
 			// causing connectivity blips due incorrectly removing

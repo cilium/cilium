@@ -63,7 +63,7 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 		return err
 	}
 
-	if ini.WireGuard != nil {
+	if option.Config.EnableWireguard {
 		ini.WireGuard.InitLocalNodeFromWireGuard(n)
 	}
 
