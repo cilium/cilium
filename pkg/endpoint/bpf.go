@@ -805,7 +805,25 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			if err != nil {
 				return fmt.Errorf("policymap synchronization failed: %w", err)
 			}
+			datapathRegenCtxt.policyMapSyncDone = true
 		} else {
+			// There is an edge case where on startup, the policy map for an endpoint
+			// is not empty (policyMapDump > 0) but no policy has been realized yet (realizedPolicy is empty).
+			// Default policy may exist in map to allow all ingress/egress traffic, something like this:
+			// --------------------------------------------------------------------------------------------------------------------------
+			// POLICY   DIRECTION   LABELS (source:key[=value])   PORT/PROTO   PROXY PORT   AUTH TYPE   BYTES   PACKETS   PREFIX
+			// Allow    Ingress     ANY                           ANY          NONE         disabled    2426    29        0
+			// Allow    Ingress     reserved:host                 ANY          NONE         disabled    0       0         0
+			// Allow    Egress      ANY                           ANY          NONE         disabled    30639   165       0
+			// ----------------------------------------------------------------------------------------------------------------------------
+			// If the code has reached here, it means:
+			// 1. The endpoint has a policy map that is not empty (default policy exists)
+			// 2. No policies has been realized (realized policy is empty)
+			// 3. New policies need to be applied for this endpoint (hence desiredPolicy != realizedPolicy)
+			// GH-37724: https://github.com/cilium/cilium/issues/37724
+			e.getLogger().Debug(
+				"Policy map is not empty, but no policy has been realized yet, setting policyMapSyncDone to false",
+			)
 			// Ensure that e.realizedPolicy actually represents the
 			// current policy map state in case rollback is
 			// necessary, so we don't try to "roll back" to an empty
@@ -813,8 +831,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			// This may be the case if the agent just restarted,
 			// for example. See GH-38998.
 			e.realizedPolicy.CopyMapStateFrom(datapathRegenCtxt.policyMapDump)
+			// Not strictly required to set as false, but it is a good idea to absolutely
+			// ensure that the policy map is in sync with the desired policy.
+			datapathRegenCtxt.policyMapSyncDone = false
 		}
-		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
 	// sync policy map for fake endpoints, bpf compilation will be skipped for them.
