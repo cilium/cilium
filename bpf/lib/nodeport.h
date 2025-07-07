@@ -2541,7 +2541,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
-	if (tunnel_endpoint) {
+	if (info && tunnel_endpoint) {
 		__be16 src_port;
 
 		src_port = tunnel_gen_src_port_v4(&tuple);
