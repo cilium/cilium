@@ -85,20 +85,10 @@ type Agent struct {
 
 	// initialized in InitLocalNodeFromWireGuard
 	optOut bool
-	// initialized in NewAgent to subscribe or not to IPCache events.
-	needIPCacheEvents bool
 }
 
 // NewAgent creates a new WireGuard Agent
 func NewAgent(rootLogger *slog.Logger, privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
-	// In tunneling mode we only need nodeIPs, which are always inserted in UpdatePeer.
-	// Therefore, we sync IPs from IPCache only in native routing mode
-	// or when the fallback flag WireguardTrackAllIPsFallback is enabled.
-	var needIPCacheEvents bool
-	if !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback {
-		needIPCacheEvents = true
-	}
-
 	wgClient, err := wgctrl.New()
 	if err != nil {
 		return nil, err
@@ -116,8 +106,6 @@ func NewAgent(rootLogger *slog.Logger, privKeyPath string, sysctl sysctl.Sysctl,
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
-
-		needIPCacheEvents: needIPCacheEvents,
 	}, nil
 }
 
@@ -139,6 +127,13 @@ var _ cell.HookInterface = &Agent{}
 
 func (a *Agent) Name() string {
 	return "wireguard-agent"
+}
+
+// needsIPCache returns true if the agent should subscribe to IPCache events.
+// This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
+// In tunneling mode, only node IPs (always set via UpdatePeer) are needed.
+func (a *Agent) needsIPCache() bool {
+	return !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback
 }
 
 // InitLocalNodeFromWireGuard configures the fields on the local node. Called from
@@ -184,7 +179,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
 		a.Unlock()
-		if addIPCacheListener && a.needIPCacheEvents {
+		if addIPCacheListener && a.needsIPCache() {
 			a.ipCache.AddListener(a)
 		}
 	}()
@@ -369,7 +364,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	// To avoid running into a deadlock, we need to lock the IPCache before
 	// calling a.Lock(), because IPCache might try to call into
 	// OnIPIdentityCacheChange concurrently
-	if a.needIPCacheEvents {
+	if a.needsIPCache() {
 		a.ipCache.RLock()
 		defer a.ipCache.RUnlock()
 	}
@@ -411,7 +406,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	if peer == nil {
 		peer = &peerConfig{}
 
-		if a.needIPCacheEvents {
+		if a.needsIPCache() {
 			peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
 		}
 	}
