@@ -6,11 +6,8 @@ package datapath
 import (
 	"fmt"
 	"log/slog"
-	"path/filepath"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
@@ -34,14 +31,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Datapath provides the privileged operations to apply control-plane
@@ -73,7 +67,8 @@ var Cell = cell.Module(
 
 	cell.Invoke(initDatapath),
 
-	cell.Provide(newWireguardAgent),
+	// Provides the WireGuard agent, which manages WireGuard device and peers.
+	wg.Cell,
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
 	tables.NodeAddressCell,
@@ -150,26 +145,6 @@ var Cell = cell.Module(
 	// in the kernel and ensures they are kept up to date.
 	neighbor.Cell,
 )
-
-func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
-	var wgAgent *wg.Agent
-	if option.Config.EnableWireguard {
-		jobGroup := registry.NewGroup(health, lc)
-
-		var err error
-		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(rootLogger, privateKeyPath, sysctl, jobGroup, db, mtuTable)
-		if err != nil {
-			logging.Fatal(rootLogger, fmt.Sprintf("failed to initialize WireGuard: %s", err))
-		}
-
-		lc.Append(wgAgent)
-	} else {
-		// Delete WireGuard device from previous run (if such exists)
-		link.DeleteByName(wgTypes.IfaceName)
-	}
-	return wgAgent
-}
 
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {
 	lifecycle.Append(cell.Hook{
