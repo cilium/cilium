@@ -31,6 +31,53 @@ var (
 	networkOrder = binary.BigEndian
 )
 
+func stateMask(ms ...int) uint32 {
+	var out uint32
+	for _, m := range ms {
+		out |= 1 << m
+	}
+	return out
+}
+
+// StateFilterTCP is a mask of all states we consider for socket termination.
+// Instead of destroying all states, we make some notable omissions which are
+// documented below:
+//
+//   - TCP_CLOSE: Calls to close a socket in TCP_CLOSE state will result in
+//     ENOENT, this is also confusing as it is the same err code returned
+//     when a socket that doesn't exist is destroyed.
+//
+//   - TCP_TIME_WAIT: Socket may enter this state post close/FIN-wait states
+//     to catch any leftover traffic that may not have arrived yet. This is
+//     for security reasons, as well as avoiding late traffic from entering
+//     a new socket bound to the same addr/port. Technically, for the socket
+//     LB its not necessary as we remove the key from the rev NAT map in the
+//     cil_sock_release() hook, so these sockets won't be found. On the other
+//     hand we also do not need to waste time to iterate them.
+var StateFilterTCP = stateMask(
+	// The following states emit RST (net/ipv4/tcp.c#L3228-L3235)
+	netlink.TCP_ESTABLISHED,
+	netlink.TCP_CLOSE_WAIT,
+	netlink.TCP_FIN_WAIT1,
+	netlink.TCP_FIN_WAIT2,
+	netlink.TCP_SYN_RECV,
+	// Sockets in SYN-RECV state are simply removed from request queue
+	// and freed in memory (net/ipv4/tcp.c#L4878-L4885)
+	netlink.TCP_NEW_SYN_REC,
+	// Sockets in TCP_LISTEN are moved to closing state
+	// (net/ipv4/tcp.c#L4908)
+	netlink.TCP_CLOSE,
+	// Following are handled without any special consideration/just closed
+	netlink.TCP_SYN_SENT,
+	netlink.TCP_CLOSING,
+	netlink.TCP_LAST_ACK,
+	netlink.TCP_LISTEN,
+)
+
+// StateFilterUDP is a mask of all states we consider for socket termination.
+// There are no state omissions.
+const StateFilterUDP = 0xffff
+
 // Iterate iterates netlink sockets via a callback.
 func Iterate(proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error {
 	return iterate(proto, family, stateFilter, func(s *Socket, err error) error {
@@ -64,6 +111,7 @@ type SocketFilter struct {
 	DestPort uint16
 	Family   uint8
 	Protocol uint8
+	States   uint32
 	// Optional callback function to determine whether a filtered socket needs to be destroyed
 	DestroyCB DestroySocketCB
 }
@@ -77,8 +125,6 @@ type DestroySocketCB func(id netlink.SocketID) bool
 // Supported protocols in the filter: unix.IPPROTO_UDP, unix.IPPROTO_TCP
 func Destroy(logger *slog.Logger, filter SocketFilter) error {
 	family := filter.Family
-	protocol := filter.Protocol
-
 	if family != syscall.AF_INET && family != syscall.AF_INET6 {
 		return fmt.Errorf("unsupported family for socket destroy: %d", family)
 	}
@@ -87,10 +133,10 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 
 	// Query sockets matching the passed filter, and then destroy the filtered
 	// sockets.
-	switch protocol {
+	switch filter.Protocol {
 	case unix.IPPROTO_UDP, unix.IPPROTO_TCP:
 	redo:
-		err := filterAndDestroySockets(family, protocol, func(sock netlink.SocketID, err error) {
+		err := filterAndDestroySockets(family, filter.Protocol, filter.States, func(sock netlink.SocketID, err error) {
 			if err != nil {
 				errs = errors.Join(errs, fmt.Errorf("socket with filter [%v]: %w", filter, err))
 				failed++
@@ -98,7 +144,7 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 			}
 			if filter.MatchSocket(sock) {
 				logger.Info("", logfields.Socket, sock)
-				if err := destroySocket(logger, sock, family, protocol, 0xffff, true); err != nil {
+				if err := destroySocket(logger, sock, family, filter.Protocol, filter.States, true); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying socket with filter [%v]: %w", filter, err))
 					failed++
 					return
@@ -125,7 +171,7 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 			goto redo
 		}
 	default:
-		return fmt.Errorf("unsupported protocol for socket destroy: %d", protocol)
+		return fmt.Errorf("unsupported protocol for socket destroy: %d", filter.Protocol)
 	}
 	if success > 0 || failed > 0 || errs != nil {
 		logger.Info(
@@ -150,8 +196,8 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 	return false
 }
 
-func filterAndDestroySockets(family, protocol uint8, socketCB func(socket netlink.SocketID, err error)) error {
-	return iterateNetlinkSockets(protocol, family, 0xffff, func(sockInfo *Socket, err error) error {
+func filterAndDestroySockets(family, protocol uint8, states uint32, socketCB func(socket netlink.SocketID, err error)) error {
+	return iterateNetlinkSockets(protocol, family, states, func(sockInfo *Socket, err error) error {
 		socketCB(sockInfo.ID, err)
 		return nil
 	})

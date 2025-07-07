@@ -177,6 +177,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 	var (
 		family   uint8
 		protocol uint8
+		states   uint32
 	)
 	ip := net.IP(l3n4Addr.AddrCluster.Addr().AsSlice())
 	l4Addr := l3n4Addr.L4Addr
@@ -184,8 +185,10 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 	switch l3n4Addr.Protocol {
 	case lb.UDP:
 		protocol = unix.IPPROTO_UDP
+		states = sockets.StateFilterUDP
 	case lb.TCP:
 		protocol = unix.IPPROTO_TCP
+		states = sockets.StateFilterTCP
 	default:
 		return
 	}
@@ -214,6 +217,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 			return p.SocketDestroyer.Destroy(sockets.SocketFilter{
 				Family:    family,
 				Protocol:  protocol,
+				States:    states,
 				DestIp:    ip,
 				DestPort:  l4Addr.Port,
 				DestroyCB: checkSockInRevNat,
