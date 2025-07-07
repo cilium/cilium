@@ -186,7 +186,7 @@ func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 	v := DropNotifyToVerbose(n)
 	v.CPUPrefix = cpuPrefix
 	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
-		v.Summary = GetDissectSummary(data[offset:])
+		v.Summary = GetDissectSummary(data[offset:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
 
 	ret, err := json.Marshal(v)
