@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
+	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -98,7 +99,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 				fmt.Sprintf(
 					"With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+
 						"when an intermediate node redirects a request to another node where a selected backend is running.",
-					option.NodePortAcceleration, option.Config.NodePortAcceleration, option.EnableWireguard, option.EncryptNode),
+					option.NodePortAcceleration, option.Config.NodePortAcceleration, wireguard.EnableWireguardFlag, option.EncryptNode),
 				logfields.Hint,
 				"Disable XDP acceleration to encrypt N/S Loadbalancer traffic.")
 		}

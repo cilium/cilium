@@ -82,6 +82,7 @@ cilium-agent hive dot-graph [flags]
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
+      --enable-wireguard                                          Enable WireGuard
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
@@ -181,6 +182,7 @@ cilium-agent hive dot-graph [flags]
       --multicast-enabled                                         Enables multicast in Cilium
       --nat-map-stats-entries int                                 Number k top stats entries to store locally in statedb (default 32)
       --nat-map-stats-interval duration                           Interval upon which nat maps are iterated for stats (default 30s)
+      --node-encryption-opt-out-labels string                     Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
       --node-port-range strings                                   Set the min/max NodePort port range (default [30000,32767])
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --policy-default-local-cluster                              Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
@@ -221,6 +223,7 @@ cilium-agent hive dot-graph [flags]
       --tunnel-source-port-range string                           Tunnel source port range hint (default 0-0) (default "0-0")
       --underlay-protocol string                                  IP family for the underlay ("ipv4" or "ipv6") (default "ipv4")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
+      --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
 ```
 
