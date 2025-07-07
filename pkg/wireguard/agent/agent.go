@@ -146,14 +146,43 @@ func newAgent(p params) *Agent {
 }
 
 // Start implements cell.HookInterface.
-func (a *Agent) Start(ctx cell.HookContext) (err error) {
+func (a *Agent) Start(cell.HookContext) error {
 	if !a.config.EnableWireguard {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(types.IfaceName)
-		return
+		return nil
 	}
 
-	return a.init(ctx)
+	// Initialize the agent: create the link and the wireguard client.
+	if err := a.init(); err != nil {
+		return err
+	}
+
+	// Update local node. Must run in the agent.Start itself to ensure the node
+	// is already up-to-date when calling `StartDiscovery()` in `newDaemon()`.
+	a.localNode.Update(func(ln *node.LocalNode) {
+		a.initLocalNodeFromWireGuard(ln)
+	})
+
+	// Subscribe the agent to IPCache events if needed. The agent is instantly
+	// notified of all identities events in the ipcache.
+	if a.needsIPCache() {
+		a.ipCache.AddListener(a)
+	}
+
+	// Subscribe the agent to node events. The agent is instantly notified of
+	// all node events in the cluster.
+	a.nodeManager.Subscribe(a)
+
+	a.jobGroup.Add(
+		// mtu-reconciler updates the link MTU.
+		job.OneShot("mtu-reconciler", a.mtuReconciler),
+		// peer-gc deletes obsolete peers.
+		job.OneShot("peer-gc", a.peerGarbageCollector,
+			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: 1 * time.Minute})),
+	)
+
+	return nil
 }
 
 // Stop implements cell.HookInterface.
@@ -216,64 +245,9 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 }
 
 // init creates and configures the local WireGuard tunnel device.
-func (a *Agent) init(ctx context.Context) error {
-	initDone := false
+func (a *Agent) init() error {
 	a.Lock()
-	defer func() {
-		// IPCache will call back into OnIPIdentityCacheChange which requires
-		// us to release a.mutex before we can add ourself as a listener.
-		a.Unlock()
-		if !initDone {
-			return
-		}
-		if a.needsIPCache() {
-			a.ipCache.AddListener(a)
-		}
-		a.localNode.Update(func(ln *node.LocalNode) {
-			a.initLocalNodeFromWireGuard(ln)
-		})
-		a.nodeManager.Subscribe(a)
-		go func() {
-			// Wait for local Kubernetes nodes to sync. This, along with the IPCache wait
-			// below, ensures that all peer information (remote nodes and their allowed IPs)
-			// is available before removing any outdated entries in restoreFinished.
-			select {
-			case <-ctx.Done():
-				return
-			case <-a.cacheStatus:
-			}
-			// Wait for IPCache to be synced. See above comment for more details.
-			if err := a.ipCache.WaitForRevision(ctx, 1); err != nil {
-				return
-			}
-			// Wait until the kvstore synchronization completed, to avoid
-			// causing connectivity blips due incorrectly removing
-			// WireGuard peers that have not yet been discovered.
-			// WaitForKVStoreSync returns immediately in CRD mode.
-			if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
-				return
-			}
-			// When running in KVStore mode, we need to additionally wait until
-			// we have discovered all remote IP addresses, to prevent triggering
-			// the collection of stale AllowedIPs entries too early, leading to
-			// the disruption of otherwise valid long running connections.
-			if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
-				return
-			}
-			if a.clustermesh != nil {
-				// Wait until we received the initial list of nodes from all remote clusters,
-				// otherwise we might remove valid peers and disrupt existing connections.
-				a.clustermesh.NodesSynced(context.Background())
-				// Additionally wait for ipcache synchronization, so that we don't garbage
-				// collect non-stale AllowedIPs too early.
-				a.clustermesh.IPIdentitiesSynced(context.Background())
-			}
-			// Now that all components are synced, proceed with garbage collecting obsolete peers.
-			if err := a.restoreFinished(); err != nil {
-				a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
-			}
-		}()
-	}()
+	defer a.Unlock()
 
 	var err error
 	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
@@ -331,11 +305,6 @@ func (a *Agent) init(ctx context.Context) error {
 		return fmt.Errorf("failed to set link up: %w", err)
 	}
 
-	a.jobGroup.Add(job.OneShot("mtu-reconciler", a.mtuReconciler))
-
-	// this is read by the defer statement above
-	initDone = true
-
 	return nil
 }
 
@@ -383,6 +352,59 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 			}
 		}
 	}
+}
+
+// peerGarbageCollector removes obsolete WireGuard peers.
+// If restoreFinished fails, the job retries with exponential backoff.
+// Other errors typically indicate shutdown (via context cancellation).
+//
+// Before running, the job waits for the following conditions:
+//
+//  1. cacheStatus: Wait for local Kubernetes nodes to sync. Ensures we have
+//     all remote node data before attempting to remove any peers.
+//
+//  2. ipCache revision: Ensures IPCache has synced and contains all
+//     allowed IPs for remote nodes, avoiding premature deletions.
+//
+//  3. nodeDiscovery: Waits for kvstore sync to avoid dropping peers
+//     that haven't yet been discovered. (No-op in CRD mode.)
+//
+//  4. ipIdentityWatcher: In kvstore mode, ensures discovery of all
+//     remote IPs to avoid removing valid AllowedIPs too early.
+//
+//  5. clustermesh nodes: Waits for initial node lists from all remote
+//     clusters to prevent disruption of existing peer connections.
+//
+//  6. clustermesh IP identities: Waits for IPCache sync from remote
+//     clusters so that only truly stale AllowedIPs are removed.
+func (a *Agent) peerGarbageCollector(ctx context.Context, _ cell.Health) error {
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-a.cacheStatus:
+	}
+	if err := a.ipCache.WaitForRevision(ctx, 1); err != nil {
+		return nil
+	}
+	if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
+		return nil
+	}
+	if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
+		return nil
+	}
+	if a.clustermesh != nil {
+		if err := a.clustermesh.NodesSynced(ctx); err != nil {
+			return nil
+		}
+		if err := a.clustermesh.IPIdentitiesSynced(ctx); err != nil {
+			return nil
+		}
+	}
+	if err := a.restoreFinished(); err != nil {
+		a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
+		return fmt.Errorf("Failed to set up WireGuard peers: %w", err)
+	}
+	return nil
 }
 
 func (a *Agent) restoreFinished() error {
