@@ -188,13 +188,14 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 	return false
 }
 
-func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient) (*Agent, *ipcache.IPCache) {
+func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config *option.DaemonConfig) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 		Logger:  logger,
 	})
 	wgAgent := &Agent{
 		logger:           logger,
+		config:           config,
 		wgClient:         wgClient,
 		ipCache:          ipCache,
 		listenPort:       types.ListenPort,
@@ -221,6 +222,22 @@ type config struct {
 	RoutingMode  string
 	Fallback     bool
 	Expectations [][]expectation
+}
+
+// toAgentConfig returns the needed config for the WireGuard agent.
+func (c *config) toAgentConfig() *option.DaemonConfig {
+	return &option.DaemonConfig{
+		EnableIPv4: true,
+		EnableIPv6: true,
+
+		RoutingMode: c.RoutingMode,
+
+		EncryptNode:                false,
+		NodeEncryptionOptOutLabels: nil,
+
+		WireguardTrackAllIPsFallback: c.Fallback,
+		WireguardPersistentKeepalive: 0,
+	}
 }
 
 // CheckExpectations is used to assert that all current expectations are met.
@@ -266,15 +283,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			prevRoutingMode := option.Config.RoutingMode
-			defer func() { option.Config.RoutingMode = prevRoutingMode }()
-			option.Config.RoutingMode = c.RoutingMode
-
-			prevFallback := option.Config.WireguardTrackAllIPsFallback
-			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
-			option.Config.WireguardTrackAllIPsFallback = c.Fallback
-
-			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), newFakeWgClient())
+			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), newFakeWgClient(), c.toAgentConfig())
 			defer ipCache.Shutdown()
 
 			// Test that IPCache updates before UpdatePeer are handled correctly
@@ -472,14 +481,6 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			prevRoutingMode := option.Config.RoutingMode
-			defer func() { option.Config.RoutingMode = prevRoutingMode }()
-			option.Config.RoutingMode = c.RoutingMode
-
-			prevFallback := option.Config.WireguardTrackAllIPsFallback
-			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
-			option.Config.WireguardTrackAllIPsFallback = c.Fallback
-
 			key1, err := wgtypes.ParseKey(k8s1PubKey)
 			require.NoError(t, err, "Failed to parse WG key")
 
@@ -491,7 +492,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				},
 			})
 
-			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), wgClient)
+			wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), wgClient, c.toAgentConfig())
 			defer ipCache.Shutdown()
 
 			assertAllowedIPs := func(e expectation) {
