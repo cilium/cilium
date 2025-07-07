@@ -194,7 +194,7 @@ func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardCl
 		Logger:  logger,
 	})
 	wgAgent := &Agent{
-		logger:           logger.With(subsysLogAttr...),
+		logger:           logger,
 		wgClient:         wgClient,
 		ipCache:          ipCache,
 		listenPort:       types.ListenPort,
