@@ -188,7 +188,7 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 	return false
 }
 
-func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config *option.DaemonConfig) (*Agent, *ipcache.IPCache) {
+func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config Config) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 		Logger:  logger,
@@ -225,18 +225,20 @@ type config struct {
 }
 
 // toAgentConfig returns the needed config for the WireGuard agent.
-func (c *config) toAgentConfig() *option.DaemonConfig {
-	return &option.DaemonConfig{
-		EnableIPv4: true,
-		EnableIPv6: true,
+func (c *config) toAgentConfig() Config {
+	return Config{
+		UserConfig: UserConfig{
+			EnableWireguard:              true,
+			WireguardTrackAllIPsFallback: c.Fallback,
+			WireguardPersistentKeepalive: 0,
+			NodeEncryptionOptOutLabels:   "",
+		},
 
-		RoutingMode: c.RoutingMode,
-
-		EncryptNode:                false,
-		NodeEncryptionOptOutLabels: nil,
-
-		WireguardTrackAllIPsFallback: c.Fallback,
-		WireguardPersistentKeepalive: 0,
+		StateDir:         "",
+		EnableIPv4:       true,
+		EnableIPv6:       true,
+		TunnelingEnabled: c.RoutingMode != option.RoutingModeNative,
+		EncryptNode:      false,
 	}
 }
 
