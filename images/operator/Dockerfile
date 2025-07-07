@@ -4,7 +4,7 @@
 ARG BASE_IMAGE=scratch
 ARG GOLANG_IMAGE=docker.io/library/golang:1.24.4@sha256:20a022e5112a144aa7b7aeb3f22ebf2cdaefcc4aac0d64e8deeee8cdc18b9c0f
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.22.0@sha256:8a1f59ffb675680d47db6337b49d22281a139e9d709335b492be023728e11715
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:bdd6d921c68ea218df7cc59afa832ba6b74e83c3@sha256:b9337447288438592b447c8ab1b5dde22772fa55dd1da277aef7c7f917516f83
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:07a46ebf694810e53f0f164680a819756af259f0@sha256:c81b18e3f5f15e21832ed12a5e0955376577ec480452df7caa143e0f34cb5560
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
