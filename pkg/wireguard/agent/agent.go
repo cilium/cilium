@@ -61,8 +61,8 @@ type wireguardClient interface {
 	ConfigureDevice(name string, cfg wgtypes.Config) error
 }
 
-// Agent needs to be initialized with Init(). In Init(), the WireGuard tunnel
-// device will be created and the proper routes set. Once restoreFinished() is
+// Upon starting, the agent will create the WireGuard tunnel
+// device and the proper routes set. Once restoreFinished() is
 // called, obsolete keys and peers, as well as stale AllowedIPs are removed.
 // updatePeer() inserts or updates the public key of peers discovered via the
 // node manager.
@@ -115,6 +115,7 @@ type params struct {
 	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
 	Clustermesh       *clustermesh.ClusterMesh
 	CacheStatus       k8sSynced.CacheStatus
+	IPCache           *ipcache.IPCache
 }
 
 // newAgent creates a new WireGuard Agent.
@@ -132,6 +133,7 @@ func newAgent(p params) *Agent {
 		ipIdentityWatcher: p.IPIdentityWatcher,
 		clustermesh:       p.Clustermesh,
 		cacheStatus:       p.CacheStatus,
+		ipCache:           p.IPCache,
 
 		listenPort:       types.ListenPort,
 		privKeyPath:      filepath.Join(p.Config.StateDir, types.PrivKeyFilename),
@@ -144,15 +146,14 @@ func newAgent(p params) *Agent {
 }
 
 // Start implements cell.HookInterface.
-func (a *Agent) Start(cell.HookContext) (err error) {
+func (a *Agent) Start(ctx cell.HookContext) (err error) {
 	if !a.config.EnableWireguard {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(types.IfaceName)
 		return
 	}
 
-	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
-	return
+	return a.init(ctx)
 }
 
 // Stop implements cell.HookInterface.
@@ -214,11 +215,10 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	a.optOut = localNode.OptOutNodeEncryption
 }
 
-// Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
+// init creates and configures the local WireGuard tunnel device.
+func (a *Agent) init(ctx context.Context) error {
 	initDone := false
 	a.Lock()
-	a.ipCache = ipcache
 	defer func() {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
@@ -275,6 +275,12 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
 		}()
 	}()
 
+	var err error
+	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load or generate private key: %w", err)
+	}
+
 	var mtuConfig mtu.RouteMTU
 	for {
 		var (
@@ -303,7 +309,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
 		},
 	}
 
-	err := netlink.LinkAdd(link)
+	err = netlink.LinkAdd(link)
 	if err != nil && !errors.Is(err, unix.EEXIST) {
 		if !errors.Is(err, unix.EOPNOTSUPP) {
 			return fmt.Errorf("failed to add WireGuard device: %w", err)
