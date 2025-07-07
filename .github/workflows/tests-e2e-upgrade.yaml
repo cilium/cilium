@@ -104,7 +104,10 @@ jobs:
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
-          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          # Add "mode" and "operation" fields to each entry.
+          # Remove all entries that have "skip-upgrade" set to "true" and "operation" set to "downgrade"
+          # since they are incompatible.
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [ $entry + {mode: "minor", operation: "upgrade"}, $entry + {mode: "minor", operation: "downgrade"}] | map(select(.operation != "downgrade" or .["skip-upgrade"] != "true"))] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
@@ -150,6 +153,7 @@ jobs:
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
+        # Consider removing this
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
@@ -318,7 +322,7 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Install Cilium ${{ matrix.skip-upgrade == 'true' && 'from main' || steps.vars.outputs.downgrade_version }}
+      - name: Install Cilium ${{ (matrix.skip-upgrade == 'true' || matrix.operation == 'downgrade') && 'from main' || steps.vars.outputs.downgrade_version }}
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
@@ -327,7 +331,7 @@ jobs:
             cilium encrypt create-key --auth-algo rfc4106-gcm-aes
           fi
 
-          if ${{ matrix.skip-upgrade != 'true' }}; then
+          if ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'upgrade' }}; then
             cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           else
             cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
@@ -363,7 +367,7 @@ jobs:
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
       - name: Start unencrypted packets check for upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.encryption != '' && matrix.operation == 'upgrade' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -371,10 +375,11 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
       - name: Start conn-disrupt-test
+        if: ${{ matrix.operation == 'upgrade' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Upgrade Cilium
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'upgrade' }}
         shell: bash
         run: |
           cilium upgrade \
@@ -388,17 +393,18 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.encryption != '' && matrix.operation == 'upgrade' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+        if: ${{ matrix.operation == 'upgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.encryption != '' && matrix.operation == 'upgrade' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # Enable the check for proxy traffic only if IPv4 is enabled.
@@ -407,6 +413,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
+        if: ${{ matrix.operation == 'upgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-sequential
@@ -414,6 +421,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
+        if: ${{ matrix.operation == 'upgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-concurrent
@@ -422,6 +430,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Check for unexpected packet drops during connectivity tests
+        if: ${{ matrix.operation == 'upgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-postcheck
@@ -429,10 +438,11 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.encryption != '' && matrix.operation == 'upgrade' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested before downgrade
+        if: ${{ matrix.operation == 'upgrade' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before downgrade"
@@ -441,11 +451,11 @@ jobs:
       # Downgrade steps
 
       - name: Setup conn-disrupt-test before downgrading
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Start unencrypted packets check for downgrade
-        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -453,7 +463,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         shell: bash
         run: |
           cilium upgrade \
@@ -467,18 +477,18 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
-        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
-        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
@@ -486,7 +496,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-sequential
@@ -494,7 +504,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-concurrent
@@ -503,7 +513,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Check for unexpected packet drops during connectivity tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-postcheck
@@ -511,11 +521,11 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
-        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.operation == 'downgrade' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after downgrade"
@@ -535,7 +545,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ matrix.name }}"
+          artifacts_suffix: "${{ matrix.name }} - ${{ matrix.operation }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
 
