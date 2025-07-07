@@ -257,6 +257,7 @@ func TestDestroy(t *testing.T) {
 			DestPort: uint16(dport),
 			Family:   unix.AF_INET,
 			Protocol: unix.IPPROTO_UDP,
+			States:   StateFilterUDP,
 			DestroyCB: func(id netlink.SocketID) bool {
 				matches++
 				return true
