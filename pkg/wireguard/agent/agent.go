@@ -39,11 +39,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -60,7 +62,7 @@ type wireguardClient interface {
 }
 
 // Agent needs to be initialized with Init(). In Init(), the WireGuard tunnel
-// device will be created and the proper routes set. Once RestoreFinished() is
+// device will be created and the proper routes set. Once restoreFinished() is
 // called, obsolete keys and peers, as well as stale AllowedIPs are removed.
 // updatePeer() inserts or updates the public key of peers discovered via the
 // node manager.
@@ -68,15 +70,19 @@ type Agent struct {
 	lock.RWMutex
 
 	// These are provided in [newAgent].
-	logger      *slog.Logger
-	config      *option.DaemonConfig
-	ipCache     *ipcache.IPCache
-	sysctl      sysctl.Sysctl
-	jobGroup    job.Group
-	db          *statedb.DB
-	mtuTable    statedb.Table[mtu.RouteMTU]
-	localNode   *node.LocalNodeStore
-	nodeManager nodeManager.NodeManager
+	logger            *slog.Logger
+	config            *option.DaemonConfig
+	ipCache           *ipcache.IPCache
+	sysctl            sysctl.Sysctl
+	jobGroup          job.Group
+	db                *statedb.DB
+	mtuTable          statedb.Table[mtu.RouteMTU]
+	localNode         *node.LocalNodeStore
+	nodeManager       nodeManager.NodeManager
+	nodeDiscovery     *nodediscovery.NodeDiscovery
+	ipIdentityWatcher *ipcache.LocalIPIdentityWatcher
+	clustermesh       *clustermesh.ClusterMesh
+	cacheStatus       k8sSynced.CacheStatus
 
 	// These are initialized in [newAgent].
 	listenPort       int
@@ -97,27 +103,35 @@ type params struct {
 
 	Lifecycle cell.Lifecycle
 
-	Logger      *slog.Logger
-	Config      *option.DaemonConfig
-	DB          *statedb.DB
-	MTUTable    statedb.Table[mtu.RouteMTU]
-	JobGroup    job.Group
-	Sysctl      sysctl.Sysctl
-	LocalNode   *node.LocalNodeStore
-	NodeManager nodeManager.NodeManager
+	Logger            *slog.Logger
+	Config            *option.DaemonConfig
+	DB                *statedb.DB
+	MTUTable          statedb.Table[mtu.RouteMTU]
+	JobGroup          job.Group
+	Sysctl            sysctl.Sysctl
+	LocalNode         *node.LocalNodeStore
+	NodeManager       nodeManager.NodeManager
+	NodeDiscovery     *nodediscovery.NodeDiscovery
+	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
+	Clustermesh       *clustermesh.ClusterMesh
+	CacheStatus       k8sSynced.CacheStatus
 }
 
 // newAgent creates a new WireGuard Agent.
 func newAgent(p params) *Agent {
 	agent := &Agent{
-		logger:      p.Logger,
-		config:      p.Config,
-		db:          p.DB,
-		mtuTable:    p.MTUTable,
-		jobGroup:    p.JobGroup,
-		sysctl:      p.Sysctl,
-		localNode:   p.LocalNode,
-		nodeManager: p.NodeManager,
+		logger:            p.Logger,
+		config:            p.Config,
+		db:                p.DB,
+		mtuTable:          p.MTUTable,
+		jobGroup:          p.JobGroup,
+		sysctl:            p.Sysctl,
+		localNode:         p.LocalNode,
+		nodeManager:       p.NodeManager,
+		nodeDiscovery:     p.NodeDiscovery,
+		ipIdentityWatcher: p.IPIdentityWatcher,
+		clustermesh:       p.Clustermesh,
+		cacheStatus:       p.CacheStatus,
 
 		listenPort:       types.ListenPort,
 		privKeyPath:      filepath.Join(p.Config.StateDir, types.PrivKeyFilename),
@@ -201,7 +215,7 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 }
 
 // Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(ipcache *ipcache.IPCache) error {
+func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
 	initDone := false
 	a.Lock()
 	a.ipCache = ipcache
@@ -219,6 +233,46 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 			a.initLocalNodeFromWireGuard(ln)
 		})
 		a.nodeManager.Subscribe(a)
+		go func() {
+			// Wait for local Kubernetes nodes to sync. This, along with the IPCache wait
+			// below, ensures that all peer information (remote nodes and their allowed IPs)
+			// is available before removing any outdated entries in restoreFinished.
+			select {
+			case <-ctx.Done():
+				return
+			case <-a.cacheStatus:
+			}
+			// Wait for IPCache to be synced. See above comment for more details.
+			if err := a.ipCache.WaitForRevision(ctx, 1); err != nil {
+				return
+			}
+			// Wait until the kvstore synchronization completed, to avoid
+			// causing connectivity blips due incorrectly removing
+			// WireGuard peers that have not yet been discovered.
+			// WaitForKVStoreSync returns immediately in CRD mode.
+			if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
+				return
+			}
+			// When running in KVStore mode, we need to additionally wait until
+			// we have discovered all remote IP addresses, to prevent triggering
+			// the collection of stale AllowedIPs entries too early, leading to
+			// the disruption of otherwise valid long running connections.
+			if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
+				return
+			}
+			if a.clustermesh != nil {
+				// Wait until we received the initial list of nodes from all remote clusters,
+				// otherwise we might remove valid peers and disrupt existing connections.
+				a.clustermesh.NodesSynced(context.Background())
+				// Additionally wait for ipcache synchronization, so that we don't garbage
+				// collect non-stale AllowedIPs too early.
+				a.clustermesh.IPIdentitiesSynced(context.Background())
+			}
+			// Now that all components are synced, proceed with garbage collecting obsolete peers.
+			if err := a.restoreFinished(); err != nil {
+				a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
+			}
+		}()
 	}()
 
 	var mtuConfig mtu.RouteMTU
@@ -346,16 +400,7 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
-	if cm != nil {
-		// Wait until we received the initial list of nodes from all remote clusters,
-		// otherwise we might remove valid peers and disrupt existing connections.
-		cm.NodesSynced(context.Background())
-		// Additionally wait for ipcache synchronization, so that we don't garbage
-		// collect non-stale AllowedIPs too early.
-		cm.IPIdentitiesSynced(context.Background())
-	}
-
+func (a *Agent) restoreFinished() error {
 	a.Lock()
 	defer a.Unlock()
 
