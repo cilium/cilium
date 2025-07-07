@@ -74,7 +74,7 @@ type Agent struct {
 
 	// These are provided in [newWireguardAgent].
 	logger            *slog.Logger
-	config            *option.DaemonConfig
+	config            Config
 	ipCache           *ipcache.IPCache
 	sysctl            sysctl.Sysctl
 	jobGroup          job.Group
@@ -105,7 +105,7 @@ type params struct {
 	Lifecycle cell.Lifecycle
 
 	Logger            *slog.Logger
-	Config            *option.DaemonConfig
+	Config            Config
 	DB                *statedb.DB
 	MTUTable          statedb.Table[mtu.RouteMTU]
 	JobGroup          job.Group
@@ -230,7 +230,7 @@ func (a *Agent) Enabled() bool {
 // This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
 // In tunneling mode, only node IPs (always set via UpdatePeer) are needed.
 func (a *Agent) needsIPCache() bool {
-	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
+	return !a.config.TunnelingEnabled || a.config.WireguardTrackAllIPsFallback
 }
 
 // initLocalNodeFromWireGuard configures the fields on the local node. Called from
