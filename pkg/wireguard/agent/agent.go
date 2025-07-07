@@ -385,7 +385,7 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 	return nil
 }
 
-func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error {
+func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error {
 	// To avoid running into a deadlock, we need to lock the IPCache before
 	// calling a.Lock(), because IPCache might try to call into
 	// OnIPIdentityCacheChange concurrently
@@ -514,7 +514,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	return nil
 }
 
-func (a *Agent) DeletePeer(nodeName string) error {
+func (a *Agent) deletePeer(nodeName string) error {
 	a.Lock()
 	defer a.Unlock()
 
