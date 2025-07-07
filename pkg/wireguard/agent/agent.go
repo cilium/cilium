@@ -46,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -71,7 +70,7 @@ type Agent struct {
 
 	// These are provided in [newAgent].
 	logger            *slog.Logger
-	config            *option.DaemonConfig
+	config            Config
 	ipCache           *ipcache.IPCache
 	sysctl            sysctl.Sysctl
 	jobGroup          job.Group
@@ -104,7 +103,7 @@ type params struct {
 	Lifecycle cell.Lifecycle
 
 	Logger            *slog.Logger
-	Config            *option.DaemonConfig
+	Config            Config
 	DB                *statedb.DB
 	MTUTable          statedb.Table[mtu.RouteMTU]
 	JobGroup          job.Group
@@ -158,10 +157,16 @@ func (a *Agent) Start(cell.HookContext) error {
 		return err
 	}
 
+	// Parse the label selector for node encryption opt-out.
+	sel, err := k8sLabels.Parse(a.config.NodeEncryptionOptOutLabels)
+	if err != nil {
+		return fmt.Errorf("unable to parse label selector %s: %w", types.NodeEncryptionOptOutLabels, err)
+	}
+
 	// Update local node. Must run in the agent.Start itself to ensure the node
 	// is already up-to-date when calling `StartDiscovery()` in `newDaemon()`.
 	a.localNode.Update(func(ln *node.LocalNode) {
-		a.initLocalNodeFromWireGuard(ln)
+		a.initLocalNodeFromWireGuard(ln, sel)
 	})
 
 	// Subscribe the agent to IPCache events if needed. The agent is instantly
@@ -204,14 +209,14 @@ func (a *Agent) Name() string {
 
 // Returns true when enabled. Implements [types.WireguardAgent].
 func (a *Agent) Enabled() bool {
-	return a.config.EnableWireguard
+	return a.config.Enabled()
 }
 
 // needsIPCache returns true if the agent should subscribe to IPCache events.
 // This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
 // In tunneling mode, only node IPs (always set via updatePeer) are needed.
 func (a *Agent) needsIPCache() bool {
-	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
+	return !a.config.TunnelingEnabled || a.config.WireguardTrackAllIPsFallback
 }
 
 // initLocalNodeFromWireGuard configures the fields on the local node. Called from
@@ -226,7 +231,7 @@ func (a *Agent) needsIPCache() bool {
 //   - If the local node opts out of node-to-node encryption, we set the
 //     localNode.EncryptKey to zero. This indicates to other nodes that they
 //     should not encrypt node-to-node traffic with us.
-func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
+func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode, sel k8sLabels.Selector) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -236,10 +241,10 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	localNode.WireguardPubKey = a.privKey.PublicKey().String()
 	localNode.Annotations[annotation.WireguardPubKey] = localNode.WireguardPubKey
 
-	if a.config.EncryptNode && a.config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(localNode.Labels)) {
+	if a.config.EncryptNode && sel.Matches(k8sLabels.Set(localNode.Labels)) {
 		a.logger.Info(
 			"Opting out from node-to-node encryption on this node as per "+
-				option.NodeEncryptionOptOutLabels+" label selector",
+				types.NodeEncryptionOptOutLabels+" label selector",
 			logfields.Selector, a.config.NodeEncryptionOptOutLabels,
 		)
 		localNode.OptOutNodeEncryption = true
@@ -869,6 +874,7 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 			PeerCount:  int64(len(dev.Peers)),
 			Peers:      peers,
 		}},
+		NodeEncryptOptOutLabels: a.config.NodeEncryptionOptOutLabels,
 	}
 
 	return status, nil

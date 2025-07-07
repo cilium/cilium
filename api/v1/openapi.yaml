@@ -3760,6 +3760,9 @@ definitions:
       node-encryption:
         description: Node Encryption status
         type: string
+      node-encrypt-opt-out-labels:
+        description: Label selector for nodes which will opt-out of node-to-node encryption
+        type: string
       interfaces:
         description: WireGuard interfaces managed by this Cilium instance
         type: array

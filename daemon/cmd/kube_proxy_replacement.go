@@ -98,7 +98,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 				fmt.Sprintf(
 					"With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+
 						"when an intermediate node redirects a request to another node where a selected backend is running.",
-					option.NodePortAcceleration, option.Config.NodePortAcceleration, option.EnableWireguard, option.EncryptNode),
+					option.NodePortAcceleration, option.Config.NodePortAcceleration, wgTypes.EnableWireguard, option.EncryptNode),
 				logfields.Hint,
 				"Disable XDP acceleration to encrypt N/S Loadbalancer traffic.")
 		}

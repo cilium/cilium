@@ -5181,6 +5181,10 @@ func init() {
             "$ref": "#/definitions/WireguardInterface"
           }
         },
+        "node-encrypt-opt-out-labels": {
+          "description": "Label selector for nodes which will opt-out of node-to-node encryption",
+          "type": "string"
+        },
         "node-encryption": {
           "description": "Node Encryption status",
           "type": "string"
@@ -11302,6 +11306,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/WireguardInterface"
           }
+        },
+        "node-encrypt-opt-out-labels": {
+          "description": "Label selector for nodes which will opt-out of node-to-node encryption",
+          "type": "string"
         },
         "node-encryption": {
           "description": "Node Encryption status",
