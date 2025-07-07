@@ -189,11 +189,6 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 }
 
 func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient) (*Agent, *ipcache.IPCache) {
-	// Mimic the same condition in NewAgent.
-	var needIPCacheEvents bool
-	if !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback {
-		needIPCacheEvents = true
-	}
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 		Logger:  logger,
@@ -206,11 +201,9 @@ func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardCl
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
-
-		needIPCacheEvents: needIPCacheEvents,
 	}
 	// Mimic the same condition in Agent.Init
-	if wgAgent.needIPCacheEvents {
+	if wgAgent.needsIPCache() {
 		ipCache.AddListener(wgAgent)
 	}
 	return wgAgent, ipCache
@@ -357,7 +350,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			case <-agentUpdated:
 				t.Fatal("agent update not blocked by agent lock")
 			case <-ipCacheUpdated:
-				if wgAgent.needIPCacheEvents {
+				if wgAgent.needsIPCache() {
 					t.Fatal("ipcache update not blocked by agent lock")
 				}
 			default:
