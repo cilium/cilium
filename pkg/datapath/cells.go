@@ -154,11 +154,6 @@ var Cell = cell.Module(
 func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
-		if option.Config.EnableIPSec {
-			logging.Fatal(rootLogger, fmt.Sprintf("WireGuard (--%s) cannot be used with IPsec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName))
-		}
-
 		jobGroup := registry.NewGroup(health, lc)
 
 		var err error
