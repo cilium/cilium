@@ -143,14 +143,66 @@ func newWireguardAgent(params params) *Agent {
 }
 
 // Start implements cell.HookInterface.
-func (a *Agent) Start(ctx cell.HookContext) (err error) {
+func (a *Agent) Start(cell.HookContext) error {
 	if !a.config.EnableWireguard {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(types.IfaceName)
-		return
+		return nil
 	}
 
-	return a.init(ctx)
+	// Initialize the agent: create the link and the wireguard client.
+	if err := a.init(); err != nil {
+		return err
+	}
+
+	// Update local node. Must run in the agent.Start itself to ensure the node
+	// is already up-to-date when calling `StartDiscovery()` in `newDaemon()`.
+	a.localNode.Update(func(ln *node.LocalNode) {
+		a.initLocalNodeFromWireGuard(ln)
+	})
+
+	a.jobGroup.Add(
+		// mtu-reconciler updates the link MTU.
+		job.OneShot("mtu-reconciler", a.mtuReconciler),
+		// ipcache-listener subscribes the agent to ipcache events.
+		// It instantly notifies the agent of all identities events in the ipcache.
+		job.OneShot("ipcache-listener", func(context.Context, cell.Health) error {
+			if a.needsIPCache() {
+				a.ipCache.AddListener(a)
+			}
+			return nil
+		}),
+		// nodemanager-subscribe subscribes the agent to node events.
+		// It instantly notifies the agent of all node events in the cluster.
+		job.OneShot("nodemanager-subscribe", func(context.Context, cell.Health) error {
+			a.nodeManager.Subscribe(a)
+			return nil
+		}),
+		// peer-reconciler deletes obsolete peers.
+		job.OneShot("peer-reconciler", func(ctx context.Context, _ cell.Health) error {
+			// Wait until the kvstore synchronization completed, to avoid
+			// causing connectivity blips due incorrectly removing
+			// WireGuard peers that have not yet been discovered.
+			// WaitForKVStoreSync returns immediately in CRD mode.
+			if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
+				return err
+			}
+			// When running in KVStore mode, we need to additionally wait until
+			// we have discovered all remote IP addresses, to prevent triggering
+			// the collection of stale AllowedIPs entries too early, leading to
+			// the disruption of otherwise valid long running connections.
+			if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
+				return err
+			}
+			if err := a.restoreFinished(); err != nil {
+				a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
+				return err
+			}
+			return nil
+		}),
+	)
+
+	return nil
 }
 
 // Stop implements cell.HookInterface.
@@ -212,43 +264,9 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 }
 
 // init creates and configures the local WireGuard tunnel device.
-func (a *Agent) init(ctx context.Context) error {
-	initDone := false
+func (a *Agent) init() error {
 	a.Lock()
-	defer func() {
-		// IPCache will call back into OnIPIdentityCacheChange which requires
-		// us to release a.mutex before we can add ourself as a listener.
-		a.Unlock()
-		if !initDone {
-			return
-		}
-		if a.needsIPCache() {
-			a.ipCache.AddListener(a)
-		}
-		a.localNode.Update(func(ln *node.LocalNode) {
-			a.initLocalNodeFromWireGuard(ln)
-		})
-		a.nodeManager.Subscribe(a)
-		go func() {
-			// Wait until the kvstore synchronization completed, to avoid
-			// causing connectivity blips due incorrectly removing
-			// WireGuard peers that have not yet been discovered.
-			// WaitForKVStoreSync returns immediately in CRD mode.
-			if err := a.nodeDiscovery.WaitForKVStoreSync(ctx); err != nil {
-				return
-			}
-			// When running in KVStore mode, we need to additionally wait until
-			// we have discovered all remote IP addresses, to prevent triggering
-			// the collection of stale AllowedIPs entries too early, leading to
-			// the disruption of otherwise valid long running connections.
-			if err := a.ipIdentityWatcher.WaitForSync(ctx); err != nil {
-				return
-			}
-			if err := a.restoreFinished(); err != nil {
-				a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
-			}
-		}()
-	}()
+	defer a.Unlock()
 
 	var err error
 	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
@@ -326,11 +344,6 @@ func (a *Agent) init(ctx context.Context) error {
 	if err := netlink.LinkSetUp(link); err != nil {
 		return fmt.Errorf("failed to set link up: %w", err)
 	}
-
-	a.jobGroup.Add(job.OneShot("mtu-reconciler", a.mtuReconciler))
-
-	// this is read by the defer statement above
-	initDone = true
 
 	return nil
 }
