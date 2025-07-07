@@ -103,12 +103,6 @@ type params struct {
 }
 
 func newWireguardAgent(params params) *Agent {
-	if !params.Config.EnableWireguard {
-		// Delete WireGuard device from previous run (if such exists).
-		link.DeleteByName(types.IfaceName)
-		return nil
-	}
-
 	agent := &Agent{
 		logger:   params.Logger.With(subsysLogAttr...),
 		config:   params.Config,
@@ -129,12 +123,22 @@ func newWireguardAgent(params params) *Agent {
 
 // Start implements cell.HookInterface.
 func (a *Agent) Start(cell.HookContext) (err error) {
+	if !a.config.EnableWireguard {
+		// Delete WireGuard device from previous run (if such exists)
+		link.DeleteByName(types.IfaceName)
+		return
+	}
+
 	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
 	return
 }
 
 // Stop implements cell.HookInterface.
 func (a *Agent) Stop(cell.HookContext) error {
+	if !a.config.EnableWireguard {
+		return nil
+	}
+
 	a.RLock()
 	defer a.RUnlock()
 
@@ -740,6 +744,10 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 // If withPeers is true, then the details about each connected peer are
 // are populated as well.
 func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
+	if !a.config.EnableWireguard {
+		return nil, nil
+	}
+
 	a.Lock()
 	dev, err := a.wgClient.Device(types.IfaceName)
 	a.Unlock()
