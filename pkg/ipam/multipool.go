@@ -501,7 +501,11 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 		cidrs := []types.IPAMPodCIDR{}
 		if v4Pool := pool.v4; v4Pool != nil {
 			if m.isRestoreFinishedLocked(IPv4) {
-				v4Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv4Addrs)
+				// releaseExcessCIDRsMultiPool interprets neededIPs as how many
+				// free addresses must remain after a CIDR is dropped.
+				// Therefore we subtract the number of in-use addresses from neededIPs.
+				freeNeeded4 := max(neededIPs.IPv4Addrs-v4Pool.inUseIPCount(), 0)
+				v4Pool.releaseExcessCIDRsMultiPool(freeNeeded4)
 			}
 			v4CIDRs := v4Pool.inUsePodCIDRs()
 
@@ -510,7 +514,8 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 		}
 		if v6Pool := pool.v6; v6Pool != nil {
 			if m.isRestoreFinishedLocked(IPv6) {
-				v6Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv6Addrs)
+				freeNeeded6 := max(neededIPs.IPv6Addrs-v6Pool.inUseIPCount(), 0)
+				v6Pool.releaseExcessCIDRsMultiPool(freeNeeded6)
 			}
 			v6CIDRs := v6Pool.inUsePodCIDRs()
 
