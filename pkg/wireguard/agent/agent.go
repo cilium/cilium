@@ -61,7 +61,7 @@ type wireguardClient interface {
 // Agent needs to be initialized with Init(). In Init(), the WireGuard tunnel
 // device will be created and the proper routes set. Once RestoreFinished() is
 // called, obsolete keys and peers, as well as stale AllowedIPs are removed.
-// UpdatePeer() inserts or updates the public key of peers discovered via the
+// updatePeer() inserts or updates the public key of peers discovered via the
 // node manager.
 type Agent struct {
 	lock.RWMutex
@@ -151,7 +151,7 @@ func (a *Agent) Name() string {
 
 // needsIPCache returns true if the agent should subscribe to IPCache events.
 // This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
-// In tunneling mode, only node IPs (always set via UpdatePeer) are needed.
+// In tunneling mode, only node IPs (always set via updatePeer) are needed.
 func (a *Agent) needsIPCache() bool {
 	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
 }
@@ -385,7 +385,7 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 	return nil
 }
 
-func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error {
+func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error {
 	// To avoid running into a deadlock, we need to lock the IPCache before
 	// calling a.Lock(), because IPCache might try to call into
 	// OnIPIdentityCacheChange concurrently
@@ -514,7 +514,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	return nil
 }
 
-func (a *Agent) DeletePeer(nodeName string) error {
+func (a *Agent) deletePeer(nodeName string) error {
 	a.Lock()
 	defer a.Unlock()
 
@@ -585,7 +585,7 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 	}
 
 	// ConfigureDevice is called to add new allowedIPs:
-	// 1. during the first call to UpdatePeer;
+	// 1. during the first call to updatePeer;
 	// 2. when there are changes to the node's public key or IPs;
 	// 3. on IPcache upsertions.
 	if len(addedIPs) > 0 {
@@ -689,12 +689,12 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	// for newly created entries.
 	// A special case (i.e. an entry without a hostIP) is the remote node entry
 	// itself when node-to-node encryption is enabled. We handle that case in
-	// UpdatePeer(), i.e. we add any required remote node IPs to AllowedIPs
+	// updatePeer(), i.e. we add any required remote node IPs to AllowedIPs
 	// there.
 	// If we do not find a WireGuard peer for a given hostIP, we intentionally
-	// ignore the IPCache upserts here. We instead assume that UpdatePeer() will
+	// ignore the IPCache upserts here. We instead assume that updatePeer() will
 	// eventually be called once a node starts participating in WireGuard
-	// (or if its host IP changed). UpdatePeer initializes the allowedIPs
+	// (or if its host IP changed). updatePeer initializes the allowedIPs
 	// of newly discovered hostIPs by querying the IPCache, which will contain
 	// all updates we might have skipped here before the hostIP was known.
 	//
