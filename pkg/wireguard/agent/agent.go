@@ -114,6 +114,7 @@ type params struct {
 	NodeDiscovery     *nodediscovery.NodeDiscovery
 	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
 	Clustermesh       *clustermesh.ClusterMesh
+	IPCache           *ipcache.IPCache
 }
 
 func newWireguardAgent(params params) *Agent {
@@ -129,6 +130,7 @@ func newWireguardAgent(params params) *Agent {
 		nodeDiscovery:     params.NodeDiscovery,
 		ipIdentityWatcher: params.IPIdentityWatcher,
 		clustermesh:       params.Clustermesh,
+		ipCache:           params.IPCache,
 
 		listenPort:       types.ListenPort,
 		privKeyPath:      filepath.Join(params.Config.StateDir, types.PrivKeyFilename),
@@ -141,15 +143,14 @@ func newWireguardAgent(params params) *Agent {
 }
 
 // Start implements cell.HookInterface.
-func (a *Agent) Start(cell.HookContext) (err error) {
+func (a *Agent) Start(ctx cell.HookContext) (err error) {
 	if !a.config.EnableWireguard {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(types.IfaceName)
 		return
 	}
 
-	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
-	return
+	return a.init(ctx)
 }
 
 // Stop implements cell.HookInterface.
@@ -210,11 +211,10 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	a.optOut = localNode.OptOutNodeEncryption
 }
 
-// Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
+// init creates and configures the local WireGuard tunnel device.
+func (a *Agent) init(ctx context.Context) error {
 	initDone := false
 	a.Lock()
-	a.ipCache = ipcache
 	defer func() {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
@@ -250,6 +250,12 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
 		}()
 	}()
 
+	var err error
+	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load or generate private key: %w", err)
+	}
+
 	var mtuConfig mtu.RouteMTU
 	for {
 		var (
@@ -278,7 +284,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, ctx context.Context) error {
 		},
 	}
 
-	err := netlink.LinkAdd(link)
+	err = netlink.LinkAdd(link)
 	if err != nil && !errors.Is(err, unix.EEXIST) {
 		if !errors.Is(err, unix.EOPNOTSUPP) {
 			return fmt.Errorf("failed to add WireGuard device: %w", err)
