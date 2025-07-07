@@ -2003,6 +2003,8 @@ helm.sh/helm/v3/pkg/strvals
 helm.sh/helm/v3/pkg/time
 helm.sh/helm/v3/pkg/time/ctime
 helm.sh/helm/v3/pkg/uploader
+# istio.io/api v1.27.1
+## explicit; go 1.23.0
 # k8s.io/api v0.34.1
 ## explicit; go 1.24.0
 k8s.io/api/admission/v1
