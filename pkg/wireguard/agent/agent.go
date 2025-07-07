@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -33,11 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -65,20 +68,19 @@ type wireguardClient interface {
 // UpdatePeer() inserts or updates the public key of peers discovered via the
 // node manager.
 type Agent struct {
-	logger *slog.Logger
-
 	lock.RWMutex
 
-	wgClient    wireguardClient
-	ipCache     *ipcache.IPCache
-	listenPort  int
-	privKey     wgtypes.Key
-	privKeyPath string
-	sysctl      sysctl.Sysctl
-	jobGroup    job.Group
-	db          *statedb.DB
-	mtuTable    statedb.Table[mtu.RouteMTU]
+	logger   *slog.Logger
+	ipCache  *ipcache.IPCache
+	sysctl   sysctl.Sysctl
+	jobGroup job.Group
+	db       *statedb.DB
+	mtuTable statedb.Table[mtu.RouteMTU]
 
+	listenPort       int
+	privKeyPath      string
+	privKey          wgtypes.Key
+	wgClient         wireguardClient
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
@@ -87,26 +89,47 @@ type Agent struct {
 	optOut bool
 }
 
-// NewAgent creates a new WireGuard Agent
-func NewAgent(rootLogger *slog.Logger, privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
+type params struct {
+	cell.In
+
+	Lifecycle cell.Lifecycle
+
+	Logger   *slog.Logger
+	DB       *statedb.DB
+	MTUTable statedb.Table[mtu.RouteMTU]
+	JobGroup job.Group
+	Sysctl   sysctl.Sysctl
+}
+
+func newWireguardAgent(params params) *Agent {
+	if !option.Config.EnableWireguard {
+		// Delete WireGuard device from previous run (if such exists).
+		link.DeleteByName(types.IfaceName)
+		return nil
+	}
+
 	wgClient, err := wgctrl.New()
 	if err != nil {
-		return nil, err
+		logging.Fatal(params.Logger, fmt.Sprintf("failed to initialize WireGuard: %s", err))
+		return nil
 	}
-	return &Agent{
-		logger:      rootLogger.With(subsysLogAttr...),
-		wgClient:    wgClient,
-		privKeyPath: privKeyPath,
-		listenPort:  types.ListenPort,
-		sysctl:      sysctl,
-		jobGroup:    jobGroup,
-		db:          db,
-		mtuTable:    mtuTable,
 
+	agent := &Agent{
+		logger:   params.Logger.With(subsysLogAttr...),
+		db:       params.DB,
+		mtuTable: params.MTUTable,
+		jobGroup: params.JobGroup,
+		sysctl:   params.Sysctl,
+
+		wgClient:         wgClient,
+		listenPort:       types.ListenPort,
+		privKeyPath:      filepath.Join(option.Config.StateDir, types.PrivKeyFilename),
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
-	}, nil
+	}
+	params.Lifecycle.Append(agent)
+	return agent
 }
 
 // Start implements cell.HookInterface.
@@ -122,8 +145,6 @@ func (a *Agent) Stop(cell.HookContext) error {
 
 	return a.wgClient.Close()
 }
-
-var _ cell.HookInterface = &Agent{}
 
 func (a *Agent) Name() string {
 	return "wireguard-agent"
