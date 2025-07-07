@@ -499,10 +499,19 @@ ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
 		    union v6addr *new_addr, struct csum_offset *csum_off,
 		    enum ct_dir dir)
 {
-	int flag = 0;
+	int flag = 0, ret;
 	__be32 sum;
 
 	sum = csum_diff(old_addr->addr, 16, new_addr->addr, 16, 0);
+
+	/* Newer kernels support the BPF_F_IPV6 flag which addresses the below
+	 * bug. So let's try this first. -EINVAL indicates the flag probably isn't
+	 * supported.
+	 */
+	ret = csum_l4_replace(ctx, l4_off, csum_off, 0, sum,
+			      BPF_F_PSEUDO_HDR | BPF_F_IPV6);
+	if (ret != -EINVAL)
+		return ret;
 
 	/* We need this to workaround a bug in bpf_l4_csum_replace's usage of
 	 * inet_proto_csum_replace_by_diff. In short, for IPv6 we don't want to
