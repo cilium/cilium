@@ -98,6 +98,11 @@ func NewNodeDiscovery(
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
+//
+// NOTE: StartDiscovery is manually called from newDaemon after the Wireguard and
+// IPSec cells have been initialized, as they modify the local node. This requires
+// the daemon to always hold references to both cells to ensure they're started first.
+// Keep this behavior in mind when modifying this function, its cell, or the daemon.
 func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 	// Start observing local node changes, so that we keep the corresponding CiliumNode
 	// and kvstore representations in sync. The first update is performed synchronously
