@@ -495,7 +495,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	if params.WGAgent != nil && option.Config.EnableWireguard {
+	if option.Config.EnableWireguard {
 		if err := params.WGAgent.Init(d.ipcache); err != nil {
 			d.logger.Error("failed to initialize WireGuard agent", logfields.Error, err)
 			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
