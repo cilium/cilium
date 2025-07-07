@@ -342,21 +342,33 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 
 // Dissect parses and prints the provided data if dissect is set to true,
 // otherwise the data is printed as HEX output
-func Dissect(dissect bool, data []byte) {
+func Dissect(dissect bool, data []byte, opts *decodeOpts) {
 	if dissect {
 		dissectLock.Lock()
 		defer dissectLock.Unlock()
 
 		initParser()
 
-		var err error
 		// See comment in [GetConnectionSummary].
-		if len(data) > 0 {
-			err = parserL2Dev.DecodeLayers(data, &cache.decoded)
-		} else {
+		if len(data) == 0 {
 			cache.decoded = cache.decoded[:0]
+			cache.overlay.decoded = cache.overlay.decoded[:0]
+			return
 		}
 
+		var err error
+		var parser *gopacket.DecodingLayerParser
+		// See comment in [GetConnectionSummary].
+		switch {
+		case opts == nil || !opts.IsL3Device:
+			parser = parserL2Dev
+		case opts.IsIPv6:
+			parser = parserL3Dev.IPv6
+		default:
+			parser = parserL3Dev.IPv4
+		}
+
+		err = parser.DecodeLayers(data, &cache.decoded)
 		for _, typ := range cache.decoded {
 			switch typ {
 			case layers.LayerTypeEthernet:
@@ -379,13 +391,58 @@ func Dissect(dissect bool, data []byte) {
 				fmt.Println("Unknown layer")
 			}
 		}
-		if parserL2Dev.Truncated {
+		if parser.Truncated {
 			fmt.Println("  Packet has been truncated")
 		}
 		if err != nil {
 			fmt.Println("  Failed to decode layer:", err)
 		}
 
+		// See comment in [GetConnectionSummary].
+		switch {
+		case opts != nil && opts.IsVXLAN:
+			parser = parserOverlay.VXLAN
+		case opts != nil && opts.IsGeneve:
+			parser = parserOverlay.Geneve
+		default:
+			// Truncate layers to avoid accidental re-use.
+			cache.overlay.decoded = cache.overlay.decoded[:0]
+			return
+		}
+
+		err = parser.DecodeLayers(cache.udp.Payload, &cache.overlay.decoded)
+		for _, typ := range cache.overlay.decoded {
+			switch typ {
+			case layers.LayerTypeVXLAN:
+				fmt.Println(gopacket.LayerString(&cache.overlay.vxlan))
+			case layers.LayerTypeGeneve:
+				fmt.Println(gopacket.LayerString(&cache.overlay.geneve))
+			case layers.LayerTypeEthernet:
+				fmt.Println(gopacket.LayerString(&cache.overlay.eth))
+			case layers.LayerTypeIPv4:
+				fmt.Println(gopacket.LayerString(&cache.overlay.ip4))
+			case layers.LayerTypeIPv6:
+				fmt.Println(gopacket.LayerString(&cache.overlay.ip6))
+			case layers.LayerTypeTCP:
+				fmt.Println(gopacket.LayerString(&cache.overlay.tcp))
+			case layers.LayerTypeUDP:
+				fmt.Println(gopacket.LayerString(&cache.overlay.udp))
+			case layers.LayerTypeSCTP:
+				fmt.Println(gopacket.LayerString(&cache.overlay.sctp))
+			case layers.LayerTypeICMPv4:
+				fmt.Println(gopacket.LayerString(&cache.overlay.icmp4))
+			case layers.LayerTypeICMPv6:
+				fmt.Println(gopacket.LayerString(&cache.overlay.icmp6))
+			default:
+				fmt.Println("Unknown layer")
+			}
+		}
+		if parser.Truncated {
+			fmt.Println("  Packet has been truncated")
+		}
+		if err != nil {
+			fmt.Println("  Failed to decode layer:", err)
+		}
 	} else {
 		fmt.Print(hex.Dump(data))
 	}
