@@ -38,9 +38,18 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
-	leakOpts := goleak.IgnoreCurrent()
-	t.Cleanup(func() { goleak.VerifyNone(t, leakOpts) })
+	// Catch any leaked goroutines.
+	t.Cleanup(func() {
+		goleak.VerifyNone(t,
+			// Ignore goroutines possibly left by other tests.
+			goleak.IgnoreCurrent(),
+
+			// Ignore goroutine started by the workqueue. It reports metrics
+			// on unfinished work with default tick period of 0.5s - it terminates
+			// no longer than 0.5s after the workqueue is stopped.
+			goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
+		)
+	})
 
 	version.Force(testutils.DefaultVersion)
 
