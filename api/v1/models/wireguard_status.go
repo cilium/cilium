@@ -27,6 +27,9 @@ type WireguardStatus struct {
 	// WireGuard interfaces managed by this Cilium instance
 	Interfaces []*WireguardInterface `json:"interfaces"`
 
+	// Label selector for nodes which will opt-out of node-to-node encryption
+	NodeEncryptOptOutLabels string `json:"node-encrypt-opt-out-labels,omitempty"`
+
 	// Node Encryption status
 	NodeEncryption string `json:"node-encryption,omitempty"`
 }
