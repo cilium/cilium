@@ -66,24 +66,27 @@ type wireguardClient interface {
 type Agent struct {
 	lock.RWMutex
 
-	logger   *slog.Logger
-	config   *option.DaemonConfig
-	ipCache  *ipcache.IPCache
-	sysctl   sysctl.Sysctl
-	jobGroup job.Group
-	db       *statedb.DB
-	mtuTable statedb.Table[mtu.RouteMTU]
+	// These are provided in [newAgent].
+	logger    *slog.Logger
+	config    *option.DaemonConfig
+	ipCache   *ipcache.IPCache
+	sysctl    sysctl.Sysctl
+	jobGroup  job.Group
+	db        *statedb.DB
+	mtuTable  statedb.Table[mtu.RouteMTU]
+	localNode *node.LocalNodeStore
 
+	// These are initialized in [newAgent].
 	listenPort       int
 	privKeyPath      string
-	privKey          wgtypes.Key
-	wgClient         wireguardClient
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
 
-	// initialized in InitLocalNodeFromWireGuard
-	optOut bool
+	// These are initialized in [Agent.Init].
+	optOut   bool
+	privKey  wgtypes.Key
+	wgClient wireguardClient
 }
 
 // Agent parameters.
@@ -92,23 +95,25 @@ type params struct {
 
 	Lifecycle cell.Lifecycle
 
-	Logger   *slog.Logger
-	Config   *option.DaemonConfig
-	DB       *statedb.DB
-	MTUTable statedb.Table[mtu.RouteMTU]
-	JobGroup job.Group
-	Sysctl   sysctl.Sysctl
+	Logger    *slog.Logger
+	Config    *option.DaemonConfig
+	DB        *statedb.DB
+	MTUTable  statedb.Table[mtu.RouteMTU]
+	JobGroup  job.Group
+	Sysctl    sysctl.Sysctl
+	LocalNode *node.LocalNodeStore
 }
 
 // newAgent creates a new WireGuard Agent.
 func newAgent(p params) *Agent {
 	agent := &Agent{
-		logger:   p.Logger,
-		config:   p.Config,
-		db:       p.DB,
-		mtuTable: p.MTUTable,
-		jobGroup: p.JobGroup,
-		sysctl:   p.Sysctl,
+		logger:    p.Logger,
+		config:    p.Config,
+		db:        p.DB,
+		mtuTable:  p.MTUTable,
+		jobGroup:  p.JobGroup,
+		sysctl:    p.Sysctl,
+		localNode: p.LocalNode,
 
 		listenPort:       types.ListenPort,
 		privKeyPath:      filepath.Join(p.Config.StateDir, types.PrivKeyFilename),
@@ -156,18 +161,19 @@ func (a *Agent) needsIPCache() bool {
 	return !a.config.TunnelingEnabled() || a.config.WireguardTrackAllIPsFallback
 }
 
-// InitLocalNodeFromWireGuard configures the fields on the local node. Called from
-// the LocalNodeSynchronizer _before_ the local node is published in the K8s
+// initLocalNodeFromWireGuard configures the fields on the local node. Called from
+// the agent init _before_ the local node is published in the K8s
 // CiliumNode CRD or the kvstore.
 //
 // This method does the following:
-//   - It sets the local WireGuard public key (to be read by other nodes).
+//   - It sets the local WireGuard public key (to be read by other nodes). This is
+//     always set even opting out from node-to-node encryption.
 //   - It reads the local node's labels to determine if the local node wants to
 //     opt-out of node-to-node encryption.
 //   - If the local node opts out of node-to-node encryption, we set the
 //     localNode.EncryptKey to zero. This indicates to other nodes that they
 //     should not encrypt node-to-node traffic with us.
-func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
+func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -192,16 +198,22 @@ func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
 
 // Init creates and configures the local WireGuard tunnel device.
 func (a *Agent) Init(ipcache *ipcache.IPCache) error {
-	addIPCacheListener := false
+	initDone := false
 	a.Lock()
 	a.ipCache = ipcache
 	defer func() {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
 		a.Unlock()
-		if addIPCacheListener && a.needsIPCache() {
+		if !initDone {
+			return
+		}
+		if a.needsIPCache() {
 			a.ipCache.AddListener(a)
 		}
+		a.localNode.Update(func(ln *node.LocalNode) {
+			a.initLocalNodeFromWireGuard(ln)
+		})
 	}()
 
 	var mtuConfig mtu.RouteMTU
@@ -278,7 +290,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 	a.jobGroup.Add(job.OneShot("mtu-reconciler", a.mtuReconciler))
 
 	// this is read by the defer statement above
-	addIPCacheListener = true
+	initDone = true
 
 	return nil
 }

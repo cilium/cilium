@@ -25,7 +25,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 type localNodeSynchronizerParams struct {
@@ -36,8 +35,6 @@ type localNodeSynchronizerParams struct {
 	TunnelConfig       tunnel.Config
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
-
-	WireGuard *wg.Agent // nil if WireGuard is disabled
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -61,10 +58,6 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 
 	if err := ini.initFromK8s(ctx, n); err != nil {
 		return err
-	}
-
-	if option.Config.EnableWireguard {
-		ini.WireGuard.InitLocalNodeFromWireGuard(n)
 	}
 
 	n.BootID = node.GetBootID(ini.Logger)
