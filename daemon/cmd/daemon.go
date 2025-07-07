@@ -231,6 +231,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
+	// WireGuard and IPSec are mutually exclusive.
+	if option.Config.EnableIPSec && option.Config.EnableWireguard {
+		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", option.EnableWireguard, option.EnableIPSecName)
+	}
+
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if option.Config.EnableIPSec &&
