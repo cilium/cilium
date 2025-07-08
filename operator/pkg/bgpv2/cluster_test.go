@@ -1249,7 +1249,7 @@ func TestRouterIDAllocation(t *testing.T) {
 		nodes                      []*v2.CiliumNode
 		InitClusterConfigs         []*v2.CiliumBGPClusterConfig
 		InitExpectedRouterIDs      map[string]struct{}
-		nodeOverride               *v2.CiliumBGPNodeConfigOverride
+		nodeOverrides              []*v2.CiliumBGPNodeConfigOverride
 		FinalClusterConfigs        []*v2.CiliumBGPClusterConfig
 		FinalExpectedNodeInstances map[string][]string
 	}{
@@ -1416,43 +1416,98 @@ func TestRouterIDAllocation(t *testing.T) {
 		},
 
 		{
-			name: "router ID override takes precedence",
+			name: "router ID override within and outside the pool ",
 			nodes: []*v2.CiliumNode{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name:   "test-node-1",
-						Labels: map[string]string{"bgp": "rack-override"},
+						Labels: map[string]string{"bgp": "cluster1"},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-2",
+						Labels: map[string]string{"bgp": "cluster2"},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-3",
+						Labels: map[string]string{"bgp": "cluster3"},
 					},
 				},
 			},
 			InitClusterConfigs: []*v2.CiliumBGPClusterConfig{
 				{
-					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-override"},
+					// Fake client doesn't set UID. Assign it manually to deal with multiple cluster configs
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-1", UID: uuid.NewUUID()},
 					Spec: v2.CiliumBGPClusterConfigSpec{
-						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "rack-override"}},
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster1"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+						},
+					},
+				},
+				{
+					// Fake client doesn't set UID. Assign it manually to deal with multiple cluster configs
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-2", UID: uuid.NewUUID()},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster2"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+						},
+					},
+				},
+				{
+					// Fake client doesn't set UID. Assign it manually to deal with multiple cluster configs
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster-config-3", UID: uuid.NewUUID()},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster3"}},
 						BGPInstances: []v2.CiliumBGPInstance{
 							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
 						},
 					},
 				},
 			},
-
-			InitExpectedRouterIDs: map[string]struct{}{"10.10.10.10": {}},
-			nodeOverride: &v2.CiliumBGPNodeConfigOverride{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name: "test-node-1",
+			// when we have the 10.0.0.0 as the router ID in expected map, that means the override router ID have freed
+			// the 10.0.0.0 router ID from the pool while dealing with the override router ID.
+			InitExpectedRouterIDs: map[string]struct{}{
+				"192.168.1.1": {},
+				"10.0.0.10":   {},
+				"10.0.0.0":    {},
+			},
+			nodeOverrides: []*v2.CiliumBGPNodeConfigOverride{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "test-node-1",
+					},
+					Spec: v2.CiliumBGPNodeConfigOverrideSpec{
+						BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
+							{
+								Name:     "test-instance-1",
+								RouterID: ptr.To("192.168.1.1"),
+							},
+						},
+					},
 				},
-				Spec: v2.CiliumBGPNodeConfigOverrideSpec{
-					BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
-						{
-							Name:     "test-instance-1",
-							RouterID: ptr.To("10.10.10.10"),
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "test-node-2",
+					},
+					Spec: v2.CiliumBGPNodeConfigOverrideSpec{
+						BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
+							{
+								Name:     "test-instance-1",
+								RouterID: ptr.To("10.0.0.10"),
+							},
 						},
 					},
 				},
 			},
 			FinalExpectedNodeInstances: map[string][]string{
 				"test-node-1": {"test-instance-1"},
+				"test-node-2": {"test-instance-1"},
+				"test-node-3": {"test-instance-1"},
 			},
 		},
 	}
@@ -1481,8 +1536,10 @@ func TestRouterIDAllocation(t *testing.T) {
 				upsertBGPCC(req, ctx, f, config)
 			}
 
-			if tt.nodeOverride != nil {
-				upsertNodeOverrides(req, ctx, f, tt.nodeOverride)
+			if tt.nodeOverrides != nil {
+				for _, nodeOverride := range tt.nodeOverrides {
+					upsertNodeOverrides(req, ctx, f, nodeOverride)
+				}
 			}
 
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
