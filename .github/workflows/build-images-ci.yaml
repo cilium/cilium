@@ -2,7 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -32,6 +32,7 @@ jobs:
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: cilium
@@ -75,7 +76,7 @@ jobs:
       - name: Checkout base or default branch (trusted)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
+          # We first check if base_ref exist, meaning we're in pull_request context, and if not we just use default_branch
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
@@ -102,306 +103,37 @@ jobs:
           echo "# Removing /mnt/tmp-pv.img"
           sudo rm -f '/mnt/tmp-pv.img'
 
-      - name: Setup docker volumes into /mnt
-        # This allows us to make use of all available disk.
+      - name: Enable SSH access if low disk space
         shell: bash
         run: |
-          sudo systemctl stop docker
-          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
-          sudo ln -s /mnt/docker-volumes /var/lib/docker/volumes
-          sudo systemctl start docker
+          # Check available space on /mnt in GB
+          available_space=$(df -BG /mnt | tail -n1 | awk '{print $4}' | sed 's/G//')
+          echo "Available space on /mnt: ${available_space}G"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-        # Disable GC entirely to avoid buildkit from GC caches.
-        with:
-          buildkitd-config-inline: |
-            [worker.oci]
-             gc=false
+          if [ "$available_space" -lt 5 ]; then
+            echo "Warning: Available space on /mnt is less than 5G (${available_space}G)"
+            echo "Enabling SSH access for debugging..."
 
-      - name: Login to quay.io for CI
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME_CI }}
-          password: ${{ secrets.QUAY_PASSWORD_CI }}
+            # Install tmate for SSH access
+            sudo apt-get update
+            sudo apt-get install -y tmate
 
-      - name: Getting image tag
-        id: tag
-        run: |
-          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
-            sha=${{ github.event.pull_request.head.sha }}
+            # Start tmate session in background
+            tmate -S /tmp/tmate.sock new-session -d
+
+            # Wait for tmate to establish connection
+            sleep 5
+
+            # Display connection info
+            echo "=== SSH Connection Information ==="
+            tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+            echo "=== Web Session ==="
+            tmate -S /tmp/tmate.sock display -p '#{tmate_web}'
+            echo "================================="
+
+            # Keep session alive for 30 minutes or until workflow times out
+            timeout 1800 tmate -S /tmp/tmate.sock wait tmate-ready || true
           else
-            sha=${{ github.sha }}
+            echo "Sufficient disk space available (${available_space}G >= 5G)"
+            exit 1
           fi
-          echo sha=${sha} >> $GITHUB_OUTPUT
-
-          tag=${sha}
-          echo tag=${tag} >> $GITHUB_OUTPUT
-
-          if [[ "${{ github.event_name == 'push' }}" == "true" ]]; then
-            if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
-              floating_tag=latest
-            else
-              floating_tag="${{ github.ref_name }}"
-              # Remove slashes from branch names
-              floating_tag=${floating_tag##*/}
-            fi
-            echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
-          fi
-
-          normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${tag}"
-          race_tag="${normal_tag}-race"
-          unstripped_tag="${normal_tag}-unstripped"
-
-          if [ -n "${floating_tag}" ]; then
-            floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${floating_tag}"
-            normal_tag="${normal_tag},${floating_normal_tag}"
-          fi
-
-          if [[ "${{ github.event_name }}" == 'merge_group' || "${{ github.event_name }}" == 'push' ]]; then
-            # Don't build race and unstripped images for merge_group or push events.
-            race_tag=""
-            unstripped_tag=""
-          fi
-
-          echo normal_tag=${normal_tag} >> $GITHUB_OUTPUT
-          echo race_tag=${race_tag} >> $GITHUB_OUTPUT
-          echo unstripped_tag=${unstripped_tag} >> $GITHUB_OUTPUT
-
-      # Warning: since this is a privileged workflow, subsequent workflow job
-      # steps must take care not to execute untrusted code.
-      - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-          ref: ${{ steps.tag.outputs.sha }}
-
-      - name: Check for disk usage
-        shell: bash
-        run: |
-          df -h
-
-      - name: Copy runtime image tag from untrusted branch
-        run: |
-          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
-
-      - name: Set runtime image environment variable
-        uses: ./../cilium-base-branch/set-runtime-image
-        with:
-          repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
-
-      # Load Golang cache build from GitHub
-      - name: Restore Golang cache build from GitHub
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        id: go-cache
-        with:
-          path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.name }}-cache-
-
-      - name: Check for disk usage
-        shell: bash
-        run: |
-          df -h
-          docker buildx du
-
-      - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.cache/go
-
-      # Import GitHub's cache build to docker cache
-      - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          provenance: false
-          context: /tmp/.cache/go
-          file: ./images/cache/Dockerfile
-          push: false
-          platforms: linux/amd64
-          target: import-cache
-
-      - name: Check for disk usage
-        shell: bash
-        run: |
-          df -h
-          docker buildx du
-
-      - name: Check build constraints
-        id: check
-        run: |
-          if [[ -z "${{ matrix.require-dir }}" ]] ||
-             [[ -d "${{ matrix.require-dir }}" ]]; then
-            echo build="true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
-
-      - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        id: docker_build_ci
-        if: ${{ steps.check.outputs.build != '' }}
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: ${{ matrix.platforms }}
-          tags: ${{ steps.tag.outputs.normal_tag }}
-          target: release
-          build-args: |
-            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            OPERATOR_VARIANT=${{ matrix.name }}
-
-      - name: CI race detection Build ${{ matrix.name }}
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        id: docker_build_ci_detect_race_condition
-        if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.race_tag != ''}}
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.tag.outputs.race_tag }}
-          target: release
-          build-args: |
-            BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            MODIFIERS="LOCKDEBUG=1 RACE=1"
-            OPERATOR_VARIANT=${{ matrix.name }}
-
-      - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        id: docker_build_ci_unstripped
-        if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.unstripped_tag != ''}}
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.tag.outputs.unstripped_tag }}
-          target: release
-          build-args: |
-            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            MODIFIERS="NOSTRIP=1"
-            OPERATOR_VARIANT=${{ matrix.name }}
-
-      - name: Sign Container Images
-        if: ${{ steps.check.outputs.build != '' }}
-        run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
-          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
-          fi
-          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
-          fi
-
-      - name: Generate SBOM
-        if: ${{ matrix.name != 'cilium-cli' }}
-        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
-        with:
-          artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
-
-      - name: Generate SBOM (race)
-        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
-        with:
-          artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
-
-      - name: Generate SBOM (unstripped)
-        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
-        with:
-          artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
-
-      - name: Attach SBOM attestation to container image
-        if: ${{ matrix.name != 'cilium-cli' }}
-        run: |
-          cosign attest -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
-          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            cosign attest -y --predicate sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
-          fi
-          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            cosign attest -y --predicate sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
-          fi
-
-      - name: CI Image Releases digests
-        shell: bash
-        if: ${{ steps.check.outputs.build != '' }}
-        run: |
-          mkdir -p image-digest/
-          # shellcheck disable=SC2078
-          if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
-            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          fi
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          fi
-          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          fi
-
-      # Upload artifact digests
-      - name: Upload artifact digests
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: ${{ steps.check.outputs.build != '' }}
-        with:
-          name: image-digest ${{ matrix.name }}
-          path: image-digest
-          retention-days: 1
-
-      - name: Check for disk usage
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          df -h
-
-  image-digests:
-    if: ${{ always() }}
-    name: Display Digests
-    runs-on: ubuntu-24.04
-    needs: build-and-push-prs
-    steps:
-      - name: Downloading Image Digests
-        shell: bash
-        run: |
-          mkdir -p image-digest/
-
-      - name: Download digests of all images built
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          path: image-digest/
-          pattern: "*image-digest *"
-
-      - name: Image Digests Output
-        shell: bash
-        run: |
-          cd image-digest/
-          find -type f | sort | xargs -d '\n' cat
-
-  push-chart:
-    name: Push dev chart
-    needs: build-and-push-prs
-    permissions:
-      contents: read
-      pull-requests: read
-      statuses: write
-    uses: ./.github/workflows/push-chart-ci.yaml
-    with:
-      checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
-      image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
-    secrets: inherit
