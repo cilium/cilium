@@ -69,7 +69,6 @@
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
-  ipv4: 'false'
   underlay: 'ipv6'
   encryption: 'ipsec'
   key-one: 'rfc4106-gcm-aes'
