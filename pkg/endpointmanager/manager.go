@@ -414,6 +414,40 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 	return eps
 }
 
+func (mgr *endpointManager) GetEndpointsBySecurityIdentifier(secID identity.NumericIdentity) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.SecurityIdentity.ID == secID {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
+func (mgr *endpointManager) GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		podSA := ""
+
+		if pod := ep.GetPod(); pod == nil {
+			continue
+		} else {
+			podSA = pod.Spec.ServiceAccountName
+		}
+
+		if ep.K8sNamespace == namespace && serviceAccount == podSA {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {

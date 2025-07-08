@@ -648,6 +648,9 @@ const (
 	// K8sUID is the UID of a K8s object
 	K8sUID = "k8sUID"
 
+	// K8sServiceAccount is the name of a K8s ServiceAccount
+	K8sServiceAccount = "k8sServiceAccount"
+
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
 
