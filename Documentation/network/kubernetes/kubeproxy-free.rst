@@ -600,6 +600,15 @@ the extra hop, meaning, backends reply by using the service IP/port as a source.
 
 Another advantage in DSR mode is that the client's source IP is preserved, so policy
 can match on it at the backend node. In the SNAT mode this is not possible.
+
+.. warning::
+   Be aware that the client's source IP is **not** preserved by the ingress
+    (e.g. --set ingressController.enabled=true), so 
+    ``ciliumclusterwidenetworkpolicies.cilium.io``, ``ciliumnetworkpolicies.cilium.io`` 
+   and ``networkpolicies.networking.k8s.io`` can not match on it at the backend node 
+   if you enable the ingress controller, since the source IP address will be changed 
+   to that of the ingress-controler. (see also :gh-issue:`34786` for further details).
+
 Given a specific backend can be used by multiple services, the backends need to be
 made aware of the service IP/port which they need to reply with. Cilium encodes this
 information into the packet (using one of the dispatch mechanisms described below),
