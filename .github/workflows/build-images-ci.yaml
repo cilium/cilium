@@ -32,9 +32,370 @@ jobs:
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
+      max-parallel: 250
       fail-fast: false
       matrix:
         include:
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
             platforms: linux/amd64,linux/arm64
