@@ -414,6 +414,19 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 	return eps
 }
 
+func (mgr *endpointManager) GetEndpointsBySecurityIdentifier(secID identity.NumericIdentity) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.SecurityIdentity.ID == secID {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
