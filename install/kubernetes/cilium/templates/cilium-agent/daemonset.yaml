@@ -376,6 +376,10 @@ spec:
         - name: cilium-ipsec-secrets
           mountPath: {{ .Values.encryption.ipsec.mountPath }}
         {{- end }}
+        {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+        - name: cilium-ztunnel-secrets
+          mountPath: /etc/ztunnel
+        {{- end }}
         {{- if .Values.kubeConfigPath }}
         - name: kube-config
           mountPath: {{ .Values.kubeConfigPath }}
@@ -1016,6 +1020,11 @@ spec:
       - name: cilium-ipsec-secrets
         secret:
           secretName: {{ .Values.encryption.ipsec.secretName }}
+      {{- end }}
+      {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+      - name: cilium-ztunnel-secrets
+        secret:
+          secretName: cilium-ztunnel-secrets
       {{- end }}
       {{- if .Values.cni.configMap }}
       - name: cni-configuration
