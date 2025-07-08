@@ -593,7 +593,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.InstallIptRules)
 	option.BindEnv(vp, option.InstallIptRules)
 
-	flags.Int(option.MaxCtrlIntervalName, 0, "Maximum interval (in seconds) between controller runs. Zero is no limit.")
+	flags.Uint(option.MaxCtrlIntervalName, 0, "Maximum interval (in seconds) between controller runs. Zero is no limit.")
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(vp, option.MaxCtrlIntervalName)
 
@@ -1071,10 +1071,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	// (e.g. embedded Envoy, external workload in ClusterMesh scenario)
 	if err := os.MkdirAll(envoy.GetSocketDir(option.Config.RunDir), defaults.RuntimePathRights); err != nil {
 		logging.Fatal(scopedLog, "Could not create envoy sockets directory", logfields.Error, err)
-	}
-
-	if option.Config.MaxControllerInterval < 0 {
-		logging.Fatal(scopedLog, fmt.Sprintf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval))
 	}
 
 	// set rlimit Memlock to INFINITY before creating any bpf resources.
