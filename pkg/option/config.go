@@ -1539,7 +1539,6 @@ type DaemonConfig struct {
 	TracePayloadlen        int
 	TracePayloadlenOverlay int
 	Version                string
-	PrometheusServeAddr    string
 	ToFQDNsMinTTL          int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
