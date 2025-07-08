@@ -1942,6 +1942,12 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&iphdr.saddr);
 	tuple.flags = NAT_DIR_INGRESS;
 
+	/* Force tuple to be on the stack, a fix for a odd compiler bug
+	 * where the above assignment would be optimized to be reads
+	 * from the ctx->data pointer instead.
+	 */
+	asm volatile ("" ::"r"(&tuple));
+
 	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
