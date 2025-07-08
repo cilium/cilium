@@ -205,10 +205,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.CGroupRoot, "", "Path to Cgroup2 filesystem")
 	option.BindEnv(vp, option.CGroupRoot)
 
-	flags.StringSlice(option.CompilerFlags, []string{}, "Extra CFLAGS for BPF compilation")
-	flags.MarkHidden(option.CompilerFlags)
-	option.BindEnv(vp, option.CompilerFlags)
-
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(vp, option.ConfigFile)
 
