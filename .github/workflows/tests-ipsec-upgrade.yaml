@@ -365,7 +365,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Setup conn-disrupt-test before upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -415,7 +415,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
