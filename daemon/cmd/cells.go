@@ -76,6 +76,7 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
 var (
@@ -328,6 +329,9 @@ var (
 
 		// Cilium Debuginfo API
 		debugapi.Cell,
+
+		// Instantiates an xDS server used for zTunnel integration.
+		ztunnel.Cell,
 	)
 )
 
