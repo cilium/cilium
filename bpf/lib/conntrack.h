@@ -64,7 +64,7 @@ static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags
 	if (unlikely(flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
 		return ACTION_CLOSE;
 
-	if (unlikely(flags.value & TCP_FLAG_SYN))
+	if (unlikely((flags.value & TCP_FLAG_SYN) && !(flags.value & TCP_FLAG_ACK)))
 		return ACTION_CREATE;
 
 	return ACTION_UNSPEC;
