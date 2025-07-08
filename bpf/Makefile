@@ -255,8 +255,8 @@ clean:
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
 		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean;)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
+	$(QUIET)rm -f $(CLANG_FLAGS_FILE)
 	$(QUIET)rm -f $(TARGET)
-
 
 BEAR_CLI   = $(shell which bear 2> /dev/null)
 gen_compile_commands:
