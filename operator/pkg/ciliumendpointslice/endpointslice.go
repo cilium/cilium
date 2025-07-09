@@ -56,10 +56,16 @@ func (c *Controller) initializeQueue() {
 	c.rateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[CESKey](defaultSyncBackOff, maxSyncBackOff)
 	c.fastQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
+		workqueue.TypedRateLimitingQueueConfig[CESKey]{
+			Name:            "cilium_endpoint_slice_fast",
+			MetricsProvider: c.workqueueMetricsProvider,
+		})
 	c.standardQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
+		workqueue.TypedRateLimitingQueueConfig[CESKey]{
+			Name:            "cilium_endpoint_slice_standard",
+			MetricsProvider: c.workqueueMetricsProvider,
+		})
 }
 
 func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {

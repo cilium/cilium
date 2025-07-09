@@ -39,7 +39,8 @@ type params struct {
 	Cfg       Config
 	SharedCfg SharedConfig
 
-	Metrics *Metrics
+	Metrics                  *Metrics
+	WorkqueueMetricsProvider workqueue.MetricsProvider
 
 	Job job.Group
 }
@@ -82,7 +83,8 @@ type Controller struct {
 
 	wp *workerpool.WorkerPool
 
-	metrics *Metrics
+	metrics                  *Metrics
+	workqueueMetricsProvider workqueue.MetricsProvider
 
 	syncDelay time.Duration
 
@@ -111,20 +113,21 @@ func registerController(p params) error {
 	}
 
 	cesController := &Controller{
-		logger:              p.Logger,
-		clientset:           clientset,
-		ciliumEndpoint:      p.CiliumEndpoint,
-		ciliumEndpointSlice: p.CiliumEndpointSlice,
-		ciliumNodes:         p.CiliumNodes,
-		namespace:           p.Namespace,
-		maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
-		rateLimit:           rateLimitConfig,
-		enqueuedAt:          make(map[CESKey]time.Time),
-		metrics:             p.Metrics,
-		syncDelay:           DefaultCESSyncTime,
-		priorityNamespaces:  make(map[string]struct{}),
-		cond:                *sync.NewCond(&lock.Mutex{}),
-		Job:                 p.Job,
+		logger:                   p.Logger,
+		clientset:                clientset,
+		ciliumEndpoint:           p.CiliumEndpoint,
+		ciliumEndpointSlice:      p.CiliumEndpointSlice,
+		ciliumNodes:              p.CiliumNodes,
+		namespace:                p.Namespace,
+		maxCEPsInCES:             p.Cfg.CESMaxCEPsInCES,
+		rateLimit:                rateLimitConfig,
+		enqueuedAt:               make(map[CESKey]time.Time),
+		metrics:                  p.Metrics,
+		workqueueMetricsProvider: p.WorkqueueMetricsProvider,
+		syncDelay:                DefaultCESSyncTime,
+		priorityNamespaces:       make(map[string]struct{}),
+		cond:                     *sync.NewCond(&lock.Mutex{}),
+		Job:                      p.Job,
 	}
 	p.Lifecycle.Append(cesController)
 	return nil
