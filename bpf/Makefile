@@ -228,7 +228,7 @@ bpf_wireguard.o:: bpf_wireguard.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_WIREGUARD_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
-$(foreach OPTS,$(WIREGUARD_OPTIONS),$(eval $(call PERMUTATION_template,bpf_wireguard.o,$(OPTS) -DENCAP_IFINDEX=1 -DDIRECT_ROUTING_DEV_IFINDEX=0)))
+$(foreach OPTS,$(WIREGUARD_OPTIONS),$(eval $(call PERMUTATION_template,bpf_wireguard.o,$(OPTS) -DENCAP_IFINDEX=1)))
 
 bpf_xdp.o:: bpf_xdp.c $(LIB)
 	@$(ECHO_CC)

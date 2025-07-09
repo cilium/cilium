@@ -171,7 +171,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	}
 
 #ifdef ENABLE_SKIP_FIB
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	*oif = CONFIG(direct_routing_dev_ifindex);
 #endif
 
 	return fib_do_redirect(ctx, needs_l2_check, NULL, use_neigh_map,
@@ -237,7 +237,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		return ret;
 
 #ifdef ENABLE_SKIP_FIB
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	*oif = CONFIG(direct_routing_dev_ifindex);
 #endif
 
 	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
@@ -299,7 +299,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		return ret;
 
 #ifdef ENABLE_SKIP_FIB
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	*oif = CONFIG(direct_routing_dev_ifindex);
 #endif
 
 	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
