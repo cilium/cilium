@@ -299,13 +299,23 @@ func Delete(route Route) error {
 	// Therefore do not use getNetlinkRoute().
 	routeSpec := netlink.Route{
 		Dst:       &route.Prefix,
+		Src:       route.Local,
 		LinkIndex: link.Attrs().Index,
+		Priority:  route.Priority,
 		Table:     route.Table,
+		Type:      route.Type,
+		Protocol:  netlink.RouteProtocol(route.Proto),
+		MTU:       route.MTU,
 	}
 
 	// Scope can only be specified for IPv4
 	if route.Prefix.IP.To4() != nil {
 		routeSpec.Scope = route.Scope
+		if route.Scope == netlink.SCOPE_UNIVERSE && route.Type == RTN_LOCAL {
+			routeSpec.Scope = netlink.SCOPE_HOST
+		} else {
+			routeSpec.Scope = route.Scope
+		}
 	}
 
 	if err := netlink.RouteDel(&routeSpec); err != nil {
