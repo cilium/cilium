@@ -71,6 +71,10 @@
   {{- end }}
 {{- end -}}
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
+{{- if .Values.eni.enabled }}
+  {{- $ipam = "eni" -}}
+{{- end }}
+
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $stringValueKPR := (toString .Values.kubeProxyReplacement) -}}
@@ -526,7 +530,7 @@ data:
   {{- end }}
 {{- end }}
 
-  routing-mode: {{ .Values.routingMode | default (ternary "native" "tunnel" .Values.gke.enabled) | quote }}
+  routing-mode: {{ .Values.routingMode | default (ternary "native" "tunnel" (or .Values.eni.enabled .Values.gke.enabled)) | quote }}
   tunnel-protocol: {{ .Values.tunnelProtocol | default "vxlan" | quote }}
 
 {{- if eq .Values.routingMode "native" }}
