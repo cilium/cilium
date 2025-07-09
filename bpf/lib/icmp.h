@@ -87,9 +87,16 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	ip4->daddr = saddr;
 	ip4->ttl = IPDEFTTL;
 
-	/* Update IP checksum */
+	/* Update IP checksum after swapping addresses */
+	csum = csum_diff(&saddr, 4, &daddr, 4, 0);
 	ret = l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			      0, 0, 0);
+			      0, csum, 0);
+	if (ret < 0)
+		return ret;
+	
+	csum = csum_diff(&daddr, 4, &saddr, 4, 0);
+	ret = l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
+			      0, csum, 0);
 	if (ret < 0)
 		return ret;
 
@@ -106,8 +113,8 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	icmphdr->type = ICMP_ECHOREPLY;
 	icmphdr->code = 0;
 
-	/* Update ICMP checksum */
-	csum = csum_diff(&icmphdr->type, 2, &((__u8[]){ICMP_ECHO, 0}), 2, 0);
+	/* Update ICMP checksum - only account for type change from ECHO to ECHOREPLY */
+	csum = csum_diff(&((__u8[]){ICMP_ECHO, 0}), 2, &icmphdr->type, 2, 0);
 	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct iphdr) +
 			      offsetof(struct icmphdr, checksum),
 			      0, csum, 0);

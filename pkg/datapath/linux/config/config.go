@@ -508,7 +508,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY"] = "1"
 	}
 
-	if option.Config.DirectRoutingDeviceRequired() {
+	if option.Config.DirectRoutingDeviceRequired(h.kprCfg) {
 		drd := cfg.DirectRoutingDevice
 		if option.Config.EnableIPv4 {
 			if drd == nil {

@@ -604,8 +604,24 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	icmphdr->icmp6_type = ICMPV6_ECHO_REPLY;
 	icmphdr->icmp6_code = 0;
 
-	/* Update ICMPv6 checksum - need to recalculate due to IP address changes */
-	csum = csum_diff(&icmphdr->icmp6_type, 2, &((__u8[]){ICMPV6_ECHO_REQUEST, 0}), 2, 0);
+	/* Update ICMPv6 checksum - account for type change and IPv6 address changes */
+	/* First, account for the type change from ECHO_REQUEST to ECHO_REPLY */
+	csum = csum_diff(&((__u8[]){ICMPV6_ECHO_REQUEST, 0}), 2, &icmphdr->icmp6_type, 2, 0);
+	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
+			      offsetof(struct icmp6hdr, icmp6_cksum),
+			      0, csum, BPF_F_PSEUDO_HDR);
+	if (ret < 0)
+		return ret;
+	
+	/* Then account for the IPv6 address changes in the pseudo-header */
+	csum = csum_diff(&saddr, 16, &daddr, 16, 0);
+	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
+			      offsetof(struct icmp6hdr, icmp6_cksum),
+			      0, csum, BPF_F_PSEUDO_HDR);
+	if (ret < 0)
+		return ret;
+	
+	csum = csum_diff(&daddr, 16, &saddr, 16, 0);
 	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
 			      offsetof(struct icmp6hdr, icmp6_cksum),
 			      0, csum, BPF_F_PSEUDO_HDR);
