@@ -151,6 +151,11 @@ type Parameters struct {
 	ExternalTargetCANamespace string
 	ExternalTargetCAName      string
 
+	ExternalPMTUEndpointIPv4   string
+	ExternalPMTUEndpointIPv6   string
+	ExternalPMTUEndpointMaxMTU int
+	IncludePMTUTests           bool
+
 	Timeout time.Duration
 }
 
