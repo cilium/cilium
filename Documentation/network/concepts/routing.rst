@@ -80,6 +80,16 @@ MTU Overhead
   connection. This can be largely mitigated by enabling jumbo frames (50 bytes
   of overhead for each 1500 bytes vs 50 bytes of overhead for each 9000 bytes).
 
+Configuration
+-------------
+
+The following options can be used to configure encapsulation:
+
+* ``tunnel-protocol``: Set the encapsulation protocol to ``vxlan`` or
+  ``geneve``, defaults to ``vxlan``.
+* ``tunnel-port``: Set the port for the encapsulation protocol. Defaults
+  to ``8472`` for ``vxlan`` and ``6081`` for ``geneve``.
+
 .. _arch_direct_routing:
 .. _native_routing:
 
