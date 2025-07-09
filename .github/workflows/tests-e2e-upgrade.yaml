@@ -274,6 +274,24 @@ jobs:
               docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
             done
 
+      - name: Setup external network capable for testing ICMP error messages. 
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
+        with:
+          provision: 'false'
+          cmd: |
+            set -euo pipefail
+            ip netns add cilium_test 
+            ip link add cilium_test0 type veth peer name cilium_test1
+            ip link set cilium_test1 netns cilium_test1 
+            ip addr add 2112:db8::1/64 dev cilium_test0
+            ip addr add 10.0.0.0/28 dev cilium_test0
+            ip link set cilium_test0 mtu 1400
+            ip link set cilium_test0 up
+            ip netns exec cilium_test1 ip addr add 2112:db8::2/64 dev cilium_test1
+            ip netns exec cilium_test1 ip addr add 10.0.0.1/28 dev cilium_test1
+            ip netns exec cilium_test1 ip link set cilium_test1 up
+            ip netns exec cilium_test1 ip link set lo up
+
       - name: Start Cilium KVStore
         id: kvstore
         if: matrix.kvstore == 'true'
