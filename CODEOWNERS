@@ -529,6 +529,7 @@ Makefile* @cilium/build
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
+/pkg/datapath/loader/verifier_load_test.go @cilium/sig-datapath
 /pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
 /pkg/datapath/sockets/ @cilium/sig-lb

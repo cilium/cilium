@@ -157,21 +157,12 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
+            mkdir /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 -timeout=20m ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
-
-      - name: Fetch artifacts
-        if: ${{ !success() }}
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            mkdir datapath-verifier
-            find test/verifier \( -name "*.log" -o -name "*.o" \) -exec cp -v {} datapath-verifier/ \;
+            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host --kernel-version ${{ matrix.ci-kernel }} --result-dir /host/datapath-verifier
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: datapath-verifier_${{ matrix.kernel }}
