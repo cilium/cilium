@@ -34,10 +34,9 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 
 #if defined(IS_BPF_HOST)
 	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
-	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 
 	/* See comment in nodeport_has_nat_conflict_ipv4(). */
-	if (dr_ifindex == THIS_INTERFACE_IFINDEX &&
+	if (CONFIG(direct_routing_dev_ifindex) == CONFIG(interface_ifindex) &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
 		target->needs_ct = true;
@@ -299,13 +298,11 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(IS_BPF_HOST)
-	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
-
-	/* THIS_INTERFACE_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
-	 * preprocessor, as the former is known only during load time (templating).
+	/* direct_routing_dev_ifindex == interface_ifindex cannot be moved into
+	 * preprocessor, as the values are known only during load time (templating).
 	 * This checks whether bpf_host is running on the direct routing device.
 	 */
-	if (dr_ifindex == THIS_INTERFACE_IFINDEX &&
+	if (CONFIG(direct_routing_dev_ifindex) == CONFIG(interface_ifindex) &&
 	    ip4->saddr == IPV4_DIRECT_ROUTING) {
 		target->addr = IPV4_DIRECT_ROUTING;
 		target->needs_ct = true;

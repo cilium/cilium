@@ -22,3 +22,5 @@ NODE_CONFIG(__u32, trace_payload_len, "Length of payload to capture when tracing
 #define TRACE_PAYLOAD_LEN CONFIG(trace_payload_len) /* Backwards compatibility */
 
 NODE_CONFIG(__u32, trace_payload_len_overlay, "Length of payload to capture when tracing overlay packets.")
+
+NODE_CONFIG(__u32, direct_routing_dev_ifindex, "Index of the interface used to connect nodes in the cluster.")
