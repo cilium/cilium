@@ -3848,8 +3848,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.9.6"
-            digest: "sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c"
+            tag: "1.12.4"
+            digest: "sha256:163970884fba18860cac93655dc32b6af85a5dcf2ebb7e3e119a10888eff8fcd"
             useDigest: true
             pullPolicy: "IfNotPresent"
           # -- SPIRE agent service account
@@ -3903,8 +3903,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.9.6"
-            digest: "sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4"
+            tag: "1.12.4"
+            digest: "sha256:34147f27066ab2be5cc10ca1d4bfd361144196467155d46c45f3519f41596e49"
             useDigest: true
             pullPolicy: "IfNotPresent"
           # -- SPIRE server service account
