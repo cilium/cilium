@@ -102,6 +102,7 @@ jobs:
           fi
           echo "# Removing /mnt/tmp-pv.img"
           sudo rm -f '/mnt/tmp-pv.img'
+          sudo rm -rf '/mnt/docker-volumes'
 
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
