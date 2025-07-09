@@ -23,23 +23,24 @@ func NewBGPStatusGetter(routerManager agent.BGPRouterManager, cfg Config) BgpSta
 type healthchecker struct {
 	RouterManager agent.BGPRouterManager
 	config        Config
+	isReady       bool
 }
 
 func (h *healthchecker) GetBGPPeerStatus(ctx context.Context) (bool, string) {
 	if !h.config.BGPReadinessEnabled {
 		return true, "BGP health check is not enabled"
 	}
+	if h.isReady {
+		return true, "BGP is already ready"
+	}
 	peers, err := h.RouterManager.GetPeers(ctx)
 	if err != nil {
 		return false, "Error: Failed to fetch BGP peers"
 	}
-	establishedCount := 0
 	for _, peer := range peers {
 		if peer.SessionState == types.SessionEstablished.String() {
-			establishedCount++
-		}
-		if establishedCount >= 1 {
-			return true, "Status OK: BGP at least one peer established"
+			h.isReady = true
+			return true, "Status OK: BGP peer established"
 		}
 	}
 	return false, "Status Failure: BGP is not ready"
