@@ -278,6 +278,7 @@ jobs:
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
+          cache: false
           # renovate: datasource=golang-version depName=go
           go-version: 1.24.4
 
@@ -312,6 +313,33 @@ jobs:
         run: |
           cd test/
           tar -xf /tmp/.ginkgo-build/test.tgz
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        if: ${{ matrix.focus == 'privileged' }}
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-unit-tests-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-unit-tests-cache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
+
+      - name: Move Go cache to local directories
+        if: ${{ steps.go-cache.outputs.cache-hit == 'true' && matrix.focus == 'privileged' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        run: |
+          mv "${GOCACHE}/go-build-cache.tar.zst" ./go-build-cache.tar.zst || true
+          mv "${GOMODCACHE}/go-mod-cache.tar.zst" ./go-mod-cache.tar.zst || true
 
       - name: Setup runtime
         timeout-minutes: 10
@@ -366,14 +394,16 @@ jobs:
           -cilium.SSHConfig="cat ./cilium-ssh-config.txt" \
           -cilium.extra-opts="${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}"
 
-      - name: Privileged unit tests
-        id: run-tests
+      - name: Prepare privileged tests
+        id: prepare-tests
         if: ${{ matrix.focus == 'privileged' }}
-        timeout-minutes: 40
+        timeout-minutes: 10
         uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           provision: 'false'
           cmd: |
+            apt-get update
+            apt-get install zstd -y
             cd /host
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
@@ -383,7 +413,47 @@ jobs:
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
             # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
             go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
-            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
+            # Use go cache and module cache from the host that is shared with the VM.
+            mkdir -p /go-caches
+            tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
+            tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
+            ls -la /go-caches/go-build || true
+
+      - name: Privileged unit tests
+        id: run-tests
+        if: ${{ matrix.focus == 'privileged' }}
+        timeout-minutes: 40
+        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            make GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
+
+      - name: Copy Go cache to host
+        id: copy-go-cache
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@e5b2424f49a2055186b7ac33e6a83b7c992b8f3a # v0.0.24
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            tar --use-compress-program=zstd -cpf /host/go-build-cache.tar.zst -C /go-caches go-build || true
+            tar --use-compress-program=zstd -cpf /host/go-mod-cache.tar.zst -C /go-caches pkg || true
+
+      - name: Move Go cache to local directories
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        run: |
+          ls -lah "./go-build-cache.tar.zst" || true
+          ls -lah "./go-mod-cache.tar.zst" || true
+          mv ./go-build-cache.tar.zst "${GOCACHE}" || true
+          mv ./go-mod-cache.tar.zst "${GOMODCACHE}" || true
+          ls -lah "${GOCACHE}" || true
+          ls -lah "${GOMODCACHE}" || true
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
