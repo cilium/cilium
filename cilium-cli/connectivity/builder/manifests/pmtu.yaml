@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "pmtu-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toCIDR:
+    - 2112:db8::2/128
+    - 10.0.0.1/32

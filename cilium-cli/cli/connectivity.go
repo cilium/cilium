@@ -300,6 +300,13 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 
 	cmd.Flags().StringVar(&params.PerfParameters.Image, "performance-image", defaults.ConnectivityCheckImagesPerf["ConnectivityPerformanceImage"], "Image path to use for performance")
 	cmd.Flags().StringVar(&params.PerfParameters.ReportDir, "report-dir", "", "Directory to save perf results in json format")
+
+	// PMTU test flags
+	cmd.Flags().BoolVar(&params.IncludePMTUTests, "include-pmtu-tests", true, "Include PMTU tests which require correctly configured external endpoint")
+	cmd.Flags().IntVar(&params.ExternalPMTUEndpointMaxMTU, "external-pmtu-endpoint-max-mtu", 1400, "External PMTU test endpoint max MTU (must be less or equal to 1400)")
+	cmd.Flags().StringVar(&params.ExternalPMTUEndpointIPv4, "external-pmtu-endpoint-ipv4", "10.0.0.1", "IPv4 address for external endpoint used for PMTU tests")
+	cmd.Flags().StringVar(&params.ExternalPMTUEndpointIPv6, "external-pmtu-endpoint-ipv6", "2112:db8::2", "IPv6 address for external endpoint used for PMTU tests")
+
 	registerCommonFlags(cmd.Flags())
 
 	return cmd
