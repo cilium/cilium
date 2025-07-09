@@ -65,9 +65,10 @@ type ciliumNodeSynchronizer struct {
 
 	k8sCiliumNodesCacheSynced    chan struct{}
 	ciliumNodeManagerQueueSynced chan struct{}
+	workqueueMetricsProvider     workqueue.MetricsProvider
 }
 
-func newCiliumNodeSynchronizer(logger *slog.Logger, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, nodeManager allocator.NodeEventHandler, withKVStore bool) *ciliumNodeSynchronizer {
+func newCiliumNodeSynchronizer(logger *slog.Logger, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, nodeManager allocator.NodeEventHandler, withKVStore bool, workqueueMetricsProvider workqueue.MetricsProvider) *ciliumNodeSynchronizer {
 	return &ciliumNodeSynchronizer{
 		logger:        logger,
 		clientset:     clientset,
@@ -77,6 +78,7 @@ func newCiliumNodeSynchronizer(logger *slog.Logger, clientset k8sClient.Clientse
 
 		k8sCiliumNodesCacheSynced:    make(chan struct{}),
 		ciliumNodeManagerQueueSynced: make(chan struct{}),
+		workqueueMetricsProvider:     workqueueMetricsProvider,
 	}
 }
 
@@ -98,8 +100,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 	}
 
 	if operatorOption.Config.EnableMetrics {
-		ciliumNodeManagerQueueConfig.MetricsProvider = NewWorkqueuePrometheusMetricsProvider()
-		kvStoreQueueConfig.MetricsProvider = NewWorkqueuePrometheusMetricsProvider()
+		ciliumNodeManagerQueueConfig.MetricsProvider = s.workqueueMetricsProvider
+		kvStoreQueueConfig.MetricsProvider = s.workqueueMetricsProvider
 	}
 
 	var ciliumNodeManagerQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](workqueue.DefaultTypedControllerRateLimiter[string](), ciliumNodeManagerQueueConfig)
