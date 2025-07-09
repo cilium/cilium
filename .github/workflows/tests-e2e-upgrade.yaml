@@ -409,6 +409,8 @@ jobs:
 
       - name: Setup conn-disrupt-test before downgrading
         uses: ./.github/actions/conn-disrupt-test-setup
+        with:
+          kernel: ${{ matrix.kernel }}
 
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status

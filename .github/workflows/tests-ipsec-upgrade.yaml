@@ -394,6 +394,8 @@ jobs:
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
+        with:
+          kernel: ${{ matrix.kernel }}
 
       - name: Features tested before downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
