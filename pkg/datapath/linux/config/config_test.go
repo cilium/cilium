@@ -31,10 +31,9 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-	testnetns "github.com/cilium/cilium/pkg/testutils/netns"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 var (
@@ -149,7 +148,8 @@ func setupCiliumDummyDevices(t *testing.T, ns *netns.NetNS) {
 }
 
 func TestWriteNodeConfig(t *testing.T) {
-	ns := testnetns.NewNetNS(t)
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
 	setupCiliumDummyDevices(t, ns)
 	err := ns.Do(func() error {
 		setupConfigSuite(t)
@@ -271,10 +271,10 @@ return false;`, main1.Index, main2.Index), m)
 }
 
 func TestWriteNodeConfigExtraDefines(t *testing.T) {
-	ns := testnetns.NewNetNS(t)
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
 	setupCiliumDummyDevices(t, ns)
 	err := ns.Do(func() error {
-		testutils.PrivilegedTest(t)
 		setupConfigSuite(t)
 
 		var (
@@ -424,10 +424,10 @@ func TestPreferredIPv6Address(t *testing.T) {
 }
 
 func TestNewHeaderfileWriter(t *testing.T) {
-	ns := testnetns.NewNetNS(t)
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
 	err := ns.Do(func() error {
 		setupCiliumDummyDevices(t, ns)
-		testutils.PrivilegedTest(t)
 		setupConfigSuite(t)
 
 		a := dpdef.Map{"A": "1"}
