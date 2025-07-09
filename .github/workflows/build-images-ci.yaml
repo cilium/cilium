@@ -87,20 +87,8 @@ jobs:
           mkdir -p ../cilium-base-branch
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
-      - name: Check for disk usage and cleanup /mnt
-        shell: bash
-        run: |
-          echo "# Disk usage"
-          df -h
-          echo "# Usage for /mnt"
-          sudo du --human-readable \
-                -- /mnt
-          if compgen -G "/mnt/.*" > /dev/null; then
-            echo "# Hidden files in /mnt:"
-            sudo du --human-readable -- /mnt/.* 2>/dev/null
-          fi
-          echo "# Removing /mnt/tmp-pv.img"
-          sudo rm -f '/mnt/tmp-pv.img'
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
 
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
