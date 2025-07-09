@@ -2464,6 +2464,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
 
+	startTime := time.Now()
 	// The following GetDNSRules call will acquire a read-lock on the IPCache.
 	// Because IPCache itself will potentially acquire endpoint locks in its
 	// critical section, we must _not_ hold endpoint.mutex while calling
@@ -2487,6 +2488,10 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 			logfields.Error, err,
 			logfields.Reason, reasons,
 		)
+	} else {
+		e.getLogger().Debug("Endpoint header and config file sync completed",
+			logfields.Reason, reasons,
+			logfields.Duration, time.Since(startTime))
 	}
 }
 
@@ -2494,7 +2499,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 // file. This includes updating the current DNS History information.
 func (e *Endpoint) SyncEndpointHeaderFile() {
 	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil {
-		trigger.Trigger()
+		trigger.TriggerWithReason("SyncDNSState")
 	}
 }
 

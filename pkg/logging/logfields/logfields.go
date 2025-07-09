@@ -1351,6 +1351,8 @@ const (
 
 	NextTryIn = "nextTryIn"
 
+	NextRunIn = "nextRunIn"
+
 	Operation = "operation"
 
 	KeyPairSN = "keyPairSN"
