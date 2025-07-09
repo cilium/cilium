@@ -274,6 +274,13 @@ jobs:
               docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
             done
 
+      - name: Setup external network capable for testing ICMP error messages. 
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
+        with:
+          provision: 'false'
+          cmd: |
+            contrib/scripts/create-pmtu-test-network.sh
+
       - name: Start Cilium KVStore
         id: kvstore
         if: matrix.kvstore == 'true'
