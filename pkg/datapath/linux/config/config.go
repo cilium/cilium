@@ -518,7 +518,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				return fmt.Errorf("IPv4 direct routing device IP not found")
 			}
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
-			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 		if option.Config.EnableIPv6 {
 			if drd == nil {
@@ -531,11 +530,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip.AsSlice()))
-			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 	} else {
 		var directRoutingIPv6 net.IP
-		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
 		if option.Config.EnableIPv4 {
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
 		}
@@ -910,14 +907,9 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
-		if drd != nil {
-			fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", drd.Index)
-			if len(devices) == 1 {
-				if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
-					fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
-				}
-			}
+	if !option.Config.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
+		if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
+			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		}
 	}
 
