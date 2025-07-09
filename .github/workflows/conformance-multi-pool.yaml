@@ -407,3 +407,16 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
       result: ${{ needs.multi-pool-ipam-conformance-test.result }}
+
+  rerun-on-failure:
+    name: Re-run on failure
+    needs: multi-pool-ipam-conformance-test
+    # Only re-run if the job failed, the run attempt is less than 3, and the PR is not a draft.
+    if: failure() && fromJSON(github.run_attempt) < 3 && github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Re-run workflow
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci-re-run.yaml -F run_id=${{ github.run_id }}
