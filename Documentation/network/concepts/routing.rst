@@ -31,9 +31,6 @@ Requirements on the network
   Cilium nodes can already reach each other, all routing requirements are
   already met.
 
-* The underlying network must support IPv4. See :gh-issue:`17240`
-  for the status of IPv6-based tunneling.
-
 * The underlying network and firewalls must allow encapsulated packets:
 
   ================== =====================
@@ -42,6 +39,9 @@ Requirements on the network
   VXLAN (Default)    8472/UDP
   Geneve             6081/UDP
   ================== =====================
+
+* If using an IPv6 underlay, the cluster must be IPv6-only. Dual-stack clusters
+  are not supported.
 
 Advantages of the model
 -----------------------
@@ -79,6 +79,19 @@ MTU Overhead
   This results in a lower maximum throughput rate for a particular network
   connection. This can be largely mitigated by enabling jumbo frames (50 bytes
   of overhead for each 1500 bytes vs 50 bytes of overhead for each 9000 bytes).
+
+Configuration
+-------------
+
+The following options can be used to configure encapsulation:
+
+* ``tunnel-protocol``: Set the encapsulation protocol to ``vxlan`` or
+  ``geneve``, defaults to ``vxlan``.
+* ``underlay-protocol``: Set the IP family for the underlay. Defaults to
+  ``ipv4``. The underlying network must support that protocol. ``ipv6`` is
+  only supported in IPv6-only clusters.
+* ``tunnel-port``: Set the port for the encapsulation protocol. Defaults
+  to ``8472`` for ``vxlan`` and ``6081`` for ``geneve``.
 
 .. _arch_direct_routing:
 .. _native_routing:
