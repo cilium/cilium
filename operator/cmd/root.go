@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/util/workqueue"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
@@ -46,6 +47,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	"github.com/cilium/cilium/operator/pkg/workqueuemetrics"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
@@ -238,6 +240,7 @@ var (
 			endpointslicesync.Cell,
 			mcsapi.Cell,
 			locksweeper.Cell,
+			workqueuemetrics.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -528,17 +531,18 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger, workqueueMetricsProvider workqueue.MetricsProvider) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:                  ctx,
-		cancel:               cancel,
-		clientset:            clientset,
-		kvstoreClient:        kvstoreClient,
-		resources:            resources,
-		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
-		metrics:              metrics,
-		logger:               logger,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		clientset:                clientset,
+		kvstoreClient:            kvstoreClient,
+		resources:                resources,
+		cfgClusterMeshPolicy:     cfgClusterMeshPolicy,
+		metrics:                  metrics,
+		workqueueMetricsProvider: workqueueMetricsProvider,
+		logger:                   logger,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -547,14 +551,15 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kv
 }
 
 type legacyOnLeader struct {
-	ctx                  context.Context
-	cancel               context.CancelFunc
-	clientset            k8sClient.Clientset
-	kvstoreClient        kvstore.Client
-	wg                   sync.WaitGroup
-	resources            operatorK8s.Resources
-	cfgClusterMeshPolicy cmtypes.PolicyConfig
-	metrics              *UnmanagedPodsMetric
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	clientset                k8sClient.Clientset
+	kvstoreClient            kvstore.Client
+	wg                       sync.WaitGroup
+	resources                operatorK8s.Resources
+	cfgClusterMeshPolicy     cmtypes.PolicyConfig
+	metrics                  *UnmanagedPodsMetric
+	workqueueMetricsProvider workqueue.MetricsProvider
 
 	logger *slog.Logger
 }
@@ -651,7 +656,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, legacy.kvstoreClient, nodeManager, withKVStore)
+	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, legacy.kvstoreClient, nodeManager, withKVStore, legacy.workqueueMetricsProvider)
 
 	if legacy.clientset.IsEnabled() {
 		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge
