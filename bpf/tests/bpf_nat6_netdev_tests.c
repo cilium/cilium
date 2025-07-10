@@ -11,6 +11,7 @@
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV6
+#define ENABLE_HOST_FIREWALL
 
 #include "bpf_host.c"
 

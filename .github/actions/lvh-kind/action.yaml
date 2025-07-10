@@ -42,6 +42,23 @@ runs:
         cmd: |
           git config --global --add safe.directory /host
 
+    - name: create external link capable of responding to ICMP 
+      uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+      with:
+        provision: 'false'
+        cmd: |
+          ip netns add cilium_test
+          ip link add veth0 type veth peer name veth1
+          ip link set veth1 netns cilium_test
+          ip addr add 2112:db8::1/64 dev veth0
+          ip addr add 10.0.0.0/28 dev veth0
+          ip link set veth0 mtu 1400
+          ip link set veth0 up
+          ip netns exec cilium_test ip addr add 2112:db8::2/64 dev veth1
+          ip netns exec cilium_test ip addr add 10.0.0.1/28 dev veth1
+          ip netns exec cilium_test ip link set veth1 up
+          ip netns exec cilium_test ip link set lo up
+
     - name: Create K8s cluster
       uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
       with:
