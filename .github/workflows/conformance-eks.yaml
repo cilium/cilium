@@ -412,3 +412,16 @@ jobs:
         run: |
           eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+  rerun-on-failure:
+    name: Re-run on failure
+    needs: installation-and-connectivity
+    # Only re-run if the job failed, the run attempt is less than 3, and the PR is not a draft.
+    if: failure() && fromJSON(github.run_attempt) < 3 && github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Re-run workflow
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci-re-run.yaml -F run_id=${{ github.run_id }}
