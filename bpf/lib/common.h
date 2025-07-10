@@ -66,8 +66,9 @@
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
-	XFER_UNUSED		= (1 << 1),
+	XFER_PKT_TC_EGRESS	= (1 << 1),  /* Packets needs TC egress hook. */
 	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
+	XFER_PKT_ENCAP		= (1 << 3),  /* Packets has been encapsulated. */
 };
 
 /* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
